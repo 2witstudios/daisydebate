@@ -1,16 +1,8 @@
 import type { Ballot } from '@daisy/protocol';
-import type { BallotDebaters } from '../../features/judge/ballot';
-
-/**
- * Sample judge data. Every name, number and line here is invented to fill
- * the screens; none of it is a product rule.
- */
-
-/** The two debaters every sample ballot names. */
-export const sampleBallotDebaters: BallotDebaters = {
-  affirmative: { name: 'Maya Singh' },
-  negative: { name: 'Daniel Kim' },
-};
+export {
+  sampleBallotPlan,
+  sampleBallotRound,
+} from '../../features/judge/ballot-plan.test-support';
 
 /** A person's sample ballot for a round the affirmative won. */
 export const sampleJudgeBallot: Ballot = {

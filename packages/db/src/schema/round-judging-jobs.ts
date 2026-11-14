@@ -1,5 +1,5 @@
 import {
-  ballotSchema,
+  ballotRecordSchema,
   caseMapSchema,
   judgingAttemptCategories,
   judgingAttemptDiagnosticSchema,
@@ -7,7 +7,6 @@ import {
   judgingTerminalReasons,
   judgingRecoveryReasons,
   judgingStages,
-  storedBallotSchema,
   type JudgingRecoveryReason,
   type JudgingStage,
   type JudgingAttemptCategory,
@@ -55,7 +54,7 @@ export const roundJudgingJobs = pgTable(
     leaseExpiresAt: timestampColumn('lease_expires_at'),
     attempts: integer('attempts').notNull().default(0),
     resultBallotId: text('result_ballot_id'),
-    pendingBallot: jsonbColumnNullable('pending_ballot', ballotSchema),
+    pendingBallot: jsonbColumnNullable('pending_ballot', ballotRecordSchema),
     pendingBallotAgentRunId: text('pending_ballot_agent_run_id'),
     pendingBallotEpoch: integer('pending_ballot_epoch'),
     pendingBallotReceivedAt: timestampColumn('pending_ballot_received_at'),
@@ -66,7 +65,7 @@ export const roundJudgingJobs = pgTable(
      * Each is written once by its stage; retention and subject erasure clear
      * them. Their provenance is the stage's attempt row.
      */
-    firstBallot: jsonbColumnNullable('first_ballot', storedBallotSchema),
+    firstBallot: jsonbColumnNullable('first_ballot', ballotRecordSchema),
     firstBallotReceivedAt: timestampColumn('first_ballot_received_at'),
     firstBallotFailed: boolean('first_ballot_failed').notNull().default(false),
     caseMap: jsonbColumnNullable('case_map', caseMapSchema),

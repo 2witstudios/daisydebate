@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { roundViewSchema } from '@daisy/protocol';
+import { roundViewSchema, sideOfSeat } from '@daisy/protocol';
 import {
   createRoomHttpFixture,
   withHumanJudgeHttpRound,
@@ -227,7 +227,9 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
           )
         ).json(),
       );
-      const seat = current.participants.find((p) => p.role === 'affirmative');
+      const seat = current.participants.find(
+        (p) => sideOfSeat(p.seat) === 'affirmative',
+      );
       if (!seat || 'anonymous' in seat)
         throw Error('Expected own debater seat');
       const ended = await h.routes.rounds.commands(

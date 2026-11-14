@@ -1,3 +1,5 @@
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { frozenJudgingFor } from '../src/round-judging-freeze';
 import { createId } from '@paralleldrive/cuid2';
 import type { Fixture } from './constraint-helpers';
 import { validRules } from './round-fixtures';
@@ -49,7 +51,9 @@ export const completed = async (
     rules_snapshot: validRules,
     status: 'completed',
     current_stage: null,
-    outcome: input.outcome,
+    winning_side: input.outcome,
+    runtime_state: emptyRuntimeCheckpointFor(validRules),
+    judging: frozenJudgingFor(validRules),
     ladder_id: input.formatId,
     started_at: at(5, 11),
     completed_at: at(5),

@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { isRoundOver, idSchema } from '@daisy/protocol';
+import { isJudgeSeat, isRoundOver, idSchema } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';
@@ -58,7 +58,7 @@ export async function lockRoundAgentContext(
   );
   if (!round || !seat) throw createAppError('AUTHORIZATION');
   // A judge seat's agent is the AI judge; a side's is a bot debater (ISSUE-750).
-  const profile = seat.role === 'judge' ? aiJudgeProfiles : botProfiles;
+  const profile = isJudgeSeat(seat.seat) ? aiJudgeProfiles : botProfiles;
   const [bot] = await tx
     .select({ id: actors.id })
     .from(actors)

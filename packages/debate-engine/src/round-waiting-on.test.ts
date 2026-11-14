@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { JudgingPanelFacts } from '@daisy/protocol';
+import { daisyWinnerBallot, type JudgingPanelFacts } from '@daisy/protocol';
 import type { attendanceSettled } from './attendance-order';
 import { roundWaitingOn } from './round-waiting-on';
 
@@ -14,6 +14,10 @@ const [human, other, ai] = ['h'.repeat(24), 'o'.repeat(24), 'a'.repeat(24)] as [
 const frozen = (
   overrides: Partial<JudgingPanelFacts> = {},
 ): JudgingPanelFacts => ({
+  judging: {
+    ballot: daisyWinnerBallot,
+    panel: { decision: 'majority', quorum: 1 },
+  },
   completeness: 'complete',
   humanJudgeSeatIds: [],
   aiJudgeSeatIds: [],

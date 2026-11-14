@@ -1,3 +1,4 @@
+import { winnerOutcome } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -77,7 +78,7 @@ for (const revoke of ['lease', 'run'] as const)
     await withRoomRuntime(async (f) => {
       let room = (await f.create()).view;
       const bot = (await f.operations.castChoices(f.host)).find(
-        (p) => p.kind === 'bot' && p.seatRole === 'debater',
+        (p) => p.kind === 'bot' && p.aiRole === 'debater',
       )!;
       room = await f.seatBotOpponent(room, bot.actorId);
       const { roundId, operations, principal } = await launchRuntimeRound(
@@ -147,7 +148,7 @@ for (const revoke of ['lease', 'run'] as const)
         },
         expected: {
           version: live.version + 1,
-          outcome: 'affirmative',
+          outcome: winnerOutcome('affirmative'),
           actor: null,
           service: agent.serviceId,
         },

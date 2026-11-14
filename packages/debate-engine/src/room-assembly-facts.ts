@@ -6,12 +6,14 @@ import type {
   RoomParticipant,
   RoomRefusal,
   PublishedResolution,
+  AiRole,
 } from '@daisy/protocol';
 import {
   formatDefinitionSchema,
+  heldSeatsComplete,
+  isJudgeSeat,
   isOpenRoomStatus,
   roundRulesSchema,
-  seatSlotsComplete,
 } from '@daisy/protocol';
 import { activeRoomMembers } from './room-membership';
 import type { FormatSelectionFacts } from './format-selection';
@@ -20,10 +22,10 @@ import type { DrawStartFacts } from './room-draw-start';
 type Target = RoomParticipant & {
   readonly eligible: boolean;
   /**
-   * Which seat an AI actor may hold (ISSUE-750): a bot debater only a side,
-   * the AI judge only the judge seat. Null for a human.
+   * Which AI the actor is (ISSUE-750), and so which seats it may hold: a bot
+   * debater a competitor's, the AI judge a judge's. Null for a human.
    */
-  readonly seatRole: 'debater' | 'judge' | null;
+  readonly aiRole: AiRole | null;
 };
 export type Edges = {
   readonly now: string;
@@ -46,14 +48,9 @@ export type Edges = {
   readonly drawStart: DrawStartFacts | null;
 };
 export const complete = (room: RoomAssemblyState) =>
-  Object.entries(room.rules.seats).every(([role, count]) =>
-    seatSlotsComplete(
-      count,
-      room.participants
-        .filter((p) => p.role === role)
-        .map((p) => p.slot)
-        .sort((a, b) => a - b),
-    ),
+  heldSeatsComplete(
+    room.rules,
+    room.participants.map((p) => p.seat),
   );
 /**
  * Why the seated cast can't go on yet, or null: every seat eligible, Ready
@@ -68,7 +65,7 @@ const castGate = (
       (p) =>
         !p.eligible ||
         (room.competitionType === 'ranked' &&
-          p.role !== 'judge' &&
+          !isJudgeSeat(p.seat) &&
           p.kind !== 'human'),
     )
   )
@@ -122,12 +119,14 @@ export const acceptedRoomMutation = (
  * heir did not seat them (DEC-331).
  */
 export const hostNamesJudges = (room: JudgeNamingFacts): boolean =>
+  room.hostActorId !== null &&
   !room.hostInherited &&
   !room.participants.some((p) => p.actorId === room.hostActorId);
 
 /** What naming a Room's human judges is decided from. */
 export type JudgeNamingFacts = {
-  readonly hostActorId: string;
+  /** Null for a Room no person hosts: nobody names its judges. */
+  readonly hostActorId: string | null;
   readonly hostInherited: boolean;
   readonly participants: readonly { readonly actorId: string }[];
 };

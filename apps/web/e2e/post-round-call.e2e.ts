@@ -1,4 +1,11 @@
-import { roomViewSchema } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  judgeSeat,
+  negativeSide,
+  roomViewSchema,
+  sideOfSeat,
+  sideSeat,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { test, expect, openPage } from './support/fixtures';
 import { origin } from './support/accounts';
@@ -46,10 +53,10 @@ test('after a Round with Post-round feedback, the debaters and a judge stay on t
     const room = await seatAndReady(
       roomViewSchema.parse((await created.json()).view),
       [
-        { member: aff, role: 'affirmative', slot: 0 },
-        { member: neg, role: 'negative', slot: 0 },
-        { member: judge, role: 'judge', slot: 0 },
-        { member: otherJudge, role: 'judge', slot: 1 },
+        { member: aff, seat: sideSeat(affirmativeSide) },
+        { member: neg, seat: sideSeat(negativeSide) },
+        { member: judge, seat: judgeSeat() },
+        { member: otherJudge, seat: judgeSeat(1) },
       ],
     );
     const round = await startAdmittedRound(aff, room);
@@ -72,7 +79,7 @@ test('after a Round with Post-round feedback, the debaters and a judge stay on t
     const roundRoom = (await readMediaState(aff, round.id)).mediaRoomName;
 
     const seat = round.participants.find(
-      (p) => 'actorId' in p && p.role === 'negative',
+      (p) => 'actorId' in p && sideOfSeat(p.seat) === negativeSide,
     );
     if (!seat || !('id' in seat)) throw new Error('Negative seat missing');
     const ended = await currentRoundForfeit(

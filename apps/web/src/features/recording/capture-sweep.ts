@@ -427,12 +427,12 @@ export const createRecordingCaptureSweep = (deps: {
   const sweep = async () => {
     for (const round of await store.discoverUnrecorded(BATCH))
       await (async () => {
-        if (!plannedRecording(round)) return;
+        if (plannedRecording(round) === 'off') return;
         await port.request({
           roundId: round.roundId,
           competitionType: round.competitionType,
           hostActorId: round.hostActorId,
-          hostOptedIn: round.capture?.recording === true,
+          hostOptedIn: (round.capture?.recordingPolicy ?? 'off') !== 'off',
           hostHoldsRecording: deps.holdsCapture(round.hostGrants),
         });
       })().catch(failed);

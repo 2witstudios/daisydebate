@@ -1,3 +1,4 @@
+import { sideOfSeat } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
@@ -68,7 +69,7 @@ const withLive = async (
           room_config_snapshot: {},
           status: ended ? 'completed' : 'active',
           current_stage: ended ? null : 'live',
-          outcome: ended ? 'affirmative' : null,
+          winning_side: ended ? 'affirmative' : null,
           started_at: startedAt,
           completed_at: ended ?? null,
         });
@@ -204,7 +205,7 @@ test('a row carries real labels, and the latest released speech only', async () 
       actual: [
         row?.title,
         row?.segments.map((segment) => segment.key),
-        row?.seats.map((seat) => seat.side),
+        row?.seats.map((seat) => sideOfSeat(seat.seat)),
         row?.seats[0]?.username,
       ],
       expected: ['Friday night', ['1NC'], ['affirmative', 'negative'], aff],

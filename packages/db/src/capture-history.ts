@@ -1,7 +1,13 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { CaptureTx, CaptureStream } from './media-capture-context';
-import { speakingEndMs, type SeatGrantFacts } from '@daisy/protocol';
+import {
+  leadSeatOf,
+  speakingEndMs,
+  type SeatGrantFacts,
+  type SeatKind,
+} from '@daisy/protocol';
+import { seatOfColumns } from './seat-columns';
 import { rounds } from './schema/rounds';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { roundTranscripts } from './schema/transcript-segments';
@@ -72,7 +78,7 @@ export async function readSeatGrants(
     input.segmentId !== undefined && input.roundParticipantId !== undefined;
   const rows = (await tx.execute(sql`select distinct
       i.segment_id as "segmentId", i.round_participant_id as "roundParticipantId",
-      a.kind, p.role, p.slot, s.sequence,
+      a.kind, p.seat_kind as "seatKind", p.side, p.slot, s.sequence,
       exists(select 1 from utterances u
         where u.round_id=i.round_id and u.segment_id=i.segment_id
           and u.round_participant_id=i.round_participant_id
@@ -81,28 +87,32 @@ export async function readSeatGrants(
     join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     join actors a on a.id=p.actor_id
     left join round_segments s on s.round_id=i.round_id and s.id=i.segment_id
-    where i.round_id=${input.roundId} and p.role<>'judge'
+    where i.round_id=${input.roundId} and p.seat_kind<>'judge'
       and (i.ended_at is null or i.ended_at>i.started_at)
       ${one ? sql`and i.segment_id=${input.segmentId} and i.round_participant_id=${input.roundParticipantId}` : sql``}
     order by i.segment_id, i.round_participant_id`)) as unknown as {
     segmentId: string;
     roundParticipantId: string;
     kind: 'human' | 'bot';
-    role: string;
+    seatKind: SeatKind;
+    side: string | null;
     slot: number;
     sequence: number | null;
     authored: boolean;
   }[];
-  return rows.map((row) => ({
-    segmentId: row.segmentId,
-    roundParticipantId: row.roundParticipantId,
-    grant: {
-      seat: { kind: row.kind, role: row.role, slot: row.slot },
-      turn:
-        row.sequence === null ? undefined : round?.rules.segments[row.sequence],
-      hasAuthoredSpeech: row.authored,
-    } satisfies SeatGrantFacts,
-  }));
+  return rows.map((row) => {
+    const turn =
+      row.sequence === null ? undefined : round?.rules.segments[row.sequence];
+    return {
+      segmentId: row.segmentId,
+      roundParticipantId: row.roundParticipantId,
+      grant: {
+        seat: { kind: row.kind, seat: seatOfColumns(row) },
+        turn: turn && { lead: leadSeatOf(turn.speak) },
+        hasAuthoredSpeech: row.authored,
+      } satisfies SeatGrantFacts,
+    };
+  });
 }
 
 export const transcriptRevision = async (

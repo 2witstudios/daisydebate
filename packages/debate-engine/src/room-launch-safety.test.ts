@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { MAX_FORMAT_SEATS, type RoundRules } from '@daisy/protocol';
+import { MAX_FORMAT_SEATS, sideOfSeat, type RoundRules } from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -7,35 +7,56 @@ setupRitewayBun();
 
 test('direct Launch refuses unsafe rules without freezing or changing state', () => {
   const source = state();
+  const speaksFor =
+    (side: string) => (s: (typeof source.rules.segments)[number]) =>
+      s.speak.rights === 'one' && sideOfSeat(s.speak.seat) === side;
+  const seats = (
+    sides: Record<string, number>,
+    judges = 0,
+  ): RoundRules['seats'] => ({ sides, speakers: 0, judges, moderators: 0 });
   const variants = [
     null as unknown as RoundRules,
-    { ...source.rules, seats: { affirmative: 1, judge: 0 } } as RoundRules,
+    { ...source.rules, seats: seats({ affirmative: 1 }) } as RoundRules,
     {
       ...source.rules,
-      seats: { affirmative: 1, negative: 0, judge: 0 },
-      segments: source.rules.segments.filter((s) => s.side === 'affirmative'),
+      seats: seats({ affirmative: 1, negative: 0 }),
+      segments: source.rules.segments.filter(speaksFor('affirmative')),
     },
     {
       ...source.rules,
-      segments: source.rules.segments.filter((s) => s.side === 'affirmative'),
+      segments: source.rules.segments.filter(speaksFor('affirmative')),
     },
     {
       ...source.rules,
-      seats: { affirmative: 0, negative: 1, judge: 0 },
-      segments: source.rules.segments.filter((s) => s.side === 'negative'),
+      seats: seats({ affirmative: 0, negative: 1 }),
+      segments: source.rules.segments.filter(speaksFor('negative')),
     },
     {
       ...source.rules,
-      segments: source.rules.segments.filter((s) => s.side === 'negative'),
+      segments: source.rules.segments.filter(speaksFor('negative')),
     },
-    ...(['affirmative', 'negative', 'judge'] as const).map((role) => ({
+    ...(['affirmative', 'negative'] as const).map((side) => ({
       ...source.rules,
-      seats: { ...source.rules.seats, [role]: 1_000_000_000 },
+      seats: seats({ ...source.rules.seats.sides, [side]: 1_000_000_000 }),
     })),
-    { ...source.rules, seats: { affirmative: 128, negative: 128, judge: 1 } },
     {
       ...source.rules,
-      segments: source.rules.segments.map((s) => ({ ...s, slot: 99 })),
+      seats: seats(source.rules.seats.sides, 1_000_000_000),
+    },
+    {
+      ...source.rules,
+      seats: seats({ affirmative: 128, negative: 128 }, 1),
+    },
+    {
+      ...source.rules,
+      segments: source.rules.segments.map((s) =>
+        s.speak.rights === 'one' && s.speak.seat.kind === 'side'
+          ? {
+              ...s,
+              speak: { ...s.speak, seat: { ...s.speak.seat, slot: 99 } },
+            }
+          : s,
+      ),
     },
   ];
   assert({
@@ -47,8 +68,10 @@ test('direct Launch refuses unsafe rules without freezing or changing state', ()
         ...source,
         rules,
         participants:
-          rules?.seats.negative === 0
-            ? source.participants.filter((p) => p.role === 'affirmative')
+          rules?.seats.sides.negative === 0
+            ? source.participants.filter(
+                (p) => sideOfSeat(p.seat) === 'affirmative',
+              )
             : source.participants,
       };
       const before = JSON.stringify(room);
@@ -80,7 +103,7 @@ test('direct Launch refuses an unsafe definition even alongside valid rules', ()
     ...source,
     definition: {
       ...source.definition,
-      seats: { ...source.definition.seats, judge: MAX_FORMAT_SEATS },
+      seats: { ...source.definition.seats, judges: MAX_FORMAT_SEATS },
     },
   };
   assert({

@@ -1,11 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
 import { createRoundJudgingOperations } from './operations';
-import { claim, harness, reply } from './operations.test-support';
-import {
-  frozen,
-  round,
-} from '../round-runtime/transcript-evidence.test-support';
+import { claim, harness, judgedRound, reply } from './operations.test-support';
+import { frozen } from '../round-runtime/transcript-evidence.test-support';
 setupRitewayBun();
 
 test('a judging job that may buy no more calls never reaches the provider', async () => {
@@ -41,7 +38,7 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
     withProvider: (_signal, work) => work(),
   });
   await operations.executeClaim(
-    { scope: {}, token: 't', model: 'm', round, frozen } as never,
+    { scope: {}, token: 't', model: 'm', round: judgedRound, frozen } as never,
     new AbortController().signal,
   );
   assert({

@@ -84,7 +84,9 @@ export const roundRow = (record: {
   rules: unknown;
   status: RoundStatus;
   currentStage: string | null;
+  /** The winning side; a ranking is never mocked here. */
   outcome: string | null;
+  judging?: unknown;
   ladderId: string | null;
   startedAt: string | null;
   completedAt: string | null;
@@ -115,6 +117,8 @@ export const roundRow = (record: {
   record.status,
   record.currentStage,
   record.outcome,
+  null,
+  record.judging ?? null,
   record.ladderId,
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),

@@ -1,3 +1,9 @@
+import {
+  type SeatRef,
+  affirmativeSide,
+  judgeSeat,
+  sideSeat,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { accountEntitlements, authorize } from './authorization';
 import { input } from './channel.test-support';
@@ -46,12 +52,14 @@ test('round analysis authorization never gates the official round read', () => {
     participants: [
       {
         actorId: input.context.account!.actorId!,
-        role: 'affirmative',
-        slot: 0,
+        seat: sideSeat(affirmativeSide),
       },
     ],
   };
-  const evaluate = (roundAnalysis: boolean, role = 'affirmative') =>
+  const evaluate = (
+    roundAnalysis: boolean,
+    seat: SeatRef = sideSeat(affirmativeSide),
+  ) =>
     (
       ['round.read', 'round.analysis.read', 'round.analysis.request'] as const
     ).map(
@@ -61,7 +69,7 @@ test('round analysis authorization never gates the official round read', () => {
           capability,
           resource: {
             ...resource,
-            participants: resource.participants.map((p) => ({ ...p, role })),
+            participants: resource.participants.map((p) => ({ ...p, seat })),
           },
           context: { ...input.context, entitlements: { roundAnalysis } },
         }).allow,
@@ -70,7 +78,7 @@ test('round analysis authorization never gates the official round read', () => {
     given: 'entitled or ordinary debaters and a judge seat',
     should:
       'authorize own report reads and requests independently of allowance, and keep the official result available',
-    actual: [evaluate(true), evaluate(false), evaluate(true, 'judge')],
+    actual: [evaluate(true), evaluate(false), evaluate(true, judgeSeat())],
     expected: [
       [true, true, true],
       [true, true, true],
@@ -91,7 +99,7 @@ test('premium spectators, host-only members and judges cannot read or request a 
       given: 'spectator while another member debates',
       createdByActorId: 'another-host',
       participants: [
-        { actorId: 'other-debater', role: 'affirmative', slot: 0 },
+        { actorId: 'other-debater', seat: sideSeat(affirmativeSide) },
       ],
     },
     {
@@ -102,7 +110,7 @@ test('premium spectators, host-only members and judges cannot read or request a 
     {
       given: 'seated judge',
       createdByActorId: actorId,
-      participants: [{ actorId, role: 'judge', slot: 0 }],
+      participants: [{ actorId, seat: judgeSeat() }],
     },
   ];
   for (const scenario of scenarios) {
@@ -156,7 +164,7 @@ test('premium entitlement cannot replace durable participant admission', () => {
         status: 'completed',
         revision: 1,
         participants: [
-          { actorId: account.actorId!, role: 'affirmative', slot: 0 },
+          { actorId: account.actorId!, seat: sideSeat(affirmativeSide) },
         ],
       },
       context: {

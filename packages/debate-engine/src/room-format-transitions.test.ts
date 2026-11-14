@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
+import {
+  sideSeat,
+  type RoomAssemblyState,
+  type RoomCommand,
+} from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, started, state } from './room-assembly.test-support';
@@ -189,8 +193,7 @@ describe('select-format', () => {
           actorId: 'second',
           label: 'Second',
           kind: 'human',
-          role: 'affirmative',
-          slot: 1,
+          seat: sideSeat('affirmative', 1),
           eligible: true,
           consentVersion: 0,
           consentCommandId: null,

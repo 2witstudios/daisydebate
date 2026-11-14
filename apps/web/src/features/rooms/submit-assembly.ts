@@ -26,12 +26,11 @@ function commandFields(form: FormData): Record<string, unknown> | null {
   for (const key of [
     'expectedVersion',
     'expectedConsentVersion',
-    'slot',
     'ordinal',
     'position',
   ])
     if (key in raw) raw[key] = Number(raw[key]);
-  for (const key of ['config', 'definition']) {
+  for (const key of ['config', 'definition', 'seat']) {
     if (!(key in raw)) continue;
     if (typeof raw[key] !== 'string') return null;
     raw[key] = JSON.parse(raw[key]);

@@ -1,6 +1,6 @@
 import type { CreateRoomDraft } from '../../../features/rooms/create-room-draft';
 import { clockDuration } from '../../../features/rooms/duration-input';
-import { shapeLabel } from '../../../features/debate-room/vocabulary';
+import { shapeLabel } from '../../../features/debate-room/seat-names';
 
 export function DraftPreview({
   draft,
@@ -49,7 +49,7 @@ export function DraftPreview({
       </div>
       <div className="create-room-preview-stats">
         <div>
-          <strong>{shapeLabel(definition.seats)}</strong>
+          <strong>{shapeLabel(definition)}</strong>
           <span>Debaters</span>
         </div>
         <div>

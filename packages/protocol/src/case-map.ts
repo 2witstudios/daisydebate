@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { debateSideSchema } from './primitives';
+import { affirmativeSide, negativeSide, twoSideKeys } from './seats';
+
+/** The AI judge maps two-sided Rounds only: each line is by one of the preset's sides. */
+const bySideSchema = z.enum(twoSideKeys);
 
 /**
  * The case map (ADR 0125): how each side's case is built and how the round's
@@ -39,19 +42,19 @@ const caseSchema = z.strictObject({
   burdens: z.array(burdenSchema).max(12),
 });
 const perSide = <T extends z.ZodType>(schema: T) =>
-  z.strictObject({ affirmative: schema, negative: schema });
+  z.strictObject({ [affirmativeSide]: schema, [negativeSide]: schema });
 
 export const caseMapSchema = z.strictObject({
   about: z.strictObject({
     question: text(600),
-    affirmative: text(600),
-    negative: text(600),
+    [affirmativeSide]: text(600),
+    [negativeSide]: text(600),
   }),
   cases: perSide(caseSchema),
   framework: z.strictObject({
     dispute: text(1200),
     contested: z
-      .array(z.strictObject({ by: debateSideSchema, line, how: text(400) }))
+      .array(z.strictObject({ by: bySideSchema, line, how: text(400) }))
       .max(16),
     ruling: text(1200),
     liveBurdens: z.array(nodeId).max(24),
@@ -59,7 +62,7 @@ export const caseMapSchema = z.strictObject({
   attacks: z
     .array(
       z.strictObject({
-        by: debateSideSchema,
+        by: bySideSchema,
         line,
         target: nodeId,
         level: z.enum(['thesis', 'framework', 'burden', 'premise', 'warrant']),
@@ -83,7 +86,7 @@ export const caseMapSchema = z.strictObject({
   concessions: z
     .array(
       z.strictObject({
-        by: debateSideSchema,
+        by: bySideSchema,
         line,
         quote: text(400),
         limits: text(400),

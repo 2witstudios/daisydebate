@@ -73,10 +73,10 @@ export function sampleEventBallot(
   };
 }
 
-const debaters = (affirmative: string, negative: string) =>
+const debaters = (first: string, second: string) =>
   [
-    { key: affirmative.toLowerCase(), name: affirmative, role: 'Affirmative' },
-    { key: negative.toLowerCase(), name: negative, role: 'Negative' },
+    { key: first.toLowerCase(), name: first, role: 'Affirmative' },
+    { key: second.toLowerCase(), name: second, role: 'Negative' },
   ] as const;
 
 /** Both debaters and their coaches read the reason. */

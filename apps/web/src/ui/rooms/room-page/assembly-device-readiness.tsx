@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { systemId } from '@daisy/clock';
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import { isJudgeSeat, isNamedSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
 import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
 import { rememberCheckedDevices } from '../../../features/video/device-selection';
@@ -176,7 +176,7 @@ export function AssemblyDeviceReadiness(props: Props) {
   const own = props.view.participants
     .filter(isNamedSeat)
     .find((p) => p.actorId === props.actorId);
-  const needsDevices = own?.kind === 'human' && own.role !== 'judge';
+  const needsDevices = own?.kind === 'human' && !isJudgeSeat(own.seat);
   const latest = useRef(props);
   const sync = useContext(RoomSyncContext);
   const latestSync = useRef(sync);

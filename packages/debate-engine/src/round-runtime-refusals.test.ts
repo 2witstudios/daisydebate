@@ -1,4 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
+import { daisyWinnerBallot, sideSeat, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   completedSchedule,
@@ -29,7 +30,7 @@ describe('round runtime command refusals and seat order', () => {
         currentStage: null,
         startedAt: at(5_000),
         completedAt: at(5_000),
-        outcome: 'negative',
+        outcome: winnerOutcome('negative'),
         checkpoint: world.checkpoint(),
       },
     });
@@ -196,6 +197,10 @@ describe('round runtime command refusals and seat order', () => {
     const judge = oneOnOneSeats[2].id;
     const completed = spent.completePanel({
       now: at(1_000),
+      judging: {
+        ballot: daisyWinnerBallot,
+        panel: { decision: 'majority', quorum: 1 },
+      },
       ballots: [{ judgeParticipantId: judge, winner: 'affirmative' }],
       completeness: 'complete',
       panel: {
@@ -276,8 +281,7 @@ describe('round runtime command refusals and seat order', () => {
     const second = {
       id: 'n9q4w8e2r6t0y3u7i5o1p9a3s7d',
       actorId: opponent,
-      role: 'negative',
-      slot: 1,
+      seat: sideSeat('negative', 1),
     } as const;
     // The second negative seat arrives before the first: the completeness
     // check sorts the held slots before comparing them.
@@ -290,7 +294,11 @@ describe('round runtime command refusals and seat order', () => {
       ],
       rules: {
         ...rules,
-        seats: { affirmative: 1, negative: 2, judge: 1 },
+        seats: {
+          ...rules.seats,
+          sides: { affirmative: 1, negative: 2 },
+          judges: 1,
+        },
       },
     });
     const projection = world.activate({ at: at(0), now: at(0) });

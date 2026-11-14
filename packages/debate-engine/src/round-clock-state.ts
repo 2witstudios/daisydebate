@@ -1,6 +1,6 @@
 import { createInvariantError } from '@daisy/errors';
 import {
-  emptyRuntimeCheckpoint,
+  emptyRuntimeCheckpointFor,
   isRoundLifecycle,
   isRoundOver,
   roundLifecycleFault,
@@ -186,9 +186,12 @@ const assertSegmentRules = (row: ClockSegment, rules: RoundRules): void => {
  * prep; a checkpoint holding both is the same corruption it always was here,
  * under the same registered invariant, not a bare parse error.
  */
-const heldCheckpoint = (stored: unknown): RuntimeCheckpoint => {
+const heldCheckpoint = (
+  stored: unknown,
+  rules: RoundRules,
+): RuntimeCheckpoint => {
   const parsed = runtimeCheckpointSchema.safeParse(
-    stored ?? emptyRuntimeCheckpoint,
+    stored ?? emptyRuntimeCheckpointFor(rules),
   );
   if (parsed.success) return parsed.data;
   if (
@@ -246,7 +249,7 @@ export const normalizeRoundClock = (input: {
         'An open segment row is followed by another row',
       );
   });
-  const checkpoint = heldCheckpoint(input.checkpoint);
+  const checkpoint = heldCheckpoint(input.checkpoint, input.rules);
   if (
     checkpoint.active_prep !== null &&
     rows.some((row) => row.endedAtMs === null)

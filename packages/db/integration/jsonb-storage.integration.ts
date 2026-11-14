@@ -11,6 +11,8 @@ import { ballots } from '../src/schema/ballots';
 import { roundCommands } from '../src/schema/round-commands';
 import { at, roundAuthoring, digest, withFixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { validRules } from './round-fixtures';
 
 setupRitewayBun();
 
@@ -58,7 +60,7 @@ test('createRound stores rules_snapshot as a real jsonb object, not a double-enc
           },
         },
         expected: {
-          afterCreate: { type: 'object', version: '2' },
+          afterCreate: { type: 'object', version: '3' },
         },
       });
     } finally {
@@ -156,6 +158,7 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
         format_id: 'foundation',
         format_version: 1,
         rules_snapshot: scalar,
+        runtime_state: emptyRuntimeCheckpointFor(validRules),
         status: 'opening',
       }),
       definition: await fixture.rejectedBy(

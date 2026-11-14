@@ -124,7 +124,9 @@ describe('strikes', () => {
     const withBot: RoomAssemblyState = {
       ...base,
       participants: base.participants.map((p) =>
-        p.role === 'negative' ? { ...p, kind: 'bot' } : p,
+        p.seat.kind === 'side' && p.seat.side === 'negative'
+          ? { ...p, kind: 'bot' }
+          : p,
       ),
     };
     const { opening } = opened(withBot);

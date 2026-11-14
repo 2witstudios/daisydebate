@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { idSchema, type DebateSide } from './primitives';
+import { idSchema } from './primitives';
+import type { SideKey } from './seats';
 
 /** What one completed Round means for one debater's record. */
 export type RecordResult = 'win' | 'loss' | 'no-ruling';
@@ -19,7 +20,7 @@ export type MatchHistoryEntry = {
   readonly completedAt: string;
   /** Null when the Round ended before its reveal. */
   readonly resolution: string | null;
-  readonly side: DebateSide;
+  readonly side: SideKey;
   /** A closed opponent keeps their name on the record, marked closed (ADR 0087). */
   readonly opponents: readonly {
     readonly kind: 'human' | 'bot';

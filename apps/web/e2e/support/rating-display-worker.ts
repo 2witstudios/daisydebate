@@ -2,7 +2,12 @@ import { SQL } from 'bun';
 import { z } from 'zod';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
-import { ratingLadders, idSchema } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  idSchema,
+  negativeSide,
+  ratingLadders,
+} from '@daisy/protocol';
 import { rateCompletedRound } from '../../src/features/ratings/rate-debate';
 import { betaAccessTarget } from './beta-access-target';
 // Fixture-backed rendering proof, distinct from real terminal-producer journeys.
@@ -33,12 +38,12 @@ try {
     const id = createId(),
       command = createId();
     await sql.begin(async (tx) => {
-      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,status,outcome,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,'completed','affirmative',${ladder},clock_timestamp()-interval '10 minutes',clock_timestamp()-interval '10 minutes' from rooms where id=${rooms.find((r) => r.ladder === ladder)!.id} and host_actor_id=${member.id}`;
-      for (const [role, actor] of [
-        ['affirmative', member.id],
-        ['negative', opponent],
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,status,winning_side,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,'completed',${affirmativeSide},${ladder},clock_timestamp()-interval '10 minutes',clock_timestamp()-interval '10 minutes' from rooms where id=${rooms.find((r) => r.ladder === ladder)!.id} and host_actor_id=${member.id}`;
+      for (const [side, actor] of [
+        [affirmativeSide, member.id],
+        [negativeSide, opponent],
       ])
-        await tx`insert into round_participants(id,round_id,actor_id,role,slot) values(${createId()},${id},${actor},${role},0)`;
+        await tx`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot) values(${createId()},${id},${actor},'side',${side},0)`;
       await tx`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${command},${id},${member.id},'forfeit',${'a'.repeat(64)},${{}},1,clock_timestamp())`;
       await tx`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${command},1)`;
     });

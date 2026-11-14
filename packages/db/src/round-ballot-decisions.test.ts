@@ -1,8 +1,15 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  ballotCategories,
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol';
+import {
   ballotReceipt,
   requireBallotAdmission,
+  requireRoundBallot,
+  ballotDecisionColumns,
   requireFrozenRevision,
   requireAgentBallotCapture,
   requireJudgingRun,
@@ -136,7 +143,15 @@ test('a new ballot needs the expected version, an undecided Round before its dea
   for (const [label, overrides] of [
     ['a stale version', { expectedVersion: 3 }],
     ['a completed Round', { round: { status: 'completed', outcome: null } }],
-    ['a decided Round', { round: { status: 'active', outcome: 'negative' } }],
+    [
+      'a decided Round',
+      {
+        round: {
+          status: 'active',
+          outcome: { kind: 'winner', side: 'negative' },
+        },
+      },
+    ],
     [
       'a ballot at its persisted deadline (DEC-207)',
       { ballotDeadlineAt: new Date('2026-10-22T12:00:00.000Z') },
@@ -165,11 +180,18 @@ test('the receipt version advances only when the projection changed the Round', 
     should: 'keep or advance the version and carry the outcome or null',
     actual: [
       ballotReceipt({ ...input, changed: false, outcome: undefined }),
-      ballotReceipt({ ...input, changed: true, outcome: 'affirmative' }),
+      ballotReceipt({
+        ...input,
+        changed: true,
+        outcome: { kind: 'winner', side: 'affirmative' },
+      }),
     ].map(({ resultingVersion, outcome }) => ({ resultingVersion, outcome })),
     expected: [
       { resultingVersion: 4, outcome: null },
-      { resultingVersion: 5, outcome: 'affirmative' },
+      {
+        resultingVersion: 5,
+        outcome: { kind: 'winner', side: 'affirmative' },
+      },
     ],
   });
 });
@@ -222,5 +244,66 @@ test('an AI judge is refused an incomplete transcript and a human is not (DEC-20
       requireAgentBallotCapture(human, unmeasured),
     ],
     expected: [undefined, undefined, undefined],
+  });
+});
+
+test("a ballot is judged by its Round's frozen definition and stored by its decision (TAB-6.11)", async () => {
+  const sides = [
+    { key: 'affirmative', label: 'Affirmative', short: 'Aff' },
+    { key: 'negative', label: 'Negative', short: 'Neg' },
+  ];
+  const round = {
+    judging: {
+      ballot: daisyWinnerBallot,
+      panel: panelRuleFor(daisyWinnerBallot),
+    },
+    rules: { sides, segments: [{ key: 'AC' }] },
+    participants: [],
+  } as unknown as Parameters<typeof requireRoundBallot>[0];
+  const scored = Object.fromEntries(ballotCategories.map((c) => [c, 3]));
+  const ballot = {
+    rubricVersion: 'speaker-10@2',
+    winner: 'negative',
+    scores: { affirmative: scored, negative: scored },
+    reason: 'Clearer weighing.',
+    feedback: {},
+  };
+  assert({
+    given: 'a speaker-10@2 ballot on a two-sided Round judged on it',
+    should: 'admit it unchanged and store it as a win for its side',
+    actual: ballotDecisionColumns(requireRoundBallot(round, ballot)),
+    expected: { decision: 'win', winner: 'negative', ranking: null },
+  });
+  for (const [label, judged, body] of [
+    ['another revision', round, { ...ballot, rubricVersion: 'speaker-10@1' }],
+    ['an unknown side', round, { ...ballot, winner: 'proposition' }],
+    ['no winner', round, { ...ballot, winner: undefined }],
+  ] as const)
+    await assertRejects({
+      given: `a ballot naming ${label}`,
+      should: "refuse it: it does not fit the Round's own schema",
+      actual: async () => requireRoundBallot(judged, body),
+      code: 'VALIDATION',
+    });
+  await assertRejects({
+    given: 'a Round judged by nobody',
+    should: 'refuse any ballot as an invariant breach',
+    actual: async () => requireRoundBallot({ ...round, judging: null }, ballot),
+    code: 'INVARIANT',
+  });
+  assert({
+    given: 'a ranking ballot',
+    should: 'store its places and no winner',
+    actual: ballotDecisionColumns({
+      rubricVersion: 'rank-sides@1',
+      ranking: [['negative'], ['affirmative']],
+      reason: 'Closer.',
+      feedback: {},
+    }),
+    expected: {
+      decision: 'ranking',
+      winner: null,
+      ranking: [['negative'], ['affirmative']],
+    },
   });
 });

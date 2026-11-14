@@ -1,8 +1,13 @@
 import { roundViewSchema, type RoundView } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  affirmativeSide,
   buildRoundTopic,
+  judgeSeat,
+  negativeSide,
   roomViewSchema,
+  sameSeat,
+  sideSeat,
   type RoomView,
 } from '@daisy/protocol';
 import {
@@ -101,7 +106,7 @@ export async function withHumanJudgeHttpRound(
       kind: 'custom',
       definition: {
         ...oneOnOneDefinition,
-        seats: { ...oneOnOneDefinition.seats, judge: judges.length },
+        seats: { ...oneOnOneDefinition.seats, judges: judges.length },
       },
       competitionType: 'casual',
       config,
@@ -123,15 +128,14 @@ export async function withHumanJudgeHttpRound(
     roomId = room.id;
     customFormatId = room.formatId;
     const seats = [
-      { cookie: host, role: 'affirmative', slot: 0 },
-      { cookie: guest, role: 'negative', slot: 0 },
-      ...judges.map((cookie, slot) => ({ cookie, role: 'judge', slot })),
+      { cookie: host, seat: sideSeat(affirmativeSide) },
+      { cookie: guest, seat: sideSeat(negativeSide) },
+      ...judges.map((cookie, slot) => ({ cookie, seat: judgeSeat(slot) })),
     ];
     for (const seat of seats)
       room = await command(seat.cookie, room, {
         type: 'claim-seat',
-        role: seat.role,
-        slot: seat.slot,
+        seat: seat.seat,
       });
     for (const seat of seats) {
       const own = roomViewSchema.parse(
@@ -145,7 +149,7 @@ export async function withHumanJudgeHttpRound(
         ).json(),
       );
       const participant = own.participants.find(
-        (p) => 'actorId' in p && p.role === seat.role && p.slot === seat.slot,
+        (p) => 'actorId' in p && sameSeat(p.seat, seat.seat),
       );
       if (!participant || !('consentVersion' in participant))
         throw Error('Own seated consent missing');

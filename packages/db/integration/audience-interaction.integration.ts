@@ -953,7 +953,7 @@ test('watch history holds an unreleased resolution back and forgets on request',
     const roundId = await env.audienceRound('public', {
       status: 'completed',
       current_stage: null,
-      outcome: 'affirmative',
+      winning_side: 'affirmative',
       started_at: at(0),
       completed_at: at(1),
       resolution: 'A resolution not yet out',
@@ -1252,7 +1252,7 @@ test('a seat reads as what its Round is, and no seat reads as none', async () =>
       preset_version: 1,
       ladder_id: 'freestyle',
       status: 'completed',
-      outcome: 'affirmative',
+      winning_side: 'affirmative',
       started_at: at(0),
       completed_at: at(1),
     });
@@ -1277,7 +1277,7 @@ test('a seat reads as what its Round is, and no seat reads as none', async () =>
       expected: [
         {
           kind: 'seat',
-          role: 'affirmative',
+          seatKind: 'side',
           competitionType: 'ranked',
           roundEnded: true,
           debatersReadChat: true,

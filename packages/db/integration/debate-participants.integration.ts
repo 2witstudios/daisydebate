@@ -1,7 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { rejected, rejectedBy, withFixture } from './constraint-helpers';
+import {
+  rejected,
+  rejectedBy,
+  seatColumnsOf,
+  withFixture,
+} from './constraint-helpers';
 
 setupRitewayBun();
 
@@ -26,7 +31,7 @@ test('round_participants is the authoritative seat record', async () => {
         id: first,
         round_id: roundId,
         actor_id: await fixture.actor(),
-        role: 'affirmative',
+        ...seatColumnsOf('affirmative'),
         slot: 0,
       },
       'id',
@@ -42,7 +47,7 @@ test('round_participants is the authoritative seat record', async () => {
             [first],
           )) as Array<{ actor_id: string }>
         )[0]!.actor_id,
-        role: 'negative',
+        ...seatColumnsOf('negative'),
         slot: 0,
       },
       'id',
@@ -53,7 +58,7 @@ test('round_participants is the authoritative seat record', async () => {
         id: second,
         round_id: roundId,
         actor_id: await fixture.actor(),
-        role: 'affirmative',
+        ...seatColumnsOf('affirmative'),
         slot: 0,
       },
       'id',
@@ -64,7 +69,7 @@ test('round_participants is the authoritative seat record', async () => {
         id: second,
         round_id: roundId,
         actor_id: await fixture.actor(),
-        role: 'not-a-role',
+        ...seatColumnsOf('not-a-role'),
         slot: 0,
       },
       'id',
@@ -75,7 +80,7 @@ test('round_participants is the authoritative seat record', async () => {
         id: second,
         round_id: roundId,
         actor_id: await fixture.actor(),
-        role: 'negative',
+        ...seatColumnsOf('negative'),
         slot: -1,
       },
       'id',
@@ -86,7 +91,7 @@ test('round_participants is the authoritative seat record', async () => {
         id: second,
         round_id: createId(),
         actor_id: await fixture.actor(),
-        role: 'negative',
+        ...seatColumnsOf('negative'),
         slot: 0,
       },
       'id',
@@ -97,7 +102,7 @@ test('round_participants is the authoritative seat record', async () => {
         id: third,
         round_id: roundId,
         actor_id: await fixture.actor(),
-        role: 'judge',
+        ...seatColumnsOf('judge'),
         slot: 0,
       },
       'id',

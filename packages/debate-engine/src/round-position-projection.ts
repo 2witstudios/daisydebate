@@ -2,11 +2,14 @@ import { countdownDue } from './round-start-gate';
 import {
   clockStopsOf,
   isRoundRunning,
+  leadSeatOf,
+  prepConsumedOf,
   runningMs,
   segmentDueAtMs,
+  sideKeysOf,
 } from '@daisy/protocol';
 import type {
-  DebateSide,
+  SideKey,
   RoundLifecycle,
   RoundPosition,
   RoundRules,
@@ -101,7 +104,8 @@ const openSegmentOf = (
     key: open.key,
     label: segment.label,
     type: open.type,
-    side: segment.side,
+    lead: leadSeatOf(segment.speak),
+    speak: segment.speak,
     sequence: open.sequence,
     startedAt: iso(open.startedAtMs),
     endsAt: iso(endsAtMs),
@@ -129,7 +133,8 @@ const nextSegmentOf = (
     key: segment.key,
     label: segment.label,
     type: segment.type,
-    side: segment.side,
+    lead: leadSeatOf(segment.speak),
+    speak: segment.speak,
     sequence: spoken,
   };
 };
@@ -172,7 +177,7 @@ const prepOf = (
     remainingMs: Math.max(
       0,
       budgetMsPerSide -
-        checkpoint.prep_consumed_ms[active.side] -
+        prepConsumedOf(checkpoint, active.side) -
         runningMs(Date.parse(active.started_at), now, clockStopsOf(checkpoint)),
     ),
   };
@@ -180,16 +185,17 @@ const prepOf = (
 
 /** Remaining budget per side; null when the format has no in-round prep. */
 const prepBudgetOf = (
-  inRoundPrep: RoundRules['inRoundPrep'],
+  rules: Pick<RoundRules, 'inRoundPrep' | 'sides'>,
   checkpoint: RuntimeCheckpoint,
   now: number,
 ): RoundPosition['prepBudgetRemainingMs'] => {
+  const { inRoundPrep } = rules;
   if (inRoundPrep === null) return null;
-  const left = (side: DebateSide) =>
+  const left = (side: SideKey) =>
     Math.max(
       0,
       inRoundPrep.budgetMsPerSide -
-        checkpoint.prep_consumed_ms[side] -
+        prepConsumedOf(checkpoint, side) -
         (checkpoint.active_prep?.side === side
           ? Math.max(
               0,
@@ -201,7 +207,9 @@ const prepBudgetOf = (
             )
           : 0),
     );
-  return { affirmative: left('affirmative'), negative: left('negative') };
+  return Object.fromEntries(
+    sideKeysOf(rules).map((side) => [side, left(side)]),
+  );
 };
 
 export const roundPositionOf = (
@@ -238,7 +246,7 @@ export const roundPositionOf = (
       rules.countdownMs,
     ),
     prep: prepOf(active, checkpoint, inRoundPrep?.budgetMsPerSide ?? 0, now),
-    prepBudgetRemainingMs: prepBudgetOf(inRoundPrep, checkpoint, now),
+    prepBudgetRemainingMs: prepBudgetOf(rules, checkpoint, now),
     incident: checkpoint.incident,
   };
 };

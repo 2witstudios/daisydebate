@@ -92,8 +92,10 @@ describe('Room command boundary', () => {
       });
     const seat = (actorId: string, role: string, slot = 0) => ({
       actorId,
-      role,
-      slot,
+      seat:
+        role === 'affirmative' || role === 'negative'
+          ? { kind: 'side', side: role, slot }
+          : { kind: role, slot },
     });
     const bot = 'w2r5e8n1b4o7t0a3n6i9c2e5';
     const judge = 'a1i2j3u4d5g6e7a8i9j0u1d2';
@@ -136,7 +138,7 @@ describe('Room command boundary', () => {
         actorId: 'c6a4e2f8h1j3k5m7n9p2r4t6',
         label: 'Wren',
         kind: 'bot',
-        seatRole: 'debater',
+        aiRole: 'debater',
         eligible: true,
         ...fields,
       });
@@ -256,8 +258,7 @@ describe('Room command boundary', () => {
       expectedVersion: 1,
       type: 'assign-seat',
       actorId: commandId,
-      role: 'judge',
-      slot: 0,
+      seat: { kind: 'judge', slot: 0 },
     };
     assert({
       given: 'host casting and malformed seats',
@@ -265,8 +266,8 @@ describe('Room command boundary', () => {
       actual: [
         base,
         { ...base, actorId: 'fake' },
-        { ...base, slot: -1 },
-        { ...base, role: 'not-a-role' },
+        { ...base, seat: { kind: 'judge', slot: -1 } },
+        { ...base, seat: { kind: 'not-a-role', slot: 0 } },
       ].map((value) => roomCommandSchema.safeParse(value).success),
       expected: [true, false, false, false],
     });
@@ -327,14 +328,15 @@ test('a create recording choice belongs only to casual Rooms', () => {
   };
   assert({
     given:
-      'casual recording on, malformed choice, then ranked recording override',
-    should: 'accept only the casual boolean choice',
+      'casual recording released, malformed choice, then ranked recording override',
+    should: 'accept only the casual policy choice',
     actual: [
-      roomCreateSchema.safeParse({ ...create, recording: true }).success,
-      roomCreateSchema.safeParse({ ...create, recording: 'on' }).success,
+      roomCreateSchema.safeParse({ ...create, recordingPolicy: 'released' })
+        .success,
+      roomCreateSchema.safeParse({ ...create, recordingPolicy: 'on' }).success,
       roomCreateSchema.safeParse({
         ...create,
-        recording: true,
+        recordingPolicy: 'released',
         selection: {
           kind: 'ranked',
           formatId: 'value',

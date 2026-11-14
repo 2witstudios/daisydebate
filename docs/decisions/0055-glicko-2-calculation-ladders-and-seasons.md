@@ -9,7 +9,7 @@ When this record is accepted it amends, in its own `## Amendment` section,
 [ADR 0029](0029-competitive-schema-foundation.md) item 8 (the rating key
 gains `ladder`). Decisions marked open at the end
 were made on the owner's behalf and stay open until the owner confirms or
-overrules them.
+overrules them. Amended by [ADR 0131](0131-the-lobby-is-the-one-container.md): a season belongs to an organization.
 
 ## Context
 

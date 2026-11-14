@@ -86,13 +86,13 @@ describe('createBroadcastSweep', () => {
               release: { kind: 'delay', seconds: 300 },
               debatersReadChat: true,
             },
-            recording: false,
+            recordingPolicy: 'off',
           },
         },
         {
           roundId: 'recorded',
           competitionType: 'casual',
-          capture: { broadcast: null, recording: true },
+          capture: { broadcast: null, recordingPolicy: 'released' },
         },
       ],
     });

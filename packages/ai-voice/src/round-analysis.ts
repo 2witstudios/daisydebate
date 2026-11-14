@@ -4,7 +4,8 @@ import {
   roundAnalysisReportSchema,
   roundAnalysisSkills,
   roundAnalysisVersion,
-  type DebateSide,
+  type SeatRef,
+  type Side,
   type RoundAnalysisReport,
   type RoundAnalysisSkill,
 } from '@daisy/protocol';
@@ -45,6 +46,15 @@ const analysisInstructions = (withHistory: boolean) =>
       : 'There are no earlier rounds, so "patterns" is an empty array.',
   ].join('\n\n');
 
+/** The analysed seat in prose: `the Affirmative debater in slot 0`, `the speaker in slot 2`. */
+const analysedSeat = (sides: readonly Side[], seat: SeatRef): string => {
+  if (seat.kind !== 'side') return `the ${seat.kind} in slot ${seat.slot}`;
+  const label = sides.find((side) => side.key === seat.side)?.label;
+  if (label === undefined)
+    throw createAppError('INVARIANT', 'The analysed seat has no side');
+  return `the ${label} debater in slot ${seat.slot}`;
+};
+
 /**
  * The analysis of one debater seat from the frozen transcript evidence and,
  * when there is any, that debater's own earlier skill scores. Identity and
@@ -52,17 +62,19 @@ const analysisInstructions = (withHistory: boolean) =>
  */
 export function roundAnalysisMessages(input: {
   readonly evidence: TranscriptEvidenceInput;
-  readonly seat: { readonly side: DebateSide; readonly slot: number };
+  readonly seat: SeatRef;
+  /** The Round's sides, so a side's seat is named by its label. */
+  readonly sides: readonly Side[];
   readonly history: RoundAnalysisHistory;
 }): ChatMessage[] {
-  const { evidence, seat, history } = input;
+  const { evidence, seat, sides, history } = input;
   const withHistory = history.length > 0;
   return [
     { role: 'system', content: `${ANALYST_ROLE}\n${evidenceRules}` },
     {
       role: 'user',
       content: [
-        `Resolution: ${JSON.stringify(evidence.resolution)}. Analyse the ${seat.side} debater in slot ${seat.slot} only from this frozen evidence.`,
+        `Resolution: ${JSON.stringify(evidence.resolution)}. Analyse ${analysedSeat(sides, seat)} only from this frozen evidence.`,
         `Frozen evidence:\n${JSON.stringify(transcriptEvidence(evidence))}`,
         ...(withHistory
           ? [

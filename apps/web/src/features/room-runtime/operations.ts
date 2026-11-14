@@ -5,7 +5,7 @@ import { roomAiJudgeSeating } from './ai-judge-seating';
 import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
-import { aiSeatOf } from './ai-seat';
+import { aiServesSeat } from './ai-seat';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
@@ -31,6 +31,7 @@ import { spectatorClockAt } from '../spectating/spectator-clock';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
+  HostedRoom,
   RoomListQuery,
   RoomAssemblyState,
   RoomCatalogChoice,
@@ -39,7 +40,7 @@ import type {
   RoomCreate,
   PublishedResolution,
 } from '@daisy/protocol';
-import { isOpenRoomStatus } from '@daisy/protocol';
+import { isDebatingSeat, isOpenRoomStatus } from '@daisy/protocol';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
@@ -62,6 +63,7 @@ export type Store = Pick<
   | 'listRoomPage'
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
+  | 'listHostedRooms'
   | 'readContentWaiverStanding'
   | 'readWatchableRoundOfRoom'
 >;
@@ -96,7 +98,8 @@ export function createRoomRuntimeOperations({
     participants: state.participants.map((p) => ({
       ...p,
       eligible:
-        p.eligible && (p.kind === 'human' || aiSeats()[aiSeatOf(p.role)]),
+        p.eligible &&
+        (p.kind === 'human' || aiServesSeat(aiSeats(), p.seat.kind)),
     })),
   });
   const consentOf = async (
@@ -169,7 +172,7 @@ export function createRoomRuntimeOperations({
         store.readOwnCasualJudgeAllowance(
           caller,
           state.participants.some(
-            (seat) => seat.kind === 'bot' && seat.role !== 'judge',
+            (seat) => seat.kind === 'bot' && isDebatingSeat(seat.seat),
           ),
         ),
       ),
@@ -264,13 +267,18 @@ export function createRoomRuntimeOperations({
     } = await resolveRoomSelection(body, store, ids);
     if (
       competitionType === 'ranked' &&
-      (body.recording !== undefined || body.postRoundCall === true)
+      (body.recordingPolicy !== undefined || body.postRoundCall === true)
     )
       throw createRefusal('CONFLICT', 'illegal-config');
+    // A Room recorded at all is created with its Recording policy; `off` records nothing.
+    const recordingPolicy =
+      body.recordingPolicy === undefined || body.recordingPolicy === 'off'
+        ? null
+        : body.recordingPolicy;
     const createNotice = createNoticeOf(
       {
         competitionType,
-        capture: body.recording ? { broadcast: null, recording: true } : null,
+        capture: recordingPolicy ? { broadcast: null, recordingPolicy } : null,
       },
       body.noticeVersion,
     );
@@ -303,13 +311,14 @@ export function createRoomRuntimeOperations({
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
-      // A new Room holds its host alone; another Room holding them refuses it.
-      members: activeRoomMembers({
-        status: 'assembling',
-        roundRef: null,
-        hostActorId: caller.actorId,
-        participants: [],
-      }),
+      // A new Room holds the humans its cast seats, never a host without a
+      // seat; another Room holding one of them refuses it.
+      membersOf: (participants) =>
+        activeRoomMembers({
+          status: 'assembling',
+          roundRef: null,
+          participants,
+        }),
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,
@@ -318,9 +327,10 @@ export function createRoomRuntimeOperations({
         kind: publication.kind,
       },
       selection: recheck,
-      ...(body.recording
+      ...(recordingPolicy
         ? {
             recording: {
+              policy: recordingPolicy,
               authorize: (grants, now) =>
                 hostHoldsCasualCapture(grants, betaGrantsPremium, now),
             },
@@ -352,8 +362,7 @@ export function createRoomRuntimeOperations({
                   commandId: seat.commandId,
                   expectedVersion: state.version,
                   actorId: seat.actorId,
-                  role: seat.role,
-                  slot: seat.slot,
+                  seat: seat.seat,
                 },
                 // Seating never reads consent; Ready stays the human's act.
                 { available: true, readyActorIds: [] },
@@ -371,13 +380,13 @@ export function createRoomRuntimeOperations({
                         ...target,
                         id: seat.participantId,
                         consentVersion: 0,
-                        role: seat.role,
-                        slot: seat.slot,
+                        seat: seat.seat,
                         // Match the ordinary assign-seat command: profile
                         // eligibility is not enough while this seat cannot
                         // run (including direct create requests).
                         eligible:
-                          target.eligible && aiSeats()[aiSeatOf(seat.role)],
+                          target.eligible &&
+                          aiServesSeat(aiSeats(), seat.seat.kind),
                       }
                     : null,
                   drawStart: null,
@@ -413,6 +422,12 @@ export function createRoomRuntimeOperations({
       );
       return facts && projectActiveRoom(facts, caller.actorId);
     },
+    /** The open Rooms the caller hosts (TAB-6.16): hosting holds no seat. */
+    hostedRooms(caller: Caller): Promise<readonly HostedRoom[]> {
+      return store.listHostedRooms(caller, (account) =>
+        can(caller, 'room.list', account),
+      );
+    },
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {
       return (
@@ -420,14 +435,14 @@ export function createRoomRuntimeOperations({
           can(caller, 'room.list', account),
         )
       ).flatMap((p) =>
-        p.kind === 'bot' && p.seatRole
+        p.kind === 'bot' && p.aiRole
           ? [
               {
                 actorId: p.actorId,
                 kind: 'bot' as const,
                 label: p.label,
-                seatRole: p.seatRole,
-                eligible: p.eligible && aiSeats()[p.seatRole],
+                aiRole: p.aiRole,
+                eligible: p.eligible && aiSeats()[p.aiRole],
                 ...(p.persona ? { persona: p.persona } : {}),
                 ...(p.difficulty ? { difficulty: p.difficulty } : {}),
               },

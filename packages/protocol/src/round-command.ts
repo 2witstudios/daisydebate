@@ -5,7 +5,8 @@ import type { RoundView } from './round-view';
 import type { BetaAccessState } from './beta-access';
 
 const seated = (
-  type: 'start_prep' | 'start_speech' | 'yield' | 'interrupt' | 'forfeit',
+  type:
+    'start_prep' | 'start_speech' | 'yield' | 'interrupt' | 'forfeit' | 'leave',
 ) => z.strictObject({ type: z.literal(type), participantId: idSchema });
 /** A strike names the turn it means to take, so a stale form conflicts. */
 const strikeResolution = z.strictObject({
@@ -26,6 +27,7 @@ export const roundCommandEnvelopeSchema = z.strictObject({
     seated('yield'),
     seated('interrupt'),
     seated('forfeit'),
+    seated('leave'),
   ]),
 });
 export type RoundCommandEnvelope = z.infer<typeof roundCommandEnvelopeSchema>;

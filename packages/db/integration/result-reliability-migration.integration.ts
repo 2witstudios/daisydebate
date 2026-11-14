@@ -29,6 +29,10 @@ test(
         // column. A column a later folder adds is lent to the baseline for the
         // seeding alone and taken back before that folder applies.
         await f.sql`alter table rounds add column post_round_call boolean not null default false`;
+        // TAB-6's seat and outcome columns too, beside the role and outcome
+        // columns it backfills them from.
+        await f.sql`alter table rounds add column winning_side text, add column ranking jsonb, add column judging jsonb`;
+        await f.sql`alter table round_participants add column seat_kind text, add column side text`;
         const run = createBoundedTransaction({
           lane: testLane(f.sql, 4),
           now: performance.now,
@@ -63,6 +67,8 @@ test(
           const freezes =
             await f.sql`select round_id,revision,frontier,completeness from round_transcript_freezes order by round_id`;
           await f.sql`alter table rounds drop column post_round_call`;
+          await f.sql`alter table rounds drop column winning_side, drop column ranking, drop column judging`;
+          await f.sql`alter table round_participants drop column seat_kind, drop column side`;
           await scratch.migrate(() => true);
           const after =
             await f.sql`select round_id,judge_participant_id,freeze_revision,status,attempts,generation_deadline_at,pending_ballot,pending_ballot_agent_run_id,pending_ballot_epoch,pending_ballot_received_at,terminal_reason from round_judging_jobs order by round_id,judge_participant_id`;

@@ -15,7 +15,7 @@ import { postRoundCallOffered } from '../../../../features/post-round-call/offer
 import { MediaPageLink } from '../../../../ui/round-media/media-page-link';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type RoundView } from '@daisy/protocol';
+import { idSchema, isDebatingSeat, type RoundView } from '@daisy/protocol';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
@@ -109,7 +109,7 @@ export default async function RoundPage({
       (p) =>
         !('anonymous' in p) &&
         p.actorId === identity.principal.actorId &&
-        p.role !== 'judge',
+        isDebatingSeat(p.seat),
     );
   const [ballots, [analysis, transcript]] = await Promise.all([
     completedBallots(result.round, identity.state === 'member'),

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
 import { rules } from '../round-media/media-world-seats.test-support';
 import { credentialHash } from './stage-access';
 import { createStageRoute } from './stage-route';
@@ -36,7 +36,7 @@ const route = (
             currentStage: null,
             rules,
             participants: [],
-            checkpoint: emptyRuntimeCheckpoint,
+            checkpoint: emptyRuntimeCheckpointFor(rules),
             segments: [],
             ...round,
           },

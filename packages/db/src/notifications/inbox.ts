@@ -4,7 +4,7 @@ import {
   type EmailedNotificationKind,
   type NotificationKind,
   type RatingLadder,
-  type RoomSeatKind,
+  type SeatKind,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -91,7 +91,7 @@ export type InboxRow = {
   | {
       readonly kind: 'room_invitation';
       readonly roomId: string;
-      readonly seat: RoomSeatKind;
+      readonly seat: SeatKind;
       readonly host: string | null;
     }
   | {
@@ -107,7 +107,7 @@ type FlatRow = {
   kind: NotificationKind;
   roundId: string | null;
   roomId: string | null;
-  seat: RoomSeatKind | null;
+  seat: SeatKind | null;
   about: string | null;
   mode: CompetitionType | null;
   format: RatingLadder | null;

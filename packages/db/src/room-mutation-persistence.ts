@@ -1,7 +1,11 @@
 import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
-import { freezePostRoundCall, freezeRoomConfig } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  freezePostRoundCall,
+  freezeRoomConfig,
+} from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
@@ -11,6 +15,8 @@ import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { holdActiveRoomMembers } from './room-membership-persistence';
+import { frozenJudgingFor } from './round-judging-freeze';
+import { columnsOfSeat } from './seat-columns';
 
 import {
   appendRoomChanged,
@@ -82,8 +88,7 @@ export const persistRoomMutation = async (
         id: p.id,
         roomId: next.id,
         actorId: p.actorId,
-        role: p.role,
-        slot: p.slot,
+        ...columnsOfSeat(p.seat),
         readinessCommandId: p.consentCommandId,
         readinessVersion: p.consentVersion,
       })),
@@ -117,6 +122,8 @@ export const persistRoomMutation = async (
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
+      judging: frozenJudgingFor(next.rules),
+      runtimeState: emptyRuntimeCheckpointFor(next.rules),
       status: opens ? 'opening' : 'active',
       ...(opens
         ? {}
@@ -130,8 +137,7 @@ export const persistRoomMutation = async (
         id: p.id,
         roundId: roundId,
         actorId: p.actorId,
-        role: p.role,
-        slot: p.slot,
+        ...columnsOfSeat(p.seat),
       })),
     );
     if (mutation.draw) await insertRoundDraw(tx, roundId, mutation.draw);

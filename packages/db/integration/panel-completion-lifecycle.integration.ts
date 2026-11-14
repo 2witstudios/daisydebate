@@ -4,8 +4,8 @@ import { withFixture, rejectedBy } from './constraint-helpers';
 import { validRules } from './round-fixtures';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const zeroRules = { ...validRules, seats: { ...validRules.seats, judge: 0 } };
-const judgedRules = { ...zeroRules, seats: { ...zeroRules.seats, judge: 1 } };
+const zeroRules = { ...validRules, seats: { ...validRules.seats, judges: 0 } };
+const judgedRules = { ...zeroRules, seats: { ...zeroRules.seats, judges: 1 } };
 const start = new Date('2026-10-22T10:00:00.000Z');
 const end = new Date('2026-10-22T10:01:00.000Z');
 const completed = {
@@ -13,7 +13,8 @@ const completed = {
   started_at: start,
   completed_at: end,
   current_stage: null,
-  outcome: null,
+  winning_side: null,
+  ranking: null,
 };
 
 test('a judged casual Round completes without a winner only once the database clock reaches its persisted ballot deadline (DEC-201, DEC-207)', async () => {
@@ -35,7 +36,7 @@ test('a judged casual Round completes without a winner only once the database cl
       return rejectedBy(() =>
         f.sql.begin(
           (tx) =>
-            tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=${completedAt} where id=${id}`,
+            tx`update rounds set status='completed',current_stage=null,winning_side=null,ranking=null,completed_at=${completedAt} where id=${id}`,
         ),
       );
     };
@@ -79,11 +80,11 @@ test('actual judge seats cannot bypass or follow unjudged completion', async () 
     await f.seat(id, 'judge');
     const withJudge = await rejectedBy(() =>
       f.sql.begin(async (tx) => {
-        await tx`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,outcome=null where id=${id}`;
+        await tx`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,winning_side=null,ranking=null where id=${id}`;
       }),
     );
     await f.sql`delete from round_participants where round_id=${id}`;
-    await f.sql`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,outcome=null where id=${id}`;
+    await f.sql`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,winning_side=null,ranking=null where id=${id}`;
     const added = await rejectedBy(() => f.seat(id, 'judge'));
     assert({
       given: 'a zero-judge rules snapshot with contradictory actual judge rows',
@@ -117,7 +118,7 @@ test('a ranked Round may end with no winner (DEC-277) and practice is no competi
       }),
     );
     const [ranked] =
-      await f.sql`select status,outcome from rounds where id=${rankedId}`;
+      await f.sql`select status,winning_side as outcome from rounds where id=${rankedId}`;
     assert({
       given: 'completed ranked and practice rows without an outcome',
       should:
@@ -136,7 +137,7 @@ test('concurrent judge admission cannot commit behind an unjudged completion', a
       inserted = Promise.withResolvers<void>();
     const finish = Promise.withResolvers<void>();
     const completing = f.sql.begin(async (tx) => {
-      await tx`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,outcome=null where id=${roundId}`;
+      await tx`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,winning_side=null,ranking=null where id=${roundId}`;
       held.resolve();
       await finish.promise;
     });
@@ -144,7 +145,7 @@ test('concurrent judge admission cannot commit behind an unjudged completion', a
       await held.promise;
       const adding = rejectedBy(() =>
         f.sql.begin(async (tx) => {
-          await tx`insert into round_participants(id,round_id,actor_id,role,slot) values (${actorId},${roundId},${actorId},'judge',0)`;
+          await tx`insert into round_participants(id,round_id,actor_id,seat_kind,slot) values (${actorId},${roundId},${actorId},'judge',0)`;
           inserted.resolve();
         }),
       );

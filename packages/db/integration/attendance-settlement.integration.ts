@@ -125,7 +125,8 @@ async function onTimeFixture(
     id: participantId,
     round_id: roundId,
     actor_id: actorId,
-    role: 'affirmative',
+    seat_kind: 'side',
+    side: 'affirmative',
     slot: 0,
   });
   const command = async (type: string) => {

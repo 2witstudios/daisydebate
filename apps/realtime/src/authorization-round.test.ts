@@ -4,7 +4,7 @@ import {
   refuseAllReading,
 } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic, sideSeat } from '@daisy/protocol';
 import type { RoundAuthorizationFact } from '@daisy/auth/authorization';
 import { createRealtimeAuthorization } from './authorization';
 setupRitewayBun();
@@ -43,7 +43,7 @@ for (const mode of [
       participants:
         mode === 'private-outsider'
           ? []
-          : [{ actorId: principal.actorId, role: 'debater', slot: 0 }],
+          : [{ actorId: principal.actorId, seat: sideSeat('affirmative') }],
     };
     const resources = {
       clock: { now: () => new Date(epoch + elapsed).toISOString() },

@@ -2,7 +2,7 @@
 import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { broadcastDocumentStale } from '../../features/spectating/browser-policy';
-import { sideLabel } from './spectator-timeline-copy';
+import { seatLabelIn } from './spectator-timeline-copy';
 import { StreamVideo } from './stream-video';
 
 /** Longer than an ordinary rebuffer: past this the last frame is stale, not paused. */
@@ -68,6 +68,8 @@ export type BroadcastPlayerProps = {
   readonly stream: BroadcastStream;
   /** Ranked only (DEC-301): the snapshot carries none on any other Round. */
   readonly captions: SpectatorTimeline['captions'];
+  /** Who sits where, so a caption reads by its seat's own name. */
+  readonly seating: Pick<SpectatorTimeline, 'sides' | 'seats'>;
   readonly onFinished: () => void;
   readonly onFailed: () => void;
 };
@@ -79,6 +81,7 @@ export type BroadcastPlayerProps = {
 export function BroadcastPlayer({
   stream,
   captions,
+  seating,
   onFinished,
   onFailed,
 }: BroadcastPlayerProps) {
@@ -108,7 +111,7 @@ export function BroadcastPlayer({
           aria-hidden="true"
           className="rounded-md bg-surface-stage px-3 py-2 text-center text-base text-ink-on-media"
         >
-          {`${sideLabel[caption.side]}: ${caption.text}`}
+          {`${seatLabelIn(seating, caption.seat)}: ${caption.text}`}
         </p>
       ) : null}
       {captions.length > 0 ? (

@@ -9,6 +9,7 @@ import type {
 import {
   freezeRoomConfig,
   freezeRoomExecutionPlan,
+  isJudgeSeat,
   isOpenRoomStatus,
 } from '@daisy/protocol';
 import { namesHumanJudge, startBlocker } from './room-assembly-facts';
@@ -35,7 +36,7 @@ const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
     room.participants
       .filter(
         (p) =>
-          p.role === 'judge' &&
+          isJudgeSeat(p.seat) &&
           p.kind === 'human' &&
           !namesHumanJudge(room, actorId, p.actorId),
       )
@@ -48,7 +49,10 @@ const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
  * and lobby discovery both apply this one rule.
  */
 export const hostIdentityHidden = (
-  room: { readonly hostActorId: string; readonly hostIsHumanJudge: boolean },
+  room: {
+    readonly hostActorId: string | null;
+    readonly hostIsHumanJudge: boolean;
+  },
   viewerActorId: string,
 ) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
 
@@ -131,7 +135,7 @@ export function projectRoom(
       hostIsHumanJudge: room.participants.some(
         (p) =>
           p.actorId === room.hostActorId &&
-          p.role === 'judge' &&
+          isJudgeSeat(p.seat) &&
           p.kind === 'human',
       ),
     },
@@ -182,9 +186,8 @@ export function projectRoom(
       };
       return hidden.has(p.actorId)
         ? {
-            role: 'judge' as const,
+            seat: { kind: 'judge' as const, slot: p.seat.slot },
             kind: 'human' as const,
-            slot: p.slot,
             anonymous: true as const,
             ...state,
           }
@@ -194,8 +197,7 @@ export function projectRoom(
             kind: p.kind,
             label: p.label,
             consentVersion: p.consentVersion,
-            role: p.role,
-            slot: p.slot,
+            seat: p.seat,
             ...state,
           };
     }),
@@ -225,10 +227,12 @@ export function projectRoom(
     },
     seatsHeldFromViewer: isOpenRoomStatus(room.status)
       ? {
-          debater: seatsHeldFrom(room, actorId, 'debater', now),
+          side: seatsHeldFrom(room, actorId, 'side', now),
+          speaker: seatsHeldFrom(room, actorId, 'speaker', now),
           judge: seatsHeldFrom(room, actorId, 'judge', now),
+          moderator: seatsHeldFrom(room, actorId, 'moderator', now),
         }
-      : { debater: 0, judge: 0 },
+      : { side: 0, speaker: 0, judge: 0, moderator: 0 },
     capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
   };

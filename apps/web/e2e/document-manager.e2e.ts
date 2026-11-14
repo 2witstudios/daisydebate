@@ -1,3 +1,4 @@
+import { affirmativeSide, sameSeat, sideSeat } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import type { Page } from '@playwright/test';
 import { origin } from './support/accounts';
@@ -226,10 +227,8 @@ const journey = async (
     });
   } finally {
     if (roundId)
-      await forfeitOwnSeat(
-        context.request,
-        roundId,
-        (seat) => seat.role === 'affirmative' && seat.slot === 0,
+      await forfeitOwnSeat(context.request, roundId, (seat) =>
+        sameSeat(seat.seat, sideSeat(affirmativeSide)),
       );
     await settledLaunchAuth();
     await accounts.closeContexts();

@@ -1,10 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { judgeSeat, sideSeat, winnerOutcome } from '@daisy/protocol';
 import { recordResult, tallyRecord } from './debate-record';
 
 setupRitewayBun();
 
 const completed = (outcome: 'affirmative' | 'negative' | null) =>
-  ({ status: 'completed', outcome }) as const;
+  ({
+    status: 'completed',
+    outcome: outcome === null ? null : winnerOutcome(outcome),
+  }) as const;
 
 describe('recordResult', () => {
   test('a ruled Round', () => {
@@ -12,8 +16,8 @@ describe('recordResult', () => {
       given: 'a completed Round the affirmative won, from either debating side',
       should: 'be a win for the affirmative and a loss for the negative',
       actual: [
-        recordResult(completed('affirmative'), 'affirmative'),
-        recordResult(completed('affirmative'), 'negative'),
+        recordResult(completed('affirmative'), sideSeat('affirmative')),
+        recordResult(completed('affirmative'), sideSeat('negative')),
       ],
       expected: ['win', 'loss'],
     });
@@ -25,8 +29,8 @@ describe('recordResult', () => {
         'a Round the negative forfeited, which completes with the affirmative outcome',
       should: 'be a win for the side that stayed and a loss for the forfeiter',
       actual: [
-        recordResult(completed('affirmative'), 'affirmative'),
-        recordResult(completed('affirmative'), 'negative'),
+        recordResult(completed('affirmative'), sideSeat('affirmative')),
+        recordResult(completed('affirmative'), sideSeat('negative')),
       ],
       expected: ['win', 'loss'],
     });
@@ -37,8 +41,8 @@ describe('recordResult', () => {
       given: 'a completed Round with no outcome (no judges, or none ruled)',
       should: 'be no ruling, never a loss',
       actual: [
-        recordResult(completed(null), 'affirmative'),
-        recordResult(completed(null), 'negative'),
+        recordResult(completed(null), sideSeat('affirmative')),
+        recordResult(completed(null), sideSeat('negative')),
       ],
       expected: ['no-ruling', 'no-ruling'],
     });
@@ -50,10 +54,19 @@ describe('recordResult', () => {
         'an abandoned Round, a Round still scheduled or live, and a judge seat',
       should: 'not be part of the record at all',
       actual: [
-        recordResult({ status: 'abandoned', outcome: null }, 'affirmative'),
-        recordResult({ status: 'opening', outcome: null }, 'negative'),
-        recordResult({ status: 'active', outcome: null }, 'affirmative'),
-        recordResult(completed('affirmative'), 'judge'),
+        recordResult(
+          { status: 'abandoned', outcome: null },
+          sideSeat('affirmative'),
+        ),
+        recordResult(
+          { status: 'opening', outcome: null },
+          sideSeat('negative'),
+        ),
+        recordResult(
+          { status: 'active', outcome: null },
+          sideSeat('affirmative'),
+        ),
+        recordResult(completed('affirmative'), judgeSeat()),
       ],
       expected: [null, null, null, null],
     });
@@ -67,12 +80,21 @@ describe('tallyRecord', () => {
       should:
         'count wins and losses, and leave out no-ruling, abandoned and judged-from-the-bench Rounds',
       actual: tallyRecord([
-        { ...completed('affirmative'), role: 'affirmative', rounds: 3 },
-        { ...completed('negative'), role: 'affirmative', rounds: 2 },
-        { ...completed('negative'), role: 'negative', rounds: 1 },
-        { ...completed(null), role: 'affirmative', rounds: 4 },
-        { status: 'abandoned', outcome: null, role: 'negative', rounds: 5 },
-        { ...completed('affirmative'), role: 'judge', rounds: 6 },
+        {
+          ...completed('affirmative'),
+          seat: sideSeat('affirmative'),
+          rounds: 3,
+        },
+        { ...completed('negative'), seat: sideSeat('affirmative'), rounds: 2 },
+        { ...completed('negative'), seat: sideSeat('negative'), rounds: 1 },
+        { ...completed(null), seat: sideSeat('affirmative'), rounds: 4 },
+        {
+          status: 'abandoned',
+          outcome: null,
+          seat: sideSeat('negative'),
+          rounds: 5,
+        },
+        { ...completed('affirmative'), seat: judgeSeat(), rounds: 6 },
       ]),
       expected: { wins: 4, losses: 2 },
     });

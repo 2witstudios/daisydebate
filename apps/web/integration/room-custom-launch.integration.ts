@@ -13,38 +13,50 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
     const choice = await f.foundation();
     const definition = {
       ...choice.definition,
-      seats: { affirmative: 2, negative: 1, judge: 1 },
+      seats: {
+        ...choice.definition.seats,
+        sides: { affirmative: 2, negative: 1 },
+        judges: 1,
+      },
       segments: [
         {
           key: 'N1',
           label: 'Negative first',
           type: 'speech' as const,
-          side: 'negative' as const,
-          slot: 0,
+          speak: {
+            rights: 'one' as const,
+            seat: { kind: 'side' as const, side: 'negative', slot: 0 },
+          },
           defaultDurationMs: 61_000,
         },
         {
           key: 'A2',
           label: 'Affirmative second speaker',
           type: 'speech' as const,
-          side: 'affirmative' as const,
-          slot: 1,
+          speak: {
+            rights: 'one' as const,
+            seat: { kind: 'side' as const, side: 'affirmative', slot: 1 },
+          },
           defaultDurationMs: 62_000,
         },
         {
           key: 'A1',
           label: 'Affirmative first speaker',
           type: 'speech' as const,
-          side: 'affirmative' as const,
-          slot: 0,
+          speak: {
+            rights: 'one' as const,
+            seat: { kind: 'side' as const, side: 'affirmative', slot: 0 },
+          },
           defaultDurationMs: 63_000,
         },
         {
           key: 'NR',
           label: 'Negative reply',
           type: 'speech' as const,
-          side: 'negative' as const,
-          slot: 0,
+          speak: {
+            rights: 'one' as const,
+            seat: { kind: 'side' as const, side: 'negative', slot: 0 },
+          },
           defaultDurationMs: 64_000,
         },
       ],
@@ -81,11 +93,26 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
     // Requests cannot make a Room private (DEC-206); the stored state still masks.
     await f.sql`update rooms set visibility='private' where id=${view.id}`;
     view = await f.operations.view(f.host, view.id);
+    // A seat is what holds a person (TAB-6): the host takes theirs first.
+    view = (
+      await f.command(f.host, view, {
+        type: 'claim-seat',
+        seat: { kind: 'side', side: 'affirmative', slot: 0 },
+      })
+    ).view;
     const initial = await f.snapshot(view.id);
     await assertRejects({
-      given: 'a host already holding an open Room',
-      should: 'refuse another create as active-room',
-      actual: () => f.create(),
+      given: 'a host already seated in an open Room',
+      should: 'refuse another create that seats them as active-room',
+      actual: () =>
+        f.create({
+          cast: [
+            {
+              actorId: f.host.actorId,
+              seat: { kind: 'side', side: 'affirmative', slot: 0 },
+            },
+          ],
+        }),
       code: 'CONFLICT',
     });
     await assertRejects({
@@ -113,22 +140,24 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
         visibility: 'public',
       })
     ).view;
-    for (const [who, role, slot] of [
-      [f.host, 'affirmative', 0],
+    for (const [who, side, slot] of [
       [f.guest, 'negative', 0],
       [f.outsider, 'affirmative', 1],
     ] as const)
-      view = (await f.command(who, view, { type: 'claim-seat', role, slot }))
-        .view;
+      view = (
+        await f.command(who, view, {
+          type: 'claim-seat',
+          seat: { kind: 'side', side, slot },
+        })
+      ).view;
     const judge = (await f.operations.castChoices(f.host)).find(
-      (p) => p.eligible && p.seatRole === 'judge',
+      (p) => p.eligible && p.aiRole === 'judge',
     )!;
     view = (
       await f.command(f.host, view, {
         type: 'assign-seat',
         actorId: judge.actorId,
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge', slot: 0 },
       })
     ).view;
     await f.sql`update rooms set visibility='private' where id=${view.id}`;
@@ -157,7 +186,11 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
       should: 'freeze exact rules, config and four real identities',
       actual: [
         round.rules.seats,
-        round.rules.segments.map((s) => [s.key, s.side, s.slot, s.durationMs]),
+        round.rules.segments.map((s) => [
+          s.key,
+          s.speak.rights === 'one' ? s.speak.seat : null,
+          s.durationMs,
+        ]),
         round.config,
         round.participants.length,
         round.participants
@@ -168,10 +201,10 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
       expected: [
         definition.seats,
         [
-          ['N1', 'negative', 0, 61_000],
-          ['A2', 'affirmative', 1, 123_000],
-          ['A1', 'affirmative', 0, 63_000],
-          ['NR', 'negative', 0, 64_000],
+          ['N1', { kind: 'side', side: 'negative', slot: 0 }, 61_000],
+          ['A2', { kind: 'side', side: 'affirmative', slot: 1 }, 123_000],
+          ['A1', { kind: 'side', side: 'affirmative', slot: 0 }, 63_000],
+          ['NR', { kind: 'side', side: 'negative', slot: 0 }, 64_000],
         ],
         config,
         4,

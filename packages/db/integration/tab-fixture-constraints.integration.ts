@@ -40,6 +40,7 @@ const eventRoom = async (
     config: validConfig,
     execution_plan: {},
     rules_snapshot: validRules,
+    capture: { broadcast: null, recordingPolicy: 'officials' },
     status: 'assembling',
     ...rest,
   });

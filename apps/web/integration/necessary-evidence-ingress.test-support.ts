@@ -26,9 +26,9 @@ async function prepare(f: RoomFixture, maxOutstandingIntents: number) {
   const end = new Date(clock!.now.getTime() - 1000),
     start = new Date(end.getTime() - 1000);
   // Historical local crypto/storage fixture, not a played/heard-media journey.
-  await f.sql`update rounds set status='completed',current_stage=null,outcome='affirmative',started_at=${start},completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)},attendance_resolution_cutoff_at=${new Date(end.getTime() + 3600000)},version=greatest(version,2) where id=${roundId}`;
+  await f.sql`update rounds set status='completed',current_stage=null,winning_side='affirmative',started_at=${start},completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)},attendance_resolution_cutoff_at=${new Date(end.getTime() + 3600000)},version=greatest(version,2) where id=${roundId}`;
   const [seat] =
-    await f.sql`select id from round_participants where round_id=${roundId} and role='affirmative'`;
+    await f.sql`select id from round_participants where round_id=${roundId} and seat_kind='side' and side='affirmative'`;
   const segmentId = createId(),
     sessionId = createId(),
     workerId = createId(),

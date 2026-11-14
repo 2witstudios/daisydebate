@@ -19,7 +19,7 @@ const floor = {
   kind: 'floor',
   segment: 'speech',
   label: 'First affirmative',
-  side: 'affirmative',
+  lead: { kind: 'side', side: 'affirmative', slot: 0 },
   remainingMs: 1000,
 } as const;
 const timeline = (over: Partial<SpectatorTimeline>): SpectatorTimeline => ({
@@ -29,6 +29,7 @@ const timeline = (over: Partial<SpectatorTimeline>): SpectatorTimeline => ({
   broadcast: { state: 'on_air', stream },
   recording: 'none',
   resolution: null,
+  sides: [],
   seats: [],
   stage: floor,
   result: null,

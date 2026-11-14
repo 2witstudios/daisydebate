@@ -6,7 +6,10 @@ import {
   type RoomListQuery,
   type RoomListEntry,
   type RoomListPage,
+  type SeatKind,
+  type SeatRef,
 } from '@daisy/protocol';
+import { seatOfColumns } from './seat-columns';
 import {
   sharedAccount,
   type Caller,
@@ -18,14 +21,13 @@ import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 type Seat = {
   readonly actorId: string;
-  readonly role: string;
-  readonly slot: number;
+  readonly seat: SeatRef;
 };
 export type RoomDiscoveryFact = Pick<
   RoomListEntry,
   'id' | 'version' | 'visibility' | 'status'
 > & {
-  readonly hostActorId: string;
+  readonly hostActorId: string | null;
   /** The host occupies a human judge seat; who may name them is the caller's rule. */
   readonly hostIsHumanJudge: boolean;
   readonly participants: readonly Seat[];
@@ -41,7 +43,7 @@ export type RoomDiscoveryFact = Pick<
 };
 const hostLabel = sql`case when h.kind = 'bot' then coalesce(b.name,'') when u.deleted_at is null then coalesce(u.username,'') else '' end`;
 const joins = sql`left join actors h on h.id=r.host_actor_id left join users u on u.id=h.user_id left join bot_profiles b on b.actor_id=h.id`;
-const hostIsHumanJudge = sql`(h.kind='human' and exists(select 1 from room_participants j where j.room_id=r.id and j.actor_id=r.host_actor_id and j.role='judge'))`;
+const hostIsHumanJudge = sql`(h.kind='human' and exists(select 1 from room_participants j where j.room_id=r.id and j.actor_id=r.host_actor_id and j.seat_kind='judge'))`;
 const visible = (caller: Caller) =>
   sql`(r.visibility='public' or r.host_actor_id=${caller.actorId} or exists(select 1 from room_participants p where p.room_id=r.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
 /**
@@ -66,7 +68,7 @@ const statusScope = (status: RoomListQuery['status']) => ({
 const modeMatches = (mode: RoomListQuery['mode']) =>
   mode === undefined ? sql`true` : sql`r.competition_type=${mode}`;
 /** Seat totals and the format label, read with the page; never a lock target. */
-const seatCount = sql`((r.rules_snapshot->'seats'->>'affirmative')::int+(r.rules_snapshot->'seats'->>'negative')::int+(r.rules_snapshot->'seats'->>'judge')::int)`;
+const seatCount = sql`((select coalesce(sum(n.count::int),0) from jsonb_each_text(r.rules_snapshot->'seats'->'sides') as n(side,count))::int+(r.rules_snapshot->'seats'->>'speakers')::int+(r.rules_snapshot->'seats'->>'judges')::int+(r.rules_snapshot->'seats'->>'moderators')::int)`;
 const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
 /** The host's rating where the audience may know it: before any posting still held by the timeline. */
 const hostRating = (clock: SpectatorClock) => {
@@ -152,9 +154,9 @@ export async function discoverRooms(
   const rows = (await tx.execute(sql`
   select r.id,r.version,r.title,coalesce(d.resolution,r.topic) as topic,r.visibility,r.host_actor_id as "hostActorId",
    ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
-   p.actor_id is not null as seated,p.role,p.slot,
+   p.actor_id is not null as seated,p.seat_kind as "seatKind",p.side,p.slot,
    case when r.status='started' then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
-   d.version as "roundVersion",d.created_by_actor_id as "roundCreator",d.visibility as "roundVisibility",rp.role as "roundRole",rp.slot as "roundSlot",
+   d.version as "roundVersion",d.created_by_actor_id as "roundCreator",d.visibility as "roundVisibility",rp.seat_kind as "roundSeatKind",rp.side as "roundSide",rp.slot as "roundSlot",
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
    case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
    case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
@@ -174,21 +176,33 @@ export async function discoverRooms(
       stage: NonNullable<RoomListEntry['live']>['stage'];
       startedAt: Date | string | null;
     } | null;
-    role: string | null;
+    seatKind: SeatKind | null;
+    side: string | null;
     slot: number | null;
     roundVersion: number;
     roundCreator: string | null;
     roundVisibility: RoomListEntry['visibility'];
-    roundRole: string | null;
+    roundSeatKind: SeatKind | null;
+    roundSide: string | null;
     roundSlot: number | null;
-    hostActorId: string;
+    hostActorId: string | null;
     hostIsHumanJudge: boolean;
   })[];
   const fact = (r: (typeof rows)[number]): RoomDiscoveryFact => ({
     ...r,
-    participants: r.seated
-      ? [{ actorId: caller.actorId, role: r.role!, slot: r.slot! }]
-      : [],
+    participants:
+      r.seated && r.seatKind && typeof r.slot === 'number'
+        ? [
+            {
+              actorId: caller.actorId,
+              seat: seatOfColumns({
+                seatKind: r.seatKind,
+                side: r.side,
+                slot: r.slot,
+              }),
+            },
+          ]
+        : [],
     round: r.roundRef
       ? {
           kind: 'round',
@@ -197,15 +211,19 @@ export async function discoverRooms(
           revision: r.roundVersion,
           createdByActorId: r.roundCreator,
           visibility: r.roundVisibility,
-          participants: r.roundRole
-            ? [
-                {
-                  actorId: caller.actorId,
-                  role: r.roundRole,
-                  slot: r.roundSlot!,
-                },
-              ]
-            : [],
+          participants:
+            r.roundSeatKind && typeof r.roundSlot === 'number'
+              ? [
+                  {
+                    actorId: caller.actorId,
+                    seat: seatOfColumns({
+                      seatKind: r.roundSeatKind,
+                      side: r.roundSide,
+                      slot: r.roundSlot,
+                    }),
+                  },
+                ]
+              : [],
         }
       : null,
   });
@@ -227,12 +245,14 @@ export async function discoverRooms(
     .map(
       ({
         hostIsHumanJudge: _hostJudge,
-        role: _role,
+        seatKind: _seatKind,
+        side: _side,
         slot: _slot,
         roundVersion: _version,
         roundCreator: _creator,
         roundVisibility: _visibility,
-        roundRole: _roundRole,
+        roundSeatKind: _roundSeatKind,
+        roundSide: _roundSide,
         roundSlot: _roundSlot,
         ...r
       }) => r,

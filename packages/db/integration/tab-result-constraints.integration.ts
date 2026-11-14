@@ -456,7 +456,9 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
         submitted_at: at(50),
         ...rest,
       });
+    // A host's definition is pinned by id and version; it names no Daisy rubric.
     await writeBallot(ballot, {
+      rubric_version: null,
       ballot_definition_id: ids.ballotDefinition,
       ballot_definition_version: 1,
     });

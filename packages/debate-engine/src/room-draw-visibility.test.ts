@@ -1,4 +1,4 @@
-import type { RoomAssemblyState } from '@daisy/protocol';
+import { judgeSeat, type RoomAssemblyState } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { executeRoomCommand, projectRoom } from './room-assembly';
 import { projectOpening } from './round-opening';
@@ -25,8 +25,7 @@ const judge = {
   actorId: 'judge',
   label: 'Judge',
   kind: 'human' as const,
-  role: 'judge' as const,
-  slot: 0,
+  seat: judgeSeat(0),
   eligible: true,
   consentVersion: 0,
   consentCommandId: 'r3',
@@ -258,7 +257,7 @@ test('between strikes, no one outside the debaters receives a line, the seed or 
     id: 'p4',
     actorId: 'bot-judge',
     kind: 'bot' as const,
-    slot: 1,
+    seat: judgeSeat(1),
     consentCommandId: null,
   };
   const start = opened(drawRoom());

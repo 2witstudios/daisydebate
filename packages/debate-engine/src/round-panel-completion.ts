@@ -1,12 +1,15 @@
 import { captureWithinLimit, type FrozenCapture } from '@daisy/protocol';
 import { createInvariantError } from '@daisy/errors';
-import type {
-  DebateSide,
-  JudgingPanel,
-  JudgingPanelFacts,
-  JudgeRuling,
-  PanelRuling,
-  RoundPanelCompletion,
+import {
+  isJudgeSeat,
+  type JudgingPanel,
+  type JudgingPanelFacts,
+  type JudgeRuling,
+  type PanelRuling,
+  type RoundJudging,
+  type RoundOutcome,
+  type RoundPanelCompletion,
+  type SeatRef,
 } from '@daisy/protocol';
 import { aiSeatStanding } from './judging-job-rules';
 import { debateInvariantIds } from './invariant-ids';
@@ -26,7 +29,7 @@ export type PanelDecision =
   | {
       readonly kind: 'complete';
       readonly ruling: PanelRuling;
-      readonly outcome: DebateSide | null;
+      readonly outcome: RoundOutcome | null;
       /** Judge seats recorded as giving no ruling. */
       readonly noRuling: readonly string[];
     };
@@ -126,17 +129,23 @@ function awaitedSeat(
     : null;
 }
 
+/** What the seated judges rule on: nothing with no judge, or nothing to judge. */
+const judgedBy = (judging: RoundJudging, judgeSeatIds: readonly string[]) =>
+  judgeSeatIds.length === 0 ? null : judging;
+
 /**
  * When a Round without a full set of ballots completes, on every ladder. A
- * zero-judge Round completes at once. Otherwise it waits only on a judge who
+ * zero-judge Round, or one with nothing to judge, completes at once. Otherwise it waits only on a judge who
  * can still rule: a human seat before the persisted ballot deadline (DEC-201,
  * DEC-207), or an AI seat whose job is still running or holds a validated
  * ballot (DEC-275). A failed AI judge never holds the Round and never blocks a
- * human ballot (DEC-277). Then the submitted ballots decide by the existing
- * rule; with none, or a tie, there is no outcome (DEC-277), and the ruling says
- * why. Nobody can rule twice, so a tie with every seat ruled ends at once.
+ * human ballot (DEC-277). Then the submitted ballots decide by the frozen
+ * panel rule; with none, fewer than its quorum, or no majority, there is no
+ * outcome (DEC-277), and the ruling says why. Nobody can rule twice, so a
+ * split with every seat ruled ends at once.
  */
 export function decidePanelCompletion(input: {
+  readonly judging: RoundJudging;
   readonly completeness: 'complete' | 'incomplete';
   readonly panel: JudgingPanel;
   readonly ballots: readonly JudgeRuling[];
@@ -144,7 +153,8 @@ export function decidePanelCompletion(input: {
 }): PanelDecision {
   const { panel } = input;
   const judgeSeatIds = panelSeatIds(panel);
-  if (judgeSeatIds.length === 0)
+  const judging = judgedBy(input.judging, judgeSeatIds);
+  if (judging === null)
     return {
       kind: 'complete',
       ruling: 'unjudged',
@@ -159,9 +169,20 @@ export function decidePanelCompletion(input: {
     window !== null && input.nowMs < Date.parse(window.deadlineAt);
   const awaited = awaitedSeat(panel, ruled, humanWindowOpen);
   if (awaited) return { kind: 'pending', waiting: awaited };
+  if (submitted.length > 0 && submitted.length < judging.panel.quorum)
+    return {
+      kind: 'complete',
+      ruling: 'below-quorum',
+      outcome: null,
+      noRuling,
+    };
   const outcome = submitted.length
     ? deriveRoundOutcome(
-        [...ruled].map((id) => ({ id, role: 'judge' })),
+        judging,
+        [...ruled].map((id, slot) => ({
+          id,
+          seat: { kind: 'judge' as const, slot },
+        })),
         submitted,
       )
     : null;
@@ -206,7 +227,7 @@ const isClosedActiveRound = (
   c: CommandContext,
   judgeSeatIds: readonly string[],
 ) =>
-  c.rules.seats.judge === judgeSeatIds.length &&
+  c.rules.seats.judges === judgeSeatIds.length &&
   c.on.lifecycle().status === 'active' &&
   c.on.openRow() === undefined &&
   debateIsOver(c);
@@ -215,12 +236,13 @@ const isClosedActiveRound = (
 export function applyPanelCompletion(
   c: CommandContext,
   input: RoundPanelCompletion,
-  participants: readonly { readonly id: string; readonly role: string }[],
+  participants: readonly { readonly id: string; readonly seat: SeatRef }[],
 ): void {
   const judgeSeatIds = participants
-    .filter((seat) => seat.role === 'judge')
-    .map((seat) => seat.id);
+    .filter((participant) => isJudgeSeat(participant.seat))
+    .map((participant) => participant.id);
   const decision = decidePanelCompletion({
+    judging: input.judging,
     completeness: input.completeness,
     panel: input.panel,
     ballots: input.ballots,

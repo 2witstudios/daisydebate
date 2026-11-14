@@ -13,13 +13,17 @@ const pending = [
     ...pendingInvitation,
     id: 'j'.repeat(24),
     invitee: 'rival',
-    seat: 'debater' as const,
+    seat: 'side' as const,
   },
 ];
 type Pending = (typeof pending)[number][];
 const render = (invitations: Pending) =>
   renderToStaticMarkup(
-    <InvitePeople invitations={invitations} action={action} />,
+    <InvitePeople
+      invitations={invitations}
+      action={action}
+      competitor="side"
+    />,
   );
 const openerLabel = (html: string) =>
   html
@@ -73,7 +77,7 @@ describe('InvitePeople', () => {
         html.includes('their seat is held for 24 hours'),
         html.includes('name="intent" value="invite"'),
         html.includes('name="username"'),
-        /<input(?=[^>]*value="debater")(?=[^>]*checked)[^>]*>/.test(html),
+        /<input(?=[^>]*value="side")(?=[^>]*checked)[^>]*>/.test(html),
         html.includes('name="seat" value="judge"'),
         html.includes('>Send invitation</button>'),
         html.includes('>Done</button>'),

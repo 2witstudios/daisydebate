@@ -1,7 +1,12 @@
-import { ballotSchema, caseMapSchema } from '@daisy/protocol';
+import {
+  ballotSchemaFor,
+  caseMapSchema,
+  type BallotDefinition,
+  type BallotSubjects,
+} from '@daisy/protocol';
 import { z } from 'zod';
 
-type JsonSchema = { [key: string]: unknown };
+export type JsonSchema = { [key: string]: unknown };
 
 /** A record keyed by an enum, as explicit required fields a strict endpoint can enforce. */
 function explicitProperties(schema: JsonSchema): JsonSchema {
@@ -33,6 +38,7 @@ function endpointSubset(input: JsonSchema): JsonSchema {
     maximum,
     maxLength,
     maxItems,
+    multipleOf,
     const: constant,
     ...rest
   } = schema;
@@ -42,9 +48,10 @@ function endpointSubset(input: JsonSchema): JsonSchema {
   delete subset['minItems'];
   if (constant !== undefined) subset['enum'] = [constant];
   if (typeof minimum === 'number' && typeof maximum === 'number') {
+    const step = typeof multipleOf === 'number' ? multipleOf : 1;
     subset['enum'] = Array.from(
-      { length: maximum - minimum + 1 },
-      (_, offset) => minimum + offset,
+      { length: Math.floor((maximum - minimum) / step + 1e-9) + 1 },
+      (_, offset) => Number((minimum + offset * step).toFixed(6)),
     );
   }
   if (typeof maxLength === 'number')
@@ -63,12 +70,21 @@ function endpointSubset(input: JsonSchema): JsonSchema {
 }
 
 /**
- * The request's output schema, derived from the one ballot contract so the two
- * cannot drift. Citations are optional in the contract and never requested.
+ * A ballot definition's request schema over one Round's subjects, derived
+ * from the one ballot contract (`ballotSchemaFor`) so the two cannot drift.
+ * Citations are optional in the contract and never requested.
  */
-export const ballotWireSchema: JsonSchema = endpointSubset(
-  z.toJSONSchema(ballotSchema.omit({ citations: true }), { io: 'input' }),
-);
+export const ballotWireSchemaFor = (
+  definition: BallotDefinition,
+  subjects: BallotSubjects,
+): JsonSchema => {
+  const contract = z.toJSONSchema(ballotSchemaFor(definition, subjects), {
+    io: 'input',
+  });
+  const properties = { ...(contract['properties'] as JsonSchema) };
+  delete properties['citations'];
+  return endpointSubset({ ...contract, properties });
+};
 
 /** The case map's request schema, derived from its contract the same way. */
 export const caseMapWireSchema: JsonSchema = endpointSubset(

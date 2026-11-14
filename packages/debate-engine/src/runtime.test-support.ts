@@ -63,20 +63,17 @@ export const oneOnOneSeats = [
   {
     id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
     actorId: affirmativeActor,
-    role: 'affirmative',
-    slot: 0,
+    seat: { kind: 'side', side: 'affirmative', slot: 0 },
   },
   {
     id: 'q5x2v8t0r4p6n2b8c1z7k3m9',
     actorId: negativeActor,
-    role: 'negative',
-    slot: 0,
+    seat: { kind: 'side', side: 'negative', slot: 0 },
   },
   {
     id: 'd6y3h9j1f5a7s3g8l2q6e4u0i',
     actorId: judgeActor,
-    role: 'judge',
-    slot: 0,
+    seat: { kind: 'judge', slot: 0 },
   },
 ] as const;
 

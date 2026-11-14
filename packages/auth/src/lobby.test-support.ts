@@ -1,3 +1,4 @@
+import { affirmativeSide, judgeSeat, sideSeat } from '@daisy/protocol';
 import {
   permissionSchema,
   type AuthorizationCapability,
@@ -227,8 +228,8 @@ export const eventOwner = (over: Partial<EventOwner> = {}): EventOwner => ({
   ...over,
 });
 const seats = [
-  { actorId: 'seat', role: 'affirmative', slot: 0 },
-  { actorId: 'judge', role: 'judge', slot: 2 },
+  { actorId: 'seat', seat: sideSeat(affirmativeSide) },
+  { actorId: 'judge', seat: judgeSeat(2) },
 ];
 export const room = (over: Partial<RoomFact> = {}): RoomFact => ({
   kind: 'room',

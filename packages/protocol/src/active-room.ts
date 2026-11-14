@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { idSchema, type DebateRole } from './primitives';
+import { idSchema } from './primitives';
+import { seatKinds, type SeatKind } from './seats';
 import type { RoomRoundLink } from './room-contract';
 
 /**
@@ -29,7 +30,7 @@ export const activeRoomSchema = z
     id: idSchema,
     title: z.string().min(1),
     phase: z.enum(activeRoomPhases),
-    role: z.enum(['host', 'debater', 'judge']),
+    role: z.enum(['host', ...seatKinds]),
     /** Holds a seat in this Room; `host` outranks the seat in `role`. */
     seated: z.boolean(),
     href: z.string(),
@@ -48,9 +49,9 @@ export type ActiveRoomFacts = RoomRoundLink & {
   readonly room: {
     readonly id: string;
     readonly title: string;
-    readonly hostActorId: string;
+    readonly hostActorId: string | null;
   };
-  readonly seatRole: DebateRole | null;
+  readonly seatKind: SeatKind | null;
   /** Whether the launched Round's last speech has ended. */
   readonly debateEnded: boolean;
 };

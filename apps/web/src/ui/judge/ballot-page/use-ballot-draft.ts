@@ -16,6 +16,7 @@ import {
 } from '../../../features/judge/ballot-draft';
 import { formValues } from '../../../features/forms/form-state';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
+import type { BallotPlan } from '../../../features/judge/ballot-plan';
 
 const tabStorage = (): Storage | null => {
   try {
@@ -47,6 +48,7 @@ const draftAtMount = (key: string): string | null => {
  * always win.
  */
 export function useBallotDraft(
+  plan: BallotPlan,
   view: RoundBallotRead,
   display: BallotDisplay,
   posted: Readonly<Record<string, string>>,
@@ -56,14 +58,14 @@ export function useBallotDraft(
   readonly save: (form: HTMLFormElement) => void;
 } {
   const key = view.own
-    ? ballotDraftKey(view.round.id, view.own.participantId)
+    ? ballotDraftKey(plan, view.round.id, view.own.participantId)
     : null;
   const raw = useSyncExternalStore(
     noSubscription,
     () => (key && display === 'open' ? draftAtMount(key) : null),
     () => null,
   );
-  const draft = useMemo(() => parseBallotDraft(raw), [raw]);
+  const draft = useMemo(() => parseBallotDraft(plan, raw), [plan, raw]);
   // Edits are written at most once per interval, and at once when the page
   // hides or the ballot leaves, so typing never serializes on every key.
   const pending = useRef<HTMLFormElement | null>(null);
@@ -78,8 +80,8 @@ export function useBallotDraft(
     cancel();
     const storage = tabStorage();
     if (form && key && storage)
-      writeBallotDraft(storage, key, formValues(new FormData(form)));
-  }, [key, cancel]);
+      writeBallotDraft(plan, storage, key, formValues(new FormData(form)));
+  }, [plan, key, cancel]);
   const save = useCallback(
     (form: HTMLFormElement) => {
       pending.current = form;

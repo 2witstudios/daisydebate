@@ -1,5 +1,4 @@
-import type { FrozenCaptureGaps } from '@daisy/protocol';
-import type { DebateSide } from '@daisy/protocol';
+import type { FrozenCaptureGaps, SeatRef } from '@daisy/protocol';
 
 /**
  * A Round's frozen transcript as prompt input: sides, seats and lines, never
@@ -12,8 +11,7 @@ export type TranscriptEvidenceInput = {
   readonly completeness: 'complete' | 'incomplete';
   readonly coverage: readonly {
     readonly sequence: number;
-    readonly side: DebateSide;
-    readonly slot: number;
+    readonly seat: SeatRef;
     readonly state: string;
     readonly chunkCount: number;
     readonly sealedChunkCount: number | null;
@@ -21,8 +19,7 @@ export type TranscriptEvidenceInput = {
   /** Stretches of speech with no transcript: a platform fault, stated to the judge. */
   readonly gaps: readonly {
     readonly sequence: number;
-    readonly side: DebateSide;
-    readonly slot: number;
+    readonly seat: SeatRef;
     readonly fromOffsetMs: number;
     readonly untilOffsetMs: number;
     readonly cause: FrozenCaptureGaps['gaps'][number]['cause'];
@@ -30,8 +27,7 @@ export type TranscriptEvidenceInput = {
   readonly utterances: readonly {
     readonly segmentSequence: number;
     readonly sequence: number;
-    readonly side: DebateSide;
-    readonly slot: number;
+    readonly seat: SeatRef;
     readonly text: string;
     readonly complete: boolean;
     /** Cut off as it was spoken: the speaker stopped there. */
@@ -50,26 +46,37 @@ const gapStatement = {
     `No audio was captured ${span}. This may be silence or a muted microphone; draw nothing from it.`,
 } as const;
 
+/**
+ * A seat as the evidence states it: a side's seat by its side key and slot,
+ * and an unsided seat by its kind and slot.
+ */
+const seatFields = (seat: SeatRef) =>
+  seat.kind === 'side'
+    ? { side: seat.side, slot: seat.slot }
+    : { seat: seat.kind, slot: seat.slot };
+
+/** A seat's label in a numbered line: `affirmative 0`, `speaker 2`. */
+const seatLabel = (fields: ReturnType<typeof seatFields>) =>
+  `${'side' in fields ? fields.side : fields.seat} ${fields.slot}`;
+
 /** The freeze as prompt evidence: sides, seats and lines in played order, nothing else. */
 export function transcriptEvidence(input: TranscriptEvidenceInput) {
   return {
     revision: input.revision,
     completeness: input.completeness,
     coverage: input.coverage
-      .map(({ sequence, side, slot, state, chunkCount, sealedChunkCount }) => ({
+      .map(({ sequence, seat, state, chunkCount, sealedChunkCount }) => ({
         sequence,
-        side,
-        slot,
+        ...seatFields(seat),
         state,
         chunkCount,
         sealedChunkCount,
       }))
       .sort((a, b) => a.sequence - b.sequence),
     captureGaps: input.gaps
-      .map(({ sequence, side, slot, fromOffsetMs, untilOffsetMs, cause }) => ({
+      .map(({ sequence, seat, fromOffsetMs, untilOffsetMs, cause }) => ({
         sequence,
-        side,
-        slot,
+        ...seatFields(seat),
         statement: gapStatement[cause](
           `from ${seconds(fromOffsetMs)} to ${seconds(untilOffsetMs)} into this speech`,
         ),
@@ -77,19 +84,10 @@ export function transcriptEvidence(input: TranscriptEvidenceInput) {
       .sort((a, b) => a.sequence - b.sequence),
     utterances: input.utterances
       .map(
-        ({
+        ({ segmentSequence, sequence, seat, text, complete, interrupted }) => ({
           segmentSequence,
           sequence,
-          side,
-          slot,
-          text,
-          complete,
-          interrupted,
-        }) => ({
-          segmentSequence,
-          sequence,
-          side,
-          slot,
+          ...seatFields(seat),
           text,
           complete,
           interrupted,
@@ -110,7 +108,8 @@ export const evidenceRules =
 const oneLine = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 /**
- * The same freeze as numbered lines, `[segment.line] side slot: text`, for
+ * The same freeze as numbered lines, `[segment.line] seat: text` (a seat
+ * as `affirmative 0` or `speaker 2`), for
  * prompts whose answers cite lines (ADR 0125): the case map and the final
  * judge. Each utterance's whitespace runs collapse to one space, so a line
  * is always exactly one utterance. Capture gaps follow, each stated as the
@@ -125,16 +124,15 @@ export function transcriptLines(input: TranscriptEvidenceInput): string {
       line.complete ? '' : 'incomplete',
     ].filter(Boolean);
     const mark = marks.length ? ` (${marks.join(', ')})` : '';
-    return `[${line.segmentSequence}.${line.sequence}] ${line.side} ${line.slot}${mark}: ${oneLine(line.text)}`;
+    return `[${line.segmentSequence}.${line.sequence}] ${seatLabel(line)}${mark}: ${oneLine(line.text)}`;
   });
   const gaps = evidence.captureGaps.map(
-    (gap) => `[${gap.sequence}] ${gap.side} ${gap.slot}: ${gap.statement}`,
+    (gap) => `[${gap.sequence}] ${seatLabel(gap)}: ${gap.statement}`,
   );
   const partial = evidence.coverage
     .filter((speech) => speech.state === 'partial')
     .map(
-      (speech) =>
-        `[${speech.sequence}] ${speech.side} ${speech.slot}: ${speech.state}`,
+      (speech) => `[${speech.sequence}] ${seatLabel(speech)}: ${speech.state}`,
     );
   return [
     `Transcript (${evidence.completeness}), one line per utterance as [segment.line] side slot: text:`,

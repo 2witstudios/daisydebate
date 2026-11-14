@@ -47,7 +47,7 @@ export const roundAnalysisReads = ({
         .select({
           id: roundParticipants.id,
           actorId: roundParticipants.actorId,
-          role: roundParticipants.role,
+          seatKind: roundParticipants.seatKind,
           userId: actors.userId,
         })
         .from(roundParticipants)
@@ -60,7 +60,7 @@ export const roundAnalysisReads = ({
         (p) =>
           p.actorId === input.caller.actorId &&
           p.userId === input.caller.userId &&
-          ['affirmative', 'negative'].includes(p.role),
+          p.seatKind === 'side',
       );
       if (!seat) throw createAppError('NOT_FOUND');
       // The shared selector accepts user-backed actors, not accountless bot seats.

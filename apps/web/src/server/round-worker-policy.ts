@@ -2,6 +2,7 @@ import { judgeContractVersion } from '@daisy/ai-voice';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
 import type { ServerConfig } from '@daisy/config';
+import type { AiRole } from '@daisy/protocol';
 import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 
@@ -111,10 +112,7 @@ export const mediaConfigured = (
   ].every(Boolean);
 
 /** The AI seats a deployment can actually serve; a Room offers no other. */
-export type AiSeatAvailability = {
-  readonly debater: boolean;
-  readonly judge: boolean;
-};
+export type AiSeatAvailability = Readonly<Record<AiRole, boolean>>;
 
 /**
  * Each seat from its own key, policy and capacity (ISSUE-1017). A key alone

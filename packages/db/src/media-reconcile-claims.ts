@@ -89,7 +89,7 @@ const activeSession = (row: ActiveSessionRow) => {
       activePrep: prep
         ? {
             startedAt: prep.started_at,
-            consumedMs: row.runtime_state.prep_consumed_ms[prep.side],
+            consumedMs: row.runtime_state.prep_consumed_ms[prep.side] ?? 0,
           }
         : null,
       stops: row.runtime_state.clock_stops,

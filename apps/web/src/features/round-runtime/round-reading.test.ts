@@ -1,10 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  floorSideOf,
+  floorSeatOf,
   isLiveRound,
   isSeat,
   judgeKindOf,
-  sideName,
+  sameTeam,
 } from './round-reading';
 import { observedRoundOf } from './observed-round';
 import { liveRoundOf } from '../../ui/debate-room/live-round';
@@ -22,9 +22,8 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
   assert({
     given: 'the shared round reading',
     should:
-      'name the sides, tell seats from the judge, treat scheduled and active as live and read the judge kind',
+      'tell competitor seats from the judge, treat scheduled and active as live and read the judge kind',
     actual: [
-      sideName,
       view.participants.map(isSeat),
       (['opening', 'active', 'completed', 'abandoned'] as const).map((status) =>
         isLiveRound({ ...view, status }),
@@ -32,12 +31,11 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
       judgeKindOf(view),
       judgeKindOf({
         ...view,
-        participants: view.participants.filter((p) => p.role !== 'judge'),
+        participants: view.participants.filter((p) => p.seat.kind !== 'judge'),
       }),
     ],
     expected: [
-      { affirmative: 'Affirmative', negative: 'Negative' },
-      view.participants.map((p) => p.role !== 'judge'),
+      view.participants.map((p) => p.seat.kind !== 'judge'),
       [true, true, false, false],
       'human',
       null,
@@ -59,7 +57,10 @@ test('an accepted interruption gives the floor to the interrupter for spectators
       },
     },
   };
-  const segment = { side: 'affirmative' as const, floorParticipantId: neg.id };
+  const segment = {
+    lead: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+    floorParticipantId: neg.id,
+  };
   const spectator = observedRoundOf(open, nowMs);
   const debater = liveRoundOf(open, neg.actorId, nowMs);
   assert({
@@ -67,17 +68,38 @@ test('an accepted interruption gives the floor to the interrupter for spectators
     should:
       'hand the floor to the negative in the shared reading, show the negative speaking to a spectator and to the negative debater',
     actual: [
-      floorSideOf(open, segment),
+      floorSeatOf(open, segment),
       spectator.seats.map(({ side, activity }) => [side, activity]),
       debater?.phase,
     ],
     expected: [
-      'negative',
+      { kind: 'side', side: 'negative', slot: 0 },
       [
         ['affirmative', 'listening'],
         ['negative', 'speaking'],
       ],
       'own-speech',
     ],
+  });
+});
+
+test('a teammate stands with you; an unsided speaker stands alone (TAB-6.17)', () => {
+  assert({
+    given: 'two seats of one side, two sides, and two unsided speakers',
+    should: 'join the side and keep each speaker apart',
+    actual: [
+      sameTeam(
+        { kind: 'side', side: 'affirmative', slot: 0 },
+        { kind: 'side', side: 'affirmative', slot: 1 },
+      ),
+      sameTeam(
+        { kind: 'side', side: 'affirmative', slot: 0 },
+        { kind: 'side', side: 'negative', slot: 0 },
+      ),
+      sameTeam({ kind: 'speaker', slot: 0 }, { kind: 'speaker', slot: 1 }),
+      sameTeam({ kind: 'speaker', slot: 2 }, { kind: 'speaker', slot: 2 }),
+      sameTeam(null, { kind: 'speaker', slot: 0 }),
+    ],
+    expected: [true, false, false, true, false],
   });
 });

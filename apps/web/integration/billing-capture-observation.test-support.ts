@@ -73,7 +73,7 @@ export async function prepareCaptureRoom(
         kind: 'custom',
         definition: {
           ...oneOnOneDefinition,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
+          seats: { ...oneOnOneDefinition.seats, judges: 0 },
         },
         competitionType: 'casual',
         config: {
@@ -87,7 +87,7 @@ export async function prepareCaptureRoom(
   const chosen = (
     await f.command(cast.host, view, {
       type: 'set-capture',
-      capture: { recording: true, broadcast: null },
+      capture: { recordingPolicy: 'released', broadcast: null },
     })
   ).view;
   return everyoneReady(f, chosen, [cast.host, cast.guest]);

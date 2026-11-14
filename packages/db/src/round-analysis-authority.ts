@@ -29,7 +29,7 @@ export async function lockAnalysisAccounts(
     .select({
       id: roundParticipants.id,
       actorId: roundParticipants.actorId,
-      role: roundParticipants.role,
+      seatKind: roundParticipants.seatKind,
       userId: actors.userId,
     })
     .from(roundParticipants)
@@ -42,7 +42,8 @@ export async function lockAnalysisAccounts(
       ? p.actorId === input.caller.actorId && p.userId === input.caller.userId
       : p.id === input.roundParticipantId,
   );
-  if (!seat?.userId || !['affirmative', 'negative'].includes(seat.role))
+  // Round analysis reads a side's case: only a human side seat has one.
+  if (!seat?.userId || seat.seatKind !== 'side')
     throw createAppError('NOT_FOUND');
   const accounts = await lockAuthorizationActors(
     tx,

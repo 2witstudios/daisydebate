@@ -1,4 +1,8 @@
-import { ballotCategories, type SpectatorTimeline } from '@daisy/protocol';
+import {
+  ballotCategories,
+  twoSides,
+  type SpectatorTimeline,
+} from '@daisy/protocol';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SpectatorFacts } from './spectator-timeline';
@@ -14,9 +18,18 @@ const timeline: SpectatorTimeline = {
   broadcast: { state: 'none' },
   recording: 'none',
   resolution: null,
+  sides: [...twoSides],
   seats: [
-    { side: 'affirmative', kind: 'human', label: 'ana' },
-    { side: 'negative', kind: 'bot', label: null },
+    {
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
+      kind: 'human',
+      label: 'ana',
+    },
+    {
+      seat: { kind: 'side', side: 'negative', slot: 0 },
+      kind: 'bot',
+      label: null,
+    },
   ],
   stage: { kind: 'slate', moment: 'unreleased' },
   result: null,
@@ -34,7 +47,7 @@ describe('SpectatorFacts', () => {
         kind: 'floor',
         segment: 'speech',
         label: 'First affirmative',
-        side: 'affirmative',
+        lead: { kind: 'side', side: 'affirmative', slot: 0 },
         remainingMs: 65_000,
       },
     });
@@ -82,10 +95,16 @@ describe('SpectatorFacts', () => {
         kind: 'floor',
         segment: 'speech',
         label: 'First affirmative',
-        side: 'affirmative',
+        lead: { kind: 'side', side: 'affirmative', slot: 0 },
         remainingMs: 65_000,
       },
-      captions: [{ id: 'c', side: 'affirmative', text: 'A line' }],
+      captions: [
+        {
+          id: 'c',
+          seat: { kind: 'side', side: 'affirmative', slot: 0 },
+          text: 'A line',
+        },
+      ],
     });
     assert({
       given: 'a released speech',
@@ -109,7 +128,7 @@ describe('SpectatorFacts', () => {
         | 'before_first_speech'
         | 'between_speeches'
         | 'speeches_over',
-    ) => stageSentence({ kind: 'slate', moment });
+    ) => stageSentence(timeline, { kind: 'slate', moment });
     assert({
       given: 'each slate the released video can show',
       should: 'say what released facts can tell, and name nothing they cannot',
@@ -137,7 +156,7 @@ describe('SpectatorFacts', () => {
       actual: (() => {
         const page = html({
           stage: { kind: 'ended' },
-          result: { winner: null, ballots: [], ratings: [] },
+          result: { outcome: null, ballots: [], ratings: [] },
         });
         return [page.includes('No side won'), /draw/i.test(page)];
       })(),
@@ -152,7 +171,7 @@ describe('SpectatorFacts', () => {
       actual: html({
         stage: { kind: 'ended' },
         result: {
-          winner: 'affirmative',
+          outcome: { kind: 'winner', side: 'affirmative' },
           ratings: [{ side: 'affirmative', before: 1500, after: 1516 }],
           ballots: [
             {

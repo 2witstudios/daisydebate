@@ -4,24 +4,30 @@ import type {
   RoundStatus,
 } from '@daisy/protocol';
 import { plainRoomConfig } from '@daisy/protocol/testing';
+import { sideSeat, twoSides } from '@daisy/protocol';
 const rules = {
-  version: 2 as const,
-  seats: { affirmative: 1, negative: 1, judge: 0 },
+  version: 3 as const,
+  sides: [...twoSides],
+  seats: {
+    sides: { affirmative: 1, negative: 1 },
+    speakers: 0,
+    judges: 0,
+    moderators: 0 as const,
+  },
+  outcome: { kind: 'winner' as const },
   segments: [
     {
       key: 'A1',
       label: 'Affirmative speech',
       type: 'speech' as const,
-      side: 'affirmative' as const,
-      slot: 0,
+      speak: { rights: 'one' as const, seat: sideSeat('affirmative') },
       durationMs: 60_000,
     },
     {
       key: 'N1',
       label: 'Negative speech',
       type: 'speech' as const,
-      side: 'negative' as const,
-      slot: 0,
+      speak: { rights: 'one' as const, seat: sideSeat('negative') },
       durationMs: 60_000,
     },
   ],
@@ -65,8 +71,10 @@ export const state = (): OpenRoom => ({
   basis: null,
   competitionType: 'casual',
   definition: {
-    version: 1,
+    version: 2,
+    sides: rules.sides,
     seats: rules.seats,
+    outcome: rules.outcome,
     segments: rules.segments.map(({ durationMs, ...segment }) => ({
       ...segment,
       defaultDurationMs: durationMs,
@@ -102,8 +110,7 @@ export const state = (): OpenRoom => ({
       actorId: 'host',
       label: 'Host',
       kind: 'human',
-      role: 'affirmative',
-      slot: 0,
+      seat: sideSeat('affirmative'),
       eligible: true,
       consentVersion: 0,
       consentCommandId: 'r1',
@@ -113,8 +120,7 @@ export const state = (): OpenRoom => ({
       actorId: 'other',
       label: 'Other',
       kind: 'human',
-      role: 'negative',
-      slot: 0,
+      seat: sideSeat('negative'),
       eligible: true,
       consentVersion: 0,
       consentCommandId: 'r2',

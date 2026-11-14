@@ -1,5 +1,10 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
-import type { RoundOutcome } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  negativeSide,
+  type TwoSideKey,
+  type WinnerOutcome,
+} from '@daisy/protocol';
 import {
   GLICKO2_SCALE,
   ratePeriod,
@@ -164,12 +169,19 @@ const toBounds = (state: Glicko2State): Glicko2State => ({
 
 const scores: Readonly<
   Record<
-    RoundOutcome,
+    TwoSideKey,
     { affirmative: Glicko2Game['score']; negative: Glicko2Game['score'] }
   >
 > = {
-  affirmative: { affirmative: 1, negative: 0 },
-  negative: { affirmative: 0, negative: 1 },
+  [affirmativeSide]: { affirmative: 1, negative: 0 },
+  [negativeSide]: { affirmative: 0, negative: 1 },
+};
+
+/** The winning side of a two-sided Round, the only one a rating compares. */
+const twoSidedWinner = (outcome: WinnerOutcome): TwoSideKey => {
+  if (outcome.side === affirmativeSide || outcome.side === negativeSide)
+    return outcome.side;
+  throw createAppError('CONFLICT', 'A rated debate is two-sided');
 };
 
 /**
@@ -182,10 +194,12 @@ const scores: Readonly<
 export function rateDebate(input: {
   readonly affirmative: DebaterRating;
   readonly negative: DebaterRating;
-  readonly outcome: RoundOutcome;
+  /** A two-sided Round's winner: the only outcome a rating compares. */
+  readonly outcome: WinnerOutcome;
   readonly occurredAt: string;
 }): RatedDebate {
-  const { affirmative, negative, outcome, occurredAt } = input;
+  const { affirmative, negative, occurredAt } = input;
+  const outcome = twoSidedWinner(input.outcome);
   // Validated here, not only while widening: two newcomers never widen.
   instant(occurredAt);
   assertBounded(affirmative.state);

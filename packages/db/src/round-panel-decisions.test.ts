@@ -1,3 +1,4 @@
+import { outcomeJson } from './round-outcome-sql';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -39,7 +40,11 @@ const commandRow = (
   serviceId: `round-finalization:${ids.instanceId}`,
   type: 'complete',
   payloadDigest: digest,
-  result: { ...receipt, noRuling: [...receipt.noRuling] },
+  result: {
+    ...receipt,
+    outcome: outcomeJson(receipt.outcome),
+    noRuling: [...receipt.noRuling],
+  },
   resultingVersion: 9,
   appliedAt: new Date('2026-10-22T12:00:00.000Z'),
   ...overrides,
@@ -126,6 +131,7 @@ test('only this service exact zero-judge receipt replays', async () => {
       commandRow({
         result: {
           ...receipt,
+          outcome: outcomeJson(receipt.outcome),
           noRuling: [...receipt.noRuling],
           freezeRevision: 3,
         },
@@ -145,15 +151,19 @@ test('only this service exact zero-judge receipt replays', async () => {
     });
 });
 
+const affirmativeWin = { kind: 'winner', side: 'affirmative' } as const;
+const negativeWin = { kind: 'winner', side: 'negative' } as const;
+
 test('a replay stands only while the Round is completed with the receipt outcome', async () => {
   for (const [state, recorded] of [
     [{ status: 'active', outcome: null }, null],
-    [{ status: 'completed', outcome: 'affirmative' }, null],
-    [{ status: 'completed', outcome: null }, 'negative'],
+    [{ status: 'completed', outcome: affirmativeWin }, null],
+    [{ status: 'completed', outcome: null }, negativeWin],
+    [{ status: 'completed', outcome: affirmativeWin }, negativeWin],
     [{ status: 'abandoned', outcome: null }, null],
   ] as const)
     await assertRejects({
-      given: `a Round now ${state.status} with outcome ${state.outcome} against a receipt of ${recorded}`,
+      given: `a Round now ${state.status} with outcome ${JSON.stringify(state.outcome)} against a receipt of ${JSON.stringify(recorded)}`,
       should: 'refuse the replayed receipt',
       actual: () => requirePanelTerminal(state, recorded),
       code: 'CONFLICT',
@@ -164,8 +174,8 @@ test('a replay stands only while the Round is completed with the receipt outcome
     actual: [
       requirePanelTerminal({ status: 'completed', outcome: null }, null),
       requirePanelTerminal(
-        { status: 'completed', outcome: 'negative' },
-        'negative',
+        { status: 'completed', outcome: negativeWin },
+        { kind: 'winner', side: 'negative' },
       ),
     ],
     expected: [undefined, undefined],
@@ -255,6 +265,7 @@ test('a new receipt is a completed, unreplayed version 1 record of the ruling', 
 test('the Round view reads the ruling only from this service unjudged receipt (DEC-208)', () => {
   const incomplete = {
     ...receipt,
+    outcome: outcomeJson(receipt.outcome),
     ruling: 'transcript-incomplete' as const,
     noRuling: [...receipt.noRuling],
   };

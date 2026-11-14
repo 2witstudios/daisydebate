@@ -19,7 +19,7 @@ export function TranscriptSections({
   return sections.map((section) => (
     <section key={section.key} className="pt-3">
       <h3
-        className={cn('mb-1 text-sm font-strong', sideTextClass(section.side))}
+        className={cn('mb-1 text-sm font-strong', sideTextClass(section.tone))}
       >
         {section.heading}
       </h3>

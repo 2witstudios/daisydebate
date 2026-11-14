@@ -1,9 +1,9 @@
-import type { CaptureRule, DebateRole, RoundOutcome } from '@daisy/protocol';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
+import { and, asc, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
 import type { SpectatorClock } from './spectator-release-sql';
-import { historyRows } from './member-history-rows';
+import { namedSeats } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { ballots } from './schema/ballots';
@@ -14,9 +14,8 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
-
-/** A debater's side, read for the record; a judge's name is never read here. */
-const debaterSides = ['affirmative', 'negative'] as const;
+import { outcomeOfColumns } from './round-outcome-columns';
+import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 
 /**
  * The Round as Recording reads it: named, read-only inputs (ADR 0107). Recording
@@ -43,39 +42,38 @@ export const recordingRoundReadOperations = ({
           hostActorId: rounds.createdByActorId,
           status: rounds.status,
           completedAt: rounds.completedAt,
-          outcome: rounds.outcome,
+          winningSide: rounds.winningSide,
+          ranking: rounds.ranking,
+          rules: rounds.rulesSnapshot,
+          capture: rounds.capture,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
         .where(eq(rounds.id, roundId));
       if (!round) return null;
-      const seats = await tx
-        .select({
-          id: roundParticipants.id,
-          actorId: roundParticipants.actorId,
-          role: roundParticipants.role,
-        })
-        .from(roundParticipants)
-        .where(eq(roundParticipants.roundId, roundId))
-        .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
+      const outcome = outcomeOfColumns(round, round.rules);
+      const seats = (
+        await tx
+          .select({
+            id: roundParticipants.id,
+            actorId: roundParticipants.actorId,
+            seatKind: roundParticipants.seatKind,
+            side: roundParticipants.side,
+            slot: roundParticipants.slot,
+          })
+          .from(roundParticipants)
+          .where(eq(roundParticipants.roundId, roundId))
+          .orderBy(...seatRowOrder(roundParticipants))
+      ).map(({ id, actorId, ...seat }) => ({
+        id,
+        actorId,
+        seat: seatOfColumns(seat),
+      }));
+      const debaterSeats = seats.filter((seat) => isDebatingSeat(seat.seat));
       const named = round.completedAt
-        ? await historyRows(tx, [
-            {
-              roundId,
-              completedAt: round.completedAt,
-              resolution: round.resolution,
-              visibility: 'private',
-              outcome: round.outcome as RoundOutcome | null,
-              role: 'affirmative',
-            },
-          ])
+        ? ((await namedSeats(tx, [roundId])).get(roundId) ?? [])
         : [];
-      const debaterSeats = seats.filter((seat) =>
-        (debaterSides as readonly string[]).includes(seat.role),
-      );
-      const debaters = (named[0]?.seats ?? []).filter((seat) =>
-        (debaterSides as readonly string[]).includes(seat.role),
-      );
+      const debaters = named.filter((seat) => isDebatingSeat(seat.seat));
       return {
         id: round.id,
         title: round.title,
@@ -87,13 +85,13 @@ export const recordingRoundReadOperations = ({
         hostActorId: round.hostActorId,
         status: round.status,
         completedAtMs: round.completedAt?.getTime() ?? null,
-        outcome: round.outcome as RoundOutcome | null,
-        seats: seats.map((seat) => ({
-          id: seat.id,
-          actorId: seat.actorId,
-          role: seat.role as DebateRole,
-        })),
-        /** Both lists are ordered by role then slot, so they pair up. */
+        /** What every participant was told is captured, frozen at Launch. */
+        capture: round.capture,
+        /** The format's declared sides, so a seat reads by its own label. */
+        sides: round.rules.sides,
+        outcome,
+        seats,
+        /** Both lists are in seat order, so they pair up. */
         debaters: debaters.map((seat, index) => ({
           ...seat,
           roundParticipantId: debaterSeats[index]?.id ?? null,
@@ -188,7 +186,7 @@ export const recordingRoundReadOperations = ({
       .where(
         and(
           eq(roundSpeakingIntervals.roundId, roundId),
-          inArray(roundParticipants.role, [...debaterSides]),
+          isDebatingSeatSql(roundParticipants.seatKind),
         ),
       )
       .orderBy(asc(roundSpeakingIntervals.startedAt));

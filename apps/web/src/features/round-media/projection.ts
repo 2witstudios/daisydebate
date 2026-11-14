@@ -6,7 +6,11 @@ import {
   postRoundCallGrants,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
-import { conversational, type RoundMediaState } from '@daisy/protocol';
+import {
+  conversational,
+  isJudgeSeat,
+  type RoundMediaState,
+} from '@daisy/protocol';
 
 type Store = Database['mediaSessions'];
 export type MediaSnapshot = NonNullable<
@@ -170,7 +174,7 @@ export function projectMedia(
           );
           // A bot is never on a post-round call.
           return seat &&
-            seat.role !== 'judge' &&
+            !isJudgeSeat(seat.seat) &&
             (seat.kind === 'human' || !onCall(snapshot))
             ? [
                 {
@@ -192,10 +196,10 @@ export function projectMedia(
             const seat = snapshot.participants.find(
               (seat) => seat.id === binding.roundParticipantId,
             );
-            return seat?.role === 'judge' && seat.kind === 'human'
+            return seat?.seat.kind === 'judge' && seat.kind === 'human'
               ? [
                   {
-                    slot: seat.slot,
+                    slot: seat.seat.slot,
                     identity: binding.identity,
                     microphone:
                       state === 'ready' &&

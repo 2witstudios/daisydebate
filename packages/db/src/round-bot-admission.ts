@@ -1,4 +1,5 @@
 import { roundHasAiJudge } from './round-ai-judge';
+import { isDebatingSeatSql } from './seat-columns';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -87,7 +88,7 @@ export async function markLockedRoundBotModelCall(
  */
 const liveBotDebaterRounds = (exceptRoundId?: string) =>
   sql`select count(distinct r.id)::int from rounds r
-    join round_participants p on p.round_id=r.id and p.role in ('affirmative','negative')
+    join round_participants p on p.round_id=r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
     join actors a on a.id=p.actor_id and a.kind='bot'
     where r.status in ('opening','active') and r.id<>${exceptRoundId ?? ''}`;
 

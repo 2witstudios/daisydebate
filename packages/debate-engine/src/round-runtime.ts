@@ -7,11 +7,10 @@ import { applyRoundAdjudication } from './round-adjudication';
 import { assertAttendanceRules } from './attendance-policy';
 import { createInvariantError } from '@daisy/errors';
 import {
-  debateSides,
+  heldSeatsComplete,
+  leadSeatOf,
   runtimeCheckpointSchema,
-  seatSlotsComplete,
-  type DebateRole,
-  type DebateSide,
+  type SideKey,
   type HydratedRound,
   type HydratedSegment,
   type RoundParticipantSeat,
@@ -66,6 +65,7 @@ import {
 const queues = (): Queues => ({
   changes: [],
   effects: [],
+  releasedMembers: [],
   floorChange: null,
   finalPlayedEnd: null,
 });
@@ -132,8 +132,7 @@ export function createRoundRuntime(input: {
         });
     }
     const checkpoint = transition.state.checkpoint;
-    for (const side of debateSides)
-      on.setPrepConsumed(side, checkpoint.prep_consumed_ms[side]);
+    on.setPrepConsumed(checkpoint.prep_consumed_ms);
     if (checkpoint.active_prep === null) on.endPrep();
     if (checkpoint.floor === null) on.clearFloor();
     on.setIncident(checkpoint);
@@ -152,7 +151,7 @@ export function createRoundRuntime(input: {
         into.effects.push({
           kind: 'segment_opened',
           key: expected.key,
-          side: expected.side,
+          lead: leadSeatOf(expected.speak),
           type: expected.type,
           at: new Date(change.row.startedAtMs).toISOString(),
         });
@@ -230,6 +229,9 @@ export function createRoundRuntime(input: {
         ? { finalSegmentEndedAt: finalEndedAt }
         : {}),
       ...(releasesRoomMembers ? { releasesRoomMembers: true as const } : {}),
+      ...(into.releasedMembers.length > 0
+        ? { releasesMembers: [...into.releasedMembers] }
+        : {}),
       speakingChanges: speakingChangesOf({
         rules,
         participants: input.participants,
@@ -251,22 +253,21 @@ export function createRoundRuntime(input: {
       ? null
       : (input.participants.find((seat) => seat.actorId === actorId) ?? null);
 
-  const sideOf = (actorId: string | null): DebateSide | null =>
+  const sideOf = (actorId: string | null): SideKey | null =>
     debateSideOf(seatOf(actorId));
 
+  /** Every declared seat is held exactly once, and no other (ADR 0058 §8). */
   const assertSeatCompleteness = (): void => {
-    for (const role of Object.keys(rules.seats) as DebateRole[]) {
-      const wanted = rules.seats[role];
-      const held = input.participants
-        .filter((seat) => seat.role === role)
-        .map((seat) => seat.slot)
-        .sort((a, b) => a - b);
-      if (!seatSlotsComplete(wanted, held))
-        throw createInvariantError(
-          debateInvariantIds.seatCompleteness,
-          `Held ${role} slots are not exactly 0..${wanted - 1}`,
-        );
-    }
+    if (
+      !heldSeatsComplete(
+        rules,
+        input.participants.map((participant) => participant.seat),
+      )
+    )
+      throw createInvariantError(
+        debateInvariantIds.seatCompleteness,
+        'The held seats are not exactly the seats the rules declare',
+      );
   };
 
   const contextOn = (

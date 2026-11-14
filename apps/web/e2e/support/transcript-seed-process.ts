@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { idSchema } from '@daisy/protocol';
+import { affirmativeSide, idSchema } from '@daisy/protocol';
 import { admitLaunchCheckout } from './room-launch-admission';
 import { requireLaunchSlot } from './room-launch-slot';
 
@@ -29,7 +29,7 @@ if (import.meta.main) {
       const [line] = await tx`
         select s.id segment_id, p.id participant_id
         from round_segments s
-        join round_participants p on p.round_id=s.round_id and p.role='affirmative'
+        join round_participants p on p.round_id=s.round_id and p.seat_kind='side' and p.side=${affirmativeSide}
         where s.round_id=${roundId}
         order by s.sequence limit 1`;
       if (!line) throw new Error('No played segment to transcribe');

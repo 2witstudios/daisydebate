@@ -7,7 +7,7 @@ import {
   type PendingRoomInvitation,
   type RoomAssemblyState,
   type RoomInvitationView,
-  type RoomSeatKind,
+  type SeatKind,
 } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { eq, sql } from 'drizzle-orm';
@@ -127,7 +127,7 @@ export const roomInvitationOperations = ({
     readonly caller: Caller;
     readonly roomId: string;
     readonly username: string;
-    readonly seat: RoomSeatKind;
+    readonly seat: SeatKind;
     readonly ids: {
       readonly invitation: string;
       readonly notification: string;
@@ -160,6 +160,9 @@ export const roomInvitationOperations = ({
           maxActors: 2,
         });
         const room = await lockRoom(tx, input.roomId);
+        // Only a host invites: a Room no person hosts has no one to (TAB-6).
+        const hostActorId = room.hostActorId;
+        if (hostActorId === null) throw createRefusal('CONFLICT', 'not-host');
         const now = await transactionNow(tx);
         await lapse(tx, room.id, now);
         const inviteeAccount = found
@@ -173,7 +176,7 @@ export const roomInvitationOperations = ({
                 inviteeAccount !== null &&
                 !inviteeAccount.erased &&
                 input.admitted(inviteeAccount),
-              blocked: await blocked(tx, room.hostActorId, found.actor_id),
+              blocked: await blocked(tx, hostActorId, found.actor_id),
             }
           : null;
         const decision = input.decide({
@@ -282,6 +285,9 @@ export const roomInvitationOperations = ({
           maxActors: 1,
         });
         const room = await lockRoom(tx, owner.room_id);
+        // An invitation is a host's: a Room no person hosts never holds one.
+        const hostActorId = room.hostActorId;
+        if (hostActorId === null) throw createRefusal('CONFLICT', 'not-host');
         const now = await transactionNow(tx);
         const invitation =
           (await pendingRows(tx, room.id, now)).find(
@@ -289,7 +295,7 @@ export const roomInvitationOperations = ({
           ) ?? null;
         const decision = input.decide({
           invitation,
-          hostActorId: room.hostActorId,
+          hostActorId,
           now,
         });
         if (!decision.ok || !invitation)

@@ -1,0 +1,163 @@
+{
+  "ballot": {
+    "feedback": {
+      "affirmative": "Weigh your impacts earlier.",
+      "negative": "Extend the maintenance argument."
+    },
+    "reason": "The affirmative answered the funding question.",
+    "rubricVersion": "speaker-10@1",
+    "scores": {
+      "affirmative": {
+        "analysis": 4,
+        "answering": 4,
+        "delivery": 4,
+        "framework": 4,
+        "impact": 4,
+        "organization": 4,
+        "questioning": 4,
+        "refutation": 4,
+        "thesis": 4,
+        "weighing": 4
+      },
+      "negative": {
+        "analysis": 3,
+        "answering": 3,
+        "delivery": 3,
+        "framework": 3,
+        "impact": 3,
+        "organization": 3,
+        "questioning": 3,
+        "refutation": 3,
+        "thesis": 3,
+        "weighing": 3
+      }
+    },
+    "winner": "affirmative"
+  },
+  "stored": {
+    "data": {
+      "feedback": {
+        "affirmative": "Weigh your impacts earlier.",
+        "negative": "Extend the maintenance argument."
+      },
+      "reason": "The affirmative answered the funding question.",
+      "rubricVersion": "speaker-10@1",
+      "scores": {
+        "affirmative": {
+          "analysis": 4,
+          "answering": 4,
+          "delivery": 4,
+          "framework": 4,
+          "impact": 4,
+          "organization": 4,
+          "questioning": 4,
+          "refutation": 4,
+          "thesis": 4,
+          "weighing": 4
+        },
+        "negative": {
+          "analysis": 3,
+          "answering": 3,
+          "delivery": 3,
+          "framework": 3,
+          "impact": 3,
+          "organization": 3,
+          "questioning": 3,
+          "refutation": 3,
+          "thesis": 3,
+          "weighing": 3
+        }
+      },
+      "winner": "affirmative"
+    },
+    "success": true
+  },
+  "totals": {
+    "affirmative": 40,
+    "lowPointWin": false,
+    "negative": 30
+  },
+  "write": {
+    "issues": [
+      {
+        "code": "invalid_value",
+        "path": [
+          "rubricVersion"
+        ]
+      },
+      {
+        "code": "invalid_type",
+        "path": [
+          "scores",
+          "affirmative",
+          "burdens"
+        ]
+      },
+      {
+        "code": "invalid_type",
+        "path": [
+          "scores",
+          "affirmative",
+          "warrants"
+        ]
+      },
+      {
+        "code": "invalid_type",
+        "path": [
+          "scores",
+          "affirmative",
+          "coherence"
+        ]
+      },
+      {
+        "code": "unrecognized_keys",
+        "keys": [
+          "framework",
+          "analysis",
+          "impact"
+        ],
+        "path": [
+          "scores",
+          "affirmative"
+        ]
+      },
+      {
+        "code": "invalid_type",
+        "path": [
+          "scores",
+          "negative",
+          "burdens"
+        ]
+      },
+      {
+        "code": "invalid_type",
+        "path": [
+          "scores",
+          "negative",
+          "warrants"
+        ]
+      },
+      {
+        "code": "invalid_type",
+        "path": [
+          "scores",
+          "negative",
+          "coherence"
+        ]
+      },
+      {
+        "code": "unrecognized_keys",
+        "keys": [
+          "framework",
+          "analysis",
+          "impact"
+        ],
+        "path": [
+          "scores",
+          "negative"
+        ]
+      }
+    ],
+    "success": false
+  }
+}

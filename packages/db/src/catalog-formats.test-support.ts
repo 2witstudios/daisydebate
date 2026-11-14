@@ -1,3 +1,4 @@
+import { leadSeatOf } from '@daisy/protocol';
 import { catalogFormats, type CatalogFormat } from './catalog-formats';
 
 export const format = (id: string): CatalogFormat => {
@@ -14,7 +15,9 @@ export const prepMs = (id: string) => {
 
 /** "key side/slot minutes", the order a league's ballot reads. */
 export const schedule = (id: string) =>
-  format(id).definition.segments.map(
-    (segment) =>
-      `${segment.key} ${segment.side === 'affirmative' ? 'A' : 'N'}${segment.slot} ${segment.defaultDurationMs / 60_000}`,
-  );
+  format(id).definition.segments.map((segment) => {
+    const seat = leadSeatOf(segment.speak);
+    const side =
+      seat?.kind === 'side' && seat.side === 'affirmative' ? 'A' : 'N';
+    return `${segment.key} ${side}${seat?.slot ?? 0} ${segment.defaultDurationMs / 60_000}`;
+  });

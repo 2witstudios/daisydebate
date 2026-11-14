@@ -39,7 +39,7 @@ function templateLine(choice: RoomTemplate) {
 
 function TemplateSchedule({ choice }: { readonly choice: RoomTemplate }) {
   const durations = presetSpeechMs(choice);
-  const judges = choice.definition.seats.judge;
+  const judges = choice.definition.seats.judges;
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-muted">

@@ -1,5 +1,11 @@
 import { dueAfterStops } from '@daisy/protocol';
-import type { ClockStop, DebateRole, RoundView } from '@daisy/protocol';
+import {
+  isSideSeat,
+  sideOfSeat,
+  type ClockStop,
+  type RoundView,
+  type SeatRef,
+} from '@daisy/protocol';
 import type {
   ResolutionDrawState,
   RoundOpening,
@@ -82,7 +88,7 @@ export function settledOpeningTopic(
 /** A seat as the opening reads it. */
 export type OpeningSeat = {
   readonly actorId: string;
-  readonly role: DebateRole;
+  readonly seat: SeatRef;
   readonly kind: 'human' | 'bot';
   readonly eligible: boolean;
 };
@@ -97,7 +103,7 @@ const mayStrike = (
   seats.some(
     (seat) =>
       seat.actorId === actorId &&
-      seat.role === step.turn.side &&
+      sideOfSeat(seat.seat) === step.turn.side &&
       seat.kind === 'human' &&
       seat.eligible,
   );
@@ -129,9 +135,7 @@ export function strikeOpening(
   const refuse = (refusal: StrikeRefusal) => ({ ok: false as const, refusal });
   const { actorId } = strike;
   const debater = seats.some(
-    (seat) =>
-      seat.actorId === actorId &&
-      (seat.role === 'affirmative' || seat.role === 'negative'),
+    (seat) => seat.actorId === actorId && isSideSeat(seat.seat),
   );
   if (!debater) return refuse('not-seated');
   const nowMs = Date.parse(strike.now);
@@ -240,9 +244,7 @@ export function projectOpening(
 ): { readonly view: OpeningView; readonly topic: string | null } {
   const { opening, step } = settleOpening(stored, seed, now);
   const debater = seats.some(
-    (seat) =>
-      seat.actorId === viewerActorId &&
-      (seat.role === 'affirmative' || seat.role === 'negative'),
+    (seat) => seat.actorId === viewerActorId && isSideSeat(seat.seat),
   );
   const draw = opening.draw;
   return {

@@ -3,7 +3,12 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { isNamedSeat, type RoomCreate } from '@daisy/protocol';
+import {
+  isNamedSeat,
+  seatKey,
+  sideOfSeat,
+  type RoomCreate,
+} from '@daisy/protocol';
 
 import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
@@ -74,14 +79,16 @@ test('a create with an initial cast persists it atomically and stays assembling 
     const { receipt, view } = await f.create({
       selection: valueSelection,
       cast: [
-        { actorId: botId, role: 'negative', slot: 0 },
-        { actorId: judgeId, role: 'judge', slot: 0 },
+        {
+          actorId: botId,
+          seat: { kind: 'side', side: 'negative', slot: 0 },
+        },
+        { actorId: judgeId, seat: { kind: 'judge', slot: 0 } },
       ],
     });
     const claimed = await f.command(f.host, view, {
       type: 'claim-seat',
-      role: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
     });
     const startRefusal = await f.operations
       .command(f.host, claimed.view.id, {
@@ -103,7 +110,7 @@ test('a create with an initial cast persists it atomically and stays assembling 
         viewVersion: view.version,
         cast: view.participants
           .filter((p) => p.kind === 'bot')
-          .map((p) => [p.role, p.slot, p.kind])
+          .map((p) => [seatKey(p.seat), p.kind])
           .sort(),
         assembling: view.status,
         afterClaim: claimed.view.status,
@@ -113,8 +120,8 @@ test('a create with an initial cast persists it atomically and stays assembling 
         resultingVersion: 3,
         viewVersion: 3,
         cast: [
-          ['judge', 0, 'bot'],
-          ['negative', 0, 'bot'],
+          ['judge:0', 'bot'],
+          ['negative:0', 'bot'],
         ],
         assembling: 'assembling',
         afterClaim: 'ready',
@@ -136,8 +143,14 @@ test('a cast refusal rolls the whole create back', async () => {
       {
         given: 'a cast seating one actor twice',
         cast: [
-          { actorId: botId, role: 'negative' as const, slot: 0 },
-          { actorId: botId, role: 'affirmative' as const, slot: 0 },
+          {
+            actorId: botId,
+            seat: { kind: 'side' as const, side: 'negative', slot: 0 },
+          },
+          {
+            actorId: botId,
+            seat: { kind: 'side' as const, side: 'affirmative', slot: 0 },
+          },
         ],
       },
       {
@@ -145,18 +158,22 @@ test('a cast refusal rolls the whole create back', async () => {
         cast: [
           {
             actorId: `z9${botId.slice(2)}`,
-            role: 'negative' as const,
-            slot: 0,
+            seat: { kind: 'side' as const, side: 'negative', slot: 0 },
           },
         ],
       },
       {
         given: 'a bot debater requested for the judge seat',
-        cast: [{ actorId: botId, role: 'judge' as const, slot: 0 }],
+        cast: [{ actorId: botId, seat: { kind: 'judge' as const, slot: 0 } }],
       },
       {
         given: 'the AI judge requested for a side seat',
-        cast: [{ actorId: judgeId, role: 'negative' as const, slot: 0 }],
+        cast: [
+          {
+            actorId: judgeId,
+            seat: { kind: 'side' as const, side: 'negative', slot: 0 },
+          },
+        ],
       },
     ];
     for (const { given, cast } of refused)
@@ -189,7 +206,10 @@ const practiceBody = async (f: {
   return {
     botId,
     body: valueBody(await valueResolutionId(f), [
-      { actorId: botId, role: 'negative', slot: 0 },
+      {
+        actorId: botId,
+        seat: { kind: 'side', side: 'negative', slot: 0 },
+      },
     ]),
   };
 };
@@ -215,7 +235,9 @@ test('a replayed create with a cast returns the original receipt even after the 
           version: replayed.receipt.resultingVersion,
           castStillSeated: view.participants.some(
             (p) =>
-              isNamedSeat(p) && p.actorId === botId && p.role === 'negative',
+              isNamedSeat(p) &&
+              p.actorId === botId &&
+              sideOfSeat(p.seat) === 'negative',
           ),
         },
         expected: {
@@ -238,7 +260,10 @@ test('provider unavailability atomically refuses a fresh cast but does not inval
     const resolutionId = await valueResolutionId(f);
     const unavailable = f.operationsWithBotAvailability(false);
     const refusedBody = valueBody(resolutionId, [
-      { actorId: botId, role: 'negative', slot: 0 },
+      {
+        actorId: botId,
+        seat: { kind: 'side', side: 'negative', slot: 0 },
+      },
     ]);
     await assertRejects({
       given: 'a fresh create with a bot cast while the provider is unavailable',
@@ -321,7 +346,10 @@ test('a cast actor whose durable profile is already gone refuses inside the tran
     await f.sql`delete from bot_profiles where actor_id = ${botId}`;
     const member = await f.member();
     const body = valueBody(await valueResolutionId(f), [
-      { actorId: botId, role: 'negative', slot: 0 },
+      {
+        actorId: botId,
+        seat: { kind: 'side', side: 'negative', slot: 0 },
+      },
     ]);
     await assertRejects({
       given: 'a fresh create whose cast actor lost its profile before it',
@@ -356,7 +384,10 @@ test('a concurrent bot-profile deactivation serializes with fresh cast creation'
       created = f.operations.create(
         member,
         valueBody(resolutionId, [
-          { actorId: botId, role: 'negative', slot: 0 },
+          {
+            actorId: botId,
+            seat: { kind: 'side', side: 'negative', slot: 0 },
+          },
         ]),
       );
       // Observe the exact database lock wait rather than assuming the other

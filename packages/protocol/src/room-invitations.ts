@@ -1,17 +1,12 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import {
-  roomSeatKinds,
-  isOpenRoomStatus,
-  seatKindOf,
-  type RoomAssemblyState,
-  type RoomSeatKind,
-} from './room-contract';
+import { isOpenRoomStatus, type RoomAssemblyState } from './room-contract';
+import { seatKindSchema, type SeatKind } from './seats';
 import { usernameSchema as username } from './username';
 
 /**
- * A debater invitation is for either side, as a challenge's hold is; the
- * host still arranges sides. A judge invitation holds a judge seat.
+ * An invitation names a kind of seat: a side's seat is for any side, as a
+ * challenge's hold is, and the host still arranges sides.
  */
 export const roomInvitationStates = [
   'pending',
@@ -30,7 +25,7 @@ export const roomInvitationCommandSchemas = {
   invite: z.strictObject({
     version: z.literal(1),
     username,
-    seat: z.enum(roomSeatKinds),
+    seat: seatKindSchema,
   }),
   /** The host takes back a pending invitation. */
   withdraw: z.strictObject({ version: z.literal(1), invitationId: idSchema }),
@@ -57,7 +52,7 @@ export type RoomInvitationRefusal = (typeof roomInvitationRefusals)[number];
  */
 export const roomInvitationViewSchema = z.strictObject({
   id: idSchema,
-  seat: z.enum(roomSeatKinds),
+  seat: seatKindSchema,
   invitee: z.string(),
   inviter: z.string(),
   expiresAt: z.iso.datetime(),
@@ -69,7 +64,7 @@ export type PendingRoomInvitation = {
   readonly id: string;
   readonly inviteeActorId: string;
   readonly inviterActorId: string;
-  readonly seat: RoomSeatKind;
+  readonly seat: SeatKind;
   readonly expiresAt: string;
 };
 
@@ -95,7 +90,7 @@ export type InvitationDecision =
       readonly ok: true;
       readonly kind: 'invite';
       readonly inviteeActorId: string;
-      readonly seat: RoomSeatKind;
+      readonly seat: SeatKind;
       /** When the invitation, and the seat it holds, lapse. */
       readonly expiresAt: string;
     };
@@ -135,7 +130,7 @@ export function settledRoomInvitations(
         id,
         inviteeActorId,
         state:
-          seatKindOf(taken.role) === seat
+          taken.seat.kind === seat
             ? ('accepted' as const)
             : ('expired' as const),
       },

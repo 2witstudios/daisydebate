@@ -1,11 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import {
-  seatKindOf,
-  type RoomParticipant,
-  type RoomStatus,
-  type RoomView,
-} from './room-contract';
+import type { RoomStatus, RoomView } from './room-contract';
+import type { SeatKind } from './seats';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
@@ -32,7 +28,7 @@ export type RoomCommunityFact = {
   /** Whether this actor hosts the Room. */
   readonly host: boolean;
   /** This actor's own seat, or null when they hold none. */
-  readonly seatRole: RoomParticipant['role'] | null;
+  readonly seatKind: SeatKind | null;
 };
 /**
  * A human judge reads Room chat and never posts in it: a judge is anonymous to
@@ -40,8 +36,8 @@ export type RoomCommunityFact = {
  * seat reads only when there is none.
  */
 export const roomCommunitySeatReadsOnly = (
-  seatRole: RoomParticipant['role'] | null,
-): boolean => seatRole !== null && seatKindOf(seatRole) === 'judge';
+  seatKind: SeatKind | null,
+): boolean => seatKind === 'judge';
 /** Rows outlive the conversation for reports, export and erasure only. */
 export const roomCommunityRetentionMs = 180 * 24 * 60 * 60 * 1000;
 

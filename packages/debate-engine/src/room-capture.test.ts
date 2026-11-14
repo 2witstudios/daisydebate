@@ -11,9 +11,12 @@ const both: RoomCapture = {
     release: { kind: 'delay', seconds: 60 },
     debatersReadChat: true,
   },
-  recording: true,
+  recordingPolicy: 'released' as const,
 };
-const nothing: RoomCapture = { broadcast: null, recording: false };
+const nothing: RoomCapture = {
+  broadcast: null,
+  recordingPolicy: 'off' as const,
+};
 const set = (capture: RoomCapture, expectedVersion = 4) => ({
   commandId: 'c',
   expectedVersion,
@@ -53,8 +56,11 @@ describe('The host capture choice', () => {
   });
 
   test('broadcast and recording are separate choices', () => {
-    const recordingOnly = { broadcast: null, recording: true };
-    const broadcastOnly = { ...both, recording: false };
+    const recordingOnly = {
+      broadcast: null,
+      recordingPolicy: 'released' as const,
+    };
+    const broadcastOnly = { ...both, recordingPolicy: 'off' as const };
     const stored = (capture: RoomCapture) => {
       const outcome = run(state(), capture);
       return outcome.ok ? outcome.mutation.state.capture : null;
@@ -106,7 +112,10 @@ describe('The host capture choice', () => {
 
   test('a private Room can record but not broadcast', () => {
     const room: RoomAssemblyState = { ...state(), visibility: 'private' };
-    const recording = run(room, { broadcast: null, recording: true });
+    const recording = run(room, {
+      broadcast: null,
+      recordingPolicy: 'released' as const,
+    });
     assert({
       given: 'a private Room',
       should: 'refuse a Broadcast and accept a Recording',
@@ -132,7 +141,10 @@ describe('The host capture choice', () => {
     assert({
       given: 'a private Room holding a Broadcast choice, however it got there',
       should: 'refuse at Launch, and a Recording alone still starts',
-      actual: [launch(both), launch({ broadcast: null, recording: true }).ok],
+      actual: [
+        launch(both),
+        launch({ broadcast: null, recordingPolicy: 'released' as const }).ok,
+      ],
       expected: [{ ok: false, refusal: 'broadcast-private' }, true],
     });
   });
@@ -189,11 +201,11 @@ describe('What a Round captures', () => {
         plannedRecording(state()),
         plannedRecording({
           ...state(),
-          capture: { broadcast: null, recording: true },
+          capture: { broadcast: null, recordingPolicy: 'released' as const },
         }),
         plannedRecording({ ...state(), competitionType: 'ranked' }),
       ],
-      expected: [false, true, true],
+      expected: ['off', 'released', 'released'],
     });
   });
 });

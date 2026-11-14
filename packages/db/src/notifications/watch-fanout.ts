@@ -1,4 +1,5 @@
 import { SPECTATOR_MARGIN_MS, type NotificationKind } from '@daisy/protocol';
+import { isDebatingSeatSql } from '../seat-columns';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { blockedBetween } from '../debater-follows';
@@ -19,7 +20,7 @@ const spectatorMargin = sql.raw(
 
 const seatedDebaters = (roundId: string) =>
   sql`select p.actor_id from round_participants p
-    where p.round_id=${roundId} and p.role in ('affirmative','negative')`;
+    where p.round_id=${roundId} and ${isDebatingSeatSql(sql`p.seat_kind`)}`;
 
 /** Followers of a seated debater, each once, none seated in the Round themselves. */
 const followersOf = (roundId: string, kind: NotificationKind) =>

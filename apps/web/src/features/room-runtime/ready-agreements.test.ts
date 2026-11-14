@@ -17,7 +17,7 @@ const ranked = { competitionType: 'ranked' as const, capture: null };
 const casual = { competitionType: 'casual' as const, capture: null };
 const optedIn = {
   competitionType: 'casual' as const,
-  capture: { broadcast: null, recording: true },
+  capture: { broadcast: null, recordingPolicy: 'released' as const },
 };
 const version = casualCaptureNotice.version;
 

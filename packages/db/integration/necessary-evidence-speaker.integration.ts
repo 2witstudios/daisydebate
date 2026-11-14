@@ -7,7 +7,7 @@ requireTestServices(process.env);
 test('original speaker attribution is frozen before custody and never follows a successor cast', async () => {
   await withEvidencePayload(async ({ f, store, body, sealed, claim }) => {
     const [original] =
-      await f.sql`select p.id,p.actor_id,a.kind,p.role,p.slot from round_participants p join actors a on a.id=p.actor_id where p.id=${body.roundParticipantId}`;
+      await f.sql`select p.id,p.actor_id,a.kind,p.side,p.slot from round_participants p join actors a on a.id=p.actor_id where p.id=${body.roundParticipantId}`;
     await store.adoptCaptureEvidence({ body, sealed, claim });
     const successor = await f.actor(await f.user());
     await f.sql`update round_participants set actor_id=${successor} where id=${body.roundParticipantId}`;
@@ -18,8 +18,7 @@ test('original speaker attribution is frozen before custody and never follows a 
       roundParticipantId: original!.id,
       actorId: original!.actor_id,
       kind: original!.kind,
-      role: original!.role,
-      slot: original!.slot,
+      seat: { kind: 'side', side: original!.side, slot: original!.slot },
     };
     assert({
       given:

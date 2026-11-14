@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ClockStop } from './clock-stops';
-import { debateSideSchema, idSchema } from './primitives';
+import { idSchema } from './primitives';
+import { sideKeySchema, type SideKey } from './seats';
 
 /**
  * The one competition vocabulary (ADR 0058): ratedness comes from
@@ -131,12 +132,10 @@ export type RoundStartGate = z.infer<typeof startGateSchema>;
 export const runtimeCheckpointSchema = z
   .strictObject({
     version: z.literal(1),
-    prep_consumed_ms: z.strictObject({
-      affirmative: z.int().min(0),
-      negative: z.int().min(0),
-    }),
+    /** Prep each side has spent, keyed by side key (TAB-6.2). */
+    prep_consumed_ms: z.record(sideKeySchema, z.int().min(0)),
     active_prep: z
-      .strictObject({ side: debateSideSchema, started_at: z.iso.datetime() })
+      .strictObject({ side: sideKeySchema, started_at: z.iso.datetime() })
       .nullable(),
     /**
      * Who holds the floor. Null whenever the answer is derivable from the
@@ -162,6 +161,12 @@ export const runtimeCheckpointSchema = z
     clock_stops: z
       .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
       .readonly(),
+    /**
+     * The competitor seats that left a Round no forfeit ends (TAB-6.8): each
+     * is absent from then on, and the Round goes on without it. Omitted
+     * while no seat has left, so every other checkpoint keeps its shape.
+     */
+    absent_participant_ids: z.array(idSchema).min(1).readonly().optional(),
   })
   .refine(
     (checkpoint) =>
@@ -173,17 +178,28 @@ export const runtimeCheckpointSchema = z
   );
 export type RuntimeCheckpoint = z.infer<typeof runtimeCheckpointSchema>;
 
-/** The checkpoint a fresh round hydrates with, equal to the column default. */
-export const emptyRuntimeCheckpoint: RuntimeCheckpoint = {
+/** The checkpoint a fresh round over these sides hydrates with: no prep spent by any. */
+export const emptyRuntimeCheckpointFor = (rules: {
+  readonly sides: readonly { readonly key: SideKey }[];
+}): RuntimeCheckpoint => ({
   version: 1,
-  prep_consumed_ms: { affirmative: 0, negative: 0 },
+  prep_consumed_ms: Object.fromEntries(
+    rules.sides.map((side) => [side.key, 0]),
+  ),
   active_prep: null,
   floor: null,
   incident: { phase: 'none' },
   prep_ended_at: null,
   start_gate: null,
   clock_stops: [],
-};
+});
+
+/** Whether this seat has left the Round and is absent from then on (TAB-6.8). */
+export const isAbsentSeat = (
+  checkpoint: Pick<RuntimeCheckpoint, 'absent_participant_ids'>,
+  participantId: string,
+): boolean =>
+  checkpoint.absent_participant_ids?.includes(participantId) ?? false;
 
 /** Every stop the clock has had, with the one running now if there is one. */
 export const clockStopsOf = (
@@ -201,7 +217,7 @@ export const clockStopsOf = (
 };
 
 /**
- * True when the held slots are exactly 0..wanted-1: a role's seats are
+ * True when the held slots are exactly 0..wanted-1: a seat kind's seats are
  * complete. Both write paths enforce it — the room freeze and the round
  * start — so the predicate lives on the contract they both read.
  */
@@ -210,3 +226,9 @@ export const seatSlotsComplete = (
   held: readonly number[],
 ): boolean =>
   held.length === wanted && held.every((slot, index) => slot === index);
+
+/** The prep a side has spent; a side the checkpoint has not yet named has spent none. */
+export const prepConsumedOf = (
+  checkpoint: Pick<RuntimeCheckpoint, 'prep_consumed_ms'>,
+  side: SideKey,
+): number => checkpoint.prep_consumed_ms[side] ?? 0;

@@ -1,3 +1,5 @@
+import type { SeatKind } from '@daisy/protocol';
+
 /**
  * Standing in a Round's live room, as a named read-only input: a seat, or a host
  * with no seat. Everyone else has none.
@@ -5,7 +7,7 @@
 export type LiveRoomStanding =
   | {
       readonly kind: 'seat';
-      readonly role: string;
+      readonly seatKind: SeatKind;
       readonly competitionType: 'ranked' | 'casual';
       readonly roundEnded: boolean;
       readonly debatersReadChat: boolean;
@@ -29,7 +31,7 @@ const everything: AudienceShown = {
  * included, sees it all. During
  * the Round a seat sees no reactions or count; a debater on a non-ranked Round
  * reads chat unless the host turned it off, and on a ranked Round never, whatever
- * is stored; a judge does not. Afterwards a seat reads it like anyone (plan
+ * is stored; a judge or moderator does not. Afterwards a seat reads it like anyone (plan
  * section 5, owner 2026-11-02).
  */
 export const audienceShownTo = (
@@ -37,7 +39,7 @@ export const audienceShownTo = (
 ): AudienceShown => {
   if (seat === null || seat.kind === 'seatless-host' || seat.roundEnded)
     return everything;
-  const debater = seat.role === 'affirmative' || seat.role === 'negative';
+  const debater = seat.seatKind === 'side' || seat.seatKind === 'speaker';
   return {
     chat: debater && seat.competitionType !== 'ranked' && seat.debatersReadChat,
     reactions: false,

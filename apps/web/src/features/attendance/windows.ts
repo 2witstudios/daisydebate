@@ -1,6 +1,23 @@
 import type { RoundHydration } from '@daisy/db/rounds';
 import { finalSpeechKey, type AttendanceWindow } from '@daisy/debate-engine';
 import { createAppError, createRefusal } from '@daisy/errors';
+import {
+  isDebatingSeat,
+  otherSide,
+  sameSeat,
+  sideOfSeat,
+  type RoundRules,
+  type SideKey,
+} from '@daisy/protocol';
+
+/**
+ * The side an absent speaker's forfeit hands the win to: the other side of a
+ * two-sided Round decided by a winner, else none (TAB-6.2).
+ */
+const forfeitsToOf = (rules: RoundRules, side: SideKey | null) =>
+  side !== null && rules.outcome.kind === 'winner' && rules.sides.length === 2
+    ? otherSide(rules.sides, side)
+    : null;
 /** Actual immutable opening + frozen scheduled slot; current floor/media eligibility grant no attendance authority. */
 export function attendanceWindowFor(
   round: Pick<RoundHydration, 'rules' | 'segments' | 'participants'>,
@@ -13,10 +30,15 @@ export function attendanceWindowFor(
   const scheduled = round.rules.segments.find(
     (segment) => segment.key === actual.rulesSegmentKey,
   );
-  if (!scheduled || scheduled.type !== 'speech')
+  if (
+    !scheduled ||
+    scheduled.type !== 'speech' ||
+    scheduled.speak.rights !== 'one'
+  )
     throw createAppError('INVARIANT', 'Speech must reference frozen rules');
-  const speaker = round.participants.find(
-    (seat) => seat.role === scheduled.side && seat.slot === scheduled.slot,
+  const scheduledSeat = scheduled.speak.seat;
+  const speaker = round.participants.find((seat) =>
+    sameSeat(seat.seat, scheduledSeat),
   );
   if (!speaker)
     throw createAppError(
@@ -27,16 +49,14 @@ export function attendanceWindowFor(
     segmentId,
     openedAtMs: Date.parse(actual.startedAt),
     speakerId: speaker.id,
-    speakerSide: scheduled.side,
+    speakerSide: sideOfSeat(scheduledSeat),
+    forfeitsTo: forfeitsToOf(round.rules, sideOfSeat(scheduledSeat)),
     eligibleSeats: round.participants
       .filter(
         (seat) =>
-          seat.role !== 'judge' && eligibleParticipantIds.includes(seat.id),
+          isDebatingSeat(seat.seat) && eligibleParticipantIds.includes(seat.id),
       )
-      .map((seat) => ({
-        id: seat.id,
-        side: seat.role as 'affirmative' | 'negative',
-      })),
+      .map((seat) => ({ id: seat.id, side: sideOfSeat(seat.seat) })),
     lastSpeech: finalSpeechKey(round.rules.segments) === scheduled.key,
   };
 }

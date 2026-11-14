@@ -1,9 +1,14 @@
 import { Room } from '@livekit/rtc-node';
 import { createMediaService } from '@daisy/media';
 import {
+  leadSeatOf,
   roomViewSchema,
   roundViewSchema,
+  sameSeat,
+  sideOfSeat,
+  sideSeat,
   type RoundView,
+  type SideKey,
 } from '@daisy/protocol';
 import { floorSelection } from './format';
 import { newCommandId, type HttpSession } from './http-session';
@@ -11,7 +16,7 @@ import type { DriverArgs, DriverTarget } from './target';
 
 type Seat = {
   readonly session: HttpSession;
-  readonly role: 'affirmative' | 'negative';
+  readonly side: SideKey;
 };
 
 const GRANT_TIMEOUT_MS = 15_000;
@@ -62,7 +67,7 @@ async function startRound(
     );
   };
   for (const seat of seats)
-    await command(seat, { type: 'claim-seat', role: seat.role, slot: 0 });
+    await command(seat, { type: 'claim-seat', seat: sideSeat(seat.side) });
   for (const seat of seats) {
     const own = roomViewSchema.parse(
       okBody(
@@ -73,9 +78,7 @@ async function startRound(
     room = own;
     const participant = own.participants.find(
       (entry) =>
-        entry.role === seat.role &&
-        entry.slot === 0 &&
-        'consentVersion' in entry,
+        sameSeat(entry.seat, sideSeat(seat.side)) && 'consentVersion' in entry,
     );
     if (!participant || !('consentVersion' in participant))
       throw new Error('Own consent missing');
@@ -129,9 +132,15 @@ const waitForOpenSpeech = async (session: HttpSession, roundId: string) => {
   }
   throw new Error('No speech opened');
 };
-const seatIdOf = (view: RoundView, role: Seat['role']) => {
+/** The side the segment at `sequence` is scheduled to, or null. */
+const speakingSideOf = (view: RoundView, sequence: number) => {
+  const rule = view.rules.segments[sequence];
+  const lead = rule ? leadSeatOf(rule.speak) : null;
+  return lead ? sideOfSeat(lead) : null;
+};
+const seatIdOf = (view: RoundView, side: SideKey) => {
   const seat = view.participants.find(
-    (entry) => entry.role === role && 'id' in entry,
+    (entry) => sameSeat(entry.seat, sideSeat(side)) && 'id' in entry,
   );
   if (!seat || !('id' in seat)) throw new Error('Seat missing');
   return seat.id;
@@ -176,7 +185,7 @@ export async function driveRound(input: {
   /** A browser holds the seats: admit, read and check in nothing here. */
   readonly seatsHeldElsewhere?: {
     readonly open: (roundId: string) => Promise<{
-      readonly identities: Readonly<Record<Seat['role'], string>>;
+      readonly identities: Readonly<Record<SideKey, string>>;
       readonly roomName: string;
       readonly close: () => Promise<void>;
     }>;
@@ -199,10 +208,10 @@ export async function driveRound(input: {
   >;
   let held: Held | null = null;
   const joined: Joined[] = [];
-  const identityOf = (role: Seat['role']) =>
+  const identityOf = (side: SideKey) =>
     held
-      ? held.identities[role]
-      : joined[role === first.role ? 0 : 1]!.identity;
+      ? held.identities[side]
+      : joined[side === first.side ? 0 : 1]!.identity;
   const checkedIn = new Set<string>();
   const checkIn = async (segmentId: string) => {
     if (!browserless || checkedIn.has(segmentId)) return;
@@ -247,9 +256,8 @@ export async function driveRound(input: {
     while (!input.shouldStop()) {
       const speech = openSpeech(view);
       if (!speech) break;
-      const speakingRole = view.rules.segments[speech.sequence]?.side as
-        Seat['role'] | undefined;
-      const speaker = seats.find((seat) => seat.role === speakingRole);
+      const speakingSide = speakingSideOf(view, speech.sequence);
+      const speaker = seats.find((seat) => seat.side === speakingSide);
       if (!speaker) throw new Error('Open speech has no seat');
       const next = seats.find((seat) => seat !== speaker)!;
       const lastSpeech = speech.sequence + 1 >= input.speeches;
@@ -267,7 +275,7 @@ export async function driveRound(input: {
               .version,
             command: {
               type: 'yield',
-              participantId: seatIdOf(view, speaker.role),
+              participantId: seatIdOf(view, speaker.side),
             },
           },
         },
@@ -296,7 +304,7 @@ export async function driveRound(input: {
         },
         Math.max(0, dueAt - Date.now()),
       );
-      const wanted = identityOf(next.role);
+      const wanted = identityOf(next.side);
       const until = Date.now() + GRANT_TIMEOUT_MS;
       let grantedAt: number | null = null;
       while (Date.now() < until) {
@@ -328,7 +336,7 @@ export async function driveRound(input: {
   return failure;
 }
 /** Leaves no live Round behind: a stopped run forfeits what it still holds. */
-async function settle({ session, role }: Seat, roundId: string) {
+async function settle({ session, side }: Seat, roundId: string) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { view } = await readView(session, roundId);
     if (view.status !== 'active' && view.status !== 'opening') return;
@@ -340,7 +348,7 @@ async function settle({ session, role }: Seat, roundId: string) {
           version: 1,
           commandId: newCommandId(),
           expectedVersion: view.version,
-          command: { type: 'forfeit', participantId: seatIdOf(view, role) },
+          command: { type: 'forfeit', participantId: seatIdOf(view, side) },
         },
       },
     );

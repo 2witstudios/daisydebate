@@ -195,7 +195,7 @@ describe('formatStanding', () => {
     const removed = oneOnOneFormatFixture.segments.at(-1)!.key;
     const definition: FormatDefinition = {
       ...withoutSegment(removed),
-      seats: { ...oneOnOneFormatFixture.seats, judge: 3 },
+      seats: { ...oneOnOneFormatFixture.seats, judges: 3 },
     };
     assert({
       given: 'a custom definition with a judge panel and one speech dropped',
@@ -207,8 +207,8 @@ describe('formatStanding', () => {
         changes: [
           {
             kind: 'seats',
-            role: 'judge',
-            from: oneOnOneFormatFixture.seats.judge,
+            of: { kind: 'judge' },
+            from: oneOnOneFormatFixture.seats.judges,
             to: 3,
           },
           { kind: 'segments', added: [], removed: [removed], changed: [] },

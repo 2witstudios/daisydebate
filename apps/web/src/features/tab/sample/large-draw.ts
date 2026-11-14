@@ -1,3 +1,4 @@
+import { affirmativeSide, negativeSide } from '@daisy/protocol';
 import type {
   DrawView,
   DrawViewFixture,
@@ -59,13 +60,13 @@ const fixture = (
         entryId: sampleId(`entry${affirmative}`),
         name: affirmative,
         school: largeEntrySchool(affirmative),
-        side: 'affirmative',
+        side: affirmativeSide,
       },
       {
         entryId: sampleId(`entry${negative}`),
         name: negative,
         school: largeEntrySchool(negative),
-        side: 'negative',
+        side: negativeSide,
       },
     ],
     judges: [

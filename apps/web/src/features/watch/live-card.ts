@@ -1,12 +1,21 @@
 import type { LiveBroadcastPage } from '@daisy/db';
 import { releasedStage } from '@daisy/debate-engine';
+import {
+  everySeatOf,
+  isDebatingSeat,
+  sameSeat,
+  sideOfSeat,
+  type SeatRef,
+} from '@daisy/protocol';
+import { seatName, sideShortName } from '../debate-room/seat-names';
 import { modeLabel } from './labels';
 import { liveHref } from './routes';
 
 type LiveRow = LiveBroadcastPage['rows'][number];
 
 type CardSeat = {
-  readonly label: 'Aff' | 'Neg';
+  /** The side's short name ('Aff'), or an unsided seat's name. */
+  readonly label: string;
   /** `@name` for a person, a bot's own name; null when no name was ever claimed. */
   readonly name: string | null;
   readonly speaking: boolean;
@@ -20,8 +29,8 @@ export type LiveCard = {
   readonly ranked: boolean;
   readonly mode: string;
   readonly resolution: string | null;
-  readonly aff: CardSeat;
-  readonly neg: CardSeat;
+  /** One per side in declared order, or one per seat for an unsided format. */
+  readonly seats: readonly CardSeat[];
   readonly phaseName: string;
   /** The clock as the released video shows it; null off the floor. */
   readonly secondsLeft: number | null;
@@ -29,17 +38,30 @@ export type LiveCard = {
   readonly progress: readonly ('done' | 'current' | 'upcoming')[];
 };
 
-const seatOf = (
-  row: LiveRow,
-  side: 'affirmative' | 'negative',
-  speaking: string | null,
-): CardSeat => {
-  const seat = row.seats.find((candidate) => candidate.side === side);
-  return {
-    label: side === 'affirmative' ? 'Aff' : 'Neg',
-    name: seat?.username ? `@${seat.username}` : (seat?.botName ?? null),
-    speaking: speaking === side,
-  };
+const nameOf = (seat: LiveRow['seats'][number] | undefined) =>
+  seat?.username ? `@${seat.username}` : (seat?.botName ?? null);
+
+/**
+ * The card's seats: each side by its short name, its first seat's debater
+ * named; an unsided format lists every speaker's seat. The floor's lead seat
+ * (its side, for a sided format) is the one speaking.
+ */
+const seatsOf = (row: LiveRow, lead: SeatRef | null): readonly CardSeat[] => {
+  if (row.rules.sides.length > 0)
+    return row.rules.sides.map((side) => ({
+      label: sideShortName(row.rules.sides, side.key),
+      name: nameOf(
+        row.seats.find((seat) => sideOfSeat(seat.seat) === side.key),
+      ),
+      speaking: lead !== null && sideOfSeat(lead) === side.key,
+    }));
+  return everySeatOf(row.rules)
+    .filter(isDebatingSeat)
+    .map((declared) => ({
+      label: seatName(row.rules, declared),
+      name: nameOf(row.seats.find((seat) => sameSeat(seat.seat, declared))),
+      speaking: lead !== null && sameSeat(lead, declared),
+    }));
 };
 
 const progressOf = (row: LiveRow, onFloor: boolean): LiveCard['progress'] => {
@@ -70,8 +92,7 @@ export function liveCardOf(row: LiveRow): LiveCard {
     ranked: row.competitionType === 'ranked',
     mode: modeLabel(row.competitionType),
     resolution: row.resolution,
-    aff: seatOf(row, 'affirmative', floor?.side ?? null),
-    neg: seatOf(row, 'negative', floor?.side ?? null),
+    seats: seatsOf(row, floor?.lead ?? null),
     phaseName: floor?.label ?? 'Between speeches',
     secondsLeft: floor ? Math.floor(floor.remainingMs / 1000) : null,
     progress: progressOf(row, floor !== null),

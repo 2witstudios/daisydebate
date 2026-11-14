@@ -73,7 +73,8 @@ const withBotRoom = (
         id: createId(),
         room_id: roomId,
         actor_id: actorId,
-        role,
+        seat_kind: role === 'judge' ? 'judge' : 'side',
+        side: role === 'judge' ? null : role,
         slot: 0,
       });
     const common = {
@@ -119,7 +120,7 @@ const withBotRoom = (
           consent: null,
           publishDefinition: false,
           draw: null,
-          members: [state.hostActorId],
+          members: [caller.actorId],
         },
       }),
     };

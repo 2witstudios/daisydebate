@@ -7,7 +7,7 @@ Amends [ADR 0030](0030-effective-rules-and-growth-paths.md),
 [ADR 0031](0031-realtime-service.md) section 5 and
 [ADR 0019](0019-token-secret-ownership.md), each in its own `## Amendment`
 section. Decisions marked open at the end were made on the owner's behalf and
-stay open until the owner confirms or overrules them.
+stay open until the owner confirms or overrules them. Section 6 is amended by [ADR 0129](0129-tenant-isolation-by-row-level-security.md) and superseded by [ADR 0135](0135-leagues-are-organizations.md).
 
 Rating scope amendment: [ADR0090](0090-three-rating-ladders.md) owns the current
 standing identity `(actor, ladder, season)`, with Freestyle, Policy and Value.
@@ -259,7 +259,7 @@ client.
 AZC-3.1 delivers the loader, `authorizeRequest`, identity without
 permissions and the foundation proof.
 
-### 6. Leagues are future tenants, and what they must satisfy
+### 6. Leagues are future tenants, and what they must satisfy (superseded by [ADR 0135](0135-leagues-are-organizations.md))
 
 A league is a tournament tenant: an organizer's private space with its own
 members, rounds and UI. It is operator-created and sold (the operator plane
@@ -333,6 +333,8 @@ failed decision refuses the subscribe.
 - **LEAGUE-OPS and TOURN.** They build tenancy under section 6: isolation
   before the first league, no ladder, no ratings, tenant formats that are
   never ranked-eligible, and the tournament tables.
+  ADR 0135 supersedes the "no ladder, no ratings" part: a league has a
+  ladder over its own lobby.
 - **RT epic.** Revocation messaging and timing (section 7). AZC-3.4 requires
   RT-2.5a merged.
 - **`role_grants`.** `authorize` never reads it. LEAGUE-OPS replaces or drops
@@ -385,7 +387,9 @@ Each essential has a test that fails when it is removed:
   tournament guidance in that bullet stands.
 - The "League seasons are not rating seasons" bullet is refined: a league's
   debates never create ratings, and tournament standings are the
-  tournament's, not the ladder's.
+  tournament's, not the ladder's. (Superseded in part by
+  [ADR 0135](0135-leagues-are-organizations.md): a league's ladder rates its
+  lobby's rated Rooms and, through its own fold, tournaments run on Daisy.)
 - The "Access enforcement" bullet is updated: `visibility` is read by
   `authorize`; `role_grants` is still unread, and LEAGUE-OPS replaces or
   drops it.

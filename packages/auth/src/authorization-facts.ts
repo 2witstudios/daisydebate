@@ -1,6 +1,6 @@
 import type { MessagingChannelLifecycle } from '@daisy/protocol';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
-import type { BetaAccessState } from '@daisy/protocol';
+import type { BetaAccessState, SeatRef } from '@daisy/protocol';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -68,8 +68,7 @@ export type RoomAuthorizationFact = {
   readonly revision: number;
   readonly participants: readonly {
     readonly actorId: string;
-    readonly role: string;
-    readonly slot: number;
+    readonly seat: SeatRef;
   }[];
   /**
    * The Room's lobby. An event Room is decided through its fixture; any
@@ -86,8 +85,7 @@ export type RoundAuthorizationFact = {
   readonly status: string;
   readonly participants: readonly {
     readonly actorId: string;
-    readonly role: string;
-    readonly slot: number;
+    readonly seat: SeatRef;
   }[];
   readonly revision: number;
   /** The Round's Room's lobby, as on the Room fact. */
