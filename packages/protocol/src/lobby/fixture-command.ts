@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { judgingForceKeys } from '../settings/force';
-import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
+import {
+  lobbyCommandEnvelope,
+  type LobbyCommandCatalogue,
+  type LobbyCommandDefinition,
+} from './command';
 
 /**
  * Fixture officiating (TAB-5.12): the commands that change a fixture's panel,
@@ -179,3 +183,31 @@ export const fixtureCommandCatalogue = {
     history: 'entry',
   },
 } as const satisfies LobbyCommandCatalogue<FixtureCommand>;
+
+const judgeCommands = new Set<FixtureCommand['type']>([
+  'assign-judge',
+  'replace-judge',
+  'unassign-judge',
+]);
+
+/**
+ * The definition a fixture command runs under, by the fixture's status: a
+ * judge command on a draft fixture is drawing (`tournament.draw.edit`), on a
+ * published one it is officiating (`tournament.rooms.officiate`). Wiring
+ * passes this, never the catalogue entry, to the runner.
+ */
+export const fixtureCommandDefinition = (
+  type: FixtureCommand['type'],
+  status: 'draft' | 'published' | 'withdrawn',
+): LobbyCommandDefinition => {
+  const definition: LobbyCommandDefinition = fixtureCommandCatalogue[type];
+  if (!judgeCommands.has(type)) return definition;
+  return {
+    ...definition,
+    gate: [
+      status === 'draft'
+        ? 'tournament.draw.edit'
+        : 'tournament.rooms.officiate',
+    ],
+  };
+};

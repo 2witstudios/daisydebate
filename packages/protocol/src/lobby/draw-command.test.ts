@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseEach, parsedUnchanged } from '../parse-outcome.test-support';
 import {
   drawCommandCatalogue,
+  drawCommandDefinition,
   drawCommandEnvelopeSchema,
   drawCommandSchema,
   drawRefusals,
@@ -147,6 +148,25 @@ describe('draw catalogue', () => {
         unused: drawRefusals.filter((refusal) => !named.includes(refusal)),
       },
       expected: { outside: [], unused: [] },
+    });
+  });
+});
+
+describe('drawCommandDefinition', async () => {
+  test('assigning judges follows the draw', async () => {
+    assert({
+      given: 'assign-judges on a draft and on a published draw, and a publish',
+      should: 'gate drawing, officiating, and publishing',
+      actual: [
+        drawCommandDefinition('assign-judges', 'draft').gate,
+        drawCommandDefinition('assign-judges', 'published').gate,
+        drawCommandDefinition('publish-draw', 'draft').gate,
+      ],
+      expected: [
+        ['tournament.draw.edit'],
+        ['tournament.rooms.officiate'],
+        ['tournament.draw.publish'],
+      ],
     });
   });
 });

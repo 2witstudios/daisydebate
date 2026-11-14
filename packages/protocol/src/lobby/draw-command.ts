@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { forceKeys, type ForceKey } from '../settings/force';
-import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
+import {
+  lobbyCommandEnvelope,
+  type LobbyCommandCatalogue,
+  type LobbyCommandDefinition,
+} from './command';
 
 /**
  * The draw commands (TAB-5.11): numbered versions of one tab round's set of
@@ -159,3 +163,25 @@ export const drawCommandCatalogue = {
 
 export const drawCommandEnvelopeSchema =
   lobbyCommandEnvelope(drawCommandSchema);
+
+/**
+ * The definition a draw command runs under: assigning judges to a draft is
+ * drawing (`tournament.draw.edit`), to a published draw it is officiating
+ * (`tournament.rooms.officiate`). Wiring passes this, never the catalogue
+ * entry, to the runner.
+ */
+export const drawCommandDefinition = (
+  type: DrawCommand['type'],
+  status: 'draft' | 'published',
+): LobbyCommandDefinition => {
+  const definition: LobbyCommandDefinition = drawCommandCatalogue[type];
+  if (type !== 'assign-judges') return definition;
+  return {
+    ...definition,
+    gate: [
+      status === 'draft'
+        ? 'tournament.draw.edit'
+        : 'tournament.rooms.officiate',
+    ],
+  };
+};

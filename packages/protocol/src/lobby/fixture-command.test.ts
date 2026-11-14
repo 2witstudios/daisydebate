@@ -1,7 +1,8 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseOutcome } from '../parse-outcome.test-support';
 import {
   fixtureCommandCatalogue,
+  fixtureCommandDefinition,
   fixtureCommandEnvelopeSchema,
   fixtureCommandRefusals,
   fixtureCommandSchema,
@@ -220,5 +221,25 @@ test('replace-judge refuses as both unassign and assign do', () => {
     should: 'include each refusal of assign and unassign',
     actual: both.every((refusal) => refusals.has(refusal)),
     expected: true,
+  });
+});
+
+describe('fixtureCommandDefinition', async () => {
+  test('the judge gate follows the fixture', async () => {
+    assert({
+      given:
+        'a judge command on a draft, then on a published fixture, then a restart',
+      should: 'gate drawing, then officiating, then as catalogued',
+      actual: [
+        fixtureCommandDefinition('assign-judge', 'draft').gate,
+        fixtureCommandDefinition('replace-judge', 'published').gate,
+        fixtureCommandDefinition('restart-fixture', 'published').gate,
+      ],
+      expected: [
+        ['tournament.draw.edit'],
+        ['tournament.rooms.officiate'],
+        ['tournament.rooms.officiate'],
+      ],
+    });
   });
 });
