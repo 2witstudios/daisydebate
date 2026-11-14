@@ -7,8 +7,13 @@ import {
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { RoundProjection } from '@daisy/protocol';
+import type {
+  RoundOutcome,
+  RoundProjection,
+  RoundRules,
+} from '@daisy/protocol';
 import {
+  prepConsumedOf,
   privateSpanChanges,
   runtimeCheckpointSchema,
   buildRoundTopic,
@@ -21,6 +26,7 @@ import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 import { writeRoundIncidentChanges } from './round-incident-rows';
 import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
+import { columnsOfOutcome, outcomeOfColumns } from './round-outcome-columns';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
 import { roundPrivateSpans } from './schema/round-private-spans';
@@ -149,7 +155,7 @@ type LockedRound = {
   readonly currentStage: typeof rounds.$inferSelect.currentStage;
   readonly startedAt: Date | null;
   readonly completedAt: Date | null;
-  readonly outcome: typeof rounds.$inferSelect.outcome;
+  readonly outcome: RoundOutcome | null;
   readonly runtimeState: typeof rounds.$inferSelect.runtimeState;
 };
 
@@ -172,7 +178,11 @@ export async function lockedRoundVersion(
       currentStage: rounds.currentStage,
       startedAt: rounds.startedAt,
       completedAt: rounds.completedAt,
-      outcome: rounds.outcome,
+      winningSide: rounds.winningSide,
+      ranking: rounds.ranking,
+      rulesOutcome: sql<
+        RoundRules['outcome']
+      >`${rounds.rulesSnapshot}->'outcome'`,
       runtimeState: rounds.runtimeState,
     })
     .from(rounds)
@@ -181,7 +191,14 @@ export async function lockedRoundVersion(
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   if (expectedVersion !== undefined && round.version !== expectedVersion)
     throw createAppError('CONFLICT', 'The round moved on');
-  return round;
+  const { winningSide, ranking, rulesOutcome, ...locked } = round;
+  return {
+    ...locked,
+    outcome: outcomeOfColumns(
+      { winningSide, ranking },
+      { outcome: rulesOutcome },
+    ),
+  };
 }
 
 /**
@@ -245,7 +262,7 @@ const prepFacts = (
 ): { startedAtMs: number; consumedMs: number } | null =>
   checkpoint.active_prep && {
     startedAtMs: Date.parse(checkpoint.active_prep.started_at),
-    consumedMs: checkpoint.prep_consumed_ms[checkpoint.active_prep.side],
+    consumedMs: prepConsumedOf(checkpoint, checkpoint.active_prep.side),
   };
 
 /** The Round's private spans, committed with the transition that opened or closed them. */
@@ -267,7 +284,7 @@ export async function writePrivateSpans(
       stage: ended ? null : lifecycle.currentStage,
       activePrep: ended ? null : prepFacts(after),
       consumedNowMs: before.active_prep
-        ? after.prep_consumed_ms[before.active_prep.side]
+        ? prepConsumedOf(after, before.active_prep.side)
         : 0,
     },
     Date.parse(now),
@@ -323,7 +340,7 @@ async function writeProjection(
               lifecycle.completedAt,
               now,
             ),
-            outcome: lifecycle.outcome,
+            ...columnsOfOutcome(lifecycle.outcome),
             runtimeState: lifecycle.checkpoint,
           }),
       version: sql`${rounds.version} + 1`,

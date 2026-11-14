@@ -11,7 +11,7 @@ type Round = Parameters<typeof mediaPublicationParticipants>[2];
 const seat = (id: string, kind: 'bot' | 'human', eligible = true) => ({
   id,
   kind,
-  role: 'negative',
+  seat: { kind: 'side' as const, side: 'negative', slot: 0 },
   eligible,
 });
 const seats = [

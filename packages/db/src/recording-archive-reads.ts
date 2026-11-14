@@ -1,8 +1,13 @@
-import type { CompetitionType, RecordingStatus } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  type CompetitionType,
+  type RecordingStatus,
+} from '@daisy/protocol';
 import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { broadcastStopOf } from './broadcast-operations';
-import { historyRows } from './member-history-rows';
+import { namedSeats } from './member-history-rows';
+import { outcomeOfColumns } from './round-outcome-columns';
 import { broadcasts } from './schema/broadcasts';
 import { recordings } from './schema/recordings';
 import { roundParticipants } from './schema/round-participants';
@@ -80,7 +85,7 @@ const searched = (q: string): SQL | undefined => {
     select 1 from round_participants p
     join actors a on a.id = p.actor_id
     join users u on u.id = a.user_id
-    where p.round_id = ${rounds.id} and p.role <> 'judge' and u.username ilike ${like}))`;
+    where p.round_id = ${rounds.id} and p.seat_kind <> 'judge' and u.username ilike ${like}))`;
 };
 
 const durationMs = sql<
@@ -143,7 +148,9 @@ export const recordingArchiveReadOperations = ({
           visibility,
           hostActorId: rounds.createdByActorId,
           completedAt: rounds.completedAt,
-          outcome: rounds.outcome,
+          winningSide: rounds.winningSide,
+          ranking: rounds.ranking,
+          rules: rounds.rulesSnapshot,
           status: recordings.status,
           durationMs,
           hasTranscript,
@@ -181,16 +188,9 @@ export const recordingArchiveReadOperations = ({
             .where(eq(roundParticipants.roundId, row.id)),
         ),
       );
-      const named = await historyRows(
+      const named = await namedSeats(
         tx,
-        shown.map((row) => ({
-          roundId: row.id,
-          completedAt: row.completedAt,
-          resolution: row.resolution,
-          visibility: 'private',
-          outcome: row.outcome,
-          role: 'affirmative',
-        })),
+        shown.map((row) => row.id),
       );
       return {
         nextBefore:
@@ -203,14 +203,14 @@ export const recordingArchiveReadOperations = ({
           visibility: row.visibility,
           hostActorId: row.hostActorId,
           completedAtMs: row.completedAt?.getTime() ?? null,
-          outcome: row.outcome as string | null,
+          outcome: outcomeOfColumns(row, row.rules),
           status: row.status as RecordingStatus | null,
           durationMs: row.durationMs,
           hasTranscript: row.hasTranscript,
           seatedActorIds: (seats[index] ?? []).map((seat) => seat.actorId),
-          debaters: (named[index]?.seats ?? [])
-            .filter((seat) => seat.role !== 'judge')
-            .map((seat) => ({ role: seat.role as string, label: seat.label })),
+          debaters: (named.get(row.id) ?? [])
+            .filter((seat) => !isJudgeSeat(seat.seat))
+            .map((seat) => ({ seat: seat.seat, label: seat.label })),
           release: {
             releasedThroughMs:
               row.horizon === null ? null : new Date(row.horizon).getTime(),

@@ -1,4 +1,4 @@
-import { ballotCategories } from '@daisy/protocol';
+import { ballotCategories, daisyWinnerBallot } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 
@@ -21,12 +21,23 @@ const row = (
     roundId: 'round',
     freezeRevision: 1,
     rubricVersion: 'speaker-10@2',
+    decision: 'win',
     winner: 'affirmative',
+    ranking: null,
     scores,
     reason: 'Clearer weighing.',
     feedback,
     citations,
   }) as unknown as Row;
+/** The Round's frozen definition and subjects every view reads ballots by. */
+const judged = {
+  definition: daisyWinnerBallot,
+  subjects: {
+    sides: ['affirmative', 'negative'],
+    speakers: ['aff', 'neg'],
+    segments: ['AC', 'NC'],
+  },
+};
 const body = {
   rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
@@ -45,9 +56,24 @@ const frozen = {
 
 test('only a human judge seated in the Round has an own seat', () => {
   const participants = [
-    { id: 'aff', actorId: 'a', role: 'affirmative', kind: 'human' },
-    { id: 'judge-h', actorId: 'h', role: 'judge', kind: 'human' },
-    { id: 'judge-b', actorId: 'b', role: 'judge', kind: 'bot' },
+    {
+      id: 'aff',
+      actorId: 'a',
+      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+      kind: 'human',
+    },
+    {
+      id: 'judge-h',
+      actorId: 'h',
+      seat: { kind: 'judge', slot: 0 } as const,
+      kind: 'human',
+    },
+    {
+      id: 'judge-b',
+      actorId: 'b',
+      seat: { kind: 'judge', slot: 1 } as const,
+      kind: 'bot',
+    },
   ];
   assert({
     given: 'a debater, a human judge, a bot judge and a spectator',
@@ -66,6 +92,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
     ownSeatId: 'judge-h',
     viewerSide: undefined,
     aiJudgeSeatIds: new Set(['judge-b']),
+    ...judged,
     rows,
     frozen,
   });
@@ -74,6 +101,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
     ownSeatId: undefined,
     viewerSide: undefined,
     aiJudgeSeatIds: new Set(['judge-b']),
+    ...judged,
     rows,
     frozen: null,
   });
@@ -120,6 +148,7 @@ test('a judge who has not submitted sees an empty own ballot', () => {
       ownSeatId: 'judge-h',
       viewerSide: undefined,
       aiJudgeSeatIds: new Set(),
+      ...judged,
       rows: [row('judge-b')],
       frozen,
     }).own,
@@ -142,6 +171,7 @@ test('a released ballot carries feedback only for the reader’s own side', () =
       ownSeatId: undefined,
       viewerSide,
       aiJudgeSeatIds: new Set(),
+      ...judged,
       rows: [row('judge-h', null, feedback)],
       frozen: null,
     }).ballots.map((entry) => entry.ballot.feedback);

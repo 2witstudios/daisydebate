@@ -1,12 +1,15 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase, roundRow, validRules } from './index.test-support';
-import { emptyRuntimeCheckpoint, type RoundProjection } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  type RoundProjection,
+} from '@daisy/protocol';
 
 setupRitewayBun();
 
 const rules = validRules;
-const checkpoint = emptyRuntimeCheckpoint;
+const checkpoint = emptyRuntimeCheckpointFor(validRules);
 const activeCountdownProjection: RoundProjection = {
   round: {
     status: 'active',
@@ -166,7 +169,7 @@ describe('round persistence', () => {
       expected: {
         status: 'active',
         stage: 'countdown',
-        rules: 2,
+        rules: 3,
         checkpoint: 1,
         participants: 0,
         segments: 0,

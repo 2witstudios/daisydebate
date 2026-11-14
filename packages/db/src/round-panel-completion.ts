@@ -32,6 +32,7 @@ import {
 } from './round-projection-writer';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { ballots } from './schema/ballots';
+import { outcomeJson } from './round-outcome-sql';
 import { roundCommands } from './schema/round-commands';
 import {
   requireCompletionProjection,
@@ -214,7 +215,11 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
       serviceId: `round-finalization:${input.instanceId}`,
       type: 'complete',
       payloadDigest: digest,
-      result: { ...receipt, noRuling: [...receipt.noRuling] },
+      result: {
+        ...receipt,
+        outcome: outcomeJson(receipt.outcome),
+        noRuling: [...receipt.noRuling],
+      },
     },
     receipt.resultingVersion,
     {

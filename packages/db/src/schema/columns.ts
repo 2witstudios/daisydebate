@@ -9,6 +9,7 @@ import {
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
+import { seatKinds } from '@daisy/protocol';
 
 /**
  * Column recipes every table uses (ADR 0029, ADR 0038). Builders are
@@ -48,6 +49,18 @@ export const versionPositive = (table: string, column: PgColumn) =>
  */
 export const oneOf = (column: PgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(', '))})`;
+
+/**
+ * The SQL spelling of a protocol side key (TAB-6.2, `sideKeySchema`): a short
+ * lowercase key that is never a seat-kind word. `side-key-check.test.ts`
+ * proves this spelling accepts exactly the keys the protocol accepts.
+ */
+export const sideKeySqlPattern = '^[a-z][a-z_]{0,23}$';
+/** `column` is null or a side key. */
+export const isSideKeyOrNull = (column: PgColumn): SQL =>
+  sql`${column} is null or (${column} ~ ${sql.raw(`'${sideKeySqlPattern}'`)} and ${column} not in (${sql.raw(
+    seatKinds.map((kind) => `'${kind}'`).join(', '),
+  )}))`;
 
 /** `later` is unset or not before `earlier`: a time-ordering CHECK body. */
 export const notBefore = (later: PgColumn, earlier: PgColumn): SQL =>
@@ -92,6 +105,30 @@ export const jsonbColumn = <T extends Record<string, unknown>>(
  * validate), anything present is parsed exactly as `jsonbColumn` parses it.
  */
 export const jsonbColumnNullable = <T extends Record<string, unknown>>(
+  name: string,
+  schema: z.ZodType<T>,
+) =>
+  customType<{ data: T | null; driverData: T | null }>({
+    dataType: () => 'jsonb',
+    toDriver: (value) => {
+      if (value === null) return null;
+      const parsed = schema.safeParse(value);
+      if (!parsed.success)
+        throw createAppError(
+          'VALIDATION',
+          `Invalid value for jsonb column ${name}`,
+          parsed.error,
+        );
+      return parsed.data;
+    },
+  })(name);
+
+/**
+ * A nullable jsonb array column: the one place a jsonb value is not an
+ * object (a ranking's places). Writes are parsed exactly as `jsonbColumn`
+ * parses them; the table's own CHECK proves the array's shape.
+ */
+export const jsonbArrayColumnNullable = <T extends readonly unknown[]>(
   name: string,
   schema: z.ZodType<T>,
 ) =>

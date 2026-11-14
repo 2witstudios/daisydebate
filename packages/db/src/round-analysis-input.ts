@@ -7,6 +7,7 @@ import type { AnalysisSeat } from './round-analysis-authority';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { roundAnalyses } from './schema/round-analyses';
 import { roundParticipants } from './schema/round-participants';
+import { seatOfColumns } from './seat-columns';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
@@ -61,14 +62,17 @@ export async function readAnalysisInput(
     .from(rounds)
     .where(eq(rounds.id, seat.roundId));
   if (!round?.resolution) throw createAppError('INVARIANT');
-  const participants = await tx
-    .select({
-      id: roundParticipants.id,
-      role: roundParticipants.role,
-      slot: roundParticipants.slot,
-    })
-    .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, seat.roundId));
+  const participants = (
+    await tx
+      .select({
+        id: roundParticipants.id,
+        seatKind: roundParticipants.seatKind,
+        side: roundParticipants.side,
+        slot: roundParticipants.slot,
+      })
+      .from(roundParticipants)
+      .where(eq(roundParticipants.roundId, seat.roundId))
+  ).map(({ id, ...row }) => ({ id, seat: seatOfColumns(row) }));
   const segments = await tx
     .select({ id: roundSegments.id, sequence: roundSegments.sequence })
     .from(roundSegments)

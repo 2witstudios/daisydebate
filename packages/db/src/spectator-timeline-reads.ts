@@ -7,7 +7,7 @@ import {
   recordingHiddenByModeration,
   SPECTATOR_MARGIN_MS,
 } from '@daisy/protocol';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
@@ -22,11 +22,11 @@ import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import { utterances } from './schema/utterances';
+import { outcomeOfColumns } from './round-outcome-columns';
+import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 
 /** How many of the newest released captions one snapshot carries. */
 const CAPTION_WINDOW = 50;
-
-const debateRoles = ['affirmative', 'negative'] as const;
 
 /** What the horizon rule decides from, in the read's own snapshot. */
 export type SpectatorHorizonRead = {
@@ -62,7 +62,7 @@ export const spectatorTimelineReads = ({
     return instrumented(eventSink, 'readSpectatorTimeline', () =>
       database.transaction(
         async (tx) => {
-          const [round] = await tx
+          const [row] = await tx
             .select({
               id: rounds.id,
               roomId: rounds.roomId,
@@ -71,12 +71,17 @@ export const spectatorTimelineReads = ({
               competitionType: rounds.competitionType,
               resolution: rounds.resolution,
               rules: rounds.rulesSnapshot,
-              outcome: rounds.outcome,
+              winningSide: rounds.winningSide,
+              ranking: rounds.ranking,
               startedAt: rounds.startedAt,
               completedAt: rounds.completedAt,
             })
             .from(rounds)
             .where(eq(rounds.id, input.roundId));
+          const round = row && {
+            ...row,
+            outcome: outcomeOfColumns(row, row.rules),
+          };
           if (
             !round ||
             round.roomId === null ||
@@ -100,9 +105,11 @@ export const spectatorTimelineReads = ({
                 }
               : null,
           });
-          const seats = await tx
+          const seatRows = await tx
             .select({
-              side: roundParticipants.role,
+              seatKind: roundParticipants.seatKind,
+              side: roundParticipants.side,
+              slot: roundParticipants.slot,
               kind: actors.kind,
               username: users.username,
               botName: botProfiles.name,
@@ -114,10 +121,14 @@ export const spectatorTimelineReads = ({
             .where(
               and(
                 eq(roundParticipants.roundId, input.roundId),
-                inArray(roundParticipants.role, [...debateRoles]),
+                isDebatingSeatSql(roundParticipants.seatKind),
               ),
             )
-            .orderBy(asc(roundParticipants.role));
+            .orderBy(...seatRowOrder(roundParticipants));
+          const seats = seatRows.map(({ seatKind, side, slot, ...seat }) => ({
+            seat: seatOfColumns({ seatKind, side, slot }),
+            ...seat,
+          }));
           const [recording] = await tx
             .select({
               status: recordings.status,
@@ -196,7 +207,9 @@ export const spectatorTimelineReads = ({
               ? await tx
                   .select({
                     winner: ballots.winner,
-                    scores: ballots.scores,
+                    scores: sql<
+                      Record<string, number | Record<string, number>>
+                    >`coalesce(${ballots.scores}, '{}'::jsonb)`,
                     reason: ballots.reason,
                   })
                   .from(ballots)
@@ -207,7 +220,7 @@ export const spectatorTimelineReads = ({
             ranked && outcomeReleased
               ? await tx
                   .select({
-                    side: roundParticipants.role,
+                    side: roundParticipants.side,
                     before: ratingChanges.ratingBefore,
                     after: ratingChanges.ratingAfter,
                   })
@@ -225,7 +238,7 @@ export const spectatorTimelineReads = ({
                       released(ratingChanges.occurredAt),
                     ),
                   )
-                  .orderBy(asc(roundParticipants.role))
+                  .orderBy(...seatRowOrder(roundParticipants))
               : [];
           const captionHeard = captionHeardAtSql({
             createdAt: utterances.createdAt,
@@ -236,7 +249,9 @@ export const spectatorTimelineReads = ({
               ? await tx
                   .select({
                     id: utterances.id,
-                    side: roundParticipants.role,
+                    seatKind: roundParticipants.seatKind,
+                    side: roundParticipants.side,
+                    slot: roundParticipants.slot,
                     text: utterances.text,
                   })
                   .from(utterances)
@@ -248,7 +263,7 @@ export const spectatorTimelineReads = ({
                     and(
                       eq(utterances.roundId, input.roundId),
                       eq(utterances.complete, true),
-                      inArray(roundParticipants.role, [...debateRoles]),
+                      isDebatingSeatSql(roundParticipants.seatKind),
                       released(captionHeard),
                       captionKnownPublicSql({
                         segmentId: utterances.segmentId,
@@ -264,7 +279,13 @@ export const spectatorTimelineReads = ({
             segments,
             ballots: ballotRows,
             ratings: ratingRows,
-            captions: [...captionRows].reverse(),
+            captions: [...captionRows]
+              .reverse()
+              .map(({ id, seatKind, side, slot, text }) => ({
+                id,
+                seat: seatOfColumns({ seatKind, side, slot }),
+                text,
+              })),
             outcomeReleased,
           };
         },

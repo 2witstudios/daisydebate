@@ -3,13 +3,16 @@ import { isRoundLifecycle, type RoundLifecycle } from '@daisy/protocol';
 import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
-  DebateRole,
+  RoundJudging,
+  RoundParticipantSeat,
   RoundRules,
   RoundStage,
   RuntimeCheckpoint,
   SegmentType,
 } from '@daisy/protocol';
-import { asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { outcomeOfColumns } from './round-outcome-columns';
+import { seatOfColumns, seatRowOrder } from './seat-columns';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
@@ -32,14 +35,11 @@ export type RoundHydration = RoundLifecycle & {
   /** When the Round was launched (its row's creation), on the database clock. */
   readonly launchedAt: string;
   readonly rules: RoundRules;
+  /** What the Round is judged on, frozen when it launched (TAB-6.11). */
+  readonly judging: RoundJudging;
   readonly checkpoint: RuntimeCheckpoint;
   readonly version: number;
-  readonly participants: readonly {
-    readonly id: string;
-    readonly actorId: string;
-    readonly role: DebateRole;
-    readonly slot: number;
-  }[];
+  readonly participants: readonly RoundParticipantSeat[];
   readonly segments: readonly {
     readonly id: string;
     readonly sequence: number;
@@ -88,14 +88,19 @@ export async function segmentRows(
 export const roundLifecycleOfRow = (
   row: Pick<
     typeof rounds.$inferSelect,
-    'status' | 'startedAt' | 'completedAt' | 'outcome'
+    | 'status'
+    | 'startedAt'
+    | 'completedAt'
+    | 'winningSide'
+    | 'ranking'
+    | 'rulesSnapshot'
   >,
 ): RoundLifecycle => {
   const lifecycle = {
     status: row.status,
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
-    outcome: row.outcome,
+    outcome: outcomeOfColumns(row, row.rulesSnapshot),
   };
   if (!isRoundLifecycle(lifecycle))
     throw createAppError(
@@ -145,16 +150,22 @@ async function readRoundRows(
     .where(eq(rounds.id, id))
     .limit(1);
   if (!row) return null;
-  const participants = await tx
+  const seats = await tx
     .select({
       id: roundParticipants.id,
       actorId: roundParticipants.actorId,
-      role: roundParticipants.role,
+      seatKind: roundParticipants.seatKind,
+      side: roundParticipants.side,
       slot: roundParticipants.slot,
     })
     .from(roundParticipants)
     .where(eq(roundParticipants.roundId, id))
-    .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
+    .orderBy(...seatRowOrder(roundParticipants));
+  const participants = seats.map(({ id, actorId, ...seat }) => ({
+    id,
+    actorId,
+    seat: seatOfColumns(seat),
+  }));
   const segments = await segmentRows(tx, id);
   return {
     ...roundLifecycleOfRow(row),
@@ -167,6 +178,7 @@ async function readRoundRows(
     currentStage: row.currentStage,
     launchedAt: row.createdAt.toISOString(),
     rules: row.rulesSnapshot as RoundHydration['rules'],
+    judging: row.judging,
     checkpoint: row.runtimeState as RoundHydration['checkpoint'],
     version: row.version,
     participants,

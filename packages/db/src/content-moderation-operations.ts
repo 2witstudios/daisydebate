@@ -77,16 +77,23 @@ const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
   } as const;
 };
 
+/** A ballot feedback report names its side (`content_reports_feedback_side_check`). */
+const requireFeedbackSide = (side: string | null): string => {
+  if (side === null)
+    throw createAppError('INVARIANT', 'A feedback report names its side');
+  return side;
+};
+
 /** The side this reporter debated on, when the ballot has feedback for it. */
 const feedbackSideFor = async (tx: Tx, ballotId: string, actorId: string) => {
   const [row] = await rows<{ side: string }>(
     tx,
-    sql`select p.role as side from ballots b
+    sql`select p.side from ballots b
       join round_participants p on p.round_id = b.round_id
       where b.id = ${ballotId}
         and p.actor_id = ${actorId}
-        and p.role in ('affirmative', 'negative')
-        and b.feedback ? p.role
+        and p.seat_kind = 'side'
+        and b.feedback ? p.side
       limit 1`,
   );
   return row?.side ?? null;
@@ -435,7 +442,7 @@ const subjectOf = async (
         ? {
             kind: 'ballot_feedback',
             ballotId: report.targetId,
-            side: feedbackSide as 'affirmative' | 'negative',
+            side: requireFeedbackSide(feedbackSide),
             text: ballot.text,
           }
         : null;

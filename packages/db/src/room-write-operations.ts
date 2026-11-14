@@ -21,6 +21,18 @@ import type {
 } from '@daisy/protocol';
 
 import { createAppError, createRefusal } from '@daisy/errors';
+import { isJudgeSeat } from '@daisy/protocol';
+
+/**
+ * The host a Room's admission or capture charges. A Room no person hosts
+ * (TAB-6) is never charged: the engine seats no bot nor AI judge, and opts
+ * into no casual capture, without a host, so reaching here is a defect.
+ */
+const chargedHostOf = (room: { readonly hostActorId: string | null }) => {
+  if (room.hostActorId === null)
+    throw createAppError('INVARIANT', 'A Room without a host is never charged');
+  return room.hostActorId;
+};
 
 import {
   lockAuthorizationActors,
@@ -213,9 +225,11 @@ async function executeOnce(
   const judgeQuote =
     judgeAdmission &&
     state.hostActorId === input.caller.actorId &&
-    (target?.seatRole === 'judge' ||
+    (target?.seatKind === 'judge' ||
       (input.type === 'start-round' &&
-        state.participants.some((p) => p.kind === 'bot' && p.role === 'judge')))
+        state.participants.some(
+          (p) => p.kind === 'bot' && isJudgeSeat(p.seat),
+        )))
       ? await judgeAdmission.quoteLocked(tx, {
           account,
           roundId: input.roundId,
@@ -257,12 +271,12 @@ async function executeOnce(
     outcome.mutation.freeze &&
     !outcome.mutation.seatsBotDebater &&
     next.competitionType !== 'ranked' &&
-    next.participants.some((p) => p.kind === 'bot' && p.role === 'judge')
+    next.participants.some((p) => p.kind === 'bot' && isJudgeSeat(p.seat))
   ) {
     if (!judgeAdmission)
       throw createAppError('INFRASTRUCTURE', 'Judge admission unavailable');
     await judgeAdmission.reserveLocked(tx, {
-      actorId: next.hostActorId,
+      actorId: chargedHostOf(next),
       roundId: input.roundId,
     });
   }
@@ -272,7 +286,7 @@ async function executeOnce(
     outcome.mutation.state.capture !== null
   )
     await admitCasualCapture(tx, {
-      hostActorId: outcome.mutation.state.hostActorId,
+      hostActorId: chargedHostOf(outcome.mutation.state),
       roundId: input.roundId,
     });
   if (agreements?.notice && outcome.mutation.consent?.type === 'ready')
@@ -385,5 +399,5 @@ async function reserveBotFreeze(
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
   if (!locked) throw createAppError('CONFLICT', 'Bot admission not serialized');
-  await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });
+  await admission.reserveLocked(tx, { actorId: chargedHostOf(state), roundId });
 }

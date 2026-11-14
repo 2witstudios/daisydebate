@@ -4,10 +4,14 @@ import {
   contentReportStatuses,
   contentReportTargetKinds,
 } from '@daisy/protocol/content-moderation';
-import { debateSides } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAtColumn, oneOf, timestampColumn } from './columns';
+import {
+  createdAtColumn,
+  isSideKeyOrNull,
+  oneOf,
+  timestampColumn,
+} from './columns';
 import { users } from './users';
 
 /**
@@ -64,7 +68,7 @@ export const contentReports = pgTable(
     ),
     check(
       'content_reports_feedback_side_check',
-      sql`(${table.targetKind} = 'ballot_feedback') = (${table.feedbackSide} is not null) and (${table.feedbackSide} is null or ${oneOf(table.feedbackSide, debateSides)})`,
+      sql`(${table.targetKind} = 'ballot_feedback') = (${table.feedbackSide} is not null) and (${isSideKeyOrNull(table.feedbackSide)})`,
     ),
     check(
       'content_reports_resolution_check',

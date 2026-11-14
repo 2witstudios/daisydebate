@@ -24,6 +24,9 @@ const account = {
 };
 const accountFact = factOfRow(account);
 const memberRow = [userId, actorId, 'debater-a', at, null];
+const affirmativeWin = { kind: 'winner', side: 'affirmative' };
+const negativeWin = { kind: 'winner', side: 'negative' };
+const sideSeat = (side: string) => ({ kind: 'side', side, slot: 0 });
 
 /** A decision that records what it was asked and answers `scope`. */
 const deciding = (scope: HistoryScope) => {
@@ -63,15 +66,33 @@ describe('readMemberProfile', () => {
       [],
       [memberRow],
       [account],
-      [['completed', 'affirmative', 'affirmative', 2]],
+      [['completed', affirmativeWin, 'side', 'affirmative', 0, 2]],
       [
-        ['round-2', at, 'Motion two', 'public', 'negative', 'affirmative'],
-        ['round-1', earlier, 'Motion one', 'public', null, 'negative'],
+        [
+          'round-2',
+          at,
+          'Motion two',
+          'public',
+          negativeWin,
+          'side',
+          'affirmative',
+          0,
+        ],
+        [
+          'round-1',
+          earlier,
+          'Motion one',
+          'public',
+          null,
+          'side',
+          'negative',
+          0,
+        ],
       ],
       [
-        ['round-2', 'affirmative', 'human', 'debater-a', null, null],
-        ['round-2', 'judge', 'bot', null, null, 'Judge bot'],
-        ['round-2', 'negative', 'human', 'closed-b', at, null],
+        ['round-2', 'side', 'affirmative', 0, 'human', 'debater-a', null, null],
+        ['round-2', 'judge', null, 0, 'bot', null, null, 'Judge bot'],
+        ['round-2', 'side', 'negative', 0, 'human', 'closed-b', at, null],
       ],
       [{ roundId: 'round-2' }],
     ]);
@@ -105,8 +126,8 @@ describe('readMemberProfile', () => {
           groups: [
             {
               status: 'completed',
-              outcome: 'affirmative',
-              role: 'affirmative',
+              outcome: affirmativeWin,
+              seat: sideSeat('affirmative'),
               rounds: 2,
             },
           ],
@@ -116,24 +137,24 @@ describe('readMemberProfile', () => {
               completedAt: at.toISOString(),
               resolution: 'Motion two',
               visibility: 'public',
-              outcome: 'negative',
-              role: 'affirmative',
+              outcome: negativeWin,
+              seat: sideSeat('affirmative'),
               forfeit: true,
               seats: [
                 {
-                  role: 'affirmative',
+                  seat: sideSeat('affirmative'),
                   kind: 'human',
                   label: 'debater-a',
                   closed: false,
                 },
                 {
-                  role: 'judge',
+                  seat: { kind: 'judge', slot: 0 },
                   kind: 'bot',
                   label: 'Judge bot',
                   closed: false,
                 },
                 {
-                  role: 'negative',
+                  seat: sideSeat('negative'),
                   kind: 'human',
                   label: 'closed-b',
                   closed: true,
@@ -185,7 +206,7 @@ describe('readMemberProfile', () => {
       [memberRow],
       [account],
       [],
-      [['round-3', at, 'Motion three', null, null, 'negative']],
+      [['round-3', at, 'Motion three', null, null, 'side', 'negative', 0]],
       [],
       [],
       [],

@@ -31,8 +31,10 @@ export async function readJudgingPanelFacts(
       join round_commands decided on decided.command_id=decision.command_id and decided.round_id=decision.round_id
       where decision.round_id=r.id) as "lastAttendanceDecisionAt",
     (select ${iso('max(writer.resolved_at)')} from round_check_in_attempts writer
-      where writer.round_id=r.id) as "lastWriterResolvedAt"
+      where writer.round_id=r.id) as "lastWriterResolvedAt",
+    r.judging as "judging"
     from rounds r where r.id=${roundId}`)) as unknown as {
+    judging: JudgingPanelFacts['judging'] | null;
     ballotDeadlineAt: string | null;
     attendanceCutoffAt: string | null;
     lastAttendanceDecisionAt: string | null;
@@ -42,6 +44,11 @@ export async function readJudgingPanelFacts(
     throw createAppError(
       'INVARIANT',
       'A frozen Round has no attendance cutoff',
+    );
+  if (!round.judging)
+    throw createAppError(
+      'INVARIANT',
+      'A Round with nothing to judge has no panel',
     );
   const jobs = await tx
     .select({
@@ -55,11 +62,21 @@ export async function readJudgingPanelFacts(
   const judges =
     (await tx.execute(sql`select p.id, a.kind from round_participants p
     join actors a on a.id=p.actor_id
-    where p.round_id=${roundId} and p.role='judge' order by p.slot`)) as unknown as {
+    where p.round_id=${roundId} and p.seat_kind='judge' order by p.slot`)) as unknown as {
       id: string;
       kind: string;
     }[];
+  const rulings = await tx
+    .select({
+      judgeParticipantId: ballots.judgeParticipantId,
+      decision: ballots.decision,
+      winner: ballots.winner,
+      ranking: ballots.ranking,
+    })
+    .from(ballots)
+    .where(eq(ballots.roundId, roundId));
   return {
+    judging: round.judging,
     completeness: input.completeness,
     humanJudgeSeatIds: judges
       .filter((seat) => seat.kind === 'human')
@@ -77,12 +94,12 @@ export async function readJudgingPanelFacts(
       lastAttendanceDecisionAt: round.lastAttendanceDecisionAt,
       lastWriterResolvedAt: round.lastWriterResolvedAt,
     },
-    ballots: (await tx
-      .select({
-        judgeParticipantId: ballots.judgeParticipantId,
-        winner: ballots.winner,
-      })
-      .from(ballots)
-      .where(eq(ballots.roundId, roundId))) as JudgingPanelFacts['ballots'],
+    // A winner ballot names its side (null for a tie or a double loss); a
+    // ranking ballot gives its places.
+    ballots: rulings.map(({ judgeParticipantId, decision, winner, ranking }) =>
+      decision === 'ranking'
+        ? { judgeParticipantId, ranking: ranking ?? [] }
+        : { judgeParticipantId, winner },
+    ),
   };
 }

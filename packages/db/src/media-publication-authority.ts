@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { isRefusal } from '@daisy/errors';
-import type { RoundCommandAuthority } from '@daisy/protocol';
+import { isJudgeSeat, type RoundCommandAuthority } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -39,7 +39,7 @@ export async function readMediaBotLeases(
     .from(roundBotPublications)
     .where(eq(roundBotPublications.roundId, roundId));
   for (const seat of participants.filter(
-    (seat) => seat.kind === 'bot' && seat.role !== 'judge' && seat.eligible,
+    (seat) => seat.kind === 'bot' && !isJudgeSeat(seat.seat) && seat.eligible,
   )) {
     const claim = claims.find((claim) => claim.participantId === seat.id);
     if (!claim) continue;
@@ -89,7 +89,7 @@ export function mediaPublicationParticipants(
   now: string,
 ): Participants {
   return participants.map((seat) =>
-    seat.kind !== 'bot' || seat.role === 'judge'
+    seat.kind !== 'bot' || isJudgeSeat(seat.seat)
       ? seat
       : {
           ...seat,
@@ -115,7 +115,7 @@ export function mediaHearingSeats(
     .filter(
       (seat) =>
         seat.kind === 'bot' &&
-        seat.role !== 'judge' &&
+        !isJudgeSeat(seat.seat) &&
         seat.eligible &&
         liveLease(leases, seat.id, round, now).length > 0,
     )
