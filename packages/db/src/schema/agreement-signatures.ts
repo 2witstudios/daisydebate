@@ -1,18 +1,20 @@
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, unique } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
+import { lobbies } from './lobbies';
 import { seasons } from './ratings';
 import { rooms } from './rooms';
 import { users } from './users';
 
 /**
  * Each agreement a member can sign, and so what it covers: the season's
- * ranked content waiver, or the capture notice a Room showed before Ready. A
- * tournament's per-event terms add a kind and a tournament scope here.
+ * ranked content waiver, the capture notice a Room showed before Ready, or
+ * a tournament lobby's recording consent.
  */
 export const agreementKinds = [
   'ranked-content-waiver',
   'round-capture-notice',
+  'tournament-recording-consent',
 ] as const;
 
 /**
@@ -35,6 +37,9 @@ export const agreementSignatures = pgTable(
       onDelete: 'restrict',
     }),
     roomId: text('room_id').references(() => rooms.id, { onDelete: 'cascade' }),
+    lobbyId: text('lobby_id').references(() => lobbies.id, {
+      onDelete: 'restrict',
+    }),
     signedAt: timestampColumn('signed_at').notNull(),
   },
   (table) => [
@@ -45,18 +50,21 @@ export const agreementSignatures = pgTable(
         table.version,
         table.seasonId,
         table.roomId,
+        table.lobbyId,
       )
       .nullsNotDistinct(),
     index('agreement_signatures_season_idx').on(table.seasonId),
     index('agreement_signatures_room_idx').on(table.roomId),
+    index('agreement_signatures_lobby_idx').on(table.lobbyId),
     check(
       'agreement_signatures_agreement_check',
       oneOf(table.agreement, agreementKinds),
     ),
     check(
       'agreement_signatures_scope_check',
-      sql`(${table.agreement} = 'ranked-content-waiver' and ${table.seasonId} is not null and ${table.roomId} is null)
-        or (${table.agreement} = 'round-capture-notice' and ${table.roomId} is not null and ${table.seasonId} is null)`,
+      sql`(${table.agreement} = 'ranked-content-waiver' and ${table.seasonId} is not null and ${table.roomId} is null and ${table.lobbyId} is null)
+        or (${table.agreement} = 'round-capture-notice' and ${table.roomId} is not null and ${table.seasonId} is null and ${table.lobbyId} is null)
+        or (${table.agreement} = 'tournament-recording-consent' and ${table.lobbyId} is not null and ${table.seasonId} is null and ${table.roomId} is null)`,
     ),
   ],
 );

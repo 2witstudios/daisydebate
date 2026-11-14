@@ -9,6 +9,7 @@ setupRitewayBun();
 
 const dmlOnly = {
   superuser: false,
+  bypass_rls: false,
   create_in_public: false,
   owns_public_schema: false,
   owned_objects_in_public: 0,
@@ -27,16 +28,18 @@ describe('runtimeRoleProblems', () => {
   test('names each way a role could create or alter schema objects', () => {
     assert({
       given:
-        'a superuser, a role with CREATE on public, the schema owner and an object owner',
+        'a superuser, a role that bypasses row-level security, a role with CREATE on public, the schema owner and an object owner',
       should: 'report each capability without naming the role',
       actual: [
         { ...dmlOnly, superuser: true },
+        { ...dmlOnly, bypass_rls: true },
         { ...dmlOnly, create_in_public: true },
         { ...dmlOnly, owns_public_schema: true },
         { ...dmlOnly, owned_objects_in_public: 3 },
       ].map((row) => runtimeRoleProblems(runtimeRoleFactsFrom(row))),
       expected: [
         ['is a superuser'],
+        ['bypasses row-level security'],
         ['can create in schema public'],
         ['owns schema public'],
         ['owns 3 objects in schema public'],

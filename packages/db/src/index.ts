@@ -155,6 +155,10 @@ export type {
 } from './provisional-cleanup';
 export { refuseSchemaAlteringRole } from './runtime-role';
 export {
+  readTenantIsolationProblems,
+  refuseUnisolatedTenantTables,
+} from './tenant-isolation';
+export {
   createRealtimeDatabase,
   type RealtimeAuthorityReads,
   type RealtimeDatabase,

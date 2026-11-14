@@ -15,6 +15,7 @@ import {
 import { createdAtColumn, oneOf, updatedAtColumn } from './columns';
 import { actors } from './actors';
 import { formatRevisions } from './format-revisions';
+import { organizations } from './organizations';
 
 /**
  * Debate formats: identity plus a pointer to the current definition
@@ -34,6 +35,13 @@ export const formats = pgTable(
     name: text('name').notNull(),
     /** Null only for publisher-owned catalog entries; custom room formats have an owning actor. */
     createdByActorId: text('created_by_actor_id').references(() => actors.id, {
+      onDelete: 'restrict',
+    }),
+    /**
+     * A league's own format. Ownership only: nothing in a format's
+     * definition references an event or a lobby.
+     */
+    organizationId: text('organization_id').references(() => organizations.id, {
       onDelete: 'restrict',
     }),
     currentVersion: integer('current_version').notNull(),
@@ -58,6 +66,11 @@ export const formats = pgTable(
   },
   (table) => [
     index('formats_created_by_actor_idx').on(table.createdByActorId),
+    index('formats_organization_idx').on(table.organizationId),
+    check(
+      'formats_one_owner_at_most',
+      sql`${table.organizationId} is null or (${table.createdByActorId} is null and ${table.catalogRole} is null)`,
+    ),
     index('formats_current_revision_idx').on(table.id, table.currentVersion),
     foreignKey({
       name: 'formats_current_revision_fk',

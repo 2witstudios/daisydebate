@@ -19,7 +19,9 @@
     "./content-moderation": "./src/content-moderation.ts",
     "./round-analysis-testing": "./src/round-analysis.test-support.ts",
     "./round-floor": "./src/round-floor.ts",
-    "./room-community": "./src/room-community.ts"
+    "./room-community": "./src/room-community.ts",
+    "./lobby": "./src/lobby/vocabulary.ts",
+    "./settings": "./src/settings/keys.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",
