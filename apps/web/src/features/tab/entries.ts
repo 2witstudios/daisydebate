@@ -16,7 +16,24 @@ import {
 import { varsitySwitch } from './sample/event-switch';
 import type { SampleScene } from './sample/scene';
 
-export type EntryStatus = 'accepted' | 'not_answered';
+export type EntryStatus =
+  'accepted' | 'not_answered' | 'waiting_guardian' | 'withdrawn';
+export const entryStatusLabels: Readonly<Record<EntryStatus, string>> = {
+  accepted: 'Accepted',
+  not_answered: 'Not answered',
+  waiting_guardian: 'Waiting on a guardian',
+  withdrawn: 'Withdrawn',
+};
+const entryStatusOf = (entry: ListedEntry): EntryStatus =>
+  entry.status === 'withdrawn'
+    ? 'withdrawn'
+    : entry.status === 'accepted'
+      ? 'accepted'
+      : entry.minor !== null &&
+          entry.minor.managedBy === null &&
+          entry.invitation === null
+        ? 'waiting_guardian'
+        : 'not_answered';
 
 type HostEntryRow = {
   readonly name: string;
@@ -61,6 +78,7 @@ type TournamentJudgeRow = {
     readonly label: string;
   }[];
   readonly clearedFor: string;
+  readonly cleared: boolean;
   readonly judged: number;
   readonly neverJudges: string;
   /** A conflict that holds in every event, such as a judge's own children. */
@@ -78,7 +96,14 @@ export type HostJudges = {
   readonly lede: string;
   readonly add: TabAction;
   readonly tabs: EntriesTabs;
-  readonly slots: readonly string[];
+  readonly slots: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly needed: number;
+    readonly free: number;
+    readonly placed: number;
+  }[];
+  readonly defaultSlotId: string | null;
   readonly groups: readonly JudgeGroup[];
   readonly more: TabAction | null;
 };
@@ -147,7 +172,8 @@ const owing = (owed: number, named: number): string =>
 
 /** A host's entries screen, from the read their gate allowed. */
 function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
-  const { accepted, pending, judges, rooms, judgesNeeded } = view.counts;
+  const { accepted, pending, withdrawn, judges, rooms, judgesNeeded } =
+    view.counts;
   const manage = view.capabilities.manageEntries;
   return {
     event,
@@ -158,7 +184,7 @@ function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
           sampleAction('Invite a school or parent', true),
         ]
       : [],
-    tabs: { debaters: accepted + pending, judges },
+    tabs: { debaters: accepted + pending + withdrawn, judges },
     groups: view.groups.map((group) => {
       const { responsible } = group;
       const name =
@@ -180,7 +206,7 @@ function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
         entries: group.entries.map((entry) => ({
           name: entry.name,
           facts: entryFacts(view, entry),
-          status: entry.status === 'accepted' ? 'accepted' : 'not_answered',
+          status: entryStatusOf(entry),
         })),
         more:
           hidden > 0 && responsible.kind !== 'self'
@@ -226,7 +252,22 @@ function hostJudgesOf(view: JudgeListView): HostJudges {
     }.${short.join('')}`,
     add: sampleAction('Add a judge', true),
     tabs: view.counts,
-    slots: view.timeSlots.map((slot) => slot.name),
+    defaultSlotId: view.need.timeSlotId ?? view.timeSlots.at(-1)?.id ?? null,
+    slots: view.timeSlots.map((slot, index) => ({
+      id: slot.id,
+      label: slot.name,
+      needed: slot.judgesNeeded,
+      free: view.groups
+        .flatMap((group) => group.judges)
+        .filter((judge) => judge.slots[index]?.state === 'free').length,
+      placed: view.groups
+        .flatMap((group) => group.judges)
+        .filter((judge) =>
+          ['judging', 'in_draft', 'judged'].includes(
+            judge.slots[index]?.state ?? '',
+          ),
+        ).length,
+    })),
     groups: view.groups.map((group) => {
       const { responsible } = group;
       const school = responsible.kind === 'school' ? responsible.name : null;
@@ -258,7 +299,11 @@ function hostJudgesOf(view: JudgeListView): HostJudges {
           return {
             name: judge.name,
             slots: judge.slots.map(slotOf),
-            clearedFor: clearedFor(judge.clearedFor),
+            cleared: judge.clearedFor.length > 0,
+            clearedFor:
+              judge.clearedFor.length === 0
+                ? 'Not cleared yet'
+                : clearedFor(judge.clearedFor),
             judged: judge.judgedCount,
             neverJudges:
               judge.declaredConflict?.note ??

@@ -4,7 +4,7 @@ import type {
   TimeSlotConcern,
   TimeSlotHostView,
 } from '@daisy/protocol/lobby/tab-round-read';
-import { roomStatusOf, type RoomStatus } from './at-scale-rooms';
+import { fixtureWords, roomStatusOf, type RoomStatus } from './at-scale-rooms';
 import { linkTo, sampleAction, type TabAction } from './action';
 import { sampleTabRoundView, sampleTimeSlotView } from './sample/tab-round';
 import type { SampleScene } from './sample/scene';
@@ -292,6 +292,7 @@ const runningRoundOf = (
       .map((fixture) => ({
         ...roundRoom(read, fixture),
         status: roomStatusOf(fixture),
+        words: fixtureWords(fixture),
       }));
     return rooms.length === 0
       ? []
@@ -339,7 +340,11 @@ const runningRoundOf = (
       {
         attention: 'finished',
         count: finished.total,
-        rooms: finished.recent.map((fixture) => roundRoom(read, fixture)),
+        rooms: finished.recent.map((fixture) => ({
+          ...roundRoom(read, fixture),
+          status: 'finished',
+          words: fixtureWords(fixture),
+        })),
         more: unlisted > 0 ? sampleAction(`Show ${unlisted} more`) : null,
       },
     ],
@@ -505,8 +510,8 @@ const timeSlotOf = (
           (room) =>
             inView(room.eventId) && attentionOf(room.fixture) === attention,
         )
-        .map((room) =>
-          roundRoom(
+        .map((room) => ({
+          ...roundRoom(
             {
               capabilities: read.capabilities,
               byeCountsAs: 'win',
@@ -514,7 +519,9 @@ const timeSlotOf = (
             },
             room.fixture,
           ),
-        ),
+          words: fixtureWords(room.fixture),
+          status: roomStatusOf(room.fixture),
+        })),
     })),
     needsYou: read.concerns
       .filter((concern) => inView(concern.eventId))

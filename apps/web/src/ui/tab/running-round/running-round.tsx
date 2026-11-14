@@ -63,6 +63,9 @@ export function RunningRound({
           { id: 'finished', label: 'Finished' },
         ]}
         groups={round.groups.map((group) => ({
+          total: group.count ?? group.rooms.length,
+          more: group.more,
+          status: group.attention,
           heading:
             group.attention === 'needs_you'
               ? 'Rooms needing attention'

@@ -26,6 +26,15 @@ export function SchoolPostings({ panel }: { readonly panel: Posting }) {
         limit: 0,
         rows: panel.rows.filter((row) => row.schools.includes(school)),
       })),
+    ...(panel.rows.some((row) => row.schools.length === 0)
+      ? [
+          {
+            heading: 'Not from a school',
+            limit: 2,
+            rows: panel.rows.filter((row) => row.schools.length === 0),
+          },
+        ]
+      : []),
   ];
   return (
     <section className="flex flex-col gap-3">

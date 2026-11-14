@@ -122,10 +122,20 @@ export const readStandings = (
   const table = standingsTableOf(sample.read, sample.tiebreaks);
   const novice = sampleDivisionStandingsView(slug, event, 'Novice', scene);
   if (novice === null) return table;
+  return withDivisionBreak(
+    table,
+    standingsTableOf(novice.read, novice.tiebreaks),
+  );
+};
+
+/** A separate division ranking excludes the entries already in the higher break. */
+export function withDivisionBreak(
+  table: StandingsTable,
+  division: StandingsTable,
+): StandingsTable {
   const taken = new Set(
     table.rows.slice(0, table.breakAfter ?? 0).map((row) => row.entry),
   );
-  const division = standingsTableOf(novice.read, novice.tiebreaks);
   return {
     ...table,
     divisions: [
@@ -137,10 +147,10 @@ export const readStandings = (
           .map((row, index) => ({
             ...row,
             seed: index + 1,
-            decisive: index === 15,
+            decisive: index === (division.breakAfter ?? 0) - 1,
           })),
         remaining: 0,
       },
     ],
   };
-};
+}

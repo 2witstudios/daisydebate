@@ -21,6 +21,9 @@ export type SearchGroup = {
   readonly heading: string;
   readonly rows: readonly SearchRow[];
   readonly limit: number;
+  readonly total?: number;
+  readonly more?: TabAction | null;
+  readonly status?: string;
 };
 
 /** A disclosure keeps the whole read available without a page full of rows. */
@@ -59,7 +62,7 @@ export function GroupRows({ group }: { readonly group: SearchGroup }) {
   return (
     <section>
       <ListHeading>
-        {group.heading} · {group.rows.length}
+        {group.heading} · {group.total ?? group.rows.length}
       </ListHeading>
       <ul>{rows(folded.shown)}</ul>
       {cut ? (
@@ -71,6 +74,11 @@ export function GroupRows({ group }: { readonly group: SearchGroup }) {
           <ul>{rows(group.rows.slice(group.limit))}</ul>
         </details>
       ) : null}
+      {group.more == null ? null : (
+        <div className="px-4 py-3">
+          <ActionButton action={group.more} size="small" />
+        </div>
+      )}
     </section>
   );
 }
@@ -98,14 +106,20 @@ export function SearchableGroups({
     ),
   }));
   const count = (status: string) =>
-    found
-      .flatMap((group) => group.rows)
-      .filter(
-        (row) =>
-          status === 'all' ||
-          row.status === status ||
-          row.statuses?.includes(status) === true,
-      ).length;
+    found.reduce(
+      (sum, group) =>
+        sum +
+        group.rows.filter(
+          (row) =>
+            status === 'all' ||
+            row.status === status ||
+            row.statuses?.includes(status) === true,
+        ).length +
+        (filter.query === '' && (status === 'all' || status === group.status)
+          ? Math.max(0, (group.total ?? group.rows.length) - group.rows.length)
+          : 0),
+      0,
+    );
   const shown = found
     .map((group) => ({
       ...group,

@@ -15,6 +15,8 @@ import { EntriesTabs } from './entries-tabs';
 const statusLabels: Readonly<Record<EntryStatus, string>> = {
   accepted: 'Accepted',
   not_answered: 'Not answered',
+  waiting_guardian: 'Waiting on a guardian',
+  withdrawn: 'Withdrawn',
 };
 
 /** Every entry, grouped by the responsible adult who answers for it. */

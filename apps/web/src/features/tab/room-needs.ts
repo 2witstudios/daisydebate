@@ -16,7 +16,9 @@ export function mergeRoomNeeds(
           {
             title: `${overdue.length} ballots are overdue`,
             detail: andMore(overdue.map((room) => room.title)),
-            words: overdue.flatMap((room) => [room.title, room.detail]),
+            words: overdue.flatMap(
+              (room) => room.words ?? [room.title, room.detail],
+            ),
             action: sampleAction(`Remind all ${overdue.length}`, true),
           },
         ];

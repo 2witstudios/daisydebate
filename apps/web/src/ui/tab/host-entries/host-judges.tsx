@@ -1,7 +1,12 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { matchesQuery } from '../../../features/tab/at-scale';
+import {
+  judgeSearchOf,
+  type JudgeFilter,
+} from '../../../features/tab/judge-search';
+import { sampleAction } from '../../../features/tab/action';
+import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 import { buttonClass } from '../../components/button/button-class';
 import type {
   HostJudges as Read,
@@ -44,28 +49,17 @@ export function HostJudges({
   readonly entriesHref: string;
   readonly judgesHref: string;
 }) {
-  const [filter, setFilter] = useState({ query: '', status: 'all' });
-  const groups = judges.groups
-    .map((group) => ({
-      ...group,
-      judges: group.judges.filter(
-        (judge) =>
-          matchesQuery(filter.query, [
-            judge.name,
-            group.name,
-            judge.neverJudges,
-            judge.clearedFor,
-            ...judge.slots.map((slot) => slot.label),
-          ]) &&
-          (filter.status === 'all' ||
-            (filter.status === 'conflict'
-              ? judge.conflict
-              : filter.status === 'free'
-                ? judge.slots.some((slot) => slot.state === 'free')
-                : judge.slots.some((slot) => slot.state === 'late'))),
-      ),
-    }))
-    .filter((group) => group.judges.length > 0);
+  const [filter, setFilter] = useState<JudgeFilter>({
+    query: '',
+    status: 'all',
+    slotId: judges.defaultSlotId,
+  });
+  const search = judgeSearchOf(judges, filter);
+  const groups = search.groups;
+  const short = judges.groups.filter((group) => group.remind !== null);
+  const conflicts = judges.groups
+    .flatMap((group) => group.judges)
+    .filter((judge) => judge.conflict).length;
   const atScale = judges.tabs.judges > 20;
   const groupLimit =
     atScale && filter.query === '' && filter.status === 'all'
@@ -85,30 +79,108 @@ export function HostJudges({
         judgesHref={judgesHref}
       />
       {atScale ? (
-        <div className="flex flex-wrap gap-3">
-          <input
-            type="search"
-            aria-label="Find a judge or school"
-            placeholder="Find a judge or school"
-            value={filter.query}
-            onChange={(event) =>
-              setFilter({ ...filter, query: event.currentTarget.value })
-            }
-            className="min-h-12 rounded-sm border border-border bg-surface-raised px-3"
-          />
-          <select
-            aria-label="Judges by status"
-            value={filter.status}
-            onChange={(event) =>
-              setFilter({ ...filter, status: event.currentTarget.value })
-            }
-          >
-            <option value="all">All {judges.tabs.judges}</option>
-            <option value="free">Free in a time slot</option>
-            <option value="conflict">Has a conflict</option>
-            <option value="late">Ballot overdue</option>
-          </select>
-        </div>
+        <>
+          <ListCard>
+            <ListHeading>Needs you</ListHeading>
+            <ul>
+              {short.length === 0 ? null : (
+                <ListRow
+                  title={`${short.length} schools owe judges`}
+                  detail={short.map((group) => group.name).join(' · ')}
+                  trailing={
+                    <ActionButton
+                      size="small"
+                      action={sampleAction(`Remind ${short.length} coaches`)}
+                    />
+                  }
+                />
+              )}
+              {conflicts === 0 ? null : (
+                <ListRow
+                  title={`${conflicts} judges have a conflict`}
+                  trailing={
+                    <ActionButton
+                      size="small"
+                      action={sampleAction('Review conflicts')}
+                    />
+                  }
+                />
+              )}
+            </ul>
+          </ListCard>
+          <section className="overflow-x-auto rounded-lg border border-border bg-surface-raised">
+            <h2 className="px-4 py-3 text-sm font-strong">By time slot</h2>
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className={cell}>Time slot</th>
+                  <th className={cell}>Judges needed</th>
+                  <th className={cell}>Free</th>
+                  <th className={cell}>Placed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {judges.slots.map((slot) => (
+                  <tr key={slot.id} className="border-t border-border">
+                    <th scope="row" className={cell}>
+                      {slot.label}
+                    </th>
+                    <td className={cell}>{slot.needed}</td>
+                    <td className={cell}>{slot.free}</td>
+                    <td className={cell}>{slot.placed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="search"
+              aria-label="Find a judge or school"
+              placeholder="Find a judge or school"
+              value={filter.query}
+              onChange={(event) =>
+                setFilter({ ...filter, query: event.currentTarget.value })
+              }
+              className="min-h-12 rounded-sm border border-border bg-surface-raised px-3"
+            />
+            <label className="flex items-center gap-2">
+              Time slot
+              <select
+                aria-label="Time slot"
+                value={filter.slotId ?? ''}
+                onChange={(event) =>
+                  setFilter({ ...filter, slotId: event.currentTarget.value })
+                }
+              >
+                {judges.slots.map((slot) => (
+                  <option key={slot.id} value={slot.id}>
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div
+              role="group"
+              aria-label="Judges by status"
+              className="flex flex-wrap gap-2"
+            >
+              {search.choices.map((choice) => (
+                <button
+                  key={choice.id}
+                  type="button"
+                  aria-pressed={filter.status === choice.id}
+                  onClick={() => setFilter({ ...filter, status: choice.id })}
+                  className={buttonClass(
+                    filter.status === choice.id ? 'primary' : 'secondary',
+                  )}
+                >
+                  {choice.label} {choice.count}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       ) : null}
       <JudgeTable judges={judges} groups={groups.slice(0, groupLimit)} />
       {groups.length > groupLimit ? (
@@ -134,12 +206,12 @@ function JudgeTable({
   const columns = judges.slots.length + 4;
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface-raised">
-      <table className="w-full border-collapse">
+      <table aria-label="Judge roster" className="w-full border-collapse">
         <thead>
           <tr className="bg-surface">
             {[
               'Judge',
-              ...judges.slots,
+              ...judges.slots.map((slot) => slot.label),
               'Cleared for',
               'Judged',
               'Never judges',
@@ -192,7 +264,7 @@ function JudgeTable({
                   </th>
                   {judge.slots.map((slot, index) => (
                     <td
-                      key={judges.slots[index]}
+                      key={judges.slots[index]?.id}
                       className={cn(cell, slotClass(slot.state))}
                     >
                       {slot.label}

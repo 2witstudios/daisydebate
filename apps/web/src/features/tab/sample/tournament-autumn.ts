@@ -1,3 +1,4 @@
+import { largeEntryGroups } from './large-entries';
 import type { DayRow, DayView } from '@daisy/protocol/lobby/day-read';
 import type { TournamentLobbyView } from '@daisy/protocol/lobby/lobby-read';
 import type { PostingView } from '@daisy/protocol/lobby/posting-read';
@@ -63,7 +64,18 @@ function hostOf(scene: SampleScene): NonNullable<TournamentLobbyView['host']> {
         : ({ kind: 'drafting' } as const);
   return {
     setupUnfinished: reached(scene, 'prelims') ? 0 : 2,
-    entryCount: atScale(scene) ? 312 : reached(scene, 'prelims') ? 48 : 31,
+    entryCount: atScale(scene)
+      ? largeEntryGroups(
+          [varsity, impromptu].map((event) => ({
+            id: sampleId(event.key),
+            name: event.name,
+            label: null,
+          })),
+          !reached(scene, 'prelims'),
+        ).reduce((sum, group) => sum + group.entryCount, 0)
+      : reached(scene, 'prelims')
+        ? 48
+        : 31,
     slots: reached(scene, 'prelims')
       ? [
           ...prelimTimes.map((time, index) => ({

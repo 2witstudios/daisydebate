@@ -1,6 +1,10 @@
 import type { StandingsView } from '@daisy/protocol/lobby/standings-read';
 import { lockedSetting, type ResolvedSetting } from '../settings';
-import { standingsTableOf, type StandingsTable } from '../standings';
+import {
+  standingsTableOf,
+  withDivisionBreak,
+  type StandingsTable,
+} from '../standings';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import {
   largeNoviceStandingsView,
@@ -218,7 +222,10 @@ export function sampleStandings(
   scene: SampleScene,
 ): StandingsTable | null {
   const sample = sampleStandingsView(slug, event, scene);
-  return sample === null
-    ? null
-    : standingsTableOf(sample.read, sample.tiebreaks);
+  if (sample === null) return null;
+  const table = standingsTableOf(sample.read, sample.tiebreaks);
+  const novice = sampleDivisionStandingsView(slug, event, NOVICE, scene);
+  return novice === null
+    ? table
+    : withDivisionBreak(table, standingsTableOf(novice.read, novice.tiebreaks));
 }

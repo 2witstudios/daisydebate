@@ -66,7 +66,7 @@ const entryOf = (
   return {
     id: sampleId(`entry${name}`),
     name,
-    status: 'accepted',
+    status: n >= 295 && n <= 300 ? 'withdrawn' : 'accepted',
     rating: n % 5 === 4 ? null : 1700 - n,
     events: [...events],
     minor: null,
@@ -173,10 +173,14 @@ export function largeEntryList(
   const groups = largeEntryGroups(events, before);
   const entries = groups.flatMap((group) => group.entries);
   const pending = entries.filter((entry) => entry.status === 'pending').length;
+  const withdrawn = entries.filter(
+    (entry) => entry.status === 'withdrawn',
+  ).length;
   return {
     ...ordinary,
     counts: {
-      accepted: entries.length - pending,
+      accepted: entries.length - pending - withdrawn,
+      withdrawn,
       pending,
       judges: 150,
       rooms: 100,
@@ -211,11 +215,14 @@ const judgeOf = (
     id: sampleId(`judge${name}`),
     name,
     slots: Array.from({ length: slots }, (_, slot) => slotFor(n, slot, before)),
-    clearedFor: n % 4 === 0 ? [...events] : events.slice(0, 1),
+    clearedFor: n >= 144 ? [] : n % 4 === 0 ? [...events] : events.slice(0, 1),
     judgedCount: before ? 0 : 3 - (n % 13 < 3 ? 1 : 0),
     strikes:
       n % 23 === 7 ? [{ source: 'entry', entryName: largeSurname(n) }] : [],
-    declaredConflict: null,
+    declaredConflict:
+      n % 47 === 3
+        ? { note: `Declared conflict with ${largeSurname(n + 7)}` }
+        : null,
   };
 };
 
@@ -226,7 +233,11 @@ export function largeJudgeList(
 ): JudgeListView {
   const timeSlots = Array.from({ length: 6 }, (_, k) => {
     const name = `Round ${k + 1}`;
-    return { id: sampleId(`slotlarge${name}`), name };
+    return {
+      id: sampleId(`slotlarge${name}`),
+      name: `${['08:30', '10:00', '11:30', '13:00', '15:00', '16:30'][k]} · ${name}`,
+      judgesNeeded: 120,
+    };
   });
   const events = ordinary.events.map((event) => event.id);
   let n = 0;
@@ -270,12 +281,20 @@ export function largeJudgeList(
       judges: judges.length,
     },
     need: before
-      ? { ...ordinary.need, judgesNeeded: 100, judgesCounted: 96 }
+      ? {
+          ...ordinary.need,
+          timeSlotId: timeSlots[0]!.id,
+          judgesNeeded: 120,
+          judgesCounted: judges.length,
+        }
       : {
           ...ordinary.need,
           tabRoundName: 'Round 6',
+          timeSlotId: timeSlots.at(-1)!.id,
           judgesNeeded: 120,
-          judgesCounted: 117,
+          judgesCounted: judges.filter(
+            (judge) => judge.slots.at(-1)?.state === 'free',
+          ).length,
         },
     groups: [...schools, ...families, unaffiliated],
     notShown: null,

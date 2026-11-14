@@ -388,6 +388,11 @@ export const lobbyListTabs = ['upcoming', 'live', 'past'] as const;
 export type LobbyListTab = (typeof lobbyListTabs)[number];
 
 const day = z.iso.date();
+/** A month whose full week grid stays within four-digit ISO years. */
+export const tournamentMonthSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+  .refine((month) => month >= '0001-01' && month <= '9998-12');
 
 /**
  * What the tournaments index asks of the lobby list. Omitted narrows nothing:
@@ -416,10 +421,7 @@ export const lobbyListQuerySchema = z
     open: z.boolean().optional(),
     tab: z.enum(lobbyListTabs).default('upcoming'),
     /** The calendar's month, `2026-11`: its days' counts. */
-    month: z
-      .string()
-      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .optional(),
+    month: tournamentMonthSchema.optional(),
     /** The calendar's chosen day: its tournaments, whatever the tab. */
     day: day.optional(),
     offset: count.default(0),

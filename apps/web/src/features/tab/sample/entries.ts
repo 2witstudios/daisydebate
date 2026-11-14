@@ -71,8 +71,22 @@ function ordinaryEntryList(before: boolean): EntryListView {
     eventId: varsity.id,
     asOf: '2026-11-14T12:00:00.000Z',
     counts: before
-      ? { accepted: 24, pending: 7, judges: 11, rooms: 12, judgesNeeded: 12 }
-      : { accepted: 48, pending: 0, judges: 12, rooms: 12, judgesNeeded: 12 },
+      ? {
+          accepted: 24,
+          withdrawn: 0,
+          pending: 7,
+          judges: 11,
+          rooms: 12,
+          judgesNeeded: 12,
+        }
+      : {
+          accepted: 48,
+          withdrawn: 0,
+          pending: 0,
+          judges: 12,
+          rooms: 12,
+          judgesNeeded: 12,
+        },
     groups: [
       {
         responsible: {
@@ -191,12 +205,13 @@ function ordinaryJudgeList(before: boolean): JudgeListView {
     lobbyId: autumnId,
     events: [varsity, impromptu, novice],
     timeSlots: ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Break'].map(
-      (name) => ({ id: sampleId(`slot${name}`), name }),
+      (name) => ({ id: sampleId(`slot${name}`), name, judgesNeeded: 12 }),
     ),
     counts: before
       ? { debaters: 31, judges: 11 }
       : { debaters: 48, judges: 12 },
     need: {
+      timeSlotId: sampleId(before ? 'slotRound 1' : 'slotRound 4'),
       tabRoundName: before ? 'Round 1' : 'Round 4',
       eventName: varsity.name,
       judgesNeeded: 12,

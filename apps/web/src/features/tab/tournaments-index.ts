@@ -1,3 +1,4 @@
+import { tournamentMonthSchema } from '@daisy/protocol/lobby/lobby-read';
 import type {
   ListedLobby,
   LobbyListPage,
@@ -231,7 +232,7 @@ const isDay = (value: string | undefined): value is string =>
   !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)) &&
   new Date(`${value}T00:00:00.000Z`).toISOString().startsWith(value);
 const isMonth = (value: string | undefined): value is string =>
-  value !== undefined && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+  value !== undefined && tournamentMonthSchema.safeParse(value).success;
 const oneOf = <T extends string>(
   values: readonly T[],
   value: string | undefined,
@@ -634,7 +635,9 @@ function calendarOf(
   addressOf: AddressOf,
 ): IndexCalendar {
   const today = dayOf(asOf);
-  const month = state.month ?? monthOfDay(today);
+  const month = isMonth(state.month ?? undefined)
+    ? state.month!
+    : monthOfDay(today);
   const counts = new Map<string, number>();
   // The calendar is for what is coming: a day gone by is grey, uncounted.
   for (const lobby of found) {
@@ -665,7 +668,12 @@ function calendarOf(
       .at(-1) ?? earliest;
   const start = addDays(`${month}-01`, -weekdayIndex(`${month}-01`));
   const weeks: CalendarDay[][] = [];
-  for (let day = start; inMonth(day) || day < `${month}-01`;) {
+  let day = start;
+  for (
+    let weekNumber = 0;
+    weekNumber < 6 && (inMonth(day) || day < `${month}-01`);
+    weekNumber++
+  ) {
     const week: CalendarDay[] = [];
     for (let i = 0; i < 7; i += 1, day = addDays(day, 1)) {
       const count = inMonth(day) ? (counts.get(day) ?? 0) : 0;
