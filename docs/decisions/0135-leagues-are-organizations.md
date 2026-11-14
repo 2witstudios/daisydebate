@@ -25,29 +25,35 @@ longer describes the system.
 
 1. **A league is an organization of kind `league`.** It is created by the
    `create-organization` command, by an adult account. Hosting a league is
-   paid; the command surface carries the paid-hosting fact and nothing else
-   about payment. It is not made by the operator, though the operator gives
+   paid (owner decision); its pricing shape is still open, so the command
+   surface carries the paid-hosting fact and nothing else about payment. It is not made by the operator, though the operator gives
    Daisy's first grants (ADR 0130).
 2. **A league owns standing lobbies, a ladder over its own lobby, and
    seasons.** A ladder belongs to a standing lobby; a tournament never owns
    one, and an event Room never posts to a ladder itself. A league's ladder
-   rates only its own lobby's rated Rooms; Daisy's ladders take nothing from
-   a league or a tournament.
-3. **A league's season counts certified results of sanctioned events**, and,
-   where the league chooses, its own lobby's Rooms. A sanction is a league's
-   yes to an event that meets everything the league's template enforces; it
-   gives the league no authority over the tournament.
+   is fed by its own lobby's rated Rooms and also, through the league's own
+   fold, by tournaments run on Daisy (owner decision 38; architecture section
+   3). ADR 0131 item 5's "nothing posts to a league ladder yet" holds until
+   the wiring slice lifts it. Daisy's ladders take nothing from a league or a
+   tournament.
+3. **A league's season counts certified results of sanctioned events**
+   (architecture section 10). A sanction is a league's yes to an event with
+   the same format and ballot as the league's template that meets everything
+   the template enforces; it gives the league no authority over the
+   tournament. A league may instead count by membership, with no approval per
+   event.
 4. **Authority is grants read by the one evaluator** (ADR 0130), at an
    organization or a lobby. ADR 0048 section 2's per-capability metadata now
    lives in `@daisy/protocol` (`capability-metadata.ts`: resource kinds, lobby
    and organization kind, read, grantable, conflict-sensitive, reach), and an
    allowed decision names the authority it was allowed under (fixed, owner,
-   grant, relationship) and any conflict. Section 3's rule stands: a denied
+   grant, relationship, service; ADR 0130 item 6) and any conflict. Section 3's rule stands: a denied
    read answers as a missing resource.
 5. **What section 6 required and still holds.** Isolation comes first: row
    level security on every tenant-owned table (ADR 0129). Tenant scope comes
    from rows loaded by id, never client input. A league's own formats are
-   templates of that organization and are never `ranked_eligible`. Daisy's
+   never `ranked_eligible` (a flag of the format, ADR 0132); its templates
+   belong to that organization. Daisy's
    public lobby, Watch and Daisy's leaderboards read only Daisy's lobbies.
 
 ## Consequences

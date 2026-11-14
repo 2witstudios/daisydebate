@@ -333,6 +333,8 @@ failed decision refuses the subscribe.
 - **LEAGUE-OPS and TOURN.** They build tenancy under section 6: isolation
   before the first league, no ladder, no ratings, tenant formats that are
   never ranked-eligible, and the tournament tables.
+  ADR 0135 supersedes the "no ladder, no ratings" part: a league has a
+  ladder over its own lobby.
 - **RT epic.** Revocation messaging and timing (section 7). AZC-3.4 requires
   RT-2.5a merged.
 - **`role_grants`.** `authorize` never reads it. LEAGUE-OPS replaces or drops
@@ -385,7 +387,9 @@ Each essential has a test that fails when it is removed:
   tournament guidance in that bullet stands.
 - The "League seasons are not rating seasons" bullet is refined: a league's
   debates never create ratings, and tournament standings are the
-  tournament's, not the ladder's.
+  tournament's, not the ladder's. (Superseded in part by
+  [ADR 0135](0135-leagues-are-organizations.md): a league's ladder rates its
+  lobby's rated Rooms and, through its own fold, tournaments run on Daisy.)
 - The "Access enforcement" bullet is updated: `visibility` is read by
   `authorize`; `role_grants` is still unread, and LEAGUE-OPS replaces or
   drops it.
