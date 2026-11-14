@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SettingKey } from './keys';
 
 /**
  * How hard the engine tries to keep a pairing or judging policy: a `rule`
@@ -30,7 +31,7 @@ export const forceKeys = {
   'judging.load_balance': ['preference', 'warning', 'off'],
   'judging.chair': ['rule', 'preference', 'warning', 'off'],
   'judging.panel_same_school': ['preference', 'warning', 'off'],
-} as const satisfies Record<string, readonly Force[]>;
+} as const satisfies Partial<Record<SettingKey, readonly Force[]>>;
 export type ForceKey = keyof typeof forceKeys;
 
 const keysUnder = <Prefix extends string>(...prefixes: Prefix[]) =>

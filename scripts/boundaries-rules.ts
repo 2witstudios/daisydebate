@@ -333,6 +333,7 @@ export const stageSurfaceIssue = (
 const humanCoaching = [
   'packages/protocol/src/onboarding.ts',
   'packages/protocol/src/lobby/vocabulary.ts',
+  'packages/protocol/src/lobby/guardian-read.ts',
   'packages/db/src/schema/guardian-links.ts',
   'apps/web/src/ui/onboarding/',
   'apps/web/src/ui/mock/debate-room.test-support.ts',
