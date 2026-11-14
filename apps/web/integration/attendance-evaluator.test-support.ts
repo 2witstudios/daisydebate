@@ -1,3 +1,4 @@
+import { daisyOrganizationId } from '@daisy/db/testing';
 import { buildRoundTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import type { withAttendanceRound } from './attendance.test-support';
@@ -15,7 +16,7 @@ export async function settleAttendanceFixture(
   const { f, roundId, segmentId } = input;
   const round = (await f.store.getRound(roundId))!;
   const seasonId = createId();
-  await f.sql`insert into seasons(id,name,starts_at,status) values(${seasonId},'RT rating fixture','2000-01-01T00:00:00Z','active')`;
+  await f.sql`insert into seasons(organization_id,id,name,starts_at,status) values(${daisyOrganizationId},${seasonId},'RT rating fixture','2000-01-01T00:00:00Z','active')`;
   if (ranked)
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
   await f.sql`update rounds set started_at=started_at-interval '50 seconds' where id=${roundId}`;

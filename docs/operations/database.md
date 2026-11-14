@@ -63,6 +63,9 @@ passwords out of band, never committed.
   later migration creates. Nothing that alters schema: no `CREATE` on
   `public`, no `TRUNCATE`, `REFERENCES` or `TRIGGER`, no access to the
   `drizzle` migration log.
+- Both runtime roles are bound by the row-level security policies on
+  tenant-owned tables ([tenant isolation](#tenant-isolation)); neither may
+  hold `BYPASSRLS`.
 - `daisy_realtime`, the realtime service's only credential (ADR 0032:
   "No web→realtime secret exists at all"): `SELECT` on `outbox`, `rounds`
   and `round_participants`, a column-scoped `SELECT (id, user_id)` on
@@ -83,6 +86,28 @@ passwords out of band, never committed.
 Integration tests connect as the migration owner, because their fixtures
 and role checks need it; a test that must act as a runtime role switches to
 it with `SET ROLE` on a dedicated session instead of setting a password.
+
+## Tenant isolation
+
+Every table that carries an isolation key (`organization_id` or `lobby_id`), or references one that does, is fenced by row-level security or exempt by name with a reason. `packages/db/src/tenant-isolation-manifest.ts` is the list: each tenant-owned table, which key it carries, whether the person a row is about may read it, and whether any tenant may read it. The policies come from a closed set of shapes:
+
+| Shape                                     | What it allows                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- |
+| Scope (`<table>_scope`, all commands)     | Rows whose key is the transaction's organization or lobby scope                        |
+| Subject (`<table>_subject`, `SELECT`)     | The rows about the person in the subject scope, across tenants                         |
+| Open read (`<table>_open_read`, `SELECT`) | Every row: identity rows and definitions, which are listed and resolved across tenants |
+
+The scope is three transaction-local settings (`daisy.organization_scope`, `daisy.lobby_scope`, `daisy.subject_scope`), read by `daisy_organization_scope()` and its siblings and set only by `withScope` and `scopeTransaction` in `packages/db/src/tenant-scope.ts`, with ids taken from rows loaded by id after `authorize` allowed the operation. With none set every predicate is null, so the runtime role reads and writes no fenced row. A scope does not survive its transaction, so a fenced read outside one sees nothing. The fence stops a query that forgot its `WHERE`; it does not stop SQL injection, since the runtime role can set the same settings.
+
+Row-level security is `ENABLE`d, not `FORCE`d: the migration owner keeps access for migrations and fixtures, and the runtime roles own no table, so the policies bind them. A runtime role must not be able to bypass them: `runtimeRoleProblems` reports a `BYPASSRLS` role with the other refusals. `daisy_realtime` holds no privilege on any tenant-owned table.
+
+**The check.** `tenantIsolationProblems` (`packages/db/src/tenant-isolation.ts`) compares the catalog with the manifest and reports a tenant-owned table without row-level security or with a policy that differs from its declared shape, an undeclared table that carries a key or references a tenant-owned table, a nullable key outside the `<table>_one_tenant_key` CHECK, any `tournament_id` column, a privilege held by `PUBLIC` or `daisy_realtime`, and a declaration that names no table. It runs in `tenant-isolation.integration.ts` (which also proves it passes after each migration folder), in `bun doctor` (`tenant-isolation`) and at production start-up, where `startProductionServer` refuses to serve after the runtime-role refusal and before Next is prepared.
+
+**Adding a tenant-owned table.** Add its manifest entry, generate the migration, and append what `bun packages/db/scripts/tenant-policies.ts <table>` prints, in the same folder that creates the table, so the check passes after every folder. Widening a policy by hand makes the check fail by design: a read across tenants goes through the subject shape, the open read shape, or a registered `SECURITY DEFINER` function.
+
+**Refusals the database makes itself.** Triggers refuse, for every role, an UPDATE or DELETE of `action_history`, `results`, `result_entries`, `result_speakers`, `certifications`, `certification_results`, `releases`, `conflicts` and `ballot_definition_versions`; any change to a grant but its one revocation; a change to a template's pins or a pool resolution's wording; any change to a published draw or to the fixtures and results it holds; a fixture moving any way but draft to published to withdrawn; a change to a published fixture's entries; a second settlement of a held command; a Room moved to another lobby; and a ballot screening whose lobby is not that of its ballot's Room. Each raises SQLSTATE 23514 with a constraint name, as a CHECK would. `daisy_web` also holds no UPDATE or DELETE on the append-only tables, no DELETE on `grants` or `pending_commands`, and no INSERT, UPDATE or DELETE on `guardian_links`, `restrictions` and `restriction_lobbies`, which stay closed until counsel answers on minors.
+
+**Tests over these tables never commit.** The tab record cannot be deleted, so a suite cannot clean up after itself: it runs in one transaction that is rolled back (`inRolledBackTransaction` in `packages/db/integration/tab.test-support.ts`), acts as the runtime role with `SET LOCAL ROLE`, and builds on the sample tournament that file loads through the runtime role under scope.
 
 **Retention (ISSUE-8 AC5).** One retention sweep in each web server
 process (`apps/web/src/server/retention-sweep.ts`, at start-up and then

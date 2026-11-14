@@ -7,6 +7,8 @@ import { sql, type SQL as DrizzleSql } from 'drizzle-orm';
  */
 export type RuntimeRoleFacts = {
   readonly superuser: boolean;
+  /** A role that bypasses row-level security is not fenced by tenant policies. */
+  readonly bypassRls: boolean;
   readonly createInPublic: boolean;
   readonly ownsPublicSchema: boolean;
   readonly ownedObjectsInPublic: number;
@@ -15,6 +17,7 @@ export type RuntimeRoleFacts = {
 export const runtimeRoleFactsQuery: DrizzleSql = sql`
   select
     r.rolsuper as superuser,
+    r.rolbypassrls as bypass_rls,
     has_schema_privilege('public', 'CREATE') as create_in_public,
     pg_has_role(n.nspowner, 'MEMBER') as owns_public_schema,
     (
@@ -32,6 +35,7 @@ export const runtimeRoleFactsQuery: DrizzleSql = sql`
 
 export type RuntimeRoleFactsRow = {
   readonly superuser: boolean;
+  readonly bypass_rls: boolean;
   readonly create_in_public: boolean;
   readonly owns_public_schema: boolean;
   readonly owned_objects_in_public: number;
@@ -41,6 +45,7 @@ export const runtimeRoleFactsFrom = (
   row: RuntimeRoleFactsRow,
 ): RuntimeRoleFacts => ({
   superuser: row.superuser,
+  bypassRls: row.bypass_rls,
   createInPublic: row.create_in_public,
   ownsPublicSchema: row.owns_public_schema,
   ownedObjectsInPublic: Number(row.owned_objects_in_public),
@@ -56,6 +61,7 @@ export function runtimeRoleProblems(
 ): readonly string[] {
   return [
     facts.superuser ? 'is a superuser' : null,
+    facts.bypassRls ? 'bypasses row-level security' : null,
     facts.createInPublic ? 'can create in schema public' : null,
     facts.ownsPublicSchema ? 'owns schema public' : null,
     facts.ownedObjectsInPublic > 0

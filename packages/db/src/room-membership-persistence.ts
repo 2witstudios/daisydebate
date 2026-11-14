@@ -3,6 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roomRoundLinkOf, type ActiveRoomFacts } from '@daisy/protocol';
 import { createRefusal } from '@daisy/errors';
 import { roomActiveMemberships, roomParticipants, rooms } from './schema/rooms';
+import { hostPersonOf } from './room-host';
 import { rounds } from './schema/rounds';
 
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'delete'>;
@@ -82,7 +83,7 @@ export async function activeRoomFacts(
     .where(eq(roomActiveMemberships.actorId, actorId));
   if (!row) return null;
   return {
-    room: { id: row.id, title: row.title, hostActorId: row.hostActorId },
+    room: { id: row.id, title: row.title, hostActorId: hostPersonOf(row) },
     ...roomRoundLinkOf(
       row.status,
       row.roundId !== null && row.roundStatus !== null

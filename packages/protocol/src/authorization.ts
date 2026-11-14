@@ -1,5 +1,29 @@
 import { z } from 'zod';
-/** Closed launch vocabulary: league grants belong to LEAGUE-OPS. */
+/**
+ * A permission is a capability a role may hold. A grant gives a role to a
+ * person at an organization or a lobby; the rest of the capabilities are
+ * never in a role.
+ */
+const permissions = [
+  'organization.manage',
+  'organization.roles.manage',
+  'lobby.setup.manage',
+  'lobby.announce',
+  'action_history.read',
+  'tournament.entries.manage',
+  'tournament.draw.edit',
+  'tournament.draw.publish',
+  'tournament.rooms.officiate',
+  'tournament.results.enter',
+  'tournament.results.release',
+  'tournament.ballots.read_unreleased',
+  'tournament.resolutions.read_unreleased',
+  'school.roster.manage',
+  'school.ballots.read',
+] as const;
+export const permissionSchema = z.enum(permissions);
+export type Permission = z.infer<typeof permissionSchema>;
+/** Closed vocabulary: every capability the evaluator answers. */
 const authorizationCapabilities = [
   'social.block',
   'social.friend.request',
@@ -89,11 +113,68 @@ const authorizationCapabilities = [
   'report.resolve',
   'moderation.collection.read',
   'moderation.lift',
+  ...permissions,
+  // Decided from who the person is to the resource; never part of a role.
+  'organization.create',
+  'organization.read',
+  'organization.host.read',
+  'organization.membership.respond',
+  'organization.membership.leave',
+  'organization.owner.transfer',
+  'guardian.link.create',
+  'guardian.link.manage',
+  'guardian.link.read',
+  'lobby.create',
+  'lobby.read',
+  'lobby.host.read',
+  'lobby.room.create',
+  'template.read',
+  'entry.submit',
+  'entry.withdraw',
+  'entry.read',
+  'judge.invitation.respond',
+  'judge.availability.update',
+  'posting.read',
+  'result.read',
+  'ballot.read',
+  'standings.read',
+  'resolution.read',
+  'command.confirm',
+  'command.withdraw',
+  'sanction.read',
 ] as const;
 export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
 export type AuthorizationCapability = z.infer<
   typeof authorizationCapabilitySchema
 >;
-/** Internal decision reason vocabulary; no serialized deny-reason reader exists. */
+/**
+ * Internal decision reason vocabulary; no serialized deny-reason reader
+ * exists. `conflict` and `confirmation-required` answer a person connected to
+ * a fixture, `restricted` a minor outside their guardian's lobbies, and
+ * `age-band` a person below the band an authority needs.
+ */
 export type AuthorizationDenyReason =
-  'denied' | 'account-erased' | 'unauthenticated' | 'missing-capability';
+  | 'denied'
+  | 'account-erased'
+  | 'unauthenticated'
+  | 'missing-capability'
+  | 'conflict'
+  | 'confirmation-required'
+  | 'restricted'
+  | 'age-band';
+
+/** How a person with authority is connected to a fixture's Room. */
+export const conflictConnectionSchema = z.enum([
+  'seated',
+  'school_entry',
+  'ward',
+  'declared',
+]);
+export type ConflictConnection = z.infer<typeof conflictConnectionSchema>;
+/** What a conflict does to the authority: the `conflict.handling` values. */
+export const conflictHandlingSchema = z.enum([
+  'denied',
+  'second_confirms',
+  'flagged',
+]);
+export type ConflictHandling = z.infer<typeof conflictHandlingSchema>;

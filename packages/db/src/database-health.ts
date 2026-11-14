@@ -3,6 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { probeListen } from './listen';
+import { readTenantIsolationProblems } from './tenant-isolation';
 import {
   runtimeRoleFactsFrom,
   runtimeRoleFactsQuery,
@@ -59,5 +60,18 @@ export const databaseHealthOperations = ({
       if (row === undefined) throw new Error('Schema public is missing');
       return runtimeRoleProblems(runtimeRoleFactsFrom(row));
     });
+  },
+  /**
+   * Every way this schema's tenant fence differs from the manifest; empty
+   * when each table that carries or references a tenant key has its
+   * row-level security policies. Production startup refuses to serve unless
+   * it is empty.
+   */
+  async tenantIsolationProblems() {
+    return instrumented(eventSink, 'tenantIsolationProblems', () =>
+      readTenantIsolationProblems((statement) =>
+        database.execute(sql.raw(statement)),
+      ),
+    );
   },
 });

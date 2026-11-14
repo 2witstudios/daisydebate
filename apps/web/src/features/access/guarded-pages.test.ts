@@ -36,6 +36,8 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
   requestIdentity: async () => ({ state: 'anonymous' }),
+  // The sample Room pages reach the release reader through their form action.
+  requestReleaseEnabled: async () => false,
   requestMemberDrive: () => null,
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
@@ -130,6 +132,12 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/rooms/[id]/page'),
     '(shell)/rooms/[id]/rematch/page.tsx': () =>
       import('../../app/(shell)/rooms/[id]/rematch/page'),
+    '(tab)/rooms/sample/[room]/page.tsx': () =>
+      import('../../app/(tab)/rooms/sample/[room]/page'),
+    '(tab)/rooms/sample/[room]/ballot/page.tsx': () =>
+      import('../../app/(tab)/rooms/sample/[room]/ballot/page'),
+    '(tab-live)/rooms/sample/[room]/live/page.tsx': () =>
+      import('../../app/(tab-live)/rooms/sample/[room]/live/page'),
     '(shell)/play/room/page.tsx': () =>
       import('../../app/(shell)/play/room/page'),
     '(shell)/notifications/page.tsx': () =>

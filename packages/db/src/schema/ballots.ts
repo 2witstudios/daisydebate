@@ -24,9 +24,11 @@ import {
   timestampColumn,
   updatedAtColumn,
 } from './columns';
+import { ballotDefinitionVersions } from './ballot-definitions';
 import { roundParticipants } from './round-participants';
 import { rounds } from './rounds';
 import { roundTranscriptFreezes } from './round-transcript-freezes';
+import { bothOrNeither } from './tenant-keys';
 
 /**
  * One ballot per judge seat (ADR 0058 §6): the contract's shape, decomposed
@@ -52,6 +54,9 @@ export const ballots = pgTable(
     submittedAt: timestampColumn('submitted_at').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
+    /** The ballot definition answered; null is the Daisy ballot. */
+    ballotDefinitionId: text('ballot_definition_id'),
+    ballotDefinitionVersion: integer('ballot_definition_version'),
   },
   (table) => [
     uniqueIndex('ballots_finalization_reference').on(
@@ -83,6 +88,23 @@ export const ballots = pgTable(
         roundTranscriptFreezes.revision,
       ],
     }),
+    index('ballots_ballot_definition_idx').on(
+      table.ballotDefinitionId,
+      table.ballotDefinitionVersion,
+    ),
+    foreignKey({
+      name: 'ballots_ballot_definition_fk',
+      columns: [table.ballotDefinitionId, table.ballotDefinitionVersion],
+      foreignColumns: [
+        ballotDefinitionVersions.ballotDefinitionId,
+        ballotDefinitionVersions.version,
+      ],
+    }).onDelete('restrict'),
+    bothOrNeither(
+      'ballots_ballot_definition_complete',
+      table.ballotDefinitionId,
+      table.ballotDefinitionVersion,
+    ),
     index('ballots_judge_round_idx').on(
       table.judgeParticipantId,
       table.roundId,

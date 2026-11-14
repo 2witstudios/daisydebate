@@ -1,3 +1,4 @@
+import { publicLobbyId } from '@daisy/db/testing';
 import { systemClock } from '@daisy/clock';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
@@ -74,8 +75,8 @@ const create = async (sql: SQL, input: Create) => {
         ? { format: 'freestyle', preset: 1, ladder: 'freestyle' }
         : { format: 'freestyle', preset: null, ladder: null };
     const roomId = createId();
-    await tx`insert into rooms (id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
-      values (${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},'started')`;
+    await tx`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
+      values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},'started')`;
     await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,rules_snapshot,status,current_stage,started_at,visibility,room_config_snapshot)
       values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${rules},'active','live',now()-interval '5 minutes',${input.visibility},${{}})`;
     const aff = await seat(

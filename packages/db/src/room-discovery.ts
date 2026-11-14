@@ -1,4 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
+import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
   roomListQuerySchema,
@@ -76,7 +77,7 @@ const hostRating = (clock: SpectatorClock) => {
     completedAt: sql`c_r.completed_at`,
   };
   const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
-  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
+  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' and z.organization_id=${daisyOrganizationId} where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
 };
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;

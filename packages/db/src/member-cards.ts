@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { daisyOrganizationId } from './daisy-reference';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { ratingLadders, type RatingLadder } from '@daisy/protocol';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -108,6 +109,7 @@ export const memberCardOperations = ({
           held.deviation_before as "heldDeviation",
           held.volatility_before as "heldVolatility"
         from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
+          and s.organization_id = ${daisyOrganizationId}
         left join lateral (
           select c.rating_before, c.deviation_before, c.volatility_before
           from ${postings} and not ${postingReleased}

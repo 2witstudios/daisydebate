@@ -25,6 +25,7 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
 import { roomCommands } from './schema/room-commands';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
+import { hostPersonOf } from './room-host';
 import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
@@ -216,7 +217,8 @@ const hydrateRoom = async (
       };
     }),
   );
-  const host = await actorFact(tx, row.hostActorId);
+  const hostActorId = hostPersonOf(row);
+  const host = await actorFact(tx, hostActorId);
   const [round] = await tx
     .select({
       id: rounds.id,
@@ -247,7 +249,7 @@ const hydrateRoom = async (
     topic: round?.resolution ?? row.topic,
     publishedResolutionId: row.publishedResolutionId,
     visibility: row.visibility,
-    hostActorId: row.hostActorId,
+    hostActorId,
     hostInherited: row.hostInherited,
     hostLabel: host?.label ?? '',
     formatId: row.formatId,
