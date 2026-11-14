@@ -756,3 +756,47 @@ export type SampleTournament = Awaited<ReturnType<typeof loadSampleTournament>>;
 
 /** Daisy, organization number one, as the migrations seed it. */
 export const daisy = { organization: daisyOrganizationId } as const;
+
+export const columnsOf = async (sql: SQL, table: string) =>
+  (
+    (await sql.unsafe(
+      `select column_name from information_schema.columns
+       where table_schema = 'public' and table_name = $1 order by column_name`,
+      [table],
+    )) as Array<{ column_name: string }>
+  ).map((row) => row.column_name);
+
+/** An action history row in the sample's lobby, for a row that names its command. */
+export const recordCommand = async (
+  sql: SQL,
+  ids: SampleTournament,
+  rest: Row = {},
+) => {
+  const commandId = createId();
+  await insertRow(sql, 'action_history', {
+    command_id: commandId,
+    lobby_id: ids.lobby,
+    actor_user_id: ids.owner,
+    authority: 'owner',
+    aggregate_kind: 'lobby',
+    aggregate_id: ids.lobby,
+    type: 'sample-command',
+    payload_digest: digest,
+    result: {},
+    resulting_version: 1,
+    applied_at: at(100),
+    ...rest,
+  });
+  return commandId;
+};
+
+/** A suite's body over the sample tournament, as the migration owner. */
+export const withSample = (
+  url: string,
+  body: (sql: SQL, ids: SampleTournament) => Promise<void>,
+) =>
+  inRolledBackTransaction(url, async (sql) =>
+    body(sql, await loadSampleTournament(sql)),
+  );
+
+export { at as sampleInstant };
