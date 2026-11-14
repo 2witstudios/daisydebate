@@ -14,13 +14,20 @@ import {
   resolveRoomConfiguration,
 } from '@daisy/debate-engine';
 import { roundPositionAt } from '@daisy/debate-engine/position';
-import type {
-  HydratedSegment,
-  RoundLifecycle,
-  RoundParticipantSeat,
-  RoundRules,
-  RoundStatus,
-  RuntimeCheckpoint,
+import {
+  affirmativeSide,
+  daisyWinnerBallot,
+  emptyRuntimeCheckpointFor,
+  judgeSeat,
+  negativeSide,
+  panelRuleFor,
+  sideSeat,
+  twoSides,
+  type HydratedSegment,
+  type RoundLifecycle,
+  type RoundParticipantSeat,
+  type RoundRules,
+  type RoundStatus,
 } from '@daisy/protocol';
 
 const root = resolve(import.meta.dir, '..');
@@ -41,28 +48,17 @@ const seats: readonly RoundParticipantSeat[] = [
   {
     id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
     actorId: person,
-    role: 'affirmative',
-    slot: 0,
+    seat: sideSeat(affirmativeSide),
   },
   {
     id: 'q5x2v8t0r4p6n2b8c1z7k3m9w',
     actorId: opponent,
-    role: 'negative',
-    slot: 0,
+    seat: sideSeat(negativeSide),
   },
-  { id: 'd6y3h9j1f5a7s3g8l2q6e4u0i', actorId: judge, role: 'judge', slot: 0 },
+  { id: 'd6y3h9j1f5a7s3g8l2q6e4u0i', actorId: judge, seat: judgeSeat() },
 ];
 
-const freshCheckpoint: RuntimeCheckpoint = {
-  version: 1,
-  prep_consumed_ms: { affirmative: 0, negative: 0 },
-  active_prep: null,
-  floor: null,
-  incident: { phase: 'none' },
-  prep_ended_at: null,
-  start_gate: null,
-  clock_stops: [],
-};
+const freshCheckpoint = emptyRuntimeCheckpointFor({ sides: twoSides });
 
 /** The AC, closed, so the fixture stands where the AC's own speaker does. */
 const closedAc: readonly HydratedSegment[] = [
@@ -152,6 +148,10 @@ const fixtures: Readonly<Record<string, Fixture>> = {
   'panel-played-round': () =>
     round({ status: 'active' }).completePanel({
       now: t0,
+      judging: {
+        ballot: daisyWinnerBallot,
+        panel: panelRuleFor(daisyWinnerBallot),
+      },
       ballots: [],
       completeness: 'complete',
       panel: { humanWindow: null, aiSeats: [] },
@@ -271,7 +271,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
         state: { rating: 1500, deviation: 350, volatility: 0.06 },
         lastRatedAt: null,
       },
-      outcome: 'affirmative',
+      outcome: { kind: 'winner', side: affirmativeSide },
       occurredAt: t0,
     }),
   'rating-volatility-converges': () =>
