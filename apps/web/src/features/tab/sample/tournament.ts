@@ -40,6 +40,7 @@ import {
   autumnReads,
   tournamentViewerOf,
 } from './tournament-autumn';
+import { sampleCatalogue } from './tournament-catalogue';
 import { winterReads } from './tournament-winter';
 
 const league = {
@@ -312,6 +313,19 @@ const listed = (
   ...rest,
 });
 
+const atlanta = {
+  place: 'in_person',
+  city: 'Atlanta, GA',
+  latitude: 33.749,
+  longitude: -84.388,
+} as const;
+const marietta = {
+  place: 'in_person',
+  city: 'Marietta, GA',
+  latitude: 33.953,
+  longitude: -84.55,
+} as const;
+
 const autumnEvents = ['Varsity debate', 'Novice debate', 'Impromptu'];
 const winterEvents = [
   'Varsity LD',
@@ -369,6 +383,8 @@ export function listedAutumn(scene: SampleScene): ListedTournament {
     startsAt: at('2026-11-14', '10:00'),
     events: autumnEvents,
     concurrentEvents: false,
+    divisions: ['novice', 'varsity'],
+    venue: { place: 'online' },
     entry: {
       ...closedEntry(at('2026-11-12', '17:00')),
       capacity: 48,
@@ -404,6 +420,8 @@ export const listedWinter = (scene: SampleScene): ListedTournament =>
     startsAt: at('2026-12-12', '09:00'),
     events: winterEvents,
     concurrentEvents: true,
+    divisions: ['novice', 'varsity'],
+    venue: atlanta,
     entry: {
       ...closedEntry(at('2026-12-09', '17:00')),
       opensAt: at('2026-12-01', '09:00'),
@@ -424,6 +442,8 @@ export const listedRidgeview = listed(
     startsAt: at('2026-11-28', '09:00'),
     events: [],
     concurrentEvents: false,
+    divisions: ['varsity'],
+    venue: marietta,
     entry: {
       ...closedEntry(at('2026-11-25', '17:00')),
       eligibility: 'organization_members',
@@ -441,6 +461,8 @@ export const listedChampionship = listed(CHAMPIONSHIP, 'Championship', {
   startsAt: at(CHAMPIONSHIP_DAY, '09:00'),
   events: [BP.name],
   concurrentEvents: false,
+  divisions: ['varsity'],
+  venue: atlanta,
   entry: {
     ...closedEntry(at('2027-03-10', '17:00')),
     opensAt: at('2027-02-01', '09:00'),
@@ -458,6 +480,8 @@ export const listedOpener = (scene: SampleScene): ListedTournament =>
     startsAt: at('2026-09-12', '10:00'),
     events: ['Varsity debate'],
     concurrentEvents: false,
+    divisions: ['varsity'],
+    venue: atlanta,
     entry: closedEntry(at('2026-09-10', '17:00')),
     part: null,
     now: null,
@@ -467,7 +491,11 @@ export const listedOpener = (scene: SampleScene): ListedTournament =>
     },
   });
 
-/** The tournaments a viewer may see, theirs first, as the index lists them. */
+/**
+ * The tournaments a viewer may see, theirs first, then the generated
+ * catalogue. The index filters and pages them; the catalogue is the same at
+ * both scales, because the index's scale is how many tournaments there are.
+ */
 export function sampleTournamentListRead(scene: SampleScene): LobbyListPage {
   const visitor = scene.viewer === 'visitor';
   const scrimmageRead = scrimmage(scene);
@@ -483,6 +511,8 @@ export function sampleTournamentListRead(scene: SampleScene): LobbyListPage {
         startsAt: scrimmageRead.startsAt,
         events: ['Single elimination'],
         concurrentEvents: false,
+        divisions: ['open'],
+        venue: { place: 'online' },
         entry: scrimmageRead.entry,
         part: null,
         now: null,
@@ -502,11 +532,14 @@ export function sampleTournamentListRead(scene: SampleScene): LobbyListPage {
         startsAt: at('2026-10-03', '10:00'),
         events: ['Open'],
         concurrentEvents: false,
+        divisions: ['open'],
+        venue: { place: 'online' },
         entry: closedEntry(at('2026-10-01', '17:00')),
         part: null,
         now: null,
         finish: { winner: 'mira_k', viewer: null },
       }),
+      ...sampleCatalogue,
     ],
     more: 0,
     capabilities: visitor ? null : { createLobby: true },

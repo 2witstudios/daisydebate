@@ -22,7 +22,8 @@ import {
   won,
 } from './posting';
 import { readBracket } from '../results';
-import type { SampleScene } from './scene';
+import { atScale, type SampleScene } from './scene';
+import { largePosting } from './large-posting';
 import { sampleStandings } from './standings';
 import { autumnFinish, autumnKeepsakes } from './tournament-after';
 
@@ -269,7 +270,8 @@ export function autumnLobby(
           ? ['Chidi', 'Ada'].map((name) => ({ actorId: sampleId(name), name }))
           : [],
       school:
-        scene.viewer === 'coach'
+        scene.viewer === 'coach' ||
+        (atScale(scene) && scene.viewer === 'competitor')
           ? { organizationId: sampleId('hartwell'), name: 'Hartwell' }
           : null,
       host: host ? hostOf(scene) : null,
@@ -312,9 +314,14 @@ function roundFour(visitor: boolean): PostingView {
         entries: [
           {
             entryId: sampleId('entry/Okafor'),
+            school: 'Okafor family',
             shown: visitor ? initials('C. O.') : named('Okafor'),
           },
-          { entryId: sampleId('entry/Wu'), shown: named('Wu') },
+          {
+            entryId: sampleId('entry/Wu'),
+            school: 'Lakeside',
+            shown: named('Wu'),
+          },
         ],
       },
       fixture(4, 'Brooks v Petrov', 'E. Fontaine'),
@@ -747,14 +754,20 @@ export function autumnReads(
   scene: SampleScene,
 ): TournamentReads {
   const visitor = scene.viewer === 'visitor';
+  const posting =
+    view.kind === 'round' && view.round === '3'
+      ? roundThree(visitor)
+      : view.kind === 'home' || view.kind === 'round'
+        ? roundFour(visitor)
+        : null;
   return {
     lobby: autumnLobby(scene, scene.viewer === 'host'),
     posting:
-      view.kind === 'round' && view.round === '3'
-        ? roundThree(visitor)
-        : view.kind === 'home' || view.kind === 'round'
-          ? roundFour(visitor)
-          : null,
+      posting === null
+        ? null
+        : atScale(scene)
+          ? largePosting(posting, visitor)
+          : posting,
     day: dayOfViewer(scene),
     standings:
       view.kind === 'standings'

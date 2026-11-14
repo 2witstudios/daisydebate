@@ -89,6 +89,8 @@ const ballots = [
 function steps(scene: SampleScene): WalkStep[] {
   const tournaments = [
     step('Tournaments', tabRoutes.tournaments),
+    step('Tournaments, filtered', `${tabRoutes.tournaments}?division=varsity`),
+    step('Tournaments, by calendar', `${tabRoutes.tournaments}?view=calendar`),
     step(
       scene.viewer === 'competitor' && reached(scene, 'finished')
         ? 'Autumn Open, finished'

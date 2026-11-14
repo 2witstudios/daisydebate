@@ -34,12 +34,12 @@ export function HostShell({
             children
           ) : (
             <div className="flex items-start gap-6 max-rail:flex-col">
-              <div className="flex min-w-0 flex-1 flex-col gap-5 max-rail:w-full">
+              <div className="flex min-w-0 flex-1 flex-col gap-5 max-rail:static max-rail:w-full">
                 {children}
               </div>
               <aside
                 aria-label={asideLabel}
-                className="flex w-host-aside shrink-0 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5 max-rail:w-full"
+                className="sticky top-5 flex w-host-aside shrink-0 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5 max-rail:static max-rail:w-full"
               >
                 {aside}
               </aside>

@@ -18,6 +18,7 @@ type DraftFixture = {
   readonly id: string;
   readonly title: string;
   readonly judges: string;
+  readonly schools: readonly string[];
   readonly flags: readonly FixtureFlag[];
   readonly href: string;
   readonly selected: boolean;
@@ -169,18 +170,27 @@ const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
     preferencesBent: counted('preference_bent'),
     again: sampleAction('Draw again'),
     publish: sampleAction(`Publish round ${round}`, read.capabilities.publish),
-    groups: read.recordGroups.slice(0, listedGroups).map((group) => ({
+    groups: (read.recordGroups.flatMap((group) => group.fixtures).length > 20
+      ? read.recordGroups
+      : read.recordGroups.slice(0, listedGroups)
+    ).map((group) => ({
       record: recordOf(group.wins),
       fixtures: group.fixtures.map((fixture) => ({
         id: fixture.fixtureId,
         title: titleOf(fixture),
         judges: judgesOf(fixture),
+        schools: fixture.entries.flatMap((entry) =>
+          entry.school === null ? [] : [entry.school],
+        ),
         flags: fixture.findings,
         href: context.fixtureAddress(fixture.fixtureId),
         selected: fixture.fixtureId === chosen?.fixtureId,
       })),
     })),
-    rest: restOf(read.recordGroups.slice(listedGroups)),
+    rest:
+      read.recordGroups.flatMap((group) => group.fixtures).length > 20
+        ? null
+        : restOf(read.recordGroups.slice(listedGroups)),
     back:
       read.capabilities.edit && read.draw.basedOn !== null
         ? sampleAction(`Go back to draft ${read.draw.basedOn.version}`)

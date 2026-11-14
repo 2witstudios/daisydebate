@@ -2,7 +2,10 @@ import type { StandingsView } from '@daisy/protocol/lobby/standings-read';
 import type { standingsMetricSchema } from '@daisy/protocol/setting-values';
 import type { z } from 'zod';
 import { sampleAction, type TabAction } from './action';
-import { sampleStandingsView } from './sample/standings';
+import {
+  sampleDivisionStandingsView,
+  sampleStandingsView,
+} from './sample/standings';
 import type { SampleScene } from './sample/scene';
 import type { ResolvedSetting } from './settings';
 import { shownName } from './shown-entrant';
@@ -30,6 +33,7 @@ export type StandingsTable = {
   readonly tiebreaks: ResolvedSetting;
   readonly tiebreakOrder: readonly string[];
   readonly rows: readonly StandingRow[];
+  readonly divisions: readonly StandingsTable[];
   /** The last seed that advances; null before a break is set. */
   readonly breakAfter: number | null;
   readonly remaining: number;
@@ -92,6 +96,7 @@ export const standingsTableOf = (
     tiebreaks,
     tiebreakOrder: read.tiebreaks.map((metric) => metricNames[metric]),
     rows,
+    divisions: [],
     breakAfter: breakLine?.seeds ?? null,
     remaining: read.entryCount - rows.length,
     announce:
@@ -113,7 +118,29 @@ export const readStandings = (
   scene: SampleScene,
 ): StandingsTable | null => {
   const sample = sampleStandingsView(slug, event, scene);
-  return sample === null
-    ? null
-    : standingsTableOf(sample.read, sample.tiebreaks);
+  if (sample === null) return null;
+  const table = standingsTableOf(sample.read, sample.tiebreaks);
+  const novice = sampleDivisionStandingsView(slug, event, 'Novice', scene);
+  if (novice === null) return table;
+  const taken = new Set(
+    table.rows.slice(0, table.breakAfter ?? 0).map((row) => row.entry),
+  );
+  const division = standingsTableOf(novice.read, novice.tiebreaks);
+  return {
+    ...table,
+    divisions: [
+      {
+        ...division,
+        title: 'Novice break',
+        rows: division.rows
+          .filter((row) => !taken.has(row.entry))
+          .map((row, index) => ({
+            ...row,
+            seed: index + 1,
+            decisive: index === 15,
+          })),
+        remaining: 0,
+      },
+    ],
+  };
 };

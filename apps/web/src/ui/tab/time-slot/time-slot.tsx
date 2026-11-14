@@ -5,6 +5,11 @@ import { TabLinks } from '../../components/tab-links/tab-links';
 import { ActionButton } from '../action-control/action-control';
 import { HostShell } from '../host-shell/host-shell';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
+import { mergeRoomNeeds } from '../../../features/tab/room-needs';
+import {
+  GroupRows,
+  SearchableGroups,
+} from '../searchable-groups/searchable-groups';
 import { AttentionRows } from '../running-round/attention-list';
 
 /** One time slot across every event that shares it. */
@@ -27,12 +32,13 @@ export function TimeSlot({
       <TabLinks label="Events in this slot" tabs={slot.tabs} />
       <ListCard>
         {slot.needsYou.length === 0 ? null : (
-          <section>
-            <ListHeading>Needs you</ListHeading>
-            <ul>
-              <AttentionRows rooms={slot.needsYou} />
-            </ul>
-          </section>
+          <GroupRows
+            group={{
+              heading: 'Needs you',
+              limit: 4,
+              rows: mergeRoomNeeds(slot.needsYou),
+            }}
+          />
         )}
         <section>
           <ListHeading>Events in this slot</ListHeading>
@@ -59,6 +65,26 @@ export function TimeSlot({
           </section>
         )}
       </ListCard>
+      {slot.roomGroups.some((group) => group.rooms.length > 0) ? (
+        <SearchableGroups
+          label="Find a room, entry or judge"
+          statuses={[
+            { id: 'waiting', label: 'Waiting' },
+            { id: 'live', label: 'Live' },
+            { id: 'judging', label: 'Judging' },
+            { id: 'finished', label: 'Finished' },
+          ]}
+          groups={slot.roomGroups.map((group) => ({
+            heading:
+              group.attention === 'needs_you' ? 'Needs you' : group.attention,
+            limit: 3,
+            rows: group.rooms.map((room) => ({
+              ...room,
+              status: group.attention,
+            })),
+          }))}
+        />
+      ) : null}
     </HostShell>
   );
 }

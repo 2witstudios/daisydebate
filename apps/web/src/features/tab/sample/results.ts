@@ -2,7 +2,8 @@ import type { EventResultsView } from '@daisy/protocol/lobby/results-read';
 import type { BracketView } from '@daisy/protocol/lobby/standings-read';
 import type { WallClock } from '../tab-round';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
-import type { SampleScene } from './scene';
+import { largeBracketView } from './large-results';
+import { atScale, type SampleScene } from './scene';
 import { sampleId, sampleInstant, sampleWallClock } from './tab-round';
 
 /** An official's tab round; every audience's may be no more than this. */
@@ -101,11 +102,12 @@ export function sampleBracketView(
     stageId: sampleId('stagevarsityelims'),
     division: null,
   };
+  const read: BracketView =
+    scene.viewer === 'host'
+      ? { ...shape, visibility: 'official', tabRounds }
+      : { ...shape, visibility: 'audience', tabRounds };
   return {
-    read:
-      scene.viewer === 'host'
-        ? { ...shape, visibility: 'official', tabRounds }
-        : { ...shape, visibility: 'audience', tabRounds },
+    read: atScale(scene) ? largeBracketView(read, finished) : read,
     wallClock: sampleWallClock,
   };
 }
@@ -143,10 +145,12 @@ export function sampleEventResultsView(
         ? { kind: 'certified', certifiedAt: sampleInstant('19:40') }
         : {
             kind: 'blocked',
-            running: ['Semifinals', 'Final'].map((name) => ({
-              tabRoundId: sampleId(`tabroundvarsity${name}`),
-              name,
-            })),
+            running: bracket.read.tabRounds
+              .filter((round) => round.status !== 'complete')
+              .map((round) => ({
+                tabRoundId: round.tabRoundId,
+                name: round.name,
+              })),
           },
       audiences: [
         {

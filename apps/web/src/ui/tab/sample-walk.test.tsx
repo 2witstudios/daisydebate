@@ -127,7 +127,7 @@ const canvas: Readonly<Record<string, string>> = {
   'Host: events and schedule': 'Judges are one pool.',
   'Competitor: entered in three events': 'Later today',
   'Coach: entering a school': 'Fix Amari',
-  'Tournaments: index': 'Open to enter',
+  'Tournaments: index': 'Show 20 more',
   'League: ladder': 'Top of the ladder',
   'League: season': 'How points count',
   'League: tournaments': 'All five count toward',
@@ -306,6 +306,7 @@ describe('the sample tournament', () => {
 
   test('a screen reads only the shape of its aggregate', () => {
     const table: Table = {
+      divisions: [],
       title: 'Standings',
       lede: '',
       tiebreaks: {

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SchoolPostings } from './school-postings';
 import type {
   Keepsakes,
   TournamentPage as Read,
@@ -70,6 +71,7 @@ function Panel({ panel }: { readonly panel: TournamentPanel }) {
     case 'bracket':
       return <Bracket bracket={panel.bracket} />;
     case 'posting':
+      if (panel.rows.length > 20) return <SchoolPostings panel={panel} />;
       return (
         <ListCard>
           <ListHeading>{panel.heading}</ListHeading>

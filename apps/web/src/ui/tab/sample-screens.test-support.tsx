@@ -40,9 +40,9 @@ import {
   landingStop,
   readTimelineRail,
   readTournamentPage,
-  readTournamentsIndex,
   type TournamentView,
 } from '../../features/tab/tournament';
+import { readTournamentsIndex } from '../../features/tab/tournaments-index';
 import { readWalk } from '../../features/tab/walk';
 import { BallotSettings } from './ballot-settings/ballot-settings';
 import { DrawBoard } from './draw-board/draw-board';
@@ -100,7 +100,11 @@ function participant(
   const [area, id, ...rest] = segments;
   const event = query.get('event');
   if (area === 'tournaments' && id === undefined)
-    return screen(<TournamentsDirectory index={readTournamentsIndex(scene)} />);
+    return screen(
+      <TournamentsDirectory
+        index={readTournamentsIndex(scene, Object.fromEntries(query))}
+      />,
+    );
   if (area === 'tournaments' && id === 'walk' && rest.length === 0)
     return screen(<Walk walk={readWalk(scene)} choose={submit('Choose')} />);
   if (area === 'tournaments' && id !== undefined) {

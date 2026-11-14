@@ -38,7 +38,13 @@ const postedFixtureSchema = z.strictObject({
   room: z.strictObject({ roomId: idSchema, name }).nullable(),
   /** In position order. */
   entries: z
-    .array(z.strictObject({ entryId: idSchema, shown: shownEntrantSchema }))
+    .array(
+      z.strictObject({
+        entryId: idSchema,
+        shown: shownEntrantSchema,
+        school: name.nullable(),
+      }),
+    )
     .max(12),
   judges: z.array(postedJudgeSchema).max(9),
   /** Whether the viewer's audiences may watch this fixture's video. */
@@ -56,7 +62,7 @@ export const postingViewSchema = z.strictObject({
   /** Every published fixture with a Room in the round. */
   roomCount: count,
   /** This page of the published fixtures. */
-  fixtures: z.array(postedFixtureSchema).max(50),
+  fixtures: z.array(postedFixtureSchema).max(500),
   /** Published fixtures past this page. */
   more: count,
   /** Null until the round's resolution is released. */
@@ -67,3 +73,13 @@ export type PostingView = z.infer<typeof postingViewSchema>;
 export const postingReadCatalogue = {
   PostingView: { gate: ['posting.read'] },
 } as const satisfies LobbyReadCatalogue<'PostingView'>;
+
+/** Search and paging are applied before the screen receives its read. */
+export const postingQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  school: z.string().trim().min(1).max(200).optional(),
+  groupBy: z.enum(['school']).optional(),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(100),
+});
+export type PostingQuery = z.infer<typeof postingQuerySchema>;

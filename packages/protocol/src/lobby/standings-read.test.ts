@@ -7,6 +7,7 @@ import {
 } from '../parse-outcome.test-support';
 import {
   bracketViewSchema,
+  standingsQuerySchema,
   standingsReadCatalogue,
   standingsViewSchema,
 } from './standings-read';
@@ -203,6 +204,23 @@ describe('a minor in the standings and the bracket', async () => {
           ],
         }),
       expected: true,
+    });
+  });
+});
+
+describe('standingsQuerySchema', () => {
+  test('a table is read whole or by division', () => {
+    assert({
+      given:
+        'the whole table, the novice division, a blank division and a page',
+      should: 'accept the whole table and a named division only',
+      actual: parseEach(standingsQuerySchema, [
+        { eventId: id('event'), division: null },
+        { eventId: id('event'), division: 'Novice' },
+        { eventId: id('event'), division: ' ' },
+        { eventId: id('event'), division: null, page: 2 },
+      ]).map((outcome) => 'data' in outcome),
+      expected: [true, true, false, false],
     });
   });
 });

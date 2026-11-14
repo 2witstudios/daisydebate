@@ -8,7 +8,8 @@ import type {
   SchoolStudent,
 } from '@daisy/protocol/lobby/entry-read';
 import { AUTUMN, reached, WINTER } from './moment';
-import type { SampleScene } from './scene';
+import { largeEntryList, largeJudgeList } from './large-entries';
+import { atScale, type SampleScene } from './scene';
 
 /** A sample record's id: its name, as a 24-character cuid2-shaped id. */
 const sampleId = (name: string): string =>
@@ -58,6 +59,13 @@ export function sampleEntryList(
 ): EntryListView | null {
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
+  const read = ordinaryEntryList(before);
+  return atScale(scene)
+    ? largeEntryList(read, [varsity, impromptu], before)
+    : read;
+}
+
+function ordinaryEntryList(before: boolean): EntryListView {
   return {
     lobbyId: autumnId,
     eventId: varsity.id,
@@ -174,6 +182,11 @@ export function sampleJudgeList(
 ): JudgeListView | null {
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
+  const read = ordinaryJudgeList(before);
+  return atScale(scene) ? largeJudgeList(read, before) : read;
+}
+
+function ordinaryJudgeList(before: boolean): JudgeListView {
   return {
     lobbyId: autumnId,
     events: [varsity, impromptu, novice],

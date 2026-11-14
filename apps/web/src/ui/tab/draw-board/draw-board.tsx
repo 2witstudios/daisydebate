@@ -1,22 +1,12 @@
-import Link from 'next/link';
-import type {
-  DrawBoard as Read,
-  FixtureFlag,
-} from '../../../features/tab/draw';
+import type { DrawBoard as Read } from '../../../features/tab/draw';
 import type { TimelineRail } from '../../../features/tab/tournament';
-import { cn } from '../../cn';
-import { buttonClass } from '../../components/button/button-class';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ActionButton } from '../action-control/action-control';
 import { ChoiceField } from '../choice-field/choice-field';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
-import {
-  eyebrowClass,
-  ListCard,
-  ListHeading,
-  ListRow,
-} from '../list-card/list-card';
+import { eyebrowClass } from '../list-card/list-card';
+import { SearchableGroups } from '../searchable-groups/searchable-groups';
 
 const count = (n: number, one: string, many: string) =>
   `${n === 0 ? 'no' : n} ${n === 1 ? one : many}`;
@@ -29,9 +19,6 @@ export const draftSummary = (draw: Read): string =>
     `${count(draw.rulesBroken, 'rule', 'rules')} broken`,
     `${count(draw.preferencesBent, 'preference', 'preferences')} bent`,
   ].join(' · ');
-
-const flagClass = (flag: FixtureFlag) =>
-  flag.severity === 'note' ? '' : 'font-strong text-live';
 
 /**
  * A draft draw: its fixtures by record group, why the chosen fixture was
@@ -109,48 +96,47 @@ export function DrawBoard({
           </>
         }
       />
-      <ListCard>
-        {draw.groups.map((group) => (
-          <section key={group.record}>
-            <ListHeading>{group.record}</ListHeading>
-            <ul>
-              {group.fixtures.map((fixture) => (
-                <ListRow
-                  key={fixture.id}
-                  title={fixture.title}
-                  tone={fixture.selected ? 'selected' : 'plain'}
-                  current={fixture.selected}
-                  detail={
-                    <>
-                      {fixture.judges}
-                      {fixture.flags.map((flag) => (
-                        <span key={flag.text} className={flagClass(flag)}>
-                          {' '}
-                          · {flag.text}
-                        </span>
-                      ))}
-                    </>
-                  }
-                  trailing={
-                    <Link
-                      href={fixture.href}
-                      scroll={false}
-                      aria-label={`Open: ${fixture.title}`}
-                      className={cn(
-                        buttonClass(fixture.selected ? 'primary' : 'secondary'),
-                        'no-underline hover:no-underline',
-                      )}
-                    >
-                      Open
-                    </Link>
-                  }
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-        {draw.rest === null ? null : <ListHeading>{draw.rest}</ListHeading>}
-      </ListCard>
+      <SearchableGroups
+        label="Find an entry, school or judge"
+        groups={[
+          {
+            heading: 'Look first',
+            limit: 7,
+            rows: draw.groups
+              .flatMap((group) => group.fixtures)
+              .filter((fixture) => fixture.flags.length > 0)
+              .map((fixture) => ({
+                title: fixture.title,
+                detail: [
+                  fixture.judges,
+                  ...fixture.schools,
+                  ...fixture.flags.map((flag) => flag.text),
+                ].join(' · '),
+                action: {
+                  label: 'Open',
+                  href: fixture.href,
+                  primary: fixture.selected,
+                },
+              })),
+          },
+          ...draw.groups.map((group) => ({
+            heading: group.record,
+            limit: 2,
+            rows: group.fixtures
+              .filter((fixture) => fixture.flags.length === 0)
+              .map((fixture) => ({
+                title: fixture.title,
+                detail: [fixture.judges, ...fixture.schools].join(' · '),
+                ...fixture.schools,
+                action: {
+                  label: 'Open',
+                  href: fixture.href,
+                  primary: fixture.selected,
+                },
+              })),
+          })),
+        ]}
+      />
       {draw.back === null ? null : (
         <div className="flex items-center gap-3 text-sm text-ink-muted">
           <p>Draft {draw.version}.</p>

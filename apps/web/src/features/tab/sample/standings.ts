@@ -2,7 +2,12 @@ import type { StandingsView } from '@daisy/protocol/lobby/standings-read';
 import { lockedSetting, type ResolvedSetting } from '../settings';
 import { standingsTableOf, type StandingsTable } from '../standings';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
-import type { SampleScene } from './scene';
+import {
+  largeNoviceStandingsView,
+  largeStandingsView,
+  NOVICE,
+} from './large-standings';
+import { atScale, type SampleScene } from './scene';
 import { sampleId } from './tab-round';
 
 type Row = Extract<StandingsView, { visibility: 'official' }>['rows'][number];
@@ -170,22 +175,40 @@ export function sampleStandingsView(
     entryCount: 24,
     rows,
   };
-  return {
-    read:
-      scene.viewer === 'host'
-        ? {
-            ...shape,
-            tiebreaks: [...shape.tiebreaks],
-            visibility: 'official',
-            capabilities: { announceBreak: true, previewCorrection: true },
-          }
-        : {
-            ...shape,
-            tiebreaks: [...shape.tiebreaks],
-            visibility: 'released_with_scores',
-          },
-    tiebreaks,
-  };
+  const read: StandingsView =
+    scene.viewer === 'host'
+      ? {
+          ...shape,
+          tiebreaks: [...shape.tiebreaks],
+          visibility: 'official',
+          capabilities: { announceBreak: true, previewCorrection: true },
+        }
+      : {
+          ...shape,
+          tiebreaks: [...shape.tiebreaks],
+          visibility: 'released_with_scores',
+        };
+  return { read: atScale(scene) ? largeStandingsView(read) : read, tiebreaks };
+}
+
+/**
+ * One division's own table, where the event breaks it on a line of its own:
+ * only the large sample has one (its novices).
+ */
+export function sampleDivisionStandingsView(
+  slug: string,
+  event: string | null,
+  division: string,
+  scene: SampleScene,
+): {
+  readonly read: StandingsView;
+  readonly tiebreaks: ResolvedSetting;
+} | null {
+  if (!atScale(scene) || division !== NOVICE) return null;
+  const whole = sampleStandingsView(slug, event, scene);
+  return whole === null
+    ? null
+    : { read: largeNoviceStandingsView(whole.read), tiebreaks };
 }
 
 /** The table as a screen draws it, for the sample screens that embed one. */

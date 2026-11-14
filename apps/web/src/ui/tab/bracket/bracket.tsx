@@ -3,6 +3,7 @@ import type {
   BracketSide,
   BracketStage,
 } from '../../../features/tab/results';
+import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 import { ActionButton } from '../action-control/action-control';
 import { eyebrowClass } from '../list-card/list-card';
@@ -44,7 +45,7 @@ function Side({
 }
 
 /** The elimination tree: one column a stage, each fixture a pair of entries. */
-export function Bracket({ bracket }: { readonly bracket: Read }) {
+function BracketRounds({ bracket }: { readonly bracket: Read }) {
   return (
     <section
       aria-label="Bracket"
@@ -106,5 +107,33 @@ export function Bracket({ bracket }: { readonly bracket: Read }) {
         </div>
       ))}
     </section>
+  );
+}
+
+/** Start at the live round; completed rounds remain available in one disclosure. */
+export function Bracket({ bracket }: { readonly bracket: Read }) {
+  const live = bracket.stages.findIndex((stage) => stage.state !== 'done');
+  const from = Math.max(
+    0,
+    Math.min(
+      live === -1 ? bracket.stages.length : live,
+      bracket.stages.length - 3,
+    ),
+  );
+  if (from === 0) return <BracketRounds bracket={bracket} />;
+  return (
+    <div className="flex flex-col gap-3">
+      <details>
+        <summary className={buttonClass('secondary')}>
+          Show earlier rounds ·{' '}
+          {bracket.stages
+            .slice(0, from)
+            .map((stage) => stage.name)
+            .join(', ')}
+        </summary>
+        <BracketRounds bracket={{ stages: bracket.stages.slice(0, from) }} />
+      </details>
+      <BracketRounds bracket={{ stages: bracket.stages.slice(from) }} />
+    </div>
   );
 }

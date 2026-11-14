@@ -230,3 +230,20 @@ export const entryReadCatalogue = {
 } as const satisfies LobbyReadCatalogue<
   'EntryListView' | 'JudgeListView' | 'SchoolEntriesView'
 >;
+
+/** Search and paging are applied before the screen receives its read. */
+export const entryListQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  status: z.enum(['all', 'accepted', 'not_answered', 'short']).default('all'),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(100),
+});
+export const judgeListQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  status: z.enum(['all', 'free', 'conflict', 'late']).default('all'),
+  timeSlotId: idSchema.optional(),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(100),
+});
+export type EntryListQuery = z.infer<typeof entryListQuerySchema>;
+export type JudgeListQuery = z.infer<typeof judgeListQuerySchema>;

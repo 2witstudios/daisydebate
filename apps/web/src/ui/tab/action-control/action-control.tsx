@@ -46,7 +46,7 @@ function Control({
 /** The compact sizes of a Tab button: `row` for row actions, list expanders and header actions, `back` for back links. */
 type CompactSize = 'row' | 'back';
 const compact: Readonly<Record<CompactSize, string>> = {
-  row: 'min-h-11 px-3.5 text-base',
+  row: 'min-h-12 px-3.5 text-base',
   back: 'min-h-9 px-3 text-sm',
 };
 
@@ -127,22 +127,6 @@ export function TitleLink({ action, about, className }: ActionProps) {
         'font-strong text-ink no-underline hover:underline',
         className,
       )}
-    />
-  );
-}
-
-/**
- * @deprecated An action is a button: use `ActionButton size="small"`, or
- * `SentenceLink` inside a sentence. Kept, drawn as the small button, until the
- * screens still importing it move.
- */
-export function ActionLink({ action, about, className }: ActionProps) {
-  return (
-    <ActionButton
-      action={action}
-      size="small"
-      {...(about === undefined ? {} : { about })}
-      {...(className === undefined ? {} : { className })}
     />
   );
 }

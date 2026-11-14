@@ -21,8 +21,18 @@ const fixture = {
   kind: 'pairing',
   status: 'draft',
   entries: [
-    { entryId: id('entrydoyle'), name: 'Doyle', side: 'negative' },
-    { entryId: id('entrysato'), name: 'Sato', side: 'affirmative' },
+    {
+      entryId: id('entrydoyle'),
+      school: null,
+      name: 'Doyle',
+      side: 'negative',
+    },
+    {
+      entryId: id('entrysato'),
+      school: null,
+      name: 'Sato',
+      side: 'affirmative',
+    },
   ],
   judges: [
     { tournamentJudgeId: id('judgekeane'), name: 'R. Keane', chair: true },
@@ -42,7 +52,9 @@ const bye = {
   ...fixture,
   fixtureId: id('fixtureellis'),
   kind: 'bye',
-  entries: [{ entryId: id('entryellis'), name: 'Ellis', side: null }],
+  entries: [
+    { entryId: id('entryellis'), school: null, name: 'Ellis', side: null },
+  ],
   judges: [],
   findings: [],
   alternative: null,

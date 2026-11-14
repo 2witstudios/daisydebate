@@ -26,6 +26,7 @@ type HostEntryRow = {
 
 /** The entries one responsible adult answers for. */
 type EntryGroup = {
+  readonly kind: EntryListView['groups'][number]['responsible']['kind'];
   readonly name: string;
   readonly enteredBy: string | null;
   readonly summary: string;
@@ -165,6 +166,7 @@ function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
       const hidden = group.entryCount - group.entries.length;
       return {
         name,
+        kind: responsible.kind,
         enteredBy:
           responsible.kind === 'self'
             ? null

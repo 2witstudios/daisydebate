@@ -3,8 +3,8 @@ import {
   landingStop,
   readTimelineRail,
   readTournamentPage,
-  readTournamentsIndex,
 } from '../tournament';
+import { readTournamentsIndex } from '../tournaments-index';
 import { sampleJudgeBallot } from './ballot';
 import { readLeagueLobby } from '../league';
 import { AUTUMN, IMPROMPTU, LEAGUE, VARSITY } from './moment';
@@ -71,6 +71,7 @@ describe('the sample reads', () => {
     const rail = readTimelineRail(AUTUMN, {
       viewer: 'host',
       moment: 'finished',
+      scale: 'normal',
     });
     assert({
       given: 'the host opening Autumn Open once it is certified',
@@ -81,18 +82,20 @@ describe('the sample reads', () => {
   });
 
   test('a visitor reads Autumn Open by whether it has begun', () => {
-    const groupOf = (scene: SampleScene) =>
-      readTournamentsIndex(scene).groups.find((group) =>
-        group.rows.some((row) => row.name === 'Autumn Open'),
-      )?.heading ?? null;
+    const tabOf = (scene: SampleScene) =>
+      (['upcoming', 'live'] as const).find((tab) =>
+        readTournamentsIndex(scene, { tab, q: 'Autumn Open' })
+          .list?.days.flatMap((group) => group.rows)
+          .some((row) => row.name === 'Autumn Open'),
+      ) ?? null;
     assert({
       given: 'a visitor before the tournament and during prelims',
-      should: 'list it as open to enter, then as on now',
+      should: 'list it as upcoming, then as live now',
       actual: [
-        groupOf({ viewer: 'visitor', moment: 'before', scale: 'normal' }),
-        groupOf({ viewer: 'visitor', moment: 'prelims', scale: 'normal' }),
+        tabOf({ viewer: 'visitor', moment: 'before', scale: 'normal' }),
+        tabOf({ viewer: 'visitor', moment: 'prelims', scale: 'normal' }),
       ],
-      expected: ['Open to enter', 'On now'],
+      expected: ['upcoming', 'live'],
     });
   });
 
