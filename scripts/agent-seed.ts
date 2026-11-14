@@ -1,10 +1,11 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { affirmativeSide, negativeSide } from '@daisy/protocol';
 import {
   foundationSettings,
   foundationDefinition,
 } from '@daisy/db/reference-formats';
 
-export const agentSeedVersion = 'agent-seed-v5';
+export const agentSeedVersion = 'agent-seed-v6';
 
 /**
  * One actor per agent user (ADR 0029): competitive rows reference the actor,
@@ -53,14 +54,12 @@ export const agentSeedRound = {
     {
       id: 'f1a2b3c4d5e6a7b8c9d0e1f2',
       actorId: agentSeedUsers[0].actorId,
-      role: 'affirmative' as const,
-      slot: 0,
+      seat: { kind: 'side' as const, side: affirmativeSide, slot: 0 },
     },
     {
       id: 'a1b2c3d4e5f6a7b8c9d0e1f3',
       actorId: agentSeedUsers[1].actorId,
-      role: 'negative' as const,
-      slot: 0,
+      seat: { kind: 'side' as const, side: negativeSide, slot: 0 },
     },
   ],
 } as const;
