@@ -62,13 +62,18 @@ const withdrawals: readonly AuthorizationCapability[] = [
   // ADR 0072: declining a challenge only deletes a row naming the caller.
   'social.challenge.decline',
   'social.challenge.cancel',
+  // Leaving an organization only ends the caller's own membership.
+  'organization.membership.leave',
 ];
+/** A withdrawal: kept without admission, and never bounded for a minor. */
+export const isWithdrawal = (capability: AuthorizationCapability): boolean =>
+  withdrawals.includes(capability);
 /** Whether a bound member holds a capability under the admission rule. */
 export function admitsCapability(
   capability: AuthorizationCapability,
   account: Parameters<typeof participantAccess>[0],
 ): boolean {
-  return withdrawals.includes(capability) || participantAccess(account);
+  return isWithdrawal(capability) || participantAccess(account);
 }
 
 /**
