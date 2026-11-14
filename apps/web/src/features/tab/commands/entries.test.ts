@@ -50,6 +50,7 @@ const entry = (overrides: Partial<EntryRowFacts> = {}): EntryRowFacts => ({
   division: 'Novice',
   responsibleKind: 'school',
   guardianUserId: null,
+  submittedByUserId: null,
   version: 1,
   members: [ada, ben],
   liveFixtures: [],
@@ -346,12 +347,35 @@ describe('a minor outside the guardian allowed lobbies (TAB-5.23)', () => {
               members: [minor],
               responsibleKind: 'guardian',
               guardianUserId: parent,
+              submittedByUserId: parent,
             }),
           }),
           { type: 'accept-entry', entryId },
         ),
       ),
       expected: 'accepted',
+    });
+  });
+
+  test('a host who names the parent link cannot accept for the guardian', () => {
+    assert({
+      given:
+        "an entry a host submitted naming the minor's parent link as responsible",
+      should: 'stay guardian-pending at acceptance',
+      actual: refusalOf(
+        decideEntry(
+          facts({
+            entry: entry({
+              members: [minor],
+              responsibleKind: 'guardian',
+              guardianUserId: parent,
+              submittedByUserId: id('host'),
+            }),
+          }),
+          { type: 'accept-entry', entryId },
+        ),
+      ),
+      expected: 'guardian-pending',
     });
   });
 });

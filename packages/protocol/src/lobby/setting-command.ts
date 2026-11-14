@@ -209,7 +209,11 @@ export const settingCommandCatalogue = {
     'enforced-conflict',
   ]),
   'withdraw-template': onLobby(['lobby-not-standing', 'not-offered']),
-  'copy-template': onEvent(['entries-exist', 'template-unavailable']),
+  'copy-template': onEvent([
+    'entries-exist',
+    'already-following',
+    'template-unavailable',
+  ]),
   'follow-template': onEvent([
     'entries-exist',
     'already-following',

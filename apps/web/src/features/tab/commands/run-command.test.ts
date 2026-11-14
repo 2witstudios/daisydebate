@@ -165,7 +165,7 @@ describe('runLobbyCommand (TAB-5.8)', async () => {
     const stored: StoredCommand = {
       actorUserId: history?.actorUserId ?? null,
       payloadDigest: history?.payloadDigest ?? '',
-      receipt,
+      outcome: { kind: 'accepted', receipt },
     };
     const again = await run({ stored });
     assert({
@@ -188,6 +188,62 @@ describe('runLobbyCommand (TAB-5.8)', async () => {
       expected: {
         answer: { kind: 'refused', refusal: 'command-conflict' },
         writes: 0,
+      },
+    });
+  });
+
+  test('a held command arriving again', async () => {
+    const connections = [{ basis: 'seated' }] as never;
+    const confirmation: AuthorizationDecision = {
+      allow: false,
+      reason: 'confirmation-required',
+      conflict: { connections, handling: 'second_confirms', waiverId: null },
+    };
+    const first = await run({ decision: confirmation });
+    const held = first.answer as {
+      pendingCommandId: string;
+      expiresAt: string;
+    };
+    const again = await run({
+      decision: confirmation,
+      stored: {
+        actorUserId: id('u'),
+        payloadDigest: JSON.stringify({
+          expected: { lobby: 3 },
+          command: { type: 'rename', name: 'Autumn Open' },
+        })
+          .length.toString(16)
+          .padStart(64, '0'),
+        outcome: {
+          kind: 'pending',
+          pendingCommandId: held.pendingCommandId,
+          expiresAt: held.expiresAt,
+        },
+      },
+    });
+    assert({
+      given: 'the same command id and content while it waits for a confirmer',
+      should: 'answer the same hold, holding and recording nothing again',
+      actual: {
+        answer: again.answer,
+        held: again.store.held,
+        conflicts: again.store.conflicts,
+      },
+      expected: { answer: first.answer, held: 0, conflicts: 0 },
+    });
+    const stale = await run({ decision: confirmation, expected: 2 });
+    assert({
+      given: 'a stale command that a conflict would hold',
+      should: 'refuse it before recording a conflict or holding it',
+      actual: {
+        answer: stale.answer,
+        held: stale.store.held,
+        conflicts: stale.store.conflicts,
+      },
+      expected: {
+        answer: { kind: 'refused', refusal: 'version-conflict' },
+        held: 0,
+        conflicts: 0,
       },
     });
   });

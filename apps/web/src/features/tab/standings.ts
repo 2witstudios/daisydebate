@@ -5,6 +5,7 @@ import { sampleAction, type TabAction } from './action';
 import { sampleStandingsView } from './sample/standings';
 import type { SampleScene } from './sample/scene';
 import type { ResolvedSetting } from './settings';
+import { shownName } from './shown-entrant';
 
 type StandingRow = {
   readonly seed: number;
@@ -66,8 +67,8 @@ export const standingsTableOf = (
   const official = read.visibility === 'official' ? read.capabilities : null;
   const rows: StandingRow[] = read.rows.map((row) => ({
     seed: row.seed,
-    entry: row.entry.name,
-    school: row.responsible.name,
+    entry: shownName(row.entry.shown),
+    school: row.responsible.name ?? '',
     wins: row.wins,
     points: 'points' in row ? row.points : null,
     opponentWins: row.opponentWins,

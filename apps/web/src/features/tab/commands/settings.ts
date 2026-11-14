@@ -687,6 +687,8 @@ function copyTemplate(
   template: TemplateRow | null,
 ): Decision {
   if (event.entryCount > 0) return refuse('entries-exist');
+  // A following event keeps its template's pins; it stops following first.
+  if (event.templateId !== null) return refuse('already-following');
   if (template === null || template.retiredAt !== null)
     return refuse('template-unavailable');
   // No link is kept: the template's own values become the event's.

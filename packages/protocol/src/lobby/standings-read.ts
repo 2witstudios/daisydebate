@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { standingsMetricSchema } from '../settings/setting-values';
+import { shownEntrantSchema } from './posting-read';
 import type { LobbyReadCatalogue } from './read';
 import { responsibleKinds } from './vocabulary';
 
@@ -22,9 +23,16 @@ const instant = z.iso.datetime();
 
 const rowShape = {
   seed: position,
-  entry: z.strictObject({ entryId: idSchema, name }),
-  /** Who answers for the entry: its school, its guardian's family, or the entrant. */
-  responsible: z.strictObject({ kind: z.enum(responsibleKinds), name }),
+  /** The entrant as this viewer may see them: by name, or by initials. */
+  entry: z.strictObject({ entryId: idSchema, shown: shownEntrantSchema }),
+  /**
+   * Who answers for the entry: its school, its guardian's family, or the
+   * entrant. The name is null where it is withheld from the viewer.
+   */
+  responsible: z.strictObject({
+    kind: z.enum(responsibleKinds),
+    name: name.nullable(),
+  }),
   wins: count,
   opponentWins: count,
   /** The entry's rating at the start of the event; null when unrated. */
@@ -85,7 +93,11 @@ export const standingsViewSchema = z.discriminatedUnion('visibility', [
 ]);
 export type StandingsView = z.infer<typeof standingsViewSchema>;
 
-const side = z.strictObject({ entryId: idSchema, seed: position, name });
+const side = z.strictObject({
+  entryId: idSchema,
+  seed: position,
+  shown: shownEntrantSchema,
+});
 const roomRef = z.strictObject({ roomId: idSchema, name });
 
 const decided = z.strictObject({

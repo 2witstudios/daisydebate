@@ -16,7 +16,7 @@ type Side = Tie['top'];
 const side = (seed: number, name: string): Side => ({
   entryId: sampleId(`entry${name}`),
   seed,
-  name,
+  shown: { kind: 'name', name },
 });
 
 /** A decided fixture, by the ballots each side won. */
@@ -26,14 +26,14 @@ const decided = (
   bottom: Side,
   bottomBallots: number,
 ): Tie => ({
-  fixtureId: sampleId(`fixture${top.name}${bottom.name}`),
+  fixtureId: sampleId(`fixture${top.entryId}${bottom.entryId}`),
   top,
   bottom,
   state: { kind: 'decided', topBallots, bottomBallots },
 });
 
 const live = (top: Side, bottom: Side, room: string): Tie => ({
-  fixtureId: sampleId(`fixture${top.name}${bottom.name}`),
+  fixtureId: sampleId(`fixture${top.entryId}${bottom.entryId}`),
   top,
   bottom,
   state: {

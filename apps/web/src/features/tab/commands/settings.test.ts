@@ -626,6 +626,21 @@ describe('decideSetting: templates', () => {
       templateId: 'tmpl',
     } as const;
     assert({
+      given: 'an event that already follows a template',
+      should: 'refuse already-following rather than mix two templates’ pins',
+      actual: refusalOf(
+        facts({
+          event: {
+            ...event,
+            templateId: 'other',
+            templateOrganizationId: 'league',
+          },
+        }),
+        copy,
+      ),
+      expected: 'already-following',
+    });
+    assert({
       given:
         'a template whose values include a key no event may hold and one enforced above the event',
       should:

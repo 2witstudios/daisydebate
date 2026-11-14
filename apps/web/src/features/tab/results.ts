@@ -10,6 +10,7 @@ import { sampleAction, type TabAction } from './action';
 import { sampleBracketView, sampleEventResultsView } from './sample/results';
 import type { SampleScene } from './sample/scene';
 import { countWord, type WallClock } from './tab-round';
+import { shownName } from './shown-entrant';
 
 export type BracketSide = {
   readonly seed: number;
@@ -100,8 +101,11 @@ export const bracketOf = (
           ? wallClock(tabRound.startsAt)
           : null,
       ties: tabRound.ties.map((tie): BracketTie => {
-        const top = { seed: tie.top.seed, name: tie.top.name };
-        const bottom = { seed: tie.bottom.seed, name: tie.bottom.name };
+        const top = { seed: tie.top.seed, name: shownName(tie.top.shown) };
+        const bottom = {
+          seed: tie.bottom.seed,
+          name: shownName(tie.bottom.shown),
+        };
         const { state } = tie;
         switch (state.kind) {
           case 'decided':

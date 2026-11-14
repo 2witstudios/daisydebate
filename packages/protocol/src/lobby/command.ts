@@ -223,22 +223,48 @@ export const actionHistoryEntrySchema = z.strictObject({
 });
 export type ActionHistoryEntry = z.infer<typeof actionHistoryEntrySchema>;
 
+/**
+ * Whether a command's expected versions still hold: every version it names
+ * equals the current one. A version the aggregate does not have (a windowed
+ * stage has no slot) is matched by naming none. The runner and confirmation
+ * both decide staleness by this one rule.
+ */
+export const versionsHold = (
+  names: readonly CommandVersionName[],
+  expected: CommandExpected,
+  current: CommandExpected,
+): boolean => names.every((name) => expected[name] === current[name]);
+
+/** What the record holds for a command id: its accepted receipt, or its hold. */
+export type StoredOutcome =
+  | { readonly kind: 'accepted'; readonly receipt: LobbyCommandReceipt }
+  | {
+      readonly kind: 'pending';
+      readonly pendingCommandId: string;
+      readonly expiresAt: string;
+    };
+
 /** What the stored record says about a command id that arrives again. */
 export type CommandReplay =
   | { readonly kind: 'new' }
   | { readonly kind: 'replay'; readonly receipt: LobbyCommandReceipt }
+  | {
+      readonly kind: 'pending';
+      readonly pendingCommandId: string;
+      readonly expiresAt: string;
+    }
   | { readonly kind: 'conflict' };
 
 /**
  * Replay is decided by command id and digest before any version is checked:
- * the same actor and content replays the stored receipt, anything else is
- * `command-conflict`.
+ * the same actor and content replays what was answered (the receipt, or the
+ * same hold while it waits), anything else is `command-conflict`.
  */
 export const commandReplay = (
   stored: {
     readonly actorUserId: string | null;
     readonly payloadDigest: string;
-    readonly receipt: LobbyCommandReceipt;
+    readonly outcome: StoredOutcome;
   } | null,
   arriving: {
     readonly actorUserId: string | null;
@@ -246,8 +272,13 @@ export const commandReplay = (
   },
 ): CommandReplay => {
   if (stored === null) return { kind: 'new' };
-  return stored.actorUserId === arriving.actorUserId &&
-    stored.payloadDigest === arriving.payloadDigest
-    ? { kind: 'replay', receipt: { ...stored.receipt, replayed: true } }
-    : { kind: 'conflict' };
+  if (
+    stored.actorUserId !== arriving.actorUserId ||
+    stored.payloadDigest !== arriving.payloadDigest
+  )
+    return { kind: 'conflict' };
+  const { outcome } = stored;
+  return outcome.kind === 'accepted'
+    ? { kind: 'replay', receipt: { ...outcome.receipt, replayed: true } }
+    : outcome;
 };

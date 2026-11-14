@@ -205,6 +205,10 @@ export {
   buildRoundTopic,
   buildChannelTopic,
   buildRoomTopic,
+  buildLobbyTopic,
+  buildLobbyHostTopic,
+  buildOrganizationHostTopic,
+  lobbyTopicCapability,
 } from './topics';
 export {
   emailDeliveryStatuses,

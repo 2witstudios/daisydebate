@@ -17,7 +17,10 @@ const id = (seed: string) => seed.padEnd(24, 'x');
 
 const row = {
   seed: 1,
-  entry: { entryId: id('entryjensen'), name: 'Jensen' },
+  entry: {
+    entryId: id('entryjensen'),
+    shown: { kind: 'name', name: 'Jensen' },
+  },
   responsible: { kind: 'school', name: 'Hartwell' },
   wins: 4,
   opponentWins: 9,
@@ -56,7 +59,7 @@ const decisionsOnly = {
 const side = (seed: number, name: string) => ({
   entryId: id(`entry${name}`),
   seed,
-  name,
+  shown: { kind: 'name', name },
 });
 const tie = (state: unknown) => ({
   fixtureId: id('fixture'),
@@ -164,6 +167,42 @@ describe('the bracket read', () => {
         ),
       ),
       expected: [[{ data: 'standings.read' }], [{ data: 'standings.read' }]],
+    });
+  });
+});
+
+describe('a minor in the standings and the bracket', async () => {
+  test('an entrant shown by initials, a family withheld', async () => {
+    const minorRow = {
+      ...row,
+      entry: {
+        entryId: id('entryokafor'),
+        shown: { kind: 'initials', initials: 'C. O.' },
+      },
+      responsible: { kind: 'guardian', name: null },
+      points: 81.5,
+    };
+    assert({
+      given: 'a released table with a minor by initials and a withheld family',
+      should: 'parse unchanged',
+      actual: parseOutcome(standingsViewSchema, {
+        ...withScores,
+        rows: [minorRow],
+      }),
+      expected: { data: { ...withScores, rows: [minorRow] } },
+    });
+    assert({
+      given: 'an entrant carried as a bare name with no shown form',
+      should: 'refuse it',
+      actual:
+        'issues' in
+        parseOutcome(standingsViewSchema, {
+          ...withScores,
+          rows: [
+            { ...row, entry: { entryId: id('entryokafor'), name: 'Okafor' } },
+          ],
+        }),
+      expected: true,
     });
   });
 });

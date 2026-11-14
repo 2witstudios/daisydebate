@@ -134,6 +134,7 @@ export const entryCommandCatalogue = {
       'slot-clash',
       'division-ineligible',
       'guardian-pending',
+      'age-band',
     ],
   },
   'set-entry-division': {

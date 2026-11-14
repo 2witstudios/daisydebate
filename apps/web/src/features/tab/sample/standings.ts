@@ -19,7 +19,10 @@ const row = (
   decidesBreak = false,
 ): Row => ({
   seed,
-  entry: { entryId: sampleId(`entry${entry}`), name: entry },
+  entry: {
+    entryId: sampleId(`entry${entry}`),
+    shown: { kind: 'name', name: entry },
+  },
   responsible: {
     kind: school.endsWith(' family') ? 'guardian' : 'school',
     name: school,

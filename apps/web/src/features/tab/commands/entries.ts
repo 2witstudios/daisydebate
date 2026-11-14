@@ -59,6 +59,12 @@ export type EntryRowFacts = {
   readonly responsibleKind: ResponsibleKind;
   /** The guardian of the entry's guardian link, when it is a guardian's entry. */
   readonly guardianUserId: string | null;
+  /**
+   * The account that submitted the entry, from its `submit-entry` history
+   * entry. Naming a guardian's link does not make the guardian its maker:
+   * only the guardian's own submission is not awaited (TAB-5.23).
+   */
+  readonly submittedByUserId: string | null;
   readonly version: number;
   readonly members: readonly EntryPersonFacts[];
   readonly liveFixtures: readonly EntryLiveFixtureFacts[];
@@ -384,11 +390,9 @@ const acceptEntry = (
   if (entry.status !== 'pending') return refuse('entry-settled');
   if (entry.members.some((member) => member.enteredInSharedSlot))
     return refuse('slot-clash');
-  const madeBy =
-    entry.responsibleKind === 'guardian' ? entry.guardianUserId : null;
   if (
     entry.members.some((member) =>
-      guardianAwaited(member, facts.event.lobbyId, madeBy),
+      guardianAwaited(member, facts.event.lobbyId, entry.submittedByUserId),
     )
   )
     return refuse('guardian-pending');
@@ -414,6 +418,7 @@ const replaceEntryMember = (
   if (entry.liveFixtures.some((fixture) => !isRepairable(fixture.state)))
     return refuse('fixture-started');
   if (incoming.enteredInEvent) return refuse('already-entered');
+  if (!incoming.withinAgeBand) return refuse('age-band');
   if (incoming.enteredInSharedSlot) return refuse('slot-clash');
   if (entry.division !== null && !incoming.divisions.includes(entry.division))
     return refuse('division-ineligible');
@@ -447,6 +452,9 @@ const replaceEntryMember = (
           entryStatus: entry.status,
         },
       },
+      // Joining an accepted entry puts its tournament inside the newcomer's
+      // boundary, as accepting does.
+      ...(entry.status === 'accepted' ? boundaryRevisions([incoming]) : []),
       ...entry.liveFixtures.flatMap((fixture) =>
         fixture.roomId === null
           ? []

@@ -4,6 +4,8 @@ import type {
 } from '@daisy/auth/authorization';
 import {
   commandReplay,
+  versionsHold,
+  type StoredOutcome,
   type ActionHistoryEntry,
   type CommandExpected,
   type CommandFinding,
@@ -48,11 +50,14 @@ export const refuse = <Refusal extends string>(
 /** Where a command's history entry belongs. */
 export type CommandScope = ActionHistoryEntry['scope'];
 
-/** The stored history entry for a command id, with the receipt it answered. */
+/**
+ * What is stored for a command id: its history entry with the receipt it
+ * answered, or its hold while a second person has yet to confirm it.
+ */
 export type StoredCommand = {
   readonly actorUserId: string | null;
   readonly payloadDigest: string;
-  readonly receipt: LobbyCommandReceipt;
+  readonly outcome: StoredOutcome;
 };
 
 /**
@@ -136,15 +141,6 @@ const gateOf = (
   throw new CommandDenied(denied?.reason ?? 'denied');
 };
 
-const versionConflict = (
-  definition: LobbyCommandDefinition,
-  expected: CommandExpected,
-  current: CommandExpected,
-): boolean =>
-  // A version the aggregate does not have (a windowed stage has no slot) is
-  // matched by naming none.
-  definition.versions.some((name) => expected[name] !== current[name]);
-
 /** Action history names the account, which outlives any actor. */
 const accountOf = (input: Omit<AuthorizationInput, 'capability'>) =>
   input.principal.kind === 'user' ? input.principal.userId : null;
@@ -196,11 +192,29 @@ export const runLobbyCommand = <
       actorUserId,
       payloadDigest,
     });
-    if (replay.kind === 'replay')
-      return { kind: 'accepted', receipt: replay.receipt };
-    if (replay.kind === 'conflict')
-      return { kind: 'refused', refusal: 'command-conflict' };
+    switch (replay.kind) {
+      case 'replay':
+        return { kind: 'accepted', receipt: replay.receipt };
+      case 'pending':
+        return {
+          kind: 'pending',
+          pendingCommandId: replay.pendingCommandId,
+          expiresAt: replay.expiresAt,
+        };
+      case 'conflict':
+        return { kind: 'refused', refusal: 'command-conflict' };
+      case 'new':
+        break;
+    }
     const gate = gateOf(definition, dependencies.authorize, input);
+    // A refused command changes nothing: versions and the decision are
+    // settled before any conflict is recorded or any hold is stored.
+    if (
+      !versionsHold(definition.versions, envelope.expected, tx.versions(facts))
+    )
+      return { kind: 'refused', refusal: 'version-conflict' };
+    const outcome = decide(facts, envelope.command);
+    if (outcome.kind === 'refused') return outcome;
     const conflict =
       gate.kind === 'confirm' ? gate.conflict : gate.decision.conflict;
     const conflictId =
@@ -216,10 +230,6 @@ export const runLobbyCommand = <
       return { kind: 'pending', ...held };
     }
     const { decision } = gate;
-    if (versionConflict(definition, envelope.expected, tx.versions(facts)))
-      return { kind: 'refused', refusal: 'version-conflict' };
-    const outcome = decide(facts, envelope.command);
-    if (outcome.kind === 'refused') return outcome;
     const receipt: LobbyCommandReceipt = {
       commandId: envelope.commandId,
       aggregate: outcome.aggregate,

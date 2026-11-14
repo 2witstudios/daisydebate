@@ -1,4 +1,5 @@
 import {
+  versionsHold,
   type ActionHistoryEntry,
   type CommandExpected,
   type CommandVersionName,
@@ -120,11 +121,7 @@ export const decideSettle = (
 };
 
 const stale = (facts: ConfirmFacts<string, unknown>) =>
-  facts.versions.some(
-    (name) =>
-      facts.pending.expected[name] === undefined ||
-      facts.pending.expected[name] !== facts.current[name],
-  );
+  !versionsHold(facts.versions, facts.pending.expected, facts.current);
 
 /**
  * Confirms a pending command: re-authorizes the proposer, checks the

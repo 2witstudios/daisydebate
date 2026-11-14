@@ -62,8 +62,22 @@ describe('the lobby command envelope (TAB-5.8)', async () => {
     const stored = {
       actorUserId: id('u'),
       payloadDigest: 'a'.repeat(64),
-      receipt,
-    };
+      outcome: { kind: 'accepted', receipt },
+    } as const;
+    const held = {
+      ...stored,
+      outcome: {
+        kind: 'pending',
+        pendingCommandId: id('p'),
+        expiresAt: '2026-11-15T00:00:00.000Z',
+      },
+    } as const;
+    assert({
+      given: 'a held command id arriving again with the same content',
+      should: 'answer the same hold',
+      actual: commandReplay(held, stored),
+      expected: held.outcome,
+    });
     assert({
       given:
         'no stored command, the same actor and digest, another digest, another actor',
