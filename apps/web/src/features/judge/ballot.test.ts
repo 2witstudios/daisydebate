@@ -2,6 +2,7 @@ import { ballotCategories, type BallotCategory } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { postedForm } from '../../lib/testing/posted-form';
 import { parseBallot } from './ballot';
+import { sampleBallotPlan as debaters } from './ballot-plan.test-support';
 
 setupRitewayBun();
 
@@ -14,11 +15,6 @@ const valid = {
   ...scoresFor('negative', '3'),
   reason: 'The affirmative answered the main objection.',
   'feedback-negative': 'Weigh your impacts against theirs.',
-};
-
-const debaters = {
-  affirmative: { name: 'Maya Singh' },
-  negative: { name: 'Daniel Kim' },
 };
 
 const allAt = (score: number) =>
@@ -96,7 +92,7 @@ describe('parseBallot', () => {
         'a reason within the textarea’s limit whose line breaks the browser posts as two characters',
       should: 'accept it, counting and keeping each line break once',
       actual: result.ok && [
-        result.value.ballot.reason.length,
+        result.value.ballot.reason?.length,
         result.value.ballot.feedback.negative,
       ],
       expected: [599, 'a\nb'],

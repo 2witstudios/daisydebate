@@ -1,7 +1,22 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { sampleJudgeBallot } from '../mock/judge.test-support';
+import { ballotPlanFor } from '../../features/judge/ballot-plan';
+import {
+  sampleBallotRound,
+  sampleJudgeBallot,
+} from '../mock/judge.test-support';
+
+const named = (aff: string, neg: string) => {
+  const [a, n] = sampleBallotRound.participants;
+  return ballotPlanFor({
+    ...sampleBallotRound,
+    participants: [
+      { ...a!, label: aff },
+      { ...n!, label: neg },
+    ],
+  });
+};
 import { StoredBallotScores } from './stored-ballot-scores';
 setupRitewayBun();
 test('recorded scores name both actual sides and every rubric category without a fabricated companion', () => {
@@ -9,10 +24,7 @@ test('recorded scores name both actual sides and every rubric category without a
     h(StoredBallotScores, {
       title: 'Recorded ballot scores',
       ballot: sampleJudgeBallot,
-      debaters: {
-        affirmative: { name: 'a'.repeat(32) },
-        negative: { name: 'n'.repeat(32) },
-      },
+      plan: named('a'.repeat(32), 'n'.repeat(32)),
     }),
   );
   assert({
@@ -51,7 +63,7 @@ test('a ballot written on the first rubric renders on its own categories', () =>
         reason: 'The negative won the framework.',
         feedback: {},
       },
-      debaters: { affirmative: { name: 'Aff' }, negative: { name: 'Neg' } },
+      plan: named('Aff', 'Neg'),
     }),
   );
   assert({

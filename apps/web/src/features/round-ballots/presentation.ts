@@ -1,22 +1,15 @@
 import { isRoundRunning } from '@daisy/protocol';
 import { ballotFields } from './fields';
-import { createAppError } from '@daisy/errors';
 import type { RoundBallotRead } from '@daisy/protocol';
-import type { BallotDebaters } from '../judge/ballot';
+import { ballotPlanFor, type BallotPlan } from '../judge/ballot-plan';
 import type { RoundBallotFormState } from './form';
-/** Side labels come from all authoritative debater seats, never from judge identity or a sample. */
-export function ballotDebaters(view: RoundBallotRead): BallotDebaters {
-  const side = (role: 'affirmative' | 'negative') =>
-    view.round.participants
-      .filter((p) => p.role === role && 'label' in p)
-      .sort((a, b) => a.slot - b.slot)
-      .flatMap((p) => ('label' in p ? [p.label] : []))
-      .join(' / ');
-  const affirmative = side('affirmative'),
-    negative = side('negative');
-  if (!affirmative || !negative) throw createAppError('INVARIANT');
-  return { affirmative: { name: affirmative }, negative: { name: negative } };
-}
+/**
+ * The Round's ballot: subject names come from all authoritative competitor
+ * seats, never from judge identity or a sample; the definition is the one
+ * the Round's outcome kind is judged on.
+ */
+export const ballotPlanOf = (view: RoundBallotRead): BallotPlan =>
+  ballotPlanFor(view.round);
 export type BallotDisplay =
   'retry' | 'recorded' | 'open' | 'waiting' | 'decided';
 /** What the ballot page shows: the answer decides first, then the persisted Round. */
@@ -29,7 +22,11 @@ export function ballotDisplay(
       return 'recorded';
     case 'unacknowledged':
       // Only a ballot that can be posted again unchanged is offered for retry.
-      return ballotFields(Object.entries(answer.values), true).ok
+      return ballotFields(
+        Object.entries(answer.values),
+        ballotPlanOf(view),
+        true,
+      ).ok
         ? 'retry'
         : persistedDisplay(view);
     case 'idle':

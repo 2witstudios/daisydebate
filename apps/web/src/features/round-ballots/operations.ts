@@ -63,8 +63,9 @@ export function prepareRoundBallotSubmission(
       const nowMs = Date.parse(context.now);
       const panel = judgingPanelOf(context.panel, nowMs);
       if (panel === null) return null;
-      const { completeness, ballots } = context.panel;
+      const { judging, completeness, ballots } = context.panel;
       const decision = decidePanelCompletion({
+        judging,
         completeness,
         panel,
         ballots,
@@ -76,7 +77,13 @@ export function prepareRoundBallotSubmission(
         ...context.round,
         round: context.round,
         nextSegmentId: input.nextSegmentId,
-      }).completePanel({ now: context.now, ballots, completeness, panel });
+      }).completePanel({
+        now: context.now,
+        judging,
+        ballots,
+        completeness,
+        panel,
+      });
       return {
         ...projection,
         finalization: {

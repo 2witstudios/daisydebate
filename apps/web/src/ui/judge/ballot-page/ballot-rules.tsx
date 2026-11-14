@@ -1,11 +1,7 @@
 'use client';
-import {
-  ballotLimits,
-  ballotRubric,
-  ballotScoreMax,
-  judgingPolicy,
-  type RoundWaitingOn,
-} from '@daisy/protocol';
+import { judgingPolicy, type RoundWaitingOn } from '@daisy/protocol';
+import { ballotRuleLines } from '../../../features/judge/ballot-rules';
+import type { BallotPlan } from '../../../features/judge/ballot-plan';
 import { judgingClockOf } from '../../../features/round-runtime/judging-window';
 import { RoundClock } from '../../debate-room/round-clock';
 import { useServerAnchoredNow } from './ballot-opens';
@@ -15,20 +11,18 @@ import {
 } from '../../ballot/ballot-class';
 
 const windowMinutes = judgingPolicy.humanBallotWindowMs / 60_000;
-const categoryCount = ballotRubric.reduce(
-  (sum, group) => sum + group.categories.length,
-  0,
-);
 
 /**
- * How Daisy's one ballot works, said once on the page that owns it, before
+ * How the Round's ballot works, from its definition, said once on the page that owns it, before
  * the judge starts: the decision, the scores, who reads what, the limits and
  * the window, with its time left while it runs.
  */
 export function BallotRules({
+  plan,
   waitingOn,
   renderedAtMs,
 }: {
+  readonly plan: BallotPlan;
   readonly waitingOn: RoundWaitingOn | null;
   readonly renderedAtMs: number;
 }) {
@@ -53,20 +47,9 @@ export function BallotRules({
         ) : null}
       </div>
       <ul className="flex list-disc flex-col gap-1 pl-5 text-base">
-        <li>Pick one winner. There are no draws.</li>
-        <li>
-          {`Score each debater from 1 to ${ballotScoreMax} in all ${categoryCount} categories. Under each category, open “What a 1, 3 and 5 look like” to see its anchors.`}
-        </li>
-        <li>
-          A win on fewer speaker points is allowed; you confirm it before
-          submitting.
-        </li>
-        <li>
-          {`Your reason for decision is required and both debaters read it (up to ${ballotLimits.reason} characters).`}
-        </li>
-        <li>
-          {`Feedback is optional, and each debater reads only their own (up to ${ballotLimits.feedback} characters).`}
-        </li>
+        {ballotRuleLines(plan.definition).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
         <li>
           {`You have ${windowMinutes} minutes from when your ballot opens to submit. Once submitted, a ballot can’t be changed.`}
         </li>

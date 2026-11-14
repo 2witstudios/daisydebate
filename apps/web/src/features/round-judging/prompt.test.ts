@@ -2,14 +2,15 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
 import { frozenStageRequest } from './prompt';
+import { judge } from './operations.test-support';
 import {
   frozen,
   round,
 } from '../round-runtime/transcript-evidence.test-support';
 setupRitewayBun();
 /** The first pass reads the frozen evidence as JSON. */
-const firstPassMessages = (input: Parameters<typeof frozenStageRequest>[0]) =>
-  frozenStageRequest(input, { stage: 'first' }).messages;
+const firstPassMessages = (input: Parameters<typeof frozenStageRequest>[1]) =>
+  frozenStageRequest(judge, input, { stage: 'first' }).messages;
 test('actual frozen identities map to side/slot without becoming prompt metadata', () => {
   const messages = firstPassMessages({ round, frozen });
   const evidence = JSON.parse(
@@ -88,7 +89,7 @@ test('each coherency stage asks for its own contract, and the final one reads th
   const caseMap = stubCaseMap;
   const requests = (
     [{ stage: 'first' }, { stage: 'map' }, { stage: 'final', caseMap }] as const
-  ).map((due) => frozenStageRequest({ round, frozen }, due));
+  ).map((due) => frozenStageRequest(judge, { round, frozen }, due));
   assert({
     given:
       'the first pass, the case map and the final stage of one frozen Round',

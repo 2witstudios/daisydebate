@@ -1,10 +1,6 @@
-import { ballotCategories, roundBallotEnvelopeSchema } from '@daisy/protocol';
-import {
-  parseBallot,
-  scoreField,
-  feedbackField,
-  type BallotDebaters,
-} from '../judge/ballot';
+import { roundBallotEnvelopeSchema } from '@daisy/protocol';
+import { ballotFieldNames, parseBallot } from '../judge/ballot';
+import type { BallotPlan } from '../judge/ballot-plan';
 import {
   collectRoundFormFields,
   positiveFormInteger,
@@ -17,27 +13,16 @@ const envelopeFields = [
   'judgeParticipantId',
   'freezeRevision',
 ];
-const allowed = [
-  ...envelopeFields,
-  'winner',
-  'reason',
-  'low-point',
-  ...['affirmative', 'negative'].flatMap((side) => [
-    feedbackField(side as 'affirmative' | 'negative'),
-    ...ballotCategories.map((category) =>
-      scoreField(side as 'affirmative' | 'negative', category),
-    ),
-  ]),
-];
-/** The native form encodes exactly the shared JSON envelope; no identity or outcome claims. */
+/**
+ * The native form encodes exactly the shared JSON envelope; no identity or
+ * outcome claims. Its fields are the Round's own ballot plan's.
+ */
 export function ballotFields(
   entries: Iterable<readonly [string, unknown]>,
+  plan: BallotPlan,
   serverAction = false,
-  debaters: BallotDebaters = {
-    affirmative: { name: 'Affirmative' },
-    negative: { name: 'Negative' },
-  },
 ) {
+  const allowed = [...envelopeFields, ...ballotFieldNames(plan)];
   const fields = collectRoundFormFields(entries, allowed, serverAction);
   if (!fields)
     return {
@@ -47,7 +32,7 @@ export function ballotFields(
     };
   const form = new FormData();
   for (const [key, value] of Object.entries(fields)) form.set(key, value);
-  const parsed = parseBallot(form, debaters);
+  const parsed = parseBallot(form, plan);
   if (!parsed.ok) return parsed;
   const result = roundBallotEnvelopeSchema.safeParse({
     version: positiveFormInteger(fields.version),

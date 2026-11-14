@@ -1,6 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
+import { twoSides } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   frozen,
@@ -13,7 +14,11 @@ const claim = {
   token: 't',
   callId: 'call',
   model: 'analysis-model',
-  seat: { ...seat, side: 'affirmative' as const, slot: 1 },
+  seat: {
+    ...seat,
+    seat: { kind: 'side' as const, side: 'affirmative', slot: 1 },
+  },
+  sides: [...twoSides],
   round,
   frozen,
   history: [],

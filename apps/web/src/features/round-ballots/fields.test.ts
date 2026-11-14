@@ -1,10 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotFields } from './fields';
 setupRitewayBun();
-import { ballotFormFixture as fields } from './ballot-form.test-support';
+import {
+  ballotFormFixture as fields,
+  ballotFormPlan as plan,
+} from './ballot-form.test-support';
+import { ballotPlanFor } from '../judge/ballot-plan';
+import { sampleBallotRound } from '../judge/ballot-plan.test-support';
 test('strict native ballot preserves one envelope and refuses impersonation, duplicate and stale low-point confirmation', () => {
   const valid = fields();
-  const parsed = ballotFields(valid);
+  const parsed = ballotFields(valid, plan);
   const attacks: FormData[] = [];
   for (const [key, value] of [
     ['actorId', 'a'.repeat(24)],
@@ -23,7 +28,7 @@ test('strict native ballot preserves one envelope and refuses impersonation, dup
     given:
       'one native envelope and untrusted claims, duplicate id or outdated confirmation',
     should: 'accept only the strict current ballot',
-    actual: [parsed.ok, attacks.map((form) => ballotFields(form).ok)],
+    actual: [parsed.ok, attacks.map((form) => ballotFields(form, plan).ok)],
     expected: [true, [false, false, false, false]],
   });
 });
@@ -31,10 +36,15 @@ test('strict native ballot preserves one envelope and refuses impersonation, dup
 test('a missing winner names the actual Round debaters without accepting them as authority', () => {
   const form = fields();
   form.delete('winner');
-  const result = ballotFields(form, true, {
-    affirmative: { name: 'Actual Affirmative' },
-    negative: { name: 'Actual Negative' },
+  const [aff, neg] = sampleBallotRound.participants;
+  const actual = ballotPlanFor({
+    ...sampleBallotRound,
+    participants: [
+      { ...aff!, label: 'Actual Affirmative' },
+      { ...neg!, label: 'Actual Negative' },
+    ],
   });
+  const result = ballotFields(form, actual, true);
   assert({
     given: 'fresh canonical display names and no chosen side',
     should: 'name both actual debaters in the refusal',

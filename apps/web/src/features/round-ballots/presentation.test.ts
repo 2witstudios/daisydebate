@@ -41,7 +41,7 @@ const receipt: RoundBallotReceipt = {
   judgeParticipantId: judge.id,
   freezeRevision: 1,
   resultingVersion: 4,
-  outcome: 'affirmative',
+  outcome: { kind: 'winner', side: 'affirmative' },
 };
 
 const values = formValues(ballotFormFixture());
