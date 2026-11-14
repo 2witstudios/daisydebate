@@ -117,12 +117,9 @@ const reshapedView = (
   second: SeatRef,
 ): RoundView => {
   const speaking = ran(1);
+  const affSide = aff.seat.kind === 'side' ? aff.seat.side : null;
   const move = (seat: SeatRef): SeatRef =>
-    seat.kind === 'side'
-      ? seat.side === aff.seat.side
-        ? first
-        : second
-      : seat;
+    seat.kind === 'side' ? (seat.side === affSide ? first : second) : seat;
   return {
     ...speaking,
     rules: {
