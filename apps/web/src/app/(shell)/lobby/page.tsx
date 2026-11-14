@@ -5,13 +5,10 @@ import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
 import { Lobby } from '../../../ui/lobby/lobby';
-import { roomListing } from './actions';
+import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
 import { ResumeRound } from '../../../ui/active-room/resume-round';
-import {
-  HostedRooms,
-  hostedWithoutSeat,
-} from '../../../ui/active-room/hosted-rooms';
+import { HostedRooms } from '../../../ui/active-room/hosted-rooms';
 import { LobbyViews, OnlineCount } from '../../../ui/people/lobby-views';
 import { PeoplePanel } from '../../../ui/people/people-rail';
 import { personActions } from '../people/people-shell';
@@ -27,16 +24,17 @@ export default async function LobbyPage({
     identity.state === 'member' ? identity.principal.actorId : null;
   const query = parseRoomDiscoveryQuery(await searchParams);
   if (!query.success) throw createAppError('VALIDATION');
-  const [listing, activeRoom] = await Promise.all([
+  const [listing, activeRoom, hosted] = await Promise.all([
     roomListing(query.data),
     requestActiveRoom(),
+    actorId === null ? [] : hostedRoomsRead(),
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = Date.parse(systemClock.now());
   const rooms = (
     <>
       <ResumeRound room={activeRoom} actorId={actorId} />
-      <HostedRooms rooms={hostedWithoutSeat(listing.rooms, actorId)} />
+      <HostedRooms rooms={hosted} />
       <Lobby
         query={query.data}
         rooms={listing.rooms}

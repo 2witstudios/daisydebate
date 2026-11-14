@@ -31,6 +31,7 @@ import { spectatorClockAt } from '../spectating/spectator-clock';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
+  HostedRoom,
   RoomListQuery,
   RoomAssemblyState,
   RoomCatalogChoice,
@@ -62,6 +63,7 @@ export type Store = Pick<
   | 'listRoomPage'
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
+  | 'listHostedRooms'
   | 'readContentWaiverStanding'
   | 'readWatchableRoundOfRoom'
 >;
@@ -417,6 +419,12 @@ export function createRoomRuntimeOperations({
         can(caller, 'room.list', account),
       );
       return facts && projectActiveRoom(facts, caller.actorId);
+    },
+    /** The open Rooms the caller hosts (TAB-6.16): hosting holds no seat. */
+    hostedRooms(caller: Caller): Promise<readonly HostedRoom[]> {
+      return store.listHostedRooms(caller, (account) =>
+        can(caller, 'room.list', account),
+      );
     },
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {

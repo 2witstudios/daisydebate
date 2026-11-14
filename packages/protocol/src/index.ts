@@ -414,6 +414,13 @@ export {
   type ActiveRoom,
   type ActiveRoomFacts,
 } from './active-room';
+export {
+  hostedRoomSchema,
+  hostedRoomsReadSchema,
+  maxHostedRooms,
+  type HostedRoom,
+  type HostedRoomsRead,
+} from './hosted-rooms';
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';
 

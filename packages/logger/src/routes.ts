@@ -160,6 +160,7 @@ const appRoutes = [
   '/api/rooms/[roomId]/rematch',
   '/api/rooms/active',
   '/api/rooms/catalog',
+  '/api/rooms/hosted',
   '/api/rounds/[roundId]',
   '/api/rounds/[roundId]/ballots',
   '/api/rounds/[roundId]/check-in',

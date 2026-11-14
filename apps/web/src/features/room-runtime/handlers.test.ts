@@ -171,6 +171,35 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
   });
 });
 
+test('the hosted read answers the caller’s own open Rooms (TAB-6.16)', async () => {
+  const rooms = [
+    {
+      id: 'h'.repeat(24),
+      title: 'Hosted',
+      status: 'assembling',
+      seated: false,
+    },
+  ];
+  const callers: unknown[] = [];
+  const handlers = createRoomHandlers(
+    dependencies(member, {
+      hostedRooms: async (caller: unknown) => {
+        callers.push(caller);
+        return rooms;
+      },
+    }),
+  );
+  const response = await handlers.hosted(
+    new Request(`${origin}/api/rooms/hosted`, { headers: { origin } }),
+  );
+  assert({
+    given: 'a member reading the Rooms they host',
+    should: 'answer the operation’s Rooms for that session caller only',
+    actual: [response.status, await response.json(), callers],
+    expected: [200, { rooms }, [{ userId: id, actorId: id }]],
+  });
+});
+
 test('a waitlisted account reaches the evaluator only through Room commands (ADR 0075)', async () => {
   const waitlisted: Identity = {
     state: 'waitlisted',
