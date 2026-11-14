@@ -2,7 +2,7 @@ import {
   settingHolds,
   settingKeys,
   settingScopeKinds,
-} from '@daisy/protocol/settings';
+} from '@daisy/protocol/setting-keys';
 import { sql } from 'drizzle-orm';
 import {
   check,
