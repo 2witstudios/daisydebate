@@ -1,8 +1,11 @@
-import { sampleAction } from '../action';
+import type { StandingsView } from '@daisy/protocol/lobby/standings-read';
 import { lockedSetting, type ResolvedSetting } from '../settings';
-import type { StandingRow, StandingsTable } from '../standings';
+import { standingsTableOf, type StandingsTable } from '../standings';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import type { SampleScene } from './scene';
+import { sampleId } from './tab-round';
+
+type Row = Extract<StandingsView, { visibility: 'official' }>['rows'][number];
 
 const row = (
   seed: number,
@@ -12,18 +15,21 @@ const row = (
   points: number,
   opponentWins: number,
   rating: number | null,
-  reason: string,
-  decisive = false,
-): StandingRow => ({
+  explanation: string,
+  decidesBreak = false,
+): Row => ({
   seed,
-  entry,
-  school,
+  entry: { entryId: sampleId(`entry${entry}`), name: entry },
+  responsible: {
+    kind: school.endsWith(' family') ? 'guardian' : 'school',
+    name: school,
+  },
   wins,
   points,
   opponentWins,
   rating,
-  reason,
-  decisive,
+  explanation,
+  decidesBreak,
 });
 
 export const tiebreaks: ResolvedSetting = {
@@ -130,36 +136,56 @@ const rows = [
   ),
 ];
 
+/**
+ * Varsity debate's table once prelims run. The host reads it as an official;
+ * everyone else as an audience to whom decisions and scores are released.
+ */
+export function sampleStandingsView(
+  slug: string,
+  event: string | null,
+  scene: SampleScene,
+): { readonly read: StandingsView; readonly tiebreaks: ResolvedSetting } | null {
+  if (slug !== AUTUMN || (event !== null && event !== VARSITY)) return null;
+  if (!reached(scene, 'prelims')) return null;
+  const done = reached(scene, 'break');
+  const shape = {
+    lobbyId: sampleId('autumnopen'),
+    eventId: sampleId('eventvarsity'),
+    division: null,
+    throughRound: done ? 4 : 2,
+    progress: done
+      ? { kind: 'complete' as const, ballots: 96 }
+      : { kind: 'running' as const, tabRoundNumber: 3 },
+    tiebreaks: ['wins', 'total_points', 'opponent_wins', 'rating'] as const,
+    breakLine: { seeds: 8, tabRoundName: 'Quarterfinals' },
+    breakAnnouncedAt: reached(scene, 'elims') ? '2026-10-17T17:05:00.000Z' : null,
+    entryCount: 24,
+    rows,
+  };
+  return {
+    read:
+      scene.viewer === 'host'
+        ? {
+            ...shape,
+            tiebreaks: [...shape.tiebreaks],
+            visibility: 'official',
+            capabilities: { announceBreak: true, previewCorrection: true },
+          }
+        : {
+            ...shape,
+            tiebreaks: [...shape.tiebreaks],
+            visibility: 'released_with_scores',
+          },
+    tiebreaks,
+  };
+}
+
+/** The table as a screen draws it, for the sample screens that embed one. */
 export function sampleStandings(
   slug: string,
   event: string | null,
   scene: SampleScene,
 ): StandingsTable | null {
-  if (slug !== AUTUMN || (event !== null && event !== VARSITY)) return null;
-  if (!reached(scene, 'prelims')) return null;
-  const done = reached(scene, 'break');
-  const host = scene.viewer === 'host';
-  return {
-    title: done ? 'Standings after round 4' : 'Standings after round 2',
-    lede: done
-      ? 'Top 8 break to quarterfinals. All 96 ballots are in.'
-      : 'Top 8 break to quarterfinals. Round 3 is still running.',
-    tiebreaks,
-    tiebreakOrder: [
-      'wins',
-      'speaker points',
-      "opponents' wins",
-      'rating at the start',
-    ],
-    rows,
-    breakAfter: 8,
-    remaining: 14,
-    announce:
-      host && done && !reached(scene, 'elims')
-        ? sampleAction('Announce the break', true)
-        : null,
-    correction: host
-      ? sampleAction('See what a correction would change')
-      : null,
-  };
+  const sample = sampleStandingsView(slug, event, scene);
+  return sample === null ? null : standingsTableOf(sample.read, sample.tiebreaks);
 }

@@ -1,156 +1,218 @@
-import { sampleAction } from '../action';
-import type {
-  Bracket,
-  BracketSide,
-  BracketTie,
-  EventResults,
-} from '../results';
+import type { EventResultsView } from '@daisy/protocol/lobby/results-read';
+import type { BracketView } from '@daisy/protocol/lobby/standings-read';
+import { bracketOf, type Bracket } from '../results';
+import type { WallClock } from '../tab-round';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import type { SampleScene } from './scene';
+import { sampleId, sampleInstant, sampleWallClock } from './tab-round';
 
-const side = (seed: number, name: string): BracketSide => ({ seed, name });
+/** An official's tab round; every audience's may be no more than this. */
+type OfficialRound = Extract<BracketView, { visibility: 'official' }>['tabRounds'][number];
+type Tie = OfficialRound['ties'][number];
+type Side = Tie['top'];
+
+const side = (seed: number, name: string): Side => ({
+  entryId: sampleId(`entry${name}`),
+  seed,
+  name,
+});
 
 /** A decided fixture, by the ballots each side won. */
 const decided = (
-  top: BracketSide,
+  top: Side,
   topBallots: number,
-  bottom: BracketSide,
+  bottom: Side,
   bottomBallots: number,
-): BracketTie => ({
+): Tie => ({
+  fixtureId: sampleId(`fixture${top.name}${bottom.name}`),
   top,
   bottom,
-  result: { top: topBallots, bottom: bottomBallots },
-  room: null,
-  watch: null,
+  state: { kind: 'decided', topBallots, bottomBallots },
 });
 
-const live = (
-  top: BracketSide,
-  bottom: BracketSide,
-  room: string,
-): BracketTie => ({
+const live = (top: Side, bottom: Side, room: string): Tie => ({
+  fixtureId: sampleId(`fixture${top.name}${bottom.name}`),
   top,
   bottom,
-  result: null,
-  room,
-  watch: sampleAction('Watch'),
+  state: {
+    kind: 'live',
+    room: { roomId: sampleId(`room${room}`), name: room },
+    watchable: true,
+  },
 });
 
+const tabRound = (
+  name: string,
+  status: 'complete' | 'running' | 'scheduled',
+  ties: readonly Tie[],
+  more: Partial<{ startsAt: string; waitsOn: OfficialRound['waitsOn'] }> = {},
+): OfficialRound => ({
+  tabRoundId: sampleId(`tabroundvarsity${name}`),
+  name,
+  status,
+  startsAt: more.startsAt ?? null,
+  ties: [...ties],
+  waitsOn: more.waitsOn ?? null,
+});
+
+/** Varsity debate's elimination stage, once the break is announced. */
+export function sampleBracketView(
+  slug: string,
+  event: string | null,
+  scene: SampleScene,
+): { readonly read: BracketView; readonly wallClock: WallClock } | null {
+  if (slug !== AUTUMN || (event !== null && event !== VARSITY)) return null;
+  if (!reached(scene, 'elims')) return null;
+  const finished = reached(scene, 'finished');
+  const tabRounds = [
+    tabRound('Quarterfinals', 'complete', [
+      decided(side(1, 'Jensen'), 3, side(8, 'Sato'), 0),
+      decided(side(4, 'Amari'), 1, side(5, 'Doyle'), 2),
+      decided(side(2, 'Castillo'), 3, side(7, 'Wu'), 0),
+      decided(side(3, 'Okafor'), 2, side(6, 'Haddad'), 1),
+    ]),
+    finished
+      ? tabRound('Semifinals', 'complete', [
+          decided(side(1, 'Jensen'), 2, side(5, 'Doyle'), 1),
+          decided(side(2, 'Castillo'), 1, side(3, 'Okafor'), 2),
+        ])
+      : tabRound('Semifinals', 'running', [
+          live(side(1, 'Jensen'), side(5, 'Doyle'), 'Room 1'),
+          live(side(2, 'Castillo'), side(3, 'Okafor'), 'Room 2'),
+        ]),
+    finished
+      ? tabRound('Final', 'complete', [
+          decided(side(1, 'Jensen'), 4, side(3, 'Okafor'), 1),
+        ])
+      : tabRound('Final', 'scheduled', [], {
+          startsAt: sampleInstant('18:30'),
+          waitsOn: {
+            feederTabRoundName: 'Semifinals',
+            ballotsNeeded: 3,
+            panelSize: 5,
+          },
+        }),
+  ];
+  const shape = {
+    lobbyId: sampleId('autumnopen'),
+    eventId: sampleId('eventvarsity'),
+    stageId: sampleId('stagevarsityelims'),
+    division: null,
+  };
+  return {
+    read:
+      scene.viewer === 'host'
+        ? { ...shape, visibility: 'official', tabRounds }
+        : { ...shape, visibility: 'audience', tabRounds },
+    wallClock: sampleWallClock,
+  };
+}
+
+/** The bracket as a screen draws it, for the sample screens that embed one. */
 export function sampleBracket(
   slug: string,
   event: string | null,
   scene: SampleScene,
 ): Bracket | null {
-  if (slug !== AUTUMN || (event !== null && event !== VARSITY)) return null;
-  if (!reached(scene, 'elims')) return null;
-  const finished = reached(scene, 'finished');
-  return {
-    stages: [
-      {
-        name: 'Quarterfinals',
-        state: 'done',
-        time: null,
-        ties: [
-          decided(side(1, 'Jensen'), 3, side(8, 'Sato'), 0),
-          decided(side(4, 'Amari'), 1, side(5, 'Doyle'), 2),
-          decided(side(2, 'Castillo'), 3, side(7, 'Wu'), 0),
-          decided(side(3, 'Okafor'), 2, side(6, 'Haddad'), 1),
-        ],
-        note: null,
-      },
-      {
-        name: 'Semifinals',
-        state: finished ? 'done' : 'live',
-        time: null,
-        ties: finished
-          ? [
-              decided(side(1, 'Jensen'), 2, side(5, 'Doyle'), 1),
-              decided(side(2, 'Castillo'), 1, side(3, 'Okafor'), 2),
-            ]
-          : [
-              live(side(1, 'Jensen'), side(5, 'Doyle'), 'Room 1'),
-              live(side(2, 'Castillo'), side(3, 'Okafor'), 'Room 2'),
-            ],
-        note: null,
-      },
-      {
-        name: 'Final',
-        state: finished ? 'done' : 'upcoming',
-        time: finished ? null : '18:30',
-        ties: finished
-          ? [decided(side(1, 'Jensen'), 4, side(3, 'Okafor'), 1)]
-          : [],
-        note: finished
-          ? null
-          : 'Created when both semifinals have three ballots in. Five judges.',
-      },
-    ],
-  };
+  const sample = sampleBracketView(slug, event, scene);
+  return sample === null ? null : bracketOf(sample.read, sample.wallClock);
 }
 
-export function sampleEventResults(
+const opened = (cause: 'round_close' | 'prelims_end' | 'break', time: string) => ({
+  kind: 'open' as const,
+  cause,
+  openedAt: sampleInstant(time),
+});
+
+/** Autumn Open's results for its host, once elimination rounds have begun. */
+export function sampleEventResultsView(
   slug: string,
   scene: SampleScene,
-): EventResults | null {
-  const bracket = sampleBracket(slug, null, scene);
+): {
+  readonly read: EventResultsView;
+  readonly bracket: BracketView;
+  readonly wallClock: WallClock;
+} | null {
+  const bracket = sampleBracketView(slug, null, scene);
   if (bracket === null) return null;
   const finished = reached(scene, 'finished');
+  const abara = { actorId: sampleId('actordanaabara'), name: 'D. Abara' };
   return {
-    lede: finished
-      ? `${LEAGUE_NAME} has the results.`
-      : 'Prelims certified at 16:52. Elimination rounds are still running.',
-    certification: finished
-      ? { kind: 'certified', at: '19:40' }
-      : { kind: 'blocked', reason: 'The semifinals and the final still run.' },
-    bracket,
-    audiencesHeading: 'Who can see prelim ballots',
-    audiences: [
-      {
-        audience: 'Tab staff',
-        detail: 'Everything, as ballots arrive',
-        open: null,
+    read: {
+      lobbyId: sampleId('autumnopen'),
+      eventId: sampleId('eventvarsity'),
+      prelimsCertifiedAt: sampleInstant('16:52'),
+      certification: finished
+        ? { kind: 'certified', certifiedAt: sampleInstant('19:40') }
+        : {
+            kind: 'blocked',
+            running: ['Semifinals', 'Final'].map((name) => ({
+              tabRoundId: sampleId(`tabroundvarsity${name}`),
+              name,
+            })),
+          },
+      audiences: [
+        {
+          audience: 'responsible_adults',
+          openings: (['decision', 'scores', 'reason', 'feedback'] as const).map(
+            (part) => ({ part, state: opened('round_close', '15:10') }),
+          ),
+        },
+        {
+          audience: 'competitors',
+          openings: [
+            { part: 'decision', state: opened('round_close', '15:10') },
+            ...(['scores', 'feedback'] as const).map((part) => ({
+              part,
+              state: finished
+                ? opened('prelims_end', '16:52')
+                : { kind: 'openable' as const },
+            })),
+          ],
+        },
+        {
+          audience: 'public',
+          openings: [{ part: 'decision', state: opened('break', '17:05') }],
+        },
+      ],
+      corrections: [
+        {
+          resultId: sampleId('resultreidnakata2b'),
+          supersedesResultId: sampleId('resultreidnakata2a'),
+          tabRoundNumber: 2,
+          fixture: {
+            fixtureId: sampleId('fixturereidnakata2'),
+            entries: ['Reid', 'Nakata'].map((name) => ({
+              entryId: sampleId(`entry${name}`),
+              name,
+            })),
+          },
+          changed: 'winner',
+          recordedBy: abara,
+          confirmedBy: {
+            actorId: sampleId('actorhost'),
+            name: 'Sam Rivera',
+            viewer: true,
+          },
+          recordedAt: sampleInstant('17:20'),
+          usedByPublishedDraws: [
+            { drawId: sampleId('drawvarsity3v1'), tabRoundNumber: 3 },
+          ],
+        },
+      ],
+      sanction: {
+        organizationName: LEAGUE_NAME,
+        sentAt: finished ? sampleInstant('19:40') : null,
       },
-      {
-        audience: 'Coaches and parents',
-        detail: "Their own entries' full ballots · opened as each round closed",
-        open: null,
-      },
-      {
-        audience: 'Competitors',
-        detail: finished
-          ? 'Scores and feedback opened when prelims were certified.'
-          : 'Win or loss is open. Scores and feedback open now that prelims are certified. 2 ballots are held for review.',
-        open: finished ? null : sampleAction('Open to competitors', true),
-      },
-      {
-        audience: 'Public',
-        detail: 'Results only · opened when the break was announced',
-        open: null,
-      },
-    ],
-    checks: [
-      {
-        kind: 'held_ballots',
-        title: '2 ballots held by screening',
-        detail:
+      capabilities: { release: true, certify: true },
+      ballotAccess: 'unreleased',
+      screeningHolds: {
+        count: 2,
+        summary:
           "A phone number was removed from one. One is flagged for language. The judge's original is kept.",
-        action: sampleAction('Review held ballots'),
       },
-      {
-        kind: 'correction',
-        title: '1 correction since certifying prelims',
-        detail:
-          "Round 2, Reid v Nakata: winner corrected by D. Abara, confirmed by you. Round 3's draw used the old result and stands as published. Standings changed from that point.",
-        action: null,
-      },
-      {
-        kind: 'sanction',
-        title: `${LEAGUE_NAME} receives results`,
-        detail: finished
-          ? 'Sent when you certified the event.'
-          : 'Sent when you certify the event.',
-        action: null,
-      },
-    ],
+    },
+    bracket: bracket.read,
+    wallClock: sampleWallClock,
   };
 }
