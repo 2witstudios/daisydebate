@@ -5,6 +5,7 @@ import {
   ballotDefinitionSchema,
   daisyBallotDefinitions,
   daisyWinnerBallot,
+  panelRuleFor,
   type BallotDefinition,
   type BallotSubjects,
 } from './ballot-definition';
@@ -382,6 +383,22 @@ describe('feedbackSubjectOf', () => {
         [null, 'opening_government', null],
         [null, 'opening_government', null],
       ],
+    });
+  });
+});
+
+describe('panelRuleFor', () => {
+  test('the quorum is half the judge seats, rounded up', () => {
+    assert({
+      given: 'a winner ballot over one, two, three and five judge seats',
+      should: 'need one, one, two and three ballots, by majority',
+      actual: [1, 2, 3, 5].map((judges) =>
+        panelRuleFor(daisyWinnerBallot, judges),
+      ),
+      expected: [1, 1, 2, 3].map((quorum) => ({
+        decision: 'majority',
+        quorum,
+      })),
     });
   });
 });

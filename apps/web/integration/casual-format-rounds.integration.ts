@@ -24,6 +24,7 @@ import {
 import {
   finalizeAsWeb,
   finalizeByMaintenance,
+  passBallotDeadline,
 } from './round-maintenance.test-support';
 import {
   launchRuntimeRound,
@@ -180,6 +181,55 @@ test('a three-judge panel completes with the majority winner of a 2-1 split (TAB
           outcome: { kind: 'winner', side: 'affirmative' },
           ballots: 3,
         },
+      },
+    });
+  }, botAdmissionForTests);
+});
+
+test('a three-judge panel with one ballot by the deadline ends below quorum with no outcome (TAB-6.9)', async () => {
+  await withRoomRuntime(async (f) => {
+    const judges = [f.outsider, f.guest, await f.member()];
+    const room = await seatedRoom(
+      f,
+      'panel-debate',
+      [
+        [f.host, sideSeat('affirmative')],
+        ...judges.map((judge, slot) => [judge, judgeSeat(slot)] as const),
+      ],
+      [sideSeat('negative')],
+    );
+    const { roundId } = await launchRuntimeRound(f, room);
+    const freezeRevision = await playedAndFrozen(f, roundId);
+    await seedSettledAttendanceLedger(f, roundId);
+    await submitHumanBallot(
+      f,
+      roundId,
+      judges[0]!.actorId,
+      freezeRevision,
+      fixtureBallot('The decisive clash went this way.', 'affirmative'),
+    );
+    await passBallotDeadline(f.sql, roundId);
+    await finalizeByMaintenance(f, roundId);
+    const [receipt] = await f.sql<
+      { result: { ruling: string } }[]
+    >`select result from round_commands where round_id=${roundId} and type='complete'`;
+    const [quorum] = await f.sql<
+      { quorum: number }[]
+    >`select (judging->'panel'->>'quorum')::int as quorum from rounds where id=${roundId}`;
+    assert({
+      given:
+        'the three-judge template launched, played and frozen, then one ballot before the ballot deadline passes',
+      should:
+        'freeze a quorum of two, and complete below quorum with no outcome',
+      actual: {
+        quorum: quorum?.quorum,
+        ruling: receipt?.result.ruling,
+        result: await resultOf(f, roundId),
+      },
+      expected: {
+        quorum: 2,
+        ruling: 'below-quorum',
+        result: { status: 'completed', outcome: null, ballots: 1 },
       },
     });
   }, botAdmissionForTests);

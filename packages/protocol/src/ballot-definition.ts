@@ -193,10 +193,20 @@ export const roundJudgingSchema = z
   .nullable();
 export type RoundJudging = z.infer<typeof roundJudgingSchema>;
 
-/** The panel rule a definition's decision implies: a winner by majority, a ranking by rank sum. */
-export const panelRuleFor = (definition: BallotDefinition): PanelRule => ({
+/**
+ * The panel rule a definition's decision implies over a Round's judge seats:
+ * a winner by majority, a ranking by rank sum, and a quorum of half the
+ * seats, rounded up (one of one or two, two of three), so a panel that
+ * mostly did not rule gives no outcome (`below-quorum`). Half, not a strict
+ * majority: one judge of two still decides beside a silent one (DEC-201,
+ * DEC-207).
+ */
+export const panelRuleFor = (
+  definition: BallotDefinition,
+  judgeSeats = 1,
+): PanelRule => ({
   decision: definition.decision.kind === 'winner' ? 'majority' : 'rank_sum',
-  quorum: 1,
+  quorum: Math.max(1, Math.ceil(judgeSeats / 2)),
 });
 
 /** Who a ballot is about, read from the Round: its sides, its speaker seats and its segments. */
