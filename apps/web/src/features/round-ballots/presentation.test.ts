@@ -11,10 +11,15 @@ import { formValues } from '../forms/form-state';
 import { ballotFormFixture } from './ballot-form.test-support';
 import type { RoundBallotFormState } from './form';
 import { ballotDisplay } from './presentation';
+import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 
 setupRitewayBun();
 
 const open: RoundBallotRead = {
+  judging: {
+    ballot: daisyWinnerBallot,
+    panel: panelRuleFor(daisyWinnerBallot),
+  },
   round: {
     ...asActive(view),
     participants: [

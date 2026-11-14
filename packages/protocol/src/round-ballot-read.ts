@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { capturePartialReasonSchema } from './capture-verdict';
 import { ballotRecordSchema } from './ballot-schema';
+import { roundJudgingSchema } from './ballot-definition';
 import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
 import { roundUtteranceSchema } from './round-transcript';
@@ -12,6 +13,12 @@ import { roundUtteranceSchema } from './round-transcript';
  */
 export const roundBallotReadSchema = z.strictObject({
   round: roundViewSchema,
+  /**
+   * What the Round is judged on, as it froze at Start round (TAB-6.11): the
+   * ballot definition a judge fills in and the panel rule; null for a Round
+   * nobody judges or one that has not started.
+   */
+  judging: roundJudgingSchema,
   own: z
     .strictObject({
       participantId: idSchema,

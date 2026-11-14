@@ -12,12 +12,17 @@ import {
 } from '../../debate-room/live-round.test-support';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import type * as Client from './ballot-page-refresh.test-support';
+import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 
 setupRitewayBun();
 
 const renderedAtMs = Date.parse('2026-10-22T00:05:00.000Z');
 /** A frozen Round inside its judging window, the judge's ballot not yet cast. */
 const open: RoundBallotRead = {
+  judging: {
+    ballot: daisyWinnerBallot,
+    panel: panelRuleFor(daisyWinnerBallot),
+  },
   round: {
     ...asActive(view),
     waitingOn: {

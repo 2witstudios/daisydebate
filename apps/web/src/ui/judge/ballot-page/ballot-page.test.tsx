@@ -15,10 +15,15 @@ import {
 } from '../../debate-room/live-round.test-support';
 import { attendanceSettlesAtMs } from '../../../features/round-ballots/settling';
 import { sampleJudgeBallot } from '../../mock/judge.test-support';
+import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 setupRitewayBun();
 await mockNextRouter();
 const { BallotPage } = await import('./ballot-page');
 const input: RoundBallotRead = {
+  judging: {
+    ballot: daisyWinnerBallot,
+    panel: panelRuleFor(daisyWinnerBallot),
+  },
   round: {
     ...asActive(view),
     participants: [

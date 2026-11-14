@@ -1,7 +1,6 @@
 import {
   ballotSubjectsFor,
   daisyBallotDefinitions,
-  daisyBallotFor,
   isDebatingSeat,
   seatOrder,
   sideOfSeat,
@@ -135,20 +134,10 @@ const decidedOf = (
     ? speakerSubjects(round)
     : sideSubjects(round);
 
-/** The definition a Daisy Round is judged on: the one its outcome kind implies. */
-export const roundBallotDefinition = (
-  rules: Pick<RoundRules, 'outcome'>,
-): BallotDefinition => {
-  const definition = daisyBallotFor(rules.outcome);
-  if (!definition)
-    throw createAppError('INVARIANT', 'A Round judged by nobody has no ballot');
-  return definition;
-};
-
-/** A Round's ballot plan, on the definition it is judged on. */
+/** A Round's ballot plan, on the definition the Round froze to be judged on. */
 export function ballotPlanFor(
   round: Round,
-  definition: BallotDefinition = roundBallotDefinition(round.rules),
+  definition: BallotDefinition,
 ): BallotPlan {
   return {
     definition,

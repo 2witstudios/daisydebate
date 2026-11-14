@@ -7,6 +7,7 @@ import {
 } from './ballot-form.test-support';
 import { ballotPlanFor } from '../judge/ballot-plan';
 import { sampleBallotRound } from '../judge/ballot-plan.test-support';
+import { daisyWinnerBallot } from '@daisy/protocol';
 test('strict native ballot preserves one envelope and refuses impersonation, duplicate and stale low-point confirmation', () => {
   const valid = fields();
   const parsed = ballotFields(valid, plan);
@@ -37,13 +38,16 @@ test('a missing winner names the actual Round debaters without accepting them as
   const form = fields();
   form.delete('winner');
   const [aff, neg] = sampleBallotRound.participants;
-  const actual = ballotPlanFor({
-    ...sampleBallotRound,
-    participants: [
-      { ...aff!, label: 'Actual Affirmative' },
-      { ...neg!, label: 'Actual Negative' },
-    ],
-  });
+  const actual = ballotPlanFor(
+    {
+      ...sampleBallotRound,
+      participants: [
+        { ...aff!, label: 'Actual Affirmative' },
+        { ...neg!, label: 'Actual Negative' },
+      ],
+    },
+    daisyWinnerBallot,
+  );
   const result = ballotFields(form, actual, true);
   assert({
     given: 'fresh canonical display names and no chosen side',

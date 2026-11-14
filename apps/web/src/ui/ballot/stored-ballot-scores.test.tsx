@@ -9,15 +9,19 @@ import {
 
 const named = (aff: string, neg: string) => {
   const [a, n] = sampleBallotRound.participants;
-  return ballotPlanFor({
-    ...sampleBallotRound,
-    participants: [
-      { ...a!, label: aff },
-      { ...n!, label: neg },
-    ],
-  });
+  return ballotPlanFor(
+    {
+      ...sampleBallotRound,
+      participants: [
+        { ...a!, label: aff },
+        { ...n!, label: neg },
+      ],
+    },
+    daisyWinnerBallot,
+  );
 };
 import { StoredBallotScores } from './stored-ballot-scores';
+import { daisyWinnerBallot } from '@daisy/protocol';
 setupRitewayBun();
 test('recorded scores name both actual sides and every rubric category without a fabricated companion', () => {
   const html = renderToString(

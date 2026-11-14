@@ -161,6 +161,7 @@ export const roundBallotReads = ({
           { actorId: input.caller.actorId, account: currentAccount },
           input.readOpening,
         ),
+        judging: frozenJudging?.judging ?? null,
         ...ballotReadView({
           status: round.status,
           ownSeatId: ownSeat?.id,

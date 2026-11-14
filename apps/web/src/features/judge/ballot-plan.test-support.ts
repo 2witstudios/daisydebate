@@ -1,3 +1,4 @@
+import { daisyWinnerBallot } from '@daisy/protocol';
 import { fixtureRules, oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { ballotPlanFor, type BallotPlan } from './ballot-plan';
 
@@ -19,4 +20,7 @@ export const sampleBallotRound = {
 };
 
 /** The sample Round's ballot: Daisy's winner ballot over its two debaters. */
-export const sampleBallotPlan: BallotPlan = ballotPlanFor(sampleBallotRound);
+export const sampleBallotPlan: BallotPlan = ballotPlanFor(
+  sampleBallotRound,
+  daisyWinnerBallot,
+);
