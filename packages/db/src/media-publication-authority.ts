@@ -92,20 +92,16 @@ export function mediaPublicationParticipants(
   round: RoundHydration,
   now: string,
 ): Participants {
-  return participants.map((seat) => {
-    // A seat that left the Round is absent from then on (TAB-6.8): it holds
-    // no media, so the next reconcile demotes it and admission refuses it.
-    if (isAbsentSeat(round.checkpoint, seat.id))
-      return { ...seat, eligible: false };
-    return seat.kind !== 'bot' || isJudgeSeat(seat.seat)
+  return participants.map((seat) =>
+    seat.kind !== 'bot' || isJudgeSeat(seat.seat)
       ? seat
       : {
           ...seat,
           eligible:
             seat.eligible &&
             liveLease(leases, seat.id, round, now).some((lease) => lease.floor),
-        };
-  });
+        },
+  );
 }
 
 /**
@@ -130,3 +126,17 @@ export function mediaHearingSeats(
     )
     .map((seat) => seat.id);
 }
+
+/**
+ * The seats whose media grants are withdrawn in place: those that lost
+ * participant access (ISSUE-714) and those that left the Round, which is
+ * absent from then on (TAB-6.8). A withdrawn seat is demoted where it is;
+ * it never reads as revoked, so leaving never rotates the room under the
+ * seats that stay.
+ */
+export const mediaWithdrawnSeats = (
+  revoked: readonly string[],
+  round: Pick<RoundHydration, 'checkpoint'>,
+): readonly string[] => [
+  ...new Set([...revoked, ...(round.checkpoint.absent_participant_ids ?? [])]),
+];

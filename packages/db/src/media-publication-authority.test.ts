@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   mediaHearingSeats,
   mediaPublicationParticipants,
+  mediaWithdrawnSeats,
 } from './media-publication-authority';
 
 setupRitewayBun();
@@ -61,7 +62,7 @@ test('a bot seat publishes only on the floor, and hears with or without it (ISSU
   });
 });
 
-test('a seat that left the Round holds no media (TAB-6.8)', () => {
+test('a seat that left the Round is withdrawn in place, never revoked (TAB-6.8)', () => {
   const left = {
     ...round,
     checkpoint: { absent_participant_ids: ['person', 'floor'] },
@@ -69,13 +70,18 @@ test('a seat that left the Round holds no media (TAB-6.8)', () => {
   assert({
     given: 'a human and a floor-holding bot recorded absent by leave',
     should:
-      'make both ineligible to publish and the bot deaf, leaving every other seat as before',
+      'withdraw both beside the access-revoked seats, keep every seat eligible so the room is never rotated, and stop the bot hearing',
     actual: {
-      publish: mediaPublicationParticipants(seats, leases, left, now)
+      withdrawn: mediaWithdrawnSeats(['revoked', 'person'], left),
+      eligible: mediaPublicationParticipants(seats, leases, left, now)
         .filter((entry) => entry.eligible)
         .map((entry) => entry.id),
       hear: mediaHearingSeats(seats, leases, left, now),
     },
-    expected: { publish: [], hear: ['listening'] },
+    expected: {
+      withdrawn: ['revoked', 'person', 'floor'],
+      eligible: ['floor', 'person'],
+      hear: ['listening'],
+    },
   });
 });
