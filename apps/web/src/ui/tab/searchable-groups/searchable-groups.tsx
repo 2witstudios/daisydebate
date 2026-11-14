@@ -48,10 +48,13 @@ export function GroupRows({ group }: { readonly group: SearchGroup }) {
       ) : (
         <li key={row.title} className="border-b border-border px-4 py-3">
           <details>
-            <summary className={buttonClass('secondary')}>
-              {row.title} · Open
+            <summary className="flex cursor-pointer items-center justify-between gap-4">
+              <span className="flex min-w-0 flex-col gap-1">
+                <strong className="font-strong">{row.title}</strong>
+                <span className="text-sm text-ink-muted">{row.detail}</span>
+              </span>
+              <span className={buttonClass('secondary')}>Open</span>
             </summary>
-            <p className="text-sm text-ink-muted">{row.detail}</p>
             {row.content}
           </details>
         </li>
