@@ -86,6 +86,26 @@ test('recoverable AI work cannot complete a played Round without its ruling', ()
   }
 });
 
+test('a Round with nothing to judge completes at once as unjudged (TAB-6.18)', () => {
+  assert({
+    given: 'a frozen Round whose outcome nobody decides, so it froze no judging',
+    should: 'complete at once as unjudged with no outcome',
+    actual: decidePanelCompletion({
+      judging: null,
+      completeness: 'complete',
+      panel: { humanWindow: null, aiSeats: [] },
+      ballots: [],
+      nowMs: 1_000,
+    }),
+    expected: {
+      kind: 'complete',
+      ruling: 'unjudged',
+      outcome: null,
+      noRuling: [],
+    },
+  });
+});
+
 test('the ballot deadline decides when a Round without a full ruling completes (DEC-201)', () => {
   assert({
     given: 'no judge seats',

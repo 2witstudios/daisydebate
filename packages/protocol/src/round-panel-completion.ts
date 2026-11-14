@@ -71,8 +71,8 @@ export type HeldBallotFacts = {
 };
 /** Facts read from a frozen Round, for the engine's one panel decision. */
 export type JudgingPanelFacts = {
-  /** What the Round is judged on, frozen at Start round (TAB-6.11). */
-  readonly judging: NonNullable<RoundJudging>;
+  /** What the Round is judged on, frozen at Start round (TAB-6.11); null when nothing is. */
+  readonly judging: RoundJudging;
   readonly completeness: 'complete' | 'incomplete';
   readonly humanJudgeSeatIds: readonly string[];
   readonly aiJudgeSeatIds: readonly string[];
@@ -87,8 +87,11 @@ export type RoundEnding = 'forfeit' | 'abandoned' | 'panel_closed';
 /** Internal facts from the locked Round; never a public command body. */
 export type RoundPanelCompletion = {
   readonly now: string;
-  /** What the Round is judged on, frozen at Start round: its ballot and panel rule (TAB-6.11). */
-  readonly judging: NonNullable<RoundJudging>;
+  /**
+   * What the Round is judged on, frozen at Start round: its ballot and panel
+   * rule (TAB-6.11); null for a Round whose outcome nobody decides.
+   */
+  readonly judging: RoundJudging;
   readonly ballots: readonly JudgeRuling[];
   /** The frozen transcript's completeness (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';

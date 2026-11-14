@@ -45,11 +45,6 @@ export async function readJudgingPanelFacts(
       'INVARIANT',
       'A frozen Round has no attendance cutoff',
     );
-  if (!round.judging)
-    throw createAppError(
-      'INVARIANT',
-      'A Round with nothing to judge has no panel',
-    );
   const jobs = await tx
     .select({
       judgeParticipantId: roundJudgingJobs.judgeParticipantId,

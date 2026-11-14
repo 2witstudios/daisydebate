@@ -129,9 +129,13 @@ function awaitedSeat(
     : null;
 }
 
+/** What the seated judges rule on: nothing with no judge, or nothing to judge. */
+const judgedBy = (judging: RoundJudging, judgeSeatIds: readonly string[]) =>
+  judgeSeatIds.length === 0 ? null : judging;
+
 /**
  * When a Round without a full set of ballots completes, on every ladder. A
- * zero-judge Round completes at once. Otherwise it waits only on a judge who
+ * zero-judge Round, or one with nothing to judge, completes at once. Otherwise it waits only on a judge who
  * can still rule: a human seat before the persisted ballot deadline (DEC-201,
  * DEC-207), or an AI seat whose job is still running or holds a validated
  * ballot (DEC-275). A failed AI judge never holds the Round and never blocks a
@@ -141,7 +145,7 @@ function awaitedSeat(
  * split with every seat ruled ends at once.
  */
 export function decidePanelCompletion(input: {
-  readonly judging: NonNullable<RoundJudging>;
+  readonly judging: RoundJudging;
   readonly completeness: 'complete' | 'incomplete';
   readonly panel: JudgingPanel;
   readonly ballots: readonly JudgeRuling[];
@@ -149,7 +153,8 @@ export function decidePanelCompletion(input: {
 }): PanelDecision {
   const { panel } = input;
   const judgeSeatIds = panelSeatIds(panel);
-  if (judgeSeatIds.length === 0)
+  const judging = judgedBy(input.judging, judgeSeatIds);
+  if (judging === null)
     return {
       kind: 'complete',
       ruling: 'unjudged',
@@ -164,7 +169,7 @@ export function decidePanelCompletion(input: {
     window !== null && input.nowMs < Date.parse(window.deadlineAt);
   const awaited = awaitedSeat(panel, ruled, humanWindowOpen);
   if (awaited) return { kind: 'pending', waiting: awaited };
-  if (submitted.length > 0 && submitted.length < input.judging.panel.quorum)
+  if (submitted.length > 0 && submitted.length < judging.panel.quorum)
     return {
       kind: 'complete',
       ruling: 'below-quorum',
@@ -173,7 +178,7 @@ export function decidePanelCompletion(input: {
     };
   const outcome = submitted.length
     ? deriveRoundOutcome(
-        input.judging,
+        judging,
         [...ruled].map((id, slot) => ({
           id,
           seat: { kind: 'judge' as const, slot },
