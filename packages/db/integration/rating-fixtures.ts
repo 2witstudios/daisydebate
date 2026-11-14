@@ -1,11 +1,14 @@
 import { ratingEligibility } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
-import type {
-  CompetitionType,
-  DebaterStanding,
-  RatingPlanFacts,
-  RatingState,
+import {
+  emptyRuntimeCheckpointFor,
+  sideOfSeat,
+  type CompetitionType,
+  type DebaterStanding,
+  type RatingPlanFacts,
+  type RatingState,
 } from '@daisy/protocol';
+import { frozenJudgingFor } from '../src/round-judging-freeze';
 import { createDatabase, type Database } from '../src';
 import type { RatingDecision } from '../src/rating-facts';
 import { withFixture, type Fixture } from './constraint-helpers';
@@ -22,8 +25,8 @@ const newcomer: RatingState = {
 const startOf = (standing: DebaterStanding | undefined): RatingState =>
   standing?.current?.state ?? standing?.previous ?? newcomer;
 
-const deltaFor = (outcome: string, side: string) =>
-  outcome === side ? 10 : -10;
+const deltaFor = (outcome: RatingPlanFacts['outcome'], side: string) =>
+  outcome.side === side ? 10 : -10;
 
 /**
  * The engine's own eligibility, with a stand-in plan that moves the winner up
@@ -37,7 +40,7 @@ export const stub = (seen: RatingPlanFacts[] = []): RatingDecision => ({
     seen.push(facts);
     if (facts.seasonId === null) throw new Error('stub: no active season');
     const change = (side: 'affirmative' | 'negative', changeId: string) => {
-      const seat = facts.seats.find(({ role }) => role === side);
+      const seat = facts.seats.find(({ seat }) => sideOfSeat(seat) === side);
       if (!seat) throw new Error('stub: missing seat');
       const standing = facts.standings[seat.actorId];
       const before = startOf(standing);
@@ -103,7 +106,9 @@ const completedRound = async (
     rules_snapshot: validRules,
     status: 'completed',
     current_stage: null,
-    outcome: input.outcome ?? 'affirmative',
+    winning_side: input.outcome ?? 'affirmative',
+    runtime_state: emptyRuntimeCheckpointFor(validRules),
+    judging: frozenJudgingFor(validRules),
     ladder_id: ranked ? input.formatId : null,
     started_at: completedAt(0),
     completed_at: completedAt(input.minute ?? 30),

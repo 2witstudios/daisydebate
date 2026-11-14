@@ -67,7 +67,7 @@ const afterEveryWriter = (
       },
       rules_snapshot: {
         ...validRules,
-        seats: { ...validRules.seats, judge: 1 },
+        seats: { ...validRules.seats, judges: 1 },
       },
     });
     const database = drizzle({ client: f.sql });
@@ -77,7 +77,7 @@ const afterEveryWriter = (
       database,
       commandTransaction: transaction,
     });
-    const invite = (member: Member, seat: 'debater' | 'judge') =>
+    const invite = (member: Member, seat: 'side' | 'judge') =>
       invitations.inviteToRoom({
         caller: host,
         roomId,
@@ -107,7 +107,7 @@ const afterEveryWriter = (
       });
     };
     try {
-      await f.sql`insert into room_participants(id,room_id,actor_id,role,slot) values(${createId()},${roomId},${debater.actorId},'affirmative',0)`;
+      await f.sql`insert into room_participants(id,room_id,actor_id,seat_kind,side,slot) values(${createId()},${roomId},${debater.actorId},'side','affirmative',0)`;
       const { invitationId } = await invite(invitee, 'judge');
       // A started Room always names the Round it launched.
       if (status === 'started')
@@ -121,7 +121,7 @@ const afterEveryWriter = (
       await f.sql`update rooms set status=${status},version=version+1,change_version=change_version+1,updated_at=${ended}::timestamptz,last_command_at=${ended}::timestamptz where id=${roomId}`;
       const now = new Date().toISOString();
       const invitationAnswers = [
-        await attempt(() => invite(latecomer, 'debater')),
+        await attempt(() => invite(latecomer, 'side')),
         await attempt(() => end(invitee, invitationId)),
         await attempt(() => end(host, invitationId)),
       ];

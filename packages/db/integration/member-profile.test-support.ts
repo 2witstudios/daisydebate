@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { sideOfSeat, type RoundOutcome, type SeatRef } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase, type Database } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';
@@ -57,7 +58,7 @@ export const played = async (
     fixture,
     {
       status: 'completed',
-      outcome: input.outcome,
+      winning_side: input.outcome,
       started_at: at(input.day, 11),
       completed_at: at(input.day),
     },
@@ -143,9 +144,22 @@ export const present = async <T>(read: Promise<T | null>): Promise<T> => {
   return value;
 };
 
+/** A seat as the suites name it: its side, or its kind for an unsided seat. */
+export const seatName = (seat: SeatRef) => sideOfSeat(seat) ?? seat.kind;
+/** The winning side an outcome names, or null. */
+export const winnerOf = (outcome: RoundOutcome | null) =>
+  outcome?.kind === 'winner' ? outcome.side : null;
+
 export const tally = (
-  groups: readonly { role: string; outcome: string | null; rounds: number }[],
-) => groups.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort();
+  groups: readonly {
+    seat: SeatRef;
+    outcome: RoundOutcome | null;
+    rounds: number;
+  }[],
+) =>
+  groups
+    .map((g) => `${seatName(g.seat)}:${winnerOf(g.outcome)}:${g.rounds}`)
+    .sort();
 
 /** A fixture, a database over it and one live member, closed after `run`. */
 export const withProfileFixture = (

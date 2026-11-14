@@ -24,7 +24,7 @@ test('concurrent bot claims preserve one active run and epochs through takeover'
       expected: ['fulfilled', 'rejected'],
     });
     const [seats] =
-      await fixture.sql`select coalesce(array_agg(id order by id) filter (where role<>'judge' and id<>${target.roundParticipantId}),'{}') peers,(select type from round_segments where id=${target.segmentId}) kind from round_participants where round_id=${target.roundId}`;
+      await fixture.sql`select coalesce(array_agg(id order by id) filter (where seat_kind<>'judge' and id<>${target.roundParticipantId}),'{}') peers,(select type from round_segments where id=${target.segmentId}) kind from round_participants where round_id=${target.roundId}`;
     assert({
       given: 'an actual claim on the latest started segment',
       should: 'name its segment kind and every other debater seat',

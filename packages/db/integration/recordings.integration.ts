@@ -615,7 +615,7 @@ test('a cursor outside the archive scope tells nothing of that Round', async () 
       ).rows.some((row) => row.id === older);
     const endedAt = '2026-11-02T11:00:00.000Z';
     const live = await pageBefore(endedAt);
-    await client`update rounds set status='completed', current_stage=null, outcome='affirmative', completed_at=${endedAt}::timestamptz where id=${held}`;
+    await client`update rounds set status='completed', current_stage=null, winning_side='affirmative', completed_at=${endedAt}::timestamptz where id=${held}`;
     assert({
       given: 'a live Round as cursor, then the same Round ended and still held',
       should: 'answer nothing both times, so polling learns no end',

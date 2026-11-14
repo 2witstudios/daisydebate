@@ -14,7 +14,7 @@ import { withFixture } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-const capture = { broadcast: null, recording: true };
+const capture = { broadcast: null, recordingPolicy: 'released' };
 
 test('casual captures are capped per host and fleet-wide', async () => {
   const client = new SQL(databaseUrl, { max: 2 });

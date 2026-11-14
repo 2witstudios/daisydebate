@@ -86,7 +86,7 @@ test('the writer answers a typed reason for a Round the engine leaves unrated', 
       expected: { kind: 'unrated', reason: 'ending-unrecorded' },
     });
     const noResult = await seated();
-    await fixture.sql`update rounds set outcome=null where id=${noResult.roundId}`;
+    await fixture.sql`update rounds set winning_side=null where id=${noResult.roundId}`;
     assert({
       given: 'a completed ranked Round whose outcome is null (DEC-277)',
       should: 'leave it unrated, never a thrown conflict',

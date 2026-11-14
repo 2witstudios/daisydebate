@@ -162,7 +162,7 @@ test('a takedown takes the ballots from a finished Round, and its result stands'
       values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@2',
         'affirmative', ${JSON.stringify({})}::text::jsonb, 'A reason',
         ${JSON.stringify({})}::text::jsonb, now())`;
-    await client`update rounds set status='completed', current_stage=null, outcome='affirmative',
+    await client`update rounds set status='completed', current_stage=null, winning_side='affirmative',
       completed_at=${later} where id=${roundId}`;
     const reasons = async () => {
       const read_ = (await read(margin(later) + 1000)) as {

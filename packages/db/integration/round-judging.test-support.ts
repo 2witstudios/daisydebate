@@ -1,5 +1,21 @@
 import { judgingJobRules } from '@daisy/debate-engine';
-import { ballotCategories, ballotSchema } from '@daisy/protocol';
+import {
+  ballotCategories,
+  ballotSchemaFor,
+  daisyWinnerBallot,
+  twoSideKeys,
+  type Ballot,
+} from '@daisy/protocol';
+
+/** Today's two-sided Round's ballot: Daisy's winner ballot over the preset's sides. */
+const twoSidedBallot = ballotSchemaFor(daisyWinnerBallot, {
+  sides: twoSideKeys,
+  speakers: [],
+  segments: [],
+});
+const ballotSchema = {
+  parse: (value: unknown): Ballot => twoSidedBallot.parse(value) as Ballot,
+};
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { createBotSeat } from './bot-seat.test-support';

@@ -85,7 +85,7 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
           },
           expected: {
             healthy: true,
-            rules: 2,
+            rules: 3,
             status: 'opening',
             winners: 1,
             refusals: ['CONFLICT'],
