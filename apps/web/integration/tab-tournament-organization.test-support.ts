@@ -31,17 +31,24 @@ import type { Bot, World } from './tab-tournament.test-support';
 
 /** The league made, its two members in, and the Staff role given. */
 const formLeague = async ({ send }: Wiring, cast: Cast): Promise<League> => {
+  const creation = envelope({
+    type: 'create-organization',
+    kind: 'league',
+    name: 'Valley League',
+    handle: `valley-${createId().slice(0, 10)}`,
+  });
   const created = await accepted(
-    send(
-      as(cast.director),
-      envelope({
-        type: 'create-organization',
-        kind: 'league',
-        name: 'Valley League',
-        handle: `valley-${createId().slice(0, 10)}`,
-      }),
-    ),
+    send(as(cast.director), creation),
     'the league is created',
+  );
+  const replayed = await accepted(
+    send(as(cast.director), creation),
+    'organization creation replays',
+  );
+  expect(
+    replayed.replayed && replayed.aggregate.id === created.aggregate.id,
+    'creation retries return the same organization receipt',
+    replayed,
   );
   const organizationId = created.aggregate.id;
   let version = created.resultingVersion;

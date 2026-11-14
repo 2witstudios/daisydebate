@@ -1,8 +1,10 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
+import { lockTabCommandAccounts } from './command-accounts';
+import { namedPersonOf } from './organization-facts';
 import type { TabTransaction } from './tab-transaction';
 
 const foundOrganization = async (
@@ -62,6 +64,16 @@ export const fenceOrganizationCommand = async (
   // Organizations and lobbies are open to read, so the rows are found
   // under the subject alone before the scope widens to them.
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
+  const named = namedPersonOf(input.command);
+  await lockTabCommandAccounts(
+    tx,
+    named === null ? [input.senderUserId] : [input.senderUserId, named],
+  );
+  if (input.command.type === 'create-organization') {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`tab-organization-handle:${input.command.handle.toLowerCase()}`}, 0))`,
+    );
+  }
   const scope = await organizationScope(tx, input);
   await scopeTransaction(tx, scope);
   return scope;

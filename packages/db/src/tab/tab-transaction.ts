@@ -3,7 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 /** The statements a Tab store runs inside its one fenced transaction. */
 export type TabTransaction = Pick<
   BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'execute'
+  'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
 /**

@@ -1,3 +1,5 @@
+import { setupStage } from './tab-tournament-setup.test-support';
+import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
 import { requireTestServices } from '@daisy/config';
 import { withRolledBackDatabase } from '@daisy/db/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -36,12 +38,16 @@ const stages: readonly Stage<World>[] = [
     run: organizationStage,
   },
   {
-    name: 'league lobby, templates, resolution pool and ladder',
+    name: 'league lobby, season and ladder administration',
+    run: leagueAdministrationStage,
+  },
+  {
+    name: 'league templates, resolution pool and resolved create-room form',
     run: unwired('league'),
   },
   {
     name: 'tournament setup: settings, events, stages, time slots',
-    run: unwired('setup'),
+    run: setupStage,
   },
   { name: 'entries and judges by invitation', run: unwired('entries') },
   {

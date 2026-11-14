@@ -1,3 +1,11 @@
+import { storedCreationCommand } from './creation-replay';
+import { createSetupCommandStore } from './setup-command';
+export type { LoadedSetupCommand } from './setup-command';
+export type { SetupWrite } from './setup-write';
+import { createSettingCommandStore } from './setting-command';
+export type { LoadedSettingCommand } from './setting-command';
+export type { SettingGraph } from './setting-graph';
+export type { SettingWrite } from './setting-writes';
 import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
@@ -34,6 +42,12 @@ import {
   type OrganizationWrite,
 } from './organization-writes';
 import type { TabDatabase } from './tab-transaction';
+import { createLobbyAdministrationStore } from './lobby-administration';
+export type {
+  LobbyAdministrationCommand,
+  LobbyAdministrationFacts,
+} from './lobby-administration-facts';
+export type { LobbyAdministrationWrite } from './lobby-administration-writes';
 
 export type { StoredTabCommand } from './command-record';
 export type { BoundaryAuthority, TabAccount } from './boundary';
@@ -97,6 +111,9 @@ const roleNamedOf = (
  * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TabDatabase) => ({
+  ...createLobbyAdministrationStore(database),
+  ...createSettingCommandStore(database),
+  ...createSetupCommandStore(database),
   organizationCommand: <Answer>(
     input: OrganizationCommandInput,
     work: (session: OrganizationCommandSession) => Promise<Answer>,
@@ -104,7 +121,22 @@ export const createTabStore = (database: TabDatabase) => ({
     database.transaction(async (tx) => {
       const scope = await fenceOrganizationCommand(tx, input);
       return work({
-        stored: (commandId) => storedCommand(tx, commandId),
+        stored: async (commandId) => {
+          if (input.command.type !== 'create-organization')
+            return storedCommand(tx, commandId);
+          const existingId = await findOrganizationByHandle(
+            tx,
+            input.command.handle,
+          );
+          return existingId === null
+            ? storedCommand(tx, commandId)
+            : storedCreationCommand(
+                tx,
+                scope,
+                { ...scope, organizationId: existingId },
+                commandId,
+              );
+        },
         load: async () => {
           const decision = await loadOrganizationFacts(tx, input, scope);
           return {
