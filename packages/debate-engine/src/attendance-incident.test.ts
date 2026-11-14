@@ -20,6 +20,7 @@ const window: AttendanceWindow = {
     { id: 'opponent', side: 'negative' },
   ],
   lastSpeech: false,
+  forfeitsTo: 'negative',
 };
 /** Healthy samples throughout, as the availability sampler really reports an outage of LiveKit alone. */
 const healthyUntil = (untilMs: number) => {

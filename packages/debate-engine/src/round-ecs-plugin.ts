@@ -1,11 +1,10 @@
 import { Database } from '@adobe/data/ecs';
 import { Schema } from '@adobe/data/schema';
 import {
-  debateSides,
   segmentTypes,
-  type DebateSide,
   type RuntimeCheckpoint,
   type SegmentType,
+  type SideKey,
 } from '@daisy/protocol';
 
 /**
@@ -32,10 +31,12 @@ const plugin = Database.Plugin.create({
     prepEndedAt: { default: null as RuntimeCheckpoint['prep_ended_at'] },
     startGate: { default: null as RuntimeCheckpoint['start_gate'] },
     clockStops: { default: [] as RuntimeCheckpoint['clock_stops'] },
-    prepConsumedAffirmativeMs: { type: 'number', default: 0 },
-    prepConsumedNegativeMs: { type: 'number', default: 0 },
+    /** Prep each side has spent, by side key: one keyed resource (TAB-6.2). */
+    prepConsumedMs: {
+      default: {} as RuntimeCheckpoint['prep_consumed_ms'],
+    },
     activePrepSide: {
-      ...Schema.Nullable({ enum: debateSides }),
+      ...Schema.Nullable({ type: 'string' }),
       default: null,
     },
     activePrepStartedAtMs: {
@@ -117,10 +118,7 @@ const plugin = Database.Plugin.create({
       store.resources.startGate = checkpoint.start_gate;
       store.resources.incident = checkpoint.incident;
       store.resources.clockStops = checkpoint.clock_stops;
-      store.resources.prepConsumedAffirmativeMs =
-        checkpoint.prep_consumed_ms.affirmative;
-      store.resources.prepConsumedNegativeMs =
-        checkpoint.prep_consumed_ms.negative;
+      store.resources.prepConsumedMs = { ...checkpoint.prep_consumed_ms };
       store.resources.activePrepSide = checkpoint.active_prep?.side ?? null;
       store.resources.activePrepStartedAtMs =
         checkpoint.active_prep === null
@@ -133,12 +131,13 @@ const plugin = Database.Plugin.create({
           ? null
           : Date.parse(checkpoint.floor.granted_at);
     },
-    setPrepConsumed: (store, input: { side: DebateSide; ms: number }) => {
-      if (input.side === 'affirmative')
-        store.resources.prepConsumedAffirmativeMs = input.ms;
-      else store.resources.prepConsumedNegativeMs = input.ms;
+    setPrepConsumed: (
+      store,
+      consumed: RuntimeCheckpoint['prep_consumed_ms'],
+    ) => {
+      store.resources.prepConsumedMs = { ...consumed };
     },
-    startPrep: (store, input: { side: DebateSide; startedAtMs: number }) => {
+    startPrep: (store, input: { side: SideKey; startedAtMs: number }) => {
       store.resources.activePrepSide = input.side;
       store.resources.activePrepStartedAtMs = input.startedAtMs;
     },

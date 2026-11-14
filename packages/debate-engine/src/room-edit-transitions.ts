@@ -3,11 +3,16 @@ import type {
   RoomCommand,
   RoomConsent,
   RoomMutationOutcome,
-  RoomParticipant,
   RoomRefusal,
-  RoomSeatKind,
+  SeatKind,
+  SeatRef,
 } from '@daisy/protocol';
-import { freeSeatsOf, seatKindOf } from '@daisy/protocol';
+import {
+  freeSeatsOf,
+  isJudgeSeat,
+  sameSeat,
+  seatExists,
+} from '@daisy/protocol';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
@@ -37,7 +42,7 @@ export const updateConfig = (
     command.type === 'update-format' ? command.definition : room.definition;
   const resolved = resolveRoomConfiguration(definition, command.config);
   if (!resolved.ok) return refuse('illegal-config');
-  if (room.participants.some((p) => p.slot >= resolved.rules.seats[p.role]))
+  if (room.participants.some((p) => !seatExists(resolved.rules, p.seat)))
     return refuse('seat-unavailable');
   const topic = nextTopic(
     room,
@@ -86,7 +91,7 @@ export const selectFormat = (
   );
   if (!decision.ok) return refuse(decision.refusal);
   const { rules, roomPlan } = decision.resolved;
-  if (room.participants.some((p) => p.slot >= rules.seats[p.role]))
+  if (room.participants.some((p) => !seatExists(rules, p.seat)))
     return refuse('seat-unavailable');
   const fixedStandard =
     edges.formatFacts?.format.role === 'standard' &&
@@ -191,12 +196,8 @@ const selectedTopic = (
   return drawAfter ? null : room.topic;
 };
 /** A bot debater never judges and the AI judge never debates (ISSUE-750). */
-const wrongSeatForAi = (
-  target: NonNullable<Edges['target']>,
-  role: RoomParticipant['role'],
-) =>
-  target.kind === 'bot' &&
-  target.seatRole !== (role === 'judge' ? 'judge' : 'debater');
+const wrongSeatForAi = (target: NonNullable<Edges['target']>, seat: SeatRef) =>
+  target.kind === 'bot' && target.seatKind !== seat.kind;
 /**
  * How many free seats of `seat` kind `actorId` may not take at `now`: one for
  * each live hold of that kind for a named member who has not yet taken a seat
@@ -205,13 +206,11 @@ const wrongSeatForAi = (
 export const seatsHeldFrom = (
   room: Pick<RoomAssemblyState, 'seatHolds' | 'participants'>,
   actorId: string,
-  seat: RoomSeatKind,
+  seat: SeatKind,
   now: string,
 ): number => {
   const arrived = (id: string) =>
-    room.participants.some(
-      (p) => p.actorId === id && seatKindOf(p.role) === seat,
-    );
+    room.participants.some((p) => p.actorId === id && p.seat.kind === seat);
   return room.seatHolds.filter(
     (hold) =>
       hold.seat === seat &&
@@ -223,21 +222,18 @@ export const seatsHeldFrom = (
 /** Free seats of a kind, not counting one `targetId` already sits in. */
 const freeSeats = (
   room: RoomAssemblyState,
-  seat: RoomSeatKind,
+  seat: SeatKind,
   targetId: string,
 ): number => freeSeatsOf(room, seat, targetId);
-/** Whether `targetId` taking a free seat of this role would use one held for another. */
+/** Whether `targetId` taking a free seat of this kind would use one held for another. */
 const takesHeldSeat = (
   room: RoomAssemblyState,
   targetId: string,
-  role: RoomParticipant['role'],
+  seat: SeatRef,
   now: string,
-): boolean => {
-  const seat = seatKindOf(role);
-  return (
-    freeSeats(room, seat, targetId) <= seatsHeldFrom(room, targetId, seat, now)
-  );
-};
+): boolean =>
+  freeSeats(room, seat.kind, targetId) <=
+  seatsHeldFrom(room, targetId, seat.kind, now);
 const seatAdmission = (
   room: RoomAssemblyState,
   actorId: string,
@@ -249,10 +245,10 @@ const seatAdmission = (
     return 'actor-ineligible';
   if (command.type === 'claim-seat' && target.kind !== 'human')
     return 'actor-ineligible';
-  if (wrongSeatForAi(target, command.role)) return 'actor-ineligible';
+  if (wrongSeatForAi(target, command.seat)) return 'actor-ineligible';
   if (
     room.competitionType === 'ranked' &&
-    command.role !== 'judge' &&
+    !isJudgeSeat(command.seat) &&
     target.kind !== 'human'
   )
     return 'actor-ineligible';
@@ -276,12 +272,12 @@ export const claimSeat = (
   if (!target) return refuse('actor-ineligible');
   if (
     target.kind === 'bot' &&
-    command.role === 'judge' &&
+    isJudgeSeat(command.seat) &&
     !aiJudgeSeatAdmitted(room, edges.hostMaySeatCasualAiJudge)
   )
     return refuse('ai-judge-premium');
-  const occupant = room.participants.find(
-    (p) => p.role === command.role && p.slot === command.slot,
+  const occupant = room.participants.find((p) =>
+    sameSeat(p.seat, command.seat),
   );
   const other = occupant && occupant.actorId !== targetId ? occupant : null;
   // One host assign replaces the occupant outright (ADR 0121); removing to
@@ -289,11 +285,11 @@ export const claimSeat = (
   // a human judge the host may not name stays beyond their reach (DEC-331):
   // an AI judge is public, so any host may swap one.
   if (
-    command.slot >= room.rules.seats[command.role] ||
-    (!other && takesHeldSeat(room, targetId, command.role, edges.now)) ||
+    !seatExists(room.rules, command.seat) ||
+    (!other && takesHeldSeat(room, targetId, command.seat, edges.now)) ||
     (other &&
       (command.type === 'claim-seat' ||
-        (other.role === 'judge' &&
+        (isJudgeSeat(other.seat) &&
           other.kind === 'human' &&
           !hostNamesJudges(room))))
   )
@@ -311,8 +307,7 @@ export const claimSeat = (
       {
         ...target,
         id: existing?.id ?? edges.participantId,
-        role: command.role,
-        slot: command.slot,
+        seat: command.seat,
         consentCommandId: null,
       },
     ],
@@ -362,5 +357,5 @@ const unassignableHuman = (
   )
     return false;
   const seat = room.participants.find((p) => p.actorId === target.actorId);
-  return !seat || (!hostNamesJudges(room) && seat.role === 'judge');
+  return !seat || (!hostNamesJudges(room) && isJudgeSeat(seat.seat));
 };

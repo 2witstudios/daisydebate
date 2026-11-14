@@ -1,10 +1,9 @@
 import { Database } from '@adobe/data/ecs';
 import {
-  emptyRuntimeCheckpoint,
   runtimeCheckpointSchema,
-  type DebateSide,
   type RuntimeCheckpoint,
   type SegmentType,
+  type SideKey,
 } from '@daisy/protocol';
 import { plugin } from './round-ecs-plugin';
 import type { Lifecycle, ClockSegment } from './round-clock-state';
@@ -48,9 +47,12 @@ export type RoundStore = {
     readonly endedAtMs: number;
   }) => void;
   readonly setLifecycle: (lifecycle: Lifecycle) => void;
-  readonly setPrepConsumed: (side: DebateSide, ms: number) => void;
+  /** Every side's spent prep at once, by side key. */
+  readonly setPrepConsumed: (
+    consumed: RuntimeCheckpoint['prep_consumed_ms'],
+  ) => void;
   readonly startPrep: (input: {
-    readonly side: DebateSide;
+    readonly side: SideKey;
     readonly startedAtMs: number;
   }) => void;
   readonly endPrep: () => void;
@@ -129,10 +131,7 @@ const hydrate = (
       const floorGrantedAtMs = db.resources.floorGrantedAtMs;
       return {
         version: 1,
-        prep_consumed_ms: {
-          affirmative: db.resources.prepConsumedAffirmativeMs,
-          negative: db.resources.prepConsumedNegativeMs,
-        },
+        prep_consumed_ms: { ...db.resources.prepConsumedMs },
         active_prep:
           side === null || prepStartedAtMs === null
             ? null
@@ -166,8 +165,7 @@ const hydrate = (
     setStartGate: (gate) => db.transactions.setStartGate(gate),
     closeSegment: (input) => db.transactions.closeSegment(input),
     setLifecycle: (lifecycle) => db.transactions.setLifecycle(lifecycle),
-    setPrepConsumed: (side, ms) =>
-      db.transactions.setPrepConsumed({ side, ms }),
+    setPrepConsumed: (consumed) => db.transactions.setPrepConsumed(consumed),
     startPrep: ({ side, startedAtMs }) =>
       db.transactions.startPrep({ side, startedAtMs }),
     endPrep: () => db.transactions.endPrep(),
@@ -180,12 +178,12 @@ const hydrate = (
 /** Opens a store hydrated from durable inputs, checkpoint validated first. */
 export const createRoundStore = (input: {
   readonly lifecycle: Lifecycle;
-  readonly checkpoint: unknown;
+  readonly checkpoint: RuntimeCheckpoint;
   readonly rows: readonly StoreRow[];
 }): RoundStore =>
   hydrate(
     input.lifecycle,
-    runtimeCheckpointSchema.parse(input.checkpoint ?? emptyRuntimeCheckpoint),
+    runtimeCheckpointSchema.parse(input.checkpoint),
     input.rows,
   );
 

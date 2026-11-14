@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomCommand } from '@daisy/protocol';
+import { judgeSeat, type RoomCommand } from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -10,14 +10,13 @@ const room = (competitionType: 'casual' | 'ranked') => {
   return {
     ...base,
     competitionType,
-    rules: { ...base.rules, seats: { ...base.rules.seats, judge: 1 } },
+    rules: { ...base.rules, seats: { ...base.rules.seats, judges: 1 } },
   };
 };
 const seat = {
   id: 'candidate',
   label: 'Daisy',
-  role: 'judge' as const,
-  slot: 0,
+  seat: judgeSeat(),
   consentVersion: 0,
   consentCommandId: null,
 };
@@ -26,14 +25,14 @@ const aiJudge = {
   actorId: 'ai-judge',
   kind: 'bot' as const,
   eligible: true,
-  seatRole: 'judge' as const,
+  seatKind: 'judge' as const,
 };
 const humanJudge = {
   ...seat,
   actorId: 'host',
   kind: 'human' as const,
   eligible: true,
-  seatRole: null,
+  seatKind: null,
 };
 const assign = (
   actorId: string,
@@ -43,8 +42,7 @@ const assign = (
   commandId: 'assign',
   expectedVersion: version,
   actorId,
-  role: 'judge',
-  slot: 0,
+  seat: judgeSeat(),
 });
 const refusal = (
   outcome: ReturnType<typeof executeRoomCommand>,

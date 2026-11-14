@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { state } from './room-assembly.test-support';
-import type { PendingRoomInvitation } from '@daisy/protocol';
+import { sideSeat, type PendingRoomInvitation } from '@daisy/protocol';
 import { decideInvitationEnd, decideRoomInvitation } from './room-invitations';
 
 setupRitewayBun();
@@ -13,13 +13,13 @@ const room = {
   status: 'assembling' as const,
   participants: [],
   seatHolds: [],
-  rules: { ...base.rules, seats: { ...base.rules.seats, judge: 1 } },
+  rules: { ...base.rules, seats: { ...base.rules.seats, judges: 1 } },
 };
-const host = room.hostActorId;
+const host = 'host';
 const jo = { actorId: 'jo', eligible: true, blocked: false };
 const pendingFor = (
   inviteeActorId: string,
-  seat: 'debater' | 'judge',
+  seat: 'side' | 'judge',
 ): PendingRoomInvitation => ({
   id: `inv-${inviteeActorId}`,
   inviteeActorId,
@@ -64,8 +64,7 @@ test('who may not be invited', () => {
         actorId: 'jo',
         label: 'jo',
         kind: 'human' as const,
-        role: 'negative' as const,
-        slot: 0,
+        seat: sideSeat('negative'),
         eligible: true,
         consentVersion: 0,
         consentCommandId: null,
@@ -83,7 +82,7 @@ test('who may not be invited', () => {
       decide({ invitee: { ...jo, eligible: false } }),
       decide({ invitee: { ...jo, actorId: host } }),
       decide({ room: seated }),
-      decide({ pending: [pendingFor('jo', 'debater')] }),
+      decide({ pending: [pendingFor('jo', 'side')] }),
     ].map((decision) => (decision.ok ? 'ok' : decision.refusal)),
     expected: [
       'not-host',
@@ -114,9 +113,7 @@ test('a repeat and a full seat', () => {
       decide({
         room: {
           ...room,
-          seatHolds: [
-            { actorId: 'jo', seat: 'debater' as const, until: later },
-          ],
+          seatHolds: [{ actorId: 'jo', seat: 'side' as const, until: later }],
         },
       }),
     ],

@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { judgeSeat, sideSeat } from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -49,10 +50,10 @@ test('a custom resolution leaves a standard and cannot alter a ranked room', () 
 /** The Room with one judge seat added to its rules and definition. */
 const withJudgeSeat = (room: ReturnType<typeof state>) => ({
   ...room,
-  rules: { ...room.rules, seats: { ...room.rules.seats, judge: 1 } },
+  rules: { ...room.rules, seats: { ...room.rules.seats, judges: 1 } },
   definition: {
     ...room.definition,
-    seats: { ...room.definition.seats, judge: 1 },
+    seats: { ...room.definition.seats, judges: 1 },
   },
 });
 
@@ -137,10 +138,9 @@ test('format publication updates the pinned definition and admits an eligible bo
     actorId: 'judge-bot',
     label: 'Practice judge',
     kind: 'bot' as const,
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(0),
     eligible: true,
-    seatRole: 'judge' as const,
+    seatKind: 'judge' as const,
     consentVersion: 0,
   };
   const assigned = executeRoomCommand(
@@ -151,8 +151,7 @@ test('format publication updates the pinned definition and admits an eligible bo
       commandId: 'assign-bot',
       expectedVersion: room.version,
       actorId: bot.actorId,
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(0),
     },
     consent,
     { ...edges, target: bot },
@@ -179,19 +178,19 @@ test('a bot debater never takes the judge seat and the AI judge never takes a si
   const room = state();
   const expanded = withJudgeSeat(room);
   const assign = (
-    seatRole: 'debater' | 'judge',
+    seatKind: 'side' | 'judge',
     role: 'judge' | 'affirmative',
   ) => {
+    const seat = role === 'judge' ? judgeSeat(0) : sideSeat(role, 1);
     const outcome = executeRoomCommand(
       expanded,
       'host',
       {
         type: 'assign-seat',
-        commandId: `assign-${seatRole}-${role}`,
+        commandId: `assign-${seatKind}-${role}`,
         expectedVersion: expanded.version,
         actorId: 'ai-actor',
-        role,
-        slot: role === 'judge' ? 0 : 1,
+        seat,
       },
       consent,
       {
@@ -201,10 +200,9 @@ test('a bot debater never takes the judge seat and the AI judge never takes a si
           actorId: 'ai-actor',
           label: 'AI',
           kind: 'bot',
-          role,
-          slot: 0,
+          seat,
           eligible: true,
-          seatRole,
+          seatKind,
           consentVersion: 0,
         },
       },
@@ -214,7 +212,7 @@ test('a bot debater never takes the judge seat and the AI judge never takes a si
   assert({
     given: 'a bot debater for the judge seat, then the AI judge for a side',
     should: 'refuse both as an ineligible actor',
-    actual: [assign('debater', 'judge'), assign('judge', 'affirmative')],
+    actual: [assign('side', 'judge'), assign('judge', 'affirmative')],
     expected: ['actor-ineligible', 'actor-ineligible'],
   });
   assert({

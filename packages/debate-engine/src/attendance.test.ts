@@ -18,6 +18,7 @@ const window = {
     { id: 'n1', side: 'negative' as const },
   ],
   lastSpeech: false,
+  forfeitsTo: 'negative' as const,
 };
 const availability = {
   historyStartsAtMs: 0,

@@ -230,7 +230,11 @@ describe('decideFormatSelection', () => {
           ...oneOnOne,
           definition: {
             ...oneOnOneFormatFixture,
-            seats: { affirmative: 2, negative: 2, judge: 1 },
+            seats: {
+              ...oneOnOneFormatFixture.seats,
+              sides: { affirmative: 2, negative: 2 },
+              judges: 1,
+            },
           },
         }),
         refusal('a superseded preset', ranked, {

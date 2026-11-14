@@ -1,8 +1,11 @@
 import {
-  debateSides,
+  isJudgeSeat,
+  leadSeatOf,
   recordingPreparationOf,
   type BroadcastStanding,
-  type DebateSide,
+  type RoundOutcome,
+  type SeatRef,
+  type SpeakRights,
   type SpectatorTimeline,
 } from '@daisy/protocol';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
@@ -21,13 +24,14 @@ export type SpectatorTimelineRead = {
     readonly competitionType: 'ranked' | 'casual';
     readonly resolution: string | null;
     readonly rules: {
+      readonly sides: readonly { readonly key: string }[];
       readonly segments: readonly {
         readonly key: string;
         readonly label: string;
-        readonly side: FloorStage['side'];
+        readonly speak: SpeakRights;
       }[];
     };
-    readonly outcome: string | null;
+    readonly outcome: RoundOutcome | null;
     readonly startedAt: Date | null;
     readonly completedAt: Date | null;
     readonly roomId: string | null;
@@ -47,7 +51,7 @@ export type SpectatorTimelineRead = {
     Parameters<typeof recordingPreparationOf>[0] | null;
   readonly recordingJob: Parameters<typeof recordingPreparationOf>[1];
   readonly seats: readonly {
-    readonly side: string;
+    readonly seat: SeatRef;
     readonly kind: string;
     readonly username: string | null;
     readonly botName: string | null;
@@ -61,7 +65,7 @@ export type SpectatorTimelineRead = {
     readonly durationMs: number;
   }[];
   readonly ballots: readonly {
-    readonly winner: string;
+    readonly winner: string | null;
     readonly scores: NonNullable<
       SpectatorTimeline['result']
     >['ballots'][number]['scores'];
@@ -74,14 +78,24 @@ export type SpectatorTimelineRead = {
   }[];
   readonly captions: readonly {
     readonly id: string;
-    readonly side: string;
+    readonly seat: SeatRef;
     readonly text: string;
   }[];
   readonly outcomeReleased: boolean;
 };
 
-const sideOf = (role: string): readonly DebateSide[] =>
-  debateSides.filter((side) => side === role);
+/** The side as the Round's rules declare it, or none for a side they do not. */
+const declaredSide = (
+  read: SpectatorTimelineRead,
+  side: string | null,
+): readonly string[] =>
+  read.round.rules.sides.some((declared) => declared.key === side)
+    ? [side!]
+    : [];
+
+/** The seats an audience may name: every seat but a judge's. */
+const publicSeat = (seat: SeatRef): readonly SeatRef[] =>
+  isJudgeSeat(seat) ? [] : [seat];
 
 /**
  * How long past its delay released media may be missing before the audience is
@@ -142,7 +156,7 @@ export const releasedStage = (read: StageFacts): SpectatorTimeline['stage'] => {
     kind: 'floor',
     segment: segment.type,
     label: rule.label,
-    side: rule.side,
+    lead: leadSeatOf(rule.speak),
     remainingMs: Math.max(
       0,
       segment.durationMs - (shownAt - segment.startedAt.getTime()),
@@ -241,21 +255,21 @@ const resolutionOf = (read: SpectatorTimelineRead) =>
 const resultOf = (read: SpectatorTimelineRead): SpectatorTimeline['result'] => {
   if (!read.outcomeReleased || read.round.status !== 'completed') return null;
   const { outcome } = read.round;
-  const winner =
-    outcome === 'affirmative' || outcome === 'negative' ? outcome : null;
   if (read.round.competitionType !== 'ranked')
-    return { winner, ballots: [], ratings: [] };
+    return { outcome, ballots: [], ratings: [] };
   return {
-    winner,
+    outcome,
     ballots: read.ballots.flatMap((ballot) =>
-      sideOf(ballot.winner).map((winner) => ({
-        winner,
-        scores: ballot.scores,
-        reason: ballot.reason,
-      })),
+      (ballot.winner === null ? [null] : declaredSide(read, ballot.winner)).map(
+        (winner) => ({
+          winner,
+          scores: ballot.scores,
+          reason: ballot.reason,
+        }),
+      ),
     ),
     ratings: read.ratings.flatMap((rating) =>
-      sideOf(rating.side).map((side) => ({
+      declaredSide(read, rating.side).map((side) => ({
         side,
         before: Math.round(rating.before),
         after: Math.round(rating.after),
@@ -277,8 +291,8 @@ export const projectSpectatorTimeline = (
   ...preparationOf(read, context.nowMs),
   resolution: resolutionOf(read),
   seats: read.seats.flatMap((seat) =>
-    sideOf(seat.side).map((side) => ({
-      side,
+    publicSeat(seat.seat).map((ref) => ({
+      seat: ref,
       kind: seat.kind === 'bot' ? ('bot' as const) : ('human' as const),
       label: seat.username ?? seat.botName ?? null,
     })),
@@ -289,9 +303,9 @@ export const projectSpectatorTimeline = (
   }),
   result: resultOf(read),
   captions: read.captions.flatMap((caption) =>
-    sideOf(caption.side).map((side) => ({
+    publicSeat(caption.seat).map((seat) => ({
       id: caption.id,
-      side,
+      seat,
       text: caption.text,
     })),
   ),
