@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { z } from 'zod';
 import { ballotCategories } from './ballot';
 import {
+  ballotDefinitionSchema,
   daisyBallotDefinitions,
   daisyWinnerBallot,
   type BallotDefinition,
@@ -327,6 +328,19 @@ describe('ballotSchemaFor tie and double loss', () => {
         scores: { affirmative: scoresAt(3), negative: scoresAt(3) },
       }),
       expected: [''],
+    });
+  });
+});
+
+describe('daisyBallotDefinitions', () => {
+  test('every Daisy definition is a valid ballot definition', () => {
+    assert({
+      given: "Daisy's catalogue of ballot definitions",
+      should: 'each parse under the definition schema a Round freezes',
+      actual: Object.values(daisyBallotDefinitions).map(
+        (definition) => ballotDefinitionSchema.safeParse(definition).success,
+      ),
+      expected: Object.values(daisyBallotDefinitions).map(() => true),
     });
   });
 });

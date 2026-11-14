@@ -17,7 +17,8 @@ const criterionSchema = z.strictObject({
   anchors: z.array(z.string().trim().min(1).max(160)).min(1).max(10),
 });
 const criteriaGroupSchema = z.strictObject({
-  id: z.string().regex(/^[a-z][a-z_]{0,31}$/),
+  /** A group id may hyphenate, as Daisy's `cross-ex` group does. */
+  id: z.string().regex(/^[a-z][a-z_-]{0,31}$/),
   name: z.string().trim().min(1).max(60),
   categories: z.array(criterionSchema).min(1).max(20),
 });
