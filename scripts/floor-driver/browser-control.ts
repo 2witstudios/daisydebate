@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import type { SideKey } from '@daisy/protocol';
 import type { HttpSession } from './http-session';
 
 /**
@@ -12,7 +13,7 @@ export async function openBrowserSeats(input: {
   readonly profile: 'live' | 'held';
   readonly seats: readonly {
     readonly session: HttpSession;
-    readonly role: 'affirmative' | 'negative';
+    readonly side: SideKey;
   }[];
 }) {
   const web = resolve(import.meta.dir, '../../apps/web');
@@ -29,7 +30,8 @@ export async function openBrowserSeats(input: {
       roundId: input.roundId,
       profile: input.profile,
       seats: input.seats.map((seat) => ({
-        role: seat.role,
+        // The browser child still names a seat's side `role`.
+        role: seat.side,
         cookies: seat.session.cookies(),
       })),
     }),
@@ -43,7 +45,7 @@ export async function openBrowserSeats(input: {
     buffered += new TextDecoder().decode(value);
   }
   const ready = JSON.parse(buffered.split('\n')[0]!) as {
-    readonly identities: Record<'affirmative' | 'negative', string>;
+    readonly identities: Record<SideKey, string>;
     readonly roomName: string;
   };
   return {
