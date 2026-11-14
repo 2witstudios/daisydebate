@@ -255,6 +255,23 @@ type PlanOf<Format extends FormatDescriptor> = Pick<
 >;
 export type Plan = PlanOf<TwoSides> | PlanOf<FourSides> | PlanOf<Speakers>;
 
+/**
+ * Why no plan holds a set of rules, in a form a checker verifies without
+ * solving: a Tutte barrier in the pairing graph the rules leave (removing
+ * these entries, `null` for the bye, leaves more odd components than were
+ * removed); a school with more entries than there are sections; or a fixed
+ * schedule that breaks the rules.
+ */
+export type InfeasibilityCertificate =
+  | { readonly kind: 'barrier'; readonly removed: readonly (Id | null)[] }
+  | {
+      readonly kind: 'school_count';
+      readonly school: string;
+      readonly entries: number;
+      readonly sections: number;
+    }
+  | { readonly kind: 'schedule' };
+
 /** Who collided on a structural fact of the slot. */
 export type Collision = {
   readonly person: Id;
@@ -283,7 +300,6 @@ export type DrawAnswer =
       readonly kind: 'infeasible';
       readonly cause: 'rules';
       readonly event: Id;
-      /** A set in which dropping any one rule makes a draw possible. */
       /**
        * A set in which every rule is needed for the conflict: with the rules
        * outside it relaxed, dropping any one of these makes a draw possible.
@@ -297,6 +313,13 @@ export type DrawAnswer =
       readonly relaxations: readonly {
         readonly key: ForceKey;
         readonly breaks: number | null;
+      }[];
+      /** Evidence anyone can verify that no plan holds the named rules together. */
+      readonly certificate: InfeasibilityCertificate;
+      /** For each named rule, a plan that holds every other named rule once that one is relaxed. */
+      readonly witnesses: readonly {
+        readonly key: ForceKey;
+        readonly plan: Plan;
       }[];
     }
   | {

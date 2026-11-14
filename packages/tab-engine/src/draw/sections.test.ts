@@ -137,3 +137,46 @@ describe('sections', () => {
     });
   });
 });
+
+describe('movable sections and the counting proof', () => {
+  test('releases movable sections one at a time, only until the proof holds', () => {
+    const field = [
+      ...['x1', 'x2', 'x3'].map((id) => entry(id, 'X')),
+      ...['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'].map(
+        (id) => entry(id, id),
+      ),
+    ];
+    const settings = withSettings({
+      'pairing.same_school': { force: 'rule' },
+      'pairing.section_size': { target: 4 },
+    });
+    const movable = (id: string, speakers: readonly string[]) => ({
+      id,
+      fixture: { kind: 'section', speakers, panel: [] },
+      hold: 'movable',
+    });
+    const d = drawsOf(
+      draw({
+        call: 'windowed',
+        event: request(speakers, {
+          entries: field,
+          settings,
+          existing: [
+            movable('m1', ['a', 'b', 'c', 'd']),
+            movable('m2', ['e', 'f', 'g', 'h']),
+          ] as never,
+        }),
+        judges: null,
+        seed: seedOf(2),
+      }),
+    )[0]!;
+    assert({
+      given:
+        'sixteen speakers in four sections, three from one school, and two movable sections without it',
+      should:
+        'keep one movable section and release only the other, so the school still spreads over three sections',
+      actual: [d.keep.length, d.withdraw.length],
+      expected: [1, 1],
+    });
+  });
+});

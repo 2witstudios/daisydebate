@@ -396,3 +396,40 @@ describe('a re-draw', () => {
     });
   });
 });
+
+describe('a movable fixture whose judge is busy elsewhere in the slot', () => {
+  test('is withdrawn rather than kept with a person in two fixtures', () => {
+    const field = [
+      ...entries(4),
+      entry('e04', null, { members: ['person-j00'] }),
+      ...entries(8).slice(5),
+    ];
+    const existing = [
+      {
+        id: 'm1',
+        fixture: { kind: 'pairing', sides: ['e00', 'e01'], panel: ['j00'] },
+        hold: 'movable',
+      },
+    ];
+    const d = drawsOf(
+      draw(
+        slotCall(
+          [request(twoSides, { entries: field, existing: existing as never })],
+          judges(6),
+        ),
+      ),
+    )[0]!;
+    assert({
+      given:
+        'a movable fixture judged by a person who is also a member of another entry in the slot',
+      should: 'withdraw it, and seat that person nowhere as a judge',
+      actual: [
+        d.withdraw,
+        [...d.keep, ...d.add].some(
+          (f) => f.fixture.kind !== 'bye' && f.fixture.panel.includes('j00'),
+        ),
+      ],
+      expected: [['m1'], false],
+    });
+  });
+});

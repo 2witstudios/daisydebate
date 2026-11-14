@@ -1,6 +1,8 @@
 import { canonicalJson, digestOf } from '@daisy/seeded-random';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { Draw, DrawInput } from '../shapes/draw';
+import { assess } from '../assess';
+import { ASSESS_VERSION } from '../assess/assessment';
+import type { Draw, DrawInput, Plan } from '../shapes/draw';
 import { breaks, BREAKS_VERSION } from '../breaks/breaks';
 import { ladderInput, LADDER_INPUT_VERSION } from '../season/ladder-input';
 import { seasonStandings, SEASON_VERSION } from '../season/season-standings';
@@ -191,7 +193,31 @@ const pairings = played.fixtures.flatMap((f) =>
   f.fixture.kind === 'pairing' ? [{ id: f.id, fixture: f.fixture }] : [],
 );
 /** Each fold's output under its own version literal. */
+const handPlanned = (() => {
+  const input = corpus['two-sided powered round']!;
+  const d = drawsOf(draw(input))[0]!;
+  const pairing = d.add.find((a) => a.fixture.kind === 'pairing')!;
+  const met = played.fixtures.find(
+    (f) => f.fixture.kind === 'pairing',
+  )!.fixture;
+  return assess(input, [
+    {
+      event: d.event,
+      keep: d.keep,
+      add: [
+        ...d.add,
+        { ordinal: d.add.length + 1, fixture: pairing.fixture },
+        { ordinal: d.add.length + 2, fixture: met },
+      ],
+      withdraw: d.withdraw,
+    } as Plan,
+  ]);
+})();
 const folds: Record<string, LockEntry> = {
+  'assess of a hand plan': {
+    versions: { assess: ASSESS_VERSION },
+    digest: digestOf(canonicalJson(handPlanned)),
+  },
   standings: {
     versions: { standings: STANDINGS_VERSION },
     digest: digestOf(canonicalJson(standings(fold))),
@@ -343,6 +369,10 @@ const locked: Record<string, LockEntry> = {
       assess: 'assess@1',
     },
     digest: '93b63b5d559cbbb730422573004d33a5072a94193e8fdb6b203570c24a79840f',
+  },
+  'assess of a hand plan': {
+    versions: { assess: 'assess@1' },
+    digest: 'ae77536acc3d4ebd58d30c1d3cfd9407dc6e1f7162e8a28a49ed2e3d56f19580',
   },
   standings: {
     versions: { standings: 'standings@1' },

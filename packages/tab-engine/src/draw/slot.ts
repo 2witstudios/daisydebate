@@ -1,6 +1,5 @@
 import type { Entry, Id } from '../shapes/competition';
-import type { Collision, Commitment, EventRequest } from '../shapes/draw';
-import { panelOf } from './facts';
+import type { Collision, Commitment } from '../shapes/draw';
 
 type Holder = Collision['holders'][number];
 
@@ -33,9 +32,3 @@ export const slotCollisions = (
     .map(([person, held]) => ({ person, holders: held }))
     .sort((a, b) => (a.person < b.person ? -1 : 1));
 };
-
-/** Judges already seated on fixtures the call keeps: they are taken in the slot. */
-export const seatedJudges = (requests: readonly EventRequest[]) =>
-  new Set(
-    requests.flatMap((r) => r.existing.flatMap((f) => panelOf(f.fixture))),
-  );

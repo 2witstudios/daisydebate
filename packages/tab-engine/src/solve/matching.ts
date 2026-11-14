@@ -18,7 +18,7 @@ const rotate = <T>(items: readonly T[], from: number) => [
 ];
 
 /** `mate[v]` is v's partner, or -1. */
-const maximumWeightMatching = (
+export const maximumWeightMatching = (
   vertexCount: number,
   input: readonly WeightedEdge[],
 ): number[] => {

@@ -409,12 +409,16 @@ describe('a rule no plan can satisfy', () => {
           : null,
         relaxed('pairing.same_school'),
         relaxed('pairing.rematch'),
+        answer.kind === 'infeasible' && answer.cause === 'rules'
+          ? [answer.certificate.kind, answer.witnesses.map((w) => w.key).sort()]
+          : null,
       ],
       expected: [
         'infeasible',
         ['pairing.rematch', 'pairing.same_school'],
         'drawn',
         'drawn',
+        ['barrier', ['pairing.rematch', 'pairing.same_school']],
       ],
     });
   });

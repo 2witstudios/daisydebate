@@ -327,3 +327,39 @@ const topDown = (
   }
   return { fixtures: chosen, total: best.total };
 };
+
+/**
+ * The pairing graph a rule set leaves: an edge where some orientation of the
+ * pair (or the bye) breaks no rule, less the pairs a prematched stage has
+ * already played. The bye is the vertex `null`.
+ */
+export const pairGraph = (
+  request: RequestOf<TwoSides>,
+  facts: EventFacts,
+  structure: 'matched' | 'prematched',
+) => {
+  const pool = poolOf(request, entriesOf);
+  const vertices: (Id | null)[] =
+    pool.length % 2 === 1 ? [...pool, null] : pool;
+  const ok = (fixture: Fixture2) => brokenRules(facts, fixture).length === 0;
+  const edges: [number, number][] = [];
+  vertices.forEach((a, i) =>
+    vertices.slice(i + 1).forEach((b, k) => {
+      if (a === null || b === null) {
+        if (ok({ kind: 'bye', entry: (a ?? b)! })) edges.push([i, i + 1 + k]);
+        return;
+      }
+      if (
+        structure === 'prematched' &&
+        (facts.meetings.get(pairKey(a, b)) ?? 0) > 0
+      )
+        return;
+      if (
+        ok({ kind: 'pairing', sides: [a, b], panel: [] }) ||
+        ok({ kind: 'pairing', sides: [b, a], panel: [] })
+      )
+        edges.push([i, i + 1 + k]);
+    }),
+  );
+  return { vertices, edges };
+};

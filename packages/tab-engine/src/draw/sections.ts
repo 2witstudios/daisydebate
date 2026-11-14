@@ -191,11 +191,11 @@ export const placeSections = (
   request: RequestOf<Speakers>,
   facts: EventFacts,
   seed: Uint8Array,
-  keepMovable = true,
+  released: ReadonlySet<Id> = new Set(),
 ): PlacementAnswer => {
-  const movable = keepMovable
-    ? request.existing.filter((f) => f.hold === 'movable')
-    : [];
+  const movable = request.existing.filter(
+    (f) => f.hold === 'movable' && !released.has(f.id),
+  );
   const pool = poolOf(request, entriesOf);
   const target = request.settings['pairing.section_size'].target;
   const sizes = sectionSizes(pool.length, target);
@@ -220,9 +220,14 @@ export const placeSections = (
       (count) => count > remaining.length,
     )
   )
-    // Keeping a movable section can be what blocks the counting proof: try again with every movable section released.
+    // Keeping a movable section can be what blocks the counting proof: release them one at a time, in canonical order, until it holds.
     return keptMovable.length > 0
-      ? placeSections(request, facts, seed, false)
+      ? placeSections(
+          request,
+          facts,
+          seed,
+          new Set([...released, keptMovable[0]!.id]),
+        )
       : { kind: 'infeasible' };
   const sections =
     remaining.length === 0 ? [] : improve(facts, deal(facts, open, remaining));

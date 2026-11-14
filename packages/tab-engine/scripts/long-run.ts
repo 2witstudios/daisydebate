@@ -35,7 +35,7 @@ process.stdout.write(
     `tournaments: ${count} (${shared} with two or more events sharing slots)`,
     `draw calls: ${calls}; answers: ${JSON.stringify(answers)}`,
     `slowest tournament: ${slowest} ms; total: ${seconds} s`,
-    'performance, best of three (typical size, target):',
+    'performance (plan 4.8), best of three, the tournament once: typical, then large and ceiling sizes:',
     ...[...measure(), ...measureLarge()].map(
       (m) => `  ${m.ms} ms (target ${m.targetMs} ms)  ${m.method}`,
     ),

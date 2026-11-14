@@ -156,3 +156,28 @@ describe('whyNot', () => {
     });
   });
 });
+
+describe("structural facts in a person's plan", () => {
+  test('an entry placed twice is invalid, whatever is overridden', () => {
+    const pairing = drawn.add.find((a) => a.fixture.kind === 'pairing')!;
+    const twice = {
+      ...asPlan(drawn),
+      add: [
+        ...drawn.add,
+        { ordinal: drawn.add.length + 1, fixture: pairing.fixture },
+      ],
+    } as Plan;
+    const [result] = assess(input, [twice]);
+    assert({
+      given: 'a plan that seats one pairing twice',
+      should: 'report both of its entries as placed twice',
+      actual: result!.invalid
+        .filter((f) => f.fact === 'entry_placed_twice')
+        .map((f) => (f as { entry: string }).entry)
+        .sort(),
+      expected: [
+        ...(pairing.fixture as { sides: readonly string[] }).sides,
+      ].sort(),
+    });
+  });
+});

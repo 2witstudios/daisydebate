@@ -641,6 +641,35 @@ export const simulate = (
               .filter((r) => r.supersedes === null && d.chance(5))
               .map(correctionOf)
           : [];
+      /**
+       * A correction counts from then on and only at or past its own tab
+       * round: standings at a cutoff before it are unchanged by it.
+       */
+      if (corrections.length > 0) {
+        const before = state.history;
+        const after = {
+          ...before,
+          results: [...before.results, ...corrections],
+        };
+        const roundOf = new Map(before.fixtures.map((f) => [f.id, f.tabRound]));
+        const earliest = Math.min(
+          ...corrections.map((c) => roundOf.get(c.fixture) ?? round),
+        );
+        const at = (history: EventState['history']) =>
+          digestOf(
+            canonicalJson(
+              standings({
+                ...standingsInput(plan, state, earliest - 1, null, seed),
+                history,
+              }),
+            ),
+          );
+        if (at(before) !== at(after))
+          log.rejections.push({
+            where: `${plan.id}-correction-${round}`,
+            violations: ['a correction past the cutoff changed standings'],
+          });
+      }
       state.history = {
         fixtures: [...state.history.fixtures, ...fixtures],
         results: [
@@ -674,15 +703,15 @@ export const simulate = (
     };
   eliminations(log, scenario, events, judges, seed, scenario.preliminaryRounds);
   /**
-   * No earlier draw changed by a correction: every call is drawn again from
-   * its recorded input after the corrections have arrived, and must give the
-   * same answer. A correction counts only in draws made after it.
+   * Determinism: every call is drawn again from its recorded input at the
+   * end of the tournament and must give the same answer. A stored draw is a
+   * value; nothing a later correction does can reach it.
    */
   for (const { where, digest, input } of log.kept)
     if (digestOf(canonicalJson(draw(input))) !== digest)
       log.rejections.push({
         where: `replay ${where}`,
-        violations: ['an earlier draw changed'],
+        violations: ['the same input gave another answer'],
       });
   return {
     seed: Array.from(seed, (b) => b.toString(16).padStart(2, '0')).join(''),

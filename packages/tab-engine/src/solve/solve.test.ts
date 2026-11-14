@@ -1,6 +1,7 @@
 import { wordStream } from '@daisy/seeded-random';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { minimumCostAssignment } from './assignment';
+import { oddComponentsWithout, tutteBarrier } from './barrier';
 import { maximumFlow } from './flow';
 import { compareVectors, packLexicographic } from './lexicographic';
 import { minimumCostPerfectMatching, type WeightedEdge } from './matching';
@@ -185,6 +186,39 @@ describe('lexicographic packing', () => {
       should: 'order the packed weights exactly as the vectors order',
       actual: byPacked,
       expected: byVector,
+    });
+  });
+});
+
+describe('tutteBarrier', () => {
+  test('proves every graph with no perfect matching, and only those', () => {
+    const wrong: string[] = [];
+    for (let seed = 0; seed < 200; seed += 1) {
+      const next = numbers('barrier', seed);
+      const n = 2 + 2 * (seed % 4);
+      const edges: [number, number][] = [];
+      const cost = new Map<string, bigint>();
+      for (let i = 0; i < n; i += 1)
+        for (let j = i + 1; j < n; j += 1)
+          if (next(100) < 30) {
+            edges.push([i, j]);
+            cost.set(`${i}-${j}`, 0n);
+          }
+      const perfect = bruteMatching(n, cost) !== null;
+      const barrier = tutteBarrier(n, edges);
+      if (perfect !== (barrier === null)) wrong.push(`seed ${seed}: existence`);
+      else if (
+        barrier !== null &&
+        oddComponentsWithout(n, edges, new Set(barrier)) <= barrier.length
+      )
+        wrong.push(`seed ${seed}: not a barrier`);
+    }
+    assert({
+      given: '200 sparse seeded graphs of 2 to 8 vertices',
+      should:
+        'give a barrier leaving more odd components than its size exactly when no perfect matching exists',
+      actual: wrong,
+      expected: [],
     });
   });
 });

@@ -330,7 +330,10 @@ export const measure = (): readonly Row[] => {
       method:
         'simulated tournament: 3 events of 64 sharing slots, 6 tab rounds and a break',
       targetMs: 3000,
-      ms: once(() => simulate(seed, 'full', statedTournament())),
+      ms: once(() => {
+        const report = simulate(seed, 'full', statedTournament());
+        if (report.rejections.length > 0) throw new Error(`the stated tournament was refused by the checker: ${JSON.stringify(report.rejections[0])}`);
+      }),
     },
   ];
 };

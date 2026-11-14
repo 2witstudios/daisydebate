@@ -25,7 +25,7 @@ import { prepare, type Prepared } from './prepare';
 import { PROGRESSION_VERSION } from './progression';
 import { ROUND_ROBIN_VERSION } from './schedule';
 import { SECTIONS_VERSION } from './sections';
-import { seatedJudges, slotCollisions } from './slot';
+import { slotCollisions } from './slot';
 import { TWO_SIDED_VERSION } from './two-sided';
 
 const versionOf = (prepared: Prepared): Record<string, string> => {
@@ -153,6 +153,7 @@ const releasedMovable = (
   p: Prepared,
   input: DrawInput,
   leastLoad: number,
+  occupied: ReadonlySet<Id>,
 ): Set<Id> => {
   if (input.judges === null) return new Set();
   const byId = new Map<Id, Judge | SlotJudge>(
@@ -179,6 +180,7 @@ const releasedMovable = (
       return (
         judge !== undefined &&
         (competitors.has(judge.person) ||
+          occupied.has(judge.person) ||
           (judge.events !== null && !judge.events.includes(p.request.event)) ||
           blockingRules(task, seat, judge, leastLoad).length > 0)
       );
@@ -202,8 +204,21 @@ export const draw = (input: DrawInput): DrawAnswer => {
   );
   const placements: Placed[] = [];
   const leastLoad = callContext(input).leastLoad;
+  /** In a slot, the people an event's seated judges would collide with: other entries and the commitments. */
+  const occupiedElsewhere = (): ReadonlySet<Id> =>
+    input.call === 'slot'
+      ? new Set([
+          ...input.commitments.flatMap((c) => c.people),
+          ...prepared.flatMap((q) =>
+            q.request.entries
+              .filter((e) => e.status === 'active')
+              .flatMap((e) => e.members),
+          ),
+        ])
+      : new Set<Id>();
+  const occupied = occupiedElsewhere();
   for (const p of prepared) {
-    const released = releasedMovable(p, input, leastLoad);
+    const released = releasedMovable(p, input, leastLoad, occupied);
     const placing =
       released.size === 0
         ? p
@@ -271,14 +286,19 @@ export const draw = (input: DrawInput): DrawAnswer => {
     }
   }
   if (input.call === 'slot') {
-    const seated = seatedJudges(prepared.map((p) => p.request));
-    const judgeHolds = (input.judges ?? [])
-      .filter((j) => seated.has(j.id))
-      .map((j) => ({
-        event: '',
-        fixture: `judge:${j.id}`,
-        people: [j.person],
-      }));
+    /** A judge already seated on a kept fixture holds that fixture in the slot. */
+    const person = new Map((input.judges ?? []).map((j) => [j.id, j.person]));
+    const judgeHolds = prepared.flatMap((p, i) =>
+      placements[i]!.kept.flatMap(({ id, fixture }) =>
+        fixture.kind === 'bye'
+          ? []
+          : fixture.panel.map((judge) => ({
+              event: p.request.event,
+              fixture: id,
+              people: [person.get(judge) ?? judge],
+            })),
+      ),
+    );
     const collisions = slotCollisions(
       prepared.map((p, i) => ({
         event: p.request.event,
