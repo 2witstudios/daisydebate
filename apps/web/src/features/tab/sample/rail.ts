@@ -2,11 +2,13 @@ import { linkTo, sampleAction, type TabAction } from '../action';
 import { hostRoutes } from '../routes';
 import type { RailItem, RailStanding, TimelineRail } from '../tournament';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY, WINTER } from './moment';
+import { own } from './own';
 import type { SampleScene } from './scene';
 
 /** A count, a start time or a word that asks nothing of the host. */
 export const said = (text: string): RailStanding => ({ kind: 'note', text });
 export const done: RailStanding = { kind: 'done' };
+const over = (as: string): RailStanding => ({ kind: 'done', as });
 const needsYou = (count: number): RailStanding => ({
   kind: 'needs_you',
   count,
@@ -104,7 +106,7 @@ function autumnRail(scene: SampleScene): TimelineRail {
     items: [
       ...head(done, 48),
       prelims,
-      stop('break', 'Break', said('announced'), standings),
+      stop('break', 'Break', over('announced'), standings),
       stop('quarterfinals', 'Quarterfinals', done, results),
       stop(
         'semifinals',
@@ -113,7 +115,7 @@ function autumnRail(scene: SampleScene): TimelineRail {
         results,
       ),
       stop('final', 'Final', finished ? done : null, results),
-      stop('results', 'Results', finished ? said('certified') : null, results),
+      stop('results', 'Results', finished ? over('certified') : null, results),
     ],
     foot,
   };
@@ -161,7 +163,7 @@ function winterRail(scene: SampleScene): TimelineRail {
         stop(
           `slot-${id}`,
           label,
-          running ? (winterStandings[id] ?? null) : null,
+          running ? own(winterStandings, id) : null,
           id === '1200' && running
             ? to(label, hostRoutes.slot(WINTER, id))
             : running

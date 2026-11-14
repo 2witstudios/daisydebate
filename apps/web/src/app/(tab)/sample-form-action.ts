@@ -1,10 +1,12 @@
 'use server';
 
+import { createId } from '@paralleldrive/cuid2';
 import { headers } from 'next/headers';
 import { refusedWith, type FormState } from '../../features/forms/form-state';
 import { requireTabRelease } from '../../features/tab/release';
 import { isTabPath } from '../../features/tab/routes';
 import { moveOn } from '../../server/form-action';
+import { ANSWERED } from '../../ui/tab/sample-form/answered';
 import { sampleActionHref } from '../../ui/components/sample-action/sample-action-href';
 
 /**
@@ -23,5 +25,8 @@ export async function sampleFormAction(
   await requireTabRelease();
   if (!isTabPath(returnTo))
     return refusedWith({}, 'That page is not part of Daisy Tab.');
-  return moveOn(await headers(), sampleActionHref(returnTo, '', label));
+  // Each answer is a new address: a form that was moved on to the address it
+  // is already on would stay waiting, and a second submit would do nothing.
+  const answered = `${ANSWERED}=${createId()}`;
+  return moveOn(await headers(), sampleActionHref(returnTo, answered, label));
 }

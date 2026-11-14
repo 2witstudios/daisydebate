@@ -2,6 +2,7 @@ import { linkTo, sampleAction } from '../action';
 import type { LiveSection, RoomSeat, WaitingRoom } from '../room';
 import { tabRoutes } from '../routes';
 import { AUTUMN, CHAMPIONSHIP } from './moment';
+import { own } from './own';
 import type { SampleScene } from './scene';
 
 const seat = (
@@ -271,7 +272,7 @@ function rooms(scene: SampleScene): Readonly<Record<string, WaitingRoom>> {
 export const sampleRoom = (
   id: string,
   scene: SampleScene,
-): WaitingRoom | null => rooms(scene)[id] ?? null;
+): WaitingRoom | null => own(rooms(scene), id);
 
 export const sampleRoomIds = [
   'round-4-room-5',

@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import type {
+  BallotDefinition,
+  BallotDraft,
+  BallotSubject,
+  WrittenRule,
+} from '../../../features/tab/ballot-definition';
 import {
   ballotProblem,
   pointsScaleLabel,
   scoreKey,
   subjectTotal,
-  type BallotDefinition,
-  type BallotDraft,
-  type BallotSubject,
-  type WrittenRule,
-} from '../../../features/tab/ballot-definition';
+} from '../../../features/tab/ballot-rules';
 import { cn } from '../../cn';
 import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  applyBallotOption,
-  type BallotOption,
-  type BallotSettings,
+import type {
+  BallotOption,
+  BallotSettings,
 } from '../../../features/tab/ballot-definition';
+import { applyBallotOption } from '../../../features/tab/ballot-rules';
 import { sourceLabel } from '../../../features/tab/settings';
 import { Button } from '../../components/button/button';
 import { PageHeader } from '../../components/page-header/page-header';

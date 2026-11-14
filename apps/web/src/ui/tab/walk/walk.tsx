@@ -32,7 +32,10 @@ export function Walk({
   return (
     <ReadingPage>
       <PageHeader title="Walk the sample tournament" />
+      {/* Keyed on the scene: a select keeps the value it mounted with, so the
+          form is made again when the choice it shows has changed. */}
       <SampleForm
+        key={`${walk.scene.viewer}.${walk.scene.moment}`}
         action={choose}
         label="Viewer and moment"
         className="flex flex-wrap items-end gap-3"

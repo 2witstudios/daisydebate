@@ -53,6 +53,25 @@ describe('landingStop', () => {
     });
   });
 
+  test('a finished tournament', () => {
+    assert({
+      given: 'a rail with nothing urgent whose last stop is over',
+      should: 'land on the last stop, its results, not back on setup',
+      actual: landingStop(
+        rail([
+          stop('setup', done, linkTo('Setup', '/setup')),
+          stop('entries', { kind: 'note', text: '48' }, linkTo('E', '/e')),
+          stop(
+            'results',
+            { kind: 'done', as: 'certified' },
+            linkTo('Results', '/results'),
+          ),
+        ]),
+      ),
+      expected: '/results',
+    });
+  });
+
   test('a stop whose words only sound urgent', () => {
     assert({
       given:

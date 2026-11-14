@@ -93,7 +93,7 @@ const canvas: Readonly<Record<string, string>> = {
   'Host: ballot settings': 'What a judge sees',
   'Host: resolutions': 'By round',
   'Host: judges': 'Never judges',
-  'Tournament: during': 'You v Doyle',
+  'Tournament: during': 'Sato v You',
   'Tournament: before': '9 of 16 places taken',
   'Event Room: waiting': 'Set by Autumn Open',
   'Event Room: speech section': 'Speaking order',

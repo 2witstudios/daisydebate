@@ -1,6 +1,7 @@
 import { choice, linkTo, sampleAction, type TabAction } from '../action';
 import { hostRoutes } from '../routes';
 import {
+  lockedSetting,
   openSetting,
   type ResolvedSetting,
   type SettingScope,
@@ -31,6 +32,20 @@ const setting = (
   attention,
 });
 
+/** A setting the league's template enforces: the tournament cannot change it. */
+const enforced = (
+  keys: readonly string[],
+  label: string,
+  value: string,
+): ResolvedSetting => ({
+  keys,
+  label,
+  value,
+  source: { scope: 'organization', name: LEAGUE_NAME },
+  control: lockedSetting,
+  attention: null,
+});
+
 export function sampleSetup(
   slug: string,
   scene: SampleScene,
@@ -41,11 +56,10 @@ export function sampleSetup(
     event: varsitySwitch,
     lede: `Varsity debate. Started from ${LEAGUE_NAME}'s template; rooms inherit all of this and can't change it.`,
     settings: [
-      setting(
+      enforced(
         ['format'],
         'Format',
         'One-on-one, limited prep · 7 segments · 26 minutes',
-        'event',
       ),
       setting(
         ['stage.structure', 'stage.place', 'stage.timing'],
@@ -53,12 +67,10 @@ export function sampleSetup(
         '4 prelims, then top 8 · online · everyone at once',
         'lobby',
       ),
-      setting(
+      enforced(
         ['ballot.definition'],
         'Ballot',
         'One score per speaker, 20 to 30 in halves · no low-point wins · no ties · double loss allowed in prelims',
-        'event',
-        linkTo('Change', hostRoutes.ballot(AUTUMN, VARSITY)),
       ),
       setting(
         ['judging.panel', 'judging.ai'],

@@ -6,7 +6,15 @@ import type {
   RunningRound,
   TimeSlot,
 } from '../tab-round';
-import { AUTUMN, reached, VARSITY, varsitySwitch, WINTER } from './moment';
+import {
+  AUTUMN,
+  postedRounds,
+  reached,
+  VARSITY,
+  varsitySwitch,
+  WINTER,
+} from './moment';
+import { own } from './own';
 import type { SampleScene } from './scene';
 
 const room = (
@@ -91,7 +99,7 @@ const finished: Readonly<Record<string, readonly AttentionRoom[]>> = {
 const finishedGroup = (round: string, count: number): AttentionGroup => ({
   attention: 'finished',
   count,
-  rooms: finished[round] ?? [],
+  rooms: own(finished, round) ?? [],
   more: sampleAction(`Show ${count - 3} more`),
 });
 
@@ -101,7 +109,8 @@ export function sampleRunningRound(
   round: string,
   scene: SampleScene,
 ): RunningRound | null {
-  if (slug !== AUTUMN || event !== VARSITY || !(round in finished)) return null;
+  if (slug !== AUTUMN || event !== VARSITY || own(finished, round) === null)
+    return null;
   if (!reached(scene, 'prelims')) return null;
   const running = round === '3' && !reached(scene, 'break');
   const drafting = !reached(scene, 'break');
@@ -117,10 +126,13 @@ export function sampleRunningRound(
     title: `Round ${round}`,
     lede: running
       ? '24 rooms · started 13:40 · running 20 minutes late'
-      : `24 rooms · started ${starts[round] ?? ''} · every ballot is in`,
+      : `24 rooms · started ${own(starts, round) ?? ''} · every ballot is in`,
+    // Participants have a posting for the round running and the one after.
     participantView: linkTo(
       'View as participant',
-      tabRoutes.round(AUTUMN, VARSITY, round),
+      postedRounds.includes(round)
+        ? tabRoutes.round(AUTUMN, VARSITY, round)
+        : tabRoutes.tournament(AUTUMN),
     ),
     next:
       round === '3' && drafting

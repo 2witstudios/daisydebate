@@ -16,7 +16,8 @@ export type RailStanding =
   | { readonly kind: 'draft' }
   | { readonly kind: 'ready' }
   | { readonly kind: 'unfinished'; readonly count: number }
-  | { readonly kind: 'done' }
+  // A stop that is over, in its own word when it has one (`certified`).
+  | { readonly kind: 'done'; readonly as?: string }
   | { readonly kind: 'note'; readonly text: string };
 
 /** One stop on the timeline rail: a setup page, a time slot or the results. */
@@ -180,10 +181,11 @@ export const standingLabel = (standing: RailStanding): string => {
       return `${standing.count} to finish`;
     case 'note':
       return standing.text;
+    case 'done':
+      return standing.as ?? standing.kind;
     case 'live':
     case 'draft':
     case 'ready':
-    case 'done':
       return standing.kind;
   }
 };
@@ -197,8 +199,9 @@ const urgency: readonly RailStanding['kind'][] = [
 ];
 
 /**
- * Where a host lands on opening a tournament: the stop that most wants them,
- * or the first one that can be opened.
+ * Where a host lands on opening a tournament: the stop that most wants them.
+ * With nothing wanting them they land on the last stop when that one is over
+ * (a finished tournament opens on its results), and on the first otherwise.
  */
 export function landingStop(rail: TimelineRail): string | null {
   const open = rail.items.filter(
@@ -207,5 +210,7 @@ export function landingStop(rail: TimelineRail): string | null {
   const wanted = urgency
     .map((kind) => open.find((item) => item.standing?.kind === kind))
     .find((item) => item !== undefined);
-  return (wanted ?? open[0])?.action?.href ?? null;
+  const last = open.at(-1);
+  const rest = last?.standing?.kind === 'done' ? last : open[0];
+  return (wanted ?? rest)?.action?.href ?? null;
 }

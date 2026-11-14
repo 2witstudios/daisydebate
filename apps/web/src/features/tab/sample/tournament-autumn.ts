@@ -7,7 +7,7 @@ import type {
   TournamentTab,
   TournamentView,
 } from '../tournament';
-import { AUTUMN, LEAGUE_NAME, reached, VARSITY, WINTER } from './moment';
+import { AUTUMN, LEAGUE_NAME, postedRounds, reached, VARSITY } from './moment';
 import { closed, posting } from './posting';
 import { sampleBracket } from './results';
 import type { SampleScene } from './scene';
@@ -110,7 +110,7 @@ function autumnRoom(scene: SampleScene): PinnedRoom | null {
         }
       : {
           eyebrow: 'Your room · Round 4 · opens 15:20',
-          title: 'You v Doyle',
+          title: 'Sato v You',
           detail: 'Room 5 · you are Negative · Judge R. Keane',
           action: linkTo('Go to room', tabRoutes.room('round-4-room-5'), true),
         };
@@ -214,7 +214,7 @@ const autumnAdult = (scene: SampleScene): TournamentPage => {
       : null,
     manage: parent
       ? linkTo("Manage Chidi's and Ada's accounts", tabRoutes.minor('ada'))
-      : linkTo("Manage Hartwell's entries", tabRoutes.entries(WINTER)),
+      : linkTo("Manage Hartwell's entries", tabRoutes.entries(AUTUMN)),
   };
 };
 
@@ -260,7 +260,12 @@ const autumnBefore = (scene: SampleScene): TournamentPage => ({
 export function autumnPage(
   view: TournamentView,
   scene: SampleScene,
-): TournamentPage {
+): TournamentPage | null {
+  if (
+    view.kind === 'round' &&
+    (view.event !== VARSITY || !postedRounds.includes(view.round))
+  )
+    return null;
   if (!reached(scene, 'prelims')) return autumnBefore(scene);
   if (
     (scene.viewer === 'parent' || scene.viewer === 'coach') &&

@@ -1,11 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { BallotDefinition } from './ballot-definition';
 import {
   applyBallotOption,
   ballotProblem,
   pointsScaleLabel,
   subjectTotal,
-  type BallotDefinition,
-} from './ballot-definition';
+} from './ballot-rules';
 
 setupRitewayBun();
 

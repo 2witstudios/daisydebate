@@ -7,6 +7,7 @@ import type {
 import { hostRoutes } from '../routes';
 import { lockedSetting, type ResolvedSetting } from '../settings';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY, varsitySwitch } from './moment';
+import { own } from './own';
 import type { SampleScene } from './scene';
 
 const varsity: BallotDefinition = {
@@ -261,7 +262,6 @@ const ballots: Readonly<Record<string, JudgeBallot>> = {
 export const sampleJudgeBallot = (
   room: string,
   scene: SampleScene,
-): JudgeBallot | null =>
-  scene.viewer === 'judge' ? (ballots[room] ?? null) : null;
+): JudgeBallot | null => (scene.viewer === 'judge' ? own(ballots, room) : null);
 
 export const sampleBallotRooms = Object.keys(ballots);
