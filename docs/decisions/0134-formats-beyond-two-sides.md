@@ -48,7 +48,13 @@ ordinary two-sided Room must behave exactly as before.
    `majority` (a strict majority of submitted ballots names the winner; a tie or
    double-loss ballot names none) or `rank_sum` (ranks summed, equal sums share
    a place), and a quorum. Fewer submitted ballots than the quorum is no
-   outcome, ruled `below-quorum`. Quorum 1 is today's behaviour.
+   outcome, ruled `below-quorum`. Quorum 1 is today's behaviour. DEC-277 (a
+   tied panel is no outcome) governs winner formats only: under `rank_sum`
+   equal sums are a shared place, a shared first place included, and the
+   ranking is still the Round's outcome.
+   A Round whose outcome kind is `none` freezes no judging at all: no ballot
+   definition, no panel rule and no quorum. It seats no judge, completes as
+   `unjudged` with no outcome, and can never be ruled `below-quorum`.
 5. **Ballot definitions.** A ballot definition is typed, versioned data
    (`key@revision`): its decision (winner with low-point-win, tie and
    double-loss switches, or a ranking), its points (per side, seat or speech,
@@ -56,7 +62,8 @@ ordinary two-sided Room must behave exactly as before.
    weights), speaker ranks and written fields. One pure function gives the one
    schema human and AI ballots validate against. Daisy's own definitions are
    `speaker-10@2` (and `speaker-10@1`, history), a side ranking and a speaker
-   ranking; an ordinary Room is judged on the one its outcome kind implies.
+   ranking; an ordinary Room is judged on the one its outcome kind implies
+   (`winner` the speaker ballot, `ranking` the matching ranking, `none` none).
    `speaker-10@2` accepts exactly what the ballot accepted before.
 6. **The pairwise concepts stay pairwise.** Forfeit by absence, the
    resolution strike, the low-point win and ratings require exactly two sides
