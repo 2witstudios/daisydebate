@@ -71,7 +71,9 @@ its next plan, on the Delivery channel.
 - Commits from inherited PRs and branches are carried into your slice branch
   (merge or cherry-pick them). Close each inherited PR in favor of the slice
   PR once the slice branch carries its content. Only main receives merged
-  PRs, and no PR is ever merged into another branch.
+  PRs, and no PR is ever merged into another branch. A slice of a feature
+  with a parent branch is the exception
+  ([ADR 0128](../decisions/0128-feature-parent-branch.md)).
 - Shared surfaces resolve at merge. Whoever merges second regenerates or
   rebases, and the loop's conflict step handles it. Shared surfaces include:
   - migrations: the first ready merges first, and the other regenerates on

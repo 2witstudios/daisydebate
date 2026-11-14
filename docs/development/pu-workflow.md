@@ -63,7 +63,12 @@ pu kill --agent <agent> && pu clean
   Claude Code, PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and
   opencode, both in Resources › Universal prompts.
 - **Merging.** Builders never merge. Only main receives merged PRs, and no
-  PR is ever merged into another branch.
+  PR is ever merged into another branch. The one exception is a slice of a
+  feature the owner has given a parent branch
+  ([ADR 0128](../decisions/0128-feature-parent-branch.md)): its PR targets
+  the parent, one point guard merges into the parent one PR at a time, and
+  it runs PR Loop (Feature slice), which stops at the first review with no
+  blocker and no major.
   - The point guard's flow sweep merges a PR when its builder has emitted
     `PR_READY` and the required check (CI gate) is green at the exact head.
     Browser E2E runs on main after merge
