@@ -151,6 +151,7 @@ export const recordingArchiveReadOperations = ({
           winningSide: rounds.winningSide,
           ranking: rounds.ranking,
           rules: rounds.rulesSnapshot,
+          capture: rounds.capture,
           status: recordings.status,
           durationMs,
           hasTranscript,
@@ -183,7 +184,10 @@ export const recordingArchiveReadOperations = ({
       const seats = await Promise.all(
         shown.map((row) =>
           tx
-            .select({ actorId: roundParticipants.actorId })
+            .select({
+              actorId: roundParticipants.actorId,
+              seatKind: roundParticipants.seatKind,
+            })
             .from(roundParticipants)
             .where(eq(roundParticipants.roundId, row.id)),
         ),
@@ -203,11 +207,20 @@ export const recordingArchiveReadOperations = ({
           visibility: row.visibility,
           hostActorId: row.hostActorId,
           completedAtMs: row.completedAt?.getTime() ?? null,
+          capture: row.capture,
+          sides: row.rules.sides,
           outcome: outcomeOfColumns(row, row.rules),
           status: row.status as RecordingStatus | null,
           durationMs: row.durationMs,
           hasTranscript: row.hasTranscript,
           seatedActorIds: (seats[index] ?? []).map((seat) => seat.actorId),
+          /** The judge and moderator seats' actors: who an officials' Recording is for. */
+          officialActorIds: (seats[index] ?? [])
+            .filter(
+              (seat) =>
+                seat.seatKind === 'judge' || seat.seatKind === 'moderator',
+            )
+            .map((seat) => seat.actorId),
           debaters: (named.get(row.id) ?? [])
             .filter((seat) => !isJudgeSeat(seat.seat))
             .map((seat) => ({ seat: seat.seat, label: seat.label })),

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { capturePartialReasonSchema } from './capture-verdict';
 import { idSchema } from './primitives';
 import { speakRightsSchema } from './format';
+import { sideSchema } from './seats';
 import { roundRecordSchema } from './round-view';
 
 /** Shared ordered evidence line; text is returned only by protected reads. */
@@ -71,6 +72,8 @@ export const liveTranscriptReadSchema = z.looseObject({
       )
       .readonly(),
     rules: z.looseObject({
+      /** The format's declared sides, so a speech reads by its seat's own name. */
+      sides: z.array(sideSchema).readonly(),
       segments: z
         .array(
           z.looseObject({

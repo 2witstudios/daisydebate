@@ -4,7 +4,7 @@ import { ballotScoresRecordSchema } from './ballot-schema';
 import { segmentTypes } from './format';
 import { idSchema } from './primitives';
 import { roundOutcomeSchema } from './round-outcome';
-import { seatRefSchema, sideKeySchema } from './seats';
+import { seatRefSchema, sideKeySchema, sideSchema } from './seats';
 
 const spectatorStageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('upcoming') }),
@@ -74,6 +74,8 @@ export const spectatorTimelineSchema = z.strictObject({
   /** Present while `recording` is `processing`: what is happening to it now. */
   recordingPreparation: recordingPreparationSchema.optional(),
   resolution: z.string().nullable(),
+  /** The format's declared sides, so a seat and a result read by their own names. */
+  sides: z.array(sideSchema).max(4),
   seats: z.array(
     z.strictObject({
       seat: seatRefSchema,

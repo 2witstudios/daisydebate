@@ -45,6 +45,7 @@ export const recordingRoundReadOperations = ({
           winningSide: rounds.winningSide,
           ranking: rounds.ranking,
           rules: rounds.rulesSnapshot,
+          capture: rounds.capture,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
@@ -84,6 +85,10 @@ export const recordingRoundReadOperations = ({
         hostActorId: round.hostActorId,
         status: round.status,
         completedAtMs: round.completedAt?.getTime() ?? null,
+        /** What every participant was told is captured, frozen at Launch. */
+        capture: round.capture,
+        /** The format's declared sides, so a seat reads by its own label. */
+        sides: round.rules.sides,
         outcome,
         seats,
         /** Both lists are in seat order, so they pair up. */

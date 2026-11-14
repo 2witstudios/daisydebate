@@ -5,6 +5,7 @@ import {
   type BroadcastStanding,
   type RoundOutcome,
   type SeatRef,
+  type Side,
   type SpeakRights,
   type SpectatorTimeline,
 } from '@daisy/protocol';
@@ -24,7 +25,7 @@ export type SpectatorTimelineRead = {
     readonly competitionType: 'ranked' | 'casual';
     readonly resolution: string | null;
     readonly rules: {
-      readonly sides: readonly { readonly key: string }[];
+      readonly sides: readonly Side[];
       readonly segments: readonly {
         readonly key: string;
         readonly label: string;
@@ -290,6 +291,7 @@ export const projectSpectatorTimeline = (
   recording: recordingOf(read),
   ...preparationOf(read, context.nowMs),
   resolution: resolutionOf(read),
+  sides: [...read.round.rules.sides],
   seats: read.seats.flatMap((seat) =>
     publicSeat(seat.seat).map((ref) => ({
       seat: ref,

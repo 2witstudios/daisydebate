@@ -278,7 +278,10 @@ export const spectatorTimelineReads = ({
             ...shared,
             segments,
             ballots: ballotRows,
-            ratings: ratingRows,
+            // A rating is only ever posted for a side's seat (ADR 0055).
+            ratings: ratingRows.flatMap(({ side, ...rating }) =>
+              side === null ? [] : [{ side, ...rating }],
+            ),
             captions: [...captionRows]
               .reverse()
               .map(({ id, seatKind, side, slot, text }) => ({
