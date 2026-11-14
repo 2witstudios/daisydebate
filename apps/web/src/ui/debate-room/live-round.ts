@@ -9,6 +9,7 @@ import {
 } from '../../features/post-round-call/offered';
 import { microphoneOpensForClock } from '@daisy/debate-engine/media-grants';
 import {
+  isAbsentSeat,
   leadSeatOf,
   sideOfSeat,
   speakingSeatsOf,
@@ -42,7 +43,13 @@ const debaterSeat = (view: RoundView, actorId: string) =>
 
 /** The round room is for a debater of a round that has not ended. */
 export function isLiveDebater(view: RoundView, actorId: string): boolean {
-  return isLiveRound(view) && debaterSeat(view, actorId) !== undefined;
+  const seat = debaterSeat(view, actorId);
+  // A seat that left the Round is absent from then on, not in its room (TAB-6.8).
+  return (
+    isLiveRound(view) &&
+    seat !== undefined &&
+    !(view.checkpoint !== null && isAbsentSeat(view.checkpoint, seat.id))
+  );
 }
 
 /** The seat, every other competitor seat, and who sits where, as the room shows them. */

@@ -26,6 +26,7 @@ BEGIN
       ('rounds', 'rounds_outcome_check'),
       ('rounds', 'rounds_lifecycle_check'),
       ('content_reports', 'content_reports_feedback_subject_check'),
+      ('round_commands', 'round_commands_type_check'),
       ('room_invitations', 'room_invitations_seat_check'),
       ('room_seat_holds', 'room_seat_holds_seat_check'),
       ('round_segments', 'round_segments_type_check')

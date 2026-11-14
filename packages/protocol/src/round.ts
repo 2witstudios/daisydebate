@@ -161,6 +161,12 @@ export const runtimeCheckpointSchema = z
     clock_stops: z
       .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
       .readonly(),
+    /**
+     * The competitor seats that left a Round no forfeit ends (TAB-6.8): each
+     * is absent from then on, and the Round goes on without it. Omitted
+     * while no seat has left, so every other checkpoint keeps its shape.
+     */
+    absent_participant_ids: z.array(idSchema).min(1).readonly().optional(),
   })
   .refine(
     (checkpoint) =>
@@ -187,6 +193,13 @@ export const emptyRuntimeCheckpointFor = (rules: {
   start_gate: null,
   clock_stops: [],
 });
+
+/** Whether this seat has left the Round and is absent from then on (TAB-6.8). */
+export const isAbsentSeat = (
+  checkpoint: Pick<RuntimeCheckpoint, 'absent_participant_ids'>,
+  participantId: string,
+): boolean =>
+  checkpoint.absent_participant_ids?.includes(participantId) ?? false;
 
 /** Every stop the clock has had, with the one running now if there is one. */
 export const clockStopsOf = (

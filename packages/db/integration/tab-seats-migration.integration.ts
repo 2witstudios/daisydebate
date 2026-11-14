@@ -46,6 +46,7 @@ const addedChecks = [
   'room_participants_side_check',
   'room_seat_holds_seat_check',
   'rooms_event_recording',
+  'round_commands_type_check',
   'round_participants_seat_kind_check',
   'round_participants_side_check',
   'round_segments_type_check',

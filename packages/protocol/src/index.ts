@@ -172,6 +172,7 @@ export {
   roundStageSchema,
   runtimeCheckpointSchema,
   emptyRuntimeCheckpointFor,
+  isAbsentSeat,
   prepConsumedOf,
   clockStopsOf,
   platformIncidentCauses,

@@ -37,6 +37,8 @@ const wording = (
       return { label: 'Interrupt', confirm: false };
     case 'forfeit':
       return { label: 'Forfeit round', confirm: true };
+    case 'leave':
+      return { label: 'Leave round', confirm: true };
   }
 };
 /**
@@ -67,19 +69,20 @@ const seatControls = (view: RoundView, actorId: string, nowMs: number) => {
 };
 
 /**
- * Whether this actor's forfeit would be taken now, by the engine's own rule,
- * in the opening or the debate. Leave asks this; it is the one place the
- * question is answered.
+ * Whether this actor's withdrawal (a forfeit, or leaving a Round no forfeit
+ * ends) would be taken now, by the engine's own rule, in the opening or the
+ * debate. Leave asks this; it is the one place the question is answered.
  */
-export function forfeitLegalNow(
+export function withdrawalLegalNow(
   view: RoundView,
   actorId: string,
   nowMs: number,
+  type: 'forfeit' | 'leave',
 ): boolean {
   const controls = seatControls(view, actorId, nowMs);
   if (!controls) return false;
   const legal = controls.options.some(
-    (option) => option.type === 'forfeit' && option.legal,
+    (option) => option.type === type && option.legal,
   );
   // The opening has no segment to persist; the debate posts against one.
   return view.status === 'opening'

@@ -1,8 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   emptyRuntimeCheckpointFor,
+  fourTeams,
   twoSides,
   type RoundView,
+  type SeatRef,
 } from '@daisy/protocol';
 import { leaveIntent } from './leave-intent';
 import {
@@ -107,3 +109,119 @@ test('Leave in the opening follows the engine’s forfeit rule', () => {
     expected: 'held',
   });
 });
+
+/** One-on-one's view, its two debaters moved onto `first` and `second` of `shape`. */
+const reshapedView = (
+  shape: Pick<RoundView['rules'], 'sides' | 'seats' | 'outcome'>,
+  first: SeatRef,
+  second: SeatRef,
+): RoundView => {
+  const speaking = ran(1);
+  const move = (seat: SeatRef): SeatRef =>
+    seat.kind === 'side'
+      ? seat.side === aff.seat.side
+        ? first
+        : second
+      : seat;
+  return {
+    ...speaking,
+    rules: {
+      ...speaking.rules,
+      ...shape,
+      segments: speaking.rules.segments.map((segment) => ({
+        ...segment,
+        speak:
+          segment.speak.rights === 'one'
+            ? { ...segment.speak, seat: move(segment.speak.seat) }
+            : {
+                ...segment.speak,
+                ...(segment.speak.lead
+                  ? { lead: move(segment.speak.lead) }
+                  : {}),
+              },
+      })),
+    },
+    checkpoint: emptyRuntimeCheckpointFor(shape),
+    participants: speaking.participants.map((participant) =>
+      'seat' in participant && participant.seat.kind === 'side'
+        ? { ...participant, seat: move(participant.seat) }
+        : participant,
+    ),
+  } as RoundView;
+};
+
+const speakerSeat = (slot: number): SeatRef => ({ kind: 'speaker', slot });
+
+/** The shapes no forfeit ends (TAB-6.8). */
+const unforfeitable = [
+  {
+    name: 'a four-team Round',
+    view: reshapedView(
+      {
+        sides: [...fourTeams],
+        seats: {
+          sides: Object.fromEntries(fourTeams.map((team) => [team.key, 1])),
+          speakers: 0,
+          judges: 1,
+          moderators: 0,
+        },
+        outcome: { kind: 'ranking', of: 'sides' },
+      },
+      { kind: 'side', side: fourTeams[0].key, slot: 0 },
+      { kind: 'side', side: fourTeams[1].key, slot: 0 },
+    ),
+  },
+  {
+    name: 'a six-speaker Round',
+    view: reshapedView(
+      {
+        sides: [],
+        seats: { sides: {}, speakers: 6, judges: 1, moderators: 0 },
+        outcome: { kind: 'ranking', of: 'speakers' },
+      },
+      speakerSeat(0),
+      speakerSeat(1),
+    ),
+  },
+  {
+    name: 'an open conversation',
+    view: reshapedView(
+      {
+        sides: [],
+        seats: { sides: {}, speakers: 2, judges: 0, moderators: 0 },
+        outcome: { kind: 'none' },
+      },
+      speakerSeat(0),
+      speakerSeat(1),
+    ),
+  },
+] as const;
+
+for (const shape of unforfeitable)
+  test(`a debater leaves ${shape.name} as absence, never held for the whole debate (TAB-6.8)`, () => {
+    const now = Date.parse(at(startOf(0) + 1000));
+    const left = {
+      ...shape.view,
+      checkpoint: {
+        ...shape.view.checkpoint!,
+        absent_participant_ids: [aff.id],
+      },
+    } as RoundView;
+    assert({
+      given: `a debater speaking in ${shape.name}, then the same debater once their seat has left`,
+      should:
+        'offer leaving that records the seat absent, then only navigate: the seat is gone',
+      actual: [
+        leaveIntent(shape.view, aff.actorId, now),
+        leaveIntent(left, aff.actorId, now),
+      ],
+      expected: [
+        {
+          kind: 'leave',
+          participantId: aff.id,
+          expectedVersion: shape.view.version,
+        },
+        { kind: 'navigate' },
+      ],
+    });
+  });

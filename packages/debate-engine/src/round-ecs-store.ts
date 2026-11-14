@@ -61,6 +61,8 @@ export type RoundStore = {
     readonly grantedAtMs: number;
   }) => void;
   readonly clearFloor: () => void;
+  /** This seat left a Round no forfeit ends: absent from now on (TAB-6.8). */
+  readonly markAbsent: (participantId: string) => void;
 };
 
 const hydrate = (
@@ -129,6 +131,7 @@ const hydrate = (
       const prepStartedAtMs = db.resources.activePrepStartedAtMs;
       const floorId = db.resources.floorParticipantId;
       const floorGrantedAtMs = db.resources.floorGrantedAtMs;
+      const absent = db.resources.absentParticipantIds;
       return {
         version: 1,
         prep_consumed_ms: { ...db.resources.prepConsumedMs },
@@ -147,6 +150,8 @@ const hydrate = (
         prep_ended_at: db.resources.prepEndedAt,
         start_gate: db.resources.startGate,
         clock_stops: db.resources.clockStops,
+        // Omitted until a seat leaves, so no other checkpoint changes shape.
+        ...(absent.length > 0 ? { absent_participant_ids: [...absent] } : {}),
       };
     },
     openRow: () => readRows().find((row) => row.endedAtMs === null),
@@ -172,6 +177,7 @@ const hydrate = (
     setFloor: ({ participantId, grantedAtMs }) =>
       db.transactions.setFloor({ participantId, grantedAtMs }),
     clearFloor: () => db.transactions.clearFloor(),
+    markAbsent: (participantId) => db.transactions.markAbsent(participantId),
   };
 };
 

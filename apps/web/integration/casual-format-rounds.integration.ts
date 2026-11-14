@@ -359,3 +359,57 @@ test('an open conversation opens both microphones and completes with no outcome 
     });
   }, botAdmissionForTests);
 });
+
+test('a person leaving an open conversation is recorded absent and the conversation goes on (TAB-6.8)', async () => {
+  await withRoomRuntime(async (f) => {
+    const room = await seatedRoom(
+      f,
+      'open-conversation',
+      [
+        [f.host, { kind: 'speaker', slot: 0 }],
+        [f.guest, { kind: 'speaker', slot: 1 }],
+      ],
+      [],
+    );
+    const { roundId, operations } = await launchRuntimeRound(f, room);
+    const launched = (await f.store.getRound(roundId))!;
+    await f.sql`update rounds set started_at=clock_timestamp()-${launched.rules.countdownMs + 5_000}*interval '1 millisecond' where id=${roundId}`;
+    await f.store.executeRoundTick({
+      roundId,
+      buildProjection: roundTickProjection(createId),
+    });
+    const before = (await f.store.getRound(roundId))!;
+    const seat = before.participants.find(
+      (p) => p.actorId === f.guest.actorId,
+    )!;
+    await operations.command(
+      { kind: 'human', actorId: f.guest.actorId },
+      roundId,
+      {
+        version: 1,
+        commandId: createId(),
+        expectedVersion: before.version,
+        command: { type: 'leave', participantId: seat.id },
+      },
+    );
+    const after = (await f.store.getRound(roundId))!;
+    const held = await f.sql<{ actor_id: string }[]>`select actor_id
+      from active_seats where room_id=${room.id} order by actor_id`;
+    assert({
+      given:
+        'the open conversation running, then one of its two people leaving through the round command',
+      should:
+        'keep the Round active with that seat absent, and free only the person who left',
+      actual: {
+        status: after.status,
+        absent: after.checkpoint.absent_participant_ids,
+        held: held.map((row) => row.actor_id),
+      },
+      expected: {
+        status: 'active',
+        absent: [seat.id],
+        held: [f.host.actorId],
+      },
+    });
+  }, botAdmissionForTests);
+});

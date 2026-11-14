@@ -49,7 +49,9 @@ export type RoundCommand =
   | { readonly type: 'start_speech' }
   | { readonly type: 'yield' }
   | { readonly type: 'interrupt' }
-  | { readonly type: 'forfeit' };
+  | { readonly type: 'forfeit' }
+  /** A competitor leaves a Round no forfeit ends: absent, and the Round goes on (TAB-6.8). */
+  | { readonly type: 'leave' };
 
 /** A durable segment row the runtime opened and the caller must insert. */
 export type SegmentInsert = {
@@ -137,6 +139,8 @@ export type RoundProjection = {
   readonly finalSegmentEndedAt?: string;
   /** The engine's ruling that this Round holds its Room's members no longer (ADR 0070). */
   readonly releasesRoomMembers?: true;
+  /** The actors whose seats left this revision, whom the Room holds no longer (TAB-6.8). */
+  readonly releasesMembers?: readonly string[];
   readonly speakingChanges?: readonly RoundSpeakingChange[];
   /** The opening's draw after this revision; the writer appends its new strikes. */
   readonly openingDraw?: ResolutionDrawState;

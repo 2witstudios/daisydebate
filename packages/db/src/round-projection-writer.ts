@@ -24,7 +24,10 @@ import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 import { writeRoundIncidentChanges } from './round-incident-rows';
-import { releaseRoundRoomMembers } from './room-membership-persistence';
+import {
+  releaseLeftMembers,
+  releaseRoundRoomMembers,
+} from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
 import { columnsOfOutcome, outcomeOfColumns } from './round-outcome-columns';
 import { isUniqueViolation } from './unique-violation';
@@ -128,6 +131,8 @@ export async function writeProjectionWithPhaseSignal(
   // The engine rules when a Round stops holding its Room's members (ADR 0070).
   if (projection.releasesRoomMembers)
     await releaseRoundRoomMembers(tx, roundId);
+  else if (projection.releasesMembers)
+    await releaseLeftMembers(tx, roundId, projection.releasesMembers);
   if (projection.finalSegmentEndedAt !== undefined)
     await tx
       .update(rounds)

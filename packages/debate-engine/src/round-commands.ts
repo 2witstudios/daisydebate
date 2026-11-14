@@ -35,6 +35,8 @@ export type Queues = {
     readonly holder: string | null;
   } | null;
   effects: RoundEffect[];
+  /** The actors whose seats left this revision; the Room holds them no longer. */
+  releasedMembers: string[];
 };
 
 /**
@@ -138,6 +140,18 @@ const forfeit = (c: CommandContext): void => {
   completeWith(c, winnerOutcome(otherSide(c.rules.sides, side)));
 };
 
+/**
+ * Leaving a Round no forfeit ends (TAB-6.8): the seat is absent from now on
+ * and the Room holds its member no longer. Nothing else changes: the clock
+ * runs on, and attendance decides each of its speeches on who is present,
+ * abandoning the Round only once no speaking seat is.
+ */
+const leave = (c: CommandContext): void => {
+  const seat = c.seatOf(c.actorId)!;
+  c.on.markAbsent(seat.id);
+  c.into.releasedMembers.push(seat.actorId);
+};
+
 /** Close actual played capture authority for either terminal decision. */
 export function closePlayedRound(c: CommandContext): void {
   const open = c.on.openRow();
@@ -196,5 +210,7 @@ export const applyRoundCommand = (
       return interrupt(c);
     case 'forfeit':
       return forfeit(c);
+    case 'leave':
+      return leave(c);
   }
 };

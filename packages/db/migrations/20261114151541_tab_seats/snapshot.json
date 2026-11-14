@@ -44762,7 +44762,7 @@
       "table": "round_commands"
     },
     {
-      "value": "\"type\" in ('start', 'strike_resolution', 'start_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'complete', 'submit_ballot', 'check_in', 'adjudicate')",
+      "value": "\"type\" in ('start', 'strike_resolution', 'start_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'leave', 'complete', 'submit_ballot', 'check_in', 'adjudicate')",
       "name": "round_commands_type_check",
       "entityType": "checks",
       "schema": "public",

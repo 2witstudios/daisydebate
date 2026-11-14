@@ -54,6 +54,18 @@ export const releaseRoundRoomMembers = (
     sql`delete from ${activeSeats} where ${activeSeats.roomId} = (select ${rounds.roomId} from ${rounds} where ${rounds.id} = ${roundId})`,
   );
 
+/** A seat that left a Round frees its member alone: the Room holds the rest (TAB-6.8). */
+export const releaseLeftMembers = (
+  tx: Pick<BunSQLDatabase, 'execute'>,
+  roundId: string,
+  actorIds: readonly string[],
+) =>
+  actorIds.length === 0
+    ? Promise.resolve()
+    : tx.execute(
+        sql`delete from ${activeSeats} where ${activeSeats.roomId} = (select ${rounds.roomId} from ${rounds} where ${rounds.id} = ${roundId}) and ${inArray(activeSeats.actorId, [...actorIds])}`,
+      );
+
 /** The persisted facts of the one Room an actor's active seat names, or null. */
 export async function activeRoomFacts(
   tx: Pick<BunSQLDatabase, 'select'>,

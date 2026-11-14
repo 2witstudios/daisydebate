@@ -1,4 +1,5 @@
 import {
+  isAbsentSeat,
   isDebatingSeat,
   leadSeatOf,
   prepConsumedOf,
@@ -224,6 +225,29 @@ const forfeitRefusal = ({ rules, state, seat }: RoundCommandFacts) => {
     : conflict('Only a two-sided Round is forfeited to the other side');
 };
 
+/**
+ * Leaving a Round no forfeit ends (TAB-6.8): a seated competitor, while the
+ * debate runs, leaves and is absent from then on; the Round goes on, and
+ * attendance abandons it only once no speaking seat is present. A two-sided
+ * Round decided by a winner is forfeited instead.
+ */
+const leaveRefusal = ({ rules, state, seat }: RoundCommandFacts) => {
+  if (debateHasEnded(state, rules.segments.length))
+    return conflict('The debate is over; there is nothing to leave');
+  if (!isDebater(seat)) return conflict('A seated competitor leaves');
+  if (forfeitsToOpponent(rules))
+    return conflict('A two-sided Round is forfeited, not left');
+  return state.lifecycle.status === 'active'
+    ? null
+    : conflict('Only a running debate is left');
+};
+
+/** A seat that left is absent from then on: it commands nothing more. */
+const absentRefusal = ({ state, seat }: RoundCommandFacts) =>
+  seat !== null && isAbsentSeat(state.checkpoint, seat.id)
+    ? conflict('This seat has left the Round')
+    : null;
+
 const refusals: Readonly<
   Record<
     RoundCommand['type'],
@@ -235,6 +259,7 @@ const refusals: Readonly<
   yield: yieldRefusal,
   interrupt: interruptRefusal,
   forfeit: forfeitRefusal,
+  leave: leaveRefusal,
 };
 
 /** Why the Round takes no command at all now, or null when it takes one. */
@@ -259,7 +284,7 @@ export const roundCommandRefusal = (
   facts: RoundCommandFacts,
   type: RoundCommand['type'],
 ): RoundCommandRefusal | null =>
-  standingRefusal(facts) ?? refusals[type](facts);
+  standingRefusal(facts) ?? absentRefusal(facts) ?? refusals[type](facts);
 
 /**
  * The commands this seat is offered now. An offered command can be illegal for
@@ -273,12 +298,14 @@ export const roundCommandOptions = (
   if (
     !isDebater(seat) ||
     standingRefusal(facts) !== null ||
+    absentRefusal(facts) !== null ||
     debateHasEnded(state, rules.segments.length)
   )
     return [];
+  // Leaving forfeits a two-sided winner Round; anywhere else it is absence.
   const leave: readonly RoundCommandOption[] = forfeitsToOpponent(rules)
     ? [{ type: 'forfeit', legal: true }]
-    : [];
+    : [{ type: 'leave', legal: leaveRefusal(facts) === null }];
   return [...floorOptions(facts, seat), ...leave];
 };
 

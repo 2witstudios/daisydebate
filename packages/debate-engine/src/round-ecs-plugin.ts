@@ -48,6 +48,8 @@ const plugin = Database.Plugin.create({
       default: null,
     },
     floorGrantedAtMs: { ...Schema.Nullable({ type: 'number' }), default: null },
+    /** The seats that left a Round no forfeit ends, in the order they left. */
+    absentParticipantIds: { default: [] as readonly string[] },
   },
   archetypes: {
     segment: [
@@ -130,6 +132,14 @@ const plugin = Database.Plugin.create({
         checkpoint.floor === null
           ? null
           : Date.parse(checkpoint.floor.granted_at);
+      store.resources.absentParticipantIds =
+        checkpoint.absent_participant_ids ?? [];
+    },
+    markAbsent: (store, participantId: string) => {
+      store.resources.absentParticipantIds = [
+        ...store.resources.absentParticipantIds,
+        participantId,
+      ];
     },
     setPrepConsumed: (
       store,

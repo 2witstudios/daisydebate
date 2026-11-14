@@ -65,6 +65,7 @@ import {
 const queues = (): Queues => ({
   changes: [],
   effects: [],
+  releasedMembers: [],
   floorChange: null,
   finalPlayedEnd: null,
 });
@@ -228,6 +229,9 @@ export function createRoundRuntime(input: {
         ? { finalSegmentEndedAt: finalEndedAt }
         : {}),
       ...(releasesRoomMembers ? { releasesRoomMembers: true as const } : {}),
+      ...(into.releasedMembers.length > 0
+        ? { releasesMembers: [...into.releasedMembers] }
+        : {}),
       speakingChanges: speakingChangesOf({
         rules,
         participants: input.participants,
