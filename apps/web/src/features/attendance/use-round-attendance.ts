@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { systemId } from '@daisy/clock';
-import type { RoundView } from '@daisy/protocol';
+import { isDebatingSeat, type RoundView } from '@daisy/protocol';
 import { createAttendanceHttpClient } from './http-client';
 import { createAttendanceClient } from './client';
 
@@ -22,7 +22,7 @@ export function useRoundAttendance({
       'actorId' in seat &&
       seat.actorId === actorId &&
       seat.kind === 'human' &&
-      seat.role !== 'judge',
+      isDebatingSeat(seat.seat),
   );
   const client = useRef<ReturnType<typeof createAttendanceClient> | null>(null);
   useEffect(() => {

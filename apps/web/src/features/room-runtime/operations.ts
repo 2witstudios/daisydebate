@@ -5,7 +5,7 @@ import { roomAiJudgeSeating } from './ai-judge-seating';
 import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
-import { aiSeatOf } from './ai-seat';
+import { aiServesSeat } from './ai-seat';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
@@ -39,7 +39,7 @@ import type {
   RoomCreate,
   PublishedResolution,
 } from '@daisy/protocol';
-import { isOpenRoomStatus } from '@daisy/protocol';
+import { isDebatingSeat, isOpenRoomStatus } from '@daisy/protocol';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
@@ -96,7 +96,8 @@ export function createRoomRuntimeOperations({
     participants: state.participants.map((p) => ({
       ...p,
       eligible:
-        p.eligible && (p.kind === 'human' || aiSeats()[aiSeatOf(p.role)]),
+        p.eligible &&
+        (p.kind === 'human' || aiServesSeat(aiSeats(), p.seat.kind)),
     })),
   });
   const consentOf = async (
@@ -169,7 +170,7 @@ export function createRoomRuntimeOperations({
         store.readOwnCasualJudgeAllowance(
           caller,
           state.participants.some(
-            (seat) => seat.kind === 'bot' && seat.role !== 'judge',
+            (seat) => seat.kind === 'bot' && isDebatingSeat(seat.seat),
           ),
         ),
       ),
@@ -264,13 +265,18 @@ export function createRoomRuntimeOperations({
     } = await resolveRoomSelection(body, store, ids);
     if (
       competitionType === 'ranked' &&
-      (body.recording !== undefined || body.postRoundCall === true)
+      (body.recordingPolicy !== undefined || body.postRoundCall === true)
     )
       throw createRefusal('CONFLICT', 'illegal-config');
+    // A Room recorded at all is created with its Recording policy; `off` records nothing.
+    const recordingPolicy =
+      body.recordingPolicy === undefined || body.recordingPolicy === 'off'
+        ? null
+        : body.recordingPolicy;
     const createNotice = createNoticeOf(
       {
         competitionType,
-        capture: body.recording ? { broadcast: null, recording: true } : null,
+        capture: recordingPolicy ? { broadcast: null, recordingPolicy } : null,
       },
       body.noticeVersion,
     );
@@ -307,7 +313,6 @@ export function createRoomRuntimeOperations({
       members: activeRoomMembers({
         status: 'assembling',
         roundRef: null,
-        hostActorId: caller.actorId,
         participants: [],
       }),
       commandId: body.commandId,
@@ -318,9 +323,10 @@ export function createRoomRuntimeOperations({
         kind: publication.kind,
       },
       selection: recheck,
-      ...(body.recording
+      ...(recordingPolicy
         ? {
             recording: {
+              policy: recordingPolicy,
               authorize: (grants, now) =>
                 hostHoldsCasualCapture(grants, betaGrantsPremium, now),
             },
@@ -352,8 +358,7 @@ export function createRoomRuntimeOperations({
                   commandId: seat.commandId,
                   expectedVersion: state.version,
                   actorId: seat.actorId,
-                  role: seat.role,
-                  slot: seat.slot,
+                  seat: seat.seat,
                 },
                 // Seating never reads consent; Ready stays the human's act.
                 { available: true, readyActorIds: [] },
@@ -371,13 +376,13 @@ export function createRoomRuntimeOperations({
                         ...target,
                         id: seat.participantId,
                         consentVersion: 0,
-                        role: seat.role,
-                        slot: seat.slot,
+                        seat: seat.seat,
                         // Match the ordinary assign-seat command: profile
                         // eligibility is not enough while this seat cannot
                         // run (including direct create requests).
                         eligible:
-                          target.eligible && aiSeats()[aiSeatOf(seat.role)],
+                          target.eligible &&
+                          aiServesSeat(aiSeats(), seat.seat.kind),
                       }
                     : null,
                   drawStart: null,
@@ -420,14 +425,14 @@ export function createRoomRuntimeOperations({
           can(caller, 'room.list', account),
         )
       ).flatMap((p) =>
-        p.kind === 'bot' && p.seatRole
+        p.kind === 'bot' && p.seatKind
           ? [
               {
                 actorId: p.actorId,
                 kind: 'bot' as const,
                 label: p.label,
-                seatRole: p.seatRole,
-                eligible: p.eligible && aiSeats()[p.seatRole],
+                seatKind: p.seatKind,
+                eligible: p.eligible && aiServesSeat(aiSeats(), p.seatKind),
                 ...(p.persona ? { persona: p.persona } : {}),
                 ...(p.difficulty ? { difficulty: p.difficulty } : {}),
               },

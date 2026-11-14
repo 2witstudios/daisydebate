@@ -1,4 +1,4 @@
-import { isNamedSeat, type RoundView } from '@daisy/protocol';
+import { isDebatingSeat, isNamedSeat, type RoundView } from '@daisy/protocol';
 import { roundPositionAt } from '@daisy/debate-engine/position';
 import { forfeitLegalNow } from './control-intents';
 
@@ -43,7 +43,8 @@ export function leaveIntent(
   const seat = view.participants
     .filter(isNamedSeat)
     .find(
-      (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
+      (p) =>
+        p.actorId === actorId && p.kind === 'human' && isDebatingSeat(p.seat),
     );
   if (seat === undefined) return { kind: 'navigate' };
   const forfeits = forfeitLegalNow(view, actorId, nowMs);

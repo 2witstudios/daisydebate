@@ -65,7 +65,7 @@ test('a judge who reads Room chat and may not post in it', async () => {
     endedAt: null,
     actorId: caller.actorId,
     host: true,
-    seatRole: 'judge',
+    seatKind: 'judge',
   };
   const account = {
     ...caller,

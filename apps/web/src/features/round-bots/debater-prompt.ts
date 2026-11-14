@@ -4,7 +4,7 @@ import type {
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
-import { segmentDueAtMs } from '@daisy/protocol';
+import { leadSeatOf, segmentDueAtMs, sideOfSeat } from '@daisy/protocol';
 import type { Owed } from './duty';
 
 type Context = Awaited<
@@ -34,10 +34,15 @@ export function debaterPrompt(
   const rule = round.rules.segments.find(
     (row) => row.key === segment?.rulesSegmentKey,
   );
+  // A bot debates for a side, in a speech or a cross-examination a side leads.
+  const lead = rule ? leadSeatOf(rule.speak) : null;
+  const ruleSide = lead && sideOfSeat(lead);
   if (
     !segment ||
     !rule ||
-    seat.role === 'judge' ||
+    seat.seat.kind !== 'side' ||
+    ruleSide === null ||
+    segment.type === 'open' ||
     !Number.isFinite(nowMs) ||
     round.resolution === null
   )
@@ -46,14 +51,14 @@ export function debaterPrompt(
   if (durationMs <= 0) throw createAppError('CONFLICT');
   return roundDebaterMessages({
     resolution: round.resolution,
-    side: seat.role,
-    slot: seat.slot,
+    side: seat.seat.side,
+    slot: seat.seat.slot,
     persona: `${profile.name}. ${profile.persona} Debate difficulty: ${profile.difficulty}.`,
     segment: {
       name: rule.key,
       label: rule.label,
       type: segment.type,
-      side: rule.side,
+      side: ruleSide,
       durationMs,
     },
     unanswered: to.kind === 'unanswered',
@@ -62,11 +67,11 @@ export function debaterPrompt(
         (row) => row.id === line.roundParticipantId,
       );
       const spoken = round.segments.find((row) => row.id === line.segmentId);
-      return speaker && speaker.role !== 'judge' && spoken
+      return speaker && speaker.seat.kind === 'side' && spoken
         ? [
             {
-              side: speaker.role,
-              slot: speaker.slot,
+              side: speaker.seat.side,
+              slot: speaker.seat.slot,
               segment: spoken.rulesSegmentKey,
               text: line.text,
               complete: line.complete,

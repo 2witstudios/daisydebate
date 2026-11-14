@@ -1,8 +1,4 @@
-import type {
-  CompetitionType,
-  RatingLadder,
-  RoomSeatKind,
-} from '@daisy/protocol';
+import type { CompetitionType, RatingLadder, SeatKind } from '@daisy/protocol';
 
 /** What one notification is about, with only the facts its words need. */
 export type NotificationSubject =
@@ -15,7 +11,7 @@ export type NotificationSubject =
   | {
       readonly kind: 'room_invitation';
       readonly roomId: string;
-      readonly seat: RoomSeatKind;
+      readonly seat: SeatKind;
       readonly host: string | null;
     }
   | {
@@ -28,9 +24,18 @@ export type NotificationSubject =
 const ladderName = (format: RatingLadder) =>
   format.charAt(0).toUpperCase() + format.slice(1);
 
-/** "to judge" or "to debate": what the invitation asks of the member. */
-export const invitedTo = (seat: RoomSeatKind) =>
-  seat === 'judge' ? 'to judge' : 'to debate';
+/** "to judge", "to moderate" or "to debate": what the invitation asks of the member. */
+export const invitedTo = (seat: SeatKind): string => {
+  switch (seat) {
+    case 'judge':
+      return 'to judge';
+    case 'moderator':
+      return 'to moderate';
+    case 'side':
+    case 'speaker':
+      return 'to debate';
+  }
+};
 
 /** "a casual Freestyle debate". */
 export const challengeWhat = (mode: CompetitionType, format: RatingLadder) =>

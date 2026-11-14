@@ -65,8 +65,7 @@ function fixture() {
             roundParticipantId: body.roundParticipantId,
             actorId: 'a'.repeat(24),
             kind: 'human' as const,
-            role: 'affirmative' as const,
-            slot: 0,
+            seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
           },
           receipt: {
             kind: 'received' as const,

@@ -12,7 +12,8 @@ import {
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   attendanceTimingPolicy,
-  emptyRuntimeCheckpoint,
+  emptyRuntimeCheckpointFor,
+  twoSides,
 } from '@daisy/protocol';
 import { createAttendanceFeature } from './operations';
 setupRitewayBun();
@@ -33,11 +34,24 @@ const segment = {
   durationMs: firstSpeech.durationMs,
   returnedMs: 0,
 };
-const speaker = firstSpeech.side === 'affirmative' ? 'aff' : 'neg';
+const speaker =
+  firstSpeech.speak.rights === 'one' &&
+  firstSpeech.speak.seat.kind === 'side' &&
+  firstSpeech.speak.seat.side === 'affirmative'
+    ? 'aff'
+    : 'neg';
 const opponent = speaker === 'aff' ? 'neg' : 'aff';
 const participants = [
-  { id: 'aff', actorId: 'actor-aff', role: 'affirmative' as const, slot: 0 },
-  { id: 'neg', actorId: 'actor-neg', role: 'negative' as const, slot: 0 },
+  {
+    id: 'aff',
+    actorId: 'actor-aff',
+    seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+  },
+  {
+    id: 'neg',
+    actorId: 'actor-neg',
+    seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+  },
 ];
 const healthyThrough = (lastMs: number) =>
   Array.from({ length: (lastMs - openedAtMs) / 1000 + 2 }, (_, n) => ({
@@ -59,7 +73,7 @@ const facts = (
       outcome: null,
       rules,
       participants,
-      checkpoint: emptyRuntimeCheckpoint,
+      checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
       segments: [segment],
     },
     eligibleParticipantIds: ['aff', 'neg'],

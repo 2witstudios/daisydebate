@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  twoSides,
+  type RoundView,
+} from '@daisy/protocol';
 import { leaveIntent } from './leave-intent';
 import {
   view,
@@ -74,7 +78,7 @@ test('Leave in the opening follows the engine’s forfeit rule', () => {
   const held = {
     ...opening,
     checkpoint: {
-      ...emptyRuntimeCheckpoint,
+      ...emptyRuntimeCheckpointFor({ sides: twoSides }),
       incident: {
         phase: 'paused' as const,
         since: at(0),

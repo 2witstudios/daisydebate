@@ -11,7 +11,7 @@ test('a live room whose Round completed points to its result', () => {
   const ended = {
     ...asCompleted(view),
     participants: [
-      ...view.participants.filter((seat) => seat.role !== 'judge'),
+      ...view.participants.filter((seat) => seat.seat.kind !== 'judge'),
       judge,
     ],
   };

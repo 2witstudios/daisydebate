@@ -110,8 +110,7 @@ test('a round’s length is derived from its speeches, countdowns and prep', () 
 });
 
 test('a strike reads as yours only when you made it (PR #472 review)', () => {
-  const side = (s: 'affirmative' | 'negative') =>
-    s === 'affirmative' ? 'Aff team' : 'Neg team';
+  const side = (s: string) => (s === 'affirmative' ? 'Aff team' : 'Neg team');
   const label = (byViewer: boolean, struckSide: 'affirmative' | 'negative') =>
     strikeLabel(
       { kind: 'debater', side: struckSide, byViewer },

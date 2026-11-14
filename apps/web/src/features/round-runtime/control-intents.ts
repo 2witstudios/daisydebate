@@ -4,6 +4,7 @@ import {
 } from '@daisy/debate-engine/position';
 import { startSpeechLabel } from '../debate-room/vocabulary';
 import {
+  isDebatingSeat,
   isNamedSeat,
   isRoundRunning,
   type RoundView,
@@ -46,7 +47,8 @@ const wording = (
 const seatControls = (view: RoundView, actorId: string, nowMs: number) => {
   const seats = view.participants.filter(isNamedSeat);
   const self = seats.find(
-    (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
+    (p) =>
+      p.actorId === actorId && p.kind === 'human' && isDebatingSeat(p.seat),
   );
   if (!self || !isRoundRunning(view.status) || view.checkpoint === null)
     return null;

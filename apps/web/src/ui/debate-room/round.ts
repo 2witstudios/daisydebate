@@ -1,26 +1,51 @@
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType, SeatRef, SideKey } from '@daisy/protocol';
 import type { ChatMessage } from '../../features/debate-room/chat';
-import type { Side, SpeechSlot } from '../../features/debate-room/speeches';
+import type { SideTone, SpeechSlot } from '../../features/debate-room/speeches';
 import type { RoundWaitingOn } from '@daisy/protocol';
 import type { JudgingBallots } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { Agent, Channel } from '../../features/debate-room/workspace';
 
+/** A competitor seat in the room: whose it is, and how its side reads. */
 export type Debater = {
   readonly id: string;
   readonly name: string;
   readonly initials: string;
-  readonly side: Side;
+  readonly seat: SeatRef;
+  /** The seat's side; null for an unsided speaker. */
+  readonly side: SideKey | null;
+  /** "Affirmative", or "Speaker 2" for an unsided seat. */
+  readonly sideLabel: string;
+  /** "Aff", or the seat's own name for an unsided seat. */
+  readonly sideShort: string;
+  readonly tone: SideTone;
   /** Null when the room has no rating to show beside the name. */
   readonly rating: number | null;
+};
+
+/** One heading of the Room tab: a side, the speakers, the moderator or the judges. */
+export type SeatGroup = {
+  readonly key: string;
+  readonly title: string;
+  readonly judges: boolean;
 };
 
 /** Someone seated in the round, as the Room tab lists them. */
 export type RoundPerson = {
   readonly id: string;
   readonly name: string;
-  readonly role: Side | 'judge';
+  /** The `SeatGroup` this seat is listed under. */
+  readonly group: string;
+  readonly judge: boolean;
   readonly bot: boolean;
+};
+
+/** One side's in-round prep left. */
+export type SidePrep = {
+  readonly side: SideKey;
+  readonly label: string;
+  readonly tone: SideTone;
+  readonly remainingMs: number;
 };
 
 /** One line in an agent conversation; `edit` proposes a document change. */
@@ -42,7 +67,10 @@ export type RoundSnapshot = {
   readonly competition: CompetitionType;
   readonly phase: RoundPhase;
   readonly self: Debater;
-  readonly opponent: Debater;
+  /** Every other competitor seat, in the format's seat order. */
+  readonly others: readonly Debater[];
+  /** The Room tab's headings, in seat order. */
+  readonly groups: readonly SeatGroup[];
   /** Everyone seated; a human judge stays anonymous. */
   readonly people: readonly RoundPerson[];
   /** Who judges: a seated human, the AI judge, or nobody. */
@@ -62,8 +90,8 @@ export type RoundSnapshot = {
     /** Something the seat should know while this clock runs. */
     readonly note?: string;
   } | null;
-  /** Each side's prep left; null when the round has no in-round prep. */
-  readonly prepMs: Readonly<Record<Side, number>> | null;
+  /** Each side's prep left, in declared order; null when the round has no in-round prep. */
+  readonly prep: readonly SidePrep[] | null;
   readonly micLive: boolean;
   readonly channels: readonly Channel[];
   readonly messages: readonly ChatMessage[];

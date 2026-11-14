@@ -11,7 +11,7 @@ test('an assigned judge watches debaters without competitive controls or attenda
   const assignedView = {
     ...view,
     participants: [
-      ...view.participants.filter((seat) => seat.role !== 'judge'),
+      ...view.participants.filter((seat) => seat.seat.kind !== 'judge'),
       judge,
     ],
   };
@@ -71,7 +71,7 @@ const { focusIsFree } = await import('./judge-now');
 const judged = <V extends RoundView>(round: V) => ({
   ...round,
   participants: [
-    ...round.participants.filter((seat) => seat.role !== 'judge'),
+    ...round.participants.filter((seat) => seat.seat.kind !== 'judge'),
     judge,
   ],
 });
