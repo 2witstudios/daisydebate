@@ -104,9 +104,12 @@ describe('Tab screen labels', () => {
       given: 'a finished, a speaking and a waiting speaker, and a clay seat',
       should: 'show the time, the state or nothing, and the seat in its tone',
       actual: [
-        speakerStatus({ ...speaker, state: 'done', time: '5:48' }),
-        speakerStatus({ ...speaker, state: 'speaking', time: null }),
-        speakerStatus({ ...speaker, state: 'waiting', time: null }),
+        speakerStatus({
+          ...speaker,
+          standing: { kind: 'done', time: '5:48' },
+        }),
+        speakerStatus({ ...speaker, standing: { kind: 'speaking' } }),
+        speakerStatus({ ...speaker, standing: { kind: 'waiting' } }),
         seatMarkClass('clay').endsWith('bg-hue-clay-soft text-hue-clay'),
       ],
       expected: ['5:48', 'speaking', null, true],

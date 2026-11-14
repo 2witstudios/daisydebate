@@ -80,14 +80,14 @@ export function BallotSettingsEditor({
                   <ListRow
                     key={option.id}
                     title={
-                      <label htmlFor={`ballot-${option.id}`}>
+                      <label htmlFor={`ballot-setting-${option.id}`}>
                         {option.label}
                       </label>
                     }
                     detail={option.detail}
                     trailing={
                       <select
-                        id={`ballot-${option.id}`}
+                        id={`ballot-setting-${option.id}`}
                         name={option.id}
                         value={chosen[option.id]}
                         onChange={(event) =>

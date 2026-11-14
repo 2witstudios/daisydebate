@@ -87,7 +87,8 @@ export type LeaguePanel =
 export type LeagueLobby = {
   readonly name: string;
   readonly lede: string;
-  readonly create: TabAction;
+  /** Null for someone who is not a member: only members open rooms here. */
+  readonly create: TabAction | null;
   readonly tabs: readonly {
     readonly id: LeagueTab;
     readonly label: string;

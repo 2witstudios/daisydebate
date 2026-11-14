@@ -11,7 +11,8 @@ import { sampleActionHref } from '../../ui/components/sample-action/sample-actio
  * The POST of a Tab form that has no operation behind it yet. It reads and
  * saves nothing from the form: it moves on to the page it was posted from
  * with the sample banner. `returnTo` and `label` were bound on the server
- * but round-trip through the page, so both are checked again here.
+ * but round-trip through the page: `returnTo` is checked again here, and
+ * `label` is trimmed and cut to length where the banner reads it.
  */
 export async function sampleFormAction(
   returnTo: string,

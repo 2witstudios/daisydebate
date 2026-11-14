@@ -5,14 +5,27 @@ import { sampleTournamentPage, sampleTournaments } from './sample/tournament';
 import type { SampleScene } from './sample/scene';
 import type { StandingsTable } from './standings';
 
+/**
+ * Where a stop stands. The first five ask something of the host, in that
+ * order of urgency; `note` is a count, a start time or a word that asks
+ * nothing.
+ */
+export type RailStanding =
+  | { readonly kind: 'needs_you'; readonly count: number }
+  | { readonly kind: 'live' }
+  | { readonly kind: 'draft' }
+  | { readonly kind: 'ready' }
+  | { readonly kind: 'unfinished'; readonly count: number }
+  | { readonly kind: 'done' }
+  | { readonly kind: 'note'; readonly text: string };
+
 /** One stop on the timeline rail: a setup page, a time slot or the results. */
 export type RailItem = {
   readonly id: string;
   readonly label: string;
   /** A time slot's start, shown before its name when events share slots. */
   readonly time: string | null;
-  /** Where the stop stands: "done", "2 need you", "draft", a count. */
-  readonly note: string | null;
+  readonly standing: RailStanding | null;
   /** Null for a stop that cannot be opened yet. */
   readonly action: TabAction | null;
 };
@@ -156,7 +169,32 @@ export const readTournaments = (
   _scene: SampleScene,
 ): readonly TournamentSummary[] => sampleTournaments;
 
-const urgency = ['need you', 'live', 'draft', 'ready', 'to finish'];
+/** A stop's standing in the words the rail shows. */
+export const standingLabel = (standing: RailStanding): string => {
+  switch (standing.kind) {
+    case 'needs_you':
+      return standing.count === 1
+        ? '1 needs you'
+        : `${standing.count} need you`;
+    case 'unfinished':
+      return `${standing.count} to finish`;
+    case 'note':
+      return standing.text;
+    case 'live':
+    case 'draft':
+    case 'ready':
+    case 'done':
+      return standing.kind;
+  }
+};
+
+const urgency: readonly RailStanding['kind'][] = [
+  'needs_you',
+  'live',
+  'draft',
+  'ready',
+  'unfinished',
+];
 
 /**
  * Where a host lands on opening a tournament: the stop that most wants them,
@@ -167,7 +205,7 @@ export function landingStop(rail: TimelineRail): string | null {
     (item) => item.action !== null && item.action.href !== null,
   );
   const wanted = urgency
-    .map((word) => open.find((item) => item.note?.includes(word)))
+    .map((kind) => open.find((item) => item.standing?.kind === kind))
     .find((item) => item !== undefined);
   return (wanted ?? open[0])?.action?.href ?? null;
 }

@@ -107,7 +107,9 @@ export function LeagueLobby({ lobby }: { readonly lobby: Read }) {
       <PageHeader
         title={lobby.name}
         lede={lobby.lede}
-        actions={<ActionButton action={lobby.create} />}
+        actions={
+          lobby.create === null ? null : <ActionButton action={lobby.create} />
+        }
       />
       <TabLinks label="League" tabs={lobby.tabs} />
       <Panel panel={lobby.panel} />

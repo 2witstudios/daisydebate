@@ -6,9 +6,12 @@ setupRitewayBun();
 
 const stop = (
   id: string,
-  note: string | null,
+  standing: RailItem['standing'],
   action: RailItem['action'],
-): RailItem => ({ id, label: id, time: null, note, action });
+): RailItem => ({ id, label: id, time: null, standing, action });
+const done = { kind: 'done' } as const;
+const draft = { kind: 'draft' } as const;
+const needsYou = { kind: 'needs_you', count: 2 } as const;
 const rail = (items: readonly RailItem[]): TimelineRail => ({
   title: 'T',
   subtitle: null,
@@ -27,26 +30,45 @@ describe('landingStop', () => {
       actual: [
         landingStop(
           rail([
-            stop('setup', 'done', linkTo('Setup', '/setup')),
-            stop('4', 'draft', linkTo('4', '/4')),
-            stop('3', '2 need you', linkTo('3', '/3')),
+            stop('setup', done, linkTo('Setup', '/setup')),
+            stop('4', draft, linkTo('4', '/4')),
+            stop('3', needsYou, linkTo('3', '/3')),
           ]),
         ),
         landingStop(
           rail([
-            stop('setup', 'done', linkTo('Setup', '/setup')),
-            stop('4', 'draft', linkTo('4', '/4')),
+            stop('setup', done, linkTo('Setup', '/setup')),
+            stop('4', draft, linkTo('4', '/4')),
           ]),
         ),
         landingStop(
           rail([
-            stop('entries', 'need you', sampleAction('Entries')),
-            stop('setup', 'done', linkTo('Setup', '/setup')),
+            stop('entries', needsYou, sampleAction('Entries')),
+            stop('setup', done, linkTo('Setup', '/setup')),
           ]),
         ),
         landingStop(rail([stop('results', null, null)])),
       ],
       expected: ['/3', '/4', '/setup', null],
+    });
+  });
+
+  test('a stop whose words only sound urgent', () => {
+    assert({
+      given:
+        'a stop whose note says "delivered" and "ready by 10:00", ahead of a draft',
+      should: 'land on the draft: routing never reads the words on the rail',
+      actual: landingStop(
+        rail([
+          stop(
+            'posted',
+            { kind: 'note', text: 'delivered, ready by 10:00' },
+            linkTo('Posted', '/posted'),
+          ),
+          stop('4', draft, linkTo('4', '/4')),
+        ]),
+      ),
+      expected: '/4',
     });
   });
 });

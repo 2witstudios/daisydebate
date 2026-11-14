@@ -9,9 +9,9 @@ import { ListCard, ListHeading } from '../list-card/list-card';
 
 /** What stands at the end of a speaker's line: their time, or where they are. */
 export const speakerStatus = (speaker: SectionSpeaker): string | null => {
-  switch (speaker.state) {
+  switch (speaker.standing.kind) {
     case 'done':
-      return speaker.time;
+      return speaker.standing.time;
     case 'speaking':
       return 'speaking';
     case 'preparing':
@@ -76,7 +76,7 @@ export function LiveSection({ section }: { readonly section: Read }) {
                 className={cn(
                   'flex items-center gap-4 border-b border-border px-4 py-3 last:border-b-0',
                   speaker.you && 'bg-surface-sunken',
-                  (speaker.you || speaker.state === 'speaking') &&
+                  (speaker.you || speaker.standing.kind === 'speaking') &&
                     'font-strong',
                 )}
               >

@@ -43,7 +43,9 @@ export function HostStandings({
           </Fragment>
         ))}
         . {sentence(sourceLabel(table.tiebreaks))}
-        {table.tiebreaks.locked ? '; it can\u2019t be changed here.' : '.'}
+        {table.tiebreaks.control.kind === 'locked'
+          ? '; it can\u2019t be changed here.'
+          : '.'}
       </p>
       <StandingsTable table={table} />
       <p className="text-sm text-ink-muted">

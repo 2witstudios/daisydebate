@@ -30,7 +30,8 @@ export type BallotDefinition = {
   readonly written: {
     readonly reason: WrittenRule;
     readonly feedback: WrittenRule;
-    readonly privateNote: WrittenRule;
+    /** Never required: a judge may have nothing to tell tab. */
+    readonly privateNote: Exclude<WrittenRule, 'required'>;
   };
 };
 
@@ -130,9 +131,15 @@ export function applyBallotOption(
       };
     case 'reason':
     case 'feedback':
-    case 'privateNote':
       return isWrittenRule(value)
         ? { ...definition, written: { ...definition.written, [id]: value } }
+        : definition;
+    case 'privateNote':
+      return value === 'optional' || value === 'off'
+        ? {
+            ...definition,
+            written: { ...definition.written, privateNote: value },
+          }
         : definition;
     // Screening decides what is held back from release, never what a judge is asked.
     case 'screening':

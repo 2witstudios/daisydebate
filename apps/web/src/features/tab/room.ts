@@ -51,8 +51,10 @@ export type WaitingRoom = {
 export type SectionSpeaker = {
   readonly name: string;
   readonly school: string | null;
-  readonly state: 'done' | 'speaking' | 'preparing' | 'waiting';
-  readonly time: string | null;
+  /** Where they are in the order; a finished speaker carries their time. */
+  readonly standing:
+    | { readonly kind: 'done'; readonly time: string }
+    | { readonly kind: 'speaking' | 'preparing' | 'waiting' };
   readonly you: boolean;
 };
 

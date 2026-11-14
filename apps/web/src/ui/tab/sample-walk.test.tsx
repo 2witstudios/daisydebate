@@ -182,10 +182,8 @@ describe('the sample tournament', () => {
         label: 'Tiebreaks',
         value: 'Wins',
         source: { scope: 'daisy', name: 'Daisy' },
-        hold: 'default',
-        locked: false,
+        control: { kind: 'open', hold: 'default', edit: null },
         attention: null,
-        edit: null,
       },
       tiebreakOrder: ['wins'],
       rows: [

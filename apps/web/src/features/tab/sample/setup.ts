@@ -1,6 +1,10 @@
 import { choice, linkTo, sampleAction, type TabAction } from '../action';
 import { hostRoutes } from '../routes';
-import type { ResolvedSetting, SettingScope } from '../settings';
+import {
+  openSetting,
+  type ResolvedSetting,
+  type SettingScope,
+} from '../settings';
 import type { TournamentSetup } from '../setup';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY, varsitySwitch } from './moment';
 import type { SampleScene } from './scene';
@@ -12,29 +16,20 @@ const setting = (
   keys: readonly string[],
   label: string,
   value: string,
-  scope: SettingScope,
+  scope: Exclude<SettingScope, 'organization'>,
   edit: TabAction | null = change,
   attention: string | null = null,
-): ResolvedSetting => {
-  const enforced = scope === 'organization';
-  return {
-    keys,
-    label,
-    value,
-    source: {
-      scope,
-      name: enforced
-        ? LEAGUE_NAME
-        : scope === 'event'
-          ? 'Varsity debate'
-          : 'Autumn Open',
-    },
-    hold: enforced ? 'enforced' : 'default',
-    locked: enforced,
-    attention,
-    edit: enforced ? null : edit,
-  };
-};
+): ResolvedSetting => ({
+  keys,
+  label,
+  value,
+  source: {
+    scope,
+    name: scope === 'event' ? 'Varsity debate' : 'Autumn Open',
+  },
+  control: openSetting(edit),
+  attention,
+});
 
 export function sampleSetup(
   slug: string,
@@ -124,12 +119,10 @@ export function sampleSetup(
         label: 'Counts for',
         value: LEAGUE_NAME,
         source: { scope: 'lobby', name: 'Autumn Open' },
-        hold: 'default',
-        locked: false,
+        control: openSetting(before ? sampleAction('View request') : null),
         attention: before
           ? 'sanction requested 2 days ago, not yet answered'
           : null,
-        edit: before ? sampleAction('View request') : null,
       },
     ],
     pairing: {

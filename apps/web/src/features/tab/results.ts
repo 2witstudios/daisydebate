@@ -5,14 +5,14 @@ import type { SampleScene } from './sample/scene';
 export type BracketSide = {
   readonly seed: number;
   readonly name: string;
-  /** Ballots won, once the fixture has a result. */
-  readonly ballots: number | null;
-  readonly won: boolean;
 };
 
 export type BracketTie = {
   readonly top: BracketSide;
   readonly bottom: BracketSide;
+  /** Ballots each side won, once the fixture has a result. The panel is odd,
+   * so the side with more ballots won. */
+  readonly result: { readonly top: number; readonly bottom: number } | null;
   readonly room: string | null;
   readonly watch: TabAction | null;
 };
@@ -44,9 +44,15 @@ export type CertifyCheck = {
   readonly action: TabAction | null;
 };
 
+/** Where certifying the event stands for this host. */
+export type Certification =
+  | { readonly kind: 'blocked'; readonly reason: string }
+  | { readonly kind: 'ready'; readonly certify: TabAction }
+  | { readonly kind: 'certified'; readonly at: string };
+
 export type EventResults = {
   readonly lede: string;
-  readonly certify: { readonly label: string; readonly blocked: boolean };
+  readonly certification: Certification;
   readonly bracket: Bracket;
   readonly audiencesHeading: string;
   readonly audiences: readonly AudienceOpening[];

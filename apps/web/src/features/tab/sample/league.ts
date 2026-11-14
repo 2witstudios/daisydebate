@@ -7,18 +7,24 @@ import type {
   SeasonRow,
 } from '../league';
 import { hostRoutes, tabRoutes, type LeagueTab } from '../routes';
-import type { ResolvedSetting, SettingScope } from '../settings';
-import type { RailItem, TimelineRail } from '../tournament';
+import {
+  lockedSetting,
+  openSetting,
+  type ResolvedSetting,
+  type SettingScope,
+} from '../settings';
+import type { RailItem, RailStanding, TimelineRail } from '../tournament';
 import { AUTUMN, LEAGUE, LEAGUE_NAME, reached, WINTER } from './moment';
+import { done, said } from './rail';
 import type { SampleScene } from './scene';
 import { sampleTournaments } from './tournament';
 
 const stop = (
   id: string,
   label: string,
-  note: string | null,
+  standing: RailStanding | null,
   action: TabAction | null,
-): RailItem => ({ id, label, time: null, note, action });
+): RailItem => ({ id, label, time: null, standing, action });
 
 export function sampleLeagueRail(
   slug: string,
@@ -34,31 +40,31 @@ export function sampleLeagueRail(
       stop(
         'september-opener',
         'September Opener',
-        'done',
+        done,
         sampleAction('September Opener'),
       ),
       stop(
         AUTUMN,
         'Autumn Open',
-        reached(scene, 'finished') ? 'done' : 'today',
+        reached(scene, 'finished') ? done : said('today'),
         linkTo('Autumn Open', hostRoutes.tournament(AUTUMN)),
       ),
       stop(
         'ridgeview-invitational',
         'Ridgeview Invitational',
-        'asks to count',
+        said('asks to count'),
         linkTo('Ridgeview Invitational', hostRoutes.league(LEAGUE)),
       ),
       stop(
         WINTER,
         'Winter Classic',
-        '12 Dec',
+        said('12 Dec'),
         linkTo('Winter Classic', hostRoutes.tournament(WINTER)),
       ),
       stop(
         'championship',
         'Championship',
-        'March',
+        said('March'),
         sampleAction('Championship'),
       ),
     ],
@@ -83,7 +89,7 @@ const setting = (
   keys: readonly string[],
   label: string,
   value: string,
-  hold: ResolvedSetting['hold'],
+  hold: 'default' | 'enforced',
   scope: SettingScope = 'template',
   edit: TabAction | null = null,
 ): ResolvedSetting => ({
@@ -94,10 +100,8 @@ const setting = (
     scope,
     name: scope === 'template' ? 'the Varsity debate template' : LEAGUE_NAME,
   },
-  hold,
-  locked: false,
+  control: openSetting(edit, hold),
   attention: null,
-  edit,
 });
 
 const season: readonly SeasonRow[] = [
@@ -310,16 +314,21 @@ function panelOf(tab: LeagueTab): LeaguePanel {
   }
 }
 
+/** Everyone signed in is a member of the sample league; a visitor is not. */
+const isMember = (scene: SampleScene): boolean => scene.viewer !== 'visitor';
+
 export function sampleLeagueLobby(
   slug: string,
   tab: LeagueTab,
-  _scene: SampleScene,
+  scene: SampleScene,
 ): LeagueLobby | null {
   if (slug !== LEAGUE) return null;
   return {
     name: LEAGUE_NAME,
     lede: 'League rating 1548 · 31st of 148',
-    create: linkTo('New room', tabRoutes.newLeagueRoom(LEAGUE), true),
+    create: isMember(scene)
+      ? linkTo('New room', tabRoutes.newLeagueRoom(LEAGUE), true)
+      : null,
     tabs: tabs.map(([id, label]) => ({
       id,
       label,
@@ -332,12 +341,16 @@ export function sampleLeagueLobby(
 
 export function sampleCreateRoom(
   slug: string,
-  _scene: SampleScene,
+  scene: SampleScene,
 ): CreateRoom | null {
-  if (slug !== LEAGUE) return null;
-  const enforced = (keys: readonly string[], label: string, value: string) => ({
+  if (slug !== LEAGUE || !isMember(scene)) return null;
+  const enforced = (
+    keys: readonly string[],
+    label: string,
+    value: string,
+  ): ResolvedSetting => ({
     ...setting(keys, label, value, 'enforced'),
-    locked: true,
+    control: lockedSetting,
   });
   return {
     lobby: { name: LEAGUE_NAME, href: tabRoutes.league(LEAGUE) },

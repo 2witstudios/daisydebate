@@ -1,5 +1,5 @@
 import { sampleAction } from '../action';
-import type { ResolvedSetting } from '../settings';
+import { lockedSetting, type ResolvedSetting } from '../settings';
 import type { StandingRow, StandingsTable } from '../standings';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import type { SampleScene } from './scene';
@@ -31,10 +31,8 @@ export const tiebreaks: ResolvedSetting = {
   label: 'Tiebreaks',
   value: "Wins, speaker points, opponents' wins, rating",
   source: { scope: 'organization', name: LEAGUE_NAME },
-  hold: 'enforced',
-  locked: true,
+  control: lockedSetting,
   attention: null,
-  edit: null,
 };
 
 const rows = [

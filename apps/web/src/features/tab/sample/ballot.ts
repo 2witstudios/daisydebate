@@ -5,7 +5,7 @@ import type {
   JudgeBallot,
 } from '../ballot-definition';
 import { hostRoutes } from '../routes';
-import type { ResolvedSetting } from '../settings';
+import { lockedSetting, type ResolvedSetting } from '../settings';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY, varsitySwitch } from './moment';
 import type { SampleScene } from './scene';
 
@@ -55,10 +55,8 @@ const locked = (
   label,
   value,
   source: { scope: 'organization', name: LEAGUE_NAME },
-  hold: 'enforced',
-  locked: true,
+  control: lockedSetting,
   attention: null,
-  edit: null,
 });
 
 const written = [
@@ -259,9 +257,11 @@ const ballots: Readonly<Record<string, JudgeBallot>> = {
   },
 };
 
+/** A ballot answers for the judge of its Room and for nobody else. */
 export const sampleJudgeBallot = (
   room: string,
-  _scene: SampleScene,
-): JudgeBallot | null => ballots[room] ?? null;
+  scene: SampleScene,
+): JudgeBallot | null =>
+  scene.viewer === 'judge' ? (ballots[room] ?? null) : null;
 
 export const sampleBallotRooms = Object.keys(ballots);

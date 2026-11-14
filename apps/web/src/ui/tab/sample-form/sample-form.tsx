@@ -10,9 +10,10 @@ import {
 export type SampleSubmit = (label: string) => FormStateAction;
 
 /**
- * A form with no operation behind it yet. It is still a real POST to a
- * server action, so nothing typed can leak into the address before
- * hydration; the action saves nothing and answers with the sample banner.
+ * A Tab form a server component can render: a real POST to a server action,
+ * so nothing typed can leak into the address before hydration. Most have no
+ * operation behind them yet, and their action saves nothing and answers with
+ * the sample banner; the walk form's action keeps the chosen scene.
  */
 export function SampleForm({
   action,

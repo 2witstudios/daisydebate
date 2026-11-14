@@ -1,16 +1,24 @@
 import { linkTo, sampleAction, type TabAction } from '../action';
 import { hostRoutes } from '../routes';
-import type { RailItem, TimelineRail } from '../tournament';
+import type { RailItem, RailStanding, TimelineRail } from '../tournament';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY, WINTER } from './moment';
 import type { SampleScene } from './scene';
+
+/** A count, a start time or a word that asks nothing of the host. */
+export const said = (text: string): RailStanding => ({ kind: 'note', text });
+export const done: RailStanding = { kind: 'done' };
+const needsYou = (count: number): RailStanding => ({
+  kind: 'needs_you',
+  count,
+});
 
 const stop = (
   id: string,
   label: string,
-  note: string | null,
+  standing: RailStanding | null,
   action: TabAction | null,
   time: string | null = null,
-): RailItem => ({ id, label, time, note, action });
+): RailItem => ({ id, label, time, standing, action });
 
 const to = (label: string, href: string) => linkTo(label, href);
 
@@ -28,10 +36,10 @@ function autumnRail(scene: SampleScene): TimelineRail {
     null,
     to('People', hostRoutes.people(AUTUMN)),
   );
-  const head = (setupNote: string, entryNote: string) => [
-    stop('setup', 'Setup', setupNote, setup),
-    stop('events', 'Events and schedule', '3', events),
-    stop('entries', 'Entries', entryNote, entries),
+  const head = (setupStanding: RailStanding, entryCount: number) => [
+    stop('setup', 'Setup', setupStanding, setup),
+    stop('events', 'Events and schedule', said('3'), events),
+    stop('entries', 'Entries', said(String(entryCount)), entries),
   ];
   const foot = [
     stop(
@@ -52,12 +60,12 @@ function autumnRail(scene: SampleScene): TimelineRail {
     return {
       ...title,
       items: [
-        ...head('2 to finish', '31'),
-        stop('round-1', 'Round 1', '10:00', null),
-        stop('round-2', 'Round 2', '11:40', null),
-        stop('round-3', 'Round 3', '13:20', null),
-        stop('round-4', 'Round 4', '15:00', null),
-        stop('break', 'Break', '16:45', null),
+        ...head({ kind: 'unfinished', count: 2 }, 31),
+        stop('round-1', 'Round 1', said('10:00'), null),
+        stop('round-2', 'Round 2', said('11:40'), null),
+        stop('round-3', 'Round 3', said('13:20'), null),
+        stop('round-4', 'Round 4', said('15:00'), null),
+        stop('break', 'Break', said('16:45'), null),
         stop('results', 'Results', null, null),
       ],
       foot: [people],
@@ -66,25 +74,25 @@ function autumnRail(scene: SampleScene): TimelineRail {
     return {
       ...title,
       items: [
-        ...head('done', '48'),
-        stop('round-1', 'Round 1', 'done', round('1')),
-        stop('round-2', 'Round 2', 'done', round('2')),
-        stop('round-3', 'Round 3', '2 need you', round('3')),
-        stop('round-4', 'Round 4', 'draft', round('4')),
+        ...head(done, 48),
+        stop('round-1', 'Round 1', done, round('1')),
+        stop('round-2', 'Round 2', done, round('2')),
+        stop('round-3', 'Round 3', needsYou(2), round('3')),
+        stop('round-4', 'Round 4', { kind: 'draft' }, round('4')),
         stop('break', 'Break', null, standings),
         // Results open once the break is announced and there is a bracket.
         stop('results', 'Results', null, null),
       ],
       foot,
     };
-  const prelims = stop('round-4', 'Rounds 1 to 4', 'done', round('4'));
+  const prelims = stop('round-4', 'Rounds 1 to 4', done, round('4'));
   if (!reached(scene, 'elims'))
     return {
       ...title,
       items: [
-        ...head('done', '48'),
+        ...head(done, 48),
         prelims,
-        stop('break', 'Break', 'ready', standings),
+        stop('break', 'Break', { kind: 'ready' }, standings),
         // Results open once the break is announced and there is a bracket.
         stop('results', 'Results', null, null),
       ],
@@ -94,13 +102,18 @@ function autumnRail(scene: SampleScene): TimelineRail {
   return {
     ...title,
     items: [
-      ...head('done', '48'),
+      ...head(done, 48),
       prelims,
-      stop('break', 'Break', 'announced', standings),
-      stop('quarterfinals', 'Quarterfinals', 'done', results),
-      stop('semifinals', 'Semifinals', finished ? 'done' : 'live', results),
-      stop('final', 'Final', finished ? 'done' : null, results),
-      stop('results', 'Results', finished ? 'certified' : null, results),
+      stop('break', 'Break', said('announced'), standings),
+      stop('quarterfinals', 'Quarterfinals', done, results),
+      stop(
+        'semifinals',
+        'Semifinals',
+        finished ? done : { kind: 'live' },
+        results,
+      ),
+      stop('final', 'Final', finished ? done : null, results),
+      stop('results', 'Results', finished ? said('certified') : null, results),
     ],
     foot,
   };
@@ -116,11 +129,11 @@ const winterSlots = [
   ['1800', '18:00', 'Debate breaks'],
 ] as const;
 
-const winterNotes: Readonly<Record<string, string>> = {
-  '0900': 'done',
-  '1030': 'done',
-  '1200': '3 need you',
-  '1330': 'drawn',
+const winterStandings: Readonly<Record<string, RailStanding>> = {
+  '0900': done,
+  '1030': done,
+  '1200': needsYou(3),
+  '1330': said('drawn'),
 };
 
 function winterRail(scene: SampleScene): TimelineRail {
@@ -131,24 +144,24 @@ function winterRail(scene: SampleScene): TimelineRail {
     heading: null,
     footHeading: null,
     items: [
-      stop('setup', 'Setup', 'done', sampleAction('Setup')),
+      stop('setup', 'Setup', done, sampleAction('Setup')),
       stop(
         'events',
         'Events and schedule',
-        '8',
+        said('8'),
         to('Events and schedule', hostRoutes.events(WINTER)),
       ),
       stop(
         'entries',
         'Entries',
-        running ? '213' : 'opens 1 Dec',
+        said(running ? '213' : 'opens 1 Dec'),
         sampleAction('Entries'),
       ),
       ...winterSlots.map(([id, time, label]) =>
         stop(
           `slot-${id}`,
           label,
-          running ? (winterNotes[id] ?? null) : null,
+          running ? (winterStandings[id] ?? null) : null,
           id === '1200' && running
             ? to(label, hostRoutes.slot(WINTER, id))
             : running

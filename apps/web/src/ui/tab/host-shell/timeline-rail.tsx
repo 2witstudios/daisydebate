@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import type {
-  RailItem,
-  TimelineRail as Rail,
+import {
+  standingLabel,
+  type RailItem,
+  type TimelineRail as Rail,
 } from '../../../features/tab/tournament';
 import { cn } from '../../cn';
 import { SampleAction } from '../../components/sample-action/sample-action';
@@ -24,7 +25,9 @@ function Stop({
         )}
         <span>{item.label}</span>
       </span>
-      {item.note === null ? null : <span className="text-sm">{item.note}</span>}
+      {item.standing === null ? null : (
+        <span className="text-sm">{standingLabel(item.standing)}</span>
+      )}
     </>
   );
   if (item.action === null)

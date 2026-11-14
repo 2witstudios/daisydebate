@@ -32,12 +32,12 @@ export function SettingRow({
         </>
       }
       trailing={
-        setting.locked ? (
+        setting.control.kind === 'locked' ? (
           <span className="text-sm text-ink-muted">Locked</span>
-        ) : setting.edit === null ? null : selected ? (
+        ) : setting.control.edit === null ? null : selected ? (
           <span className="text-sm font-strong">Open</span>
         ) : (
-          <ActionLink action={setting.edit} about={setting.label} />
+          <ActionLink action={setting.control.edit} about={setting.label} />
         )
       }
     />

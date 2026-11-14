@@ -15,27 +15,28 @@ export const stageHeading = (stage: BracketStage): string =>
       ? stage.name
       : `${stage.name} · ${stage.time}`;
 
+/** One side of a fixture, with its ballots against the other's once decided. */
 function Side({
   side,
-  other,
+  score,
 }: {
   readonly side: BracketSide;
-  readonly other: BracketSide;
+  readonly score: { readonly own: number; readonly other: number } | null;
 }) {
   return (
     <div
       className={cn(
         'flex justify-between gap-3 px-3 py-2 text-sm',
-        side.won && 'font-strong',
-        side.ballots !== null && !side.won && 'text-ink-muted',
+        score !== null &&
+          (score.own > score.other ? 'font-strong' : 'text-ink-muted'),
       )}
     >
       <span>
         <span className="tabular-nums">{side.seed}</span> {side.name}
       </span>
-      {side.ballots === null || other.ballots === null ? null : (
+      {score === null ? null : (
         <span className="tabular-nums">
-          {side.ballots}-{other.ballots}
+          {score.own}-{score.other}
         </span>
       )}
     </div>
@@ -64,9 +65,23 @@ export function Bracket({ bracket }: { readonly bracket: Read }) {
                   stage.state === 'live' ? 'border-ink' : 'border-border',
                 )}
               >
-                <Side side={tie.top} other={tie.bottom} />
+                <Side
+                  side={tie.top}
+                  score={
+                    tie.result === null
+                      ? null
+                      : { own: tie.result.top, other: tie.result.bottom }
+                  }
+                />
                 <div className="border-t border-border">
-                  <Side side={tie.bottom} other={tie.top} />
+                  <Side
+                    side={tie.bottom}
+                    score={
+                      tie.result === null
+                        ? null
+                        : { own: tie.result.bottom, other: tie.result.top }
+                    }
+                  />
                 </div>
                 {tie.room === null ? null : (
                   <p className="flex justify-between gap-3 border-t border-border px-3 py-2 text-sm text-ink-muted">

@@ -8,23 +8,32 @@ import type {
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import type { SampleScene } from './scene';
 
-const side = (
-  seed: number,
-  name: string,
-  ballots: number | null = null,
-  won = false,
-): BracketSide => ({ seed, name, ballots, won });
+const side = (seed: number, name: string): BracketSide => ({ seed, name });
 
-const tie = (
+/** A decided fixture, by the ballots each side won. */
+const decided = (
   top: BracketSide,
+  topBallots: number,
   bottom: BracketSide,
-  room: string | null = null,
-  live = false,
+  bottomBallots: number,
 ): BracketTie => ({
   top,
   bottom,
+  result: { top: topBallots, bottom: bottomBallots },
+  room: null,
+  watch: null,
+});
+
+const live = (
+  top: BracketSide,
+  bottom: BracketSide,
+  room: string,
+): BracketTie => ({
+  top,
+  bottom,
+  result: null,
   room,
-  watch: live ? sampleAction('Watch') : null,
+  watch: sampleAction('Watch'),
 });
 
 export function sampleBracket(
@@ -42,10 +51,10 @@ export function sampleBracket(
         state: 'done',
         time: null,
         ties: [
-          tie(side(1, 'Jensen', 3, true), side(8, 'Sato', 0)),
-          tie(side(4, 'Amari', 1), side(5, 'Doyle', 2, true)),
-          tie(side(2, 'Castillo', 3, true), side(7, 'Wu', 0)),
-          tie(side(3, 'Okafor', 2, true), side(6, 'Haddad', 1)),
+          decided(side(1, 'Jensen'), 3, side(8, 'Sato'), 0),
+          decided(side(4, 'Amari'), 1, side(5, 'Doyle'), 2),
+          decided(side(2, 'Castillo'), 3, side(7, 'Wu'), 0),
+          decided(side(3, 'Okafor'), 2, side(6, 'Haddad'), 1),
         ],
         note: null,
       },
@@ -55,12 +64,12 @@ export function sampleBracket(
         time: null,
         ties: finished
           ? [
-              tie(side(1, 'Jensen', 2, true), side(5, 'Doyle', 1)),
-              tie(side(2, 'Castillo', 1), side(3, 'Okafor', 2, true)),
+              decided(side(1, 'Jensen'), 2, side(5, 'Doyle'), 1),
+              decided(side(2, 'Castillo'), 1, side(3, 'Okafor'), 2),
             ]
           : [
-              tie(side(1, 'Jensen'), side(5, 'Doyle'), 'Room 1', true),
-              tie(side(2, 'Castillo'), side(3, 'Okafor'), 'Room 2', true),
+              live(side(1, 'Jensen'), side(5, 'Doyle'), 'Room 1'),
+              live(side(2, 'Castillo'), side(3, 'Okafor'), 'Room 2'),
             ],
         note: null,
       },
@@ -69,7 +78,7 @@ export function sampleBracket(
         state: finished ? 'done' : 'upcoming',
         time: finished ? null : '18:30',
         ties: finished
-          ? [tie(side(1, 'Jensen', 4, true), side(3, 'Okafor', 1))]
+          ? [decided(side(1, 'Jensen'), 4, side(3, 'Okafor'), 1)]
           : [],
         note: finished
           ? null
@@ -88,12 +97,11 @@ export function sampleEventResults(
   const finished = reached(scene, 'finished');
   return {
     lede: finished
-      ? `Certified at 19:40. ${LEAGUE_NAME} has the results.`
+      ? `${LEAGUE_NAME} has the results.`
       : 'Prelims certified at 16:52. Elimination rounds are still running.',
-    certify: {
-      label: finished ? 'Certified' : 'Certify the event',
-      blocked: true,
-    },
+    certification: finished
+      ? { kind: 'certified', at: '19:40' }
+      : { kind: 'blocked', reason: 'The semifinals and the final still run.' },
     bracket,
     audiencesHeading: 'Who can see prelim ballots',
     audiences: [

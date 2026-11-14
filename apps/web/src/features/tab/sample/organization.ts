@@ -3,6 +3,7 @@ import type { HostHome, People } from '../organization';
 import type { TimelineRail } from '../tournament';
 import { hostRoutes } from '../routes';
 import { AUTUMN, LEAGUE, LEAGUE_NAME, reached, WINTER } from './moment';
+import { done, said } from './rail';
 import type { SampleScene } from './scene';
 
 export function sampleHostHome(scene: SampleScene): HostHome {
@@ -185,21 +186,21 @@ export function sampleHostRail(scene: SampleScene): TimelineRail {
         id: AUTUMN,
         label: 'Autumn Open',
         time: null,
-        note: reached(scene, 'finished') ? 'done' : 'today',
+        standing: reached(scene, 'finished') ? done : said('today'),
         action: linkTo('Autumn Open', hostRoutes.tournament(AUTUMN)),
       },
       {
         id: 'friday-scrimmage',
         label: 'Friday scrimmage',
         time: null,
-        note: '20 Nov',
+        standing: said('20 Nov'),
         action: sampleAction('Friday scrimmage'),
       },
       {
         id: WINTER,
         label: 'Winter Classic',
         time: null,
-        note: '12 Dec',
+        standing: said('12 Dec'),
         action: linkTo('Winter Classic', hostRoutes.tournament(WINTER)),
       },
     ],
@@ -209,7 +210,7 @@ export function sampleHostRail(scene: SampleScene): TimelineRail {
         id: LEAGUE,
         label: LEAGUE_NAME,
         time: null,
-        note: null,
+        standing: null,
         action: linkTo(LEAGUE_NAME, hostRoutes.league(LEAGUE)),
       },
     ],

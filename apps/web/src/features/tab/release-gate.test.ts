@@ -45,6 +45,34 @@ describe('the Tab release', () => {
     });
   });
 
+  test('every Tab page rechecks the release itself', () => {
+    const sceneRead = readFileSync(
+      join(import.meta.dir, 'sample/request-scene.ts'),
+      'utf8',
+    );
+    const pages = groups.flatMap((group) =>
+      [...new Glob(`${group}/**/page.tsx`).scanSync(app)].filter(
+        (page) =>
+          !/requestSampleScene\(|requireGrant\(/.test(
+            readFileSync(join(app, page), 'utf8'),
+          ),
+      ),
+    );
+    assert({
+      given:
+        'a layout that is not run again when someone moves between its pages',
+      should:
+        'have every page read its scene, and the scene read refuse first while the release is closed',
+      actual: [
+        /Promise<SampleScene> \{\n\s+await requireTabRelease\(\);/.test(
+          sceneRead,
+        ),
+        pages,
+      ],
+      expected: [true, []],
+    });
+  });
+
   test('the tournaments page keeps its answer while the release is closed', () => {
     assert({
       given: 'the tournaments page source',

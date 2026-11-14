@@ -1,4 +1,5 @@
 import type { HostLeague as Read } from '../../../features/tab/league';
+import { holdLabel } from '../../../features/tab/settings';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ActionButton, ActionLink } from '../action-control/action-control';
@@ -63,7 +64,7 @@ export function HostLeague({
                 detail={setting.value}
                 trailing={
                   <span className="text-sm text-ink-muted">
-                    {setting.hold === 'enforced' ? 'Enforced' : 'Default'}
+                    {holdLabel(setting)}
                   </span>
                 }
               />
