@@ -1,5 +1,9 @@
 import type { TabAction } from './action';
-import { sampleMinorAccount, sampleTournamentRequest } from './sample/guardian';
+import {
+  sampleFamily,
+  sampleMinorAccount,
+  sampleTournamentRequest,
+} from './sample/guardian';
 import type { SampleScene } from './sample/scene';
 
 /** A lobby a guardian may allow a minor to see and join. */
@@ -40,6 +44,34 @@ export type TournamentRequest = {
   readonly decline: TabAction;
   readonly declineNote: string;
 };
+
+/** An entry of a minor's, as their guardian sees it from the family page. */
+export type FamilyEntry = {
+  readonly tournament: string;
+  readonly detail: string;
+  /** Null while the entry waits for the guardian to allow its tournament. */
+  readonly open: TabAction | null;
+};
+
+export type FamilyMinor = {
+  readonly name: string;
+  readonly detail: string;
+  readonly account: TabAction;
+  readonly entries: readonly FamilyEntry[];
+};
+
+/** A guardian's family: what waits for them, then each minor and their entries. */
+export type Family = {
+  readonly waiting: readonly {
+    readonly title: string;
+    readonly detail: string;
+    readonly review: TabAction;
+  }[];
+  readonly minors: readonly FamilyMinor[];
+};
+
+export const readFamily = (scene: SampleScene): Family | null =>
+  sampleFamily(scene);
 
 export const readMinorAccount = (
   minor: string,

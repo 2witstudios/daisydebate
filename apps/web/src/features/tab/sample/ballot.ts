@@ -6,8 +6,9 @@ import type {
 } from '../ballot-definition';
 import { hostRoutes } from '../routes';
 import { lockedSetting, type ResolvedSetting } from '../settings';
-import { AUTUMN, LEAGUE_NAME, reached, VARSITY, varsitySwitch } from './moment';
+import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import { own } from './own';
+import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
 
 const varsity: BallotDefinition = {
@@ -47,24 +48,15 @@ const fourSides: BallotDefinition = {
   written: { reason: 'required', feedback: 'optional', privateNote: 'off' },
 };
 
-const locked = (
-  key: string,
-  label: string,
-  value: string,
-): ResolvedSetting => ({
-  keys: [key],
+/** One part of the ballot definition the league's template pins. */
+const pinned = (label: string, value: string): ResolvedSetting => ({
+  keys: ['ballot.definition'],
   label,
   value,
   source: { scope: 'organization', name: LEAGUE_NAME },
   control: lockedSetting,
   attention: null,
 });
-
-const written = [
-  { value: 'required', label: 'Required' },
-  { value: 'optional', label: 'Optional' },
-  { value: 'off', label: 'Off' },
-];
 
 export function sampleBallotSettings(
   slug: string,
@@ -73,91 +65,41 @@ export function sampleBallotSettings(
 ): BallotSettings | null {
   if (slug !== AUTUMN || event !== VARSITY) return null;
   return {
-    event: varsitySwitch,
+    event: varsitySwitch(scene),
     setup: linkTo('Setup', hostRoutes.setup(AUTUMN)),
     lede: reached(scene, 'prelims')
-      ? 'Version 2, used in rounds 1 to 3. A change starts with the next draw you publish.'
-      : 'Version 2. A change starts with the next draw you publish.',
-    saveLabel: 'Save as version 3',
-    locked: [
-      locked('ballot.points.scale', 'Point scale', '20 to 30'),
-      locked('ballot.points.step', 'Step', 'Halves'),
-      locked(
-        'ballot.points.low_point_win',
-        'Winner may have fewer points',
-        'No',
-      ),
-    ],
+      ? `Version 2, used in rounds 1 to 3 · pinned by ${LEAGUE_NAME}'s template`
+      : `Version 2 · pinned by ${LEAGUE_NAME}'s template`,
+    saveLabel: 'Save screening',
     sections: [
       {
         heading: 'Points',
-        options: [
-          {
-            id: 'ranks',
-            label: 'Ranks',
-            detail: 'Judges rank the speakers in the room',
-            options: [
-              { value: 'off', label: 'Off' },
-              { value: 'on', label: '1st to last' },
-            ],
-            value: 'off',
-          },
-          {
-            id: 'criteria',
-            label: 'Criteria',
-            detail: 'Scored separately and added up',
-            options: [
-              { value: 'none', label: 'None, one score each' },
-              { value: 'grid', label: 'Argument, evidence, delivery' },
-            ],
-            value: 'none',
-          },
+        locked: [
+          pinned('Point scale', '20 to 30'),
+          pinned('Step', 'Halves'),
+          pinned('Winner may have fewer points', 'No'),
+          pinned('Ranks', 'Off'),
+          pinned('Criteria', 'None, one score each'),
         ],
+        options: [],
       },
       {
         heading: 'Outcomes',
-        options: [
-          {
-            id: 'doubleLoss',
-            label: 'Double loss',
-            detail: 'A judge may give the win to neither side',
-            options: [
-              { value: 'prelims', label: 'Prelims only' },
-              { value: 'never', label: 'Never' },
-              { value: 'any', label: 'Any round' },
-            ],
-            value: 'prelims',
-          },
-        ],
+        locked: [pinned('Double loss', 'Prelims only')],
+        options: [],
       },
       {
         heading: 'Written',
-        options: [
-          {
-            id: 'reason',
-            label: 'Reason for decision',
-            detail: 'Read by both debaters and their coaches',
-            options: written,
-            value: 'required',
-          },
-          {
-            id: 'feedback',
-            label: 'Feedback to each debater',
-            detail: 'Read by that debater and their coach',
-            options: written,
-            value: 'optional',
-          },
-          {
-            id: 'privateNote',
-            label: 'Private note to tab',
-            detail: 'Never released',
-            options: written.filter((option) => option.value !== 'required'),
-            value: 'optional',
-          },
+        locked: [
+          pinned('Reason for decision', 'Required'),
+          pinned('Feedback to each debater', 'Optional'),
+          pinned('Private note to tab', 'Optional'),
         ],
+        options: [],
       },
       {
         heading: 'Screening',
+        locked: [],
         options: [
           {
             id: 'screening',

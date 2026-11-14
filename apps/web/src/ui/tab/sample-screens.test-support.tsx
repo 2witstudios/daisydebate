@@ -12,11 +12,13 @@ import {
 } from '../../features/tab/entries';
 import { readEventsSchedule } from '../../features/tab/events';
 import {
+  readFamily,
   readMinorAccount,
   readTournamentRequest,
 } from '../../features/tab/guardian';
 import {
   readCreateRoom,
+  leagueViewOf,
   readHostLeague,
   readLeagueLobby,
   readLeagueRail,
@@ -29,11 +31,7 @@ import {
 import { readResolutionPool } from '../../features/tab/resolution-pool';
 import { readEventResults } from '../../features/tab/results';
 import { readLiveSection, readRoom } from '../../features/tab/room';
-import {
-  hostRoutes,
-  participantPathOf,
-  type LeagueTab,
-} from '../../features/tab/routes';
+import { hostRoutes, participantPathOf } from '../../features/tab/routes';
 import { holdsGrant, type SampleScene } from '../../features/tab/sample/scene';
 import { readSetup } from '../../features/tab/setup';
 import { readStandings } from '../../features/tab/standings';
@@ -42,13 +40,14 @@ import {
   landingStop,
   readTimelineRail,
   readTournamentPage,
-  readTournaments,
+  readTournamentsIndex,
   type TournamentView,
 } from '../../features/tab/tournament';
 import { readWalk } from '../../features/tab/walk';
 import { BallotSettings } from './ballot-settings/ballot-settings';
 import { DrawBoard } from './draw-board/draw-board';
 import { EventsSchedule } from './events-schedule/events-schedule';
+import { Family } from './guardian/family';
 import { MinorAccount } from './guardian/minor-account';
 import { TournamentRequest } from './guardian/tournament-request';
 import { HostEntries } from './host-entries/host-entries';
@@ -84,13 +83,6 @@ const missing: SampleAnswer = { kind: 'missing' };
 const screen = (element: ReactElement | null): SampleAnswer =>
   element === null ? missing : { kind: 'screen', element };
 
-const leagueTabs: readonly LeagueTab[] = [
-  'rooms',
-  'ladder',
-  'season',
-  'tournaments',
-];
-
 function tournamentScreen(
   slug: string,
   view: TournamentView,
@@ -108,12 +100,7 @@ function participant(
   const [area, id, ...rest] = segments;
   const event = query.get('event');
   if (area === 'tournaments' && id === undefined)
-    return screen(
-      <TournamentsDirectory
-        tournaments={readTournaments(scene)}
-        league={{ name: 'Southeast League', href: '/leagues/southeast' }}
-      />,
-    );
+    return screen(<TournamentsDirectory index={readTournamentsIndex(scene)} />);
   if (area === 'tournaments' && id === 'walk' && rest.length === 0)
     return screen(<Walk walk={readWalk(scene)} choose={submit('Choose')} />);
   if (area === 'tournaments' && id !== undefined) {
@@ -145,8 +132,16 @@ function participant(
   }
   if (area === 'leagues' && id !== undefined) {
     if (rest.length === 0) {
-      const tab = leagueTabs.find((known) => known === query.get('tab'));
-      const lobby = readLeagueLobby(id, tab ?? 'rooms', scene);
+      const lobby = readLeagueLobby(
+        id,
+        leagueViewOf({
+          tab: query.get('tab'),
+          scope: query.get('scope'),
+          search: query.get('q'),
+          event: query.get('event'),
+        }),
+        scene,
+      );
       return screen(lobby && <LeagueLobby lobby={lobby} />);
     }
     if (rest.join('/') === 'rooms/new') {
@@ -171,6 +166,10 @@ function participant(
       return screen(ballot && <JudgeBallot ballot={ballot} submit={submit} />);
     }
     return missing;
+  }
+  if (area === 'family' && id === undefined) {
+    const family = readFamily(scene);
+    return screen(family && <Family family={family} />);
   }
   if (area === 'family' && id !== undefined) {
     if (rest.length === 0) {

@@ -3,6 +3,7 @@ import type { Walk, WalkStep } from '../walk';
 import {
   AUTUMN,
   CHAMPIONSHIP,
+  IMPROMPTU,
   LEAGUE,
   reached,
   SCRIMMAGE,
@@ -32,6 +33,14 @@ function hostSteps(scene: SampleScene): WalkStep[] {
           step(
             drafting ? 'Round 3, running' : 'Round 3',
             hostRoutes.round(AUTUMN, VARSITY, '3'),
+          ),
+        ]
+      : []),
+    ...(prelims
+      ? [
+          step(
+            'A speech event: round 3',
+            hostRoutes.round(AUTUMN, IMPROMPTU, '3'),
           ),
         ]
       : []),
@@ -80,7 +89,12 @@ const ballots = [
 function steps(scene: SampleScene): WalkStep[] {
   const tournaments = [
     step('Tournaments', tabRoutes.tournaments),
-    step('Autumn Open', tabRoutes.tournament(AUTUMN)),
+    step(
+      scene.viewer === 'competitor' && reached(scene, 'finished')
+        ? 'Autumn Open, finished'
+        : 'Autumn Open',
+      tabRoutes.tournament(AUTUMN),
+    ),
   ];
   const posted = reached(scene, 'prelims')
     ? [
@@ -93,6 +107,7 @@ function steps(scene: SampleScene): WalkStep[] {
     step('League lobby', tabRoutes.league(LEAGUE)),
     step('League ladder', tabRoutes.league(LEAGUE, 'ladder')),
     step('Season standings', tabRoutes.league(LEAGUE, 'season')),
+    step('League tournaments', tabRoutes.league(LEAGUE, 'tournaments')),
     step('New room in the league lobby', tabRoutes.newLeagueRoom(LEAGUE)),
   ];
   switch (scene.viewer) {
@@ -138,6 +153,7 @@ function steps(scene: SampleScene): WalkStep[] {
       return [
         ...tournaments,
         step("A family's entries", tabRoutes.entries(AUTUMN)),
+        step('Your family', tabRoutes.family),
         step("A minor's account", tabRoutes.minor('ada')),
         step(
           'Allow a tournament',

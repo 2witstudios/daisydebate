@@ -6,7 +6,7 @@ import { requestSampleScene } from '../../../../features/tab/sample/request-scen
 import { MinorAccount } from '../../../../ui/tab/guardian/minor-account';
 import { sampleSubmit } from '../../sample-submit';
 
-export const metadata: Metadata = { title: 'Your family' };
+export const metadata: Metadata = { title: "A minor's account" };
 
 export default async function Page({
   params,

@@ -10,7 +10,11 @@ export type SettingScope =
  * their value binds the scopes below.
  */
 export type SettingControl =
-  | { readonly kind: 'locked' }
+  | {
+      readonly kind: 'locked';
+      /** Where the whole of a locked value can be read, when it has a page. */
+      readonly view: TabAction | null;
+    }
   | {
       readonly kind: 'open';
       readonly hold: 'default' | 'enforced';
@@ -35,7 +39,13 @@ export type ResolvedSetting = {
   readonly attention: string | null;
 };
 
-export const lockedSetting: SettingControl = { kind: 'locked' };
+export const lockedSetting: SettingControl = { kind: 'locked', view: null };
+
+/** A locked setting whose whole value has a page of its own to read. */
+export const lockedWithView = (view: TabAction): SettingControl => ({
+  kind: 'locked',
+  view,
+});
 
 /** A setting this person holds, as a default unless they enforce it below. */
 export const openSetting = (

@@ -12,10 +12,14 @@ import { ListRow } from '../list-card/list-card';
 export function SettingRow({
   setting,
   selected = false,
+  grouped = false,
 }: {
   readonly setting: ResolvedSetting;
   readonly selected?: boolean;
+  /** Under a heading that already says where the group comes from and that it is locked. */
+  readonly grouped?: boolean;
 }) {
+  if (grouped) return <ListRow title={setting.label} detail={setting.value} />;
   return (
     <ListRow
       title={setting.label}
@@ -33,7 +37,12 @@ export function SettingRow({
       }
       trailing={
         setting.control.kind === 'locked' ? (
-          <span className="text-sm text-ink-muted">Locked</span>
+          <span className="flex items-center gap-3">
+            {setting.control.view === null ? null : (
+              <ActionLink action={setting.control.view} about={setting.label} />
+            )}
+            <span className="text-sm text-ink-muted">Locked</span>
+          </span>
         ) : setting.control.edit === null ? null : selected ? (
           <span className="text-sm font-strong">Open</span>
         ) : (
