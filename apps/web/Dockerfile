@@ -34,6 +34,8 @@ COPY packages/media/package.json packages/media/package.json
 COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
+COPY packages/seeded-random/package.json packages/seeded-random/package.json
+COPY packages/tab-engine/package.json packages/tab-engine/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
 COPY apps/broadcast-worker/package.json apps/broadcast-worker/package.json
 COPY apps/recording-worker/package.json apps/recording-worker/package.json
@@ -88,6 +90,8 @@ COPY packages/media/package.json packages/media/package.json
 COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
+COPY packages/seeded-random/package.json packages/seeded-random/package.json
+COPY packages/tab-engine/package.json packages/tab-engine/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
 COPY apps/broadcast-worker/package.json apps/broadcast-worker/package.json
 COPY apps/recording-worker/package.json apps/recording-worker/package.json
@@ -137,6 +141,8 @@ COPY --chown=daisy:daisy packages/media/src packages/media/src
 COPY --chown=daisy:daisy packages/observability/src packages/observability/src
 COPY --chown=daisy:daisy packages/protocol/src packages/protocol/src
 COPY --chown=daisy:daisy packages/redis/src packages/redis/src
+COPY --chown=daisy:daisy packages/seeded-random/src packages/seeded-random/src
+COPY --chown=daisy:daisy packages/tab-engine/src packages/tab-engine/src
 USER daisy
 
 # ---- realtime: apps/realtime (fly.realtime.toml, ISSUE-528). Built with
