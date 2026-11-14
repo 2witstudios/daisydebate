@@ -5,7 +5,7 @@ import { cn } from '../../cn';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { HostShell } from '../host-shell/host-shell';
 import { eyebrowClass, ListCard, ListRow } from '../list-card/list-card';
 
@@ -89,7 +89,11 @@ export function People({
                 person.owner ? (
                   <span className="text-sm text-ink-muted">Everything</span>
                 ) : person.action === null ? null : (
-                  <ActionLink action={person.action} about={person.name} />
+                  <ActionButton
+                    size="small"
+                    action={person.action}
+                    about={person.name}
+                  />
                 )
               }
             />

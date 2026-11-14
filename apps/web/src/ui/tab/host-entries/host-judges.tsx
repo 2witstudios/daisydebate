@@ -6,7 +6,7 @@ import type {
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { cn } from '../../cn';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { HostShell } from '../host-shell/host-shell';
 import { eyebrowClass } from '../list-card/list-card';
 import { EntriesTabs } from './entries-tabs';
@@ -138,7 +138,7 @@ export function HostJudges({
             {judges.more === null ? null : (
               <tr className="border-t border-border">
                 <td colSpan={columns} className={cell}>
-                  <ActionLink action={judges.more} />
+                  <ActionButton size="small" action={judges.more} />
                 </td>
               </tr>
             )}

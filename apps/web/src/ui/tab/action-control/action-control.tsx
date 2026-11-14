@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { TabAction } from '../../../features/tab/action';
 import { cn } from '../../cn';
 import {
@@ -21,8 +22,9 @@ const nameOf = (action: TabAction, about: string | undefined) =>
 function Control({
   action,
   about,
+  lead,
   className,
-}: ActionProps & { readonly className: string }) {
+}: ActionProps & { readonly className: string; readonly lead?: ReactNode }) {
   const name = nameOf(action, about);
   return action.href === null ? (
     <SampleAction
@@ -30,28 +32,61 @@ function Control({
       className={className}
       {...(name === undefined ? {} : { ariaLabel: name })}
     >
+      {lead}
       {action.label}
     </SampleAction>
   ) : (
     <Link href={action.href} className={className} aria-label={name}>
+      {lead}
       {action.label}
     </Link>
   );
 }
 
-/** A Tab action drawn as a button: a link where there is a page, a sample action where there is not. */
+/** The compact sizes of a Tab button: `row` for row actions, list expanders and header actions, `back` for back links. */
+type CompactSize = 'row' | 'back';
+const compact: Readonly<Record<CompactSize, string>> = {
+  row: 'min-h-11 px-3.5 text-base',
+  back: 'min-h-9 px-3 text-sm',
+};
+
+/**
+ * The app's button at a compact Tab size. The shared button owns its padding
+ * and type size, so they are swapped here rather than overridden, keeping one
+ * value per property on the element.
+ */
+export const compactButtonClass = (
+  variant: ButtonVariant,
+  size: CompactSize,
+): string =>
+  buttonClass(variant)
+    .replace('px-5 py-3', compact[size])
+    .replace(' text-base ', ' ');
+
+/**
+ * A Tab action drawn as a button: a link where there is a page, a sample
+ * action where there is not. Every action is a button (the owner's rule);
+ * `size="small"` is the compact one rows and lists use.
+ */
 export function ActionButton({
   action,
   about,
   variant,
+  size,
   className,
-}: ActionProps & { readonly variant?: ButtonVariant }) {
+}: ActionProps & {
+  readonly variant?: ButtonVariant;
+  readonly size?: 'small';
+}) {
+  const chosen = variant ?? (action.primary ? 'primary' : 'secondary');
   return (
     <Control
       action={action}
       {...(about === undefined ? {} : { about })}
       className={cn(
-        buttonClass(variant ?? (action.primary ? 'primary' : 'secondary')),
+        size === 'small'
+          ? compactButtonClass(chosen, 'row')
+          : buttonClass(chosen),
         'whitespace-nowrap no-underline hover:no-underline',
         className,
       )}
@@ -59,13 +94,81 @@ export function ActionButton({
   );
 }
 
-/** The same action as a text link. */
-export function ActionLink({ action, about, className }: ActionProps) {
+/** The mark an in-sentence link carries, so a test can tell it from an action drawn as a link. */
+export const sentenceLinkMark = 'data-sentence-link';
+
+/**
+ * An action as a text link, only where it reads as part of a sentence
+ * ("Round 3: you won. … Watch it back"). Anywhere else an action is an
+ * `ActionButton`; the walk test fails on an underlined link without this mark.
+ */
+export function SentenceLink({ action, about, className }: ActionProps) {
+  return (
+    <span {...{ [sentenceLinkMark]: '' }} className="contents">
+      <Control
+        action={action}
+        {...(about === undefined ? {} : { about })}
+        className={cn('font-strong text-ink underline', className)}
+      />
+    </span>
+  );
+}
+
+/**
+ * An action that is a row's own title (a name on a ladder opening its
+ * profile): the title in bold ink, not a button and not an underlined link.
+ */
+export function TitleLink({ action, about, className }: ActionProps) {
   return (
     <Control
       action={action}
       {...(about === undefined ? {} : { about })}
-      className={cn('font-strong text-ink underline', className)}
+      className={cn(
+        'font-strong text-ink no-underline hover:underline',
+        className,
+      )}
+    />
+  );
+}
+
+/**
+ * @deprecated An action is a button: use `ActionButton size="small"`, or
+ * `SentenceLink` inside a sentence. Kept, drawn as the small button, until the
+ * screens still importing it move.
+ */
+export function ActionLink({ action, about, className }: ActionProps) {
+  return (
+    <ActionButton
+      action={action}
+      size="small"
+      {...(about === undefined ? {} : { about })}
+      {...(className === undefined ? {} : { className })}
+    />
+  );
+}
+
+/**
+ * A back link: a small secondary button with a leading arrow. Without an
+ * address it answers as a sample action, as every Tab control does.
+ */
+export function BackButton({
+  href,
+  label,
+  className,
+}: {
+  readonly href: string | null;
+  readonly label: string;
+  readonly className?: string;
+}) {
+  return (
+    <Control
+      action={{ label, href, primary: false }}
+      lead={<span aria-hidden="true">←</span>}
+      className={cn(
+        compactButtonClass('secondary', 'back'),
+        'self-start whitespace-nowrap no-underline hover:no-underline',
+        className,
+      )}
     />
   );
 }

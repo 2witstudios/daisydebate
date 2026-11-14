@@ -3,7 +3,7 @@ import type { EventsSchedule as Read } from '../../../features/tab/events';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { Button } from '../../components/button/button';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton, SentenceLink } from '../action-control/action-control';
 import { ChoiceField } from '../choice-field/choice-field';
 import { HostShell } from '../host-shell/host-shell';
 import {
@@ -71,12 +71,12 @@ export function EventsSchedule({
                 <ChoiceField id="event-runs-with" choice={form.runsWith} />
                 <p className="text-sm text-ink-muted">
                   Ballot, pairing rules, tiebreaks and resolutions for this
-                  event are in <ActionLink action={form.settings} />. Who sees
+                  event are in <SentenceLink action={form.settings} />. Who sees
                   results and when is set once for the tournament.
                 </p>
                 <div className="flex items-center gap-4">
                   <Button type="submit">Save</Button>
-                  <ActionLink action={form.remove} />
+                  <ActionButton action={form.remove} />
                 </div>
               </SampleForm>
             ),
@@ -117,11 +117,13 @@ export function EventsSchedule({
         <strong className="font-strong">One person can enter</strong>{' '}
         {schedule.entryLimit.rule}. {schedule.entryLimit.source}
       </p>
-      <p className="rounded-lg border border-border bg-surface-raised px-4 py-3 text-sm">
-        <strong className="font-strong">Judges are one pool.</strong>{' '}
-        {schedule.judgePool.rule}{' '}
-        <ActionLink action={schedule.judgePool.action} />
-      </p>
+      <div className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface-raised px-4 py-3 text-sm">
+        <p>
+          <strong className="font-strong">Judges are one pool.</strong>{' '}
+          {schedule.judgePool.rule}
+        </p>
+        <ActionButton size="small" action={schedule.judgePool.action} />
+      </div>
     </HostShell>
   );
 }

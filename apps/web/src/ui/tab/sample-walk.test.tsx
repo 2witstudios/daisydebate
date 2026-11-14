@@ -11,6 +11,7 @@ import type { StandingsTable as Table } from '../../features/tab/standings';
 import { readWalk } from '../../features/tab/walk';
 import { WithAppRouter } from '../test-support/app-router';
 import { routeExists } from '../test-support/route-exists';
+import { sentenceLinkMark } from './action-control/action-control';
 import { sampleAnswer } from './sample-screens.test-support';
 import { StandingsTable } from './standings/standings-table';
 
@@ -83,6 +84,19 @@ const everything = [...crawls.values()]
   .flatMap((walk) => [...walk.html.values()])
   .join('\n');
 
+/** The wrapper a `SentenceLink` draws around its link. */
+const sentenceWrapper = `<span ${sentenceLinkMark}="" class="contents">`;
+
+/** The labels of controls drawn as underlined text links outside a sentence. */
+const underlinedOutsideSentences = (html: string): readonly string[] =>
+  [...html.matchAll(/<(?:a|button)\b[^>]*\bclass="([^"]*)"[^>]*>([^<]*)/g)]
+    .filter(
+      (match) =>
+        (match[1] ?? '').split(/\s+/).includes('underline') &&
+        !html.slice(0, match.index).endsWith(sentenceWrapper),
+    )
+    .map((match) => match[2] ?? '');
+
 /** One line only its board carries, for each board on the canvas. */
 const canvas: Readonly<Record<string, string>> = {
   'Host: tab round running': 'has not opened the ballot',
@@ -141,6 +155,26 @@ describe('the sample tournament', () => {
       actual: Object.entries(canvas)
         .filter(([, line]) => !everything.includes(line))
         .map(([board]) => board),
+      expected: [],
+    });
+  });
+
+  test('an action is a button; a link stays only inside a sentence', () => {
+    assert({
+      given: 'every screen reached by any viewer at any moment',
+      should:
+        'draw no control as an underlined text link unless marked as in a sentence',
+      actual: [
+        ...new Set(
+          [...crawls.values()].flatMap((walk) =>
+            [...walk.html].flatMap(([href, html]) =>
+              underlinedOutsideSentences(html).map(
+                (label) => `${href.split('?')[0]}: ${label}`,
+              ),
+            ),
+          ),
+        ),
+      ],
       expected: [],
     });
   });

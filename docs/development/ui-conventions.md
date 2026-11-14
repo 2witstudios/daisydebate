@@ -431,7 +431,11 @@ information page.
   it is a link, with none it is a sample action. A form posts to the one
   sample server action (`app/(tab)/sample-form-action.ts`) through
   `SampleForm`, so it follows the mutating-form rules above while saving
-  nothing.
+  nothing. An action is drawn as a button (`ActionButton`, `size="small"` for
+  row actions, list expanders and header actions; `BackButton`, with a leading
+  arrow, for a back link), never as a bold underlined link: a text link stays
+  only inside a sentence (`SentenceLink`), and rail and tab-bar navigation
+  stay navigation. `sample-walk.test.tsx` fails on any other underlined link.
 - **The judge's ballot is drawn from a ballot definition alone**
   (`ui/tab/ballot/configured-ballot.tsx`): scale and step, ranks, a criteria
   grid, the allowed outcomes and the written fields. Ballot settings redraw

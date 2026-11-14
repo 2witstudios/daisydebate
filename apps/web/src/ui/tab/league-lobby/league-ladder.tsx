@@ -5,7 +5,7 @@ import {
   FilterSelect,
   SearchField,
 } from '../../components/filter-form/filter-form';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton, TitleLink } from '../action-control/action-control';
 import { ListCard } from '../list-card/list-card';
 
 type Ladder = Extract<LeaguePanel, { kind: 'ladder' }>;
@@ -25,7 +25,7 @@ function Row({ row }: { readonly row: LadderRow }) {
     >
       <span className="w-6 text-ink-muted tabular-nums">{row.place}</span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <ActionLink action={row.profile} className="self-start" />
+        <TitleLink action={row.profile} className="self-start" />
         <span className="text-sm text-ink-muted">
           {row.school} · {row.record}
         </span>
@@ -83,9 +83,10 @@ export function LeagueLadder({ ladder }: { readonly ladder: Ladder }) {
           </div>
         </ListCard>
       </section>
-      <p className="text-sm text-ink-muted">
-        {ladder.note} <ActionLink action={ladder.rules} />
-      </p>
+      <div className="flex flex-col items-start gap-2 text-sm text-ink-muted">
+        <p>{ladder.note}</p>
+        <ActionButton size="small" action={ladder.rules} />
+      </div>
     </>
   );
 }

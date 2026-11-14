@@ -2,7 +2,7 @@ import type { TimeSlot as Read } from '../../../features/tab/tab-round';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
 import { TabLinks } from '../../components/tab-links/tab-links';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { HostShell } from '../host-shell/host-shell';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 import { AttentionRows } from '../running-round/attention-list';
@@ -22,7 +22,7 @@ export function TimeSlot({
       <PageHeader
         title={slot.title}
         lede={slot.lede}
-        actions={<ActionLink action={slot.participantView} />}
+        actions={<ActionButton size="small" action={slot.participantView} />}
       />
       <TabLinks label="Events in this slot" tabs={slot.tabs} />
       <ListCard>

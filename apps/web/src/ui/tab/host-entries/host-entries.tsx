@@ -5,7 +5,7 @@ import type {
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { cn } from '../../cn';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
 import { ListCard, ListRow } from '../list-card/list-card';
@@ -84,7 +84,7 @@ export function HostEntries({
               ))}
               {group.more === null ? null : (
                 <li className="border-b border-border px-4 py-3 last:border-b-0">
-                  <ActionLink action={group.more} />
+                  <ActionButton size="small" action={group.more} />
                 </li>
               )}
             </ul>

@@ -4,7 +4,7 @@ import type {
   BracketStage,
 } from '../../../features/tab/results';
 import { cn } from '../../cn';
-import { ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { eyebrowClass } from '../list-card/list-card';
 
 /** A stage's heading: its name, and that it is live or when it starts. */
@@ -87,7 +87,8 @@ export function Bracket({ bracket }: { readonly bracket: Read }) {
                   <p className="flex justify-between gap-3 border-t border-border px-3 py-2 text-sm text-ink-muted">
                     {tie.room}
                     {tie.watch === null ? null : (
-                      <ActionLink
+                      <ActionButton
+                        size="small"
                         action={tie.watch}
                         about={`${tie.top.name} v ${tie.bottom.name}`}
                       />

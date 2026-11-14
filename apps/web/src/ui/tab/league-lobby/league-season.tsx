@@ -1,7 +1,7 @@
 import type { LeaguePanel } from '../../../features/tab/league';
 import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import { FilterSelect } from '../../components/filter-form/filter-form';
-import { ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { ListCard, ListHeading } from '../list-card/list-card';
 import { SeasonStandings } from '../season-standings/season-standings';
 
@@ -29,9 +29,9 @@ export function LeagueSeason({ season }: { readonly season: Season }) {
           />
         </AutoSubmitForm>
         <SeasonStandings rows={season.rows} />
-        <p className="border-t border-border px-4 py-3">
-          <ActionLink action={season.all} />
-        </p>
+        <div className="border-t border-border px-4 py-3">
+          <ActionButton size="small" action={season.all} />
+        </div>
       </ListCard>
       <ListCard>
         <ListHeading>How points count</ListHeading>
@@ -49,9 +49,10 @@ export function LeagueSeason({ season }: { readonly season: Season }) {
           ))}
         </ul>
       </ListCard>
-      <p className="text-sm text-ink-muted">
-        {season.note} <ActionLink action={season.tournaments} />
-      </p>
+      <div className="flex flex-col items-start gap-2 text-sm text-ink-muted">
+        <p>{season.note}</p>
+        <ActionButton size="small" action={season.tournaments} />
+      </div>
     </>
   );
 }

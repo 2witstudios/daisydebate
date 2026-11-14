@@ -7,7 +7,7 @@ import type { TimelineRail } from '../../../features/tab/tournament';
 import { cn } from '../../cn';
 import { buttonClass } from '../../components/button/button-class';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { ChoiceField } from '../choice-field/choice-field';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
@@ -152,9 +152,10 @@ export function DrawBoard({
         {draw.rest === null ? null : <ListHeading>{draw.rest}</ListHeading>}
       </ListCard>
       {draw.back === null ? null : (
-        <p className="text-sm text-ink-muted">
-          Draft {draw.version}. <ActionLink action={draw.back} />
-        </p>
+        <div className="flex items-center gap-3 text-sm text-ink-muted">
+          <p>Draft {draw.version}.</p>
+          <ActionButton size="small" action={draw.back} />
+        </div>
       )}
     </HostShell>
   );

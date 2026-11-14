@@ -7,7 +7,11 @@ import type {
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import { TabLinks } from '../../components/tab-links/tab-links';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import {
+  ActionButton,
+  BackButton,
+  SentenceLink,
+} from '../action-control/action-control';
 import { Bracket } from '../bracket/bracket';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 import { StandingsTable } from '../standings/standings-table';
@@ -19,12 +23,7 @@ type Adult = Extract<Read, { kind: 'adult' }>;
 type After = Extract<Read, { kind: 'after' }>;
 
 const backToTournaments = (
-  <Link
-    href="/tournaments"
-    className="self-start font-strong text-ink underline"
-  >
-    Tournaments
-  </Link>
+  <BackButton href="/tournaments" label="Tournaments" />
 );
 
 function BeforeTournament({ page }: { readonly page: Before }) {
@@ -114,7 +113,7 @@ function Panel({ panel }: { readonly panel: TournamentPanel }) {
                       ) : (
                         <Link
                           href={row.href}
-                          className="font-strong text-ink underline"
+                          className="font-strong text-ink no-underline hover:underline"
                         >
                           {row.title}
                         </Link>
@@ -141,7 +140,7 @@ function RoundsTournament({ page }: { readonly page: Rounds }) {
         lede={page.lede}
         actions={
           page.headerAction === null ? undefined : (
-            <ActionLink action={page.headerAction} />
+            <ActionButton action={page.headerAction} size="small" />
           )
         }
       />
@@ -152,7 +151,7 @@ function RoundsTournament({ page }: { readonly page: Rounds }) {
         <p className="text-sm text-ink-muted">
           {page.note}{' '}
           {page.noteAction === null ? null : (
-            <ActionLink action={page.noteAction} />
+            <SentenceLink action={page.noteAction} />
           )}
         </p>
       )}
@@ -190,7 +189,11 @@ function AdultTournament({ page }: { readonly page: Adult }) {
               title={ballot.title}
               detail={ballot.detail}
               trailing={
-                <ActionLink action={ballot.action} about={ballot.title} />
+                <ActionButton
+                  action={ballot.action}
+                  about={ballot.title}
+                  size="small"
+                />
               }
             />
           ))}
@@ -202,7 +205,7 @@ function AdultTournament({ page }: { readonly page: Adult }) {
       {page.judging === null ? null : (
         <PinnedRoom room={page.judging} label="Your judging" />
       )}
-      <ActionLink action={page.manage} className="self-start" />
+      <ActionButton action={page.manage} size="small" className="self-start" />
     </>
   );
 }
@@ -223,11 +226,17 @@ function Kept({
             key={row.title}
             title={row.title}
             detail={row.detail}
-            trailing={<ActionLink action={row.action} about={row.title} />}
+            trailing={
+              <ActionButton
+                action={row.action}
+                about={row.title}
+                size="small"
+              />
+            }
           />
         ))}
         <li className="px-4 py-3">
-          <ActionLink action={kept.more} about={heading} />
+          <ActionButton action={kept.more} about={heading} size="small" />
         </li>
       </ul>
     </section>
