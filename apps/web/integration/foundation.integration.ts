@@ -86,7 +86,7 @@ test('proof vertical: validated create, durable store, restored read', async () 
         format: 'foundation',
         formatVersion: 1,
         // Resolved RoundRules, not a copy of the definition (ADR 0058 §6).
-        rulesVersion: 2,
+        rulesVersion: 3,
         status: 'opening',
       },
       loaded: {
@@ -95,7 +95,7 @@ test('proof vertical: validated create, durable store, restored read', async () 
         status: 'opening',
         format: 'foundation',
         formatVersion: 1,
-        rulesVersion: 2,
+        rulesVersion: 3,
       },
     },
   });

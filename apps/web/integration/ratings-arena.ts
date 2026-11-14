@@ -1,7 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
-import { affirmativeSide, negativeSide } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  emptyRuntimeCheckpointFor,
+  negativeSide,
+} from '@daisy/protocol';
 import { validRules, daisyOrganizationId } from '@daisy/db/testing';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';
@@ -100,12 +104,12 @@ export async function arena(
       // A ranked round is constructed from a sanctioned preset, so it pins
       // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
       // presets, so the arena only has to name the version it resolved from.
-      await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id)
+      await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id, runtime_state)
         values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, ${status},
                 ${status === 'active' ? 'live' : null},
                 ${new Date(minute(0))},
                 ${completedAt === null ? null : new Date(completedAt)},
-                ${status === 'completed' ? (input.outcome ?? 'negative') : null}, ${ladderId})`;
+                ${status === 'completed' ? (input.outcome ?? 'negative') : null}, ${ladderId}, ${emptyRuntimeCheckpointFor(rules)})`;
       for (const [side, actorId] of [
         [affirmativeSide, input.affirmative],
         [negativeSide, input.negative],

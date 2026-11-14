@@ -1,3 +1,4 @@
+import { judgeSeat } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
@@ -45,8 +46,7 @@ const onAirRound = async (f: Runtime, debatersReadChat = false) => {
     await f.command(f.host, view, {
       type: 'assign-seat',
       actorId: judgeId,
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     })
   ).view;
   for (const seat of [f.host, f.guest])
@@ -531,7 +531,7 @@ test('anyone in the live room is refused by name, and a viewer posts on', async 
     };
     try {
       await f.sql`update rounds set created_by_actor_id=${seatlessHost.actorId} where id=${roundId}`;
-      await f.sql`insert into round_participants (id,round_id,actor_id,role,slot)
+      await f.sql`insert into round_participants (id,round_id,actor_id,seat_kind,slot)
         values (${createId()},${roundId},${humanJudge.actorId},'judge',1)`;
       const refusedAs = { status: 409, refusal: 'chat-live-room' };
       const debater = await postAs(f.host);
