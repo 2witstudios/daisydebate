@@ -8,7 +8,11 @@ import { minimumCostPerfectMatching, type WeightedEdge } from './matching';
 setupRitewayBun();
 
 const numbers = (label: string, seed: number) => {
-  const stream = wordStream(`tab-engine-test/${label}`, new Uint8Array([seed]), new Uint8Array());
+  const stream = wordStream(
+    `tab-engine-test/${label}`,
+    new Uint8Array([seed]),
+    new Uint8Array(),
+  );
   let at = 0;
   return (below: number) => {
     const word = stream(at);
@@ -37,7 +41,8 @@ const bruteMatching = (n: number, cost: Map<string, bigint>): bigint | null => {
 
 const matchingCost = (mate: readonly number[], cost: Map<string, bigint>) =>
   mate.reduce(
-    (sum, partner, v) => (v < partner ? sum + cost.get(`${v}-${partner}`)! : sum),
+    (sum, partner, v) =>
+      v < partner ? sum + cost.get(`${v}-${partner}`)! : sum,
     0n,
   );
 
@@ -65,7 +70,8 @@ describe('minimum-cost perfect matching', () => {
     }
     assert({
       given: '240 seeded graphs of 2 to 10 vertices, sparse to complete',
-      should: 'cost exactly the brute-force minimum, or report no perfect matching',
+      should:
+        'cost exactly the brute-force minimum, or report no perfect matching',
       actual: mismatches,
       expected: [],
     });
@@ -85,14 +91,17 @@ describe('minimum-cost perfect matching', () => {
   });
 });
 
-const bruteAssignment = (costs: readonly (readonly (bigint | null)[])[]): bigint | null => {
+const bruteAssignment = (
+  costs: readonly (readonly (bigint | null)[])[],
+): bigint | null => {
   const best = (row: number, used: ReadonlySet<number>): bigint | null => {
     if (row === costs.length) return 0n;
     let least: bigint | null = null;
     costs[row]!.forEach((c, column) => {
       if (c === null || used.has(column)) return;
       const rest = best(row + 1, new Set([...used, column]));
-      if (rest !== null && (least === null || c + rest < least)) least = c + rest;
+      if (rest !== null && (least === null || c + rest < least))
+        least = c + rest;
     });
     return least;
   };
@@ -107,13 +116,21 @@ describe('minimum-cost assignment', () => {
       const rows = 1 + (seed % 5);
       const columns = rows + next(3);
       const costs = Array.from({ length: rows }, () =>
-        Array.from({ length: columns }, () => (next(100) < 25 ? null : BigInt(next(30)))),
+        Array.from({ length: columns }, () =>
+          next(100) < 25 ? null : BigInt(next(30)),
+        ),
       );
       const expected = bruteAssignment(costs);
       const assigned = minimumCostAssignment(costs);
       const actual =
-        assigned === null ? null : assigned.reduce((sum, column, row) => sum + costs[row]![column]!, 0n);
-      const distinct = assigned === null || new Set(assigned).size === assigned.length;
+        assigned === null
+          ? null
+          : assigned.reduce(
+              (sum, column, row) => sum + costs[row]![column]!,
+              0n,
+            );
+      const distinct =
+        assigned === null || new Set(assigned).size === assigned.length;
       if (actual !== expected || !distinct) mismatches.push(`seed ${seed}`);
     }
     assert({
@@ -157,8 +174,12 @@ describe('lexicographic packing', () => {
       [0, 9, 8],
     ];
     const packed = packLexicographic(vectors, 4);
-    const byPacked = [0, 1, 2].sort((a, b) => (packed[a]! < packed[b]! ? -1 : 1));
-    const byVector = [0, 1, 2].sort((a, b) => compareVectors(vectors[a]!, vectors[b]!));
+    const byPacked = [0, 1, 2].sort((a, b) =>
+      packed[a]! < packed[b]! ? -1 : 1,
+    );
+    const byVector = [0, 1, 2].sort((a, b) =>
+      compareVectors(vectors[a]!, vectors[b]!),
+    );
     assert({
       given: 'three vectors whose lower fields are large',
       should: 'order the packed weights exactly as the vectors order',

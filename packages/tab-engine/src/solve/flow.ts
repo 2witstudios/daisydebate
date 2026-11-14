@@ -4,7 +4,11 @@
  */
 export type FlowNetwork = {
   readonly nodes: number;
-  readonly arcs: readonly { readonly from: number; readonly to: number; readonly capacity: number }[];
+  readonly arcs: readonly {
+    readonly from: number;
+    readonly to: number;
+    readonly capacity: number;
+  }[];
 };
 
 export type FlowAnswer = {
@@ -15,7 +19,11 @@ export type FlowAnswer = {
   readonly reachable: readonly boolean[];
 };
 
-export const maximumFlow = (network: FlowNetwork, source: number, sink: number): FlowAnswer => {
+export const maximumFlow = (
+  network: FlowNetwork,
+  source: number,
+  sink: number,
+): FlowAnswer => {
   const head: number[][] = Array.from({ length: network.nodes }, () => []);
   const to: number[] = [];
   const capacity: number[] = [];
@@ -62,7 +70,11 @@ export const maximumFlow = (network: FlowNetwork, source: number, sink: number):
   let value = 0;
   while (bfs()) {
     next.fill(0);
-    for (let pushed = push(source, Infinity); pushed > 0; pushed = push(source, Infinity))
+    for (
+      let pushed = push(source, Infinity);
+      pushed > 0;
+      pushed = push(source, Infinity)
+    )
       value += pushed;
   }
   bfs();

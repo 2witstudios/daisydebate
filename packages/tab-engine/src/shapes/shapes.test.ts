@@ -59,7 +59,13 @@ const drawWithoutInputs: DrawOf<TwoSides> = {
   keep: [],
   add: [],
   withdraw: [],
-  assessment: { fixtures: [], totals: [], warnings: [], broken: [], invalid: [] },
+  assessment: {
+    fixtures: [],
+    totals: [],
+    warnings: [],
+    broken: [],
+    invalid: [],
+  },
 };
 
 describe('shapes', () => {

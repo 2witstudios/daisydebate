@@ -39,7 +39,10 @@ export type StandingsRow = {
   /** Null when the entry is below the minimum games and so unranked. */
   readonly rank: number | null;
   readonly games: number;
-  readonly values: readonly { readonly metric: Metric; readonly value: readonly Rational[] }[];
+  readonly values: readonly {
+    readonly metric: Metric;
+    readonly value: readonly Rational[];
+  }[];
   /** What put this row below the one above: a metric, the lot, a shared tie, or none for the first. */
   readonly separatedBy: Metric | 'lot' | 'shared' | 'minimum_games' | null;
 };
@@ -77,7 +80,10 @@ export type BreaksAnswer =
     }
   | {
       readonly kind: 'undecided';
-      readonly entries: readonly { readonly entry: Id; readonly stages: readonly Id[] }[];
+      readonly entries: readonly {
+        readonly entry: Id;
+        readonly stages: readonly Id[];
+      }[];
     };
 
 /** One event's record as a league's season reads it. */
@@ -95,13 +101,14 @@ export type SeasonEventOf<Format extends FormatDescriptor> = {
   readonly elimination: StageHistory<Format>;
 };
 export type SeasonEvent =
-  | SeasonEventOf<TwoSides>
-  | SeasonEventOf<FourSides>
-  | SeasonEventOf<Speakers>;
+  SeasonEventOf<TwoSides> | SeasonEventOf<FourSides> | SeasonEventOf<Speakers>;
 
 /** A league's declarative season formula. */
 export type SeasonFormula = {
-  readonly preliminaryWin: { readonly points: number; readonly cap: number | null };
+  readonly preliminaryWin: {
+    readonly points: number;
+    readonly cap: number | null;
+  };
   readonly eliminationRound: { readonly points: number };
   readonly bestEvents: number | null;
   readonly topPerSchool: number | null;

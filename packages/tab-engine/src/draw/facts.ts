@@ -38,7 +38,8 @@ export type EventFacts = {
   readonly byeCost: ReadonlyMap<Id, number>;
 };
 
-export const pairKey = (a: Id, b: Id) => (a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`);
+export const pairKey = (a: Id, b: Id) =>
+  a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
 
 /** The entries a fixture seats; a bye seats one and occupies nobody. */
 export const entriesOf = (fixture: Fixture): readonly Id[] => {
@@ -119,7 +120,8 @@ export const eventFacts = (
     const strength = order.strength.get(entry) ?? 0;
     let weaker = 0;
     for (const [other, otherRecord] of order.record)
-      if (otherRecord === record && (order.strength.get(other) ?? 0) > strength) weaker += 1;
+      if (otherRecord === record && (order.strength.get(other) ?? 0) > strength)
+        weaker += 1;
     weakerInGroup.set(entry, weaker);
   }
   return {

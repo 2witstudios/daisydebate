@@ -22,8 +22,10 @@ const advancing = (
   if (fixture.kind === 'bye') return [fixture.entry];
   if (result === undefined) return null;
   const outcome = result.outcome;
-  if (outcome.kind === 'winner') return outcome.winner === null ? [] : [outcome.winner];
-  const keep = fixture.kind === 'pairing' ? 2 : Math.ceil(fixture.speakers.length / 2);
+  if (outcome.kind === 'winner')
+    return outcome.winner === null ? [] : [outcome.winner];
+  const keep =
+    fixture.kind === 'pairing' ? 2 : Math.ceil(fixture.speakers.length / 2);
   return [...outcome.places]
     .sort((a, b) => a.place - b.place)
     .slice(0, keep)
@@ -31,7 +33,8 @@ const advancing = (
 };
 
 const sameEntries = (a: Fixture, b: Fixture) =>
-  a.kind === b.kind && [...entriesOf(a)].sort().join() === [...entriesOf(b)].sort().join();
+  a.kind === b.kind &&
+  [...entriesOf(a)].sort().join() === [...entriesOf(b)].sort().join();
 
 /** Seeds dealt into k rooms by snake: 1..k, then k..1, and so on. */
 export const snake = <T>(items: readonly T[], rooms: number): T[][] => {
@@ -47,32 +50,52 @@ export const snake = <T>(items: readonly T[], rooms: number): T[][] => {
 type Slots = readonly (readonly Id[])[];
 
 /** The fixtures of one elimination tab round, for the slots it fills. */
-const fixturesFor = (request: EventRequest, slots: Slots, seedOf: (e: Id) => number): Fixture[] =>
+const fixturesFor = (
+  request: EventRequest,
+  slots: Slots,
+  seedOf: (e: Id) => number,
+): Fixture[] =>
   slots.flatMap((slot): Fixture[] => {
     const ordered = [...slot].sort((a, b) => seedOf(a) - seedOf(b));
     if (ordered.length === 0) return [];
-    if (ordered.length === 1) return [{ kind: 'bye', entry: ordered[0]! } satisfies Bye];
+    if (ordered.length === 1)
+      return [{ kind: 'bye', entry: ordered[0]! } satisfies Bye];
     switch (request.format.outcome) {
       case 'winner':
-        return [{ kind: 'pairing', sides: [ordered[0]!, ordered[1]!], panel: [] }];
+        return [
+          { kind: 'pairing', sides: [ordered[0]!, ordered[1]!], panel: [] },
+        ];
       case 'ranking':
         return 'sides' in request.format
-          ? [{ kind: 'pairing', sides: [ordered[0]!, ordered[1]!, ordered[2]!, ordered[3]!], panel: [] }]
+          ? [
+              {
+                kind: 'pairing',
+                sides: [ordered[0]!, ordered[1]!, ordered[2]!, ordered[3]!],
+                panel: [],
+              },
+            ]
           : [{ kind: 'section', speakers: ordered, panel: [] }];
     }
   });
 
 /** The rooms of a tab round from the entries going on, best seed first. */
-const roomsOf = (request: EventRequest, going: readonly Id[], first: boolean): Slots => {
+const roomsOf = (
+  request: EventRequest,
+  going: readonly Id[],
+  first: boolean,
+): Slots => {
   const format = request.format;
   if (format.outcome === 'winner') {
     if (first)
       return bracketFirstRound(going.length).map(([a, b]) =>
         b === null ? [going[a]!] : [going[a]!, going[b]!],
       );
-    return Array.from({ length: Math.ceil(going.length / 2) }, (_, i) => going.slice(2 * i, 2 * i + 2));
+    return Array.from({ length: Math.ceil(going.length / 2) }, (_, i) =>
+      going.slice(2 * i, 2 * i + 2),
+    );
   }
-  const size = 'sides' in format ? 4 : request.settings['pairing.section_size'].target;
+  const size =
+    'sides' in format ? 4 : request.settings['pairing.section_size'].target;
   const byes = 'sides' in format ? going.length % 4 : 0;
   const rest = going.slice(byes);
   const rooms = Math.max(1, Math.round(rest.length / size));
@@ -88,26 +111,37 @@ const roomsOf = (request: EventRequest, going: readonly Id[], first: boolean): S
 export const progression = (
   request: EventRequest,
   seeds: readonly Id[],
-): { readonly kind: 'fixtures'; readonly fixtures: Fixture[] } | { readonly kind: 'missing'; readonly fixture: Id } => {
+):
+  | { readonly kind: 'fixtures'; readonly fixtures: Fixture[] }
+  | { readonly kind: 'missing'; readonly fixture: Id } => {
   const seedOf = (entry: Id) => seeds.indexOf(entry);
   const history = request.history as StageHistory<FormatDescriptor>;
-  const results = new Map(effectiveResults(history, Infinity).map((r) => [r.fixture, r]));
+  const results = new Map(
+    effectiveResults(history, Infinity).map((r) => [r.fixture, r]),
+  );
   let slots = roomsOf(request, seeds, true);
   for (let round = 1; round < request.tabRound; round += 1) {
     const played = history.fixtures.filter((f) => f.tabRound === round);
     const going: Id[] = [];
     for (const fixture of fixturesFor(request, slots, seedOf)) {
-      const record: HistoricFixture<FormatDescriptor> | undefined = played.find((f) =>
-        sameEntries(f.fixture, fixture),
+      const record: HistoricFixture<FormatDescriptor> | undefined = played.find(
+        (f) => sameEntries(f.fixture, fixture),
       );
-      const on = advancing(fixture, record === undefined ? undefined : results.get(record.id));
+      const on = advancing(
+        fixture,
+        record === undefined ? undefined : results.get(record.id),
+      );
       if (on === null) return { kind: 'missing', fixture: record?.id ?? '' };
       going.push(...on);
     }
     slots =
       request.format.outcome === 'winner'
         ? roomsOf(request, going, false)
-        : roomsOf(request, [...going].sort((a, b) => seedOf(a) - seedOf(b)), false);
+        : roomsOf(
+            request,
+            [...going].sort((a, b) => seedOf(a) - seedOf(b)),
+            false,
+          );
   }
   return { kind: 'fixtures', fixtures: fixturesFor(request, slots, seedOf) };
 };

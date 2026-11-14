@@ -25,7 +25,9 @@ export const forceOf = (settings: ResolvedSettings, key: ForceKey): Force =>
 
 /** A force a rule may be relaxed to: weightless where the key allows it. */
 export const relaxedForce = (key: ForceKey): Force =>
-  (allowedForces[key] as readonly Force[]).includes('warning') ? 'warning' : 'off';
+  (allowedForces[key] as readonly Force[]).includes('warning')
+    ? 'warning'
+    : 'off';
 
 export const withForce = (
   settings: ResolvedSettings,
@@ -42,30 +44,51 @@ const shareSchool = (facts: EventFacts, a: Id, b: Id) => {
   return left.some((school) => right.includes(school));
 };
 
-const isTwoSide = (fixture: Fixture): fixture is Extract<Fixture, { kind: 'pairing' }> =>
+const isTwoSide = (
+  fixture: Fixture,
+): fixture is Extract<Fixture, { kind: 'pairing' }> =>
   fixture.kind === 'pairing' && fixture.sides.length === 2;
-const isFourSide = (fixture: Fixture) => fixture.kind === 'pairing' && fixture.sides.length === 4;
+const isFourSide = (fixture: Fixture) =>
+  fixture.kind === 'pairing' && fixture.sides.length === 4;
 
 /** Twice the extra times each entry holds its position, over its least-held one. */
-const positionExcess = (facts: EventFacts, seated: readonly Id[], places: number) =>
+const positionExcess = (
+  facts: EventFacts,
+  seated: readonly Id[],
+  places: number,
+) =>
   seated.reduce((sum, entry, place) => {
     const counts = facts.positions.get(entry) ?? [];
     const held = (index: number) => counts[index] ?? 0;
-    const least = Math.min(...Array.from({ length: places }, (_, i) => held(i)));
+    const least = Math.min(
+      ...Array.from({ length: places }, (_, i) => held(i)),
+    );
     return sum + 2 * (held(place) - least);
   }, 0);
 
-type PairingTerm = (facts: EventFacts, fixture: Fixture) => readonly number[] | null;
+type PairingTerm = (
+  facts: EventFacts,
+  fixture: Fixture,
+) => readonly number[] | null;
 
 export const pairingTerms: Record<PairingForceKey, PairingTerm> = {
   'pairing.rematch': (facts, fixture) =>
     fixture.kind === 'pairing'
-      ? [pairsOf(fixture.sides).reduce((s, [a, b]) => s + (facts.meetings.get(pairKey(a, b)) ?? 0), 0)]
+      ? [
+          pairsOf(fixture.sides).reduce(
+            (s, [a, b]) => s + (facts.meetings.get(pairKey(a, b)) ?? 0),
+            0,
+          ),
+        ]
       : null,
   'pairing.same_school': (facts, fixture) =>
     fixture.kind === 'bye'
       ? null
-      : [pairsOf(entriesOf(fixture)).filter(([a, b]) => shareSchool(facts, a, b)).length],
+      : [
+          pairsOf(entriesOf(fixture)).filter(([a, b]) =>
+            shareSchool(facts, a, b),
+          ).length,
+        ],
   'pairing.side_balance': (facts, fixture) => {
     if (!isTwoSide(fixture)) return null;
     const allowed = facts.settings['pairing.side_balance'].maxImbalance;
@@ -79,7 +102,11 @@ export const pairingTerms: Record<PairingForceKey, PairingTerm> = {
   },
   'pairing.side_alternation': (facts, fixture) =>
     isTwoSide(fixture)
-      ? [fixture.sides.filter((entry, side) => facts.lastSide.get(entry) === side).length]
+      ? [
+          fixture.sides.filter(
+            (entry, side) => facts.lastSide.get(entry) === side,
+          ).length,
+        ]
       : null,
   'pairing.pull_up': (facts, fixture) => {
     if (fixture.kind !== 'pairing' || !facts.powered) return null;
@@ -108,7 +135,12 @@ export const pairingTerms: Record<PairingForceKey, PairingTerm> = {
   },
   'pairing.section_repeat': (facts, fixture) =>
     fixture.kind === 'section'
-      ? [pairsOf(fixture.speakers).reduce((s, [a, b]) => s + (facts.meetings.get(pairKey(a, b)) ?? 0), 0)]
+      ? [
+          pairsOf(fixture.speakers).reduce(
+            (s, [a, b]) => s + (facts.meetings.get(pairKey(a, b)) ?? 0),
+            0,
+          ),
+        ]
       : null,
   'bye.repeat': (facts, fixture) =>
     fixture.kind === 'bye' ? [facts.byes.get(fixture.entry) ?? 0] : null,
@@ -129,9 +161,13 @@ export type SeatContext = {
 };
 
 const judgeShares = (context: SeatContext) => {
-  const own = context.judge.protection.filter((p) => p.scope === 'school').map((p) => p.key);
+  const own = context.judge.protection
+    .filter((p) => p.scope === 'school')
+    .map((p) => p.key);
   return entriesOf(context.fixture).filter((entry) =>
-    (context.facts.schools.get(entry) ?? []).some((school) => own.includes(school)),
+    (context.facts.schools.get(entry) ?? []).some((school) =>
+      own.includes(school),
+    ),
   ).length;
 };
 const countIn = (context: SeatContext, listed: readonly Id[]) =>
@@ -143,13 +179,16 @@ type SeatTerm = (context: SeatContext) => number;
 export type SeatKey = Exclude<JudgingForceKey, 'judging.panel_same_school'>;
 
 export const seatTerms: Record<SeatKey, SeatTerm> = {
-  'judging.availability': ({ judge }) => ('available' in judge && !judge.available ? 1 : 0),
+  'judging.availability': ({ judge }) =>
+    'available' in judge && !judge.available ? 1 : 0,
   'judging.strike': (context) => countIn(context, context.judge.strikes),
   'judging.conflict': (context) => countIn(context, context.judge.conflicts),
   'judging.same_school': judgeShares,
   'judging.repeat_judge': (context) => countIn(context, context.judge.judged),
-  'judging.unsubmitted_ballot': ({ judge }) => (judge.outstandingBallots > 0 ? 1 : 0),
-  'judging.load_balance': ({ judge, leastLoad }) => judge.tabRoundsJudged - leastLoad,
+  'judging.unsubmitted_ballot': ({ judge }) =>
+    judge.outstandingBallots > 0 ? 1 : 0,
+  'judging.load_balance': ({ judge, leastLoad }) =>
+    judge.tabRoundsJudged - leastLoad,
   'judging.chair': ({ judge, seat }) => (seat === 0 && !judge.chair ? 1 : 0),
 };
 
@@ -159,7 +198,9 @@ export const panelSameSchool = (
   judges: ReadonlyMap<Id, Judge | SlotJudge>,
 ): number => {
   const schools = panelOf(fixture).map((id) =>
-    (judges.get(id)?.protection ?? []).filter((p) => p.scope === 'school').map((p) => p.key),
+    (judges.get(id)?.protection ?? [])
+      .filter((p) => p.scope === 'school')
+      .map((p) => p.key),
   );
   return pairsOf(schools.map((_, i) => String(i))).filter(([a, b]) =>
     schools[Number(a)]!.some((school) => schools[Number(b)]!.includes(school)),

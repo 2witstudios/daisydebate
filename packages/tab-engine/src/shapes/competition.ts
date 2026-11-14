@@ -101,7 +101,8 @@ export type ResultOf<Format extends FormatDescriptor> = {
   readonly certified: boolean;
   readonly outcome: OutcomeOf<Format>;
 };
-export type Result = ResultOf<TwoSides> | ResultOf<FourSides> | ResultOf<Speakers>;
+export type Result =
+  ResultOf<TwoSides> | ResultOf<FourSides> | ResultOf<Speakers>;
 
 /** A standing fixture of an earlier tab round (withdrawn ones left out). */
 export type HistoricFixture<Format extends FormatDescriptor> = {

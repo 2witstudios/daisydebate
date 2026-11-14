@@ -9,7 +9,11 @@ import { eventStream } from './placement';
 
 /** How the method was chosen, from the format and the stage, never by the caller. */
 export type Method =
-  | { readonly kind: 'matched'; readonly grouped: boolean; readonly later: 'fold' | 'slide' | 'adjacent' | 'random' | 'top_down' }
+  | {
+      readonly kind: 'matched';
+      readonly grouped: boolean;
+      readonly later: 'fold' | 'slide' | 'adjacent' | 'random' | 'top_down';
+    }
   | { readonly kind: 'prematched' }
   | { readonly kind: 'round_robin' }
   | { readonly kind: 'four_side' }
@@ -26,7 +30,11 @@ export type Prepared = {
 };
 
 const recordMetric = (format: FormatDescriptor): Metric | null =>
-  format.outcome === 'winner' ? 'wins' : 'sides' in format ? 'team_points' : null;
+  format.outcome === 'winner'
+    ? 'wins'
+    : 'sides' in format
+      ? 'team_points'
+      : null;
 
 const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 
@@ -39,37 +47,61 @@ const recordsAt = (request: EventRequest, seed: Uint8Array, cutoff: number) => {
     ...(request as Extract<EventRequest, { format: FormatDescriptor }>),
     settings: {
       ...request.settings,
-      'standings.tiebreaks': { metrics: [metric], minimumGames: null, terminal: 'shared' },
+      'standings.tiebreaks': {
+        metrics: [metric],
+        minimumGames: null,
+        terminal: 'shared',
+      },
     },
     cutoff,
     division: null,
     seed,
   } as Parameters<typeof standings>[0]);
-  const values = table.rows.map((row) => [row.entry, row.values[0]!.value[0]!] as const);
+  const values = table.rows.map(
+    (row) => [row.entry, row.values[0]!.value[0]!] as const,
+  );
   const scale = values.reduce((l, [, v]) => (l * v.d) / gcd(l, v.d), 1);
   return new Map(values.map(([entry, v]) => [entry, (v.n * scale) / v.d]));
 };
 
 /** Rating highest first, then lower deviation, unrated last, then a seeded lot. */
-const ratingOrder = (request: EventRequest, seed: Uint8Array, ids: readonly Id[]) => {
+const ratingOrder = (
+  request: EventRequest,
+  seed: Uint8Array,
+  ids: readonly Id[],
+) => {
   const lot = new Map(
-    shuffleWith([...ids].sort(compareBytes), eventStream(seed, request.event, 'pairing/seeding')).map((id, i) => [id, i]),
+    shuffleWith(
+      [...ids].sort(compareBytes),
+      eventStream(seed, request.event, 'pairing/seeding'),
+    ).map((id, i) => [id, i]),
   );
-  const rating = new Map((request.ratings?.entries ?? []).map((r) => [r.entry, r]));
+  const rating = new Map(
+    (request.ratings?.entries ?? []).map((r) => [r.entry, r]),
+  );
   const key = (id: Id) => {
     const r = rating.get(id);
-    return r === undefined || r.status === 'unrated' ? [1, 0, 0] : [0, -r.rating, r.deviation];
+    return r === undefined || r.status === 'unrated'
+      ? [1, 0, 0]
+      : [0, -r.rating, r.deviation];
   };
   return [...ids].sort((a, b) => {
     const [x, y] = [key(a), key(b)];
-    return x[0]! - y[0]! || x[1]! - y[1]! || x[2]! - y[2]! || lot.get(a)! - lot.get(b)!;
+    return (
+      x[0]! - y[0]! ||
+      x[1]! - y[1]! ||
+      x[2]! - y[2]! ||
+      lot.get(a)! - lot.get(b)!
+    );
   });
 };
 
 const chooseMethod = (request: EventRequest): Method => {
   if (request.stage.kind === 'elimination') return { kind: 'progression' };
   if (request.format.outcome === 'ranking')
-    return 'sides' in request.format ? { kind: 'four_side' } : { kind: 'sections' };
+    return 'sides' in request.format
+      ? { kind: 'four_side' }
+      : { kind: 'sections' };
   const method = request.settings['pairing.method'].preliminary;
   switch (method.structure) {
     case 'prematched':
@@ -77,7 +109,8 @@ const chooseMethod = (request: EventRequest): Method => {
     case 'round_robin':
       return { kind: 'round_robin' };
     case 'powered':
-      if (request.tabRound > 1) return { kind: 'matched', grouped: true, later: method.later };
+      if (request.tabRound > 1)
+        return { kind: 'matched', grouped: true, later: method.later };
       return method.first === 'seeded' && request.ratings !== null
         ? { kind: 'matched', grouped: true, later: 'fold' }
         : { kind: 'matched', grouped: false, later: 'random' };
@@ -88,13 +121,19 @@ const chooseMethod = (request: EventRequest): Method => {
 const pullUps = (request: EventRequest, seed: Uint8Array) => {
   const history = request.history as StageHistory<FormatDescriptor>;
   const pulled = new Map<Id, number>();
-  const rounds = [...new Set(history.fixtures.map((f) => f.tabRound))].filter((r) => r > 1 && r < request.tabRound);
+  const rounds = [...new Set(history.fixtures.map((f) => f.tabRound))].filter(
+    (r) => r > 1 && r < request.tabRound,
+  );
   for (const round of rounds) {
     const records = recordsAt(request, seed, round - 1);
-    for (const { fixture } of history.fixtures.filter((f) => f.tabRound === round)) {
+    for (const { fixture } of history.fixtures.filter(
+      (f) => f.tabRound === round,
+    )) {
       if (fixture.kind !== 'pairing') continue;
       const top = Math.max(...fixture.sides.map((e) => records.get(e) ?? 0));
-      for (const e of fixture.sides) if ((records.get(e) ?? 0) < top) pulled.set(e, (pulled.get(e) ?? 0) + 1);
+      for (const e of fixture.sides)
+        if ((records.get(e) ?? 0) < top)
+          pulled.set(e, (pulled.get(e) ?? 0) + 1);
     }
   }
   return pulled;
@@ -123,7 +162,10 @@ export const prepare = (request: EventRequest, seed: Uint8Array): Prepared => {
       : 0;
   let strengthOrder: Id[];
   let results: readonly Id[] = progressing
-    ? effectiveResults(request.history as StageHistory<FormatDescriptor>, cutoff).map((r) => r.id)
+    ? effectiveResults(
+        request.history as StageHistory<FormatDescriptor>,
+        cutoff,
+      ).map((r) => r.id)
     : [];
   if (readsResults) {
     const table = standings({
@@ -136,19 +178,33 @@ export const prepare = (request: EventRequest, seed: Uint8Array): Prepared => {
     const records = recordsAt(request, seed, cutoff);
     const place = new Map(table.rows.map((row, i) => [row.entry, i]));
     strengthOrder = [...ids].sort(
-      (a, b) => (records.get(b) ?? 0) - (records.get(a) ?? 0) || (place.get(a) ?? 0) - (place.get(b) ?? 0),
+      (a, b) =>
+        (records.get(b) ?? 0) - (records.get(a) ?? 0) ||
+        (place.get(a) ?? 0) - (place.get(b) ?? 0),
     );
-  } else if (method.kind === 'matched' && method.grouped) strengthOrder = ratingOrder(request, seed, ids);
-  else strengthOrder = shuffleWith([...ids].sort(compareBytes), eventStream(seed, request.event, 'pairing/lot'));
+  } else if (method.kind === 'matched' && method.grouped)
+    strengthOrder = ratingOrder(request, seed, ids);
+  else
+    strengthOrder = shuffleWith(
+      [...ids].sort(compareBytes),
+      eventStream(seed, request.event, 'pairing/lot'),
+    );
   const strength = new Map(strengthOrder.map((id, i) => [id, i]));
-  const record = readsResults ? recordsAt(request, seed, cutoff) : new Map(ids.map((id) => [id, 0]));
+  const record = readsResults
+    ? recordsAt(request, seed, cutoff)
+    : new Map(ids.map((id) => [id, 0]));
   const byeLot = new Map(
-    shuffleWith([...ids].sort(compareBytes), eventStream(seed, request.event, 'bye')).map((id, i) => [id, i]),
+    shuffleWith(
+      [...ids].sort(compareBytes),
+      eventStream(seed, request.event, 'bye'),
+    ).map((id, i) => [id, i]),
   );
   const byeCost = new Map(
     ids.map((id) => [
       id,
-      request.settings['bye.recipient'].value === 'lowest' ? ids.length - 1 - strength.get(id)! : byeLot.get(id)!,
+      request.settings['bye.recipient'].value === 'lowest'
+        ? ids.length - 1 - strength.get(id)!
+        : byeLot.get(id)!,
     ]),
   );
   const order: FactsOrder = {
@@ -165,4 +221,3 @@ export const prepare = (request: EventRequest, seed: Uint8Array): Prepared => {
     results,
   };
 };
-

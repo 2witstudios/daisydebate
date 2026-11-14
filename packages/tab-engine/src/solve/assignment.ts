@@ -12,7 +12,11 @@ export const minimumCostAssignment = (
   const columns = costs[0]!.length;
   if (rows > columns) return null;
   const largest = costs.reduce(
-    (m, row) => row.reduce<bigint>((inner, c) => (c !== null && c > inner ? c : inner), m),
+    (m, row) =>
+      row.reduce<bigint>(
+        (inner, c) => (c !== null && c > inner ? c : inner),
+        m,
+      ),
     0n,
   );
   /** Above any sum of allowed costs, so it is chosen only when nothing else fits. */
@@ -25,7 +29,10 @@ export const minimumCostAssignment = (
   for (let i = 1; i <= rows; i += 1) {
     owner[0] = i;
     let j0 = 0;
-    const minv: (bigint | null)[] = Array.from({ length: columns + 1 }, () => null);
+    const minv: (bigint | null)[] = Array.from(
+      { length: columns + 1 },
+      () => null,
+    );
     const used = Array.from({ length: columns + 1 }, () => false);
     do {
       used[j0] = true;
@@ -58,6 +65,9 @@ export const minimumCostAssignment = (
     } while (j0 !== 0);
   }
   const assigned = Array.from({ length: rows }, () => -1);
-  for (let j = 1; j <= columns; j += 1) if (owner[j]! > 0) assigned[owner[j]! - 1] = j - 1;
-  return assigned.every((column, row) => costs[row]![column] != null) ? assigned : null;
+  for (let j = 1; j <= columns; j += 1)
+    if (owner[j]! > 0) assigned[owner[j]! - 1] = j - 1;
+  return assigned.every((column, row) => costs[row]![column] != null)
+    ? assigned
+    : null;
 };

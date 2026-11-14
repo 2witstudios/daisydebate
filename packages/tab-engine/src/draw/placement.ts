@@ -1,4 +1,9 @@
-import { canonicalOrder, utf8, wordStream, type WordStream } from '@daisy/seeded-random';
+import {
+  canonicalOrder,
+  utf8,
+  wordStream,
+  type WordStream,
+} from '@daisy/seeded-random';
 import type { Fixture, Id } from '../shapes/competition';
 import type { EventRequest } from '../shapes/draw';
 import type { PairingForceKey } from '../shapes/settings';
@@ -23,15 +28,26 @@ export type PlacementAnswer =
     };
 
 /** The seeded streams of one event: adding a choice in one place shifts no other. */
-export const eventStream = (seed: Uint8Array, event: Id, purpose: string): WordStream =>
+export const eventStream = (
+  seed: Uint8Array,
+  event: Id,
+  purpose: string,
+): WordStream =>
   wordStream(`daisy-tab-v1/${event}/${purpose}`, seed, new Uint8Array());
 
 /** A word for one named thing, e.g. one candidate pair. */
-export const wordFor = (seed: Uint8Array, event: Id, purpose: string, thing: string) =>
-  wordStream(`daisy-tab-v1/${event}/${purpose}`, seed, utf8(thing))(0);
+export const wordFor = (
+  seed: Uint8Array,
+  event: Id,
+  purpose: string,
+  thing: string,
+) => wordStream(`daisy-tab-v1/${event}/${purpose}`, seed, utf8(thing))(0);
 
 /** The pool a request places: active entries not already in a fixed fixture. */
-export const poolOf = (request: EventRequest, entriesOfFixture: (f: Fixture) => readonly Id[]) => {
+export const poolOf = (
+  request: EventRequest,
+  entriesOfFixture: (f: Fixture) => readonly Id[],
+) => {
   const fixed = new Set(
     request.existing
       .filter((f) => f.hold === 'fixed')
@@ -43,7 +59,10 @@ export const poolOf = (request: EventRequest, entriesOfFixture: (f: Fixture) => 
 };
 
 /** The rule keys a fixture breaks under the event's settings. */
-export const brokenRules = (facts: EventFacts, fixture: Fixture): PairingForceKey[] =>
+export const brokenRules = (
+  facts: EventFacts,
+  fixture: Fixture,
+): PairingForceKey[] =>
   pairingKeys.filter(
     (key) =>
       forceOf(facts.settings, key) === 'rule' &&
@@ -55,7 +74,10 @@ const widthOf = (key: PairingForceKey) => (key === 'pairing.pull_up' ? 2 : 1);
 /** The preference keys in the order they are weighed. */
 export const weighedKeys = (facts: EventFacts): PairingForceKey[] => {
   const order = facts.settings['pairing.preference_order'].order;
-  const listed = [...order, ...pairingKeys.filter((key) => !order.includes(key))];
+  const listed = [
+    ...order,
+    ...pairingKeys.filter((key) => !order.includes(key)),
+  ];
   return listed.filter((key) => forceOf(facts.settings, key) === 'preference');
 };
 
@@ -71,7 +93,9 @@ export const preferenceFields = (
 ): number[] => {
   const fields = weighedKeys(facts).flatMap((key) => {
     const cost = pairingTerms[key](facts, fixture);
-    return cost === null ? Array.from({ length: widthOf(key) }, () => 0) : [...cost];
+    return cost === null
+      ? Array.from({ length: widthOf(key) }, () => 0)
+      : [...cost];
   });
   if (facts.powered && forceOf(facts.settings, 'pairing.pull_up') === 'warning')
     fields.push(pairingTerms['pairing.pull_up'](facts, fixture)?.[0] ?? 0);

@@ -1,5 +1,10 @@
 import type { Fixture, Id } from '../shapes/competition';
-import type { FixtureRef, Judge, ShortFixture, SlotJudge } from '../shapes/draw';
+import type {
+  FixtureRef,
+  Judge,
+  ShortFixture,
+  SlotJudge,
+} from '../shapes/draw';
 import type { ForceKey, JudgingForceKey } from '../shapes/settings';
 import {
   forceOf,
@@ -31,7 +36,10 @@ export type Staffing =
       readonly kind: 'short';
       readonly panels: readonly (readonly Id[])[];
       readonly short: readonly ShortFixture[];
-      readonly removed: readonly { readonly key: ForceKey; readonly judges: number }[];
+      readonly removed: readonly {
+        readonly key: ForceKey;
+        readonly judges: number;
+      }[];
       readonly committed: number;
     };
 
@@ -42,10 +50,21 @@ const seatContext = (
   seat: number,
   judge: Judge | SlotJudge,
   leastLoad: number,
-): SeatContext => ({ facts: task.facts, fixture: task.fixture, seat, judge, leastLoad });
+): SeatContext => ({
+  facts: task.facts,
+  fixture: task.fixture,
+  seat,
+  judge,
+  leastLoad,
+});
 
 /** The rule keys that keep this judge off this seat. */
-const blockingRules = (task: StaffTask, seat: number, judge: Judge | SlotJudge, leastLoad: number) =>
+const blockingRules = (
+  task: StaffTask,
+  seat: number,
+  judge: Judge | SlotJudge,
+  leastLoad: number,
+) =>
   seatKeys.filter(
     (key) =>
       forceOf(task.facts.settings, key) === 'rule' &&
@@ -57,7 +76,8 @@ const weighed = (facts: EventFacts): SeatKey[] => {
   const order = facts.settings['judging.preference_order'].order;
   return [...order, ...seatKeys.filter((k) => !order.includes(k))].filter(
     (key): key is SeatKey =>
-      key !== 'judging.panel_same_school' && forceOf(facts.settings, key) === 'preference',
+      key !== 'judging.panel_same_school' &&
+      forceOf(facts.settings, key) === 'preference',
   );
 };
 
@@ -83,26 +103,36 @@ export const staff = (input: {
     (j) => !seatedAlready.has(j.id) && !input.occupied.has(j.person),
   );
   const seats: Seat[] = tasks.flatMap((task, t) =>
-    Array.from({ length: Math.max(0, task.size - task.fixture.panel.length) }, (_, k) => ({
-      task: t,
-      seat: task.fixture.panel.length + k,
-    })),
+    Array.from(
+      { length: Math.max(0, task.size - task.fixture.panel.length) },
+      (_, k) => ({
+        task: t,
+        seat: task.fixture.panel.length + k,
+      }),
+    ),
   );
   const eligible = (seat: Seat, judge: Judge | SlotJudge) => {
     const task = tasks[seat.task]!;
-    if (judge.events !== null && !judge.events.includes(task.facts.event)) return false;
+    if (judge.events !== null && !judge.events.includes(task.facts.event))
+      return false;
     return blockingRules(task, seat.seat, judge, leastLoad).length === 0;
   };
   const arcs = [
     ...free.map((_, j) => ({ from: 0, to: 2 + j, capacity: 1 })),
     ...seats.flatMap((seat, s) =>
       free.flatMap((judge, j) =>
-        eligible(seat, judge) ? [{ from: 2 + j, to: 2 + free.length + s, capacity: 1 }] : [],
+        eligible(seat, judge)
+          ? [{ from: 2 + j, to: 2 + free.length + s, capacity: 1 }]
+          : [],
       ),
     ),
     ...seats.map((_, s) => ({ from: 2 + free.length + s, to: 1, capacity: 1 })),
   ];
-  const flow = maximumFlow({ nodes: 2 + free.length + seats.length, arcs }, 0, 1);
+  const flow = maximumFlow(
+    { nodes: 2 + free.length + seats.length, arcs },
+    0,
+    1,
+  );
   const panels = tasks.map((t) => [...t.fixture.panel]);
   if (flow.value < seats.length) {
     arcs.forEach((arc, k) => {
@@ -111,33 +141,62 @@ export const staff = (input: {
         panels[seat.task]![seat.seat] = free[arc.from - 2]!.id;
       }
     });
-    return { kind: 'short', panels: panels.map((p) => p.filter(Boolean)), ...shortReport(input, seats, panels, leastLoad) };
+    return {
+      kind: 'short',
+      panels: panels.map((p) => p.filter(Boolean)),
+      ...shortReport(input, seats, panels, leastLoad),
+    };
   }
-  const columns = free.filter((judge) => seats.some((seat) => eligible(seat, judge)));
+  const columns = free.filter((judge) =>
+    seats.some((seat) => eligible(seat, judge)),
+  );
   const vectors = seats.flatMap((seat) => {
     const task = tasks[seat.task]!;
     return columns.map((judge) =>
       eligible(seat, judge)
         ? [
-            ...weighed(task.facts).map((key) => seatTerms[key](seatContext(task, seat.seat, judge, leastLoad))),
-            wordFor(input.seed, 'judges', 'judges', `${judge.id}/${task.facts.event}/${seat.task}`) >>> 16,
+            ...weighed(task.facts).map((key) =>
+              seatTerms[key](seatContext(task, seat.seat, judge, leastLoad)),
+            ),
+            wordFor(
+              input.seed,
+              'judges',
+              'judges',
+              `${judge.id}/${task.facts.event}/${seat.task}`,
+            ) >>> 16,
           ]
         : null,
     );
   });
   const width = Math.max(0, ...vectors.map((v) => v?.length ?? 0));
-  const padded = vectors.map((v) => (v === null ? null : [...v.slice(0, -1), ...Array(width - v.length).fill(0), v[v.length - 1]!]));
-  const packed = packLexicographic(padded.filter((v): v is number[] => v !== null), seats.length);
+  const padded = vectors.map((v) =>
+    v === null
+      ? null
+      : [
+          ...v.slice(0, -1),
+          ...Array(width - v.length).fill(0),
+          v[v.length - 1]!,
+        ],
+  );
+  const packed = packLexicographic(
+    padded.filter((v): v is number[] => v !== null),
+    seats.length,
+  );
   let at = 0;
   const table = seats.map((_, s) =>
-    columns.map((__, j) => (padded[s * columns.length + j] === null ? null : packed[at++]!)),
+    columns.map((__, j) =>
+      padded[s * columns.length + j] === null ? null : packed[at++]!,
+    ),
   );
   const assigned = minimumCostAssignment(table)!;
   assigned.forEach((column, s) => {
     const seat = seats[s]!;
     panels[seat.task]![seat.seat] = columns[column]!.id;
   });
-  return { kind: 'staffed', panels: improvePanels(input, tasks, seats, panels, eligible, columns) };
+  return {
+    kind: 'staffed',
+    panels: improvePanels(input, tasks, seats, panels, eligible, columns),
+  };
 };
 
 /** Swaps that lower two-judges-of-one-school without breaking a rule. Heuristic. */
@@ -150,12 +209,15 @@ const improvePanels = (
   columns: readonly (Judge | SlotJudge)[],
 ) => {
   const weighs = tasks.some(
-    (t) => t.size > 1 && forceOf(t.facts.settings, 'judging.panel_same_school') === 'preference',
+    (t) =>
+      t.size > 1 &&
+      forceOf(t.facts.settings, 'judging.panel_same_school') === 'preference',
   );
   if (!weighs) return panels;
   const byId = new Map(input.judges.map((j) => [j.id, j]));
   const clash = (t: number) =>
-    forceOf(tasks[t]!.facts.settings, 'judging.panel_same_school') === 'preference'
+    forceOf(tasks[t]!.facts.settings, 'judging.panel_same_school') ===
+    'preference'
       ? panelSameSchool({ ...tasks[t]!.fixture, panel: panels[t]! }, byId)
       : 0;
   for (let round = 0, improved = true; improved && round < 20; round += 1) {
@@ -166,11 +228,18 @@ const improvePanels = (
         if (x.task === y.task) continue;
         const jx = byId.get(panels[x.task]![x.seat]!)!;
         const jy = byId.get(panels[y.task]![y.seat]!)!;
-        if (!columns.includes(jx) || !columns.includes(jy) || !eligible(x, jy) || !eligible(y, jx)) continue;
+        if (
+          !columns.includes(jx) ||
+          !columns.includes(jy) ||
+          !eligible(x, jy) ||
+          !eligible(y, jx)
+        )
+          continue;
         const before = clash(x.task) + clash(y.task);
         panels[x.task]![x.seat] = jy.id;
         panels[y.task]![y.seat] = jx.id;
-        if (compareVectors([clash(x.task) + clash(y.task)], [before]) < 0) improved = true;
+        if (compareVectors([clash(x.task) + clash(y.task)], [before]) < 0)
+          improved = true;
         else {
           panels[x.task]![x.seat] = jx.id;
           panels[y.task]![y.seat] = jy.id;
@@ -190,20 +259,35 @@ const shortReport = (
   const removed = new Map<JudgingForceKey, Set<Id>>();
   const short: ShortFixture[] = [];
   input.tasks.forEach((task, t) => {
-    const empty = seats.filter((s) => s.task === t && panels[t]![s.seat] === undefined);
+    const empty = seats.filter(
+      (s) => s.task === t && panels[t]![s.seat] === undefined,
+    );
     if (empty.length === 0) return;
     const could = new Set<Id>();
     for (const judge of input.judges) {
-      if (judge.events !== null && !judge.events.includes(task.facts.event)) continue;
-      const rules = empty.flatMap((s) => blockingRules(task, s.seat, judge, leastLoad));
-      for (const key of rules) removed.set(key, new Set([...(removed.get(key) ?? []), judge.id]));
-      if (rules.length > 0 || input.committedPeople.has(judge.person)) could.add(judge.id);
+      if (judge.events !== null && !judge.events.includes(task.facts.event))
+        continue;
+      const rules = empty.flatMap((s) =>
+        blockingRules(task, s.seat, judge, leastLoad),
+      );
+      for (const key of rules)
+        removed.set(key, new Set([...(removed.get(key) ?? []), judge.id]));
+      if (rules.length > 0 || input.committedPeople.has(judge.person))
+        could.add(judge.id);
     }
-    short.push({ event: task.facts.event, fixture: task.ref, missing: empty.length, couldCover: [...could].sort() });
+    short.push({
+      event: task.facts.event,
+      fixture: task.ref,
+      missing: empty.length,
+      couldCover: [...could].sort(),
+    });
   });
   return {
     short,
-    removed: [...removed].map(([key, held]) => ({ key, judges: held.size })).sort((a, b) => (a.key < b.key ? -1 : 1)),
-    committed: input.judges.filter((j) => input.committedPeople.has(j.person)).length,
+    removed: [...removed]
+      .map(([key, held]) => ({ key, judges: held.size }))
+      .sort((a, b) => (a.key < b.key ? -1 : 1)),
+    committed: input.judges.filter((j) => input.committedPeople.has(j.person))
+      .length,
   };
 };

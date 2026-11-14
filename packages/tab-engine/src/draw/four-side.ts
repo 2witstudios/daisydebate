@@ -1,12 +1,23 @@
 import { shuffleWith } from '@daisy/seeded-random';
-import type { Bye, FourSidePairing, FourSides, Id } from '../shapes/competition';
+import type {
+  Bye,
+  FourSidePairing,
+  FourSides,
+  Id,
+} from '../shapes/competition';
 import type { RequestOf } from '../shapes/draw';
 import { forceOf, pairingTerms } from '../settings/registry';
 import { minimumCostAssignment } from '../solve/assignment';
 import { compareVectors, packLexicographic } from '../solve/lexicographic';
 import { entriesOf, type EventFacts } from './facts';
 import { byStrength, byeTakers } from './order';
-import { brokenRules, eventStream, poolOf, wordFor, type PlacementAnswer } from './placement';
+import {
+  brokenRules,
+  eventStream,
+  poolOf,
+  wordFor,
+  type PlacementAnswer,
+} from './placement';
 
 export const FOUR_SIDE_VERSION = 'pairing-four-side@1';
 
@@ -24,10 +35,20 @@ const positionCost = (facts: EventFacts, team: Id, position: number) => {
  * takes pull-ups from the pool below: the least pulled before (or the
  * weakest, by `pairing.pull_up`), then a seeded choice.
  */
-const pools = (facts: EventFacts, seed: Uint8Array, entries: readonly Id[]): Id[][] => {
+const pools = (
+  facts: EventFacts,
+  seed: Uint8Array,
+  entries: readonly Id[],
+): Id[][] => {
   const byRecord = new Map<number, Id[]>();
-  for (const e of entries) byRecord.set(facts.record.get(e) ?? 0, [...(byRecord.get(facts.record.get(e) ?? 0) ?? []), e]);
-  const levels = [...byRecord].sort(([a], [b]) => b - a).map(([, members]) => byStrength(facts, members));
+  for (const e of entries)
+    byRecord.set(facts.record.get(e) ?? 0, [
+      ...(byRecord.get(facts.record.get(e) ?? 0) ?? []),
+      e,
+    ]);
+  const levels = [...byRecord]
+    .sort(([a], [b]) => b - a)
+    .map(([, members]) => byStrength(facts, members));
   const out: Id[][] = [];
   let carry: Id[] = [];
   levels.forEach((level, i) => {
@@ -49,7 +70,8 @@ const pools = (facts: EventFacts, seed: Uint8Array, entries: readonly Id[]): Id[
       (a, b) =>
         (choose === 'least_pulled'
           ? (facts.pulledUp.get(a) ?? 0) - (facts.pulledUp.get(b) ?? 0)
-          : (facts.weakerInGroup.get(a) ?? 0) - (facts.weakerInGroup.get(b) ?? 0)) || lot(a) - lot(b),
+          : (facts.weakerInGroup.get(a) ?? 0) -
+            (facts.weakerInGroup.get(b) ?? 0)) || lot(a) - lot(b),
     );
     const pulled = candidates.slice(0, short);
     out.push([...members, ...pulled]);
@@ -65,18 +87,27 @@ const pools = (facts: EventFacts, seed: Uint8Array, entries: readonly Id[]): Id[
  * with each position used equally. Rooms are then formed by a seeded shuffle,
  * one team per position.
  */
-const roomsOfPool = (facts: EventFacts, seed: Uint8Array, pool: readonly Id[], index: number): Room[] => {
+const roomsOfPool = (
+  facts: EventFacts,
+  seed: Uint8Array,
+  pool: readonly Id[],
+  index: number,
+): Room[] => {
   const rooms = pool.length / 4;
-  const weighed = forceOf(facts.settings, 'pairing.position_balance') === 'preference';
+  const weighed =
+    forceOf(facts.settings, 'pairing.position_balance') === 'preference';
   const slots = Array.from({ length: pool.length }, (_, s) => s % 4);
   const vectors = pool.flatMap((team) =>
     slots.map((position) => [
       weighed ? positionCost(facts, team, position) : 0,
-      wordFor(seed, facts.event, 'pairing/positions', `${team}/${position}`) >>> 20,
+      wordFor(seed, facts.event, 'pairing/positions', `${team}/${position}`) >>>
+        20,
     ]),
   );
   const packed = packLexicographic(vectors, pool.length);
-  const assigned = minimumCostAssignment(pool.map((_, t) => slots.map((__, s) => packed[t * slots.length + s]!)))!;
+  const assigned = minimumCostAssignment(
+    pool.map((_, t) => slots.map((__, s) => packed[t * slots.length + s]!)),
+  )!;
   const byPosition = [0, 1, 2, 3].map((position) =>
     shuffleWith(
       pool.filter((_, t) => slots[assigned[t]!] === position),
@@ -91,14 +122,24 @@ const roomsOfPool = (facts: EventFacts, seed: Uint8Array, pool: readonly Id[], i
   ]);
 };
 
-const roomFixture = (room: Room): FourSidePairing => ({ kind: 'pairing', sides: room, panel: [] });
+const roomFixture = (room: Room): FourSidePairing => ({
+  kind: 'pairing',
+  sides: room,
+  panel: [],
+});
 
 /** Rule breaks first, then the weighed school and meeting costs. */
 const groupingCost = (facts: EventFacts, room: Room) => {
   const fixture = roomFixture(room);
   const weigh = (key: 'pairing.same_school' | 'pairing.rematch') =>
-    forceOf(facts.settings, key) === 'preference' ? (pairingTerms[key](facts, fixture)?.[0] ?? 0) : 0;
-  return [brokenRules(facts, fixture).length, weigh('pairing.same_school'), weigh('pairing.rematch')];
+    forceOf(facts.settings, key) === 'preference'
+      ? (pairingTerms[key](facts, fixture)?.[0] ?? 0)
+      : 0;
+  return [
+    brokenRules(facts, fixture).length,
+    weigh('pairing.same_school'),
+    weigh('pairing.rematch'),
+  ];
 };
 
 /**
@@ -107,7 +148,11 @@ const groupingCost = (facts: EventFacts, room: Room) => {
  * lowers the cost. Heuristic, and it says so: a rule still broken after it is
  * `unresolved`.
  */
-const improve = (facts: EventFacts, rooms: Room[], poolOfRoom: readonly number[]) => {
+const improve = (
+  facts: EventFacts,
+  rooms: Room[],
+  poolOfRoom: readonly number[],
+) => {
   const total = (a: Room, b: Room) => {
     const [x, y] = [groupingCost(facts, a), groupingCost(facts, b)];
     return x.map((v, i) => v + y[i]!);
@@ -132,17 +177,27 @@ const improve = (facts: EventFacts, rooms: Room[], poolOfRoom: readonly number[]
   return rooms;
 };
 
-export const placeFourSide = (request: RequestOf<FourSides>, facts: EventFacts, seed: Uint8Array): PlacementAnswer => {
+export const placeFourSide = (
+  request: RequestOf<FourSides>,
+  facts: EventFacts,
+  seed: Uint8Array,
+): PlacementAnswer => {
   const movable = request.existing.filter((f) => f.hold === 'movable');
   const pool = poolOf(request, entriesOf);
   const keptMovable = movable.filter(
-    (f) => brokenRules(facts, f.fixture).length === 0 && entriesOf(f.fixture).every((e) => pool.includes(e)),
+    (f) =>
+      brokenRules(facts, f.fixture).length === 0 &&
+      entriesOf(f.fixture).every((e) => pool.includes(e)),
   );
   const held = new Set(keptMovable.flatMap((f) => entriesOf(f.fixture)));
   const open = pool.filter((e) => !held.has(e));
-  const byes: Bye[] = byeTakers(facts, seed, open, open.length % 4).map((entry) => ({ kind: 'bye', entry }));
+  const byes: Bye[] = byeTakers(facts, seed, open, open.length % 4).map(
+    (entry) => ({ kind: 'bye', entry }),
+  );
   const placing = open.filter((e) => !byes.some((b) => b.entry === e));
-  const grouped = facts.powered ? pools(facts, seed, placing) : [byStrength(facts, placing)];
+  const grouped = facts.powered
+    ? pools(facts, seed, placing)
+    : [byStrength(facts, placing)];
   const rooms: Room[] = [];
   const poolOfRoom: number[] = [];
   grouped.forEach((members, index) => {
@@ -151,8 +206,12 @@ export const placeFourSide = (request: RequestOf<FourSides>, facts: EventFacts, 
       poolOfRoom.push(index);
     }
   });
-  const weighsGrouping = (['pairing.same_school', 'pairing.rematch'] as const).some(
-    (key) => forceOf(facts.settings, key) !== 'off' && forceOf(facts.settings, key) !== 'warning',
+  const weighsGrouping = (
+    ['pairing.same_school', 'pairing.rematch'] as const
+  ).some(
+    (key) =>
+      forceOf(facts.settings, key) !== 'off' &&
+      forceOf(facts.settings, key) !== 'warning',
   );
   const final = weighsGrouping ? improve(facts, rooms, poolOfRoom) : rooms;
   const added = [...final.map(roomFixture), ...byes];

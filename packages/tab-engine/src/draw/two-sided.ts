@@ -2,7 +2,11 @@ import type { Bye, Id, TwoSidePairing, TwoSides } from '../shapes/competition';
 import type { RequestOf } from '../shapes/draw';
 import type { PreliminaryMethod } from '../shapes/settings';
 import { byeRecipientTerm } from '../settings/registry';
-import { addVectors, compareVectors, packLexicographic } from '../solve/lexicographic';
+import {
+  addVectors,
+  compareVectors,
+  packLexicographic,
+} from '../solve/lexicographic';
 import { minimumCostPerfectMatching } from '../solve/matching';
 import { entriesOf, pairKey, type EventFacts } from './facts';
 import {
@@ -19,7 +23,12 @@ type Fixture2 = TwoSidePairing | Bye;
 const BYE = '\u0000bye';
 
 /** The within-group method's cost of pairing ranks i < j of a group of g. */
-export const methodCost = (method: PreliminaryMethod['later'], i: number, j: number, g: number) => {
+export const methodCost = (
+  method: PreliminaryMethod['later'],
+  i: number,
+  j: number,
+  g: number,
+) => {
   switch (method) {
     case 'fold':
       return Math.abs(i + j - (g - 1));
@@ -33,7 +42,10 @@ export const methodCost = (method: PreliminaryMethod['later'], i: number, j: num
   }
 };
 
-type Candidate = { readonly fixture: Fixture2; readonly fields: readonly number[] };
+type Candidate = {
+  readonly fixture: Fixture2;
+  readonly fields: readonly number[];
+};
 
 type Solved = {
   readonly fixtures: readonly Candidate[];
@@ -65,7 +77,10 @@ const solve = (
   const width = edges[0]?.[2].fields.length ?? 0;
   return {
     fixtures: chosen,
-    total: chosen.reduce<readonly number[]>((sum, c) => addVectors(sum, c.fields), Array(width).fill(0)),
+    total: chosen.reduce<readonly number[]>(
+      (sum, c) => addVectors(sum, c.fields),
+      Array(width).fill(0),
+    ),
   };
 };
 
@@ -74,7 +89,10 @@ export const placeTwoSided = (
   facts: EventFacts,
   seed: Uint8Array,
   structure: 'matched' | 'prematched',
-  method: { readonly later: PreliminaryMethod['later']; readonly grouped: boolean },
+  method: {
+    readonly later: PreliminaryMethod['later'];
+    readonly grouped: boolean;
+  },
 ): PlacementAnswer => {
   const pool = poolOf(request, entriesOf);
   const vertices = pool.length % 2 === 1 ? [...pool, BYE] : pool;
@@ -82,12 +100,20 @@ export const placeTwoSided = (
   const movableFor = new Map(
     movable.map((f) => [pairKey(...pairOfFixture(f.fixture)), f] as const),
   );
-  const tie = (a: Id, b: Id) => wordFor(seed, request.event, 'pairing/tiebreak', pairKey(a, b));
+  const tie = (a: Id, b: Id) =>
+    wordFor(seed, request.event, 'pairing/tiebreak', pairKey(a, b));
 
-  const orientations = (a: Id, b: Id): { fixture: Fixture2; kept: boolean }[] => {
+  const orientations = (
+    a: Id,
+    b: Id,
+  ): { fixture: Fixture2; kept: boolean }[] => {
     const existing = movableFor.get(pairKey(a, b));
-    if (existing !== undefined) return [{ fixture: existing.fixture, kept: true }];
-    if (a === BYE || b === BYE) return [{ fixture: { kind: 'bye', entry: a === BYE ? b : a }, kept: false }];
+    if (existing !== undefined)
+      return [{ fixture: existing.fixture, kept: true }];
+    if (a === BYE || b === BYE)
+      return [
+        { fixture: { kind: 'bye', entry: a === BYE ? b : a }, kept: false },
+      ];
     return [
       { fixture: { kind: 'pairing', sides: [a, b], panel: [] }, kept: false },
       { fixture: { kind: 'pairing', sides: [b, a], panel: [] }, kept: false },
@@ -97,7 +123,12 @@ export const placeTwoSided = (
   const candidate =
     (extra: (fixture: Fixture2) => number) =>
     (a: Id, b: Id): Candidate | null => {
-      if (structure === 'prematched' && a !== BYE && b !== BYE && (facts.meetings.get(pairKey(a, b)) ?? 0) > 0)
+      if (
+        structure === 'prematched' &&
+        a !== BYE &&
+        b !== BYE &&
+        (facts.meetings.get(pairKey(a, b)) ?? 0) > 0
+      )
         return null;
       const word = tie(a, b);
       const options = orientations(a, b)
@@ -106,17 +137,29 @@ export const placeTwoSided = (
           fixture,
           fields: [
             kept ? 0 : 1,
-            ...preferenceFields(facts, fixture, byeRecipientTerm(facts, fixture)),
+            ...preferenceFields(
+              facts,
+              fixture,
+              byeRecipientTerm(facts, fixture),
+            ),
             extra(fixture),
             word >>> 16,
           ],
         }));
-      if (options.length === 2 && compareVectors(options[0]!.fields, options[1]!.fields) === 0)
+      if (
+        options.length === 2 &&
+        compareVectors(options[0]!.fields, options[1]!.fields) === 0
+      )
         return options[word & 1]!;
-      return options.sort((x, y) => compareVectors(x.fields, y.fields))[0] ?? null;
+      return (
+        options.sort((x, y) => compareVectors(x.fields, y.fields))[0] ?? null
+      );
     };
 
-  const first = solve(vertices, candidate(() => 0));
+  const first = solve(
+    vertices,
+    candidate(() => 0),
+  );
   if (first === null) return { kind: 'infeasible' };
   const fixtures = method.grouped
     ? regroup(first, facts, method.later, candidate)
@@ -126,25 +169,36 @@ export const placeTwoSided = (
   const added: Fixture2[] = [];
   for (const fixture of fixtures) {
     const existing = movableFor.get(pairKey(...pairOfFixture(fixture)));
-    if (existing !== undefined && sameFixture(existing.fixture, fixture)) keptIds.add(existing.id);
+    if (existing !== undefined && sameFixture(existing.fixture, fixture))
+      keptIds.add(existing.id);
     else added.push(fixture);
   }
   const strength = (f: Fixture2) =>
-    f.kind === 'bye' ? Infinity : Math.min(...f.sides.map((e) => facts.strength.get(e) ?? 0));
+    f.kind === 'bye'
+      ? Infinity
+      : Math.min(...f.sides.map((e) => facts.strength.get(e) ?? 0));
   return {
     kind: 'placed',
     placed: {
       kept: request.existing
         .filter((f) => f.hold === 'fixed' || keptIds.has(f.id))
         .map((f) => ({ id: f.id, fixture: f.fixture })),
-      added: added.sort((x, y) => strength(x) - strength(y) || (pairKey(...pairOfFixture(x)) < pairKey(...pairOfFixture(y)) ? -1 : 1)),
+      added: added.sort(
+        (x, y) =>
+          strength(x) - strength(y) ||
+          (pairKey(...pairOfFixture(x)) < pairKey(...pairOfFixture(y))
+            ? -1
+            : 1),
+      ),
       withdrawn: movable.filter((f) => !keptIds.has(f.id)).map((f) => f.id),
     },
   };
 };
 
 const pairOfFixture = (fixture: Fixture2): [Id, Id] =>
-  fixture.kind === 'bye' ? [fixture.entry, BYE] : [fixture.sides[0], fixture.sides[1]];
+  fixture.kind === 'bye'
+    ? [fixture.entry, BYE]
+    : [fixture.sides[0], fixture.sides[1]];
 
 const sameFixture = (a: Fixture2, b: Fixture2) =>
   a.kind === 'bye' || b.kind === 'bye'
@@ -161,7 +215,9 @@ const regroup = (
   first: Solved,
   facts: EventFacts,
   later: PreliminaryMethod['later'],
-  candidate: (extra: (fixture: Fixture2) => number) => (a: Id, b: Id) => Candidate | null,
+  candidate: (
+    extra: (fixture: Fixture2) => number,
+  ) => (a: Id, b: Id) => Candidate | null,
 ): Fixture2[] => {
   const groups = new Map<number, Id[]>();
   const out: Fixture2[] = [];
@@ -180,11 +236,27 @@ const regroup = (
     const rank = new Map(ranked.map((e, i) => [e, i]));
     const field = (fixture: Fixture2) => {
       if (fixture.kind === 'bye') return 0;
-      const [i, j] = fixture.sides.map((e) => rank.get(e)!).sort((x, y) => x - y);
+      const [i, j] = fixture.sides
+        .map((e) => rank.get(e)!)
+        .sort((x, y) => x - y);
       return methodCost(later, i!, j!, ranked.length);
     };
-    const group = later === 'top_down' ? topDown(ranked, candidate(() => 0)) : solve(ranked, candidate(field));
-    out.push(...(group ?? solve(ranked, candidate(() => 0))!).fixtures.map((c) => c.fixture));
+    const group =
+      later === 'top_down'
+        ? topDown(
+            ranked,
+            candidate(() => 0),
+          )
+        : solve(ranked, candidate(field));
+    out.push(
+      ...(
+        group ??
+        solve(
+          ranked,
+          candidate(() => 0),
+        )!
+      ).fixtures.map((c) => c.fixture),
+    );
   }
   return out;
 };
@@ -215,7 +287,10 @@ const topDown = (
         candidate,
       );
       if (remainder === null) continue;
-      const total = addVectors(addVectors(spent, higher(pair.fields)), higher(remainder.total));
+      const total = addVectors(
+        addVectors(spent, higher(pair.fields)),
+        higher(remainder.total),
+      );
       if (compareVectors(total, target) === 0) {
         picked = { c: pair, partner };
         break;

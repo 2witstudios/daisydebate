@@ -5,7 +5,9 @@ import { eventStream } from './placement';
 
 /** Entries by pairing strength, strongest first. */
 export const byStrength = (facts: EventFacts, entries: readonly Id[]) =>
-  [...entries].sort((a, b) => (facts.strength.get(a) ?? 0) - (facts.strength.get(b) ?? 0));
+  [...entries].sort(
+    (a, b) => (facts.strength.get(a) ?? 0) - (facts.strength.get(b) ?? 0),
+  );
 
 /** Entries by strength, weakest first. */
 export const weakestFirst = (facts: EventFacts, entries: readonly Id[]) =>
@@ -26,7 +28,10 @@ export const byeTakers = (
   const ordered =
     facts.settings['bye.recipient'].value === 'lowest'
       ? weakestFirst(facts, entries)
-      : shuffleWith([...entries].sort(compareBytes), eventStream(seed, facts.event, 'bye'));
+      : shuffleWith(
+          [...entries].sort(compareBytes),
+          eventStream(seed, facts.event, 'bye'),
+        );
   const repeatForce = facts.settings['bye.repeat'].force;
   const fresh = (e: Id) => (facts.byes.get(e) ?? 0) === 0;
   const ranked =

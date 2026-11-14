@@ -81,6 +81,87 @@
       "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
       "reason": "Actual persistent custody plus PG receipt/bodyless recovery qualification precedes the bounded signed capture/replay assembly in this same incomplete slice. Receipt is not fresh capture/hearing permission; production remains disabled under REL-H. Full carry, dispatch/settlement, retirement scheduling and played result proof are still required.",
       "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "packages/tab-engine/src/draw/index.ts",
+      "export": "draw",
+      "task": "TAB-8.6",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/assess/index.ts",
+      "export": "assess",
+      "task": "TAB-8.6",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/assess/index.ts",
+      "export": "whyNot",
+      "task": "TAB-8.6",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/standings/standings.ts",
+      "export": "standings",
+      "task": "TAB-8.10",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/standings/entry-rating.ts",
+      "export": "entryRating",
+      "task": "TAB-8.10",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/breaks/breaks.ts",
+      "export": "breaks",
+      "task": "TAB-8.16",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/season/season-standings.ts",
+      "export": "seasonStandings",
+      "task": "TAB-8.11",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/season/ladder-input.ts",
+      "export": "ladderInput",
+      "task": "TAB-8.3",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/tab-engine/src/checker/index.ts",
+      "export": "check",
+      "task": "TAB-8.15",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
+      "reviewBy": "2026-12-15"
     }
   ]
 }

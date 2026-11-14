@@ -37,11 +37,20 @@ export const maximumWeightMatching = (
   const labelend = Array.from({ length: 2 * n }, () => -1);
   const inblossom = Array.from({ length: n }, (_, v) => v);
   const blossomparent = Array.from({ length: 2 * n }, () => -1);
-  const blossomchilds: (number[] | null)[] = Array.from({ length: 2 * n }, () => null);
+  const blossomchilds: (number[] | null)[] = Array.from(
+    { length: 2 * n },
+    () => null,
+  );
   const blossombase = Array.from({ length: 2 * n }, (_, b) => (b < n ? b : -1));
-  const blossomendps: (number[] | null)[] = Array.from({ length: 2 * n }, () => null);
+  const blossomendps: (number[] | null)[] = Array.from(
+    { length: 2 * n },
+    () => null,
+  );
   const bestedge = Array.from({ length: 2 * n }, () => -1);
-  const blossombestedges: (number[] | null)[] = Array.from({ length: 2 * n }, () => null);
+  const blossombestedges: (number[] | null)[] = Array.from(
+    { length: 2 * n },
+    () => null,
+  );
   const unusedblossoms = Array.from({ length: n }, (_, i) => n + i);
   const dualvar: bigint[] = Array.from({ length: 2 * n }, (_, i) =>
     i < n ? maxWeight : 0n,
@@ -155,7 +164,8 @@ export const maximumWeightMatching = (
     blossombestedges[b] = bestedgeto.filter((edge) => edge !== -1);
     bestedge[b] = -1;
     for (const edge of blossombestedges[b]!)
-      if (bestedge[b] === -1 || slack(edge) < slack(bestedge[b]!)) bestedge[b] = edge;
+      if (bestedge[b] === -1 || slack(edge) < slack(bestedge[b]!))
+        bestedge[b] = edge;
   };
 
   const expandBlossom = (b: number, endstage: boolean): void => {
@@ -314,9 +324,11 @@ export const maximumWeightMatching = (
             }
           } else if (label[inblossom[w]!] === 1) {
             const b = inblossom[v]!;
-            if (bestedge[b] === -1 || kslack < slack(bestedge[b]!)) bestedge[b] = k;
+            if (bestedge[b] === -1 || kslack < slack(bestedge[b]!))
+              bestedge[b] = k;
           } else if (label[w] === 0) {
-            if (bestedge[w] === -1 || kslack < slack(bestedge[w]!)) bestedge[w] = k;
+            if (bestedge[w] === -1 || kslack < slack(bestedge[w]!))
+              bestedge[w] = k;
           }
         }
       }

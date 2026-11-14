@@ -23,9 +23,12 @@ export const packLexicographic = (
   const largest = Array.from({ length: width }, (_, f) =>
     vectors.reduce((m, vector) => Math.max(m, vector[f]!), 0),
   );
-  const bits = largest.map((m) => bitLength(BigInt(m) * BigInt(Math.max(parts, 1))));
+  const bits = largest.map((m) =>
+    bitLength(BigInt(m) * BigInt(Math.max(parts, 1))),
+  );
   const shifts: bigint[] = Array.from({ length: width }, () => 0n);
-  for (let f = width - 2; f >= 0; f -= 1) shifts[f] = shifts[f + 1]! + bits[f + 1]!;
+  for (let f = width - 2; f >= 0; f -= 1)
+    shifts[f] = shifts[f + 1]! + bits[f + 1]!;
   return vectors.map((vector) =>
     vector.reduce((sum, value, f) => sum + (BigInt(value) << shifts[f]!), 0n),
   );

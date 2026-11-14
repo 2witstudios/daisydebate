@@ -18,9 +18,14 @@ export const effectiveResults = <Format extends FormatDescriptor>(
 ): ResultOf<Format>[] => {
   const roundOf = new Map(history.fixtures.map((f) => [f.id, f.tabRound]));
   const superseded = new Set(
-    history.results.flatMap((r) => (r.supersedes === null ? [] : [r.supersedes])),
+    history.results.flatMap((r) =>
+      r.supersedes === null ? [] : [r.supersedes],
+    ),
   );
-  const depth = (result: ResultOf<Format>, byId: ReadonlyMap<Id, ResultOf<Format>>) => {
+  const depth = (
+    result: ResultOf<Format>,
+    byId: ReadonlyMap<Id, ResultOf<Format>>,
+  ) => {
     let steps = 0;
     for (let at = result; at.supersedes !== null; steps += 1) {
       const earlier = byId.get(at.supersedes);
@@ -33,7 +38,8 @@ export const effectiveResults = <Format extends FormatDescriptor>(
   const latest = new Map<Id, ResultOf<Format>>();
   for (const result of canonicalOrder(history.results)) {
     const round = roundOf.get(result.fixture);
-    if (round === undefined || round > cutoff || superseded.has(result.id)) continue;
+    if (round === undefined || round > cutoff || superseded.has(result.id))
+      continue;
     const held = latest.get(result.fixture);
     if (held === undefined || depth(result, byId) >= depth(held, byId))
       latest.set(result.fixture, result);

@@ -32,7 +32,10 @@ export const forceKeys = {
 } as const satisfies Record<string, readonly Force[]>;
 
 export type ForceKey = keyof typeof forceKeys;
-export type PairingForceKey = Extract<ForceKey, `pairing.${string}` | `bye.${string}`>;
+export type PairingForceKey = Extract<
+  ForceKey,
+  `pairing.${string}` | `bye.${string}`
+>;
 export type JudgingForceKey = Extract<ForceKey, `judging.${string}`>;
 
 /** A force value limited, by type, to the forces its key allows. */

@@ -35,9 +35,7 @@ export type RequestOf<Format extends FormatDescriptor> = {
   readonly existing: readonly ExistingFixture<Format>[];
 };
 export type EventRequest =
-  | RequestOf<TwoSides>
-  | RequestOf<FourSides>
-  | RequestOf<Speakers>;
+  RequestOf<TwoSides> | RequestOf<FourSides> | RequestOf<Speakers>;
 
 /** A tournament judge, as a draw needs them. */
 export type Judge = {
@@ -106,23 +104,62 @@ export type RuleBreak = {
 
 /** A structural fact no override covers. */
 export type InvalidFact =
-  | { readonly fact: 'entry_placed_twice'; readonly event: Id; readonly entry: Id }
-  | { readonly fact: 'entry_not_placed'; readonly event: Id; readonly entry: Id }
-  | { readonly fact: 'withdrawn_entry_placed'; readonly event: Id; readonly entry: Id }
+  | {
+      readonly fact: 'entry_placed_twice';
+      readonly event: Id;
+      readonly entry: Id;
+    }
+  | {
+      readonly fact: 'entry_not_placed';
+      readonly event: Id;
+      readonly entry: Id;
+    }
+  | {
+      readonly fact: 'withdrawn_entry_placed';
+      readonly event: Id;
+      readonly entry: Id;
+    }
   | { readonly fact: 'person_twice_in_slot'; readonly person: Id }
-  | { readonly fact: 'fixed_fixture_changed'; readonly event: Id; readonly fixture: Id }
-  | { readonly fact: 'seated_judge_removed'; readonly event: Id; readonly fixture: Id }
+  | {
+      readonly fact: 'fixed_fixture_changed';
+      readonly event: Id;
+      readonly fixture: Id;
+    }
+  | {
+      readonly fact: 'seated_judge_removed';
+      readonly event: Id;
+      readonly fixture: Id;
+    }
   | { readonly fact: 'judge_twice'; readonly judge: Id }
-  | { readonly fact: 'judge_not_eligible'; readonly judge: Id; readonly event: Id }
-  | { readonly fact: 'fixture_kind'; readonly event: Id; readonly fixture: FixtureRef }
-  | { readonly fact: 'panel_size'; readonly event: Id; readonly fixture: FixtureRef }
-  | { readonly fact: 'existing_unaccounted'; readonly event: Id; readonly fixture: Id };
+  | {
+      readonly fact: 'judge_not_eligible';
+      readonly judge: Id;
+      readonly event: Id;
+    }
+  | {
+      readonly fact: 'fixture_kind';
+      readonly event: Id;
+      readonly fixture: FixtureRef;
+    }
+  | {
+      readonly fact: 'panel_size';
+      readonly event: Id;
+      readonly fixture: FixtureRef;
+    }
+  | {
+      readonly fact: 'existing_unaccounted';
+      readonly event: Id;
+      readonly fixture: Id;
+    };
 
 /** The best single exchange of one entry with another fixture, field by field. */
 export type Exchange = {
   readonly with: FixtureRef;
   readonly entries: readonly [Id, Id];
-  readonly difference: readonly { readonly key: CostKey; readonly cost: readonly number[] }[];
+  readonly difference: readonly {
+    readonly key: CostKey;
+    readonly cost: readonly number[];
+  }[];
 };
 
 export type FixtureAssessment = {
@@ -134,7 +171,10 @@ export type FixtureAssessment = {
 /** The one costing of a plan, engine-made or changed by a person. */
 export type Assessment = {
   readonly fixtures: readonly FixtureAssessment[];
-  readonly totals: readonly { readonly key: CostKey; readonly cost: readonly number[] }[];
+  readonly totals: readonly {
+    readonly key: CostKey;
+    readonly cost: readonly number[];
+  }[];
   readonly warnings: readonly RuleBreak[];
   readonly broken: readonly RuleBreak[];
   readonly invalid: readonly InvalidFact[];
@@ -149,9 +189,15 @@ export type InputsRecord = {
   readonly slot: Id | null;
   readonly entriesDigest: string;
   readonly judgesDigest: string;
-  readonly existing: readonly { readonly id: Id; readonly hold: 'fixed' | 'movable' }[];
+  readonly existing: readonly {
+    readonly id: Id;
+    readonly hold: 'fixed' | 'movable';
+  }[];
   readonly commitments: readonly Id[];
-  readonly alongside: readonly { readonly event: Id; readonly tabRound: number }[];
+  readonly alongside: readonly {
+    readonly event: Id;
+    readonly tabRound: number;
+  }[];
   readonly ratings: {
     readonly ladder: Id;
     readonly takenAt: string;
@@ -222,13 +268,19 @@ export type DrawAnswer =
       /** A set in which dropping any one rule makes a draw possible. */
       readonly rules: readonly ForceKey[];
       /** What each single relaxation to a preference would cost, as information. */
-      readonly relaxations: readonly { readonly key: ForceKey; readonly breaks: number }[];
+      readonly relaxations: readonly {
+        readonly key: ForceKey;
+        readonly breaks: number;
+      }[];
     }
   | {
       readonly kind: 'infeasible';
       readonly cause: 'panels';
       readonly short: readonly ShortFixture[];
-      readonly removed: readonly { readonly key: ForceKey; readonly judges: number }[];
+      readonly removed: readonly {
+        readonly key: ForceKey;
+        readonly judges: number;
+      }[];
       readonly committed: number;
       /** The fixtures, with the panels that could be seated, for the host to see. */
       readonly draws: readonly Draw[];
