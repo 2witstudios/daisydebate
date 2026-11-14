@@ -23,7 +23,10 @@ export type CommandDecision<Refusal extends string, Write> =
   | { readonly kind: 'refused'; readonly refusal: Refusal }
   | {
       readonly kind: 'accepted';
-      readonly aggregate: { readonly kind: LobbyAggregateKind; readonly id: string };
+      readonly aggregate: {
+        readonly kind: LobbyAggregateKind;
+        readonly id: string;
+      };
       readonly resultingVersion: number;
       readonly writes: readonly Write[];
       readonly findings: readonly CommandFinding[];
@@ -67,7 +70,10 @@ export type CommandTransaction<Facts, Write> = {
   /** Holds the command whole for a second person's confirmation. */
   readonly holdForConfirmation: (
     held: HeldCommand,
-  ) => Promise<{ readonly pendingCommandId: string; readonly expiresAt: string }>;
+  ) => Promise<{
+    readonly pendingCommandId: string;
+    readonly expiresAt: string;
+  }>;
   readonly apply: (
     writes: readonly Write[],
     history: ActionHistoryEntry,
