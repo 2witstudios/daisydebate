@@ -157,7 +157,7 @@ const bump = {
   op: 'update',
   id: lobbyId,
   set: { version: 6 },
-};
+} as const;
 const decided = (given: SetupFacts, command: TournamentSetupCommand) => {
   const decision = decideSetup(given, command);
   return decision.kind === 'refused' ? decision.refusal : decision.writes;
@@ -873,7 +873,7 @@ describe('define-ballot', () => {
   const settings = {
     points: { min: 20, max: 30, step: 1, lowPointWin: false },
     ranks: false,
-    criteria: [],
+    criteria: [] as string[],
     outcomes: { winner: true, doubleLoss: false },
     written: { reason: 'required', feedback: 'optional', privateNote: 'off' },
   } as const;
