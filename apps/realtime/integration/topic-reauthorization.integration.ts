@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { sideSeat, judgeSeat } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { SocketData } from '../src/socket';
 import {
@@ -20,8 +21,8 @@ test('actual periodic topic batch removes silent revoked membership while preser
   );
   const rounds = roundAudienceFixture(fixture.client, fixture.actorId);
   try {
-    const removed = await rounds.seed('private', 'affirmative');
-    const retained = await rounds.seed('private', 'judge');
+    const removed = await rounds.seed('private', sideSeat('affirmative'));
+    const retained = await rounds.seed('private', judgeSeat());
     const port = fixture.runtime.server.port;
     if (port === undefined)
       throw new Error('Actual authority listener unavailable');
