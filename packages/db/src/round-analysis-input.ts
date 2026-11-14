@@ -58,7 +58,7 @@ export async function readAnalysisInput(
   if (!frozen?.utterances.length)
     throw createAppError('CONFLICT', 'Analysis evidence unavailable');
   const [round] = await tx
-    .select({ resolution: rounds.resolution })
+    .select({ resolution: rounds.resolution, rules: rounds.rulesSnapshot })
     .from(rounds)
     .where(eq(rounds.id, seat.roundId));
   if (!round?.resolution) throw createAppError('INVARIANT');
@@ -79,7 +79,16 @@ export async function readAnalysisInput(
     .where(eq(roundSegments.roundId, seat.roundId))
     .orderBy(asc(roundSegments.sequence));
   return {
-    seat: { ...seat, side: access.seat.side, slot: access.seat.slot },
+    seat: {
+      ...seat,
+      seat: {
+        kind: 'side' as const,
+        side: access.seat.side,
+        slot: access.seat.slot,
+      },
+    },
+    /** The Round's sides, so the analysed seat is named by its side's label. */
+    sides: round.rules.sides,
     round: {
       id: seat.roundId,
       resolution: round.resolution,
