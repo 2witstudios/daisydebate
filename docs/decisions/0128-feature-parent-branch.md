@@ -42,14 +42,17 @@ behind them.
    The two-per-cycle sweep on main does not apply to the parent. Builders
    still never merge.
 3. **The parent's own checks are a standing draft PR from the parent to
-   main.** CI runs on pull requests, not on pushes to the parent, so this
-   draft PR is what runs the full CI on the parent after each merge, shows
-   whether the parent still merges cleanly with main, and keeps the decision
-   records the parent carries visible to `bun adr:next`. Its title says it is
-   not to be merged, no builder emits `PR_READY` on it, and the sweep on main
-   leaves it alone. When it goes red after a merge, that is the next thing
-   fixed, by the builder of the slice that was merged, and nothing else
-   merges into the parent first.
+   main**, opened at the first merge into the parent. CI runs on pull
+   requests, not on pushes to the parent, so this draft PR is what runs the
+   full CI on the parent after each merge and shows whether the parent
+   still merges cleanly with main. Its title says it is not to be merged,
+   no builder emits `PR_READY` on it, and the sweep on main leaves it alone.
+   - Its CI tests the parent merged with main. When it goes red after a
+     merge, the point guard first checks whether main moved; if it did,
+     taking main in is the fix. Otherwise the builder of the merged slice
+     fixes it, and nothing else merges into the parent first.
+   - GitHub runs no pull-request CI while the draft PR conflicts with main,
+     so a conflict is resolved by taking main in before the next merge.
 4. **The parent takes main in at slice boundaries.** The point guard merges
    `origin/main` into the parent and pushes it; this is the one direct push
    to the parent. A slice merges the parent into itself only when the two
@@ -99,9 +102,14 @@ behind them.
   holding the schema on a branch.
 - The final PR to main is large. It is reviewed as the sum of slices that
   were each reviewed, and its risk is carried by the closed flag.
-- A decision record added by a slice is claimed for `bun adr:next` only
-  while the slice's PR or the standing draft PR is open. The draft PR must
-  therefore exist from the first merge into the parent.
+- **Decision records for the feature go to main, not the parent.** A slice
+  that needs one opens it as its own docs-only PR to main, where
+  `bun adr:next` claims numbers as usual, and the slice refers to it. A
+  record held only on the parent would not be reliably claimed: the claim
+  check reads at most 100 files of an open PR. This record went to main for
+  the same reason.
+- A fix pushed after an approval moves the head, so a slice's tasks may
+  land in Merged and not Done, as on main.
 - Everything else in ADR 0083 stands: one plan, one confirmation, one PR per
   slice, async reviews, the CI gate.
 - This is not a general licence for long-lived branches. A second feature

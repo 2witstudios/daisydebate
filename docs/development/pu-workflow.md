@@ -61,7 +61,8 @@ pu kill --agent <agent> && pu clean
 - **Converging.** The builder runs its harness's PR loop verbatim until it
   emits `PR_READY`: PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for
   Claude Code, PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and
-  opencode, both in Resources › Universal prompts.
+  opencode, both in Resources › Universal prompts. A feature parent
+  slice runs PR Loop (Feature slice) instead (ADR 0128).
 - **Merging.** Builders never merge. Only main receives merged PRs, and no
   PR is ever merged into another branch. The one exception is a slice of a
   feature the owner has given a parent branch
