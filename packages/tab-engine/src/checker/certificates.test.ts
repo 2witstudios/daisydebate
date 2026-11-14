@@ -325,14 +325,15 @@ describe('check: infeasible by rules is confirmed (round 2, item 2)', () => {
       certificate: {
         kind: 'school_count',
         school: 'big',
-        entries: 2,
+        entries: 4,
         sections: 1,
       },
     });
     assert({
       given:
         'twelve speakers in two sections, three of one school, under a school rule',
-      should: 'confirm the count, and refuse a miscounted one',
+      should:
+        'confirm the count, and refuse one that claims more entries than the school has',
       actual: [
         answer.certificate,
         check(input, answer).ok,
@@ -341,7 +342,10 @@ describe('check: infeasible by rules is confirmed (round 2, item 2)', () => {
       expected: [
         { kind: 'school_count', school: 'big', entries: 3, sections: 2 },
         true,
-        ['the school has 3 entries, not 2', 'there are 2 sections, not 1'],
+        [
+          'the school has 3 entries, fewer than 4',
+          'there are 2 sections, not 1',
+        ],
       ],
     });
   });
@@ -576,6 +580,55 @@ describe('check: seated judges in a slot', () => {
         'be withdrawn, and the checker not count keeping it as a better plan',
       actual: [drawnOf(answer)[0]!.withdraw, check(input, answer).ok],
       expected: [['x1'], true],
+    });
+  });
+
+  test('a hybrid entry may carry the school: the certificate is a lower bound', () => {
+    const field = [
+      ...['x1', 'x2', 'x3'].map((id) => entry(id, 'X')),
+      {
+        ...entry('y1', 'Y'),
+        protection: [
+          { scope: 'school', key: 'Y' },
+          { scope: 'school', key: 'X' },
+        ],
+      },
+      ...['a', 'b', 'c', 'd'].map((id) => entry(id, id)),
+    ];
+    const input: DrawInput = {
+      call: 'windowed',
+      event: {
+        event: 'ev',
+        format: { outcome: 'ranking', of: 'speakers' },
+        stage: { kind: 'preliminary' },
+        tabRound: 1,
+        entries: field,
+        history: { fixtures: [], results: [] },
+        settings: {
+          ...swissPower,
+          'pairing.same_school': { force: 'rule' },
+          'pairing.section_size': { target: 4 },
+        },
+        cutoff: 0,
+        ratings: null,
+        existing: [],
+      },
+      judges: null,
+      seed: new Uint8Array(32).fill(4),
+    };
+    const answer = draw(input);
+    assert({
+      given:
+        'eight speakers in two sections, three of school X and a hybrid Y/X entry, under a school rule',
+      should:
+        'answer infeasible with a school-count certificate the checker accepts',
+      actual: [
+        answer.kind === 'infeasible' && answer.cause === 'rules'
+          ? answer.certificate.kind
+          : answer.kind,
+        check(input, answer).ok,
+      ],
+      expected: ['school_count', true],
     });
   });
 });

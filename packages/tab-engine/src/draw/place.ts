@@ -65,11 +65,11 @@ export const placeWith = (
           fact: 'missing_result',
           fixture: next.fixture,
         };
-      // A bracket already decided (one entry left, nothing to meet) has no next tab round.
+      // A bracket already over (one entry left, or none after a final lost by both) has no next tab round.
       if (
         request.tabRound > 1 &&
-        next.fixtures.length === 1 &&
-        next.fixtures[0]!.kind === 'bye'
+        (next.fixtures.length === 0 ||
+          (next.fixtures.length === 1 && next.fixtures[0]!.kind === 'bye'))
       )
         return { kind: 'structure', fact: 'no_plan' };
       const movable = request.existing.filter((f) => f.hold === 'movable');

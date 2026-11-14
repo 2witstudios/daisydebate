@@ -117,11 +117,11 @@ const dealFour = (ordered: readonly Id[]): Unit[] => {
   ];
 };
 
-/** Whether the bracket is decided: exactly one entry left to go on, and nothing to pair. */
+/** Whether the bracket is over: at most one entry left to go on (none after a final lost by both), and nothing to pair. */
 export const decided = (p: {
   readonly going: readonly Id[];
   readonly toPair: boolean;
-}) => p.going.length === 1 && !p.toPair;
+}) => p.going.length <= 1 && !p.toPair;
 
 /** The history fixture of `round` that holds exactly the unit's entries. */
 const findFixture = (

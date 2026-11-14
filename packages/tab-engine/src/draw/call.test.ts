@@ -433,3 +433,63 @@ describe('a movable fixture whose judge is busy elsewhere in the slot', () => {
     });
   });
 });
+
+describe('one judge seated on two movable fixtures', () => {
+  const pair = (id: string, sides: readonly [string, string]) => ({
+    id,
+    fixture: { kind: 'pairing', sides, panel: ['j00'] },
+    hold: 'movable',
+  });
+  test('in one event: the first fixture in canonical order keeps the judge, the other is withdrawn', () => {
+    const d = drawsOf(
+      draw(
+        slotCall(
+          [
+            request(twoSides, {
+              entries: entries(8),
+              existing: [
+                pair('m1', ['e00', 'e01']),
+                pair('m2', ['e02', 'e03']),
+              ] as never,
+            }),
+          ],
+          judges(6),
+        ),
+      ),
+    )[0]!;
+    assert({
+      given: 'j00 seated on two movable fixtures of one event',
+      should: 'keep m1 and withdraw m2',
+      actual: [d.keep.map((k) => k.id), d.withdraw],
+      expected: [['m1'], ['m2']],
+    });
+  });
+
+  test('in two events of a slot: the first event keeps the judge, the other fixture is withdrawn', () => {
+    const answer = draw(
+      slotCall(
+        [
+          request(twoSides, {
+            event: 'a',
+            entries: entries(4, 4, 'a'),
+            existing: [pair('ma', ['a00', 'a01'])] as never,
+          }),
+          request(twoSides, {
+            event: 'b',
+            entries: entries(4, 4, 'b'),
+            existing: [pair('mb', ['b00', 'b01'])] as never,
+          }),
+        ],
+        judges(6),
+      ),
+    );
+    const [a, b] = drawsOf(answer);
+    assert({
+      given:
+        'j00 seated on a movable fixture in each of two events in one slot',
+      should: "keep event a's fixture and withdraw event b's",
+      actual: [a!.keep.map((k) => k.id), b!.withdraw],
+      expected: [['ma'], ['mb']],
+    });
+  });
+});

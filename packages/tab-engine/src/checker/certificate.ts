@@ -131,13 +131,16 @@ const schoolCountViolations = (
     ...(rules.includes('pairing.same_school')
       ? []
       : ['pairing.same_school not named']),
-    ...(certificate.entries === entries
+    // A lower bound: an entry carrying the school anywhere in its protection keys shares it, so the certificate may count fewer than there are.
+    ...(certificate.entries <= entries
       ? []
-      : [`the school has ${entries} entries, not ${certificate.entries}`]),
+      : [
+          `the school has ${entries} entries, fewer than ${certificate.entries}`,
+        ]),
     ...(certificate.sections === sections
       ? []
       : [`there are ${sections} sections, not ${certificate.sections}`]),
-    ...(entries > sections ? [] : ['the school fits the sections']),
+    ...(certificate.entries > sections ? [] : ['the school fits the sections']),
   ];
   return reasons.map((r) => invalid(event, 'school_count', r));
 };
@@ -282,9 +285,10 @@ export const infeasibleRulesViolations = (
 
 /**
  * No plan at all: the bracket is decided (one entry left, nobody to meet),
- * or a prematched field has no pairing of unmet pairs. A prematched field
- * above the brute force's size, and any other stage, is accepted unchecked:
- * the checker restates no planner for them.
+ * or a prematched field has no pairing of unmet pairs. Any other
+ * preliminary field always has a plan once every rule is relaxed, so a
+ * no_plan there is refused. A prematched field above the brute force's
+ * size is accepted unchecked.
  */
 export const noPlanViolations = (
   input: DrawInput,
@@ -295,8 +299,12 @@ export const noPlanViolations = (
   ];
   const p = progression(request);
   if (p !== null) return p.kind === 'round' && decided(p) ? [] : unfounded;
-  if (request.settings['pairing.method'].preliminary.structure !== 'prematched')
-    return [];
+  // With every rule relaxed, a powered, round-robin, four-side or speech field always has a plan.
+  if (
+    request.format.outcome !== 'winner' ||
+    request.settings['pairing.method'].preliminary.structure !== 'prematched'
+  )
+    return unfounded;
   const field = smallField(request);
   if (field === null) return [];
   let found = false;

@@ -12,6 +12,12 @@ type Holder = Collision['holders'][number];
 export const slotCollisions = (
   placed: readonly { readonly event: Id; readonly entries: readonly Entry[] }[],
   commitments: readonly Commitment[],
+  seated: readonly {
+    readonly event: Id;
+    readonly fixture: Id;
+    readonly judge: Id;
+    readonly person: Id;
+  }[] = [],
 ): Collision[] => {
   const holders = new Map<Id, Holder[]>();
   const hold = (person: Id, holder: Holder) =>
@@ -27,6 +33,8 @@ export const slotCollisions = (
         event: commitment.event,
         fixture: commitment.fixture,
       });
+  for (const { event, fixture, judge, person } of seated)
+    hold(person, { kind: 'judge', event, fixture, judge });
   return [...holders]
     .filter(([, held]) => held.length > 1)
     .map(([person, held]) => ({ person, holders: held }))

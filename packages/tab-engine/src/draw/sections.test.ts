@@ -180,3 +180,46 @@ describe('movable sections and the counting proof', () => {
     });
   });
 });
+
+describe('which movable section to release', () => {
+  test('releases a section without the binding school before one that holds it', () => {
+    const field = [
+      ...['x1', 'x2', 'x3', 'x4'].map((id) => entry(id, 'X')),
+      ...['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'].map(
+        (id) => entry(id, id),
+      ),
+    ];
+    const settings = withSettings({
+      'pairing.same_school': { force: 'rule' },
+      'pairing.section_size': { target: 4 },
+    });
+    const movable = (id: string, speakers: readonly string[]) => ({
+      id,
+      fixture: { kind: 'section', speakers, panel: [] },
+      hold: 'movable',
+    });
+    const d = drawsOf(
+      draw({
+        call: 'windowed',
+        event: request(speakers, {
+          entries: field,
+          settings,
+          existing: [
+            movable('m1', ['x1', 'a', 'b', 'c']),
+            movable('m2', ['d', 'e', 'f', 'g']),
+          ] as never,
+        }),
+        judges: null,
+        seed: seedOf(3),
+      }),
+    )[0]!;
+    assert({
+      given:
+        'sixteen speakers in four sections, four of school X, movable m1 holding x1 and m2 holding none of X',
+      should:
+        'keep m1 and release m2, which frees a room without adding an X entry to place',
+      actual: [d.keep.map((k) => k.id), d.withdraw],
+      expected: [['m1'], ['m2']],
+    });
+  });
+});

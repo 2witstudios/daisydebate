@@ -278,6 +278,13 @@ export type Collision = {
   readonly holders: readonly (
     | { readonly kind: 'entry'; readonly event: Id; readonly entry: Id }
     | { readonly kind: 'commitment'; readonly event: Id; readonly fixture: Id }
+    /** A judge already seated on a kept fixture of the call. */
+    | {
+        readonly kind: 'judge';
+        readonly event: Id;
+        readonly fixture: Id;
+        readonly judge: Id;
+      }
   )[];
 };
 

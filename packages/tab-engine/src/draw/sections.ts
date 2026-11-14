@@ -214,21 +214,28 @@ export const placeSections = (
   });
   const held = new Set(keptMovable.flatMap((f) => entriesOf(f.fixture)));
   const open = pool.filter((e) => !held.has(e));
+  const binding = [...schoolCounts(facts, open)]
+    .filter(([, count]) => count > remaining.length)
+    .map(([school]) => school);
   if (
     forceOf(facts.settings, 'pairing.same_school') === 'rule' &&
-    [...schoolCounts(facts, open).values()].some(
-      (count) => count > remaining.length,
-    )
-  )
-    // Keeping a movable section can be what blocks the counting proof: release them one at a time, in canonical order, until it holds.
-    return keptMovable.length > 0
-      ? placeSections(
-          request,
-          facts,
-          seed,
-          new Set([...released, keptMovable[0]!.id]),
-        )
-      : { kind: 'infeasible' };
+    binding.length > 0
+  ) {
+    /**
+     * Keeping a movable section can be what blocks the counting proof.
+     * Release one at a time, in canonical order, choosing first a section
+     * that holds no entry of a school over the count: it frees a room without
+     * adding one of that school's entries to place.
+     */
+    const holdsBinding = (f: (typeof keptMovable)[number]) =>
+      entriesOf(f.fixture).some((e) =>
+        binding.includes(facts.schools.get(e)?.[0] ?? ''),
+      );
+    const next = keptMovable.find((f) => !holdsBinding(f)) ?? keptMovable[0];
+    return next === undefined
+      ? { kind: 'infeasible' }
+      : placeSections(request, facts, seed, new Set([...released, next.id]));
+  }
   const sections =
     remaining.length === 0 ? [] : improve(facts, deal(facts, open, remaining));
   const added = sections.map((members) =>

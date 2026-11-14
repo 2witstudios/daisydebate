@@ -154,6 +154,8 @@ const releasedMovable = (
   input: DrawInput,
   leastLoad: number,
   occupied: ReadonlySet<Id>,
+  /** People already seated on a kept fixture of the call; grows as fixtures are kept. */
+  taken: Set<Id>,
 ): Set<Id> => {
   if (input.judges === null) return new Set();
   const byId = new Map<Id, Judge | SlotJudge>(
@@ -181,11 +183,13 @@ const releasedMovable = (
         judge !== undefined &&
         (competitors.has(judge.person) ||
           occupied.has(judge.person) ||
+          taken.has(judge.person) ||
           (judge.events !== null && !judge.events.includes(p.request.event)) ||
           blockingRules(task, seat, judge, leastLoad).length > 0)
       );
     });
     if (blocked) released.add(f.id);
+    else for (const id of fixture.panel) taken.add(byId.get(id)?.person ?? id);
   }
   return released;
 };
@@ -217,8 +221,25 @@ export const draw = (input: DrawInput): DrawAnswer => {
         ])
       : new Set<Id>();
   const occupied = occupiedElsewhere();
+  /**
+   * One judge, one fixture: fixed fixtures' seated judges hold their seats
+   * first, then movable fixtures keep theirs in canonical order (event, then
+   * fixture), and a later movable fixture whose judge is taken is released.
+   */
+  const judgePerson = new Map(
+    (input.judges ?? []).map((j) => [j.id, j.person]),
+  );
+  const taken = new Set(
+    prepared.flatMap((p) =>
+      p.request.existing.flatMap((f) =>
+        f.hold === 'fixed' && f.fixture.kind !== 'bye'
+          ? f.fixture.panel.map((id) => judgePerson.get(id) ?? id)
+          : [],
+      ),
+    ),
+  );
   for (const p of prepared) {
-    const released = releasedMovable(p, input, leastLoad, occupied);
+    const released = releasedMovable(p, input, leastLoad, occupied, taken);
     const placing =
       released.size === 0
         ? p
@@ -295,7 +316,8 @@ export const draw = (input: DrawInput): DrawAnswer => {
           : fixture.panel.map((judge) => ({
               event: p.request.event,
               fixture: id,
-              people: [person.get(judge) ?? judge],
+              judge,
+              person: person.get(judge) ?? judge,
             })),
       ),
     );
@@ -304,7 +326,8 @@ export const draw = (input: DrawInput): DrawAnswer => {
         event: p.request.event,
         entries: fixtureEntries(p, placements[i]!),
       })),
-      [...input.commitments, ...judgeHolds],
+      input.commitments,
+      judgeHolds,
     );
     if (collisions.length > 0)
       return { kind: 'infeasible', cause: 'slot', collisions };
