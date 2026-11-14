@@ -13,6 +13,7 @@ import {
   type FormatDefinition,
   type RoundRules,
 } from '@daisy/protocol';
+import { casualTemplateIds } from '../src/catalog-casual';
 import { seededFormats, seededPresets } from '../src/migrations.test-support';
 import { seatOfColumns } from '../src/seat-columns';
 import { rejectedBy, withFixture, type Fixture } from './constraint-helpers';
@@ -97,25 +98,31 @@ const definitionFor = (formatId: string, version: number) => {
   return definition as FormatDefinition;
 };
 
-/** Each catalog format's current preset compiled against its current definition. */
+/**
+ * Each catalog format's current preset compiled against its current
+ * definition: the formats the database held before the seats migration, so
+ * not the casual templates a later migration adds (TAB-6.18).
+ */
 const compiledCatalog = () =>
-  seededFormats.flatMap(({ id, revisions }) => {
-    const formatVersion = revisions.length;
-    const preset = seededPresets
-      .filter(
-        (candidate) =>
-          candidate.formatId === id &&
-          candidate.formatVersion === formatVersion,
-      )
-      .at(-1);
-    if (!preset) return [];
-    const compiled = resolveRoomConfiguration(
-      definitionFor(id, formatVersion),
-      preset.config as Parameters<typeof resolveRoomConfiguration>[1],
-    );
-    if (!compiled.ok) throw new Error(`${id} does not compile`);
-    return [{ formatId: id, formatVersion, rules: compiled.rules }];
-  });
+  seededFormats
+    .filter(({ id }) => !casualTemplateIds.includes(id))
+    .flatMap(({ id, revisions }) => {
+      const formatVersion = revisions.length;
+      const preset = seededPresets
+        .filter(
+          (candidate) =>
+            candidate.formatId === id &&
+            candidate.formatVersion === formatVersion,
+        )
+        .at(-1);
+      if (!preset) return [];
+      const compiled = resolveRoomConfiguration(
+        definitionFor(id, formatVersion),
+        preset.config as Parameters<typeof resolveRoomConfiguration>[1],
+      );
+      if (!compiled.ok) throw new Error(`${id} does not compile`);
+      return [{ formatId: id, formatVersion, rules: compiled.rules }];
+    });
 
 type Seeded = {
   readonly rounds: readonly {
