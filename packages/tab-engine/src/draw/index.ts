@@ -1,4 +1,4 @@
-import { canonicalOrder } from '@daisy/seeded-random';
+import { compareBytes } from '@daisy/seeded-random';
 import { assessPlan, callFacts, type CallContext } from '../assess/assessment';
 import type { Entry, Fixture, Id } from '../shapes/competition';
 import type {
@@ -42,13 +42,11 @@ const versionOf = (prepared: Prepared): Record<string, string> => {
   return { method, judges: JUDGES_VERSION };
 };
 
+/** The call's event requests in canonical order of event id, so their order cannot matter. */
 export const requestsOf = (input: DrawInput): readonly EventRequest[] =>
-  canonicalOrder(
-    (input.call === 'slot' ? input.events : [input.event]).map((r) => ({
-      ...r,
-      id: r.event,
-    })),
-  ).map(({ id: _id, ...request }) => request as EventRequest);
+  [...(input.call === 'slot' ? input.events : [input.event])].sort((a, b) =>
+    compareBytes(a.event, b.event),
+  );
 
 export const callContext = (input: DrawInput): CallContext => {
   const judges = input.judges;

@@ -82,23 +82,31 @@ export const weighedKeys = (facts: EventFacts): PairingForceKey[] => {
 };
 
 /**
- * A fixture's preference fields, highest first: each weighed key's term,
- * then the record distance when pull-ups are only reported (a powered round
- * is still paired by record), then `bye.recipient`.
+ * A fixture's preference fields, highest first. Who takes the bye is
+ * decided before every other preference except `bye.repeat` (the lowest, or
+ * a lot, among those who have not had one), as Swiss rules give it; then each
+ * weighed key's term in `pairing.preference_order`; then the record distance
+ * when pull-ups are only reported, since a powered round is still paired by
+ * record.
  */
 export const preferenceFields = (
   facts: EventFacts,
   fixture: Fixture,
   byeCost: readonly number[] | null,
 ): number[] => {
-  const fields = weighedKeys(facts).flatMap((key) => {
+  const weighed = weighedKeys(facts);
+  const term = (key: PairingForceKey) => {
     const cost = pairingTerms[key](facts, fixture);
     return cost === null
       ? Array.from({ length: widthOf(key) }, () => 0)
       : [...cost];
-  });
+  };
+  const fields = [
+    ...(weighed.includes('bye.repeat') ? term('bye.repeat') : []),
+    byeCost?.[0] ?? 0,
+    ...weighed.filter((key) => key !== 'bye.repeat').flatMap(term),
+  ];
   if (facts.powered && forceOf(facts.settings, 'pairing.pull_up') === 'warning')
     fields.push(pairingTerms['pairing.pull_up'](facts, fixture)?.[0] ?? 0);
-  fields.push(byeCost?.[0] ?? 0);
   return fields;
 };

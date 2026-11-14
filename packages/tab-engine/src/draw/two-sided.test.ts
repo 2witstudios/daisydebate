@@ -97,6 +97,41 @@ describe('two-sided draw', () => {
     });
   });
 
+  test('in a powered round the bye goes to the lowest entry who has not had one', () => {
+    const failures: string[] = [];
+    for (let seed = 0; seed < 10; seed += 1) {
+      const { draws, history } = playRounds(9 + 2 * (seed % 3), 4, seed * 7);
+      draws.slice(1).forEach((d, i) => {
+        const round = i + 2;
+        const bye = fixturesOf(d).find((f) => f.kind === 'bye');
+        if (bye === undefined || bye.kind !== 'bye') return;
+        const before = history.fixtures.filter((f) => f.tabRound < round);
+        const wins = (e: string) =>
+          history.results.filter(
+            (r) =>
+              before.some((f) => f.id === r.fixture) && r.outcome.winner === e,
+          ).length +
+          before.filter(
+            (f) => f.fixture.kind === 'bye' && f.fixture.entry === e,
+          ).length;
+        const hadBye = (e: string) =>
+          before.some((f) => f.fixture.kind === 'bye' && f.fixture.entry === e);
+        const fresh = fixturesOf(d)
+          .flatMap(entriesOf)
+          .filter((e) => !hadBye(e));
+        if (wins(bye.entry) > Math.min(...fresh.map(wins)))
+          failures.push(`seed ${seed} round ${round}`);
+      });
+    }
+    assert({
+      given: 'odd fields over four power-paired tab rounds',
+      should:
+        'give each bye to an entry on the fewest wins among those without a bye',
+      actual: failures,
+      expected: [],
+    });
+  });
+
   test('no rematch under the rematch rule, and a withdrawn entry is not placed', () => {
     const { history, field } = playRounds(10, 3, 3);
     const withdrawn = field.map((e, i) =>

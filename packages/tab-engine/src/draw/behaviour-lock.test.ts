@@ -216,7 +216,10 @@ describe('the behaviour lock', () => {
         'reproduce every locked digest (a broken entry shows the value to lock after raising its version)',
       actual: outcomes,
       expected: Object.fromEntries(
-        Object.keys(corpus).map((name) => [name, 'held']),
+        Object.keys(corpus).map((name) => [
+          name,
+          'held' as LockVerdict['kind'] | LockEntry,
+        ]),
       ),
     });
   });

@@ -9,6 +9,7 @@ import {
   seedOf,
   twoSides,
 } from '../draw/draw.test-support';
+import type { StageHistory, TwoSides } from '../shapes/competition';
 import type { DrawInput, Plan } from '../shapes/draw';
 import { assess, whyNot } from './index';
 
@@ -17,7 +18,7 @@ setupRitewayBun();
 const field = entries(10, 5);
 const round = (
   tabRound: number,
-  history: Parameters<typeof request>[1]['history'],
+  history: StageHistory<TwoSides>,
 ): DrawInput => ({
   call: 'slot',
   slot: 'slot',
