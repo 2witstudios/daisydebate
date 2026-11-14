@@ -51,12 +51,13 @@ export const commandVersionNames = [
 export type CommandVersionName = (typeof commandVersionNames)[number];
 
 const versionSchema = z.int().positive();
-export const commandExpectedSchema = z
-  .strictObject(
-    Object.fromEntries(
-      commandVersionNames.map((name) => [name, versionSchema.optional()]),
-    ) as { readonly [Name in CommandVersionName]: z.ZodOptional<typeof versionSchema> },
-  );
+export const commandExpectedSchema = z.strictObject(
+  Object.fromEntries(
+    commandVersionNames.map((name) => [name, versionSchema.optional()]),
+  ) as {
+    readonly [Name in CommandVersionName]: z.ZodOptional<typeof versionSchema>;
+  },
+);
 export type CommandExpected = z.infer<typeof commandExpectedSchema>;
 
 /**
@@ -98,7 +99,10 @@ export type LobbyCommandEnvelope<Command> = {
 export type LobbyCommandDefinition<Refusal extends string = string> = {
   readonly aggregate: LobbyAggregateKind;
   /** The capabilities that may send it; any one of them is enough. */
-  readonly gate: readonly [AuthorizationCapability, ...AuthorizationCapability[]];
+  readonly gate: readonly [
+    AuthorizationCapability,
+    ...AuthorizationCapability[],
+  ];
   /** The versions it checks, by name; empty for a creation command. */
   readonly versions: readonly CommandVersionName[];
   /** Its own closed refusals, beside the shared ones. */
@@ -112,10 +116,14 @@ export type LobbyCommandCatalogue<Command extends { readonly type: string }> = {
   readonly [Type in Command['type']]: LobbyCommandDefinition;
 };
 
-/** A preference or warning the command met, or a key it skipped. */
+/**
+ * What the command met beside its answer: a broken rule (on a draft only;
+ * publishing refuses it without an override), a bent preference, a warning,
+ * or a key it skipped.
+ */
 export const commandFindingSchema = z.discriminatedUnion('kind', [
   z.strictObject({
-    kind: z.enum(['preference', 'warning']),
+    kind: z.enum(['rule', 'preference', 'warning']),
     key: z.string().min(1),
     detail: z.string().min(1),
   }),
@@ -172,6 +180,8 @@ export type LobbyCommandAnswer<Refusal extends string = string> =
   | {
       readonly kind: 'refused';
       readonly refusal: Refusal | SharedLobbyRefusal;
+      /** The people a refusal is about, where it names them (`slot-clash`). */
+      readonly people?: readonly string[];
     };
 
 /** Who a command was accepted under: the evaluator's authority, or a service. */
@@ -179,7 +189,10 @@ export const historyAuthoritySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('fixed') }),
   z.strictObject({ kind: z.literal('owner') }),
   z.strictObject({ kind: z.literal('grant'), grantId: idSchema }),
-  z.strictObject({ kind: z.literal('relationship'), relation: z.string().min(1) }),
+  z.strictObject({
+    kind: z.literal('relationship'),
+    relation: z.string().min(1),
+  }),
   z.strictObject({ kind: z.literal('service'), serviceId: z.string().min(1) }),
 ]);
 export type HistoryAuthority = z.infer<typeof historyAuthoritySchema>;
@@ -192,7 +205,10 @@ export type HistoryAuthority = z.infer<typeof historyAuthoritySchema>;
 export const actionHistoryEntrySchema = z.strictObject({
   commandId: idSchema,
   scope: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('organization'), organizationId: idSchema }),
+    z.strictObject({
+      kind: z.literal('organization'),
+      organizationId: idSchema,
+    }),
     z.strictObject({ kind: z.literal('lobby'), lobbyId: idSchema }),
   ]),
   aggregate: z.strictObject({ kind: lobbyAggregateKindSchema, id: idSchema }),
@@ -224,7 +240,10 @@ export const commandReplay = (
     readonly payloadDigest: string;
     readonly receipt: LobbyCommandReceipt;
   } | null,
-  arriving: { readonly actorUserId: string | null; readonly payloadDigest: string },
+  arriving: {
+    readonly actorUserId: string | null;
+    readonly payloadDigest: string;
+  },
 ): CommandReplay => {
   if (stored === null) return { kind: 'new' };
   return stored.actorUserId === arriving.actorUserId &&

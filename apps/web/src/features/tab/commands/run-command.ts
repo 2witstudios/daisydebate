@@ -20,7 +20,12 @@ import {
  * the rows to write described as data. Nothing is written by a decision.
  */
 export type CommandDecision<Refusal extends string, Write> =
-  | { readonly kind: 'refused'; readonly refusal: Refusal }
+  | {
+      readonly kind: 'refused';
+      readonly refusal: Refusal;
+      /** The people a refusal is about, where it names them (`slot-clash`). */
+      readonly people?: readonly string[];
+    }
   | {
       readonly kind: 'accepted';
       readonly aggregate: {
@@ -68,9 +73,7 @@ export type CommandTransaction<Facts, Write> = {
     conflict: NonNullable<AuthorizationDecision['conflict']>,
   ) => Promise<string>;
   /** Holds the command whole for a second person's confirmation. */
-  readonly holdForConfirmation: (
-    held: HeldCommand,
-  ) => Promise<{
+  readonly holdForConfirmation: (held: HeldCommand) => Promise<{
     readonly pendingCommandId: string;
     readonly expiresAt: string;
   }>;
@@ -124,9 +127,9 @@ const versionConflict = (
   expected: CommandExpected,
   current: CommandExpected,
 ): boolean =>
-  definition.versions.some(
-    (name) => expected[name] === undefined || expected[name] !== current[name],
-  );
+  // A version the aggregate does not have (a windowed stage has no slot) is
+  // matched by naming none.
+  definition.versions.some((name) => expected[name] !== current[name]);
 
 /** Action history names the account, which outlives any actor. */
 const accountOf = (input: Omit<AuthorizationInput, 'capability'>) =>

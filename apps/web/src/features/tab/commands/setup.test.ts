@@ -843,6 +843,14 @@ describe('place-tab-round', () => {
         'not-found',
       ],
     });
+    const clash = decideSetup(facts(), place('r2', 'sat11'));
+    assert({
+      given: 'a placement that would put a person in two events at once',
+      should: 'name the people in the refusal',
+      actual:
+        clash.kind === 'refused' ? (clash.people ?? []).length > 0 : false,
+      expected: true,
+    });
     assert({
       given:
         'two breaks sharing a slot where double qualifiers take the higher',

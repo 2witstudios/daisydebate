@@ -935,5 +935,18 @@ export const decideSetup = (
     { id: lobby.id, version: lobby.version + 1 },
     command,
   );
+  if (outcome === 'slot-clash' && command.type === 'place-tab-round')
+    return { ...refuse(outcome), people: clashesOf(facts, command) };
   return typeof outcome === 'string' ? refuse(outcome) : outcome;
+};
+
+/** Who a refused placement would put in two events at once. */
+const clashesOf = (
+  facts: SetupFacts,
+  command: Extract<TournamentSetupCommand, { type: 'place-tab-round' }>,
+): readonly string[] => {
+  const round = facts.tabRounds.find((r) => r.id === command.tabRoundId);
+  return round === undefined || command.timeSlotId === null
+    ? []
+    : slotClashes(facts, round, command.timeSlotId);
 };

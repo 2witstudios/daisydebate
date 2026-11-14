@@ -486,9 +486,9 @@ const refText = (ref: EngineFixtureRef) =>
 /** Each broken rule, preference and warning the engine found, as a finding. */
 const findingsOf = (assessment: EngineAssessment): CommandFinding[] => [
   ...assessment.broken.map((rule) => ({
-    kind: 'warning' as const,
+    kind: 'rule' as const,
     key: rule.key,
-    detail: `rule broken at ${refText(rule.fixture)}`,
+    detail: refText(rule.fixture),
   })),
   ...assessment.warnings.map((rule) => ({
     kind: 'warning' as const,
