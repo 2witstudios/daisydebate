@@ -248,8 +248,10 @@ export const draw = (input: DrawInput): DrawAnswer => {
     /**
      * Settle the event's keeps before its judge claims bind: when placement
      * withdraws a movable fixture (a counting proof, a rule), that fixture
-     * stops claiming its judges and the event is placed again. The withdrawn
-     * set only grows, so this ends within the number of movable fixtures.
+     * stops claiming its judges and the event is placed again; a kept fixture
+     * that clashes on a judge is released outright. Each pass grows the
+     * unclaimed or the released set, and neither can outgrow the event's
+     * movable fixtures, so the loop ends.
      */
     let unclaimed = new Set<Id>();
     let forced = new Set<Id>();
@@ -257,14 +259,10 @@ export const draw = (input: DrawInput): DrawAnswer => {
     let placing: Prepared;
     let answer: PlacementAnswer;
     for (;;) {
-      released = releasedMovable(
-        p,
-        input,
-        leastLoad,
-        occupied,
-        taken,
-        unclaimed,
-      );
+      released = new Set([
+        ...releasedMovable(p, input, leastLoad, occupied, taken, unclaimed),
+        ...forced,
+      ]);
       const held = released;
       placing =
         held.size === 0
@@ -331,6 +329,14 @@ export const draw = (input: DrawInput): DrawAnswer => {
               cause: 'rules',
               event: p.request.event,
               ...conflict,
+              // A witness accounts for every existing fixture: those released for their judges are withdrawn.
+              witnesses: conflict.witnesses.map((w) => ({
+                ...w,
+                plan: {
+                  ...w.plan,
+                  withdraw: [...w.plan.withdraw, ...finalReleased],
+                } as Plan,
+              })),
             };
       }
       case 'structure':

@@ -1,3 +1,4 @@
+import { shuffleWith, wordStream } from '@daisy/seeded-random';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type {
   Commitment,
@@ -637,6 +638,119 @@ describe('one judge seated on two movable fixtures', () => {
       should: 'keep b1 with j00, withdraw only a2, and pass the checker',
       actual: [d!.keep.map((k) => k.id), d!.withdraw, check(input, answer).ok],
       expected: [['b1'], ['a2'], true],
+    });
+  });
+});
+
+describe('movable sections sharing judges under a counting proof', () => {
+  test('every seeded case returns, never seats a judge twice, and passes the checker', () => {
+    const failures: string[] = [];
+    for (let n = 0; n < 400; n += 1) {
+      const stream = wordStream(
+        'test/movable-sections',
+        new Uint8Array([n, n >> 8]),
+        new Uint8Array(),
+      );
+      let at = 0;
+      const next = (below: number) => stream(at++) % below;
+      const schools = ['W', 'Z', 'Y'];
+      const speech = Array.from({ length: 16 }, (_, i) =>
+        entry(
+          `p${String(i).padStart(2, '0')}`,
+          next(3) === 0 ? schools[next(3)]! : `own${i}`,
+        ),
+      );
+      const shuffled = shuffleWith(
+        speech.map((e) => e.id),
+        stream,
+      );
+      const movable = Array.from({ length: 2 + next(3) }, (_, k) => ({
+        id: `s${String.fromCharCode(97 + k)}`,
+        fixture: {
+          kind: 'section',
+          speakers: shuffled.slice(4 * k, 4 * k + 4),
+          panel: [`j0${next(2)}`],
+        },
+        hold: 'movable',
+      }));
+      const input = slotCall(
+        [
+          request(speakers, {
+            entries: speech,
+            settings: withSettings({
+              'pairing.same_school': { force: 'rule' },
+              'pairing.section_size': { target: 4 },
+            }),
+            existing: movable as never,
+          }),
+        ],
+        judges(8),
+      );
+      const answer = draw(input);
+      const verdict = check(input, answer);
+      if (!verdict.ok)
+        failures.push(
+          `case ${n}: ${answer.kind} ${JSON.stringify(verdict.violations).slice(0, 200)}`,
+        );
+    }
+    assert({
+      given:
+        '150 seeded speech fields with three movable sections, some sharing a judge, under a same-school rule',
+      should: 'answer every one, accepted by the checker',
+      actual: failures,
+      expected: [],
+    });
+  });
+});
+
+describe('a section kept without a claim beside another on its judge', () => {
+  test('releases the later one and ends: the loop over keeps terminates', () => {
+    const field = [
+      entry('z1', 'Z'),
+      ...['a1', 'a2', 'a3'].map((id) => entry(id, id)),
+      entry('w1', 'W'),
+      ...['b1', 'b2', 'b3'].map((id) => entry(id, id)),
+      ...['c1', 'c2', 'c3', 'c4'].map((id) => entry(id, id)),
+      entry('w2', 'W'),
+      entry('w3', 'W'),
+      entry('z2', 'Z'),
+      entry('z3', 'Z'),
+    ];
+    const section = (
+      id: string,
+      speakers: readonly string[],
+      judge: string,
+    ) => ({
+      id,
+      fixture: { kind: 'section', speakers, panel: [judge] },
+      hold: 'movable',
+    });
+    const input = slotCall(
+      [
+        request(speakers, {
+          entries: field,
+          settings: withSettings({
+            'pairing.same_school': { force: 'rule' },
+            'pairing.section_size': { target: 4 },
+          }),
+          existing: [
+            section('sa', ['z1', 'a1', 'a2', 'a3'], 'j00'),
+            section('sb', ['w1', 'b1', 'b2', 'b3'], 'j00'),
+            section('sc', ['c1', 'c2', 'c3', 'c4'], 'j01'),
+          ] as never,
+        }),
+      ],
+      judges(8),
+    );
+    const answer = draw(input);
+    const [d] = drawsOf(answer);
+    assert({
+      given:
+        'sections sa and sb sharing j00, where W binds while sa is kept and Z and W bind once sb is',
+      should:
+        'answer, keep one section, withdraw the other two, and pass the checker',
+      actual: [d!.keep.length, d!.withdraw.length, check(input, answer).ok],
+      expected: [1, 2, true],
     });
   });
 });
