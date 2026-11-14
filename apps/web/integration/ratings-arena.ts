@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
+import { affirmativeSide, negativeSide } from '@daisy/protocol';
 import { validRules, daisyOrganizationId } from '@daisy/db/testing';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';
@@ -99,18 +100,18 @@ export async function arena(
       // A ranked round is constructed from a sanctioned preset, so it pins
       // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
       // presets, so the arena only has to name the version it resolved from.
-      await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, outcome, ladder_id)
+      await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id)
         values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, ${status},
                 ${status === 'active' ? 'live' : null},
                 ${new Date(minute(0))},
                 ${completedAt === null ? null : new Date(completedAt)},
                 ${status === 'completed' ? (input.outcome ?? 'negative') : null}, ${ladderId})`;
-      for (const [role, actorId] of [
-        ['affirmative', input.affirmative],
-        ['negative', input.negative],
+      for (const [side, actorId] of [
+        [affirmativeSide, input.affirmative],
+        [negativeSide, input.negative],
       ] as const)
-        await sql`insert into round_participants (id, round_id, actor_id, role, slot)
-          values (${createId()}, ${id}, ${actorId}, ${role}, 0)`;
+        await sql`insert into round_participants (id, round_id, actor_id, seat_kind, side, slot)
+          values (${createId()}, ${id}, ${actorId}, 'side', ${side}, 0)`;
       if (competitionType === 'ranked' && status === 'completed') {
         const commandId = createId();
         await sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at)
