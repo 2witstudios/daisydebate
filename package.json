@@ -67,6 +67,7 @@
     "test": "bun scripts/heavy.ts sh -c 'bun test scripts && turbo run test'",
     "test:lint": "bun test --timeout 180000 eslint.config.test.ts",
     "test:integration": "bun scripts/heavy.ts bun --env-file=.env run turbo run test:integration --concurrency=1",
+    "test:tab-tournament": "bun --env-file=.env run --filter @daisy/web test:tab-tournament",
     "visual:server": "bun scripts/visual-server.ts",
     "test:e2e": "bun scripts/heavy.ts bun --env-file=.env run turbo run test:e2e",
     "test:e2e:qualify": "bun --env-file=.env scripts/e2e-release-qualification.ts",
