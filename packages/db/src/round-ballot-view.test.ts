@@ -1,4 +1,8 @@
-import { ballotCategories, daisyWinnerBallot } from '@daisy/protocol';
+import {
+  ballotCategories,
+  daisyBallotDefinitions,
+  daisyWinnerBallot,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 
@@ -90,7 +94,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
   const open = ballotReadView({
     status: 'active',
     ownSeatId: 'judge-h',
-    viewerSide: undefined,
+    viewerSubject: undefined,
     aiJudgeSeatIds: new Set(['judge-b']),
     ...judged,
     rows,
@@ -99,7 +103,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
   const done = ballotReadView({
     status: 'completed',
     ownSeatId: undefined,
-    viewerSide: undefined,
+    viewerSubject: undefined,
     aiJudgeSeatIds: new Set(['judge-b']),
     ...judged,
     rows,
@@ -146,7 +150,7 @@ test('a judge who has not submitted sees an empty own ballot', () => {
     actual: ballotReadView({
       status: 'active',
       ownSeatId: 'judge-h',
-      viewerSide: undefined,
+      viewerSubject: undefined,
       aiJudgeSeatIds: new Set(),
       ...judged,
       rows: [row('judge-b')],
@@ -165,11 +169,11 @@ test('a released ballot carries feedback only for the reader’s own side', () =
     affirmative: 'Weigh earlier.',
     negative: 'Answer the turn.',
   };
-  const view = (viewerSide: 'affirmative' | 'negative' | undefined) =>
+  const view = (viewerSubject: 'affirmative' | 'negative' | undefined) =>
     ballotReadView({
       status: 'completed',
       ownSeatId: undefined,
-      viewerSide,
+      viewerSubject,
       aiJudgeSeatIds: new Set(),
       ...judged,
       rows: [row('judge-h', null, feedback)],
@@ -189,5 +193,47 @@ test('a released ballot carries feedback only for the reader’s own side', () =
       negative: [{ negative: 'Answer the turn.' }],
       other: [{}],
     },
+  });
+});
+
+test('a released speaker ranking carries feedback only for the reading speaker', () => {
+  const ranked = {
+    ...row('judge-h'),
+    rubricVersion: 'rank-speakers@1',
+    decision: 'ranking',
+    winner: null,
+    ranking: [['s1'], ['s2'], ['s3']],
+    scores: null,
+    feedback: { s1: 'Lead with impact.', s2: 'Signpost the rebuttal.' },
+  } as unknown as Row;
+  const view = (viewerSubject: string | undefined) =>
+    ballotReadView({
+      status: 'completed',
+      ownSeatId: undefined,
+      viewerSubject,
+      aiJudgeSeatIds: new Set(),
+      definition: daisyBallotDefinitions['rank-speakers@1'],
+      subjects: { sides: [], speakers: ['s1', 's2', 's3'], segments: [] },
+      rows: [ranked],
+      frozen: null,
+    }).ballots.map((entry) => ({
+      feedback: entry.ballot.feedback,
+      reportable: entry.reportableFeedbackId,
+    }));
+  assert({
+    given: 'a speaker ranking with feedback for two of three speakers',
+    should:
+      'give each speaker only their own feedback, reportable, and a speaker without feedback none',
+    actual: [view('s1'), view('s2'), view('s3')],
+    expected: [
+      [{ feedback: { s1: 'Lead with impact.' }, reportable: 'ballot-judge-h' }],
+      [
+        {
+          feedback: { s2: 'Signpost the rebuttal.' },
+          reportable: 'ballot-judge-h',
+        },
+      ],
+      [{ feedback: {}, reportable: null }],
+    ],
   });
 });

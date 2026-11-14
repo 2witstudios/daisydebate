@@ -254,6 +254,8 @@ export {
   ballotSchemaFor,
   ballotScoresRecordSchema,
   ballotSubjectsFor,
+  feedbackSubjectOf,
+  feedbackSubjectSchema,
   isLowPointWin,
   pointsTotal,
   storedBallotSchemaFor,

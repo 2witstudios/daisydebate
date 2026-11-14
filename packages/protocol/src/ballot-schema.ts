@@ -10,10 +10,12 @@ import {
   daisyBallotDefinitions,
 } from './ballot-definition';
 import { sideKeysOf } from './format-seating';
+import { idSchema } from './primitives';
 import {
   isDebatingSeat,
   seatOrder,
   sideKeySchema,
+  sideOfSeat,
   type SeatRef,
 } from './seats';
 
@@ -125,15 +127,38 @@ export const placesSchema = (subjects: Keys, ties: boolean) =>
         });
     });
 
+/** True when the decision ranks speakers, so its subjects are participants. */
+const ranksSpeakers = (definition: BallotDefinition | null): boolean =>
+  definition?.decision.kind === 'ranking' &&
+  definition.decision.of === 'speakers';
+
 /** The subjects a definition's decision is about. */
 const decisionSubjects = (
   definition: BallotDefinition,
   subjects: BallotSubjects,
 ): Keys =>
-  definition.decision.kind === 'ranking' &&
-  definition.decision.of === 'speakers'
+  ranksSpeakers(definition)
     ? nonEmpty(subjects.speakers, 'speakers to rank')
     : nonEmpty(subjects.sides, 'sides to judge');
+
+/**
+ * The subject a seat's feedback is written under: its own round participant
+ * id when the ballot ranks speakers, otherwise its side key. Null for a seat
+ * no feedback is about (a judge, a moderator, or a speaker without a side
+ * where sides are judged).
+ */
+export const feedbackSubjectOf = (
+  definition: BallotDefinition | null,
+  participant: { readonly id: string; readonly seat: SeatRef },
+): string | null =>
+  ranksSpeakers(definition)
+    ? isDebatingSeat(participant.seat)
+      ? participant.id
+      : null
+    : sideOfSeat(participant.seat);
+
+/** A feedback subject as stored and reported: a side key or a participant id. */
+export const feedbackSubjectSchema = z.union([sideKeySchema, idSchema]);
 
 /** A subject's points total: its scores summed, criteria and all. */
 export const pointsTotal = (score: unknown): number =>

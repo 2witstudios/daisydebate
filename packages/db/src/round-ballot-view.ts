@@ -5,7 +5,6 @@ import {
   type BallotDefinition,
   type BallotSubjects,
   type SeatRef,
-  type SideKey,
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { FrozenRoundTranscript } from './frozen-transcript';
@@ -67,26 +66,30 @@ export const ownJudgeSeat = <
     (p) => p.actorId === actorId && isJudgeSeat(p.seat) && p.kind === 'human',
   );
 
-/** A ballot's feedback narrowed to the one side this reader debated, if any. */
+/**
+ * A ballot's feedback narrowed to the one subject this reader is (their side,
+ * or themselves when the ballot ranks speakers), if any.
+ */
 const feedbackFor = (
   feedback: Ballot['feedback'],
-  side: SideKey | undefined,
+  subject: string | undefined,
 ): Ballot['feedback'] => {
-  const text = side ? feedback[side] : undefined;
-  return side && text ? { [side]: text } : {};
+  const text = subject ? feedback[subject] : undefined;
+  return subject && text ? { [subject]: text } : {};
 };
 
 /**
  * The caller's own ballot, the frozen transcript for their judging seat, and
  * every ballot only once the Round has completed: no judge reads another's
  * ballot while judging is still open. Released ballots say whether a human or
- * the AI judged, never who, and carry only the reader's own side's feedback
+ * the AI judged, never who, and carry only the reader's own feedback
  * (ADR 0071).
  */
 export function ballotReadView(input: {
   readonly status: string;
   readonly ownSeatId: string | undefined;
-  readonly viewerSide: SideKey | undefined;
+  /** The subject the reader's feedback is written under (`feedbackSubjectOf`). */
+  readonly viewerSubject: string | undefined;
   readonly aiJudgeSeatIds: ReadonlySet<string>;
   /** The Round's frozen ballot definition and who its ballots are about. */
   readonly definition: BallotDefinition | null;
@@ -122,7 +125,7 @@ export function ballotReadView(input: {
       input.status === 'completed'
         ? input.rows.map((row) => {
             const ballot = body(row);
-            const own = feedbackFor(ballot.feedback, input.viewerSide);
+            const own = feedbackFor(ballot.feedback, input.viewerSubject);
             return {
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)

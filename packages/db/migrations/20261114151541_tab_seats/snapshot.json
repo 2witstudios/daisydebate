@@ -5192,7 +5192,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "feedback_side",
+      "name": "feedback_subject",
       "entityType": "columns",
       "schema": "public",
       "table": "content_reports"
@@ -42200,8 +42200,8 @@
       "table": "content_reports"
     },
     {
-      "value": "(\"target_kind\" = 'ballot_feedback') = (\"feedback_side\" is not null) and (\"feedback_side\" is null or (\"feedback_side\" ~ '^[a-z][a-z_]{0,23}$' and \"feedback_side\" not in ('side', 'speaker', 'judge', 'moderator')))",
-      "name": "content_reports_feedback_side_check",
+      "value": "(\"target_kind\" = 'ballot_feedback') = (\"feedback_subject\" is not null) and (\"feedback_subject\" is null or (\"feedback_subject\" ~ '^[a-z][a-z_]{0,23}$' and \"feedback_subject\" not in ('side', 'speaker', 'judge', 'moderator')) or \"feedback_subject\" ~ '^[a-z0-9]{24}$')",
+      "name": "content_reports_feedback_subject_check",
       "entityType": "checks",
       "schema": "public",
       "table": "content_reports"
@@ -45161,7 +45161,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"ranking\" is null or (jsonb_typeof(\"ranking\") = 'array' and jsonb_array_length(\"ranking\") > 0 and not jsonb_path_exists(\"ranking\", '$[*] ? (@.type() != \"array\" || @.size() == 0)') and not jsonb_path_exists(\"ranking\", '$[*][*] ? (@.type() != \"string\")'))",
+      "value": "\"ranking\" is null or (jsonb_typeof(\"ranking\") = 'array' and jsonb_array_length(\"ranking\") > 0 and not jsonb_path_exists(\"ranking\", 'strict $[*] ? (@.type() != \"array\" || @.size() == 0)') and not jsonb_path_exists(\"ranking\", 'strict $[*][*] ? (@.type() != \"string\")'))",
       "name": "rounds_ranking_shape_check",
       "entityType": "checks",
       "schema": "public",

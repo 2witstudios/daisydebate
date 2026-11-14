@@ -8,7 +8,7 @@ import {
   type BallotDefinition,
   type BallotSubjects,
 } from './ballot-definition';
-import { ballotSchemaFor } from './ballot-schema';
+import { ballotSchemaFor, feedbackSubjectOf } from './ballot-schema';
 
 setupRitewayBun();
 
@@ -341,6 +341,47 @@ describe('daisyBallotDefinitions', () => {
         (definition) => ballotDefinitionSchema.safeParse(definition).success,
       ),
       expected: Object.values(daisyBallotDefinitions).map(() => true),
+    });
+  });
+});
+
+describe('feedbackSubjectOf', () => {
+  const id = 's'.repeat(24);
+  const seats = [
+    { id, seat: { kind: 'speaker', slot: 2 } },
+    { id, seat: { kind: 'side', side: 'opening_government', slot: 0 } },
+    { id, seat: { kind: 'judge', slot: 0 } },
+  ] as const;
+
+  test('a speaker ranking keys feedback by the participant', () => {
+    assert({
+      given: 'a speaker, a side seat and a judge under rank-speakers@1',
+      should:
+        'name each competitor by its own participant id, a judge by nothing',
+      actual: seats.map((participant) =>
+        feedbackSubjectOf(
+          daisyBallotDefinitions['rank-speakers@1'],
+          participant,
+        ),
+      ),
+      expected: [id, id, null],
+    });
+  });
+
+  test('a winner or a ranking of sides keys feedback by the side', () => {
+    assert({
+      given: 'the same seats under speaker-10@2 and rank-sides@1',
+      should: 'name a side seat by its side and every other seat by nothing',
+      actual: [daisyWinnerBallot, daisyBallotDefinitions['rank-sides@1']].map(
+        (definition) =>
+          seats.map((participant) =>
+            feedbackSubjectOf(definition, participant),
+          ),
+      ),
+      expected: [
+        [null, 'opening_government', null],
+        [null, 'opening_government', null],
+      ],
     });
   });
 });

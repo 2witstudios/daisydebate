@@ -6,8 +6,8 @@ import { createAppError } from '@daisy/errors';
 import {
   ballotSubjectsFor,
   idSchema,
+  feedbackSubjectOf,
   isJudgeSeat,
-  sideOfSeat,
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
   type LaunchedRound,
@@ -146,7 +146,10 @@ export const roundBallotReads = ({
         (p) => p.actorId === input.caller.actorId,
       );
       const completed = round.status === 'completed';
-      const viewerSide = (seat && sideOfSeat(seat.seat)) ?? undefined;
+      const viewerSubject =
+        (seat &&
+          feedbackSubjectOf(frozenJudging?.judging?.ballot ?? null, seat)) ??
+        undefined;
       const aiJudgeSeatIds = new Set(
         round.participants
           .filter((p) => isJudgeSeat(p.seat) && p.kind === 'bot')
@@ -165,7 +168,7 @@ export const roundBallotReads = ({
         ...ballotReadView({
           status: round.status,
           ownSeatId: ownSeat?.id,
-          viewerSide,
+          viewerSubject,
           aiJudgeSeatIds,
           definition: frozenJudging?.judging?.ballot ?? null,
           subjects: ballotSubjectsFor(round.rules, round.participants),

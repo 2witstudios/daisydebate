@@ -8,7 +8,7 @@ import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
-  isSideKeyOrNull,
+  isFeedbackSubjectOrNull,
   oneOf,
   timestampColumn,
 } from './columns';
@@ -18,8 +18,9 @@ import { users } from './users';
  * One account's report of a Round, a Recording, a chat message or abusive
  * ballot feedback (WATCH-7). Reasons are closed and there is no free text.
  * `reporterUserId` is for dedupe and export only, is never shown to an
- * operator, and erasure clears it while the report stands. `feedbackSide` says
- * whose feedback was reported, so the operator reads that side alone.
+ * operator, and erasure clears it while the report stands. `feedbackSubject`
+ * says whose feedback was reported (a side key, or a ranked speaker's round
+ * participant id), so the operator reads that subject's feedback alone.
  */
 export const contentReports = pgTable(
   'content_reports',
@@ -30,7 +31,7 @@ export const contentReports = pgTable(
     }),
     targetKind: text('target_kind').notNull(),
     targetId: text('target_id').notNull(),
-    feedbackSide: text('feedback_side'),
+    feedbackSubject: text('feedback_subject'),
     reason: text('reason').notNull(),
     queue: text('queue').notNull(),
     status: text('status').notNull().default('open'),
@@ -67,8 +68,8 @@ export const contentReports = pgTable(
       oneOf(table.status, contentReportStatuses),
     ),
     check(
-      'content_reports_feedback_side_check',
-      sql`(${table.targetKind} = 'ballot_feedback') = (${table.feedbackSide} is not null) and (${isSideKeyOrNull(table.feedbackSide)})`,
+      'content_reports_feedback_subject_check',
+      sql`(${table.targetKind} = 'ballot_feedback') = (${table.feedbackSubject} is not null) and (${isFeedbackSubjectOrNull(table.feedbackSubject)})`,
     ),
     check(
       'content_reports_resolution_check',

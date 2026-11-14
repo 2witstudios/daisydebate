@@ -62,6 +62,15 @@ export const isSideKeyOrNull = (column: PgColumn): SQL =>
     seatKinds.map((kind) => `'${kind}'`).join(', '),
   )}))`;
 
+/** The SQL spelling of a cuid2 id (`idSchema`, ADR 0018). */
+export const idSqlPattern = '^[a-z0-9]{24}$';
+/**
+ * `column` is null or a feedback subject (`feedbackSubjectSchema`): a side
+ * key, or a ranked speaker's round participant id.
+ */
+export const isFeedbackSubjectOrNull = (column: PgColumn): SQL =>
+  sql`${isSideKeyOrNull(column)} or ${column} ~ ${sql.raw(`'${idSqlPattern}'`)}`;
+
 /** `later` is unset or not before `earlier`: a time-ordering CHECK body. */
 export const notBefore = (later: PgColumn, earlier: PgColumn): SQL =>
   sql`${later} is null or ${later} >= ${earlier}`;

@@ -13,6 +13,7 @@ import {
   type FormatDefinition,
   type RoundRules,
 } from '@daisy/protocol';
+import { queueOfReason } from '@daisy/protocol/content-moderation';
 import { casualTemplateIds } from '../src/catalog-casual';
 import { seededFormats, seededPresets } from '../src/migrations.test-support';
 import { seatOfColumns } from '../src/seat-columns';
@@ -38,7 +39,7 @@ const addedChecks = [
   'ballots_ranking_check',
   'ballots_rubric_version_check',
   'ballots_winner_check',
-  'content_reports_feedback_side_check',
+  'content_reports_feedback_subject_check',
   'fixture_entries_side_key',
   'room_invitations_seat_check',
   'room_participants_seat_kind_check',
@@ -141,6 +142,7 @@ type Seeded = {
   readonly seatedMember: string;
   readonly evidenceId: string;
   readonly commandId: string;
+  readonly reportId: string;
 };
 
 const oldSeat = async (
@@ -293,6 +295,12 @@ const seedOldShapes = async (fixture: Fixture): Promise<Seeded> => {
   await fixture.sql`insert into necessary_evidence(id,round_id,original_round_id,session_id,segment_id,round_participant_id,worker_id,capture_epoch,binding_digest,state,retirement_reason,reserved_bytes,authority_id,original_speaker)
     values(${evidenceId},null,${judgedRound!.id},${createId()},${createId()},${speakerSeat},${createId()},1,${'b'.repeat(64)},'retiring','erased',0,${'c'.repeat(24)},
     ${{ roundParticipantId: speakerSeat, actorId: host, kind: 'human', role: 'negative', slot: 0 }})`;
+  // A debater's report of the feedback written to their side.
+  const reportId = createId();
+  await fixture.sql`insert into content_reports (id, target_kind, target_id, feedback_side, reason, queue)
+    select ${reportId}, 'ballot_feedback', id, 'negative', 'abusive_feedback',
+      ${queueOfReason('abusive_feedback')}
+    from ballots limit 1`;
   return {
     rounds,
     rooms,
@@ -300,6 +308,7 @@ const seedOldShapes = async (fixture: Fixture): Promise<Seeded> => {
     seatedMember: seatedMember!.actor_id,
     evidenceId,
     commandId,
+    reportId,
   };
 };
 
@@ -435,6 +444,8 @@ test(
       const [evidence] =
         await sql`select original_speaker from necessary_evidence
         where id = ${seeded.evidenceId}`;
+      const [report] = await sql`select feedback_subject from content_reports
+        where id = ${seeded.reportId}`;
       const held = await sql`select actor_id from active_seats
         where actor_id in ${sql([seeded.host, seeded.seatedMember])}`;
       const judgedRound = seeded.rounds.find(
@@ -492,6 +503,7 @@ test(
         receiptOutcome: command?.result.outcome,
         evidenceSpeaker: evidence?.original_speaker.seat,
         held: held.map((row: { actor_id: string }) => row.actor_id),
+        reportSubject: report?.feedback_subject,
         afterSeats: Object.values(afterSeats).every((valid) => valid === false),
         validated: await validity(sql),
       };
@@ -550,6 +562,7 @@ test(
         receiptOutcome: { kind: 'winner', side: judgedRound.outcome },
         evidenceSpeaker: { kind: 'side', side: 'negative', slot: 0 },
         held: [seeded.seatedMember],
+        reportSubject: 'negative',
         afterSeats: true,
         validated: Object.fromEntries(addedChecks.map((name) => [name, true])),
       };
@@ -641,6 +654,38 @@ test('the new seat, outcome, ballot and capture CHECKs refuse what the shapes ca
     });
   });
 });
+
+test(
+  'a stored ranking is a non-empty list of non-empty places of keys (TAB-6.18)',
+  async () => {
+    await withFixture(url, async (f) => {
+      const roundId = await f.round();
+      const rank = (ranking: unknown) =>
+        f.sql`update rounds set status = 'completed', started_at = now() - interval '1 hour',
+          completed_at = now(), ranking = ${ranking} where id = ${roundId}`;
+      assert({
+        given: 'a completed Round ranked in places, then malformed rankings',
+        should:
+          'store the places, and refuse an empty place, a key that is not text, a place that is not a list, and no places',
+        actual: [
+          await rank([['a'], ['b', 'c'], ['d']]).then(() => 'stored'),
+          await rejectedBy(() => rank([['a'], []])),
+          await rejectedBy(() => rank([['a'], [1]])),
+          await rejectedBy(() => rank([['a'], 'b'])),
+          await rejectedBy(() => rank([])),
+        ],
+        expected: [
+          'stored',
+          'rounds_ranking_shape_check',
+          'rounds_ranking_shape_check',
+          'rounds_ranking_shape_check',
+          'rounds_ranking_shape_check',
+        ],
+      });
+    });
+  },
+  ddlTimeoutMs,
+);
 
 test('an event Room never releases its Recording, and a fixture side is a side key', async () => {
   await withSample(url, async (sql, ids) => {
