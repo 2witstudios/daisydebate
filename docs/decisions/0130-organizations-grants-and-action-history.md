@@ -14,6 +14,8 @@ feature ([ADR 0128](0128-feature-parent-branch.md)).
    and grants nothing. A role is a named set of permissions from the closed
    list in `@daisy/protocol`. A grant gives a role to a person at exactly one
    scope, an organization or a lobby, by someone, with an optional expiry.
+   The granter is null only for a grant the operator gives from outside the
+   product, which is how Daisy's first grant is made.
    [The architecture](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/lrp9sdclvjac1h76c3yxiob3) is the model; this record is where it is
    stored.
 2. **Users for authority, actors for competition.** Memberships, grants,
@@ -42,7 +44,9 @@ feature ([ADR 0128](0128-feature-parent-branch.md)).
    designed.
 7. **Guardian links and restrictions exist closed.** The runtime role cannot
    write them, and they hold no consent field, until counsel answers on
-   minors and a later migration opens them.
+   minors and a later migration opens them. Only a parent's link may hold a
+   restriction, by composite foreign key: a coach never sets or widens a
+   minor's boundary.
 
 ## Consequences
 

@@ -21,8 +21,15 @@ both.
 1. **Two isolation keys, `organization_id` and `lobby_id`.** There is no
    `tournament_id`: a tournament is a lobby. A tenant-owned row carries its
    key on every row, grandchildren included, and a composite foreign key
-   onto the parent's unique `(id, key)` proves it equal to the parent's. A
-   lobby's rows are keyed by `lobby_id` even when a league owns the lobby;
+   onto the parent's unique `(id, key)` proves it equal to the parent's.
+   One table is proved by trigger instead: a ballot screening's lobby is
+   that of the Room its ballot's Round ran in, and ballots and Rounds carry
+   no lobby column, so a trigger checks it and a second refuses moving a
+   Room to another lobby. Two tables carry both keys: a ladder, which
+   belongs to a standing lobby and to that lobby's organization, and a
+   sanction, which is a league's organization recognising an event in a
+   lobby. Neither key has a default on any table: a write that omits it is
+   refused, never placed on Daisy. A lobby's rows are keyed by `lobby_id` even when a league owns the lobby;
    holding the organization's scope does not open its lobbies' rows.
 2. **A fence, not a second evaluator.** `authorize` still decides. After it
    allows, the operation opens its transaction through `withScope` in
@@ -35,8 +42,10 @@ both.
 3. **A closed set of policy shapes.** Scope (all commands: the row's key is
    in scope); subject (`SELECT`: the row is about the person in the subject
    scope, across tenants); open read (`SELECT`: every row). Open read
-   covers identity rows, which are listed across tenants, and definitions
-   (templates, settings, ballot definitions), because one event's settings
+   covers identity rows, which are listed across tenants, roles and their
+   permissions, because Daisy's preset roles are given in every tenant and
+   reading them must not need Daisy's scope, and definitions (templates,
+   settings, ballot definitions), because one event's settings
    chain crosses up to three tenants and one transaction has one
    organization scope. Nothing private goes in a setting's value.
 4. **A manifest and one mechanical check.** The manifest in `@daisy/db`

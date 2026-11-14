@@ -28,6 +28,9 @@ slice, TAB-4).
    apart from that row's own version.
 5. **A template pins a format and a ballot definition, and the pins never
    change**, by trigger: a different format or ballot is a new template.
+   This template is a row an organization owns, not the league template
+   of [ADR 0078](0078-standard-formats-league-templates.md), which is a
+   catalog format whose `catalog_role` is `template`.
    Copying a template writes its values into the event's own settings and
    keeps no link. Following it joins the chain: an event that follows a
    template has its format by foreign key, and a Room follows only a

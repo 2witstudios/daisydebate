@@ -14,9 +14,11 @@ organization and a ladder to a standing lobby; Daisy's are unchanged.
    a one-to-one extension row holding only schedule state. Grants, settings
    and restrictions key on the lobby. A lobby has no access column; who may
    see and join it is its `audience.posting` setting.
-2. **A Room sits in exactly one lobby**, its only parent. Every Room made
-   before lobbies existed, and every Room a writer makes without naming one,
-   sits in Daisy's seeded public lobby by column default.
+2. **A Room sits in exactly one lobby**, its only parent, for life: a
+   trigger refuses moving it. Every Room made before lobbies existed was
+   placed in Daisy's seeded public lobby by the migration. The column has no
+   default, so every writer names the lobby and Daisy's own writers name the
+   public one.
 3. **A Room has a host person exactly when its lobby is standing**, by a
    CHECK over the lobby's kind, which a composite foreign key proves. In a
    tournament lobby authority over a Room comes from grants on the lobby.
