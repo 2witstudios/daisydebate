@@ -59,16 +59,6 @@ export const rooms = pgTable(
   {
     id: text('id').primaryKey(),
     /**
-     * The Room's only parent. Every Room made before lobbies had rows, and
-     * every Room a writer makes without naming one, sits in Daisy's public
-     * lobby. `lobby_kind` is the lobby's kind, proved by the composite key.
-     */
-    lobbyId: text('lobby_id').notNull().default(daisyReferenceLobby.id),
-    lobbyKind: text('lobby_kind')
-      .$type<(typeof lobbyKinds)[number]>()
-      .notNull()
-      .default(daisyReferenceLobby.kind),
-    /**
      * The host person: set exactly when the lobby is standing. In a
      * tournament lobby authority over the Room comes from grants on the
      * lobby.
@@ -76,11 +66,6 @@ export const rooms = pgTable(
     hostActorId: text('host_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
-    /** The template the Room follows, one its lobby offers; null is none. */
-    templateId: text('template_id'),
-    /** The pinned ballot definition; null is the Daisy ballot. */
-    ballotDefinitionId: text('ballot_definition_id'),
-    ballotDefinitionVersion: integer('ballot_definition_version'),
     /** The host took over from a restricted one, and names no human judge (DEC-331). */
     hostInherited: boolean('host_inherited').notNull().default(false),
     title: text('title').notNull(),
@@ -130,6 +115,21 @@ export const rooms = pgTable(
     lastCommandAt: timestampColumn('last_command_at').notNull().defaultNow(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
+    /**
+     * The Room's only parent. Every Room made before lobbies had rows, and
+     * every Room a writer makes without naming one, sits in Daisy's public
+     * lobby. `lobby_kind` is the lobby's kind, proved by the composite key.
+     */
+    lobbyId: text('lobby_id').notNull().default(daisyReferenceLobby.id),
+    lobbyKind: text('lobby_kind')
+      .$type<(typeof lobbyKinds)[number]>()
+      .notNull()
+      .default(daisyReferenceLobby.kind),
+    /** The template the Room follows, one its lobby offers; null is none. */
+    templateId: text('template_id'),
+    /** The pinned ballot definition; null is the Daisy ballot. */
+    ballotDefinitionId: text('ballot_definition_id'),
+    ballotDefinitionVersion: integer('ballot_definition_version'),
   },
   (table) => [
     index('rooms_discovery_assembly_idx')

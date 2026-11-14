@@ -45,9 +45,6 @@ export const ballots = pgTable(
     roundId: text('round_id').notNull(),
     freezeRevision: integer('freeze_revision').notNull(),
     rubricVersion: text('rubric_version').notNull(),
-    /** The ballot definition answered; null is the Daisy ballot. */
-    ballotDefinitionId: text('ballot_definition_id'),
-    ballotDefinitionVersion: integer('ballot_definition_version'),
     /** The winner: a side. There are no draws (ADR 0058 §6, DEC-116). */
     winner: text('winner').notNull(),
     scores: jsonbColumn('scores', storedBallotScoresSchema).notNull(),
@@ -57,6 +54,9 @@ export const ballots = pgTable(
     submittedAt: timestampColumn('submitted_at').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
+    /** The ballot definition answered; null is the Daisy ballot. */
+    ballotDefinitionId: text('ballot_definition_id'),
+    ballotDefinitionVersion: integer('ballot_definition_version'),
   },
   (table) => [
     uniqueIndex('ballots_finalization_reference').on(

@@ -45,7 +45,12 @@ const result = async (
 test('a result is corrected only by a superseding result for the same fixture with a reason, and the earlier row stays as it was', async () => {
   await withSample(url, async (sql, ids) => {
     const row = async (id: string) =>
-      (await sql.unsafe('select to_jsonb(r) as row from results r where id = $1', [id]))[0];
+      (
+        await sql.unsafe(
+          'select to_jsonb(r) as row from results r where id = $1',
+          [id],
+        )
+      )[0];
     const before = await row(ids.byeResult);
     const attempt = (rest: Record<string, unknown>) =>
       refusedBy(sql, () => result(sql, ids, rest));
@@ -247,7 +252,7 @@ test('a certification pins the exact results it confirmed, so a later correction
       given:
         'the event certified before a correction, then a new certification that names the correction',
       should:
-        "list exactly the two results first confirmed, the correction among them only once the new certification names it, and refuse a result of another event",
+        'list exactly the two results first confirmed, the correction among them only once the new certification names it, and refuse a result of another event',
       actual: {
         before: [...before].sort(),
         correctionCertifiedBefore: before.includes(ids.correction),
@@ -280,7 +285,7 @@ test('a certification pins the exact results it confirmed, so a later correction
 });
 
 /** TAB-4.14 */
-test("a league sanctions an event once, naming its own template and season and storing no terms", async () => {
+test('a league sanctions an event once, naming its own template and season and storing no terms', async () => {
   await withSample(url, async (sql, ids) => {
     const fixture = new Fixture(sql);
     const otherLeague = createId();
@@ -605,8 +610,9 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
         ratingOnDaisysLadder: await rating('policy'),
         ratingOnLeagueLadder: await rating(leagueLadder),
         ratingOnNoLadder: await refusedBy(sql, () =>
-          sql.unsafe('alter table ratings drop constraint ratings_ladder_check').then(
-            () =>
+          sql
+            .unsafe('alter table ratings drop constraint ratings_ladder_check')
+            .then(() =>
               insertRow(sql, 'ratings', {
                 actor_id: actorId,
                 season_id: ids.season,
@@ -615,7 +621,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
                 deviation: 350,
                 volatility: 0.06,
               }),
-          ),
+            ),
         ),
         leagueFormat: await refusedBy(sql, () =>
           sql.unsafe('update formats set organization_id = $2 where id = $1', [
@@ -624,10 +630,10 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
           ]),
         ),
         formatWithTwoOwners: await refusedBy(sql, () =>
-          sql.unsafe('update formats set created_by_actor_id = $2 where id = $1', [
-            formatId,
-            actorId,
-          ]),
+          sql.unsafe(
+            'update formats set created_by_actor_id = $2 where id = $1',
+            [formatId, actorId],
+          ),
         ),
         consent: await signature({ lobby_id: ids.lobby }),
         consentTwice: await signature({ lobby_id: ids.lobby }),

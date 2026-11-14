@@ -11,6 +11,9 @@ import { accountTermsPrivacyAdopter } from '../age-step';
 import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
 import { documentsPrivacyAdopter } from '../documents-privacy';
 import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
+import { organizationAuthorityPrivacyAdopter } from '../organization-authority-privacy';
+import { guardianLinksPrivacyAdopter } from '../guardian-links-privacy';
+import { tournamentRecordPrivacyAdopter } from '../tournament-record-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
 import { usagePrivacyAdopter } from '../usage-privacy';
 import { billingPrivacyAdopter } from '../billing-privacy';
@@ -60,6 +63,10 @@ export const subjectRightsAdoption = (
   roundTranscriptPrivacyAdopter,
   roundAnalysisPrivacyAdopter,
   recordingPrivacyAdopter,
+  // Authority ends with the account; the tournament record is kept.
+  organizationAuthorityPrivacyAdopter,
+  guardianLinksPrivacyAdopter,
+  tournamentRecordPrivacyAdopter,
   // The record reads last: it only reads, and erasure keeps it (DEC-261).
   competitiveRecordPrivacyAdopter,
 ];

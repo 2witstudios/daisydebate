@@ -30,9 +30,10 @@ test('a tournament is only the schedule extension of a tournament lobby', async 
           insertRow(sql, 'tournaments', { lobby_id: ids.lobby }),
         ),
         badLinkHash: await refusedBy(sql, () =>
-          sql.unsafe(`update tournaments set link_hash = 'link' where lobby_id = $1`, [
-            ids.lobby,
-          ]),
+          sql.unsafe(
+            `update tournaments set link_hash = 'link' where lobby_id = $1`,
+            [ids.lobby],
+          ),
         ),
         columns: await columnsOf(sql, 'tournaments'),
       },
@@ -244,7 +245,7 @@ test('an entry names one kind of responsible adult, a person is in one entry per
 });
 
 /** TAB-4.17 */
-test('a setting sits at one scope with that scope\'s key, once per scope and key, with a catalogue key and an object value', async () => {
+test("a setting sits at one scope with that scope's key, once per scope and key, with a catalogue key and an object value", async () => {
   await withSample(url, async (sql, ids) => {
     const setting = (rest: Record<string, unknown>) =>
       refusedBy(sql, () =>
@@ -314,7 +315,10 @@ test('a setting sits at one scope with that scope\'s key, once per scope and key
           scope_kind: 'lobby',
           key: 'entry.approval',
         }),
-        unknownScope: await setting({ scope_kind: 'stage', lobby_id: ids.lobby }),
+        unknownScope: await setting({
+          scope_kind: 'stage',
+          lobby_id: ids.lobby,
+        }),
       },
       expected: {
         once: {
@@ -402,8 +406,9 @@ test('each settings scope carries a settings version apart from its own version'
       )[0];
     assert({
       given:
-        "an organization, a template, a lobby and an event whose settings version is bumped, as the settings writer does on every set and clear",
-      should: 'move the settings version and leave the row version where it was',
+        'an organization, a template, a lobby and an event whose settings version is bumped, as the settings writer does on every set and clear',
+      should:
+        'move the settings version and leave the row version where it was',
       actual: {
         moved,
         zeroRefused: await refusedBy(sql, () =>
@@ -558,7 +563,7 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
 });
 
 /** TAB-4.19 */
-test("a time slot belongs to one tournament lobby, holds only its tab rounds, and its version serialises writes into it", async () => {
+test('a time slot belongs to one tournament lobby, holds only its tab rounds, and its version serialises writes into it', async () => {
   await withSample(url, async (sql, ids) => {
     const otherSlot = createId();
     await insertRow(sql, 'time_slots', {
@@ -622,9 +627,10 @@ test("a time slot belongs to one tournament lobby, holds only its tab rounds, an
         ),
         twoWritesOnOneReading: [await claim(1), await claim(1)],
         unscheduledTabRound: (
-          await sql.unsafe('select time_slot_id from tab_rounds where id = $1', [
-            ids.noviceFinal,
-          ])
+          await sql.unsafe(
+            'select time_slot_id from tab_rounds where id = $1',
+            [ids.noviceFinal],
+          )
         )[0],
       },
       expected: {
@@ -666,7 +672,7 @@ test("a tournament judge carries a status, a chair qualification, its own lobby'
       given:
         "the sample's judges, an event of another lobby listed for one, strikes of each source and one of an unknown source",
       should:
-        'show status and chair qualification, refuse the other lobby\'s event and the unknown source, and tell an entry\'s strike from a declared conflict',
+        "show status and chair qualification, refuse the other lobby's event and the unknown source, and tell an entry's strike from a declared conflict",
       actual: {
         judges: await sql.unsafe(
           'select status, chair_qualified from tournament_judges where lobby_id = $1 order by chair_qualified desc',
@@ -695,9 +701,10 @@ test("a tournament judge carries a status, a chair qualification, its own lobby'
           }),
         ),
         unknownStatus: await refusedBy(sql, () =>
-          sql.unsafe(`update tournament_judges set status = 'benched' where id = $1`, [
-            ids.judges[0],
-          ]),
+          sql.unsafe(
+            `update tournament_judges set status = 'benched' where id = $1`,
+            [ids.judges[0]],
+          ),
         ),
         declaredByJudge: await strike('judge', ids.teams[0]),
         declaredByTab: await strike('tab', ids.teams[1]),
@@ -744,10 +751,10 @@ test("a tab round's wording comes from its pool, and a pool's wording never chan
       should: 'refuse each, while retiring a wording is accepted',
       actual: {
         wordingWithoutPool: await refusedBy(sql, () =>
-          sql.unsafe('update tab_rounds set pool_resolution_id = $2 where id = $1', [
-            ids.round2,
-            ids.wording,
-          ]),
+          sql.unsafe(
+            'update tab_rounds set pool_resolution_id = $2 where id = $1',
+            [ids.round2, ids.wording],
+          ),
         ),
         wordingFromAnotherPool: await refusedBy(sql, () =>
           sql.unsafe(
@@ -756,14 +763,16 @@ test("a tab round's wording comes from its pool, and a pool's wording never chan
           ),
         ),
         rewritten: await refusedBy(sql, () =>
-          sql.unsafe(`update pool_resolutions set text = 'Another wording.' where id = $1`, [
-            ids.wording,
-          ]),
+          sql.unsafe(
+            `update pool_resolutions set text = 'Another wording.' where id = $1`,
+            [ids.wording],
+          ),
         ),
         retired: await refusedBy(sql, () =>
-          sql.unsafe('update pool_resolutions set retired_at = now() where id = $1', [
-            ids.wording,
-          ]),
+          sql.unsafe(
+            'update pool_resolutions set retired_at = now() where id = $1',
+            [ids.wording],
+          ),
         ),
         twoOwners: await refusedBy(sql, () =>
           insertRow(sql, 'resolution_pools', {

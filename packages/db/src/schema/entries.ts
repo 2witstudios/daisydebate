@@ -1,7 +1,4 @@
-import {
-  entryStatuses,
-  responsibleKinds,
-} from '@daisy/protocol/lobby';
+import { entryStatuses, responsibleKinds } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -57,7 +54,11 @@ export const entries = pgTable(
     version: versionColumn(),
   },
   (table) => [
-    unique('entries_id_event_unique').on(table.id, table.eventId, table.lobbyId),
+    unique('entries_id_event_unique').on(
+      table.id,
+      table.eventId,
+      table.lobbyId,
+    ),
     index('entries_event_idx').on(table.eventId, table.lobbyId),
     index('entries_school_idx').on(
       table.schoolOrganizationId,
@@ -107,7 +108,10 @@ export const entryMembers = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.entryId, table.actorId] }),
-    unique('entry_members_one_entry_per_event').on(table.eventId, table.actorId),
+    unique('entry_members_one_entry_per_event').on(
+      table.eventId,
+      table.actorId,
+    ),
     index('entry_members_entry_idx').on(
       table.entryId,
       table.eventId,

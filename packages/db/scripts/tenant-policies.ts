@@ -9,7 +9,6 @@ import { tenantIsolationManifest } from '../src/tenant-isolation-manifest';
 const names = new Set(process.argv.slice(2));
 for (const entry of tenantIsolationManifest.tables)
   if (names.size === 0 || names.has(entry.table))
-    console.log(
-      tenantPolicyStatements(entry).join('\n--> statement-breakpoint\n') +
-        '\n--> statement-breakpoint',
+    process.stdout.write(
+      `${tenantPolicyStatements(entry).join('\n--> statement-breakpoint\n')}\n--> statement-breakpoint\n`,
     );

@@ -1,7 +1,6 @@
 import {
   tenantIsolationManifest,
-  type
-  TenantIsolationManifest,
+  type TenantIsolationManifest,
   type TenantKey,
   type TenantSubject,
   type TenantTable,
@@ -158,7 +157,9 @@ export const tenantPolicies = (entry: TenantTable): readonly TenantPolicy[] => {
 };
 
 /** The statements that fence one table, for a migration's author. */
-export const tenantPolicyStatements = (entry: TenantTable): readonly string[] => [
+export const tenantPolicyStatements = (
+  entry: TenantTable,
+): readonly string[] => [
   `ALTER TABLE "${entry.table}" ENABLE ROW LEVEL SECURITY;`,
   ...tenantPolicies(entry).map(
     (policy) =>
@@ -182,7 +183,8 @@ const describePolicy = (policy: {
 }) =>
   `${policy.name} for ${policy.command} using ${policy.using ?? 'nothing'} with check ${policy.withCheck ?? 'nothing'}`;
 
-const oneTenantKeyCheck = 'CHECK ((num_nonnulls(organization_id, lobby_id) = 1))';
+const oneTenantKeyCheck =
+  'CHECK ((num_nonnulls(organization_id, lobby_id) = 1))';
 
 const keyProblems = (
   entry: TenantTable,
@@ -201,7 +203,9 @@ const keyProblems = (
     both: keyColumns.map(required),
     either: [
       ...keyColumns.map((name) =>
-        column(name) === undefined ? `${entry.table} has no ${name} column` : null,
+        column(name) === undefined
+          ? `${entry.table} has no ${name} column`
+          : null,
       ),
       facts.checks.includes(oneTenantKeyCheck)
         ? null

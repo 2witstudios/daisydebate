@@ -37,10 +37,10 @@ export const agreementSignatures = pgTable(
       onDelete: 'restrict',
     }),
     roomId: text('room_id').references(() => rooms.id, { onDelete: 'cascade' }),
+    signedAt: timestampColumn('signed_at').notNull(),
     lobbyId: text('lobby_id').references(() => lobbies.id, {
       onDelete: 'restrict',
     }),
-    signedAt: timestampColumn('signed_at').notNull(),
   },
   (table) => [
     unique('agreement_signatures_once')

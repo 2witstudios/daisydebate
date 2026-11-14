@@ -143,7 +143,9 @@ export const judgeStrikes = pgTable(
     tournamentJudgeId: text('tournament_judge_id').notNull(),
     eventId: text('event_id').notNull(),
     lobbyId: text('lobby_id').notNull(),
-    source: text('source').$type<(typeof judgeStrikeSources)[number]>().notNull(),
+    source: text('source')
+      .$type<(typeof judgeStrikeSources)[number]>()
+      .notNull(),
     createdAt: createdAtColumn(),
   },
   (table) => [
@@ -164,6 +166,9 @@ export const judgeStrikes = pgTable(
       columns: [table.tournamentJudgeId, table.lobbyId],
       foreignColumns: [tournamentJudges.id, tournamentJudges.lobbyId],
     }).onDelete('cascade'),
-    check('judge_strikes_source_check', oneOf(table.source, judgeStrikeSources)),
+    check(
+      'judge_strikes_source_check',
+      oneOf(table.source, judgeStrikeSources),
+    ),
   ],
 );

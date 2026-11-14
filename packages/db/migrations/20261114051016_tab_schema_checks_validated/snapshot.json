@@ -1,10 +1,10 @@
 {
+  "id": "12ab8417-e4f1-46aa-acac-6fb0ae4e1822",
+  "prevIds": [
+    "7ed9dc29-ca66-4c5c-b407-8b3e453ea41c"
+  ],
   "version": "8",
   "dialect": "postgres",
-  "id": "218fe0b6-e5b4-4e48-b1e2-d0cc4eab2bdf",
-  "prevIds": [
-    "5d9b2236-0dde-4f7f-a84f-98c8d15869f5"
-  ],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -1545,19 +1545,6 @@
       "table": "agreement_signatures"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lobby_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "agreement_signatures"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -1566,6 +1553,19 @@
       "generated": null,
       "identity": null,
       "name": "signed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agreement_signatures"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lobby_id",
       "entityType": "columns",
       "schema": "public",
       "table": "agreement_signatures"
@@ -2496,32 +2496,6 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ballot_definition_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ballot_definition_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -2619,6 +2593,32 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ballot_definition_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ballot_definition_version",
       "entityType": "columns",
       "schema": "public",
       "table": "ballots"
@@ -7661,19 +7661,6 @@
       "table": "formats"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "formats"
-    },
-    {
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
@@ -7773,6 +7760,19 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "formats"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
       "entityType": "columns",
       "schema": "public",
       "table": "formats"
@@ -13293,19 +13293,6 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'fo05z182lha0a3usciy9wr2r'",
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "seasons"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
@@ -13401,6 +13388,19 @@
       "generated": null,
       "identity": null,
       "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "seasons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'fo05z182lha0a3usciy9wr2r'",
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
       "entityType": "columns",
       "schema": "public",
       "table": "seasons"
@@ -15634,77 +15634,12 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'rhkgl9vjor1cmyr855wb62ku'",
-      "generated": null,
-      "identity": null,
-      "name": "lobby_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'standing'",
-      "generated": null,
-      "identity": null,
-      "name": "lobby_kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "host_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "template_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ballot_definition_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ballot_definition_version",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -15991,6 +15926,71 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'rhkgl9vjor1cmyr855wb62ku'",
+      "generated": null,
+      "identity": null,
+      "name": "lobby_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'standing'",
+      "generated": null,
+      "identity": null,
+      "name": "lobby_kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "template_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ballot_definition_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ballot_definition_version",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"

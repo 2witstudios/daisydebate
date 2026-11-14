@@ -247,15 +247,18 @@ test('what happened is append-only, and the guardian tables are closed to the ru
             }),
           ),
         ),
-        restrictionLobby: await asRuntime(sql, { subjectUserId: ids.owner }, () =>
-          refusedBy(sql, () =>
-            insertRow(sql, 'restriction_lobbies', {
-              guardian_link_id: link.id,
-              guardian_user_id: ids.owner,
-              minor_user_id: ids.staff,
-              lobby_id: ids.lobby,
-            }),
-          ),
+        restrictionLobby: await asRuntime(
+          sql,
+          { subjectUserId: ids.owner },
+          () =>
+            refusedBy(sql, () =>
+              insertRow(sql, 'restriction_lobbies', {
+                guardian_link_id: link.id,
+                guardian_user_id: ids.owner,
+                minor_user_id: ids.staff,
+                lobby_id: ids.lobby,
+              }),
+            ),
         ),
         consentColumns: [
           ...(await columnsOf(sql, 'guardian_links')),
@@ -446,7 +449,9 @@ test('action history names one tenant, one principal and the authority it ran un
         bothTenants: await record({ organization_id: ids.league }),
         bothPrincipals: await record({ service_id: 'tab-engine' }),
         grantWithoutGrant: await record({ authority: 'grant' }),
-        relationshipWithoutRelation: await record({ authority: 'relationship' }),
+        relationshipWithoutRelation: await record({
+          authority: 'relationship',
+        }),
         conflictElsewhere: await record({
           lobby_id: ids.otherLobby,
           conflict_id: ids.conflict,

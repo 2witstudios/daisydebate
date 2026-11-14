@@ -102,7 +102,9 @@ export const seasonStandingRules = pgTable(
   {
     seasonId: text('season_id').primaryKey(),
     organizationId: text('organization_id').notNull(),
-    counting: text('counting').$type<(typeof seasonCountings)[number]>().notNull(),
+    counting: text('counting')
+      .$type<(typeof seasonCountings)[number]>()
+      .notNull(),
     countsLobbyRooms: boolean('counts_lobby_rooms').notNull().default(false),
     /** Its contract is the season fold's rule, which slice G owns. */
     rule: jsonbColumn('rule', jsonObjectSchema).notNull(),

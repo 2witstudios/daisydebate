@@ -416,10 +416,23 @@ export const loadSampleTournament = async (sql: SQL) => {
     await tabRound(ids.noviceFinal, ids.debate, ids.noviceBreak, 1, null, {
       name: 'Novice final',
     });
-    await tabRound(ids.speechRound, ids.speech, ids.speechStage, 1, ids.slots[0]);
-    await tabRound(ids.knockoutRound, ids.knockout, ids.knockoutStage, 1, ids.slots[2], {
-      name: 'Quarterfinals',
-    });
+    await tabRound(
+      ids.speechRound,
+      ids.speech,
+      ids.speechStage,
+      1,
+      ids.slots[0],
+    );
+    await tabRound(
+      ids.knockoutRound,
+      ids.knockout,
+      ids.knockoutStage,
+      1,
+      ids.slots[2],
+      {
+        name: 'Quarterfinals',
+      },
+    );
     for (const [index, entryId] of ids.teams.entries()) {
       await write('entries', {
         id: entryId,
@@ -522,8 +535,22 @@ export const loadSampleTournament = async (sql: SQL) => {
         position,
         side,
       });
-    await seat(ids.pairing, ids.debate, ids.round1, ids.teams[0], 0, 'affirmative');
-    await seat(ids.pairing, ids.debate, ids.round1, ids.teams[1], 1, 'negative');
+    await seat(
+      ids.pairing,
+      ids.debate,
+      ids.round1,
+      ids.teams[0],
+      0,
+      'affirmative',
+    );
+    await seat(
+      ids.pairing,
+      ids.debate,
+      ids.round1,
+      ids.teams[1],
+      1,
+      'negative',
+    );
     await seat(ids.bye, ids.debate, ids.round1, ids.teams[2], 0, null);
     await write('fixture_judges', {
       fixture_id: ids.pairing,
@@ -547,7 +574,14 @@ export const loadSampleTournament = async (sql: SQL) => {
     });
     await fixtureRow(ids.section, ids.speech, ids.speechRound, 'section');
     for (const [index, entryId] of ids.speechEntries.entries())
-      await seat(ids.section, ids.speech, ids.speechRound, entryId, index, null);
+      await seat(
+        ids.section,
+        ids.speech,
+        ids.speechRound,
+        entryId,
+        index,
+        null,
+      );
     await write('fixture_judges', {
       fixture_id: ids.section,
       ...ancestry(ids.speech, ids.speechRound),

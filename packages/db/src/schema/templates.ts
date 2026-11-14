@@ -1,5 +1,4 @@
 import {
-  check,
   foreignKey,
   index,
   integer,

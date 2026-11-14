@@ -104,17 +104,21 @@ test("one lobby's scope reaches neither another lobby's rows nor its owning orga
         ]),
       ]);
     const own = await asRuntime(sql, { lobbyId: ids.lobby }, reach);
-    const other = await asRuntime(sql, { lobbyId: ids.otherLobby }, async () => ({
-      reach: await reach(),
-      write: await refusedBy(sql, () =>
-        insertRow(sql, 'time_slots', {
-          id: createId(),
-          lobby_id: ids.lobby,
-          name: 'From another lobby',
-          starts_at: new Date(),
-        }),
-      ),
-    }));
+    const other = await asRuntime(
+      sql,
+      { lobbyId: ids.otherLobby },
+      async () => ({
+        reach: await reach(),
+        write: await refusedBy(sql, () =>
+          insertRow(sql, 'time_slots', {
+            id: createId(),
+            lobby_id: ids.lobby,
+            name: 'From another lobby',
+            starts_at: new Date(),
+          }),
+        ),
+      }),
+    );
     const league = await asRuntime(sql, { organizationId: ids.league }, reach);
     assert({
       given:
@@ -152,11 +156,7 @@ test('the subject scope reads a person their own rows across tenants and nothing
         'read each their own rows and no other, and let neither write through it',
       actual: {
         staff: await asRuntime(sql, { subjectUserId: ids.staff }, own),
-        debater: await asRuntime(
-          sql,
-          { subjectUserId: debater!.user_id },
-          own,
-        ),
+        debater: await asRuntime(sql, { subjectUserId: debater!.user_id }, own),
         write: await asRuntime(sql, { subjectUserId: ids.staff }, () =>
           changed(
             sql,
@@ -217,19 +217,20 @@ test('withScope sets its scope for its own transaction only', async () => {
   try {
     const database = drizzle({ client });
     const scope = { organizationId: createId(), lobbyId: createId() };
-    const read = (executor: {
+    const read = async (executor: {
       execute: (statement: ReturnType<typeof query>) => PromiseLike<unknown>;
     }) =>
-      executor.execute(
+      await executor.execute(
         query`select daisy_organization_scope() as organization, daisy_lobby_scope() as lobby, daisy_subject_scope() as subject`,
-      ) as PromiseLike<unknown[]>;
+      );
     const inside = await withScope(database, scope, (transaction) =>
       read(transaction),
     );
     const after = await read(database);
     assert({
       given: 'a transaction opened with an organization and a lobby',
-      should: 'hold exactly that scope inside it and none on the connection after',
+      should:
+        'hold exactly that scope inside it and none on the connection after',
       actual: { inside, after },
       expected: {
         inside: [

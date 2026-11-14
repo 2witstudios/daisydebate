@@ -46,14 +46,6 @@ export const seasons = pgTable(
   'seasons',
   {
     id: text('id').primaryKey(),
-    /**
-     * The organization whose season this is. Daisy's rating seasons are
-     * Daisy's, and a season written without naming one is Daisy's.
-     */
-    organizationId: text('organization_id')
-      .notNull()
-      .default(daisyOrganizationId)
-      .references(() => organizations.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     activationKey: text('activation_key').unique(),
     startsAt: timestampColumn('starts_at').notNull(),
@@ -62,6 +54,14 @@ export const seasons = pgTable(
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
+    /**
+     * The organization whose season this is. Daisy's rating seasons are
+     * Daisy's, and a season written without naming one is Daisy's.
+     */
+    organizationId: text('organization_id')
+      .notNull()
+      .default(daisyOrganizationId)
+      .references(() => organizations.id, { onDelete: 'restrict' }),
   },
   (table) => [
     /** At most one active season per organization. */

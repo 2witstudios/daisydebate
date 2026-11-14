@@ -23,7 +23,9 @@ export const certifications = pgTable(
     id: text('id').primaryKey(),
     lobbyId: text('lobby_id').notNull(),
     eventId: text('event_id').notNull(),
-    scope: text('scope').$type<(typeof certificationScopes)[number]>().notNull(),
+    scope: text('scope')
+      .$type<(typeof certificationScopes)[number]>()
+      .notNull(),
     commandId: text('command_id').notNull(),
     certifiedAt: timestampColumn('certified_at').notNull(),
   },
@@ -45,7 +47,10 @@ export const certifications = pgTable(
       columns: [table.commandId, table.lobbyId],
       foreignColumns: [actionHistory.commandId, actionHistory.lobbyId],
     }).onDelete('restrict'),
-    check('certifications_scope_check', oneOf(table.scope, certificationScopes)),
+    check(
+      'certifications_scope_check',
+      oneOf(table.scope, certificationScopes),
+    ),
   ],
 );
 

@@ -61,7 +61,11 @@ export const results = pgTable(
       table.fixtureId,
       table.lobbyId,
     ),
-    unique('results_id_event_unique').on(table.id, table.eventId, table.lobbyId),
+    unique('results_id_event_unique').on(
+      table.id,
+      table.eventId,
+      table.lobbyId,
+    ),
     unique('results_superseded_once').on(table.supersedesResultId),
     uniqueIndex('results_one_original_per_fixture')
       .on(table.fixtureId)
@@ -166,7 +170,10 @@ export const resultEntries = pgTable(
       table.fixtureId,
       table.lobbyId,
     ),
-    index('result_entries_fixture_entry_idx').on(table.fixtureId, table.entryId),
+    index('result_entries_fixture_entry_idx').on(
+      table.fixtureId,
+      table.entryId,
+    ),
     foreignKey({
       name: 'result_entries_result_fk',
       columns: [table.resultId, table.fixtureId, table.lobbyId],

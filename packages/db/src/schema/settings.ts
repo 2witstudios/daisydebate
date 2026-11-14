@@ -81,7 +81,10 @@ export const settings = pgTable(
       columns: [table.eventId, table.lobbyId],
       foreignColumns: [events.id, events.lobbyId],
     }).onDelete('cascade'),
-    check('settings_scope_kind_check', oneOf(table.scopeKind, settingScopeKinds)),
+    check(
+      'settings_scope_kind_check',
+      oneOf(table.scopeKind, settingScopeKinds),
+    ),
     // One scope, carrying that scope's own isolation key.
     check(
       'settings_scope_check',

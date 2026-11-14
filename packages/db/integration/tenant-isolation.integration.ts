@@ -19,7 +19,7 @@ import { inRolledBackTransaction } from './tab.test-support';
 
 const { databaseUrl: url } = integrationSuite();
 
-const schema = '20261114044129_tab_schema';
+const schema = '20261114051015_tab_schema';
 const scratch = scratchDatabase(url, 'tenantisolation');
 afterAll(() => scratch.drop());
 
@@ -113,9 +113,7 @@ test('a tenant-owned table with no policy or a wrong one is reported', async () 
     actual: [
       await afterFault('alter table events disable row level security'),
       await afterFault('drop policy grants_subject on grants'),
-      await afterFault(
-        'alter policy fixtures_scope on fixtures using (true)',
-      ),
+      await afterFault('alter policy fixtures_scope on fixtures using (true)'),
     ],
     expected: [
       ['events does not have row-level security enabled'],
@@ -160,7 +158,9 @@ test('a nullable isolation key outside a declared one-of-two CHECK is reported',
       'a lobby-keyed table whose key becomes nullable, and a one-of-two table whose CHECK is dropped',
     should: 'report each',
     actual: [
-      await afterFault('alter table releases alter column lobby_id drop not null'),
+      await afterFault(
+        'alter table releases alter column lobby_id drop not null',
+      ),
       await afterFault(
         'alter table action_history drop constraint action_history_one_tenant_key',
       ),

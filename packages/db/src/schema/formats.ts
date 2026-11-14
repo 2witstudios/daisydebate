@@ -37,13 +37,6 @@ export const formats = pgTable(
     createdByActorId: text('created_by_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
-    /**
-     * A league's own format. Ownership only: nothing in a format's
-     * definition references an event or a lobby.
-     */
-    organizationId: text('organization_id').references(() => organizations.id, {
-      onDelete: 'restrict',
-    }),
     currentVersion: integer('current_version').notNull(),
     /**
      * Whether the picker offers it (FMT-1): a Daisy standard, a league
@@ -63,6 +56,13 @@ export const formats = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
+    /**
+     * A league's own format. Ownership only: nothing in a format's
+     * definition references an event or a lobby.
+     */
+    organizationId: text('organization_id').references(() => organizations.id, {
+      onDelete: 'restrict',
+    }),
   },
   (table) => [
     index('formats_created_by_actor_idx').on(table.createdByActorId),

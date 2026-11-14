@@ -7,9 +7,9 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
  * after `authorize` allowed the operation, never from client input.
  */
 export type TenantScope = {
-  readonly organizationId?: string;
-  readonly lobbyId?: string;
-  readonly subjectUserId?: string;
+  readonly organizationId?: string | undefined;
+  readonly lobbyId?: string | undefined;
+  readonly subjectUserId?: string | undefined;
 };
 
 type ScopedExecutor = {

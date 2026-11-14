@@ -326,10 +326,13 @@ export const stageSurfaceIssue = (
  * "Coach" and "coaching" are reserved for future human coaches (owner,
  * 2026-10-27): no AI feature may use the words. Product code is checked
  * (tests may name the word to prove it is absent); the only current users
- * are the onboarding choice of wanting to coach, which means a human.
+ * are the onboarding choice of wanting to coach and the guardian link a
+ * school's coach holds for a minor, both of which mean a human.
  */
 const humanCoaching = [
   'packages/protocol/src/onboarding.ts',
+  'packages/protocol/src/lobby/vocabulary.ts',
+  'packages/db/src/schema/guardian-links.ts',
   'apps/web/src/ui/onboarding/',
   'apps/web/src/ui/mock/debate-room.test-support.ts',
 ];

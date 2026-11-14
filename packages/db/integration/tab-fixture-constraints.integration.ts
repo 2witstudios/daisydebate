@@ -74,7 +74,7 @@ test('a published draw is fixed, with the fixtures it holds and the results it w
     const extra = await draftFixture(sql, ids);
     assert({
       given:
-        "a published draw whose row, fixture list and result inputs are changed, and a draft draw computed from two results",
+        'a published draw whose row, fixture list and result inputs are changed, and a draft draw computed from two results',
       should:
         'refuse every change to the published draw and list the results of the draft one',
       actual: {
@@ -100,7 +100,9 @@ test('a published draw is fixed, with the fixtures it holds and the results it w
           }),
         ),
         fixtureRemoved: await refusedBy(sql, () =>
-          sql.unsafe('delete from draw_fixtures where draw_id = $1', [ids.draw1]),
+          sql.unsafe('delete from draw_fixtures where draw_id = $1', [
+            ids.draw1,
+          ]),
         ),
         inputAdded: await refusedBy(sql, () =>
           insertRow(sql, 'draw_result_inputs', {
@@ -142,9 +144,10 @@ test('a published draw is fixed, with the fixtures it holds and the results it w
           }),
         ),
         draftDrawStillEditable: await refusedBy(sql, () =>
-          sql.unsafe(`update draws set inputs = '{"seed":"again"}'::jsonb where id = $1`, [
-            ids.draw2,
-          ]),
+          sql.unsafe(
+            `update draws set inputs = '{"seed":"again"}'::jsonb where id = $1`,
+            [ids.draw2],
+          ),
         ),
       },
       expected: {
@@ -248,8 +251,7 @@ test('a fixture is one row for life: in every draw version, with its entries fix
     assert({
       given:
         "a pairing held by two draw versions, a fixture put in another tab round's draw, and a published fixture whose entries, sides, status and row are changed",
-      should:
-        'keep one fixture row with two memberships, and refuse the rest',
+      should: 'keep one fixture row with two memberships, and refuse the rest',
       actual: {
         oneRow: (
           await sql.unsafe(
@@ -385,10 +387,9 @@ test('a fixture has a Room of its own lobby exactly when it is published and not
     const pairing = await draftFixture(sql, ids);
     const bye = await draftFixture(sql, ids, 'bye');
     const room = await eventRoom(sql, ids);
-    const [host] = (await sql.unsafe(
-      'select id from actors where id = $1',
-      [ids.debaters[0]],
-    )) as Array<{ id: string }>;
+    const [host] = (await sql.unsafe('select id from actors where id = $1', [
+      ids.debaters[0],
+    ])) as Array<{ id: string }>;
     const publicRoom = await (async () => {
       const id = createId();
       await insertRow(sql, 'rooms', {
@@ -410,7 +411,8 @@ test('a fixture has a Room of its own lobby exactly when it is published and not
     assert({
       given:
         'a pairing published with no Room, with a Room of the public lobby and with a Room another fixture has; a draft given a Room; and a bye published with one',
-      should: 'refuse each, and accept a pairing with its own Room and a bye with none',
+      should:
+        'refuse each, and accept a pairing with its own Room and a bye with none',
       actual: {
         publishedWithoutRoom: await refusedBy(sql, () =>
           publish(sql, pairing, null),
@@ -434,7 +436,9 @@ test('a fixture has a Room of its own lobby exactly when it is published and not
             [pairing, room],
           ),
         ),
-        pairingWithRoom: await refusedBy(sql, () => publish(sql, pairing, room)),
+        pairingWithRoom: await refusedBy(sql, () =>
+          publish(sql, pairing, room),
+        ),
         byeWithout: await refusedBy(sql, () => publish(sql, bye, null)),
         withdrawnKeepsRoom: await (async () => {
           await withdraw(sql, pairing);

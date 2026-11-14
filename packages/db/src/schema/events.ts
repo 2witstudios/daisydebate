@@ -53,7 +53,9 @@ export const events = pgTable(
     ballotDefinitionId: text('ballot_definition_id'),
     ballotDefinitionVersion: integer('ballot_definition_version'),
     templateId: text('template_id'),
-    entryKind: text('entry_kind').$type<(typeof entryKinds)[number]>().notNull(),
+    entryKind: text('entry_kind')
+      .$type<(typeof entryKinds)[number]>()
+      .notNull(),
     teamSize: integer('team_size').notNull().default(1),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),

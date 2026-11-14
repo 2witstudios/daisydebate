@@ -28,7 +28,10 @@ function steppedClock(instants: readonly string[]) {
  * socket, with a stand-in for Next whose handler records what reached it
  * and whose prepare() and the runtime-role refusal this test holds open.
  */
-function startProduction({ refusalPending = false } = {}) {
+function startProduction({
+  refusalPending = false,
+  isolationProblem = null as string | null,
+} = {}) {
   const events: Array<{ event: string; fields: unknown }> = [];
   const started = deferred();
   const logger: Logger = {
@@ -52,6 +55,13 @@ function startProduction({ refusalPending = false } = {}) {
         },
       }),
       isDraining: () => false,
+      config: { NODE_ENV: 'production' },
+      database: {
+        tenantIsolationProblems: async () => {
+          steps.push('tenantIsolation');
+          return isolationProblem === null ? [] : [isolationProblem];
+        },
+      },
       requestNetwork: createRequestNetwork(),
       logger,
       clock: steppedClock([
@@ -73,6 +83,7 @@ function startProduction({ refusalPending = false } = {}) {
       steps.push('refuseRole');
       return refusing.promise;
     },
+
     readRouteTable: () => null,
     port: 0,
     host: '127.0.0.1',
@@ -249,7 +260,7 @@ describe('startProductionServer composition (ISSUE-193)', () => {
           reachedNext: 0,
           steps: ['refuseRole'],
         },
-        steps: ['refuseRole', 'prepare'],
+        steps: ['refuseRole', 'tenantIsolation', 'prepare'],
         afterStart: 'next',
       },
     });
@@ -274,6 +285,32 @@ describe('startProductionServer composition (ISSUE-193)', () => {
       expected: {
         refusal: 'refused: schema-altering role',
         steps: ['refuseRole'],
+        auth: 503,
+        reachedNext: 0,
+      },
+    });
+  });
+
+  test('a schema whose tenant isolation is incomplete never prepares Next or opens the gate', async () => {
+    const { reached, steps, started, listening, get, close } = startProduction({
+      isolationProblem: 'events lacks a policy',
+    });
+    await listening();
+    const refusal = await started.then(
+      () => 'resolved',
+      (error: Error) => error.message,
+    );
+    const auth = (await get('/api/auth/get-session')).status;
+    await close();
+    assert({
+      given: 'a tenant-owned table without its row-level security policy',
+      should:
+        'reject with the refusal after the role check, never call prepare, and keep every route at 503 without Next',
+      actual: { refusal, steps, auth, reachedNext: reached.length },
+      expected: {
+        refusal:
+          'Production refuses a schema whose tenant isolation is incomplete: events lacks a policy',
+        steps: ['refuseRole', 'tenantIsolation'],
         auth: 503,
         reachedNext: 0,
       },
