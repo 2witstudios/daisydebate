@@ -61,7 +61,7 @@ export const setupCommand =
       throw createAppError('VALIDATION');
     const command = parsed.data.command;
     const envelope = { ...parsed.data, command };
-    const now = dependencies.now();
+    let now = dependencies.now();
     const newIds = {
       primary: dependencies.newId(),
       secondary: dependencies.newId(),
@@ -83,7 +83,11 @@ export const setupCommand =
               (session) =>
                 work({
                   stored: session.stored,
-                  facts: session.load,
+                  facts: async () => {
+                    const loaded = await session.load();
+                    now = dependencies.now();
+                    return loaded;
+                  },
                   authority: (loaded) => ({
                     principal,
                     resource: hostLobbyResource(

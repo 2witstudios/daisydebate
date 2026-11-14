@@ -28,7 +28,7 @@ const event = {
   label: 'VD',
   entryKind: 'person',
   format: {
-    formatId: id('format'),
+    formatId: 'freestyle',
     formatVersion: 1,
     name: 'League one-on-one',
   },
@@ -85,7 +85,7 @@ const standing = {
     {
       templateId: id('template'),
       name: 'Varsity',
-      format: { formatId: id('format'), name: 'One-on-one' },
+      format: { formatId: 'freestyle', name: 'One-on-one' },
     },
   ],
   seasons: [{ seasonId: id('season'), name: '2026 to 27 season' }],

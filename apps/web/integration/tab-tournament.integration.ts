@@ -1,3 +1,6 @@
+import { leagueConfigurationStage } from './tab-tournament-league-configuration.test-support';
+import { entryEnrollmentStage } from './tab-tournament-entry-enrollment.test-support';
+import { judgeRegistrationStage } from './tab-tournament-judge-registration.test-support';
 import { setupStage } from './tab-tournament-setup.test-support';
 import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
 import { requireTestServices } from '@daisy/config';
@@ -43,13 +46,19 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'league templates, resolution pool and resolved create-room form',
-    run: unwired('league'),
+    run: leagueConfigurationStage,
   },
   {
     name: 'tournament setup: settings, events, stages, time slots',
     run: setupStage,
   },
-  { name: 'entries and judges by invitation', run: unwired('entries') },
+  {
+    name: 'entries and judges by invitation',
+    run: async (world) => {
+      await entryEnrollmentStage(world);
+      await judgeRegistrationStage(world);
+    },
+  },
   {
     name: 'draw published: event Rooms seated, with provenance',
     run: unwired('draw'),

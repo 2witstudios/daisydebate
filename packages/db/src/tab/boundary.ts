@@ -6,7 +6,7 @@ import {
   restrictionLobbies,
   restrictions,
 } from '../schema/guardian-links';
-import type { TenantScope } from '../tenant-scope';
+import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import type { TabTransaction } from './tab-transaction';
 
 /**
@@ -129,4 +129,17 @@ export const loadTabAccount = async (
   return account === null
     ? null
     : { ...account, boundary: await loadBoundary(tx, account, scope) };
+};
+
+/** A named counterpart's account, with its boundary loaded under that person. */
+export const loadTabCounterpart = async (
+  tx: TabTransaction,
+  userId: string,
+  scope: TenantScope,
+): Promise<TabAccount | null> => {
+  const subject = { ...scope, subjectUserId: userId };
+  await scopeTransaction(tx, subject);
+  const account = await loadTabAccount(tx, userId, subject);
+  await scopeTransaction(tx, scope);
+  return account;
 };

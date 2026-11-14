@@ -921,7 +921,7 @@ const decideOn = (
   }
 };
 
-/** Decides one setup command on an open tournament lobby. */
+/** Tournament setup and resolution pools on an open lobby. */
 export const decideSetup = (
   facts: SetupFacts,
   command: TournamentSetupCommand,
@@ -929,7 +929,12 @@ export const decideSetup = (
   const { lobby } = facts;
   if (lobby === null) return refuse('not-found');
   if (lobby.closedAt !== null) return refuse('lobby-closed');
-  if (lobby.kind !== 'tournament') return refuse('lobby-not-tournament');
+  if (
+    lobby.kind !== 'tournament' &&
+    command.type !== 'add-resolution' &&
+    command.type !== 'retire-resolution'
+  )
+    return refuse('lobby-not-tournament');
   const outcome = decideOn(
     facts,
     { id: lobby.id, version: lobby.version + 1 },

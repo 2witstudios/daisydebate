@@ -9,7 +9,7 @@ const view = {
   templateId: id('template'),
   name: 'Varsity debate',
   organization: { organizationId: id('league'), name: 'Southeast League' },
-  format: { formatId: id('format'), formatVersion: 3, name: 'One-on-one' },
+  format: { formatId: 'freestyle', formatVersion: 3, name: 'One-on-one' },
   ballotDefinition: null,
   retiredAt: null,
   settings: [

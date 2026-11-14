@@ -75,7 +75,10 @@ export const settingCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('create-template'),
     organizationId: idSchema,
     name: templateName,
-    format: pin,
+    format: z.strictObject({
+      id: z.string().trim().min(1),
+      version: z.int().positive(),
+    }),
     /** Null is the Daisy ballot. */
     ballotDefinition: pin.nullable(),
   }),

@@ -959,6 +959,30 @@ describe('define-ballot', () => {
 });
 
 describe('resolutions', () => {
+  test('standing lobbies maintain their resolution pools', () => {
+    const standing = facts({
+      lobby: { id: lobbyId, kind: 'standing', closedAt: null, version: 5 },
+    });
+    assert({
+      given: 'an open standing lobby with its own resolution pool',
+      should: 'add and retire resolutions without enabling tournament setup',
+      actual: [
+        decideSetup(standing, {
+          type: 'add-resolution',
+          lobbyId,
+          pool: { kind: 'existing', poolId: id('pool') },
+          text: 'Resolved: a test.',
+        }).kind,
+        decideSetup(standing, {
+          type: 'retire-resolution',
+          lobbyId,
+          poolResolutionId: id('spare'),
+        }).kind,
+      ],
+      expected: ['accepted', 'accepted'],
+    });
+  });
+
   const add: Of<'add-resolution'> = {
     type: 'add-resolution',
     lobbyId,

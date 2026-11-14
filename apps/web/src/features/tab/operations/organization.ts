@@ -77,9 +77,9 @@ export const organizationCommand =
     if (!parsed.success) throw createAppError('VALIDATION');
     const envelope = parsed.data;
     const { command } = envelope;
-    const now = dependencies.now();
+    let now = dependencies.now();
     const newId = dependencies.newId();
-    const hostingPlan = await dependencies.hostingPlan(principal.userId);
+    let hostingPlan = false;
     return conflictWhenIdTaken(() =>
       runLobbyCommand<
         OrganizationCommand,
@@ -94,7 +94,14 @@ export const organizationCommand =
               (session) =>
                 work({
                   stored: session.stored,
-                  facts: session.load,
+                  facts: async () => {
+                    const loaded = await session.load();
+                    hostingPlan = await dependencies.hostingPlan(
+                      principal.userId,
+                    );
+                    now = dependencies.now();
+                    return { ...loaded, decision: { ...loaded.decision, now } };
+                  },
                   authority: (loaded) =>
                     organizationAuthorityOf(principal, command, loaded, {
                       now,

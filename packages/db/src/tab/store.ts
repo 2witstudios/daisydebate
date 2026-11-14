@@ -1,3 +1,17 @@
+import { createStandingRoomDraftStore } from './standing-room-draft';
+export type { StandingRoomDraftFacts } from './standing-room-draft';
+import { createEntryEnrollmentStore } from './entry-enrollment';
+export type {
+  LoadedEntryEnrollment,
+  EntryEnrollmentCommand,
+} from './entry-enrollment';
+export type { EntryEnrollmentWrite } from './entry-enrollment-write';
+import { createJudgeRegistrationStore } from './judge-registration';
+export type {
+  LoadedJudgeRegistration,
+  JudgeRegistrationCommand,
+} from './judge-registration';
+export type { JudgeRegistrationWrite } from './judge-registration-write';
 import { storedCreationCommand } from './creation-replay';
 import { createSetupCommandStore } from './setup-command';
 export type { LoadedSetupCommand } from './setup-command';
@@ -114,6 +128,9 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),
   ...createSetupCommandStore(database),
+  ...createJudgeRegistrationStore(database),
+  ...createEntryEnrollmentStore(database),
+  ...createStandingRoomDraftStore(database),
   organizationCommand: <Answer>(
     input: OrganizationCommandInput,
     work: (session: OrganizationCommandSession) => Promise<Answer>,

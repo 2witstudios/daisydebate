@@ -48,7 +48,7 @@ export const templateViewSchema = z
     name,
     organization: z.strictObject({ organizationId: idSchema, name }),
     format: z.strictObject({
-      formatId: idSchema,
+      formatId: z.string().trim().min(1),
       formatVersion: version,
       name,
     }),

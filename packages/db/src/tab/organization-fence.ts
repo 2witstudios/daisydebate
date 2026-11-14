@@ -1,3 +1,4 @@
+import { loadOrganizationGrantRows } from './organization-grant-rows';
 import { and, eq, sql } from 'drizzle-orm';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
 import { lobbies } from '../schema/lobbies';
@@ -64,7 +65,19 @@ export const fenceOrganizationCommand = async (
   // Organizations and lobbies are open to read, so the rows are found
   // under the subject alone before the scope widens to them.
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
-  const named = namedPersonOf(input.command);
+  const scope = await organizationScope(tx, input);
+  await scopeTransaction(tx, scope);
+  const grant =
+    input.command.type === 'remove-grant' && scope.organizationId
+      ? (
+          await loadOrganizationGrantRows(tx, scope, {
+            organizationId: scope.organizationId,
+            userIds: [],
+            grantIds: [input.command.grantId],
+          })
+        ).find((row) => row.scopeOrganizationId === scope.organizationId)
+      : undefined;
+  const named = grant?.userId ?? namedPersonOf(input.command);
   await lockTabCommandAccounts(
     tx,
     named === null ? [input.senderUserId] : [input.senderUserId, named],
@@ -74,8 +87,6 @@ export const fenceOrganizationCommand = async (
       sql`select pg_advisory_xact_lock(hashtextextended(${`tab-organization-handle:${input.command.handle.toLowerCase()}`}, 0))`,
     );
   }
-  const scope = await organizationScope(tx, input);
-  await scopeTransaction(tx, scope);
   return scope;
 };
 

@@ -41,7 +41,7 @@ export const settingCommand =
     if (!parsed.success) throw createAppError('VALIDATION');
     const envelope = parsed.data;
     const { command } = envelope;
-    const now = dependencies.now();
+    let now = dependencies.now();
     const newId = dependencies.newId();
     try {
       return await runLobbyCommand<
@@ -66,7 +66,11 @@ export const settingCommand =
               (session) =>
                 work({
                   stored: session.stored,
-                  facts: session.load,
+                  facts: async () => {
+                    const loaded = await session.load();
+                    now = dependencies.now();
+                    return loaded;
+                  },
                   authority: (loaded) =>
                     settingAuthority(principal, command, loaded, now),
                   versions: (loaded) => {

@@ -112,9 +112,9 @@ export const lobbyAdministrationCommand =
       throw createAppError('VALIDATION');
     const command = parsed.data.command;
     const envelope = { ...parsed.data, command };
-    const now = dependencies.now();
+    let now = dependencies.now();
     const newId = dependencies.newId();
-    const hostingPlan = await dependencies.hostingPlan(principal.userId);
+    let hostingPlan = false;
     try {
       return await runLobbyCommand<
         LobbyAdministrationCommand,
@@ -132,7 +132,14 @@ export const lobbyAdministrationCommand =
               (session) =>
                 work({
                   stored: session.stored,
-                  facts: session.load,
+                  facts: async () => {
+                    const loaded = await session.load();
+                    hostingPlan = await dependencies.hostingPlan(
+                      principal.userId,
+                    );
+                    now = dependencies.now();
+                    return loaded;
+                  },
                   authority: (facts) =>
                     lobbyAdministrationAuthority(principal, command, facts, {
                       now,

@@ -1,4 +1,5 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { bumpTabAccountRevision } from './command-accounts';
+import { and, eq, isNull } from 'drizzle-orm';
 import type {
   GrantScopeKind,
   MembershipStatus,
@@ -6,7 +7,6 @@ import type {
 } from '@daisy/protocol/lobby';
 import { grants } from '../schema/grants';
 import { memberships, organizations } from '../schema/organizations';
-import { users } from '../schema/users';
 import type { TenantScope } from '../tenant-scope';
 import {
   loadOrganizationGrantRows,
@@ -211,14 +211,7 @@ const applyOne = async (
       }
       return revokeGrant(tx, write, scope);
     case 'users':
-      return exactlyOne(
-        write,
-        await tx
-          .update(users)
-          .set({ version: sql`${users.version} + 1` })
-          .where(eq(users.id, write.id))
-          .returning({ id: users.id }),
-      );
+      return bumpTabAccountRevision(tx, write.id);
   }
 };
 

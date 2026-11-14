@@ -52,7 +52,7 @@ A Room sits in exactly one lobby (`rooms.lobby_id`) for life and has a host pers
 
 **Tenant isolation.** Row-level security fences every tenant-owned table ([database operations](../operations/database.md#tenant-isolation)). It is a fence, not the decision: `authorize` decides, then the operation opens its transaction through `withScope` (`packages/db/src/tenant-scope.ts`), the only code that sets the scope. With no scope a fenced table shows the runtime role no row.
 
-Tab organization, lobby, season, settings and tournament setup commands run through `database.tabCommands`
+Tab organization, lobby, season, settings, tournament setup, adult enrollment and judge registration commands run through `database.tabCommands`
 in one fenced transaction: authoritative facts and versions are loaded under
 the aggregate lock, then the pure decision's writes and its action-history
 receipt are committed together. Creating a lobby serializes its public handle
@@ -60,7 +60,14 @@ before checking availability, so a concurrent retry can replay its receipt.
 Account fences are acquired before aggregate locks. Settings and setup writers
 serialize changes to consuming chains before checking their current definitions;
 private competition facts are visited under each lobby’s own scope, then the
-command’s scope is restored. Room assembly is a separate operation.
+command’s scope is restored. The authorization instant is sampled after the
+fenced facts have loaded, and is shared by decision and audit; a grant that
+expires during the lock wait cannot authorize at the earlier arrival instant.
+Accepted membership, grant, entry and judge changes invalidate the affected
+account revision once; replay and refusal do not. Counterpart boundary facts
+are read under the counterpart’s own subject scope. Guardian-dependent entry
+additions remain closed while their audit/provenance decisions and counsel
+release are unresolved. Room assembly is a separate operation.
 
 Every status and vocabulary column is text with a CHECK derived from the protocol where one exists. JSONB writes pass the column's protocol validator and an object-shape CHECK. Foreign keys have leading-column indexes. Lifecycle and provenance constraints are tested against PostgreSQL in `packages/db/integration/`; application checks cover cross-table invariants such as complete seats and a judge ballot on its own Round.
 

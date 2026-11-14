@@ -18,7 +18,7 @@ const instant = z.iso.datetime();
 
 const organizationRef = z.strictObject({ organizationId: idSchema, name });
 const formatPin = z.strictObject({
-  formatId: idSchema,
+  formatId: z.string().trim().min(1),
   formatVersion: version,
   name,
 });
@@ -123,7 +123,7 @@ export const lobbySetupViewSchema = z.discriminatedUnion('kind', [
       z.strictObject({
         templateId: idSchema,
         name,
-        format: z.strictObject({ formatId: idSchema, name }),
+        format: z.strictObject({ formatId: z.string().trim().min(1), name }),
       }),
     ),
     seasons: z.array(z.strictObject({ seasonId: idSchema, name })),
