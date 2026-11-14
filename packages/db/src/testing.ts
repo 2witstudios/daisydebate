@@ -6,6 +6,7 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 
+export { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 export { validRules } from './testing-rules';
 export { completeControlledStripeCleanup } from './testing-billing';
 export { completeControlledBillingPurchase } from './testing-billing-purchase';

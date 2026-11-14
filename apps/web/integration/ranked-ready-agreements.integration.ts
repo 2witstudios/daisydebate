@@ -1,3 +1,4 @@
+import { daisyOrganizationId } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
@@ -34,7 +35,7 @@ const rankedRoom = async (f: Fixture) => {
 
 const withSeason = async (f: Fixture, run: () => Promise<void>) => {
   const seasonId = createId();
-  await f.sql`insert into seasons(id,name,starts_at,status) values(${seasonId},'Waiver fixture','2000-01-01T00:00:00Z','active')`;
+  await f.sql`insert into seasons(organization_id,id,name,starts_at,status) values(${daisyOrganizationId},${seasonId},'Waiver fixture','2000-01-01T00:00:00Z','active')`;
   try {
     await run();
   } finally {

@@ -10,6 +10,7 @@ import {
   roundRulesSchema,
   type CompetitionType,
 } from '@daisy/protocol';
+import type { lobbyKinds } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -34,12 +35,17 @@ import {
   versionColumn,
   versionPositive,
 } from './columns';
+import { daisyReferenceLobby } from './lobby-defaults';
+import { ballotDefinitionVersions } from './ballot-definitions';
 import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
 import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
 import { formats } from './formats';
 import { actors } from './actors';
+import { lobbies } from './lobbies';
 import { publishedResolutions } from './published-resolutions';
+import { lobbyTemplates } from './templates';
+import { bothOrNeither } from './tenant-keys';
 
 /**
  * The durable pre-competition aggregate (ADR 0058 §5a). The Room holds its
@@ -52,9 +58,14 @@ export const rooms = pgTable(
   'rooms',
   {
     id: text('id').primaryKey(),
-    hostActorId: text('host_actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    /**
+     * The host person: set exactly when the lobby is standing. In a
+     * tournament lobby authority over the Room comes from grants on the
+     * lobby.
+     */
+    hostActorId: text('host_actor_id').references(() => actors.id, {
+      onDelete: 'restrict',
+    }),
     /** The host took over from a restricted one, and names no human judge (DEC-331). */
     hostInherited: boolean('host_inherited').notNull().default(false),
     title: text('title').notNull(),
@@ -104,12 +115,68 @@ export const rooms = pgTable(
     lastCommandAt: timestampColumn('last_command_at').notNull().defaultNow(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
+    /**
+     * The Room's only parent, named by every writer: there is no default,
+     * so a Room written without its lobby is refused. Every Room made before
+     * lobbies had rows was placed in Daisy's public lobby by the migration.
+     * `lobby_kind` is the lobby's kind, proved by the composite key. A
+     * trigger refuses moving a Room to another lobby.
+     */
+    lobbyId: text('lobby_id').notNull(),
+    lobbyKind: text('lobby_kind')
+      .$type<(typeof lobbyKinds)[number]>()
+      .notNull()
+      .default(daisyReferenceLobby.kind),
+    /** The template the Room follows, one its lobby offers; null is none. */
+    templateId: text('template_id'),
+    /** The pinned ballot definition; null is the Daisy ballot. */
+    ballotDefinitionId: text('ballot_definition_id'),
+    ballotDefinitionVersion: integer('ballot_definition_version'),
   },
   (table) => [
     index('rooms_discovery_assembly_idx')
       .on(sql`${table.id} collate "C"`)
       .where(sql`${table.status} in ('assembling', 'ready')`),
     index('rooms_host_actor_idx').on(table.hostActorId),
+    unique('rooms_id_lobby_unique').on(table.id, table.lobbyId),
+    index('rooms_lobby_kind_idx').on(table.lobbyId, table.lobbyKind),
+    index('rooms_lobby_template_idx').on(table.lobbyId, table.templateId),
+    index('rooms_ballot_definition_idx').on(
+      table.ballotDefinitionId,
+      table.ballotDefinitionVersion,
+    ),
+    foreignKey({
+      name: 'rooms_lobby_fk',
+      columns: [table.lobbyId, table.lobbyKind],
+      foreignColumns: [lobbies.id, lobbies.kind],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'rooms_offered_template_fk',
+      columns: [table.lobbyId, table.templateId],
+      foreignColumns: [lobbyTemplates.lobbyId, lobbyTemplates.templateId],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'rooms_ballot_definition_fk',
+      columns: [table.ballotDefinitionId, table.ballotDefinitionVersion],
+      foreignColumns: [
+        ballotDefinitionVersions.ballotDefinitionId,
+        ballotDefinitionVersions.version,
+      ],
+    }).onDelete('restrict'),
+    check(
+      'rooms_host_by_lobby_kind',
+      sql`(${table.hostActorId} is null) = (${table.lobbyKind} = 'tournament')`,
+    ),
+    // With rounds_ranked_ladder_check, an event Room can never post to a ladder.
+    check(
+      'rooms_event_is_casual',
+      sql`${table.lobbyKind} <> 'tournament' or ${table.competitionType} = 'casual'`,
+    ),
+    bothOrNeither(
+      'rooms_ballot_definition_complete',
+      table.ballotDefinitionId,
+      table.ballotDefinitionVersion,
+    ),
     index('rooms_published_resolution_idx').on(table.publishedResolutionId),
     index('rooms_lobby_idx').on(
       table.visibility,

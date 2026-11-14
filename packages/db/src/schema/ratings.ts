@@ -10,6 +10,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
@@ -22,6 +23,8 @@ import {
   versionPositive,
 } from './columns';
 import { formats } from './formats';
+import { ladders } from './ladders';
+import { organizations } from './organizations';
 import { roundParticipants } from './round-participants';
 import { rounds } from './rounds';
 
@@ -50,12 +53,22 @@ export const seasons = pgTable(
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
+    /**
+     * The organization whose season this is, named by every writer: there
+     * is no default. Daisy's rating seasons are Daisy's; those made before
+     * organizations had rows were given to Daisy by the migration.
+     */
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
   },
   (table) => [
-    /** At most one active season. */
+    /** At most one active season per organization. */
     uniqueIndex('seasons_single_active')
-      .on(table.status)
+      .on(table.organizationId)
       .where(sql`${table.status} = 'active'`),
+    unique('seasons_id_organization_unique').on(table.id, table.organizationId),
+    index('seasons_organization_idx').on(table.organizationId),
     /** An open season has no end; a set end comes strictly after the start. */
     check(
       'seasons_ends_after_starts',
@@ -74,8 +87,15 @@ const ratingScope = () => ({
   seasonId: text('season_id')
     .notNull()
     .references(() => seasons.id, { onDelete: 'restrict' }),
-  /** One of the three Daisy ladders (ADR 0090). */
-  ladder: text('ladder').$type<RatingLadder>().notNull(),
+  /**
+   * One of the three Daisy ladders (ADR 0090). The ladder CHECK stays beside
+   * the reference, so a league's ladder row may exist while no rating can be
+   * posted to it.
+   */
+  ladder: text('ladder')
+    .$type<RatingLadder>()
+    .notNull()
+    .references(() => ladders.id, { onDelete: 'restrict' }),
 });
 
 /**
@@ -103,6 +123,7 @@ export const ratings = pgTable(
       table.rating.desc(),
     ),
     index('ratings_season_idx').on(table.seasonId),
+    index('ratings_ladder_idx').on(table.ladder),
     check('ratings_ladder_check', oneOf(table.ladder, ratingLadders)),
     check('ratings_rating_range', ratingBand(table.rating)),
     check('ratings_deviation_positive', positiveFinite(table.deviation)),
@@ -163,6 +184,7 @@ export const ratingChanges = pgTable(
     index('rating_changes_round_format_idx').on(table.roundId, table.formatId),
     index('rating_changes_format_idx').on(table.formatId),
     index('rating_changes_season_idx').on(table.seasonId),
+    index('rating_changes_ladder_idx').on(table.ladder),
     check('rating_changes_ladder_check', oneOf(table.ladder, ratingLadders)),
     check(
       'rating_changes_rating_range',

@@ -18,7 +18,7 @@ import {
 setupRitewayBun();
 
 describe('package entry surface (ISSUE-8 AC1)', () => {
-  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory and the startup role gate; the capacity-refusal identity is the client-safe @daisy/db/capacity subpath', () => {
+  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory and the two startup gates; the capacity-refusal identity is the client-safe @daisy/db/capacity subpath', () => {
     assert({
       given: "the package entry's exported names",
       should:
@@ -29,6 +29,7 @@ describe('package entry surface (ISSUE-8 AC1)', () => {
         'createDatabase',
         'createRealtimeDatabase',
         'refuseSchemaAlteringRole',
+        'refuseUnisolatedTenantTables',
       ].sort(),
     });
   });
