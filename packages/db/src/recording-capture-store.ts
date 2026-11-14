@@ -61,7 +61,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         and(
           or(
             eq(rounds.competitionType, 'ranked'),
-            sql`${rounds.capture} ->> 'recording' = 'true'`,
+            sql`${rounds.capture} ->> 'recordingPolicy' in ('officials', 'released')`,
           ),
           inArray(rounds.status, [...runningRoundStatuses]),
           isNull(recordings.id),
