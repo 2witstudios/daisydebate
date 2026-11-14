@@ -136,6 +136,8 @@ describe('capability metadata', () => {
           'channel.create.private_group',
           'member.history.read',
           'channel.group.invite',
+          'channel.invitation.accept',
+          'channel.request.decide',
         ],
       },
     });

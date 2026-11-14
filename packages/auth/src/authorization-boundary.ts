@@ -81,6 +81,17 @@ function counterpartActorIds(
     );
   if (resource.kind === 'group_invitation_creation')
     return others(resource.inviteeActorIds);
+  // Accepting reaches the inviter and everyone already in the group.
+  if (resource.kind === 'group_invitation')
+    return others([
+      resource.invitation.inviterActorId,
+      ...resource.channel.activeMemberActorIds,
+    ]);
+  // Deciding a request reaches the other person of the direct message.
+  if (resource.kind === 'channel')
+    return resource.authority.kind === 'dm'
+      ? others([resource.authority.lowActorId, resource.authority.highActorId])
+      : others(resource.authority.activeMemberActorIds);
   return resource.kind === 'member_history' ? others([resource.actorId]) : [];
 }
 

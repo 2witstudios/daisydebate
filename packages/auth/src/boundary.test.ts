@@ -289,6 +289,78 @@ describe('a minor reaching another person', () => {
       expected: [false, true, true, false],
     });
   });
+  test('covers answering an approach as well as making one', () => {
+    const restricted = (
+      capability: AuthorizationCapability,
+      resource: Resource,
+      reachable: readonly string[],
+    ) =>
+      reason(
+        ask(capability, resource, {
+          account: boundary(['standing']),
+          counterparts: reachable.map((actorId) => ({
+            actorId,
+            lobbies: [standing],
+          })),
+        }),
+      ) === 'restricted';
+    const invitation: Resource = {
+      kind: 'group_invitation',
+      channel: {
+        channelId: 'c',
+        kind: 'private_group',
+        policyKey: 'social.private_group',
+        policyRevision: 1,
+        revision: 1,
+        lifecycle: 'active',
+        activeMemberActorIds: ['inviter', 'member'],
+      },
+      invitation: {
+        channelId: 'c',
+        inviterActorId: 'inviter',
+        inviteeActorId: 'person',
+        state: 'pending',
+        generation: 1,
+      },
+      inviterGrant: { actorId: 'inviter', role: 'manager', generation: 1 },
+      contactPairs: [],
+    };
+    const request: Resource = {
+      kind: 'channel',
+      channelId: 'c',
+      policyKey: 'social.dm',
+      policyRevision: 1,
+      lifecycle: 'active',
+      revision: 1,
+      authority: {
+        kind: 'dm',
+        lowActorId: 'other',
+        highActorId: 'person',
+        requestSenderActorId: 'other',
+        state: 'pending',
+        blocked: false,
+        revision: 1,
+      },
+    };
+    assert({
+      given:
+        'a bounded minor accepting a group invitation and deciding a message request, with every other person, one, or none reachable in an allowed lobby',
+      should:
+        'restrict unless every person the answer reaches is reachable, and never restrict declining an invitation',
+      actual: [
+        restricted('channel.invitation.accept', invitation, [
+          'inviter',
+          'member',
+        ]),
+        restricted('channel.invitation.accept', invitation, ['inviter']),
+        restricted('channel.invitation.accept', invitation, []),
+        restricted('channel.invitation.decline', invitation, []),
+        restricted('channel.request.decide', request, ['other']),
+        restricted('channel.request.decide', request, []),
+      ],
+      expected: [false, true, true, false, false, true],
+    });
+  });
   test('never stops blocking, reporting or ending', () => {
     assert({
       given: 'a bounded minor and a person outside the boundary',
