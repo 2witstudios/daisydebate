@@ -48,7 +48,9 @@ ordinary two-sided Room must behave exactly as before.
    `majority` (a strict majority of submitted ballots names the winner; a tie or
    double-loss ballot names none) or `rank_sum` (ranks summed, equal sums share
    a place), and a quorum. Fewer submitted ballots than the quorum is no
-   outcome, ruled `below-quorum`. Quorum 1 is today's behaviour. DEC-277 (a
+   outcome, ruled `below-quorum`. The quorum is half the Round's judge seats,
+   rounded up: one or two judges give quorum 1, which is today's behaviour (one
+   judge of two still decides when the other is silent, DEC-329), and three give 2. DEC-277 (a
    tied panel is no outcome) governs winner formats only: under `rank_sum`
    equal sums are a shared place, a shared first place included, and the
    ranking is still the Round's outcome.
