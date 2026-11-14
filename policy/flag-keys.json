@@ -7,6 +7,13 @@
       "kind": "release",
       "owner": "Billing (@2witstudios)",
       "taskCode": "FLAGS-15"
+    },
+    {
+      "key": "daisy-tab",
+      "retired": false,
+      "kind": "release",
+      "owner": "Daisy Tab (@2witstudios)",
+      "taskCode": "TAB-3.13"
     }
   ]
 }

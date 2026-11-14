@@ -396,3 +396,47 @@ The live column has two tabs, Transcript and Chat, chosen by `?pane=` so
 they work without script, over the chat composer; reactions sit at the top
 of Chat. The report dialog opens from `?report=`. Spectators never see a
 debater's flow document.
+
+## Daisy Tab
+
+Tournament tabulation, on sample data behind the closed `daisy-tab` release
+flag (plan: Plans › tab-interface; the design canvas is the specification for
+layout and copy). With the flag closed every Tab address answers with the bare
+missing page it always has, because the gate is in the layouts of the `(tab)`,
+`(tab-live)` and `(host)` route groups, and `/tournaments` keeps its
+information page.
+
+- **Two sides.** The host area is everything under `/host`, with its own shell
+  (`ui/tab/host-shell`): the timeline rail beside one page. The rail is the
+  tournament in order, by time slot; with one event the slots are its rounds.
+  The participant side is the same paths without the prefix, in the product
+  shell. Anyone without a grant who opens a host address is sent to the
+  participant page at the same path (`participantPathOf`).
+- **One module per aggregate.** `features/tab/<aggregate>.ts` owns that
+  aggregate's read types and its `read…` function; the sample source is in
+  `features/tab/sample/`. A screen takes the read as a prop and nothing else,
+  so the source changes without a screen changing.
+- **A setting is one shape.** Tournament setup, a league's template, the
+  create-room form of a standing lobby and an event Room's "set by" lines all
+  render `ResolvedSetting`: value, the scope it comes from, and a lock where a
+  scope above enforces it. No screen builds a second one.
+- **Controls.** A read carries each control as a `TabAction`: with an address
+  it is a link, with none it is a sample action. A form posts to the one
+  sample server action (`app/(tab)/sample-form-action.ts`) through
+  `SampleForm`, so it follows the mutating-form rules above while saving
+  nothing.
+- **The judge's ballot is drawn from a ballot definition alone**
+  (`ui/tab/ballot/configured-ballot.tsx`): scale and step, ranks, a criteria
+  grid, the allowed outcomes and the written fields. Ballot settings redraw
+  the same component as a preview on every choice.
+- **Sample Rooms** sit at `/rooms/sample/[room]`, beside the live Room route
+  and never inside it. A live speech section renders outside the shell, as
+  every live Round does.
+- **The sample viewer and moment** are a cookie chosen on `/tournaments/walk`,
+  which lists every screen that viewer can open then. It exists so the sample
+  can be walked, and goes when the screens have real viewers.
+  `ui/tab/sample-walk.test.tsx` follows every link from it for every viewer
+  and moment.
+- **Not built here:** a role editor, setting a policy's force key by key (a
+  host picks a pairing preset; the forces are shown), comparing draw versions,
+  and host screens at phone width. Tab screens have no visual baselines.

@@ -11,6 +11,15 @@ export const flagCatalogue = [
     safeDefault: false,
     dependencies: [],
   },
+  {
+    key: 'daisy-tab',
+    kind: 'release',
+    owner: 'Daisy Tab (@2witstudios)',
+    taskCode: 'TAB-3.13',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
 ] as const satisfies readonly FlagDefinition[];
 
 export type ReleaseFlagKey = Extract<
