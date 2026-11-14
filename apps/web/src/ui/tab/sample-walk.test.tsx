@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   sampleMoments,
+  sampleScales,
   sampleViewers,
   type SampleScene,
 } from '../../features/tab/sample/scene';
@@ -17,9 +18,12 @@ setupRitewayBun();
 
 const appDirectory = join(import.meta.dir, '../../app');
 const scenes: readonly SampleScene[] = sampleViewers.flatMap((viewer) =>
-  sampleMoments.map((moment) => ({ viewer, moment })),
+  sampleMoments.flatMap((moment) =>
+    sampleScales.map((scale) => ({ viewer, moment, scale })),
+  ),
 );
-const sceneName = (scene: SampleScene) => `${scene.viewer}.${scene.moment}`;
+const sceneName = (scene: SampleScene) =>
+  `${scene.viewer}.${scene.moment}.${scene.scale}`;
 
 /** Pages of the product a Tab screen may link to: not Tab's own to answer. */
 const outside = new Set(['/', '/lobby', '/sign-in']);
@@ -147,14 +151,20 @@ describe('the sample tournament', () => {
       should:
         'show the host shell to the host and move anyone else to the participant page',
       actual: [
-        sampleAnswer('/host', { viewer: 'host', moment: 'prelims' }).kind,
+        sampleAnswer('/host', {
+          viewer: 'host',
+          moment: 'prelims',
+          scale: 'normal',
+        }).kind,
         sampleAnswer('/host/tournaments/autumn-open/setup', {
           viewer: 'coach',
           moment: 'prelims',
+          scale: 'normal',
         }),
         sampleAnswer('/host/tournaments/autumn-open/standings', {
           viewer: 'competitor',
           moment: 'prelims',
+          scale: 'normal',
         }),
       ],
       expected: [
@@ -167,7 +177,7 @@ describe('the sample tournament', () => {
 
   test('a setting is shown once, with its source and its lock', () => {
     const html = crawls
-      .get('host.before')
+      .get('host.before.normal')
       ?.html.get('/host/tournaments/autumn-open/setup');
     assert({
       given: 'tournament setup on the resolved-settings shape',
@@ -182,7 +192,7 @@ describe('the sample tournament', () => {
   });
 
   test('a template pins the whole ballot', () => {
-    const host = crawls.get('host.prelims')?.html;
+    const host = crawls.get('host.prelims.normal')?.html;
     const setup = host?.get('/host/tournaments/autumn-open/setup') ?? '';
     const ballot =
       host?.get('/host/tournaments/autumn-open/events/varsity-debate/ballot') ??
@@ -207,7 +217,7 @@ describe('the sample tournament', () => {
   });
 
   test('a guardian comes back to their family', () => {
-    const parent = crawls.get('parent.prelims')?.html;
+    const parent = crawls.get('parent.prelims.normal')?.html;
     assert({
       given: "a minor's account and a tournament waiting to be allowed",
       should: 'lead back to the family page, which leads to both',
@@ -229,7 +239,7 @@ describe('the sample tournament', () => {
   });
 
   test("the event picker's other events have a screen", () => {
-    const host = crawls.get('host.prelims')?.html;
+    const host = crawls.get('host.prelims.normal')?.html;
     const impromptu = '/host/tournaments/autumn-open/events/impromptu/rounds/3';
     assert({
       given: 'a host on a Varsity debate page while rounds run',
@@ -249,7 +259,7 @@ describe('the sample tournament', () => {
   test('a finished tournament, for someone who took part', () => {
     const page = (viewer: SampleScene['viewer']) =>
       crawls
-        .get(`${viewer}.finished`)
+        .get(`${viewer}.finished.normal`)
         ?.html.get('/tournaments/autumn-open')
         ?.includes('Your result');
     assert({

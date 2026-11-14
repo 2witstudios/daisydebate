@@ -2,6 +2,8 @@ import Link from 'next/link';
 import {
   sampleMomentLabels,
   sampleMoments,
+  sampleScaleLabels,
+  sampleScales,
   sampleViewerLabels,
   sampleViewers,
 } from '../../../features/tab/sample/scene';
@@ -19,7 +21,7 @@ import { ListCard } from '../list-card/list-card';
 import { SampleForm } from '../sample-form/sample-form';
 
 /**
- * Chooses who is looking at the sample tournament and when, and lists every
+ * Chooses who is looking at the sample tournament, when, and at what size, and lists every
  * screen that viewer can open at that moment.
  */
 export function Walk({
@@ -35,7 +37,7 @@ export function Walk({
       {/* Keyed on the scene: a select keeps the value it mounted with, so the
           form is made again when the choice it shows has changed. */}
       <SampleForm
-        key={`${walk.scene.viewer}.${walk.scene.moment}`}
+        key={`${walk.scene.viewer}.${walk.scene.moment}.${walk.scene.scale}`}
         action={choose}
         label="Viewer and moment"
         className="flex flex-wrap items-end gap-3"
@@ -74,10 +76,27 @@ export function Walk({
             ))}
           </select>
         </div>
+        <div className={fieldClass}>
+          <label htmlFor="walk-scale" className={labelClass}>
+            Size
+          </label>
+          <select
+            id="walk-scale"
+            name="scale"
+            defaultValue={walk.scene.scale}
+            className={controlClass}
+          >
+            {sampleScales.map((scale) => (
+              <option key={scale} value={scale}>
+                {sampleScaleLabels[scale]}
+              </option>
+            ))}
+          </select>
+        </div>
         <Button type="submit">Choose</Button>
       </SampleForm>
       <ListCard
-        label={`${sampleViewerLabels[walk.scene.viewer]} · ${sampleMomentLabels[walk.scene.moment]}`}
+        label={`${sampleViewerLabels[walk.scene.viewer]} · ${sampleMomentLabels[walk.scene.moment]} · ${sampleScaleLabels[walk.scene.scale]}`}
       >
         <ol>
           {walk.steps.map((step) => (

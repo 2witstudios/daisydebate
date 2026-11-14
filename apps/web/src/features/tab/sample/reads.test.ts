@@ -15,8 +15,12 @@ import { readRunningRound } from '../tab-round';
 
 setupRitewayBun();
 
-const host: SampleScene = { viewer: 'host', moment: 'break' };
-const judge: SampleScene = { viewer: 'judge', moment: 'break' };
+const host: SampleScene = { viewer: 'host', moment: 'break', scale: 'normal' };
+const judge: SampleScene = {
+  viewer: 'judge',
+  moment: 'break',
+  scale: 'normal',
+};
 const inherited = ['constructor', '__proto__', 'toString'];
 
 describe('the sample reads', () => {
@@ -85,8 +89,8 @@ describe('the sample reads', () => {
       given: 'a visitor before the tournament and during prelims',
       should: 'list it as open to enter, then as on now',
       actual: [
-        groupOf({ viewer: 'visitor', moment: 'before' }),
-        groupOf({ viewer: 'visitor', moment: 'prelims' }),
+        groupOf({ viewer: 'visitor', moment: 'before', scale: 'normal' }),
+        groupOf({ viewer: 'visitor', moment: 'prelims', scale: 'normal' }),
       ],
       expected: ['Open to enter', 'On now'],
     });
@@ -94,8 +98,11 @@ describe('the sample reads', () => {
 
   test("the speech round offers the final's draw only between rounds and elims", () => {
     const next = (moment: SampleScene['moment']) =>
-      readRunningRound(AUTUMN, IMPROMPTU, '3', { viewer: 'host', moment })?.next
-        ?.label ?? null;
+      readRunningRound(AUTUMN, IMPROMPTU, '3', {
+        viewer: 'host',
+        moment,
+        scale: 'normal',
+      })?.next?.label ?? null;
     assert({
       given:
         'Impromptu round 3 while running, at the break, in elims and finished',
