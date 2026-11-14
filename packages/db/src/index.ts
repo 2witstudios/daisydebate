@@ -154,6 +154,7 @@ export type {
   ProvisionalMailCleanup,
 } from './provisional-cleanup';
 export { refuseSchemaAlteringRole } from './runtime-role';
+export { refuseUnisolatedTenantTables } from './tenant-isolation';
 export {
   createRealtimeDatabase,
   type RealtimeAuthorityReads,

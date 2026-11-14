@@ -1,4 +1,5 @@
 import { checkLivekit, checkMediaWorker } from './doctor-media';
+import { checkTenantIsolation } from './doctor-tenant-isolation';
 import { puLauncherProblem, readPuLauncher } from './doctor-launcher';
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
@@ -26,6 +27,7 @@ const checkNames = [
   'env',
   'postgres',
   'migration-currency',
+  'tenant-isolation',
   'redis',
   'livekit',
   'media-worker',
@@ -384,6 +386,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     bunVersion,
     postgres,
     migrations,
+    tenantIsolation,
     redis,
     livekit,
     mediaWorker,
@@ -394,6 +397,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     checkBunVersion(),
     checkPostgres(process.env.DATABASE_URL),
     checkMigrationCurrency(process.env.DATABASE_URL),
+    checkTenantIsolation(process.env.DATABASE_URL),
     checkRedis(process.env.REDIS_URL),
     checkLivekit(),
     checkMediaWorker(process.env),
@@ -406,6 +410,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     env,
     postgres,
     migrations,
+    tenantIsolation,
     redis,
     livekit,
     mediaWorker,

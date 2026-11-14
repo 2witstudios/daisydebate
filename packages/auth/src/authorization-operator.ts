@@ -1,3 +1,4 @@
+import { allowFixed, deny } from './authorization-decision';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type {
   AuthorizationDecision,
@@ -70,15 +71,14 @@ export function operatorDecision(
     !operatorCapabilities.includes(capability) ||
     !principal.capabilities.includes(capability)
   )
-    return { allow: false, reason: 'missing-capability' };
-  if (contentModerationCapabilities.includes(capability))
-    return { allow: true };
+    return deny('missing-capability');
+  if (contentModerationCapabilities.includes(capability)) return allowFixed;
   // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- an operator is refused every capability this does not name.
   switch (capability) {
     case 'account.beta_access.update':
       return context.account !== null && context.account.beta !== null
-        ? { allow: true }
-        : { allow: false, reason: 'denied' };
+        ? allowFixed
+        : deny('denied');
     case 'beta.preapproval.read':
     case 'beta.preapproval.update':
     case 'account.collection.read':
@@ -89,8 +89,8 @@ export function operatorDecision(
     case 'report.resolve':
     case 'moderation.collection.read':
     case 'moderation.lift':
-      return { allow: true };
+      return allowFixed;
     default:
-      return { allow: false, reason: 'missing-capability' };
+      return deny('missing-capability');
   }
 }

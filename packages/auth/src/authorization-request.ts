@@ -1,17 +1,15 @@
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
+import {
+  allowFixed as allow,
+  decide as decision,
+  deny,
+} from './authorization-decision';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
   ChannelAuthorizationFact,
 } from './authorization-facts';
-const allow: AuthorizationDecision = { allow: true };
-const deny = (_reason: 'missing-capability'): AuthorizationDecision => ({
-  allow: false,
-  reason: 'missing-capability',
-});
-const decision = (allowed: boolean): AuthorizationDecision =>
-  allowed ? allow : deny('missing-capability');
 export function requestChannelDecision(
   actorId: string,
   capability: AuthorizationCapability,

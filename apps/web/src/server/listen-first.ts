@@ -1,5 +1,6 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { Clock } from '@daisy/clock';
+import { refuseUnisolatedTenantTables } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { createProductionServer } from './server-wiring';
 
@@ -102,8 +103,8 @@ async function listenThenPrepare({
 /**
  * The production start-up start.ts runs, whole, so its ordering is tested
  * rather than trusted (ISSUE-193): Next's handler sits behind the start-up
- * gate, the port opens, the ISSUE-39 runtime-role refusal runs, then Next
- * prepares, and only then does the gate open. A refusal rejects `started`
+ * gate, the port opens, the ISSUE-39 runtime-role refusal and the tenant
+ * isolation refusal run, then Next prepares, and only then does the gate open. A refusal rejects `started`
  * before Next is prepared, with every route still answering 503.
  */
 export function startProductionServer({
@@ -114,9 +115,10 @@ export function startProductionServer({
   port,
   host,
 }: {
-  readonly app: Parameters<typeof createProductionServer>[0]['app'] & {
-    readonly clock: Clock;
-  };
+  readonly app: Parameters<typeof createProductionServer>[0]['app'] &
+    Parameters<typeof refuseUnisolatedTenantTables>[0] & {
+      readonly clock: Clock;
+    };
   readonly nextApp: {
     readonly getRequestHandler: () => Handle;
     readonly prepare: () => Promise<void>;
@@ -139,6 +141,8 @@ export function startProductionServer({
     host,
     prepare: async () => {
       await refuseRole();
+      // A schema whose tenant-owned tables are not all fenced never serves.
+      await refuseUnisolatedTenantTables(app);
       await nextApp.prepare();
     },
     gate,
