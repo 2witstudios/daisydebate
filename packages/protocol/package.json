@@ -60,8 +60,7 @@
     "./lobby/guardian-read": "./src/lobby/guardian-read.ts",
     "./lobby/resolution-read": "./src/lobby/resolution-read.ts",
     "./lobby/ballot-read": "./src/lobby/ballot-read.ts",
-    "./lobby/fixture-change-read": "./src/lobby/fixture-change-read.ts",
-    "./lobby/topics": "./src/lobby/topics.ts"
+    "./lobby/fixture-change-read": "./src/lobby/fixture-change-read.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",
