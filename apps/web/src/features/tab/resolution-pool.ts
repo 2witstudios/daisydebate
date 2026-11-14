@@ -16,7 +16,7 @@ import { sampleResolutionPoolView } from './sample/resolutions';
 import type { SampleScene } from './sample/scene';
 import type { EventSwitch } from './setup';
 
-export type PoolResolution = {
+type PoolResolution = {
   readonly text: string;
   readonly origin: string;
   /** Held back from every draw until it is released. */
@@ -25,7 +25,7 @@ export type PoolResolution = {
 };
 
 /** How a tab round gives each Room its resolution, and when. */
-export type RoundResolutionRule = {
+type RoundResolutionRule = {
   readonly rounds: string;
   readonly timing: string;
   /** Null once the rounds have been released: the rule can no longer change. */
@@ -141,7 +141,7 @@ const poolResolutionOf =
 const clock = (instant: string): string => instant.slice(11, 16);
 
 /** A host's resolutions screen for one event, from the read their gate allowed. */
-export function resolutionPoolOf(
+function resolutionPoolOf(
   view: ResolutionPoolView,
   event: EventSwitch,
   slug: string,

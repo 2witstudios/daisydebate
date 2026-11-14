@@ -18,14 +18,14 @@ import type { SampleScene } from './sample/scene';
 
 export type EntryStatus = 'accepted' | 'not_answered';
 
-export type HostEntryRow = {
+type HostEntryRow = {
   readonly name: string;
   readonly facts: string;
   readonly status: EntryStatus;
 };
 
 /** The entries one responsible adult answers for. */
-export type EntryGroup = {
+type EntryGroup = {
   readonly name: string;
   readonly enteredBy: string | null;
   readonly summary: string;
@@ -52,7 +52,7 @@ export type HostEntries = {
 export type JudgeSlotState =
   'judged' | 'away' | 'free' | 'in_draft' | 'room' | 'late';
 
-export type TournamentJudgeRow = {
+type TournamentJudgeRow = {
   readonly name: string;
   /** One cell per time slot, in the columns' order. */
   readonly slots: readonly {
@@ -66,7 +66,7 @@ export type TournamentJudgeRow = {
   readonly conflict: boolean;
 };
 
-export type JudgeGroup = {
+type JudgeGroup = {
   readonly name: string;
   readonly summary: string;
   readonly remind: TabAction | null;
@@ -82,7 +82,7 @@ export type HostJudges = {
   readonly more: TabAction | null;
 };
 
-export type SchoolStudent = {
+type SchoolStudent = {
   readonly name: string;
   readonly note: string | null;
   readonly events: string;
@@ -145,10 +145,7 @@ const owing = (owed: number, named: number): string =>
   `owes ${plural(owed, 'judge')}, has ${named}`;
 
 /** A host's entries screen, from the read their gate allowed. */
-export function hostEntriesOf(
-  view: EntryListView,
-  event: EventSwitch,
-): HostEntries {
+function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
   const { accepted, pending, judges, rooms, judgesNeeded } = view.counts;
   const manage = view.capabilities.manageEntries;
   return {
@@ -205,7 +202,7 @@ const slotOf = (slot: JudgeSlot): TournamentJudgeRow['slots'][number] =>
     : { state: slot.state, label: slotLabels[slot.state] };
 
 /** A host's judges screen, from the read their gate allowed. */
-export function hostJudgesOf(view: JudgeListView): HostJudges {
+function hostJudgesOf(view: JudgeListView): HostJudges {
   const { need } = view;
   const short = view.groups.flatMap((group) =>
     group.responsible.kind === 'school' && group.judgesNamed < group.judgesOwed
@@ -301,10 +298,7 @@ const dayLabel = (instant: string): string => {
 };
 
 /** A responsible adult's entries screen at one tournament. */
-export function schoolEntriesOf(
-  view: SchoolEntriesView,
-  slug: string,
-): SchoolEntries {
+function schoolEntriesOf(view: SchoolEntriesView, slug: string): SchoolEntries {
   const edit = sampleAction('Edit');
   const guardian = view.responsible.kind === 'guardian';
   const blocked = view.students.filter((student) => student.clash !== null);

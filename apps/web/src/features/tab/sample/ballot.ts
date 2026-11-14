@@ -181,5 +181,3 @@ export const sampleJudgeBallot = (
   scene: SampleScene,
 ): JudgeBallotView | null =>
   scene.viewer === 'judge' ? own(ballots, room) : null;
-
-export const sampleBallotRooms = Object.keys(ballots);

@@ -5,8 +5,6 @@ import type {
 } from '@daisy/protocol/lobby/tab-round-read';
 import { hostRoutes, tabRoutes } from '../routes';
 import {
-  runningRoundOf,
-  type RunningRound,
   type RunningRoundContext,
   type TimeSlotContext,
   type WallClock,
@@ -228,16 +226,6 @@ export function sampleTabRoundView(
           wallClock: sampleWallClock,
         },
       };
-}
-
-export function sampleRunningRound(
-  slug: string,
-  event: string,
-  round: string,
-  scene: SampleScene,
-): RunningRound | null {
-  const sample = sampleTabRoundView(slug, event, round, scene);
-  return sample === null ? null : runningRoundOf(sample.read, sample.context);
 }
 
 type SlotEvent = TimeSlotHostView['events'][number];

@@ -1,6 +1,5 @@
 import type { EventResultsView } from '@daisy/protocol/lobby/results-read';
 import type { BracketView } from '@daisy/protocol/lobby/standings-read';
-import { bracketOf, type Bracket } from '../results';
 import type { WallClock } from '../tab-round';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import type { SampleScene } from './scene';
@@ -112,14 +111,6 @@ export function sampleBracketView(
 }
 
 /** The bracket as a screen draws it, for the sample screens that embed one. */
-export function sampleBracket(
-  slug: string,
-  event: string | null,
-  scene: SampleScene,
-): Bracket | null {
-  const sample = sampleBracketView(slug, event, scene);
-  return sample === null ? null : bracketOf(sample.read, sample.wallClock);
-}
 
 const opened = (
   cause: 'round_close' | 'prelims_end' | 'break',

@@ -19,7 +19,7 @@ import {
 } from './settings';
 
 /** How hard the engine tries to keep a pairing or judging policy. */
-export type PolicyForce = 'rule' | 'preference' | 'warning' | 'off';
+type PolicyForce = 'rule' | 'preference' | 'warning' | 'off';
 
 export type PairingPolicy = {
   readonly key: string;
@@ -30,7 +30,7 @@ export type PairingPolicy = {
 };
 
 /** A host picks a preset; only an organization sets force key by key. */
-export type PairingPanel = {
+type PairingPanel = {
   readonly preset: Choice;
   /** What the chosen preset does, before the policies it comes with. */
   readonly summary: string;
@@ -59,7 +59,7 @@ export type TournamentSetup = {
  * stages, one or more setting keys (the first decides source and lock), its
  * resolution rule against its pool, or its sanction.
  */
-export type SetupLineCopy =
+type SetupLineCopy =
   | (SettingLineCopy & { readonly subject: 'format' | 'ballot.definition' })
   | (SettingLineCopy & { readonly subject: 'stages' })
   | (SettingLineCopy & {
@@ -198,7 +198,7 @@ function sanctionLine(
  * asked at the event, its template's pins, its stages, its resolution pool
  * and its sanction, from the tournament's setup read.
  */
-export function tournamentSetupOf(
+function tournamentSetupOf(
   reads: TournamentSetupReads,
   context: TournamentSetupContext,
 ): TournamentSetup | null {

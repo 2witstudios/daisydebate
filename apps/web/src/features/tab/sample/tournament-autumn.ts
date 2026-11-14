@@ -21,7 +21,7 @@ import {
   versus,
   won,
 } from './posting';
-import { sampleBracket } from './results';
+import { readBracket } from '../results';
 import type { SampleScene } from './scene';
 import { sampleStandings } from './standings';
 import { autumnFinish, autumnKeepsakes } from './tournament-after';
@@ -724,6 +724,6 @@ export function autumnReads(
         ? sampleStandings(AUTUMN, view.event, { ...scene, viewer: 'visitor' })
         : null,
     bracket:
-      view.kind === 'bracket' ? sampleBracket(AUTUMN, view.event, scene) : null,
+      view.kind === 'bracket' ? readBracket(AUTUMN, view.event, scene) : null,
   };
 }

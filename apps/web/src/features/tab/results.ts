@@ -16,7 +16,7 @@ export type BracketSide = {
   readonly name: string;
 };
 
-export type BracketTie = {
+type BracketTie = {
   readonly top: BracketSide;
   readonly bottom: BracketSide;
   /** Ballots each side won, once the fixture has a result. The panel is odd,
@@ -39,14 +39,14 @@ export type BracketStage = {
 export type Bracket = { readonly stages: readonly BracketStage[] };
 
 /** One audience of a ballot part, and whether it has opened. */
-export type AudienceOpening = {
+type AudienceOpening = {
   readonly audience: string;
   readonly detail: string;
   /** Null once a release records the opening. */
   readonly open: TabAction | null;
 };
 
-export type CertifyCheck = {
+type CertifyCheck = {
   readonly kind: 'held_ballots' | 'correction' | 'sanction';
   readonly title: string;
   readonly detail: string;
@@ -289,7 +289,7 @@ const certificationOf = (
 };
 
 /** An event's results for its host: a projection of `EventResultsView`. */
-export const eventResultsOf = (
+const eventResultsOf = (
   read: EventResultsView,
   context: { readonly bracket: Bracket; readonly wallClock: WallClock },
 ): EventResults => {

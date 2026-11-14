@@ -14,7 +14,7 @@ export type FixtureFlag = {
   readonly text: string;
 };
 
-export type DraftFixture = {
+type DraftFixture = {
   readonly id: string;
   readonly title: string;
   readonly judges: string;
@@ -24,13 +24,13 @@ export type DraftFixture = {
 };
 
 /** The entries on the same record in this tab round's pairing. */
-export type RecordGroup = {
+type RecordGroup = {
   readonly record: string;
   readonly fixtures: readonly DraftFixture[];
 };
 
 /** What a different pairing of this fixture would cost. */
-export type FixtureAlternative = {
+type FixtureAlternative = {
   readonly heading: string;
   readonly cost: string;
   /** A rule the alternative breaks, which publishing must name and override. */
@@ -38,7 +38,7 @@ export type FixtureAlternative = {
   readonly show: TabAction;
 };
 
-export type FixtureDetail = {
+type FixtureDetail = {
   readonly title: string;
   readonly why: readonly string[];
   readonly seats: readonly Choice[];
@@ -147,10 +147,7 @@ const restOf = (groups: DrawView['recordGroups']): string | null => {
 };
 
 /** The draft draw board: a projection of the host's `DrawView`. */
-export const drawBoardOf = (
-  read: DrawView,
-  context: DrawBoardContext,
-): DrawBoard => {
+const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
   const fixtures = read.recordGroups.flatMap((group) => group.fixtures);
   const findings = fixtures.flatMap((fixture) => fixture.findings);
   const counted = (severity: DrawFindingSeverity) =>

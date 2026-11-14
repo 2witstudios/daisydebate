@@ -18,7 +18,7 @@ import {
 import type { RailItem, TimelineRail } from './tournament';
 import type { SampleScene } from './sample/scene';
 
-export type HostTournamentRow = {
+type HostTournamentRow = {
   readonly name: string;
   readonly owner: string;
   readonly detail: string;
@@ -40,7 +40,7 @@ export type HostHome = {
 };
 
 /** A member with the grants they hold, or the owner's fixed position. */
-export type PersonRow = {
+type PersonRow = {
   readonly name: string;
   readonly detail: string;
   /** A conflict the evaluator has recorded for this person. */
@@ -50,7 +50,7 @@ export type PersonRow = {
 };
 
 /** One of Daisy's preset roles: a named set of permissions. */
-export type PresetRole = {
+type PresetRole = {
   readonly id: string;
   readonly name: string;
   readonly href: string;
@@ -192,7 +192,7 @@ const byStart = (a: HostLobby, b: HostLobby) =>
   (a.startsAt ?? '').localeCompare(b.startsAt ?? '');
 
 /** Where a lobby's host pages are, or null while it has none. */
-export type HostAddress = (lobby: { readonly handle: string }) => string | null;
+type HostAddress = (lobby: { readonly handle: string }) => string | null;
 
 const open = (
   label: string,
@@ -204,7 +204,7 @@ const open = (
     : linkTo(label, address, primary);
 
 /** Host home from the viewer's host-home read. */
-export function hostHomeOf(
+function hostHomeOf(
   view: HostHomeView,
   now: string,
   addressOf: HostAddress,
@@ -275,7 +275,7 @@ export function hostHomeOf(
 }
 
 /** Host home's rail: tournaments from today on, then the leagues the viewer runs. */
-export function hostRailOf(
+function hostRailOf(
   view: HostHomeView,
   now: string,
   addressOf: HostAddress,
@@ -365,7 +365,7 @@ const mostHeld = (view: OrganizationPeopleView) => {
 };
 
 /** An organization's people page from its people read. */
-export function peopleOf(
+function peopleOf(
   view: OrganizationPeopleView,
   context: {
     readonly role: string | null;

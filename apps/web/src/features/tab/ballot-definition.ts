@@ -98,7 +98,7 @@ const stepLabel = (step: number): string =>
  * settings screen lists them locked. One function, so the locked parts can
  * never disagree with the definition the preview draws.
  */
-export function pinnedBallotParts(
+function pinnedBallotParts(
   definition: BallotDefinition,
   source: ResolvedSetting['source'],
 ): readonly {
@@ -173,7 +173,7 @@ const preview: BallotSettings['preview'] = {
 };
 
 /** A host's ballot settings screen for one event. */
-export function ballotSettingsOf(
+function ballotSettingsOf(
   view: EventBallotView,
   event: EventSwitch,
   slug: string,
@@ -247,7 +247,7 @@ function reasonReaders(view: JudgeBallotView): string {
 }
 
 /** A judge's own ballot for one fixture. */
-export function judgeBallotOf(view: JudgeBallotView): JudgeBallot {
+function judgeBallotOf(view: JudgeBallotView): JudgeBallot {
   const { panel } = view;
   const seat =
     panel.size === 1

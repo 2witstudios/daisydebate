@@ -25,7 +25,7 @@ import type { SampleScene } from './scene';
 import { tiebreaks } from './standings';
 
 const league = { organizationId: sampleIds.league, name: LEAGUE_NAME };
-export const varsityEventId = sampleId('varsitydebate');
+const varsityEventId = sampleId('varsitydebate');
 const autumnScope: SettingScope = { kind: 'lobby', id: sampleIds.autumn };
 const varsityScope: SettingScope = { kind: 'event', id: varsityEventId };
 const autumnPoolId = sampleId('autumnpool');
@@ -348,7 +348,7 @@ const setupCopy: SetupCopy = {
 };
 
 /** Varsity debate's settings, asked at the event by the Director. */
-export const sampleVarsitySettings = () =>
+const sampleVarsitySettings = () =>
   resolvedSettingsViewOf(
     {
       at: { kind: 'event', id: varsityEventId },

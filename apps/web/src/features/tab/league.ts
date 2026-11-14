@@ -73,7 +73,7 @@ export type SeasonRow = {
 };
 
 /** An event asking a league to count its certified results for the season. */
-export type SanctionRequest = {
+type SanctionRequest = {
   readonly event: string;
   readonly facts: string;
   /** The computed check: every enforced value equals the event's own. */
@@ -103,7 +103,7 @@ export type HostLeague = {
   readonly lobby: readonly SettingLine[];
 };
 
-export type LobbyRoomRow = {
+type LobbyRoomRow = {
   readonly title: string;
   readonly detail: string;
   readonly action: TabAction;
@@ -246,7 +246,7 @@ const calendarStanding = (
  * A league's host rail: its season's tournaments in order, each opening its
  * host pages, or the league page where its sanction request waits.
  */
-export function leagueRailOf(
+function leagueRailOf(
   season: SeasonView,
   league: { readonly handle: string },
   now: string,
@@ -334,7 +334,7 @@ export type HostLeagueCopy = {
  * The host page of a league: the organization's host read, its template,
  * its season, its sanction requests, and its standing lobby's settings.
  */
-export function hostLeagueOf(
+function hostLeagueOf(
   reads: {
     readonly league: Extract<OrganizationView, { audience: 'host' }>;
     readonly template: TemplateView;
@@ -460,7 +460,7 @@ export const readHostLeague = (
     : null;
 
 /** What a league lobby page is projected from: the lobby, and its open tab's read. */
-export type LeagueLobbyReads = {
+type LeagueLobbyReads = {
   readonly lobby: StandingLobbyView;
   readonly panel:
     | { readonly tab: 'rooms'; readonly rooms: LobbyRoomList }
@@ -659,7 +659,7 @@ function tournamentsPanel(
 }
 
 /** A league's standing lobby, as one of its members sees it. */
-export function leagueLobbyOf(
+function leagueLobbyOf(
   reads: LeagueLobbyReads,
   addressOf: AddressOf,
 ): LeagueLobby {
@@ -797,7 +797,7 @@ const isSettingKey = (
  * Room's chain does not read (recording) is shown from the template's own
  * enforced row.
  */
-export function createRoomOf(
+function createRoomOf(
   reads: CreateRoomReads,
   copy: CreateRoomCopy,
 ): CreateRoom | null {

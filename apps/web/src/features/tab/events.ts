@@ -7,7 +7,7 @@ import { hostRoutes } from './routes';
 import { sampleEventsSchedule } from './sample/events';
 import type { SampleScene } from './sample/scene';
 
-export type ScheduledEvent = {
+type ScheduledEvent = {
   readonly slug: string;
   readonly name: string;
   readonly summary: string;
@@ -15,13 +15,13 @@ export type ScheduledEvent = {
 };
 
 /** Events that share time slots, and so run together. */
-export type EventGroup = {
+type EventGroup = {
   readonly name: string;
   readonly times: string;
   readonly events: readonly ScheduledEvent[];
 };
 
-export type EventForm = {
+type EventForm = {
   readonly slug: string;
   readonly name: string;
   readonly format: { readonly value: string; readonly source: string };
@@ -62,7 +62,7 @@ export type EventsCopy = {
 };
 
 /** An event's place in a host address: its name, lowercased and hyphenated. */
-export const eventSlug = (event: { readonly name: string }): string =>
+const eventSlug = (event: { readonly name: string }): string =>
   event.name.trim().toLowerCase().replaceAll(/\s+/g, '-');
 
 const numberWords = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -133,7 +133,7 @@ function timesOf(
 }
 
 /** The events and schedule screen from a tournament's setup read. */
-export function eventsScheduleOf(
+function eventsScheduleOf(
   setup: TournamentSetupView,
   selected: string | null,
   copy: EventsCopy,

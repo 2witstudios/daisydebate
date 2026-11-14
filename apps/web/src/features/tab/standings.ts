@@ -6,7 +6,7 @@ import { sampleStandingsView } from './sample/standings';
 import type { SampleScene } from './sample/scene';
 import type { ResolvedSetting } from './settings';
 
-export type StandingRow = {
+type StandingRow = {
   readonly seed: number;
   readonly entry: string;
   readonly school: string;

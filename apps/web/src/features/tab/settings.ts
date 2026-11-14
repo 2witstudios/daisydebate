@@ -10,8 +10,7 @@ import type { TabAction } from './action';
  * default (the catalogue, a pairing preset or the pinned format), otherwise
  * the kind of scope that set it.
  */
-export type SettingScope =
-  'daisy' | 'organization' | 'template' | 'lobby' | 'event';
+type SettingScope = 'daisy' | 'organization' | 'template' | 'lobby' | 'event';
 
 /**
  * What this person may do about a setting. A scope above that enforces the
@@ -90,9 +89,7 @@ export const sourceLabel = (setting: SettingLine): string => {
 };
 
 /** The line's source: the named scope, or Daisy for a default of any kind. */
-export const lineSourceOf = (
-  source: ResolvedSettingSource,
-): SettingLine['source'] => {
+const lineSourceOf = (source: ResolvedSettingSource): SettingLine['source'] => {
   switch (source.kind) {
     case 'catalogue':
     case 'preset':

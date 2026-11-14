@@ -69,13 +69,13 @@ export type PinnedRoom = {
   readonly action: TabAction;
 };
 
-export type PostingRow = {
+type PostingRow = {
   readonly title: string;
   readonly detail: string;
   readonly action: TabAction | null;
 };
 
-export type DayRow = {
+type DayRow = {
   readonly time: string;
   readonly title: string;
   readonly detail: string;
@@ -101,7 +101,7 @@ export type TournamentPanel =
   | { readonly kind: 'standings'; readonly table: StandingsTable }
   | { readonly kind: 'bracket'; readonly bracket: Bracket };
 
-export type TournamentTab = {
+type TournamentTab = {
   readonly id: string;
   readonly label: string;
   readonly href: string;
@@ -109,7 +109,7 @@ export type TournamentTab = {
 };
 
 /** A responsible adult's entry at a tournament, as it stands right now. */
-export type AdultEntry = {
+type AdultEntry = {
   readonly name: string;
   readonly facts: string;
   readonly detail: string;
@@ -117,7 +117,7 @@ export type AdultEntry = {
 };
 
 /** Something of a round this viewer may open: a ballot, a recording. */
-export type ReadableBallot = {
+type ReadableBallot = {
   readonly title: string;
   readonly detail: string;
   readonly action: TabAction;
@@ -186,7 +186,7 @@ export type TournamentView =
   | { readonly kind: 'bracket'; readonly event: string | null };
 
 /** A tournament in a list: the index, a league's tournaments. */
-export type TournamentRow = {
+type TournamentRow = {
   readonly name: string;
   readonly detail: string;
   readonly action: TabAction;
@@ -295,13 +295,13 @@ const minuteMs = 60_000;
 const dayMs = 24 * 60 * minuteMs;
 
 const pad = (n: number) => String(n).padStart(2, '0');
-export const clockOf = (at: string): string => {
+const clockOf = (at: string): string => {
   const date = new Date(at);
   return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 };
-export const weekdayOf = (at: string): string =>
+const weekdayOf = (at: string): string =>
   weekdays[new Date(at).getUTCDay()] ?? '';
-export const shortWeekdayOf = (at: string): string => weekdayOf(at).slice(0, 3);
+const shortWeekdayOf = (at: string): string => weekdayOf(at).slice(0, 3);
 /** `14 Nov`. */
 export const dayMonthOf = (at: string): string => {
   const date = new Date(at);
@@ -310,8 +310,7 @@ export const dayMonthOf = (at: string): string => {
 export const monthOf = (at: string): string =>
   monthNames[new Date(at).getUTCMonth()] ?? '';
 /** `Saturday 14 Nov`. */
-export const longDateOf = (at: string): string =>
-  `${weekdayOf(at)} ${dayMonthOf(at)}`;
+const longDateOf = (at: string): string => `${weekdayOf(at)} ${dayMonthOf(at)}`;
 /** `Sat 14 Nov`. */
 export const shortDateOf = (at: string): string =>
   `${shortWeekdayOf(at)} ${dayMonthOf(at)}`;
@@ -356,7 +355,7 @@ export const listed = (names: readonly string[]): string =>
   names.length <= 1
     ? (names[0] ?? '')
     : `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
-export const shownName = (shown: ShownEntrant): string =>
+const shownName = (shown: ShownEntrant): string =>
   shown.kind === 'name' ? shown.name : shown.initials;
 
 /** Whether the tournament's events share time slots. */
@@ -372,7 +371,7 @@ const eventName = (lobby: TournamentLobbyView, eventId: string): string =>
  * A tab round as a page names it: the host's name, else its number, with
  * the event first where events share the schedule.
  */
-export const tabRoundLabel = (
+const tabRoundLabel = (
   round: TabRoundRef,
   event: string,
   shared: boolean,
@@ -437,7 +436,7 @@ const breakStanding = (
  * slots are its rounds, the break stands between the stages, and the
  * elimination rounds appear once the break is announced.
  */
-export function timelineRailOf(
+function timelineRailOf(
   lobby: TournamentLobbyView,
   addressOf: AddressOf,
 ): TimelineRail | null {
@@ -1354,7 +1353,7 @@ function roundsPage(
  * before it runs, a responsible adult's entries, the rounds while it runs,
  * and what a finished tournament keeps for someone who took part.
  */
-export function tournamentPageOf(
+function tournamentPageOf(
   reads: TournamentReads,
   view: TournamentView,
   addressOf: AddressOf,
@@ -1400,7 +1399,7 @@ const ownerWords = (lobby: Extract<ListedLobby, { kind: 'tournament' }>) =>
       : `hosted by ${lobby.owner.username}`;
 
 /** `entry closes Thursday 17:00` within the week, `entry closes 25 Nov` beyond. */
-export const entryClosesPhrase = (closesAt: string, asOf: string): string =>
+const entryClosesPhrase = (closesAt: string, asOf: string): string =>
   `entry closes ${withinWeek(closesAt, asOf) ? `${weekdayOf(closesAt)} ${clockOf(closesAt)}` : dayMonthOf(closesAt)}`;
 
 /** The one fact that says where a listed tournament stands, if any. */
@@ -1429,7 +1428,7 @@ export function listedFact(
 }
 
 /** What the viewer is doing there, in a few words. */
-export function partWords(
+function partWords(
   part: Extract<ListedLobby, { kind: 'tournament' }>['part'],
 ): string | null {
   if (part === null) return null;
@@ -1448,7 +1447,7 @@ export function partWords(
 }
 
 /** The tournaments index: the viewer's own first, then what is open. */
-export function tournamentsIndexOf(
+function tournamentsIndexOf(
   page: LobbyListPage,
   addressOf: AddressOf,
 ): TournamentsIndex {

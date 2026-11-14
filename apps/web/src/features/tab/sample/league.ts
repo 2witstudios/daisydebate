@@ -28,15 +28,15 @@ export const sampleFormatDefaults: FormatSettingDefaults = {
   },
 };
 
-export const leagueScope: SettingScope = {
+const leagueScope: SettingScope = {
   kind: 'organization',
   id: sampleIds.league,
 };
-export const varsityTemplateScope: SettingScope = {
+const varsityTemplateScope: SettingScope = {
   kind: 'template',
   id: sampleIds.varsityTemplate,
 };
-export const leagueLobbyScope: SettingScope = {
+const leagueLobbyScope: SettingScope = {
   kind: 'lobby',
   id: sampleIds.leagueLobby,
 };
@@ -60,7 +60,7 @@ const videoValue: SettingValues['audience.video'] = {
   link: 'never',
   public: 'never',
 };
-export const sampleLadderId = sampleId('leagueladder');
+const sampleLadderId = sampleId('leagueladder');
 
 /**
  * The league's rows: what it enforces on everything it owns, what its

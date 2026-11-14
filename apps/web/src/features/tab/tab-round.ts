@@ -37,7 +37,7 @@ export type RunningRound = {
   readonly groups: readonly AttentionGroup[];
 };
 
-export type SlotEvent = {
+type SlotEvent = {
   readonly slug: string;
   readonly name: string;
   readonly note: string | null;
@@ -440,7 +440,7 @@ const eventDetail = (
 };
 
 /** A time slot across its events: a projection of `TimeSlotHostView`. */
-export const timeSlotOf = (
+const timeSlotOf = (
   read: TimeSlotHostView,
   context: TimeSlotContext,
 ): TimeSlot => {

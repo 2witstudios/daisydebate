@@ -15,7 +15,7 @@ import {
 import type { SampleScene } from './sample/scene';
 
 /** A lobby a guardian may allow a minor to see and join. */
-export type AllowedLobby = {
+type AllowedLobby = {
   readonly name: string;
   readonly detail: string | null;
   readonly allowed: boolean;
@@ -54,14 +54,14 @@ export type TournamentRequest = {
 };
 
 /** An entry of a minor's, as their guardian sees it from the family page. */
-export type FamilyEntry = {
+type FamilyEntry = {
   readonly tournament: string;
   readonly detail: string;
   /** Null while the entry waits for the guardian to allow its tournament. */
   readonly open: TabAction | null;
 };
 
-export type FamilyMinor = {
+type FamilyMinor = {
   readonly name: string;
   readonly detail: string;
   readonly account: TabAction;
@@ -139,7 +139,7 @@ const familyEntryOf = (entry: WardEntry): FamilyEntry => {
 };
 
 /** A guardian's family page. */
-export function familyOf(
+function familyOf(
   view: GuardianView,
   pronouns: (wardId: string) => WardPronouns,
 ): Family {
@@ -177,7 +177,7 @@ const recordingOptions = (name: string, pronouns: WardPronouns) =>
   }) as const;
 
 /** The guardian's page for one ward's account and its restriction. */
-export function minorAccountOf(
+function minorAccountOf(
   view: WardAccountView,
   pronouns: WardPronouns,
 ): MinorAccount {
@@ -206,7 +206,7 @@ export function minorAccountOf(
 }
 
 /** The guardian's decision on an entry outside the allowed lobbies. */
-export function tournamentRequestOf(
+function tournamentRequestOf(
   view: WardEntryRequestView,
   pronouns: WardPronouns,
 ): TournamentRequest {

@@ -18,7 +18,7 @@ import {
 } from './tournament';
 
 /** How a Room's seats are arranged, which follows from its format. */
-export type SeatArrangement = 'panel' | 'section' | 'four_sides' | 'open';
+type SeatArrangement = 'panel' | 'section' | 'four_sides' | 'open';
 
 export type RoomSeat = {
   readonly mark: string;
@@ -31,7 +31,7 @@ export type RoomSeat = {
   readonly action: TabAction | null;
 };
 
-export type RunOfShowStep = {
+type RunOfShowStep = {
   readonly title: string;
   readonly detail: string;
   readonly length: string;
@@ -151,10 +151,7 @@ function panelSeat(room: EventRoomView): RoomSeat {
  * An event Room before its Round starts: the fixture's seats, who has
  * arrived, and what publishing pinned on it with the scope that set it.
  */
-export function waitingRoomOf(
-  room: EventRoomView,
-  addressOf: AddressOf,
-): WaitingRoom {
+function waitingRoomOf(room: EventRoomView, addressOf: AddressOf): WaitingRoom {
   const arrangement: Exclude<SeatArrangement, 'open'> =
     room.kind === 'section'
       ? 'section'
