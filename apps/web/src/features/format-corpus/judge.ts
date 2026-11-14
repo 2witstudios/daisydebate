@@ -1,16 +1,39 @@
 import {
-  ballotWireSchema,
+  aiJudgeFor,
   caseMapWireSchema,
-  judgeAnswer,
   judgeContractVersion,
-  judgingStageMessages,
   transcriptLines,
   type TranscriptEvidenceInput,
 } from '@daisy/ai-voice';
-import { caseMapSchema, type CaseMap } from '@daisy/protocol';
+import {
+  caseMapSchema,
+  daisyWinnerBallot,
+  sideSeat,
+  twoSides,
+  type CaseMap,
+} from '@daisy/protocol';
 
-/** A fixed one-on-one freeze: every segment heard, one interrupted line, one edge gap. */
-const evidence: TranscriptEvidenceInput = {
+type Seated = { readonly side: string; readonly slot: number };
+type Recorded<T> = Omit<T, 'seat'> & Seated;
+type RecordedEvidence = Omit<
+  TranscriptEvidenceInput,
+  'coverage' | 'gaps' | 'utterances'
+> & {
+  readonly coverage: readonly Recorded<
+    TranscriptEvidenceInput['coverage'][number]
+  >[];
+  readonly gaps: readonly Recorded<TranscriptEvidenceInput['gaps'][number]>[];
+  readonly utterances: readonly Recorded<
+    TranscriptEvidenceInput['utterances'][number]
+  >[];
+};
+
+/**
+ * A fixed one-on-one freeze: every segment heard, one interrupted line, one
+ * edge gap. It is recorded as captured before TAB-6, each seat as its side
+ * and slot; the judge reads the same seats as seat refs.
+ */
+const recorded: RecordedEvidence = {
   resolution: 'Public transit should be free',
   revision: 2,
   completeness: 'incomplete',
@@ -123,6 +146,23 @@ const evidence: TranscriptEvidenceInput = {
     },
   ],
 };
+
+const seated = <T extends Seated>({ side, slot, ...rest }: T) => ({
+  ...rest,
+  seat: sideSeat(side, slot),
+});
+const evidence: TranscriptEvidenceInput = {
+  ...recorded,
+  coverage: recorded.coverage.map(seated),
+  gaps: recorded.gaps.map(seated),
+  utterances: recorded.utterances.map(seated),
+};
+
+/** The AI judge of an ordinary two-sided Round: Daisy's winner ballot. */
+const judge = aiJudgeFor(daisyWinnerBallot, {
+  sides: twoSides,
+  segments: [],
+});
 
 const side = (claim: string, id: 'A' | 'N', segment: number) => ({
   thesis: { id, claim, line: `${segment}.0` },
@@ -246,7 +286,7 @@ const answers = () => {
   return cases.map(([name, answer]) => ({
     name,
     answer,
-    judged: judgeAnswer(answer),
+    judged: judge.judgeAnswer(answer),
   }));
 };
 
@@ -254,16 +294,20 @@ const answers = () => {
 export const judgeCases = (): readonly (readonly [string, unknown])[] => [
   [
     'contract',
-    { version: judgeContractVersion, ballotWireSchema, caseMapWireSchema },
+    {
+      version: judgeContractVersion,
+      ballotWireSchema: judge.ballotWireSchema,
+      caseMapWireSchema,
+    },
   ],
-  ['evidence', { input: evidence, lines: transcriptLines(evidence) }],
-  ['stage-first', judgingStageMessages(evidence, { stage: 'first' })],
-  ['stage-map', judgingStageMessages(evidence, { stage: 'map' })],
+  ['evidence', { input: recorded, lines: transcriptLines(evidence) }],
+  ['stage-first', judge.stageMessages(evidence, { stage: 'first' })],
+  ['stage-map', judge.stageMessages(evidence, { stage: 'map' })],
   [
     'stage-final',
     {
       caseMap,
-      messages: judgingStageMessages(evidence, { stage: 'final', caseMap }),
+      messages: judge.stageMessages(evidence, { stage: 'final', caseMap }),
     },
   ],
   ['answers', answers()],

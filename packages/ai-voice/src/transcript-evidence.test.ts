@@ -1,3 +1,4 @@
+import { sideSeat } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   transcriptLines,
@@ -15,8 +16,7 @@ const spoken = (text: string): TranscriptEvidenceInput => ({
     {
       segmentSequence: 2,
       sequence: 0,
-      side: 'negative',
-      slot: 1,
+      seat: sideSeat('negative', 1),
       text,
       complete: true,
       interrupted: false,
@@ -44,8 +44,7 @@ test('an utterance cannot forge a transcript line (ADR 0125)', () => {
 test('a speech captured only in part is stated with the numbered lines (ADR 0125)', () => {
   const coverage = (state: string, sequence: number) => ({
     sequence,
-    side: 'negative' as const,
-    slot: 1,
+    seat: sideSeat('negative', 1),
     state,
     chunkCount: 3,
     sealedChunkCount: 3,

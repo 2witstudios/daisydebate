@@ -11,7 +11,7 @@ export {
   type ChatMessage,
   type OpenRouter,
 } from './openrouter';
-export { judgingStageMessages } from './staged-judge';
+export { aiJudgeFor, type AiJudge, type AiJudgeRules } from './ai-judge';
 export { parseRoundAnalysis, roundAnalysisMessages } from './round-analysis';
 export {
   transcriptLines,
@@ -20,10 +20,6 @@ export {
 export { roundDebaterMessages } from './round-debater';
 export { createTurnTaking, turnTakingSettings } from './turn-taking';
 
-export { caseMapAnswer, judgeAnswer } from './judge';
-export {
-  ballotWireSchema,
-  caseMapWireSchema,
-  judgeContractVersion,
-} from './judge-contract';
+export { caseMapAnswer } from './judge';
+export { caseMapWireSchema, judgeContractVersion } from './judge-contract';
 export { createPhraseStream } from './speech';

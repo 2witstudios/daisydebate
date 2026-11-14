@@ -1,4 +1,4 @@
-import type { DebateSide } from '@daisy/protocol';
+import type { SideKey } from '@daisy/protocol';
 import type { ChatMessage } from './openrouter';
 import { wordBudget } from './speech';
 
@@ -15,7 +15,7 @@ const SPEECH_GOALS: Record<string, string> = {
 /** Provider context identifies competitive seats, never account identity or judge assignment. */
 export function roundDebaterMessages(input: {
   readonly resolution: string;
-  readonly side: DebateSide;
+  readonly side: SideKey;
   readonly slot: number;
   readonly persona: string;
   readonly segment: {
@@ -23,7 +23,7 @@ export function roundDebaterMessages(input: {
     readonly label: string;
     readonly type: 'speech' | 'cross_ex';
     /** The side this segment belongs to: in cross-examination, the side asking. */
-    readonly side: DebateSide;
+    readonly side: SideKey;
     readonly durationMs: number;
   };
   /**
@@ -32,7 +32,7 @@ export function roundDebaterMessages(input: {
    */
   readonly unanswered?: boolean;
   readonly transcript: readonly {
-    readonly side: DebateSide;
+    readonly side: SideKey;
     readonly slot: number;
     readonly segment: string;
     readonly text: string;
