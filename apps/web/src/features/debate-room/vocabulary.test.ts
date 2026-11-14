@@ -2,23 +2,38 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   interruptionLabel,
   roundLength,
-  shapeLabel,
   speechName,
   strikeLabel,
   yieldLabel,
 } from './vocabulary';
+import { shapeLabel } from './seat-names';
+import { twoSides } from '@daisy/protocol';
 
 setupRitewayBun();
+
+const seating = (perSide: number) => ({
+  sides: twoSides,
+  seats: {
+    sides: { affirmative: perSide, negative: perSide },
+    speakers: 0,
+    judges: 1,
+    moderators: 0,
+  },
+});
 
 test('seat shapes read as NvN', () => {
   assert({
     given: 'one debater per side and two per side',
     should: 'read 1v1 and 2v2',
     actual: [
-      shapeLabel({ affirmative: 1, negative: 1 }),
-      shapeLabel({ affirmative: 2, negative: 2 }),
+      shapeLabel(seating(1)),
+      shapeLabel(seating(2)),
+      shapeLabel({
+        sides: [],
+        seats: { sides: {}, speakers: 6, judges: 1, moderators: 0 },
+      }),
     ],
-    expected: ['1v1', '2v2'],
+    expected: ['1v1', '2v2', '6 speakers'],
   });
 });
 
@@ -63,6 +78,7 @@ test('a round’s length is derived from its speeches, countdowns and prep', () 
       speechesMs: [5, 2, 6, 2, 3, 5, 3].map((minutes) => minutes * 60_000),
       countdownMs: 10_000,
       prepPerSideMs: null,
+      sideCount: 2,
       preRoundPrepMs: 1_200_000,
     }),
     expected: 'about 45 min',
@@ -76,6 +92,7 @@ test('a round’s length is derived from its speeches, countdowns and prep', () 
       speechesMs: quick,
       countdownMs: 10_000,
       prepPerSideMs: 120_000,
+      sideCount: 2,
     }),
     expected: 'about 20 min',
   });
@@ -86,6 +103,7 @@ test('a round’s length is derived from its speeches, countdowns and prep', () 
       speechesMs: [60_000, 60_000],
       countdownMs: 0,
       prepPerSideMs: null,
+      sideCount: 2,
     }),
     expected: 'about 5 min',
   });
