@@ -134,6 +134,9 @@ export function createRealtimeAuthorization({
       // Anything this does not authorize is refused, a family it cannot name
       // included. A lobby or organization topic is subscribed under
       // `lobbyTopicCapability` once its fact loader lands (wiring).
+      case 'lobby':
+      case 'lobby:host':
+      case 'organization:host':
       case 'round:presence':
       default:
         return null;
