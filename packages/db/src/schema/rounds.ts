@@ -252,7 +252,7 @@ export const rounds = pgTable(
       // Places: a non-empty array of non-empty arrays of strings.
       check(
         'rounds_ranking_shape_check',
-        sql`${table.ranking} is null or (jsonb_typeof(${table.ranking}) = 'array' and jsonb_array_length(${table.ranking}) > 0 and not jsonb_path_exists(${table.ranking}, '$[*] ? (@.type() != "array" || @.size() == 0)') and not jsonb_path_exists(${table.ranking}, '$[*][*] ? (@.type() != "string")'))`,
+        sql`${table.ranking} is null or (jsonb_typeof(${table.ranking}) = 'array' and jsonb_array_length(${table.ranking}) > 0 and not jsonb_path_exists(${table.ranking}, 'strict $[*] ? (@.type() != "array" || @.size() == 0)') and not jsonb_path_exists(${table.ranking}, 'strict $[*][*] ? (@.type() != "string")'))`,
       ),
       jsonbIsObject('rounds', table.judging),
       check(
