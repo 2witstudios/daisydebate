@@ -311,12 +311,14 @@ export function createRoomRuntimeOperations({
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
-      // A new Room holds its host alone; another Room holding them refuses it.
-      members: activeRoomMembers({
-        status: 'assembling',
-        roundRef: null,
-        participants: [],
-      }),
+      // A new Room holds the humans its cast seats, never a host without a
+      // seat; another Room holding one of them refuses it.
+      membersOf: (participants) =>
+        activeRoomMembers({
+          status: 'assembling',
+          roundRef: null,
+          participants,
+        }),
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,

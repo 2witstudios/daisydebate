@@ -87,8 +87,14 @@ export const roomCreateOperations = ({
 }) => ({
   async createRoomCommand(input: {
     readonly room: NewRoom;
-    /** The engine's member set for the new Room: its host (ADR 0070). */
-    readonly members: readonly string[];
+    /**
+     * The engine's member set for the new Room's seats once its initial
+     * cast is applied (ADR 0070, TAB-6.16): the seated humans, never a
+     * host without a seat.
+     */
+    readonly membersOf: (
+      participants: RoomAssemblyState['participants'],
+    ) => readonly string[];
     readonly commandId: string;
     readonly payloadDigest: string;
     readonly definition: FormatDefinition | null;
@@ -260,7 +266,11 @@ export const roomCreateOperations = ({
               readinessVersion: p.consentVersion,
             })),
           );
-        await holdActiveRoomMembers(tx, input.room.id, input.members);
+        await holdActiveRoomMembers(
+          tx,
+          input.room.id,
+          input.membersOf(assembled?.participants ?? []),
+        );
         if (input.recording) {
           // Cast and membership may wait: judge the grant at commit admission,
           // after their locks and facts, while the host account fence still holds.

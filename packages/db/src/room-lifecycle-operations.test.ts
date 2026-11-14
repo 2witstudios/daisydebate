@@ -34,7 +34,7 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
     actual: () =>
       database.createRoomCommand({
         room,
-        members: [room.hostActorId],
+        membersOf: () => [room.hostActorId],
         commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
         payloadDigest: 'a'.repeat(64),
         definition: foundationDefinition,
