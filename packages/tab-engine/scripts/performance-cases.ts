@@ -332,7 +332,10 @@ export const measure = (): readonly Row[] => {
       targetMs: 3000,
       ms: once(() => {
         const report = simulate(seed, 'full', statedTournament());
-        if (report.rejections.length > 0) throw new Error(`the stated tournament was refused by the checker: ${JSON.stringify(report.rejections[0])}`);
+        if (report.rejections.length > 0)
+          throw new Error(
+            `the stated tournament was refused by the checker: ${JSON.stringify(report.rejections[0])}`,
+          );
       }),
     },
   ];
