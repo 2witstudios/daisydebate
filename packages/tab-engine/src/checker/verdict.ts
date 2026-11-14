@@ -85,6 +85,13 @@ export type Violation =
       readonly event: Id;
       readonly fixtures: readonly (Id | null)[];
     }
+  // 2e. A round-robin round follows its circle.
+  | {
+      readonly kind: 'schedule_mismatch';
+      readonly event: Id;
+      readonly missing: readonly string[];
+      readonly extra: readonly string[];
+    }
   // 3. Existing fixtures.
   | {
       readonly kind: 'existing_unaccounted';
@@ -282,6 +289,31 @@ export type Violation =
       readonly event: Id;
       readonly key: ForceKey;
     }
+  | {
+      readonly kind: 'infeasible_rules_key';
+      readonly event: Id;
+      readonly key: ForceKey;
+      readonly reason: 'judging' | 'not_a_rule';
+    }
+  | {
+      readonly kind: 'infeasible_certificate_invalid';
+      readonly event: Id;
+      readonly certificate: 'barrier' | 'school_count' | 'schedule';
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'infeasible_witness_missing';
+      readonly event: Id;
+      readonly key: ForceKey;
+    }
+  | {
+      readonly kind: 'infeasible_witness_invalid';
+      readonly event: Id;
+      readonly key: ForceKey;
+      readonly found: readonly Violation[];
+    }
+  | { readonly kind: 'infeasible_no_plan_unfounded'; readonly event: Id }
+  | { readonly kind: 'unresolved_unbroken'; readonly event: Id }
   | { readonly kind: 'infeasible_slot_unfounded'; readonly person: Id }
   | {
       readonly kind: 'infeasible_panels_unfounded';

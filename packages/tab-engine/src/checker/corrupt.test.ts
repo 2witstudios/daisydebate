@@ -626,12 +626,14 @@ describe('check: infeasible answers', () => {
       event: 'ev',
       rules: ['pairing.rematch'],
       relaxations: [],
+      certificate: { kind: 'barrier', removed: [] },
+      witnesses: [],
     });
     assert({
       given:
         'a six-entry field that can be drawn without a rematch, claimed infeasible by the rematch rule',
-      should: 'reject the claim',
-      actual: verdict.violations,
+      should: 'reject the claim by brute force',
+      actual: pick(verdict, 'infeasible_rules_feasible'),
       expected: [
         {
           kind: 'infeasible_rules_feasible',
@@ -649,11 +651,13 @@ describe('check: infeasible answers', () => {
       event: 'ev',
       rules: ['pairing.rematch', 'bye.repeat'],
       relaxations: [],
+      certificate: { kind: 'barrier', removed: [] },
+      witnesses: [],
     });
     assert({
       given: 'a rematch-only infeasibility claimed with the bye rule as well',
       should: 'name the rule whose dropping does not help',
-      actual: verdict.violations,
+      actual: pick(verdict, 'infeasible_rules_not_minimal'),
       expected: [
         {
           kind: 'infeasible_rules_not_minimal',

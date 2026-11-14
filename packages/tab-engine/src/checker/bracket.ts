@@ -19,7 +19,13 @@ type Unit = readonly Id[];
 
 /** What the bracket says this tab round holds, or which needed results are missing. */
 export type Progression =
-  | { readonly kind: 'round'; readonly fixtures: readonly string[] }
+  | {
+      readonly kind: 'round';
+      readonly fixtures: readonly string[];
+      /** Every entry still going on, and whether a round is still to draw (any two meet, or none is played yet). */
+      readonly going: readonly Id[];
+      readonly toPair: boolean;
+    }
   | { readonly kind: 'missing'; readonly fixtures: readonly (Id | null)[] };
 
 /**
@@ -111,6 +117,12 @@ const dealFour = (ordered: readonly Id[]): Unit[] => {
   ];
 };
 
+/** Whether the bracket is decided: exactly one entry left to go on, and nothing to pair. */
+export const decided = (p: {
+  readonly going: readonly Id[];
+  readonly toPair: boolean;
+}) => p.going.length === 1 && !p.toPair;
+
 /** The history fixture of `round` that holds exactly the unit's entries. */
 const findFixture = (
   fixtures: readonly PastFixture[],
@@ -192,7 +204,8 @@ export const progression = (request: EventRequest): Progression | null => {
       }
     });
     if (format === 'two') {
-      const next: Unit[] = [];
+      // After the final the one slot left holds the champion, or nobody.
+      const next: Unit[] = onward.length === 1 ? [onward[0]!] : [];
       for (let i = 0; i + 1 < onward.length; i += 2)
         next.push([...onward[i]!, ...onward[i + 1]!].sort(bySeed));
       units = next;
@@ -204,12 +217,23 @@ export const progression = (request: EventRequest): Progression | null => {
           : snake(going, Math.max(1, Math.round(going.length / target)));
     }
   }
+  const going = units.flat();
+  /**
+   * Before any round is played the tree itself is the round: a lone seed's
+   * missing opponent is a bye, so only a played bracket can be decided.
+   */
+  const toPair = units.some((u) => u.length > 1) || rounds.length === 0;
   return {
     kind: 'round',
-    fixtures: units.flatMap((u) => {
-      const name = unitName(format, u);
-      return name === null ? [] : [name];
-    }),
+    going,
+    toPair,
+    // A decided bracket (one entry left, nobody to meet) has no round to draw.
+    fixtures: decided({ going, toPair })
+      ? []
+      : units.flatMap((u) => {
+          const name = unitName(format, u);
+          return name === null ? [] : [name];
+        }),
   };
 };
 

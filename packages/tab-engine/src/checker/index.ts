@@ -1,10 +1,11 @@
-import type { Id } from '../shapes/competition';
+import type { Fixture, Id } from '../shapes/competition';
 import type {
   Collision,
   Draw,
   DrawAnswer,
   DrawInput,
   EventRequest,
+  ExistingFixture,
   Plan,
   RuleBreak,
 } from '../shapes/draw';
@@ -17,10 +18,18 @@ import {
   placedOf,
   requestsOf,
 } from './context';
-import { infeasibleRulesViolations, optimalityViolations } from './optimality';
+import { infeasibleRulesViolations, noPlanViolations } from './certificate';
+import { optimalityViolations } from './optimality';
 import { panelCapacity } from './panels';
-import { countedResults, entriesIn, pastFixtures, pastResults } from './past';
+import {
+  countedResults,
+  entriesIn,
+  panelOf,
+  pastFixtures,
+  pastResults,
+} from './past';
 import { recordViolations } from './record';
+import { scheduleViolations } from './schedule';
 import {
   breaksDifference,
   breaksOf,
@@ -50,6 +59,7 @@ const matchedViolations = (
     ...eventViolations(request, plan),
     ...byeViolations(request, plan),
     ...bracketViolations(request, plan),
+    ...scheduleViolations(input, request, plan),
   ]),
   ...panelViolations(input, matched, short),
   ...slotViolations(input, matched),
@@ -159,7 +169,18 @@ const slotCollisionViolations = (
       input.call === 'slot'
         ? input.commitments.filter((c) => c.people.includes(person)).length
         : 0;
-    return entries + commitments;
+    // A fixed fixture's seated judges hold that fixture in the slot.
+    const judges = judgesOf(input);
+    const seatedFixed = requestsOf(input).flatMap((r) =>
+      (r.existing as readonly ExistingFixture<never>[]).filter(
+        (e) =>
+          e.hold === 'fixed' &&
+          panelOf(e.fixture as Fixture).some(
+            (id) => judges?.get(id)?.person === person,
+          ),
+      ),
+    ).length;
+    return entries + commitments + seatedFixed;
   };
   return collisions
     .filter((c) => holds(c.person) < 2)
@@ -193,8 +214,7 @@ const infeasibleViolations = (
 ): Violation[] => {
   switch (answer.cause) {
     case 'rules':
-      // A claim the checker cannot brute force is accepted unchecked; see infeasibleRulesViolations.
-      return infeasibleRulesViolations(input, answer.event, answer.rules);
+      return infeasibleRulesViolations(input, answer);
     case 'slot':
       return slotCollisionViolations(input, answer.collisions);
     case 'panels': {
@@ -219,11 +239,10 @@ const infeasibleViolations = (
       ];
     }
     case 'structure': {
-      // 'no_plan' is accepted unchecked: the checker restates no planner.
-      if (answer.fact === 'no_plan') return [];
       const request = requestsOf(input).find((r) => r.event === answer.event);
       if (request === undefined)
         return [{ kind: 'draw_extra', event: answer.event }];
+      if (answer.fact === 'no_plan') return noPlanViolations(input, request);
       const needed = neededMissing(request);
       return needed.includes(answer.fixture) || needed.includes(null)
         ? []
@@ -256,6 +275,9 @@ const unresolvedViolations = (
   );
   // The attempt is the pairing the method could not resolve, made before any judge is seated: its panels may be short.
   return [
+    ...(answer.broken.length === 0
+      ? [{ kind: 'unresolved_unbroken', event: answer.event } as const]
+      : []),
     ...matchedViolations(input, matched, answer.broken, true),
     ...(missing.length > 0 || extra.length > 0
       ? [

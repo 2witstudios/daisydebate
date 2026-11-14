@@ -59,7 +59,18 @@ export const byeViolations = (
   request: EventRequest,
   plan: Plan,
 ): Violation[] => {
-  if (request.stage.kind !== 'preliminary') return [];
+  /**
+   * An elimination round follows its bracket, and a two-sided round robin its
+   * circle, which runs over the whole field (withdrawn entries included, so a
+   * drop gives its scheduled opponent a bye): both are checked as schedules.
+   */
+  if (
+    request.stage.kind !== 'preliminary' ||
+    (sidesOf(request) === 2 &&
+      request.settings['pairing.method'].preliminary.structure ===
+        'round_robin')
+  )
+    return [];
   const event = request.event;
   const fresh = placedOf(plan).filter((p) => p.added);
   const added = fresh.filter((p) => p.fixture.kind === 'bye');
@@ -68,15 +79,7 @@ export const byeViolations = (
     request,
     fresh.flatMap((p) => entriesIn(p.fixture)),
   );
-  /**
-   * A round robin's circle runs over the whole field, withdrawn entries
-   * included, so a drop gives its scheduled opponent a bye: the schedule,
-   * not the count, says who sits out.
-   */
-  const roundRobin =
-    request.format.outcome === 'winner' &&
-    request.settings['pairing.method'].preliminary.structure === 'round_robin';
-  if (!roundRobin && added.length !== expected)
+  if (added.length !== expected)
     violations.push({
       kind: 'bye_count',
       event,
@@ -110,6 +113,11 @@ export const byeViolations = (
     cutoff,
     request.tabRound,
   ).of;
+  /**
+   * A decision, not a gap: under `bye.recipient: lowest` only the tier of
+   * fewest wins is restated. Which entry of that tier the bye goes to follows
+   * the tiebreak standings, which the checker does not restate.
+   */
   const fewest = Math.min(...eligible.map(wins));
   const lowest = request.settings['bye.recipient'].value === 'lowest';
   for (const { ref, fixture } of added) {

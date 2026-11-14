@@ -1,29 +1,24 @@
 import { compareBytes } from '@daisy/seeded-random';
 import type { Fixture, Id } from '../shapes/competition';
-import type {
-  Draw,
-  DrawInput,
-  EventRequest,
-  ExistingFixture,
-} from '../shapes/draw';
+import type { Draw, EventRequest, ExistingFixture } from '../shapes/draw';
 import { forceKeys, type ForceKey } from '../shapes/settings';
-import { costContext, placedOf, sidesOf } from './context';
+import { placedOf, sidesOf } from './context';
 import { fixtureCosts, forceOf, isBroken, type CostContext } from './costs';
-import { entriesIn } from './past';
+import { entriesIn, panelOf } from './past';
 import { movableIds } from './rules';
 import type { Violation } from './verdict';
 
 /** The most entries a brute force tries: 945 matchings of ten, both ways round. */
 const SMALL = 10;
 
-type Candidate = {
+export type Candidate = {
   readonly fixture: Fixture;
   readonly costs: ReadonlyMap<ForceKey, readonly number[]>;
   readonly reproduces: boolean;
   readonly clashes: boolean;
 };
 
-type Field = {
+export type Field = {
   readonly toPlace: readonly Id[];
   readonly fixed: readonly Fixture[];
   readonly movable: readonly Fixture[];
@@ -37,7 +32,7 @@ const sameFixture = (a: Fixture, b: Fixture) => {
 };
 
 /** A two-sided preliminary field small enough to try every plan of, or null. */
-const smallField = (request: EventRequest): Field | null => {
+export const smallField = (request: EventRequest): Field | null => {
   if (sidesOf(request) !== 2 || request.stage.kind !== 'preliminary')
     return null;
   // A round-robin round is fixed by its circle schedule: there is nothing to search.
@@ -72,7 +67,7 @@ const smallField = (request: EventRequest): Field | null => {
  * bye standing in when their number is odd), each pair either way round.
  * `visit` returns true to stop.
  */
-const everyPlan = (
+export const everyPlan = (
   ctx: CostContext,
   field: Field,
   occupied: ReadonlySet<Id>,
@@ -166,7 +161,7 @@ const ruleKeys = (request: EventRequest) =>
     (key) => forceOf(request, key) === 'rule',
   );
 
-const breaksAny = (
+export const breaksAny = (
   costs: ReadonlyMap<ForceKey, readonly number[]>,
   keys: readonly ForceKey[],
 ) => keys.some((key) => isBroken(costs.get(key) ?? []));
@@ -206,10 +201,23 @@ export const optimalityViolations = (
     c.fixture.kind !== 'bye' ||
     drawnBye === undefined ||
     (drawnBye.kind === 'bye' && c.fixture.entry === drawnBye.entry);
+  /**
+   * A movable fixture can be kept only while its seated judges are free and
+   * it, with its panel, breaks no rule; otherwise it is withdrawn whatever
+   * the plan, and drawing its pairing afresh is not keeping it.
+   */
+  const keepable = field.movable.filter(
+    (f) =>
+      !breaksAny(fixtureCosts(ctx, f), rules) &&
+      panelOf(f).every((id) => {
+        const person = ctx.judges?.get(id)?.person;
+        return person === undefined || !occupied.has(person);
+      }),
+  );
   let best: number[] | null = null;
   everyPlan(
     ctx,
-    field,
+    { ...field, movable: keepable },
     occupied,
     (c) => !c.clashes && !breaksAny(c.costs, rules) && byeAsDrawn(c),
     (chosen) => {
@@ -236,52 +244,4 @@ export const optimalityViolations = (
   return compareVectors(actual, best) > 0
     ? [{ kind: 'not_optimal', event: request.event, actual, best }]
     : [];
-};
-
-/** An infeasible-by-rules answer: no plan keeps the named rules, and dropping any one admits one. */
-export const infeasibleRulesViolations = (
-  input: DrawInput,
-  event: Id,
-  rules: readonly ForceKey[],
-): Violation[] => {
-  const requests = input.call === 'slot' ? input.events : [input.event];
-  const request = requests.find((r) => r.event === event);
-  if (request === undefined) return [{ kind: 'draw_extra', event }];
-  /**
-   * What the checker cannot brute force it accepts unchecked: a judging rule
-   * (panels are not searched), a field above SMALL, an elimination round, a
-   * four-side or speech event, or a round-robin round.
-   */
-  if (rules.some((key) => key.startsWith('judging.'))) return [];
-  const field = smallField(request);
-  if (field === null) return [];
-  const ctx = costContext(input, request);
-  const occupied = new Set(
-    input.call === 'slot' ? input.commitments.flatMap((c) => c.people) : [],
-  );
-  const feasible = (keys: readonly ForceKey[]) => {
-    if (field.fixed.some((f) => breaksAny(fixtureCosts(ctx, f), keys)))
-      return false;
-    let found = false;
-    everyPlan(
-      ctx,
-      field,
-      occupied,
-      (c) => !c.clashes && !breaksAny(c.costs, keys),
-      () => {
-        found = true;
-        return true;
-      },
-    );
-    return found;
-  };
-  if (feasible(rules))
-    return [{ kind: 'infeasible_rules_feasible', event, rules }];
-  return rules
-    .filter((key) => !feasible(rules.filter((k) => k !== key)))
-    .map((key): Violation => ({
-      kind: 'infeasible_rules_not_minimal',
-      event,
-      key,
-    }));
 };
