@@ -154,6 +154,8 @@ export const drawCommandCatalogue = {
     refusals: [
       'stale-draft',
       'inputs-changed',
+      'draw-unresolved',
+      'judges-insufficient',
       'rule-broken',
       'reason-required',
       'fixture-started',

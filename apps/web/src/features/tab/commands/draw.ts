@@ -1139,6 +1139,7 @@ const roomTitle = (facts: DrawFacts) =>
   `${facts.event.name}: ${facts.tabRound.name ?? `Round ${facts.tabRound.number}`}`;
 
 const publishDraw = (
+  engine: TabEngine,
   facts: DrawFacts,
   command: Extract<DrawCommand, { type: 'publish-draw' }>,
 ): DrawDecision => {
@@ -1158,7 +1159,9 @@ const publishDraw = (
     return refuse('draw-unchanged');
   if (command.overrides.some((override) => override.reason.trim().length === 0))
     return refuse('reason-required');
-  const overridden = new Set(command.overrides.map((override) => override.key));
+  const overridden: ReadonlySet<string> = new Set(
+    command.overrides.map((override) => override.key),
+  );
   if (
     draw.inputs.broken.some(
       (key) => !overridden.has(key as DrawOverride['key']),
@@ -1177,9 +1180,103 @@ const publishDraw = (
   )
     return refuse('fixture-started');
   const held = draw.fixtureIds.flatMap((id) => byId.get(id) ?? []);
+  if (
+    new Set(draw.fixtureIds).size !== draw.fixtureIds.length ||
+    held.length !== draw.fixtureIds.length ||
+    held.some(
+      (fixture) =>
+        fixture.status === 'withdrawn' ||
+        new Set(fixture.entries.map((entry) => entry.entryId)).size !==
+          fixture.entries.length ||
+        (fixture.kind === 'bye' &&
+          (fixture.entries.length !== 1 || fixture.judges.length !== 0)) ||
+        [...fixture.entries]
+          .sort((a, b) => a.position - b.position)
+          .some(
+            (entry, position) =>
+              entry.position !== position ||
+              entry.side !==
+                (fixture.kind === 'pairing'
+                  ? (facts.event.sideNames?.[position] ?? null)
+                  : null),
+          ),
+    )
+  )
+    return refuse('draw-unresolved');
   const booked = doubleBooked(held, new Set(facts.slotElsewhere));
   if (booked.judges) return refuse('judge-double-booked');
   if (booked.entries) return refuse('slot-clash');
+  const assessment = engine.assess(
+    drawInput(
+      facts,
+      request(
+        facts,
+        facts.settings.values,
+        draw.inputs.engine?.cutoff ?? 0,
+        liveExisting(facts),
+      ),
+      true,
+      seedBytes(draw.inputs.engine?.seed ?? ''),
+    ),
+    [
+      {
+        event: facts.event.id,
+        keep: held
+          .filter((fixture) => fixture.status === 'published')
+          .map((fixture) => ({
+            id: fixture.id,
+            fixture: engineFixtureOf(fixture),
+          })),
+        add: held
+          .filter((fixture) => fixture.status === 'draft')
+          .map((fixture, ordinal) => ({
+            ordinal,
+            fixture: engineFixtureOf(fixture),
+          })),
+        withdraw: facts.fixtures
+          .filter(
+            (fixture) =>
+              fixture.status === 'published' &&
+              !draw.fixtureIds.includes(fixture.id),
+          )
+          .map((fixture) => fixture.id),
+      },
+    ],
+  )[0];
+  if (!assessment || assessment.invalid.length)
+    return refuse('draw-unresolved');
+  const panelSize =
+    facts.settings.values['judging.panel'][facts.tabRound.stage.kind].size;
+  const panels = held.filter((fixture) => fixture.kind !== 'bye');
+  if (
+    panels.some(
+      (fixture) =>
+        fixture.judges.length < panelSize ||
+        fixture.judges.some(
+          (judge) =>
+            !facts.engine.judges.some(
+              (current) => current.id === judge.tournamentJudgeId,
+            ),
+        ),
+    )
+  )
+    return refuse('judges-insufficient');
+  if (
+    panels.some(
+      (fixture) =>
+        fixture.judges.length !== panelSize ||
+        fixture.judges.filter((judge) => judge.chair).length !== 1 ||
+        fixture.judges.some(
+          (judge) =>
+            facts.engine.judges.find(
+              (current) => current.id === judge.tournamentJudgeId,
+            )?.person !== judge.person,
+        ),
+    )
+  )
+    return refuse('draw-unresolved');
+  if (assessment.broken.some((rule) => !overridden.has(rule.key)))
+    return refuse('rule-broken');
   const unpublished = held.filter((fixture) => fixture.status === 'draft');
   const roomed = unpublished.filter((fixture) => fixture.kind !== 'bye');
   const ids = freshIdsFor(facts, roomed.length + facts.releasesAtOnce.length);
@@ -1271,13 +1368,22 @@ const publishDraw = (
         set: {
           status: 'published',
           publishedAt: now,
-          inputs: { ...draw.inputs, overrides: command.overrides },
+          inputs: {
+            ...draw.inputs,
+            broken: [
+              ...new Set([
+                ...draw.inputs.broken,
+                ...assessment.broken.map((rule) => rule.key),
+              ]),
+            ],
+            overrides: command.overrides,
+          },
         },
       },
       ...releases,
       ...slotBump(facts),
     ],
-    [],
+    findingsOf(assessment),
     fixtureChangesOf(
       {
         tabRoundId: facts.tabRound.id,
@@ -1346,7 +1452,7 @@ export const decideDraw =
       case 'edit-draw':
         return editDraw(engine, facts, command);
       case 'publish-draw':
-        return publishDraw(facts, command);
+        return publishDraw(engine, facts, command);
       case 'discard-draft':
         return discardDraft(facts, command);
     }
