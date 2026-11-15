@@ -73,6 +73,9 @@ Entry requests address the actual lobby and event and read only that event's
 setting chain. Shared locks on its real parent definitions let unrelated
 consumers proceed while a parent writer waits; a changed parent reference after
 a wait refuses the obsolete request before any entry or audit write.
+Parent policies are selected by scope kind as well as tenant id: a template's
+organization id and an event's lobby id are isolation keys, not a reason to
+include unoffered sibling templates or other events in the addressed chain.
 
 Organization people are authorized and projected inside the store's transaction,
 under shared canonical viewer-account and organization fences. Readers coexist;

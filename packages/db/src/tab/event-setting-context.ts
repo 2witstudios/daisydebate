@@ -135,10 +135,17 @@ export const lockEventSettingContext = async (
     .from(settings)
     .where(
       or(
-        eq(settings.lobbyId, lobby.id),
+        // A child setting carries its parent's isolation id too. Only the
+        // parent scope itself, plus the named children, belongs to this chain.
+        and(eq(settings.scopeKind, 'lobby'), eq(settings.lobbyId, lobby.id)),
         eq(settings.eventId, event.id),
         ...(chainOrganizationIds.length
-          ? [inArray(settings.organizationId, chainOrganizationIds)]
+          ? [
+              and(
+                eq(settings.scopeKind, 'organization'),
+                inArray(settings.organizationId, chainOrganizationIds),
+              ),
+            ]
           : []),
         ...(template ? [eq(settings.templateId, template.id)] : []),
       ),

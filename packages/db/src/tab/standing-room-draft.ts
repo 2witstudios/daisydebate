@@ -149,8 +149,16 @@ const load = async (tx: TabTransaction, input: Input) => {
         .from(settings)
         .where(
           or(
-            eq(settings.organizationId, scope.organizationId),
-            eq(settings.lobbyId, lobby.id),
+            // Parent ids also isolate child-scope rows; they do not make those
+            // unrelated children part of this Room's setting chain.
+            and(
+              eq(settings.scopeKind, 'organization'),
+              eq(settings.organizationId, scope.organizationId),
+            ),
+            and(
+              eq(settings.scopeKind, 'lobby'),
+              eq(settings.lobbyId, lobby.id),
+            ),
             ...(ids.length ? [inArray(settings.templateId, ids)] : []),
           ),
         ),
