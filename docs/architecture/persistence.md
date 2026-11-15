@@ -80,6 +80,13 @@ authority writers wait. The same snapshot supplies the organization version and
 owned lobby choices for role controls; a submission retains the version the host
 saw instead of replacing it with a fresh guard.
 
+Standing Room drafts likewise retain shared account and actual parent fences
+through authorization and projection. The read addresses one lobby, loads only
+its offered templates, their actual owners and exact preset pins, and the
+settings in that Room chain. Offers and ownership are checked again after lock
+waits; a changed chain returns no obsolete draft. This consumer does not take
+the global settings-writer fence or enumerate unrelated tournament branches.
+
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a
 Round finalization consumes; the recorded-ending read treats a mismatch as

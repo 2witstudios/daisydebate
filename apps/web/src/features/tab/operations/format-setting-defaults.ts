@@ -5,7 +5,7 @@ import type { FormatSettingDefaults } from '@daisy/protocol/setting-resolution';
 
 /** Values from the latest approved preset of this exact definition revision. */
 export const formatSettingDefaults = (
-  graph: SettingGraph,
+  graph: Pick<SettingGraph, 'presets'>,
   formatId: string,
   formatVersion: number,
 ): FormatSettingDefaults => {

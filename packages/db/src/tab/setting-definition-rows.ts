@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { formats } from '../schema/formats';
 import { formatRevisions } from '../schema/format-revisions';
 import { organizations } from '../schema/organizations';
@@ -21,7 +21,10 @@ export const loadFormatRows = (tx: TabTransaction) =>
     .innerJoin(formats, eq(formats.id, formatRevisions.formatId));
 
 /** Templates keep their pins and their owner's name, including after retirement. */
-export const loadTemplateRows = (tx: TabTransaction) =>
+export const loadTemplateRows = (
+  tx: TabTransaction,
+  templateIds?: readonly string[],
+) =>
   tx
     .select({
       id: templates.id,
@@ -44,4 +47,9 @@ export const loadTemplateRows = (tx: TabTransaction) =>
     .leftJoin(
       ballotDefinitions,
       eq(ballotDefinitions.id, templates.ballotDefinitionId),
+    )
+    .where(
+      templateIds === undefined
+        ? undefined
+        : inArray(templates.id, [...templateIds]),
     );
