@@ -520,6 +520,7 @@ const eliminations = (
                 state,
                 fixtures,
                 dice(seed, `${stage.stage}-${r}`),
+                settings,
               ),
             ],
           };
@@ -627,6 +628,7 @@ export const simulate = (
         state,
         fixtures,
         dice(seed, `${plan.id}-${round}`),
+        plan.settings,
       );
       const unplayed = plan.windowed ? results.filter(() => d.chance(15)) : [];
       const [now, later] = scenario.lateResults

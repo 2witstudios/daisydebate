@@ -56,7 +56,7 @@ test('the wired draw port runs the actual engine for every format and retains it
     }),
     expected: ['pairing', 'pairing', 'section'].map((kind) => [
       kind,
-      'tab-engine@1',
+      'tab-engine@2',
       'ab'.repeat(32),
       0,
       [],

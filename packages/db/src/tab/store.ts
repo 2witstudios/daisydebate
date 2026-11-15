@@ -1,3 +1,5 @@
+import { createEventBallotReadStore } from './event-ballot-read';
+export type { EventBallotFacts } from './event-ballot-read';
 import { createTournamentEventSettingReadStore } from './tournament-event-settings';
 import { createGuardianCommandStore } from './guardian-command';
 import { createFamilyHistoryStore } from './family-history';
@@ -155,6 +157,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createStandingRoomDraftStore(database),
   ...createTournamentSetupReadStore(database),
   ...createTournamentEventSettingReadStore(database),
+  ...createEventBallotReadStore(database),
   organizationCommand: <Answer>(
     input: OrganizationCommandInput,
     work: (session: OrganizationCommandSession) => Promise<Answer>,

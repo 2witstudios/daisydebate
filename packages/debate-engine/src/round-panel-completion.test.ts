@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { daisyWinnerBallot, isJudgeSeat } from '@daisy/protocol';
@@ -22,6 +23,7 @@ const total = rules.segments.reduce(
 const facts = (now: string) => ({
   now,
   judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
     ballot: daisyWinnerBallot,
     panel: { decision: 'majority', quorum: 1 },
   } as const,

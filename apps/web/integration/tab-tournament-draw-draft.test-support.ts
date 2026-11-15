@@ -132,7 +132,7 @@ export const draftDrawStage = async (world: World): Promise<void> => {
         method: 'computed',
         status: 'draft',
         seed: 'ab'.repeat(32),
-        engine: 'tab-engine@1',
+        engine: 'tab-engine@2',
       },
       [2, 2],
       0,

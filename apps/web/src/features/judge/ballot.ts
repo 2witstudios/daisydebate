@@ -1,5 +1,8 @@
+import { createAppError } from '@daisy/errors';
 import {
   ballotDefinitionIdentity,
+  isScoreOnScale,
+  scoreScaleFor,
   ballotSchemaFor,
   isLowPointWin,
   pointsTotal,
@@ -20,6 +23,9 @@ export const pointsField = (subject: string): string => `points-${subject}`;
 export const feedbackField = (subject: string): string => `feedback-${subject}`;
 /** The posted field naming the subject in one place of a ranking, first place 1. */
 export const placeField = (place: number): string => `place-${place}`;
+export const speakerPlaceField = (place: number): string =>
+  `speaker-place-${place}`;
+export const tiedPlaceField = (subject: string): string => `rank-${subject}`;
 
 /** The criteria a definition scores, in order; empty for a holistic score. */
 export const criteriaOf = (points: BallotPoints) =>
@@ -43,11 +49,18 @@ export const ballotFieldNames = (plan: BallotPlan): readonly string[] => {
           ...(decision.tie || decision.doubleLoss ? ['decision'] : []),
           ...(points ? ['low-point'] : []),
         ]
-      : plan.decided.map((_, index) => placeField(index + 1));
+      : plan.decided.map((subject, index) =>
+          decision.ties ? tiedPlaceField(subject.key) : placeField(index + 1),
+        );
   return [
     ...decisionFields,
-    'reason',
-    ...plan.decided.map((subject) => feedbackField(subject.key)),
+    ...(plan.definition.speakerRanks
+      ? plan.speakers.map((_, index) => speakerPlaceField(index + 1))
+      : []),
+    ...(plan.definition.written.reason ? ['reason'] : []),
+    ...(plan.definition.written.feedback
+      ? plan.decided.map((subject) => feedbackField(subject.key))
+      : []),
     ...(points
       ? plan.scored.flatMap((subject) => pointFields(points, subject.key))
       : []),
@@ -66,28 +79,34 @@ export const readScore = (
 ): number | null => {
   if (value === undefined || value === '') return null;
   const score = Number(value);
-  return String(score) === value &&
-    score >= scale.min &&
-    score <= scale.max &&
-    Number.isInteger((score - scale.min) / scale.step)
-    ? score
-    : null;
+  return String(score) === value && isScoreOnScale(score, scale) ? score : null;
 };
 
 /** One subject's points as the form holds them: a criteria grid or one score. */
+export const subjectScale = (points: BallotPoints, subject: string) => {
+  const resolved = scoreScaleFor(points, subject);
+  if (!resolved)
+    throw createAppError(
+      'INVARIANT',
+      'The ballot subject has an invalid score scale',
+    );
+  return resolved;
+};
 export const postedPoints = (
   points: BallotPoints,
   subject: string,
   read: (name: string) => string | undefined,
-): Readonly<Record<string, number | null>> | number | null =>
-  points.criteria.kind === 'grid'
+): Readonly<Record<string, number | null>> | number | null => {
+  const { scale } = subjectScale(points, subject);
+  return points.criteria.kind === 'grid'
     ? Object.fromEntries(
         criteriaOf(points).map((category) => [
           category.id,
-          readScore(points.scale, read(scoreField(subject, category.id))),
+          readScore(scale, read(scoreField(subject, category.id))),
         ]),
       )
-    : readScore(points.scale, read(pointsField(subject)));
+    : readScore(scale, read(pointsField(subject)));
+};
 
 /**
  * What a low-point confirmation is given for: the winner and every scored
@@ -134,6 +153,37 @@ function readDecision(form: FormData, plan: BallotPlan): Decision {
       };
     }
     case 'ranking': {
+      if (decision.ties) {
+        const ranks = keys.map((key) => ({
+          key,
+          rank: Number(field(form, tiedPlaceField(key))),
+        }));
+        if (
+          ranks.some(
+            ({ rank }) =>
+              !Number.isInteger(rank) || rank < 1 || rank > keys.length,
+          )
+        )
+          return { ok: false, error: 'Give every subject a place.' };
+        const distinct = [...new Set(ranks.map(({ rank }) => rank))].sort(
+          (a, b) => a - b,
+        );
+        if (distinct.some((rank, index) => rank !== index + 1))
+          return {
+            ok: false,
+            error: 'Use consecutive places; tied subjects share one place.',
+          };
+        return {
+          ok: true,
+          fields: {
+            ranking: distinct.map((rank) =>
+              ranks
+                .filter((candidate) => candidate.rank === rank)
+                .map((candidate) => candidate.key),
+            ),
+          },
+        };
+      }
       const places = keys.map((_, index) => field(form, placeField(index + 1)));
       if (
         places.some((key) => !keys.includes(key)) ||
@@ -164,18 +214,29 @@ export function parseBallot(
   form: FormData,
   plan: BallotPlan,
 ): Parsed<PostedBallot> {
+  if (form.has('privateNote')) return refuse('Private notes are unavailable.');
   const { definition } = plan;
   const { points } = definition;
   const decision = readDecision(form, plan);
   if (!decision.ok) return refuse(decision.error);
+  const speakerRanks = definition.speakerRanks
+    ? plan.speakers.map((_, index) => field(form, speakerPlaceField(index + 1)))
+    : null;
+  if (
+    speakerRanks &&
+    (speakerRanks.some((key) => !plan.subjects.speakers.includes(key)) ||
+      new Set(speakerRanks).size !== plan.subjects.speakers.length)
+  )
+    return refuse('Place every speaker once.');
   const words = readWritten(form, plan);
   if (!words.ok) return refuse(words.error);
   const parsed = ballotSchemaFor(definition, plan.subjects).safeParse({
     rubricVersion: ballotDefinitionIdentity(definition),
     ...decision.fields,
+    ...(speakerRanks ? { speakerRanks: speakerRanks.map((key) => [key]) } : {}),
     ...(points ? { scores: readScores(form, plan, points) } : {}),
-    ...(words.reason === '' ? {} : { reason: words.reason }),
-    feedback: words.feedback,
+    ...(words.reason ? { reason: words.reason } : {}),
+    ...(words.feedback ? { feedback: words.feedback } : {}),
   });
   if (!parsed.success)
     return refuse(
@@ -199,18 +260,27 @@ const readScores = (form: FormData, plan: BallotPlan, points: BallotPoints) =>
 type Written =
   | {
       readonly ok: true;
-      readonly reason: string;
-      readonly feedback: Record<string, string>;
+      readonly reason?: string;
+      readonly feedback?: Record<string, string>;
     }
   | { readonly ok: false; readonly error: string };
 
 /** The reason and each decided subject's feedback, within the definition's limits. */
 function readWritten(form: FormData, plan: BallotPlan): Written {
   const { written } = plan.definition;
+  if (
+    (!written.reason && form.has('reason')) ||
+    (!written.feedback &&
+      [...form.keys()].some((key) => key.startsWith('feedback-')))
+  )
+    return {
+      ok: false,
+      error: 'This ballot does not collect that written part.',
+    };
   const reason = text(form, 'reason');
-  if (reason === '' && written.reason.required)
+  if (reason === '' && written.reason?.required)
     return { ok: false, error: 'Write the reason for your decision.' };
-  if (reason.length > written.reason.max)
+  if (written.reason && reason.length > written.reason.max)
     return {
       ok: false,
       error: `A reason is up to ${written.reason.max} characters. Shorten it.`,
@@ -223,14 +293,18 @@ function readWritten(form: FormData, plan: BallotPlan): Written {
       )
       .filter(([, text]) => text !== ''),
   );
-  return Object.values(feedback).some(
-    (text) => text.length > written.feedback.max,
-  )
+  const feedbackLimit = written.feedback;
+  return feedbackLimit &&
+    Object.values(feedback).some((text) => text.length > feedbackLimit.max)
     ? {
         ok: false,
-        error: `Feedback is up to ${written.feedback.max} characters. Shorten it.`,
+        error: `Feedback is up to ${feedbackLimit.max} characters. Shorten it.`,
       }
-    : { ok: true, reason, feedback };
+    : {
+        ok: true,
+        ...(written.reason && reason !== '' ? { reason } : {}),
+        ...(written.feedback ? { feedback } : {}),
+      };
 }
 
 /** A win on fewer side points that the posted confirmation is not for. */

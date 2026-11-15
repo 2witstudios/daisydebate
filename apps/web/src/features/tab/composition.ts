@@ -1,3 +1,8 @@
+import { readEventBallot } from './reads/event-ballot';
+import {
+  createEventBallotRoute,
+  type EventBallotRouteDependencies,
+} from './event-ballot-route';
 import { readTournamentEventSettings } from './reads/tournament-event-settings';
 import { guardianCommand } from './operations/guardian';
 import { readFamilyHistory } from './reads/family-history';
@@ -76,6 +81,12 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    eventBallot: (released: EventBallotRouteDependencies['released']) =>
+      createEventBallotRoute({
+        boundary,
+        released,
+        read: readEventBallot({ store, authorize, now }),
+      }),
     guardianCommand: (released: TabCommandRouteDependencies['released']) =>
       commandRoute(released, {
         name: 'tab.guardian.command',

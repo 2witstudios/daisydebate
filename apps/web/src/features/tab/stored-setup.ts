@@ -121,6 +121,14 @@ export const storedSetupOf = (
         keys: ['ballot.definition'],
         label: 'Ballot',
         value: event.ballotDefinition?.name ?? 'Daisy ballot',
+        edit: linkTo(
+          'Ballot details',
+          hostRoutes.ballot(view.handle, event.eventId),
+        ),
+        view: linkTo(
+          'Ballot details',
+          hostRoutes.ballot(view.handle, event.eventId),
+        ),
       },
       {
         subject: 'stages',

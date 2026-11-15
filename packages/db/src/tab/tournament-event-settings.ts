@@ -11,7 +11,10 @@ type Input = {
   readonly lobbyId: string;
   readonly eventId: string;
 };
-const load = async (tx: TabTransaction, input: Input) => {
+export const loadTournamentEventSettingFacts = async (
+  tx: TabTransaction,
+  input: Input,
+) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
   await fenceTabAccountRead(tx, input.viewerUserId);
   const configuration = await lockEventSettingContext(tx, {
@@ -54,7 +57,7 @@ const load = async (tx: TabTransaction, input: Input) => {
   };
 };
 export type TournamentEventSettingFacts = NonNullable<
-  Awaited<ReturnType<typeof load>>
+  Awaited<ReturnType<typeof loadTournamentEventSettingFacts>>
 >;
 export const createTournamentEventSettingReadStore = (
   database: TabDatabase,
@@ -63,5 +66,7 @@ export const createTournamentEventSettingReadStore = (
     input: Input,
     work: (facts: TournamentEventSettingFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    database.transaction(async (tx) =>
+      work(await loadTournamentEventSettingFacts(tx, input)),
+    ),
 });

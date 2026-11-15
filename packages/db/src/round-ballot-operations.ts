@@ -255,8 +255,9 @@ async function insertFrozenBallot(
 ) {
   const ballotId = input.nextBallotId();
   const body = requireRoundBallot(context.round, input.envelope.ballot);
-  if (body.speakerRanks !== undefined)
-    throw createAppError('INVARIANT', 'Speaker ranks have no stored home');
+  const judging = context.round.judging;
+  if (!judging) throw createAppError('INVARIANT');
+  const source = judging.source;
   const [stored] = await tx
     .insert(ballots)
     .values({
@@ -265,10 +266,13 @@ async function insertFrozenBallot(
       judgeParticipantId: input.envelope.judgeParticipantId,
       freezeRevision: context.frozen.revision,
       rubricVersion: body.rubricVersion,
+      ballotDefinitionId: source.kind === 'stored' ? source.id : null,
+      ballotDefinitionVersion: source.kind === 'stored' ? source.version : null,
+      speakerRanks: body.speakerRanks ?? null,
       ...ballotDecisionColumns(body),
       scores: body.scores ?? null,
-      reason: body.reason ?? '',
-      feedback: body.feedback,
+      reason: body.reason ?? null,
+      feedback: body.feedback ?? null,
       citations: body.citations ?? null,
       submittedAt: new Date(context.now),
     })

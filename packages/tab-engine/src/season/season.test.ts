@@ -31,7 +31,10 @@ const uncertified = (p: Played<TwoSides>): Played<TwoSides> => ({
 });
 
 /** A correction of `p` that `winner` won instead. */
-const correction = (p: Played<TwoSides>, winner: Id): ResultOf<TwoSides> => ({
+const correction = (
+  p: ReturnType<typeof debate>,
+  winner: Id,
+): ResultOf<TwoSides> => ({
   ...p.result!,
   id: `${p.result!.id}-fix`,
   supersedes: p.result!.id,

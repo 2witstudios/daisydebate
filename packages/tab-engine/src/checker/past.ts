@@ -6,7 +6,6 @@ import type {
   StageHistory,
   FormatDescriptor,
 } from '../shapes/competition';
-import type { ResolvedSettings } from '../shapes/settings';
 
 /** A historic fixture with the format generics erased. */
 export type PastFixture = {
@@ -108,7 +107,6 @@ export const recordsBefore = (
   sides: number | null,
   fixtures: readonly PastFixture[],
   reading: ReadonlyMap<Id, Result>,
-  settings: ResolvedSettings,
   cutoff: number,
   beforeRound: number,
 ): Records => {
@@ -119,9 +117,15 @@ export const recordsBefore = (
   for (const past of fixtures) {
     if (past.tabRound >= beforeRound || past.tabRound > cutoff) continue;
     if (past.fixture.kind === 'bye') {
-      if (settings['bye.result'].value === 'win')
-        add(past.fixture.entry, sides === 4 ? 3 : 1);
-      else exact = false;
+      const result = reading.get(past.id);
+      if (
+        result?.kind === 'administrative' &&
+        result.outcome.credits.kind === 'bye'
+      ) {
+        if (result.outcome.credits.rule === 'win')
+          add(past.fixture.entry, sides === 4 ? 3 : 1);
+        else exact = false;
+      }
       continue;
     }
     const result = reading.get(past.id);
@@ -209,7 +213,6 @@ export const pullUpCounts = (
   sides: number | null,
   fixtures: readonly PastFixture[],
   reading: ReadonlyMap<Id, Result>,
-  settings: ResolvedSettings,
   cutoff: number,
   tabRound: number,
 ): ((entry: Id) => number) => {
@@ -220,7 +223,6 @@ export const pullUpCounts = (
       sides,
       fixtures,
       reading,
-      settings,
       cutoff,
       past.tabRound,
     );

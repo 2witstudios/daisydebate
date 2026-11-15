@@ -131,6 +131,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'command-conflict': 'the latest room changes',
   'consent-conflict': 'the latest readiness changes',
   'active-room': 'everyone to leave their other rooms',
+  'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
   'draw-unavailable': 'enough resolutions to draw from',

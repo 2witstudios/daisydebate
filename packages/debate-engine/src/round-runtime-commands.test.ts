@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assertRejects } from '@daisy/errors/testing';
 import { daisyWinnerBallot, isJudgeSeat, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -171,6 +172,7 @@ describe('round runtime lifecycle', () => {
       const completed = world.completePanel({
         now: at(totalMs),
         judging: {
+          source: daisyBallotSource(daisyWinnerBallot),
           ballot: daisyWinnerBallot,
           panel: { decision: 'majority', quorum: 1 },
         },

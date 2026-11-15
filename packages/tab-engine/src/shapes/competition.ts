@@ -92,15 +92,46 @@ type OutcomeOf<Format extends FormatDescriptor> = Format extends TwoSides
   ? WinnerOutcome
   : RankingOutcome;
 
+/** Administrative credits have no submitted judge identity or fabricated ballot. */
+export type AdministrativeCredits =
+  | {
+      readonly kind: 'awarded';
+      readonly entries: readonly {
+        readonly entry: Id;
+        readonly ballotsWon: number;
+        readonly ranks: readonly number[];
+        readonly points: number;
+      }[];
+    }
+  | {
+      readonly kind: 'bye';
+      readonly rule: 'win' | 'own_average';
+      readonly panelSize: number;
+    };
+
+type AdministrativeOutcome<Format extends FormatDescriptor> =
+  (Format extends TwoSides
+    ? Omit<WinnerOutcome, 'ballots'>
+    : Omit<RankingOutcome, 'ballots'>) & {
+    readonly credits: AdministrativeCredits;
+  };
+
 /** The outcome of a fixture. A correction supersedes an earlier result. */
-export type ResultOf<Format extends FormatDescriptor> = {
-  readonly id: Id;
-  readonly fixture: Id;
-  readonly kind: 'decided' | 'administrative';
-  readonly supersedes: Id | null;
-  readonly certified: boolean;
-  readonly outcome: OutcomeOf<Format>;
-};
+export type ResultOf<Format extends FormatDescriptor> =
+  Format extends FormatDescriptor
+    ? {
+        readonly id: Id;
+        readonly fixture: Id;
+        readonly supersedes: Id | null;
+        readonly certified: boolean;
+      } & (
+        | { readonly kind: 'decided'; readonly outcome: OutcomeOf<Format> }
+        | {
+            readonly kind: 'administrative';
+            readonly outcome: AdministrativeOutcome<Format>;
+          }
+      )
+    : never;
 export type Result =
   ResultOf<TwoSides> | ResultOf<FourSides> | ResultOf<Speakers>;
 

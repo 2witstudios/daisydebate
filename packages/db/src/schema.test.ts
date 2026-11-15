@@ -167,6 +167,7 @@ describe('competitive schema rules', () => {
             'rounds_completed_after_started',
             'rounds_current_stage_check',
             'rounds_judging_is_object',
+            'rounds_judging_source_check',
             'rounds_ladder_check',
             'rounds_lifecycle_check',
             'rounds_outcome_check',
@@ -186,6 +187,7 @@ describe('competitive schema rules', () => {
             'rounds_visibility_check',
           ],
           indexes: [
+            'rounds_ballot_definition_idx',
             'rounds_created_by_actor_idx',
             'rounds_definition_revision_idx',
             'rounds_discovery_live_room_idx',
@@ -196,6 +198,7 @@ describe('competitive schema rules', () => {
           ],
           uniques: ['rounds_id_format_unique', 'rounds_room_unique'],
           namedKeys: [
+            'rounds_ballot_definition_fk',
             'rounds_definition_revision_fk',
             'rounds_preset_provenance_fk',
           ],

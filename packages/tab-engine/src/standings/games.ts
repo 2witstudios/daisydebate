@@ -28,12 +28,24 @@ export type Game = {
   /** The largest rank `rank_truncation` keeps: the round's smallest section, or the side count. */
   readonly cap: number;
   readonly ballots: readonly Ballot[];
+  readonly credits: {
+    readonly ballotsWon: number;
+    readonly ranks: readonly number[];
+    readonly points: number;
+  } | null;
 };
 
 export type Played = {
   readonly games: ReadonlyMap<Id, readonly Game[]>;
   /** Byes at or before the cutoff, by entry. */
-  readonly byes: ReadonlyMap<Id, number>;
+  readonly byes: ReadonlyMap<
+    Id,
+    readonly {
+      readonly fixture: Id;
+      readonly rule: 'win' | 'own_average';
+      readonly panelSize: number;
+    }[]
+  >;
 };
 
 export const entriesOf = (fixture: Fixture): readonly Id[] => {
@@ -66,6 +78,7 @@ const placesOf = (
 };
 
 const ballotsOf = (result: Result, entry: Id): Ballot[] => {
+  if (result.kind === 'administrative') return [];
   const outcome = result.outcome;
   switch (outcome.kind) {
     case 'winner':
@@ -108,17 +121,6 @@ const beaten = (entry: Id, places: ReadonlyMap<Id, number | null>) => {
   );
 };
 
-const byesThrough = (
-  fixtures: readonly HistoricFixture<FormatDescriptor>[],
-  cutoff: number,
-) => {
-  const byes = new Map<Id, number>();
-  for (const { tabRound, fixture } of fixtures)
-    if (fixture.kind === 'bye' && tabRound <= cutoff)
-      byes.set(fixture.entry, (byes.get(fixture.entry) ?? 0) + 1);
-  return byes;
-};
-
 const gamesOfResult = (
   held: HistoricFixture<FormatDescriptor>,
   result: Result,
@@ -137,6 +139,12 @@ const gamesOfResult = (
       won: place === 1,
       cap,
       ballots: ballotsOf(result, entry),
+      credits:
+        result.kind === 'administrative' &&
+        result.outcome.credits.kind === 'awarded'
+          ? (result.outcome.credits.entries.find((c) => c.entry === entry) ??
+            null)
+          : null,
     };
     return { entry, game };
   });
@@ -152,9 +160,27 @@ export const playedGames = (
   const byId = new Map(fixtures.map((f) => [f.id, f]));
   const smallest = smallestSectionByRound(fixtures);
   const games = new Map<Id, Game[]>();
+  const byes = new Map<
+    Id,
+    { fixture: Id; rule: 'win' | 'own_average'; panelSize: number }[]
+  >();
   for (const result of results) {
     const held = byId.get(result.fixture);
-    if (held === undefined || held.fixture.kind === 'bye') continue;
+    if (held === undefined || held.tabRound > cutoff) continue;
+    if (held.fixture.kind === 'bye') {
+      if (
+        result.kind === 'administrative' &&
+        result.outcome.credits.kind === 'bye'
+      ) {
+        const { rule, panelSize } = result.outcome.credits;
+        const entry = held.fixture.entry;
+        byes.set(entry, [
+          ...(byes.get(entry) ?? []),
+          { fixture: held.id, rule, panelSize },
+        ]);
+      }
+      continue;
+    }
     const cap =
       held.fixture.kind === 'section'
         ? (smallest.get(held.tabRound) ?? held.fixture.speakers.length)
@@ -162,5 +188,5 @@ export const playedGames = (
     for (const game of gamesOfResult(held, result, cap))
       games.set(game.entry, [...(games.get(game.entry) ?? []), game.game]);
   }
-  return { games, byes: byesThrough(fixtures, cutoff) };
+  return { games, byes };
 };

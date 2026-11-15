@@ -12,8 +12,6 @@ import { type Game, type Played, playedGames } from './games';
 /** Everything a metric reads, built once per standings call. */
 export type Tally = Played & {
   readonly format: FormatDescriptor;
-  readonly byeResult: 'win' | 'own_average';
-  readonly panelSize: number;
   readonly ratings: ReadonlyMap<Id, EntryRating> | null;
   readonly results: readonly Id[];
 };
@@ -36,8 +34,6 @@ export const tallyOf = (input: StandingsInput): Tally => {
   return {
     ...playedGames(history, results, input.cutoff),
     format: input.format,
-    byeResult: input.settings['bye.result'].value,
-    panelSize: input.settings['judging.panel'].preliminary.size,
     ratings: ratingsOf(input.ratings),
     results: results.map((r) => r.id),
   };
@@ -46,34 +42,33 @@ export const tallyOf = (input: StandingsInput): Tally => {
 export const playedOf = (tally: Tally, entry: Id): readonly Game[] =>
   tally.games.get(entry) ?? [];
 
-export const byesOf = (tally: Tally, entry: Id) => tally.byes.get(entry) ?? 0;
+export const byesOf = (tally: Tally, entry: Id) => tally.byes.get(entry) ?? [];
 
 export const gamesCount = (tally: Tally, entry: Id) =>
-  playedOf(tally, entry).length + byesOf(tally, entry);
+  playedOf(tally, entry).length + byesOf(tally, entry).length;
 
-const bestPlace = 1;
-
-/** A bye under `win`: the format's best place, a winning ballot from every panel seat, no points. */
-const byeGame = (tally: Tally): Game => ({
-  fixture: '',
-  bye: true,
-  others: [],
-  beat: [],
-  place: bestPlace,
-  won: true,
-  cap: bestPlace,
-  ballots: Array.from({ length: tally.panelSize }, () => ({
-    won: true,
-    rank: 1,
-    points: 0,
-  })),
-});
-
-/** The games a total counts: played ones, and each bye when a bye is a win. */
-export const countedGames = (tally: Tally, entry: Id): readonly Game[] =>
-  tally.byeResult === 'win'
-    ? [
-        ...playedOf(tally, entry),
-        ...Array.from({ length: byesOf(tally, entry) }, () => byeGame(tally)),
-      ]
-    : playedOf(tally, entry);
+/** Explicit win credits carry their original panel size without inventing ballots. */
+export const countedGames = (tally: Tally, entry: Id): readonly Game[] => [
+  ...playedOf(tally, entry),
+  ...byesOf(tally, entry).flatMap((bye) =>
+    bye.rule === 'win'
+      ? [
+          {
+            fixture: bye.fixture,
+            bye: true,
+            others: [],
+            beat: [],
+            place: 1,
+            won: true,
+            cap: 1,
+            ballots: [],
+            credits: {
+              ballotsWon: bye.panelSize,
+              ranks: Array.from({ length: bye.panelSize }, () => 1),
+              points: 0,
+            },
+          },
+        ]
+      : [],
+  ),
+];

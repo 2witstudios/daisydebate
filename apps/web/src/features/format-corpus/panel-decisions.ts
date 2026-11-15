@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import {
   decidePanelCompletion,
   deriveRoundOutcome,
@@ -22,6 +23,7 @@ const at = (ms: number) => corpusStartMs + ms;
 
 /** Today's judging: Daisy's winner ballot, decided by majority with a quorum of one. */
 export const majorityJudging: NonNullable<RoundJudging> = {
+  source: daisyBallotSource(daisyWinnerBallot),
   ballot: daisyWinnerBallot,
   panel: { decision: 'majority', quorum: 1 },
 };

@@ -34,7 +34,9 @@ export async function withRoomRuntime(
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
-  > = {},
+  > & {
+    /** A private scratch database whose owner drops the entire aggregate. */ readonly databaseUrl?: string;
+  } = {},
 ) {
   const f = await fixture(options);
   try {
@@ -53,22 +55,23 @@ async function fixture(
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
-  >,
+  > & { readonly databaseUrl?: string },
 ) {
-  const sql = new SQL(services.databaseUrl),
+  const { databaseUrl = services.databaseUrl, ...storeOptions } = options;
+  const sql = new SQL(databaseUrl),
     client = createBoundedTestClient(services.redisUrl),
     namespace = testNamespace(createId());
   // Refusal-only cases may never issue an adapter command; cleanup still scans its namespace.
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
   const store = createDatabase({
-    url: services.databaseUrl,
+    url: databaseUrl,
     nextActorId: createId,
     ...aiAdmissionOptions({
       AI_ROUND_MONTHLY_CAP: 20,
       PREMIUM_BETA_GRANT: true,
     }),
-    ...options,
+    ...storeOptions,
   });
   const callers: { userId: string; actorId: string }[] = [],
     rooms: string[] = [],
@@ -324,6 +327,8 @@ async function fixture(
       await deleteNamespace(client, namespace);
       redis.close();
       try {
+        // Append-only fixture records in a private database live until its owning test drops it.
+        if (databaseUrl !== services.databaseUrl) return;
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
           await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;

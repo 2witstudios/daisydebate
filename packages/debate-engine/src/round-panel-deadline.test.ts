@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
@@ -21,6 +22,7 @@ import {
 
 setupRitewayBun();
 const judging = {
+  source: daisyBallotSource(daisyWinnerBallot),
   ballot: daisyWinnerBallot,
   panel: { decision: 'majority', quorum: 1 },
 } as const;

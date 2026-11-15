@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assertRejects } from '@daisy/errors/testing';
 import type { LockedRoundBallotInput } from '@daisy/db/round-ballot';
 import {
@@ -95,6 +96,7 @@ test('completion follows the panel decision', async () => {
     }[],
   ) => ({
     judging: {
+      source: daisyBallotSource(daisyWinnerBallot),
       ballot: daisyWinnerBallot,
       panel: panelRuleFor(daisyWinnerBallot),
     },

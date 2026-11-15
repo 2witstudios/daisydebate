@@ -106,6 +106,7 @@ export type TemplateRow = {
   readonly version: number;
   /** The values its pinned format gives the keys that default to it. */
   readonly format: FormatSettingDefaults;
+  readonly ballotCompatible: boolean;
 };
 
 /** An `events` row, with what its commands read. */
@@ -154,6 +155,8 @@ export type SettingFacts = {
     readonly organizationId: string | null;
     readonly lobbyId: string | null;
   } | null;
+  /** Exact canonical pin binding, including an unpinned Daisy definition. */
+  readonly ballotCompatible: boolean;
 };
 
 type ScopeColumns = {
@@ -498,6 +501,7 @@ function createTemplate(
       !ownable(facts.ballotDefinition.organizationId))
   )
     return refuse('illegal-definition');
+  if (!facts.ballotCompatible) return refuse('illegal-definition');
   // Made with no settings; its pins never change afterwards.
   return accepted({ kind: 'template', id: facts.newId }, 1, [
     {
@@ -540,7 +544,11 @@ function offerTemplate(
   template: TemplateRow | null,
 ): Decision {
   if (lobby.kind !== 'standing') return refuse('lobby-not-standing');
-  if (template === null || template.retiredAt !== null)
+  if (
+    template === null ||
+    template.retiredAt !== null ||
+    !template.ballotCompatible
+  )
     return refuse('template-unavailable');
   if (facts.offer && facts.offer.withdrawnAt === null)
     return refuse('already-offered');
@@ -688,7 +696,11 @@ function copyTemplate(
   if (event.entryCount > 0) return refuse('entries-exist');
   // A following event keeps its template's pins; it stops following first.
   if (event.templateId !== null) return refuse('already-following');
-  if (template === null || template.retiredAt !== null)
+  if (
+    template === null ||
+    template.retiredAt !== null ||
+    !template.ballotCompatible
+  )
     return refuse('template-unavailable');
   // No link is kept: the template's own values become the event's.
   const own = facts.rows.filter((row) =>
@@ -710,7 +722,11 @@ function followTemplate(
 ): Decision {
   if (event.entryCount > 0) return refuse('entries-exist');
   if (event.templateId !== null) return refuse('already-following');
-  if (template === null || template.retiredAt !== null)
+  if (
+    template === null ||
+    template.retiredAt !== null ||
+    !template.ballotCompatible
+  )
     return refuse('template-unavailable');
   if (anyEnforcedConflict(chainOf(event, template), facts.rows))
     return refuse('enforced-conflict');

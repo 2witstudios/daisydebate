@@ -51,7 +51,7 @@ const settingsRead = (settings: ResolvedSettings) =>
     engineSettingKeys.map((key) => [key, settings[key]]),
   ) as ResolvedSettings;
 
-const ENGINE_VERSION = 'tab-engine@1';
+const ENGINE_VERSION = 'tab-engine@2';
 
 export const inputsRecord = (
   prepared: Prepared,

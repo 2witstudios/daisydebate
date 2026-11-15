@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import {
+  ballotDefinitionPinSchema,
+  ballotDefinitionBodySchema,
+} from '../ballot-definition';
 import { roomCreateSchema } from '../room-contract';
 import {
   lobbyCommandEnvelope,
@@ -56,66 +60,8 @@ const resolutionTextSchema = z.string().trim().min(1).max(300);
 /** A JSON object whose contract another slice owns (the season fold's rule). */
 const jsonObjectSchema = z.record(z.string().min(1), z.json());
 
-const ballotDefinitionPinSchema = z.strictObject({
-  id: idSchema,
-  version: versionSchema,
-});
-
-const writtenRuleSchema = z.enum(['required', 'optional', 'off']);
-/**
- * The typed settings of a ballot: everything a host may choose, and the only
- * source of a judge's ballot. An illegal definition does not parse.
- */
-const ballotDefinitionSettingsSchema = z
-  .strictObject({
-    points: z
-      .strictObject({
-        min: z.int().min(0),
-        max: z.int().max(1000),
-        step: z.number().positive(),
-        lowPointWin: z.boolean(),
-      })
-      .refine((points) => points.max > points.min, {
-        message: 'The highest score is above the lowest.',
-        path: ['max'],
-      })
-      .refine(
-        (points) =>
-          Number.isInteger(
-            Math.round(((points.max - points.min) / points.step) * 1e9) / 1e9,
-          ),
-        { message: 'The step divides the range.', path: ['step'] },
-      )
-      .nullable(),
-    ranks: z.boolean(),
-    criteria: z
-      .array(z.string().trim().min(1).max(60))
-      .max(12)
-      .refine((items) => new Set(items).size === items.length, {
-        message: 'A criterion is named once.',
-      }),
-    outcomes: z.strictObject({ winner: z.boolean(), doubleLoss: z.boolean() }),
-    written: z.strictObject({
-      reason: writtenRuleSchema,
-      feedback: writtenRuleSchema,
-      privateNote: z.enum(['optional', 'off']),
-    }),
-  })
-  .refine(
-    (definition) =>
-      definition.points !== null ||
-      definition.ranks ||
-      definition.outcomes.winner,
-    { message: 'A ballot decides something: points, ranks or a winner.' },
-  )
-  .refine(
-    (definition) =>
-      definition.criteria.length === 0 || definition.points !== null,
-    {
-      message: 'Criteria are scored, so they need points.',
-      path: ['criteria'],
-    },
-  );
+/** The one canonical ballot body; identity and revision belong to the server. */
+export const ballotDefinitionSettingsSchema = ballotDefinitionBodySchema;
 export type BallotDefinitionSettings = z.infer<
   typeof ballotDefinitionSettingsSchema
 >;

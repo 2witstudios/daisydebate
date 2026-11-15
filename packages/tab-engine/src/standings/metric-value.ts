@@ -18,19 +18,13 @@ const lowerIsBetter: ReadonlySet<Metric> = new Set([
 ]);
 export const isLowerBetter = (metric: Metric) => lowerIsBetter.has(metric);
 
-/** Under `own_average`, a total over g played games stands for g + byes: × (g + b) / g. */
-const byeScale = (tally: Tally, entry: Id): Rational => {
-  const played = playedOf(tally, entry).length;
-  const byes = byesOf(tally, entry);
-  return tally.byeResult === 'own_average' && played > 0 && byes > 0
-    ? rational(played + byes, played)
-    : rational(1);
-};
-
 const count = (n: number) => rational(n);
 
 const ranksOf = (tally: Tally, entry: Id) =>
-  countedGames(tally, entry).flatMap((g) => g.ballots.map((b) => b.rank));
+  countedGames(tally, entry).flatMap((g) => [
+    ...g.ballots.map((b) => b.rank),
+    ...(g.credits?.ranks ?? []),
+  ]);
 
 const winsTotal = (tally: Tally, entry: Id) =>
   count(countedGames(tally, entry).filter((g) => g.won).length);
@@ -38,14 +32,15 @@ const winsTotal = (tally: Tally, entry: Id) =>
 const pointsTotal = (tally: Tally, entry: Id) =>
   count(
     playedOf(tally, entry).reduce(
-      (s, g) => s + g.ballots.reduce((t, b) => t + b.points, 0),
+      (s, g) =>
+        s + g.ballots.reduce((t, b) => t + b.points, g.credits?.points ?? 0),
       0,
     ),
   );
 
 const highLow = (tally: Tally, entry: Id) => {
   const perGame = playedOf(tally, entry).map((g) =>
-    g.ballots.reduce((t, b) => t + b.points, 0),
+    g.ballots.reduce((t, b) => t + b.points, g.credits?.points ?? 0),
   );
   const total = perGame.reduce((s, p) => s + p, 0);
   return count(
@@ -95,7 +90,11 @@ const isTotal = (metric: Metric): metric is TotalMetric => metric in totals;
 const rankTruncated = (tally: Tally, entry: Id) =>
   count(
     countedGames(tally, entry)
-      .flatMap((g) => g.ballots.map((b) => Math.min(b.rank, g.cap)))
+      .flatMap((g) =>
+        [...g.ballots.map((b) => b.rank), ...(g.credits?.ranks ?? [])].map(
+          (rank) => Math.min(rank, g.cap),
+        ),
+      )
       .reduce((s, r) => s + r, 0),
   );
 
@@ -104,9 +103,13 @@ const totals: Record<TotalMetric, (tally: Tally, entry: Id) => Rational[]> = {
   wins: (t, e) => [winsTotal(t, e)],
   ballot_count: (t, e) => [
     count(
-      countedGames(t, e)
-        .flatMap((g) => g.ballots)
-        .filter((b) => b.won).length,
+      countedGames(t, e).reduce(
+        (total, g) =>
+          total +
+          g.ballots.filter((b) => b.won).length +
+          (g.credits?.ballotsWon ?? 0),
+        0,
+      ),
     ),
   ],
   total_points: (t, e) => [pointsTotal(t, e)],
@@ -144,8 +147,20 @@ export const metricValue = (
   if (metric === 'rating') return ratingOf(tally, entry);
   if (metric === 'head_to_head') return [];
   if (!isTotal(metric)) return [];
-  const scale = byeScale(tally, entry);
-  return totals[metric](tally, entry).map((v) => multiply(v, scale));
+  const held = totals[metric](tally, entry);
+  const averages = byesOf(tally, entry).filter(
+    (bye) => bye.rule === 'own_average',
+  ).length;
+  const played = playedOf(tally, entry).length;
+  if (averages === 0 || played === 0) return held;
+  const withoutByes = {
+    ...tally,
+    byes: new Map([...tally.byes].filter(([id]) => id !== entry)),
+  };
+  const playedTotals = totals[metric](withoutByes, entry);
+  return held.map((value, index) =>
+    sum([value, multiply(playedTotals[index]!, rational(averages, played))]),
+  );
 };
 
 /** How many of their meetings `entry` won against `other`, and whether they met at all. */

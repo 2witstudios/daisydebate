@@ -109,7 +109,6 @@ export const byeViolations = (
     2,
     fixtures,
     oneReading(countedResults(fixtures, pastResults(request.history), cutoff)),
-    request.settings,
     cutoff,
     request.tabRound,
   ).of;

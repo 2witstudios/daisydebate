@@ -103,34 +103,50 @@ export const playTwoSided = (
       fixture: fixture as HistoricFixture<TwoSides>['fixture'],
     }),
   );
-  const results: ResultOf<TwoSides>[] = fixtures.flatMap((f) => {
-    if (f.fixture.kind !== 'pairing') return [];
-    const sides = f.fixture.sides;
-    const won = sides[winner(sides)];
-    return [
-      {
-        id: `r-${f.id}`,
-        fixture: f.id,
-        kind: 'decided' as const,
-        supersedes: null,
-        certified: true,
-        outcome: {
-          kind: 'winner' as const,
-          winner: won,
-          ballots: [
-            {
-              judge: 'j',
-              winner: won,
-              points: sides.map((e) => ({
-                entry: e,
-                points: e === won ? 290 : 280,
-              })),
+  const results: ResultOf<TwoSides>[] = fixtures.flatMap(
+    (f): ResultOf<TwoSides>[] => {
+      if (f.fixture.kind === 'bye')
+        return [
+          {
+            id: `r-${f.id}`,
+            fixture: f.id,
+            kind: 'administrative',
+            supersedes: null,
+            certified: true,
+            outcome: {
+              kind: 'winner',
+              winner: f.fixture.entry,
+              credits: { kind: 'bye', rule: 'win', panelSize: 1 },
             },
-          ],
+          },
+        ];
+      const sides = f.fixture.sides;
+      const won = sides[winner(sides)];
+      return [
+        {
+          id: `r-${f.id}`,
+          fixture: f.id,
+          kind: 'decided' as const,
+          supersedes: null,
+          certified: true,
+          outcome: {
+            kind: 'winner' as const,
+            winner: won,
+            ballots: [
+              {
+                judge: 'j',
+                winner: won,
+                points: sides.map((e) => ({
+                  entry: e,
+                  points: e === won ? 290 : 280,
+                })),
+              },
+            ],
+          },
         },
-      },
-    ];
-  });
+      ];
+    },
+  );
   return {
     fixtures: [...history.fixtures, ...fixtures],
     results: [...history.results, ...results],

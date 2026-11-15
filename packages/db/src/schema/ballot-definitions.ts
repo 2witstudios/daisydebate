@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { ballotDefinitionSchema } from '@daisy/protocol';
 import {
   check,
   foreignKey,
@@ -14,7 +15,6 @@ import {
   createdAtColumn,
   jsonbColumn,
   jsonbIsObject,
-  jsonObjectSchema,
   updatedAtColumn,
 } from './columns';
 import { lobbies } from './lobbies';
@@ -84,7 +84,7 @@ export const ballotDefinitionVersions = pgTable(
     organizationId: text('organization_id'),
     lobbyId: text('lobby_id'),
     /** Its contract is the ballot definition schema, which slice F owns. */
-    definition: jsonbColumn('definition', jsonObjectSchema).notNull(),
+    definition: jsonbColumn('definition', ballotDefinitionSchema).notNull(),
     createdAt: createdAtColumn(),
   },
   (table) => [

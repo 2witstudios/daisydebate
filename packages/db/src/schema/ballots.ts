@@ -65,8 +65,8 @@ export const ballots = pgTable(
     /** The owning Round and the immutable transcript freeze the ballot judged. */
     roundId: text('round_id').notNull(),
     freezeRevision: integer('freeze_revision').notNull(),
-    /** The Daisy ballot definition answered (`key@revision`); null for a host's. */
-    rubricVersion: text('rubric_version'),
+    /** The exact canonical content identity answered (`key@revision`). */
+    rubricVersion: text('rubric_version').notNull(),
     /** What the ballot decided; a win names its side in `winner`. */
     decision: text('decision')
       .$type<BallotDecisionColumn>()
@@ -78,7 +78,11 @@ export const ballots = pgTable(
     ranking: jsonbArrayColumnNullable('ranking', ballotRankingColumnSchema),
     /** Points per subject; null for a definition that gives none. */
     scores: jsonbColumnNullable('scores', ballotScoresRecordSchema),
-    reason: text('reason').notNull(),
+    reason: text('reason'),
+    speakerRanks: jsonbArrayColumnNullable(
+      'speaker_ranks',
+      ballotRankingColumnSchema,
+    ),
     feedback: jsonbColumnNullable('feedback', ballotFeedbackColumnSchema),
     citations: jsonbColumnNullable('citations', ballotCitationsColumnSchema),
     submittedAt: timestampColumn('submitted_at').notNull(),
@@ -158,15 +162,19 @@ export const ballots = pgTable(
       'ballots_ranking_check',
       sql`(${table.ranking} is not null) = (${table.decision} = 'ranking') and (${table.ranking} is null or jsonb_typeof(${table.ranking}) = 'array')`,
     ),
-    // A Daisy ballot names its definition here; a host's pins its version above.
+    // Every ballot names its frozen content; stored sources additionally pin the real version above.
     check(
       'ballots_daisy_definition_check',
-      sql`(${table.ballotDefinitionId} is null) = (${table.rubricVersion} is not null)`,
+      sql`${table.ballotDefinitionId} is not null or ${oneOf(table.rubricVersion, daisyBallotDefinitionIds)}`,
     ),
     check(
       'ballots_rubric_version_check',
       // Every version stays readable; writes validate the Round's own (ADR 0125).
-      sql`${table.rubricVersion} is null or ${oneOf(table.rubricVersion, daisyBallotDefinitionIds)}`,
+      sql`${table.rubricVersion} ~ '^[a-z][a-z0-9-]{0,39}@[1-9][0-9]*$'`,
+    ),
+    check(
+      'ballots_speaker_ranks_check',
+      sql`${table.speakerRanks} is null or (jsonb_typeof(${table.speakerRanks}) = 'array' and jsonb_array_length(${table.speakerRanks}) > 0 and not jsonb_path_exists(${table.speakerRanks}, 'strict $[*] ? (@.type() != "array" || @.size() == 0)') and not jsonb_path_exists(${table.speakerRanks}, 'strict $[*][*] ? (@.type() != "string")'))`,
     ),
     jsonbIsObject('ballots', table.scores),
     jsonbIsObject('ballots', table.feedback),

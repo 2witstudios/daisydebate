@@ -84,6 +84,7 @@ describe('competitive schema child tables', () => {
             'ballots_ranking_check',
             'ballots_rubric_version_check',
             'ballots_scores_is_object',
+            'ballots_speaker_ranks_check',
             'ballots_winner_check',
           ],
           indexes: [

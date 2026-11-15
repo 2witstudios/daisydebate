@@ -1,3 +1,5 @@
+import { ballotPinCompatible } from './ballot-pin-compatible';
+import { ballotDefinitionSchema } from '@daisy/protocol';
 import type { LoadedSetupCommand } from '@daisy/db/tab';
 import {
   enforcedConflict,
@@ -127,11 +129,23 @@ export const setupFacts = (
             (row.organizationId === null ||
               row.organizationId === lobby?.ownerOrganizationId)),
       )
-      .map((row) => ({ formatId: row.formatId, formatVersion: row.version })),
+      .map((row) => ({
+        formatId: row.formatId,
+        formatVersion: row.version,
+        definition: row.definition,
+      })),
     ballotDefinitions: loaded.ballots.map((row) => ({
       id: row.id,
       lobbyId: row.lobbyId,
       currentVersion: row.currentVersion,
+      versions: graph.ballots
+        .filter((version) => version.ballotDefinitionId === row.id)
+        .flatMap((version) => {
+          const parsed = ballotDefinitionSchema.safeParse(version.definition);
+          return parsed.success
+            ? [{ version: version.version, definition: parsed.data }]
+            : [];
+        }),
     })),
     templates: graph.templates.map((template) => ({
       id: template.id,
@@ -140,6 +154,10 @@ export const setupFacts = (
       ballotDefinitionId: template.ballotDefinitionId,
       ballotDefinitionVersion: template.ballotDefinitionVersion,
       retiredAt: template.retiredAt?.toISOString() ?? null,
+      ballotCompatible: ballotPinCompatible(graph, {
+        ...template,
+        lobbyId: lobby?.id ?? null,
+      }),
       conflictsWithChain: settingKeys.some(
         (key) =>
           enforcedConflict(

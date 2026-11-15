@@ -1,9 +1,16 @@
-import { isLowPointWin, pointsTotal } from '@daisy/protocol';
+import {
+  isLowPointWin,
+  pointsTotal,
+  scoreLatticeSize,
+  scoreValueAt,
+  sumScoreValues,
+} from '@daisy/protocol';
 import {
   lowPointKey,
   pointsField,
   readScore,
   scoreField,
+  subjectScale,
   type BallotPoints,
 } from './ballot';
 import type { BallotPlan } from './ballot-plan';
@@ -41,12 +48,16 @@ export type SheetScores = Readonly<
 const holisticRow = 'points';
 
 /** Anchor levels spread evenly over the scale: 1, 3 and 5 for three anchors on 1–5. */
-const anchorLevels = (scale: BallotPoints['scale'], count: number) =>
-  Array.from({ length: count }, (_, index) =>
-    count === 1
-      ? scale.max
-      : scale.min + (index * (scale.max - scale.min)) / (count - 1),
+const anchorLevels = (scale: BallotPoints['scale'], count: number) => {
+  const size = scoreLatticeSize(scale);
+  if (size === null) return [];
+  return Array.from({ length: count }, (_, index) =>
+    scoreValueAt(
+      scale,
+      count === 1 ? size - 1 : Math.round((index * (size - 1)) / (count - 1)),
+    )!,
   );
+};
 
 export function sheetGroupsOf(points: BallotPoints): readonly SheetGroup[] {
   switch (points.criteria.kind) {
@@ -92,12 +103,19 @@ const rowsOf = (points: BallotPoints) =>
 
 /** The most a subject can score: every row at the top of the scale. */
 export const sheetMax = (points: BallotPoints): number =>
-  rowsOf(points).length * points.scale.max;
+  sumScoreValues(
+    Array.from({ length: rowsOf(points).length }, () => {
+      const count = scoreLatticeSize(points.scale);
+      return count === null
+        ? Number.NaN
+        : scoreValueAt(points.scale, count - 1)!;
+    }),
+  );
 
 /** One subject's total across its rows. */
 export const sheetTotal = (
   scores: Readonly<Record<string, number>> | undefined,
-): number => Object.values(scores ?? {}).reduce((sum, score) => sum + score, 0);
+): number => sumScoreValues(Object.values(scores ?? {}));
 
 /** The sheet as posted last time, or every score at its start value. */
 export function postedSheet(
@@ -112,8 +130,10 @@ export function postedSheet(
       Object.fromEntries(
         rowsOf(points).map((row) => [
           row.id,
-          readScore(points.scale, values[row.field(subject.key)]) ??
-            points.default,
+          readScore(
+            subjectScale(points, subject.key).scale,
+            values[row.field(subject.key)],
+          ) ?? subjectScale(points, subject.key).default,
         ]),
       ),
     ]),

@@ -10,6 +10,7 @@ import {
   roundStatusSchema,
   runtimeCheckpointSchema,
   roundJudgingSchema,
+  daisyBallotDefinitionIds,
   type RoundPlatformEnding,
   type SideKey,
   type RoundStage,
@@ -30,6 +31,7 @@ import {
   boolean,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
+import { ballotDefinitionVersions } from './ballot-definitions';
 import {
   createdAtColumn,
   jsonbColumn,
@@ -136,6 +138,15 @@ export const rounds = pgTable(
      * nobody.
      */
     judging: jsonbColumnNullable('judging', storedJudgingSchema),
+    /** Internal relational integrity keys, derived only from the frozen source. */
+    ballotDefinitionId: text('ballot_definition_id').generatedAlwaysAs(
+      sql`case when judging->'source'->>'kind' = 'stored' then judging->'source'->>'id' else null end`,
+    ),
+    ballotDefinitionVersion: integer(
+      'ballot_definition_version',
+    ).generatedAlwaysAs(
+      sql`case when judging->'source'->>'kind' = 'stored' then (judging->'source'->>'version')::integer else null end`,
+    ),
     /** The one authority for ratedness: null when this round never rates. */
     ladderId: text('ladder_id').$type<RatingLadder>(),
     startedAt: timestampColumn('started_at'),
@@ -255,6 +266,34 @@ export const rounds = pgTable(
         sql`${table.ranking} is null or (jsonb_typeof(${table.ranking}) = 'array' and jsonb_array_length(${table.ranking}) > 0 and not jsonb_path_exists(${table.ranking}, 'strict $[*] ? (@.type() != "array" || @.size() == 0)') and not jsonb_path_exists(${table.ranking}, 'strict $[*][*] ? (@.type() != "string")'))`,
       ),
       jsonbIsObject('rounds', table.judging),
+      index('rounds_ballot_definition_idx').on(
+        table.ballotDefinitionId,
+        table.ballotDefinitionVersion,
+      ),
+      foreignKey({
+        name: 'rounds_ballot_definition_fk',
+        columns: [table.ballotDefinitionId, table.ballotDefinitionVersion],
+        foreignColumns: [
+          ballotDefinitionVersions.ballotDefinitionId,
+          ballotDefinitionVersions.version,
+        ],
+      }).onDelete('restrict'),
+      check(
+        'rounds_judging_source_check',
+        sql`${table.judging} is null or coalesce(
+        jsonb_typeof(${table.judging}->'source') = 'object' and
+        case ${table.judging}->'source'->>'kind'
+          when 'daisy' then
+            ${table.judging}->'source'->>'key' = ${table.judging}->'ballot'->>'key' and
+            ${table.judging}->'source'->'revision' = ${table.judging}->'ballot'->'revision' and
+            ((${table.judging}->'source'->>'key') || '@' || (${table.judging}->'source'->>'revision')) in (${sql.raw(daisyBallotDefinitionIds.map((id) => `'${id}'`).join(', '))})
+          when 'stored' then
+            ${table.judging}->'source'->>'id' ~ '^[a-z0-9]{24}$' and
+            jsonb_typeof(${table.judging}->'source'->'version') = 'number' and
+            ${table.judging}->'source'->'version' = ${table.judging}->'ballot'->'revision' and
+            ${table.ballotDefinitionVersion} > 0
+          else false end, false)`,
+      ),
       check(
         'rounds_ladder_check',
         sql`${table.ladderId} is null or ${oneOf(table.ladderId, ratingLadders)}`,

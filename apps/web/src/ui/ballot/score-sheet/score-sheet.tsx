@@ -1,6 +1,9 @@
 'use client';
 
-import type { BallotPoints } from '../../../features/judge/ballot';
+import {
+  subjectScale,
+  type BallotPoints,
+} from '../../../features/judge/ballot';
 import type { BallotSubject } from '../../../features/judge/ballot-plan';
 import {
   anchorsSummary,
@@ -55,7 +58,6 @@ export function ScoreSheet({
   readonly live: boolean;
   readonly onScore: (subject: string, row: string, score: number) => void;
 }) {
-  const max = sheetMax(points);
   const columns = ballotColumns(subjects.length);
   const grid = ballotGridClass(subjects.length);
   return (
@@ -74,10 +76,16 @@ export function ScoreSheet({
             key={subject.key}
             className={cn(ballotSideCellClass, sideTextClass(subject.tone))}
           >
-            {`${firstName(subject.name)} · ${subject.short}`}
+            {`${firstName(subject.name)} · ${subject.short}${points.per === 'speech' && points.weights?.[subject.key] !== undefined ? ` · score weight ${points.weights[subject.key]}` : ''}`}
           </span>
         ))}
       </div>
+      {points.per === 'speech' && points.weights !== null ? (
+        <p className="px-5 py-2 text-sm text-ink-muted">
+          Anchors describe the unweighted scale. Each speech’s score weight is
+          shown with its name.
+        </p>
+      ) : null}
       {sheetGroupsOf(points).map((group) => (
         <div key={group.id} role="group" aria-label={group.name ?? 'Score'}>
           {group.name ? (
@@ -111,8 +119,11 @@ export function ScoreSheet({
                       />
                     </summary>
                     <dl className="mt-1 flex flex-col gap-1 text-sm text-ink-muted">
-                      {category.anchors.map((anchor) => (
-                        <div key={anchor.level} className="flex gap-2">
+                      {category.anchors.map((anchor, anchorIndex) => (
+                        <div
+                          key={`${anchor.level}:${anchorIndex}`}
+                          className="flex gap-2"
+                        >
                           <dt className="w-4 shrink-0 font-bold text-ink tabular-nums">
                             {anchor.level}
                           </dt>
@@ -125,6 +136,7 @@ export function ScoreSheet({
               </div>
               {subjects.map((subject) => {
                 const side = subject.key;
+                const { scale } = subjectScale(points, side);
                 const value = scores[side]?.[category.id];
                 return (
                   <label
@@ -163,9 +175,9 @@ export function ScoreSheet({
                     <input
                       type="range"
                       name={category.field(side)}
-                      min={points.scale.min}
-                      max={points.scale.max}
-                      step={points.scale.step}
+                      min={scale.min}
+                      max={scale.max}
+                      step={scale.step}
                       defaultValue={initial[side]?.[category.id]}
                       onChange={(event) =>
                         onScore(side, category.id, Number(event.target.value))
@@ -219,7 +231,7 @@ export function ScoreSheet({
               >
                 {sheetTotal(scores[subject.key])}
               </span>
-              <span className="text-sm text-ink-faint">{`/ ${max}`}</span>
+              <span className="text-sm text-ink-faint">{`/ ${sheetMax({ ...points, scale: subjectScale(points, subject.key).scale })}`}</span>
             </p>
           ))}
         </div>

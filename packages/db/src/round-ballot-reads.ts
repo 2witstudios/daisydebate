@@ -171,6 +171,7 @@ export const roundBallotReads = ({
           viewerSubject,
           aiJudgeSeatIds,
           definition: frozenJudging?.judging?.ballot ?? null,
+          source: frozenJudging?.judging?.source ?? null,
           subjects: ballotSubjectsFor(round.rules, round.participants),
           rows,
           frozen,

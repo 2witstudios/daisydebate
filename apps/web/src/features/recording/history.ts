@@ -66,7 +66,7 @@ export type HistoryTranscript = {
 export type HistoryBallot = {
   /** Null for a ballot that named no winning side. */
   readonly winner: string | null;
-  readonly reason: string;
+  readonly reason: string | null;
   /** Each scored subject's score: a number, or a criteria grid; null for a ballot with no points. */
   readonly scores: Readonly<
     Record<string, number | Readonly<Record<string, number>> | undefined>
@@ -111,7 +111,7 @@ type ResultPanel = {
     readonly title: string;
     readonly winner: string;
     readonly scores: string;
-    readonly reason: string;
+    readonly reason: string | null;
   }[];
 };
 

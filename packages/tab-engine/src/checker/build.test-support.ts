@@ -104,9 +104,38 @@ const resultsFor = (
   id: Id,
   fixture: Fixture,
   next: (below: number) => number,
+  settings: ResolvedSettings,
   doubleLoss = false,
 ): Result[] => {
-  if (fixture.kind === 'bye') return [];
+  if (fixture.kind === 'bye') {
+    const common = {
+      id: `r-${id}`,
+      fixture: id,
+      kind: 'administrative' as const,
+      supersedes: null,
+      certified: true,
+    };
+    const credits = {
+      kind: 'bye' as const,
+      rule: settings['bye.result'].value,
+      panelSize: settings['judging.panel'].preliminary.size,
+    };
+    return [
+      format.outcome === 'winner'
+        ? {
+            ...common,
+            outcome: { kind: 'winner', winner: fixture.entry, credits },
+          }
+        : {
+            ...common,
+            outcome: {
+              kind: 'ranking',
+              places: [{ entry: fixture.entry, place: 1 }],
+              credits,
+            },
+          },
+    ];
+  }
   const held = fixture.kind === 'pairing' ? fixture.sides : fixture.speakers;
   const outcome = (): Result['outcome'] => {
     if (format.outcome === 'winner')
@@ -200,7 +229,7 @@ export const playEvent = (options: {
       results: [
         ...history.results,
         ...fixtures.flatMap((f) =>
-          resultsFor(options.format, f.id, f.fixture, next),
+          resultsFor(options.format, f.id, f.fixture, next, options.settings),
         ),
       ],
     } as StageHistory<FormatDescriptor>;
@@ -344,6 +373,7 @@ export const playBracket = (options: {
             f.id,
             f.fixture,
             next,
+            options.settings,
             options.doubleLoss === true,
           ),
         ),

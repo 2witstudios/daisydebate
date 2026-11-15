@@ -20,6 +20,9 @@ export {
 } from './shapes/settings';
 
 export type {
+  Result,
+  ResultOf,
+  AdministrativeCredits,
   FormatDescriptor,
   Fixture,
   FixtureOf,

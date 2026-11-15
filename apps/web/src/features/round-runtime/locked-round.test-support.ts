@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import {
   daisyWinnerBallot,
@@ -34,6 +35,7 @@ export const lockedRound: LockedRoundCommandContext = {
     resolution: launched.topic,
     currentStage: null,
     judging: {
+      source: daisyBallotSource(daisyWinnerBallot),
       ballot: daisyWinnerBallot,
       panel: panelRuleFor(daisyWinnerBallot),
     },

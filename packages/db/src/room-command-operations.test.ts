@@ -1,3 +1,4 @@
+import { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -256,6 +257,7 @@ const successRows = (changeVersion = 1) => [
   ...attemptRows(changeVersion, changeVersion),
   startRows(changeVersion)[13]!, // grants precede the mutation's authority clock
   startRows(changeVersion)[12]!,
+  [[readyRoom.id, publicLobbyId, null, null, daisyOrganizationId, null]], // exact locked Room ballot-source lookup, genuinely unpinned
   ...startRows(changeVersion).slice(14),
 ];
 

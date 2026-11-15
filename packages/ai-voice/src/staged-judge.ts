@@ -60,7 +60,9 @@ const scoresRule = (definition: BallotDefinition): string => {
   const allowed =
     definition.decision.kind !== 'winner' || definition.decision.lowPointWin;
   return allowed
-    ? " The scores describe each side's performance against the anchors; if the losing side's total is higher, the reason must say why."
+    ? definition.written.reason
+      ? " The scores describe each side's performance against the anchors; if the losing side's total is higher, the reason must say why."
+      : " The scores describe each side's performance against the anchors; a low-point win is allowed and reason is off."
     : " The scores describe each side's performance against the anchors; the winner's total is never lower than the loser's.";
 };
 
@@ -68,9 +70,11 @@ const scoresRule = (definition: BallotDefinition): string => {
 const reasonMargin = 50;
 
 const finalTask = (definition: BallotDefinition) =>
-  `Decide the round. The transcript is the authority: correct the map wherever the cited lines do not support it, and say so in your reason if the correction matters to the decision.
+  definition.written.reason === null
+    ? `Decide the round from the transcript, correcting the case map wherever the cited lines do not support it. Reason is off: do not include a reason field.${scoresRule(definition)}`
+    : `Decide the round. The transcript is the authority: correct the map wherever the cited lines do not support it, and say so in your reason if the correction matters to the decision.
 
-The reason states the decision in dependency order: how the framework dispute was resolved, which of the opponent's arguments fell with a premise, what still stands for each side, and ${definition.decision.kind === 'winner' ? "why the winner's thesis is carried" : 'why the side placed first carries its thesis'}. Keep it under ${definition.written.reason.max - reasonMargin} characters.${scoresRule(definition)}`;
+The reason states the decision in dependency order: how the framework dispute was resolved, which of the opponent's arguments fell with a premise, what still stands for each side, and ${definition.decision.kind === 'winner' ? "why the winner's thesis is carried" : 'why the side placed first carries its thesis'}. Keep it under ${definition.written.reason.max - Math.min(reasonMargin, Math.floor(definition.written.reason.max / 5))} characters.${scoresRule(definition)}`;
 
 const resolutionLine = (input: TranscriptEvidenceInput) =>
   `Resolution: ${JSON.stringify(input.resolution)}`;

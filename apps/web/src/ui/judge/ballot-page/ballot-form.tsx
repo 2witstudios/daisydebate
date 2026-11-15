@@ -62,6 +62,7 @@ export function BallotFields({
   pending,
   errorId = REFUSAL_ID,
   opensInMs = null,
+  reasonAudienceLabel,
 }: {
   readonly plan: BallotPlan;
   readonly values: Readonly<Record<string, string>>;
@@ -70,6 +71,7 @@ export function BallotFields({
   readonly errorId?: string;
   /** While attendance settles, Submit waits, but only with script: a native post always submits. */
   readonly opensInMs?: number | null;
+  readonly reasonAudienceLabel?: string;
 }) {
   const live = useSyncExternalStore(
     noSubscription,
@@ -77,6 +79,8 @@ export function BallotFields({
     () => false,
   );
   const { decision, points, written } = plan.definition;
+  const reasonRule = written.reason;
+  const feedbackRule = written.feedback;
   const posted = postedSheet(plan, values);
   const postedWinner = readSide(plan, values['winner']);
   const [winner, setWinner] = useState<string | null>(postedWinner);
@@ -110,6 +114,21 @@ export function BallotFields({
         onPick={setWinner}
       />
 
+      {plan.definition.speakerRanks ? (
+        <section
+          aria-labelledby="ballot-speaker-ranks"
+          className={ballotSectionClass}
+        >
+          <h2 id="ballot-speaker-ranks" className={ballotHeadingClass}>
+            Speaker ranks
+          </h2>
+          <RankingChoice
+            subjects={plan.speakers}
+            values={values}
+            kind="speakers"
+          />
+        </section>
+      ) : null}
       {points ? (
         <section aria-labelledby="ballot-scores" className={ballotSectionClass}>
           <h2 id="ballot-scores" className={ballotHeadingClass}>
@@ -132,46 +151,57 @@ export function BallotFields({
         </section>
       ) : null}
 
-      <section aria-labelledby="ballot-written" className={ballotSectionClass}>
-        <h2 id="ballot-written" className={ballotHeadingClass}>
-          Decision and feedback
-        </h2>
-        <FormField
-          id="ballot-reason"
-          label="Reason for decision"
-          helper={`${reasonReaders(plan)} ${limitHelper(written.reason)}`}
+      {reasonRule || feedbackRule ? (
+        <section
+          aria-labelledby="ballot-written"
+          className={ballotSectionClass}
         >
-          <textarea
-            id="ballot-reason"
-            name="reason"
-            rows={4}
-            maxLength={written.reason.max}
-            defaultValue={values['reason'] ?? ''}
-            aria-describedby="ballot-reason-helper"
-            className={textareaClass}
-          />
-        </FormField>
-        <div className="grid grid-cols-2 gap-4 max-narrow:grid-cols-1">
-          {plan.decided.map((subject) => (
+          <h2 id="ballot-written" className={ballotHeadingClass}>
+            Decision and feedback
+          </h2>
+          {reasonRule ? (
             <FormField
-              key={subject.key}
-              id={`ballot-${feedbackField(subject.key)}`}
-              label={`Feedback for ${firstName(subject.name)}`}
-              helper={limitHelper(written.feedback)}
+              id="ballot-reason"
+              label="Reason for decision"
+              helper={`${reasonAudienceLabel ?? reasonReaders(plan)} ${limitHelper(reasonRule)}`}
             >
               <textarea
-                id={`ballot-${feedbackField(subject.key)}`}
-                name={feedbackField(subject.key)}
-                rows={3}
-                maxLength={written.feedback.max}
-                defaultValue={values[feedbackField(subject.key)] ?? ''}
-                aria-describedby={`ballot-${feedbackField(subject.key)}-helper`}
+                id="ballot-reason"
+                name="reason"
+                rows={4}
+                maxLength={reasonRule.max}
+                required={reasonRule.required}
+                defaultValue={values['reason'] ?? ''}
+                aria-describedby="ballot-reason-helper"
                 className={textareaClass}
               />
             </FormField>
-          ))}
-        </div>
-      </section>
+          ) : null}
+          {feedbackRule ? (
+            <div className="grid grid-cols-2 gap-4 max-narrow:grid-cols-1">
+              {plan.decided.map((subject) => (
+                <FormField
+                  key={subject.key}
+                  id={`ballot-${feedbackField(subject.key)}`}
+                  label={`Feedback for ${firstName(subject.name)}`}
+                  helper={limitHelper(feedbackRule)}
+                >
+                  <textarea
+                    id={`ballot-${feedbackField(subject.key)}`}
+                    name={feedbackField(subject.key)}
+                    rows={3}
+                    maxLength={feedbackRule.max}
+                    required={feedbackRule.required}
+                    defaultValue={values[feedbackField(subject.key)] ?? ''}
+                    aria-describedby={`ballot-${feedbackField(subject.key)}-helper`}
+                    className={textareaClass}
+                  />
+                </FormField>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <SubmitRow
         pending={pending}
@@ -217,7 +247,11 @@ function DecisionSection({
           />
         </>
       ) : (
-        <RankingChoice subjects={plan.decided} values={values} />
+        <RankingChoice
+          subjects={plan.decided}
+          values={values}
+          ties={decision.ties}
+        />
       )}
     </section>
   );

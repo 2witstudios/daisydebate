@@ -19,8 +19,9 @@ export type BallotDraftStorage = Pick<
 /** Generous for line-break encoding; a value longer than this is not the judge's. */
 const maxValueLength = (plan: BallotPlan) =>
   Math.max(
-    plan.definition.written.reason.max,
-    plan.definition.written.feedback.max,
+    64,
+    plan.definition.written.reason?.max ?? 0,
+    plan.definition.written.feedback?.max ?? 0,
   ) * 2;
 
 /**

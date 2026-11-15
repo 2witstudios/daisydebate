@@ -235,6 +235,9 @@ export {
   ballotDecisionSchema,
   ballotDefinitionIdentity,
   ballotDefinitionSchema,
+  ballotDefinitionBodySchema,
+  storedBallotDefinition,
+  type BallotDefinitionBody,
   daisyBallotDefinitionIds,
   daisyBallotDefinitions,
   daisyBallotFor,
@@ -242,6 +245,12 @@ export {
   panelRuleFor,
   panelRuleSchema,
   roundJudgingSchema,
+  ballotDefinitionSourceSchema,
+  daisyBallotSource,
+  freezeBallotJudging,
+  type BallotJudgingSelection,
+  type BallotJudgingFreeze,
+  type BallotDefinitionSource,
 } from './ballot-definition';
 export type {
   BallotDefinition,
@@ -252,6 +261,8 @@ export type {
 } from './ballot-definition';
 export {
   ballotRecordSchema,
+  ballotCompetitionRecordSchema,
+  ballotCompetitionSchemaFor,
   ballotSchemaFor,
   ballotScoresRecordSchema,
   ballotSubjectsFor,
@@ -261,7 +272,7 @@ export {
   pointsTotal,
   storedBallotSchemaFor,
 } from './ballot-schema';
-export type { Ballot } from './ballot-schema';
+export type { Ballot, BallotCompetition } from './ballot-schema';
 export { caseMapSchema } from './case-map';
 export type { CaseMap } from './case-map';
 export type { BallotCategory, BallotRubricVersion } from './ballot';
@@ -884,3 +895,18 @@ export {
   remainingAnalysisCalls,
 } from './round-analysis-lifecycle';
 export type { AnalysisWorkEvent } from './round-analysis-lifecycle';
+
+export {
+  scoreScaleFor,
+  sumScoreValues,
+  isScoreOnScale,
+  scoreUnitFor,
+  scoreUnits,
+  scoreUnitSchema,
+  commonScoreUnit,
+  convertScoreUnits,
+  scoreLatticeValues,
+  scoreLatticeSize,
+  scoreValueAt,
+  type ScoreUnit,
+} from './score-unit';

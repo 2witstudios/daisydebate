@@ -60,6 +60,7 @@ const reached = (overrides: Partial<ReachedChain> = {}): ReachedChain => ({
   ...overrides,
 });
 const templateRow: TemplateRow = {
+  ballotCompatible: true,
   id: 'tmpl',
   organizationId: 'league',
   name: 'Varsity LD',
@@ -84,6 +85,7 @@ const event: EventFact = {
   format,
 };
 const facts = (overrides: Partial<SettingFacts> = {}): SettingFacts => ({
+  ballotCompatible: true,
   now,
   newId: 'new',
   rows: [],
@@ -858,5 +860,41 @@ describe('decideSetting: templates', () => {
       ],
       expected: ['not-following', 'sanction-holds'],
     });
+  });
+});
+
+test('template creation, copying and following refuse incompatible canonical ballot pins', () => {
+  const incompatible = facts({
+    template: { ...templateRow, ballotCompatible: false },
+    ballotCompatible: false,
+    ballotDefinition: { organizationId: 'league', lobbyId: null },
+  });
+  assert({
+    given: 'an addressed but semantically incompatible immutable ballot pin',
+    should: 'refuse every pin-creating path without writes',
+    actual: [
+      refusalOf(incompatible, {
+        type: 'create-template',
+        organizationId: 'league',
+        name: 'Incompatible',
+        format: { id: 'ld-format', version: 3 },
+        ballotDefinition: { id: 'ballot', version: 1 },
+      }),
+      refusalOf(incompatible, {
+        type: 'copy-template',
+        eventId: 'ld',
+        templateId: 'tmpl',
+      }),
+      refusalOf(incompatible, {
+        type: 'follow-template',
+        eventId: 'ld',
+        templateId: 'tmpl',
+      }),
+    ],
+    expected: [
+      'illegal-definition',
+      'template-unavailable',
+      'template-unavailable',
+    ],
   });
 });

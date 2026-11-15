@@ -44,14 +44,7 @@ export type JudgeBallot = {
 
 /** What a host may choose for one part of the ballot, as labelled options. */
 export type BallotOption = {
-  readonly id:
-    | 'ranks'
-    | 'criteria'
-    | 'doubleLoss'
-    | 'reason'
-    | 'feedback'
-    | 'privateNote'
-    | 'screening';
+  readonly id: 'screening';
   readonly label: string;
   readonly detail: string;
   readonly options: readonly {
@@ -120,23 +113,32 @@ function pinnedBallotParts(
       locked: [
         part(
           'Point scale',
-          points === null ? 'None' : `${points.min} to ${points.max}`,
+          points === null
+            ? 'None'
+            : `${points.scale.min} to ${points.scale.max}`,
         ),
         ...(points === null
           ? []
           : [
-              part('Step', stepLabel(points.step)),
+              part('Step', stepLabel(points.scale.step)),
               part(
                 'Winner may have fewer points',
-                points.lowPointWin ? 'Yes' : 'No',
+                definition.decision.kind === 'winner' &&
+                  definition.decision.lowPointWin
+                  ? 'Yes'
+                  : 'No',
               ),
             ]),
-        part('Ranks', definition.ranks ? 'On' : 'Off'),
+        part('Ranks', definition.speakerRanks ? 'On' : 'Off'),
         part(
           'Criteria',
-          definition.criteria.length === 0
+          points?.criteria.kind !== 'grid'
             ? 'None, one score each'
-            : definition.criteria.join(', '),
+            : points.criteria.groups
+                .flatMap((group) =>
+                  group.categories.map((category) => category.name),
+                )
+                .join(', '),
         ),
       ],
     },
@@ -147,16 +149,36 @@ function pinnedBallotParts(
       locked: [
         part(
           'Double loss',
-          definition.outcomes.doubleLoss ? 'Prelims only' : 'Never',
+          definition.decision.kind === 'winner' &&
+            definition.decision.doubleLoss
+            ? 'Prelims only'
+            : 'Never',
         ),
       ],
     },
     {
       heading: 'Written',
       locked: [
-        part('Reason for decision', writtenLabels[written.reason]),
-        part('Feedback to each debater', writtenLabels[written.feedback]),
-        part('Private note to tab', writtenLabels[written.privateNote]),
+        part(
+          'Reason for decision',
+          writtenLabels[
+            written.reason === null
+              ? 'off'
+              : written.reason.required
+                ? 'required'
+                : 'optional'
+          ],
+        ),
+        part(
+          'Feedback to each debater',
+          writtenLabels[
+            written.feedback === null
+              ? 'off'
+              : written.feedback.required
+                ? 'required'
+                : 'optional'
+          ],
+        ),
       ],
     },
   ];
@@ -188,7 +210,7 @@ function ballotSettingsOf(
   return {
     event,
     setup: linkTo('Setup', hostRoutes.setup(slug)),
-    lede: `Version ${definition.version}${used} · ${
+    lede: `Version ${definition.revision}${used} · ${
       pin.kind === 'template'
         ? `pinned by ${pin.organizationName}'s template`
         : 'set for this event'

@@ -90,7 +90,12 @@ describe('bracket progression', () => {
         tabRound: 2,
         history: {
           fixtures: played.fixtures,
-          results: played.results.slice(1),
+          results: played.results.filter(
+            (result) =>
+              result.fixture !==
+              played.fixtures.find((held) => held.fixture.kind === 'pairing')
+                ?.id,
+          ),
         },
       }),
       judges: null,
@@ -139,7 +144,9 @@ describe('bracket progression', () => {
     const doubleLoss = {
       ...played,
       results: played.results.map((r, i) =>
-        i === 0 ? { ...r, outcome: { ...r.outcome, winner: null } } : r,
+        i === 0 && r.kind === 'decided'
+          ? { ...r, outcome: { ...r.outcome, winner: null } }
+          : r,
       ),
     };
     const n = (id: string) => seeds8.indexOf(id) + 1;
@@ -207,10 +214,14 @@ describe('a bracket that is over', () => {
     const played = playTwoSided({ fixtures: [], results: [] }, final, 1);
     const bothLost = {
       ...played,
-      results: played.results.map((r) => ({
-        ...r,
-        outcome: { ...r.outcome, winner: null },
-      })),
+      results: played.results.map((r) =>
+        r.kind === 'decided'
+          ? {
+              ...r,
+              outcome: { ...r.outcome, winner: null },
+            }
+          : r,
+      ),
     };
     const input = {
       call: 'windowed',

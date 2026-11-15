@@ -8,6 +8,7 @@ import type {
   StageHistory,
 } from '../shapes/competition';
 import type { Draw } from '../shapes/draw';
+import type { ResolvedSettings } from '../shapes/settings';
 import type { Dice } from './scenario';
 
 /** One event as the simulator holds it between tab rounds. */
@@ -50,10 +51,39 @@ export const playFixtures = (
   state: EventState,
   fixtures: readonly HistoricFixture<FormatDescriptor>[],
   d: Dice,
+  settings: ResolvedSettings,
 ): Result[] =>
   fixtures.flatMap((f): Result[] => {
     const fixture = f.fixture as Fixture;
-    if (fixture.kind === 'bye') return [];
+    if (fixture.kind === 'bye') {
+      const common = {
+        id: `res-${f.id}`,
+        fixture: f.id,
+        kind: 'administrative' as const,
+        supersedes: null,
+        certified: true,
+      };
+      const credits = {
+        kind: 'bye' as const,
+        rule: settings['bye.result'].value,
+        panelSize: settings['judging.panel'].preliminary.size,
+      };
+      return [
+        state.format.outcome === 'winner'
+          ? {
+              ...common,
+              outcome: { kind: 'winner', winner: fixture.entry, credits },
+            }
+          : {
+              ...common,
+              outcome: {
+                kind: 'ranking',
+                places: [{ entry: fixture.entry, place: 1 }],
+                credits,
+              },
+            },
+      ];
+    }
     const seated = entriesIn(fixture);
     const panel = fixture.panel.length === 0 ? ['panel-auto'] : fixture.panel;
     const score = new Map(
@@ -108,6 +138,8 @@ export const playFixtures = (
 
 /** A correction: a new result that supersedes an earlier one with another winner. */
 export const correctionOf = (result: Result): Result => {
+  if (result.kind === 'administrative')
+    return { ...result, id: `${result.id}-corrected`, supersedes: result.id };
   const outcome = result.outcome;
   const corrected =
     outcome.kind === 'winner'

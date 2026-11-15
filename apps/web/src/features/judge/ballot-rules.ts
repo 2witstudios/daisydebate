@@ -57,11 +57,15 @@ export function ballotRuleLines(definition: BallotDefinition): string[] {
   return [
     decisionLine(),
     ...scoreLines(),
-    written.reason.required
-      ? `Your reason for decision is required and both debaters read it (up to ${written.reason.max} characters).`
-      : `A reason for decision is optional, and every debater reads it (up to ${written.reason.max} characters).`,
-    written.feedback.required
-      ? `Feedback is required, and each debater reads only their own (up to ${written.feedback.max} characters).`
-      : `Feedback is optional, and each debater reads only their own (up to ${written.feedback.max} characters).`,
+    written.reason === null
+      ? 'Reason for decision is off.'
+      : written.reason.required
+        ? `Your reason for decision is required and both debaters read it (up to ${written.reason.max} characters).`
+        : `A reason for decision is optional, and every debater reads it (up to ${written.reason.max} characters).`,
+    written.feedback === null
+      ? 'Feedback is off.'
+      : written.feedback.required
+        ? `Feedback is required, and each debater reads only their own (up to ${written.feedback.max} characters).`
+        : `Feedback is optional, and each debater reads only their own (up to ${written.feedback.max} characters).`,
   ];
 }

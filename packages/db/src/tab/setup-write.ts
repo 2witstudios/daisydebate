@@ -1,5 +1,5 @@
 import type { StageKind } from '@daisy/protocol/lobby';
-import type { BallotDefinitionSettings } from '@daisy/protocol/lobby/lobby-setup-command';
+import type { BallotDefinition } from '@daisy/protocol';
 
 type Insert<Table extends string, Row> = {
   readonly table: Table;
@@ -96,7 +96,7 @@ export type SetupWrite =
         readonly ballotDefinitionId: string;
         readonly version: number;
         readonly lobbyId: string;
-        readonly definition: BallotDefinitionSettings;
+        readonly definition: BallotDefinition;
       }
     >
   | Insert<

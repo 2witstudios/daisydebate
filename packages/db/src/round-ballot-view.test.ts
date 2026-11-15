@@ -2,6 +2,7 @@ import {
   ballotCategories,
   daisyBallotDefinitions,
   daisyWinnerBallot,
+  daisyBallotSource,
 } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
@@ -28,6 +29,9 @@ const row = (
     decision: 'win',
     winner: 'affirmative',
     ranking: null,
+    speakerRanks: null,
+    ballotDefinitionId: null,
+    ballotDefinitionVersion: null,
     scores,
     reason: 'Clearer weighing.',
     feedback,
@@ -36,6 +40,7 @@ const row = (
 /** The Round's frozen definition and subjects every view reads ballots by. */
 const judged = {
   definition: daisyWinnerBallot,
+  source: daisyBallotSource(daisyWinnerBallot),
   subjects: {
     sides: ['affirmative', 'negative'],
     speakers: ['aff', 'neg'],
@@ -213,6 +218,7 @@ test('a released speaker ranking carries feedback only for the reading speaker',
       viewerSubject,
       aiJudgeSeatIds: new Set(),
       definition: daisyBallotDefinitions['rank-speakers@1'],
+      source: daisyBallotSource(daisyBallotDefinitions['rank-speakers@1']),
       subjects: { sides: [], speakers: ['s1', 's2', 's3'], segments: [] },
       rows: [ranked],
       frozen: null,

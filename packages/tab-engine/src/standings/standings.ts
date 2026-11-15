@@ -44,7 +44,7 @@ const rowsOf = (
  * An entry below the minimum games is listed after every ranked entry,
  * unranked, refined among its own kind.
  */
-export const STANDINGS_VERSION = 'standings@1';
+export const STANDINGS_VERSION = 'standings@2';
 
 export const standings = (input: StandingsInput): Standings => {
   const tally = tallyOf(input);

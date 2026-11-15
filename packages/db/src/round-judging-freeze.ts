@@ -1,5 +1,6 @@
 import {
   daisyBallotFor,
+  daisyBallotSource,
   panelRuleFor,
   type RoundJudging,
   type RoundRules,
@@ -18,6 +19,10 @@ export const frozenJudgingFor = (
 ): RoundJudging => {
   const ballot = daisyBallotFor(rules.outcome);
   return ballot
-    ? { ballot, panel: panelRuleFor(ballot, rules.seats.judges) }
+    ? {
+        source: daisyBallotSource(ballot),
+        ballot,
+        panel: panelRuleFor(ballot, rules.seats.judges),
+      }
     : null;
 };

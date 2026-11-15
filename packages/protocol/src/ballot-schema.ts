@@ -1,4 +1,6 @@
+import { sumScoreValues } from './score-unit';
 import { z } from 'zod';
+import { isScoreOnScale, scoreBounds } from './score-unit';
 import type {
   BallotDefinition,
   BallotPoints,
@@ -38,14 +40,18 @@ const nonEmpty = (values: readonly string[], what: string): Keys => {
   return [first, ...rest];
 };
 
-/** One score on a scale; whole-number scales stay integers. */
+/** Decimal steps are anchored at the exact authored minimum, including speech weights. */
 const scoreOn = (scale: BallotPoints['scale'], weight = 1) => {
-  const min = scale.min * weight;
-  const max = scale.max * weight;
-  const step = scale.step * weight;
-  return Number.isInteger(min) && Number.isInteger(step) && step === 1
-    ? z.int().min(min).max(max)
-    : z.number().min(min).max(max).multipleOf(step);
+  const bounds = scoreBounds(scale, weight);
+  if (!bounds) return z.never();
+  const number =
+    Number.isInteger(bounds.min) && bounds.step === 1 ? z.int() : z.number();
+  const bounded = number.min(bounds.min).max(bounds.max);
+  return bounded.refine(
+    (value) =>
+      !bounded.safeParse(value).success || isScoreOnScale(value, scale, weight),
+    'The score is on the declared minimum-anchored lattice',
+  );
 };
 
 const categoriesOf = (points: BallotPoints): Keys | null =>
@@ -164,19 +170,26 @@ export const feedbackSubjectSchema = z.union([sideKeySchema, idSchema]);
 export const pointsTotal = (score: unknown): number =>
   typeof score === 'number'
     ? score
-    : Object.values(score as Record<string, number>).reduce(
-        (sum, value) => sum + value,
-        0,
-      );
+    : sumScoreValues(Object.values(score as Record<string, number>));
 
 const written = (definition: BallotDefinition, subjects: Keys) => {
   const { reason, feedback } = definition.written;
   const text = (max: number) => z.string().trim().min(1).max(max);
   return {
-    reason: reason.required ? text(reason.max) : text(reason.max).optional(),
-    feedback: feedback.required
-      ? z.record(z.enum(subjects), text(feedback.max))
-      : z.partialRecord(z.enum(subjects), text(feedback.max)),
+    ...(reason
+      ? {
+          reason: reason.required
+            ? text(reason.max)
+            : text(reason.max).optional(),
+        }
+      : {}),
+    ...(feedback
+      ? {
+          feedback: feedback.required
+            ? z.record(z.enum(subjects), text(feedback.max))
+            : z.partialRecord(z.enum(subjects), text(feedback.max)),
+        }
+      : {}),
   };
 };
 
@@ -198,21 +211,20 @@ const winnerFields = (
       };
 };
 
-/** The strict ballot schema for one definition over one Round's subjects. */
-export const ballotSchemaFor = (
+/** All ballot fields before the shared decision checks are attached. */
+const ballotObjectFor = (
   definition: BallotDefinition,
   subjects: BallotSubjects,
 ) => {
   const { decision, points } = definition;
   const about = decisionSubjects(definition, subjects);
-  const { reason, feedback } = written(definition, about);
+  const writtenFields = written(definition, about);
   const shape = {
     rubricVersion: z.literal(ballotDefinitionIdentity(definition)),
     ...(decision.kind === 'winner'
       ? winnerFields(decision, about)
       : { ranking: placesSchema(about, decision.ties) }),
-    reason,
-    feedback,
+    ...writtenFields,
     ...(points
       ? {
           scores: scoresSchema(points, subjects),
@@ -228,7 +240,14 @@ export const ballotSchemaFor = (
         }
       : {}),
   };
-  const schema = z.strictObject(shape);
+  return z.strictObject(shape);
+};
+
+const withDecisionChecks = <Schema extends z.ZodObject>(
+  schema: Schema,
+  definition: BallotDefinition,
+) => {
+  const { decision, points } = definition;
   if (
     decision.kind !== 'winner' ||
     (decision.lowPointWin && !decision.tie && !decision.doubleLoss)
@@ -262,6 +281,26 @@ export const ballotSchemaFor = (
   });
 };
 
+/** The strict ballot schema for one definition over one Round's subjects. */
+export const ballotSchemaFor = (
+  definition: BallotDefinition,
+  subjects: BallotSubjects,
+) => withDecisionChecks(ballotObjectFor(definition, subjects), definition);
+
+/** Competitive history keeps decisions and scores, with no private written content. */
+export const ballotCompetitionSchemaFor = (
+  definition: BallotDefinition,
+  subjects: BallotSubjects,
+) =>
+  withDecisionChecks(
+    ballotObjectFor(definition, subjects).omit({
+      ...(definition.written.reason ? { reason: true } : {}),
+      ...(definition.written.feedback ? { feedback: true } : {}),
+      ...(definition.points ? { citations: true } : {}),
+    }),
+    definition,
+  );
+
 /**
  * A stored ballot's schema: its Round's definition or any other revision of
  * it, so a ballot written on an earlier revision reads on that revision's
@@ -294,7 +333,7 @@ export const ballotRecordSchema = z.strictObject({
   winner: sideKeySchema.nullable().optional(),
   ranking: z.array(z.array(z.string().min(1))).optional(),
   reason: z.string().optional(),
-  feedback: z.record(z.string(), z.string()),
+  feedback: z.record(z.string(), z.string()).optional(),
   scores: z.record(z.string(), ballotScoreValueSchema).optional(),
   citations: z
     .record(
@@ -305,6 +344,13 @@ export const ballotRecordSchema = z.strictObject({
   speakerRanks: z.array(z.array(z.string().min(1))).optional(),
 });
 export type Ballot = z.infer<typeof ballotRecordSchema>;
+/** The portable competitive fields, validated against their pinned definition before use. */
+export const ballotCompetitionRecordSchema = ballotRecordSchema.omit({
+  reason: true,
+  feedback: true,
+  citations: true,
+});
+export type BallotCompetition = z.infer<typeof ballotCompetitionRecordSchema>;
 /** Scores as any ballot carries them: a number or a criteria grid per subject. */
 export const ballotScoresRecordSchema = z.record(
   z.string(),

@@ -7,7 +7,7 @@ import {
   ballotDefinitionVersions,
 } from '../schema/ballot-definitions';
 import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
-import { jsonObjectSchema } from '../schema/columns';
+import { ballotDefinitionSchema } from '@daisy/protocol';
 import type { TabTransaction } from './tab-transaction';
 
 import type { SetupWrite } from './setup-write';
@@ -142,7 +142,7 @@ const apply = async (tx: TabTransaction, write: SetupWrite): Promise<void> => {
     case 'ballot_definition_versions':
       await tx.insert(ballotDefinitionVersions).values({
         ...write.row,
-        definition: jsonObjectSchema.parse(write.row.definition),
+        definition: ballotDefinitionSchema.parse(write.row.definition),
       });
       return;
     case 'resolution_pools':

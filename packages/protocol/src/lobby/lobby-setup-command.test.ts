@@ -33,11 +33,46 @@ const room = {
 };
 
 const ballotSettings = {
-  points: { min: 20, max: 30, step: 0.5, lowPointWin: false },
-  ranks: true,
-  criteria: ['Argument', 'Delivery'],
-  outcomes: { winner: true, doubleLoss: false },
-  written: { reason: 'required', feedback: 'optional', privateNote: 'off' },
+  decision: {
+    kind: 'winner' as const,
+    lowPointWin: false,
+    tie: false,
+    doubleLoss: false,
+  },
+  points: {
+    per: 'side' as const,
+    scale: { min: 20, max: 30, step: 0.5 },
+    default: 27.5,
+    criteria: {
+      kind: 'grid' as const,
+      groups: [
+        {
+          id: 'performance',
+          name: 'Performance',
+          categories: [
+            {
+              id: 'argument',
+              name: 'Argument',
+              rewards: 'Supported claims',
+              anchors: ['Unsupported', 'Supported', 'Decisive'],
+            },
+            {
+              id: 'delivery',
+              name: 'Delivery',
+              rewards: 'Clear communication',
+              anchors: ['Unclear', 'Clear', 'Precise'],
+            },
+          ],
+        },
+      ],
+    },
+    weights: null,
+  },
+  speakerRanks: true,
+  written: {
+    reason: { required: true, max: 600 },
+    feedback: { required: false, max: 280 },
+  },
 };
 
 /** One accepted example per command and per variant of its payload. */
@@ -259,7 +294,7 @@ const valid = {
       type: 'define-ballot',
       lobbyId,
       ballotDefinition: { kind: 'revision', ballotDefinitionId: id('b') },
-      settings: { ...ballotSettings, points: null, criteria: [] },
+      settings: { ...ballotSettings, points: null },
     },
   ],
   'add-resolution': [
@@ -418,15 +453,9 @@ const invalid: readonly (readonly [string, unknown, string])[] = [
     'a ballot deciding nothing',
     {
       ...newBallot,
-      settings: {
-        ...ballotSettings,
-        points: null,
-        ranks: false,
-        criteria: [],
-        outcomes: { winner: false, doubleLoss: false },
-      },
+      settings: { ...ballotSettings, decision: { kind: 'none' } },
     },
-    'settings',
+    'settings.decision.kind',
   ],
   [
     'points with an inverted range',
@@ -434,37 +463,65 @@ const invalid: readonly (readonly [string, unknown, string])[] = [
       ...newBallot,
       settings: {
         ...ballotSettings,
-        points: { min: 30, max: 20, step: 1, lowPointWin: false },
+        points: {
+          ...ballotSettings.points,
+          scale: { min: 30, max: 20, step: 1 },
+        },
       },
     },
-    'settings.points.max',
+    'settings.points.scale',
   ],
   [
-    'a step that does not divide the range',
+    'a default between minimum-anchored steps',
     {
       ...newBallot,
       settings: {
         ...ballotSettings,
-        points: { min: 20, max: 30, step: 0.3, lowPointWin: false },
+        points: {
+          ...ballotSettings.points,
+          default: 20.1,
+          scale: { min: 20, max: 30, step: 0.3 },
+        },
       },
     },
-    'settings.points.step',
+    'settings.points.default',
   ],
   [
-    'a criterion named twice',
+    'a criterion identity repeated',
     {
       ...newBallot,
-      settings: { ...ballotSettings, criteria: ['Delivery', 'Delivery'] },
+      settings: {
+        ...ballotSettings,
+        points: {
+          ...ballotSettings.points,
+          criteria: {
+            kind: 'grid',
+            groups: [
+              {
+                id: 'performance',
+                name: 'Performance',
+                categories: [
+                  ballotSettings.points.criteria.groups[0]!.categories[0],
+                  ballotSettings.points.criteria.groups[0]!.categories[0],
+                ],
+              },
+            ],
+          },
+        },
+      },
     },
-    'settings.criteria',
+    'settings.points.criteria',
   ],
   [
-    'criteria without points',
-    { ...newBallot, settings: { ...ballotSettings, points: null } },
-    'settings.criteria',
+    'detached criteria without points',
+    {
+      ...newBallot,
+      settings: { ...ballotSettings, points: null, criteria: ['Delivery'] },
+    },
+    'settings',
   ],
   [
-    'a required private note',
+    'an attempted private-note choice',
     {
       ...newBallot,
       settings: {
@@ -472,7 +529,7 @@ const invalid: readonly (readonly [string, unknown, string])[] = [
         written: { ...ballotSettings.written, privateNote: 'required' },
       },
     },
-    'settings.written.privateNote',
+    'settings.written',
   ],
   [
     'a resolution over 300 characters',

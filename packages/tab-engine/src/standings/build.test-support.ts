@@ -111,7 +111,9 @@ export const debate = (
   ballots: readonly (readonly [Id | null, number, number])[] = [
     [winner, ...points],
   ],
-): Played<TwoSides> => ({
+): Played<TwoSides> & {
+  result: Extract<ResultOf<TwoSides>, { kind: 'decided' }>;
+} => ({
   fixture: { id, tabRound, fixture: { kind: 'pairing', sides, panel: [] } },
   result: {
     id: `${id}-r`,
@@ -134,17 +136,28 @@ export const debate = (
   },
 });
 
-export const bye = <F extends TwoSides | FourSides | Speakers>(
+export const bye = (
   id: Id,
   tabRound: number,
   of: Id,
-): Played<F> => ({
-  fixture: {
-    id,
-    tabRound,
-    fixture: { kind: 'bye', entry: of },
-  } as HistoricFixture<F>,
-  result: null,
+  {
+    rule = 'win',
+    panelSize = 1,
+  }: { rule?: 'win' | 'own_average'; panelSize?: number } = {},
+): Played<TwoSides> => ({
+  fixture: { id, tabRound, fixture: { kind: 'bye', entry: of } },
+  result: {
+    id: `${id}-r`,
+    fixture: id,
+    kind: 'administrative',
+    supersedes: null,
+    certified: true,
+    outcome: {
+      kind: 'winner',
+      winner: of,
+      credits: { kind: 'bye', rule, panelSize },
+    },
+  },
 });
 
 /** One judge's ranks: `[entry, rank, points]` for each entry it ranked. */

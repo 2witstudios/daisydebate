@@ -1,3 +1,4 @@
+import { ballotPinCompatible } from './ballot-pin-compatible';
 import type { LoadedSettingCommand, SettingGraph } from '@daisy/db/tab';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import {
@@ -37,6 +38,7 @@ export const templateFact = (
   ballotDefinitionVersion: row.ballotDefinitionVersion,
   retiredAt: row.retiredAt?.toISOString() ?? null,
   version: row.version,
+  ballotCompatible: ballotPinCompatible(graph, { ...row, lobbyId: null }),
   format: formatSettingDefaults(graph, row.formatId, row.formatVersion),
 });
 const scopeFact = (
@@ -151,6 +153,16 @@ export const settingFacts = (
           row.name.toLowerCase() === name,
       ),
     formatRevision: format ? { organizationId: format.organizationId } : null,
+    ballotCompatible:
+      pin !== null &&
+      ballotPinCompatible(graph, {
+        formatId: pin.id,
+        formatVersion: pin.version,
+        ballotDefinitionId: ballotPin?.id ?? null,
+        ballotDefinitionVersion: ballotPin?.version ?? null,
+        organizationId: organizationId ?? null,
+        lobbyId: null,
+      }),
     ballotDefinition: ballot
       ? { organizationId: ballot.organizationId, lobbyId: ballot.lobbyId }
       : null,

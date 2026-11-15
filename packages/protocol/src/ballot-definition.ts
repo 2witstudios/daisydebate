@@ -1,7 +1,10 @@
 import { z } from 'zod';
+import { idSchema } from './primitives';
 import { ballotRubrics } from './ballot-rubrics';
 import { ballotDefaultScore, ballotLimits, ballotScoreMax } from './ballot';
-import type { SideKey } from './seats';
+import { isDebatingSeat, type SideKey } from './seats';
+import type { RoundRules } from './format';
+import { isScoreOnScale, scoreUnitFor, scoreCapacity } from './score-unit';
 
 /**
  * A ballot definition (TAB-6.11): the typed settings of a ballot as data,
@@ -74,16 +77,84 @@ export type BallotPoints = z.infer<typeof ballotPointsSchema>;
 export const ballotDefinitionIdentityPattern =
   /^[a-z][a-z0-9-]{0,39}@[1-9]\d*$/;
 
-export const ballotDefinitionSchema = z.strictObject({
-  key: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
-  revision: z.int().positive(),
+const ballotDefinitionFields = {
   decision: ballotDecisionSchema,
   points: ballotPointsSchema.nullable(),
-  /** Whether a winner ballot also ranks the speakers. */
+  /** Whether a winner ballot also ranks the actual speakers. */
   speakerRanks: z.boolean(),
-  written: z.strictObject({ reason: lengthSchema, feedback: lengthSchema }),
-});
+  /** Null explicitly disables collection; non-null keeps required/optional bounds. */
+  written: z.strictObject({
+    reason: lengthSchema.nullable(),
+    feedback: lengthSchema.nullable(),
+  }),
+};
+const ballotBodyShape = z.strictObject(ballotDefinitionFields);
+type Body = z.infer<typeof ballotBodyShape>;
+const validateBallotBody = (body: Body, ctx: z.RefinementCtx) => {
+  if (body.speakerRanks && body.decision.kind !== 'winner')
+    ctx.addIssue({
+      code: 'custom',
+      path: ['speakerRanks'],
+      message: 'Only a winner ballot separately ranks speakers',
+    });
+  const parsed =
+    body.points === null ? null : ballotPointsSchema.safeParse(body.points);
+  if (!parsed?.success) return;
+  const points = parsed.data;
+  if (!isScoreOnScale(points.default, points.scale))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['points', 'default'],
+      message: 'The default is on the declared score lattice',
+    });
+  if (points.per !== 'speech' && points.weights !== null)
+    ctx.addIssue({
+      code: 'custom',
+      path: ['points', 'weights'],
+      message: 'Only individual speeches have segment weights',
+    });
+  if (points.criteria.kind === 'grid') {
+    const groups = points.criteria.groups;
+    const ids = groups.flatMap((group) =>
+      group.categories.map((category) => category.id),
+    );
+    if (
+      new Set(groups.map((group) => group.id)).size !== groups.length ||
+      new Set(ids).size !== ids.length
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['points', 'criteria'],
+        message: 'Criterion and group identities are distinct and stable',
+      });
+  }
+};
+/** Authoring is the canonical body, without server-owned immutable identity. */
+export const ballotDefinitionBodySchema =
+  ballotBodyShape.superRefine(validateBallotBody);
+export type BallotDefinitionBody = z.infer<typeof ballotDefinitionBodySchema>;
+export const ballotDefinitionSchema = z
+  .strictObject({
+    key: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
+    revision: z.int().positive(),
+    ...ballotDefinitionFields,
+  })
+  .superRefine(validateBallotBody);
 export type BallotDefinition = z.infer<typeof ballotDefinitionSchema>;
+
+/** Every version of a stored identity keeps its key, independently of its display name. */
+export const storedBallotDefinition = (
+  id: string,
+  version: number,
+  body: BallotDefinitionBody,
+): BallotDefinition => ({
+  key: `ballot-${id}`,
+  revision: version,
+  decision: body.decision,
+  points: body.points,
+  speakerRanks: body.speakerRanks,
+  written: body.written,
+});
 
 /** A definition's one identity, as a ballot and a Round store it. */
 export const ballotDefinitionIdentity = (
@@ -187,9 +258,70 @@ export const panelRuleSchema = z.strictObject({
 });
 export type PanelRule = z.infer<typeof panelRuleSchema>;
 
+/** An explicit immutable stored definition version; null elsewhere means the format's ballot. */
+export const ballotDefinitionPinSchema = z.strictObject({
+  id: idSchema,
+  version: z.int().positive(),
+});
+export type BallotDefinitionPin = z.infer<typeof ballotDefinitionPinSchema>;
+
+/** The immutable source answered by every human or AI ballot. */
+export const ballotDefinitionSourceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('daisy'),
+    key: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
+    revision: z.int().positive(),
+  }),
+  z.strictObject({
+    kind: z.literal('stored'),
+    ...ballotDefinitionPinSchema.shape,
+  }),
+]);
+export type BallotDefinitionSource = z.infer<
+  typeof ballotDefinitionSourceSchema
+>;
+
+/** A reference to an actual registry definition; the frozen schema verifies its content. */
+export const daisyBallotSource = (
+  definition: BallotDefinition,
+): Extract<BallotDefinitionSource, { kind: 'daisy' }> => ({
+  kind: 'daisy',
+  key: definition.key,
+  revision: definition.revision,
+});
+
 /** What a Round is judged on, frozen at Start round; null when nothing is judged. */
 export const roundJudgingSchema = z
-  .strictObject({ ballot: ballotDefinitionSchema, panel: panelRuleSchema })
+  .strictObject({
+    source: ballotDefinitionSourceSchema,
+    ballot: ballotDefinitionSchema,
+    panel: panelRuleSchema,
+  })
+  .superRefine((judging, ctx) => {
+    const source = judging.source;
+    if (source.kind === 'stored') {
+      if (source.version !== judging.ballot.revision)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'The stored content has its exact immutable version',
+        });
+      return;
+    }
+    const original = Object.values(daisyBallotDefinitions).find(
+      (definition) =>
+        definition.key === source.key &&
+        definition.revision === source.revision,
+    );
+    if (
+      !original ||
+      JSON.stringify(ballotDefinitionSchema.parse(original)) !==
+        JSON.stringify(judging.ballot)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'The Daisy source names its exact registered content',
+      });
+  })
   .nullable();
 export type RoundJudging = z.infer<typeof roundJudgingSchema>;
 
@@ -215,4 +347,109 @@ export type BallotSubjects = {
   /** The round participant ids of every competitor seat, sided or not. */
   readonly speakers: readonly string[];
   readonly segments: readonly string[];
+};
+
+export type BallotJudgingSelection = {
+  readonly source: BallotDefinitionSource;
+  readonly ballot: BallotDefinition;
+};
+/** The shared authored and frozen execution geometry a ballot binds to. */
+export type BallotExecutionGeometry = Pick<
+  RoundRules,
+  'sides' | 'seats' | 'outcome'
+> & {
+  readonly segments: readonly Pick<
+    RoundRules['segments'][number],
+    'key' | 'speak'
+  >[];
+};
+export type BallotJudgingFreeze =
+  | { readonly kind: 'frozen'; readonly judging: RoundJudging }
+  | {
+      readonly kind: 'refused';
+      readonly refusal: 'ballot-definition-unavailable';
+    };
+
+/** Bind an exact immutable definition to actual execution subjects; never substitute a non-null selection. */
+export const freezeBallotJudging = (
+  rules: BallotExecutionGeometry,
+  selection: BallotJudgingSelection | null,
+): BallotJudgingFreeze => {
+  const refused = {
+    kind: 'refused',
+    refusal: 'ballot-definition-unavailable',
+  } as const;
+  const ballot = selection ? selection.ballot : daisyBallotFor(rules.outcome);
+  if (!ballot) return { kind: 'frozen', judging: null };
+  const parsed = roundJudgingSchema.safeParse({
+    source: selection ? selection.source : daisyBallotSource(ballot),
+    ballot,
+    panel: panelRuleFor(ballot, rules.seats.judges),
+  });
+  if (!parsed.success || !parsed.data) return refused;
+  const definition = parsed.data.ballot;
+  if (
+    rules.outcome.kind !== definition.decision.kind ||
+    (rules.outcome.kind === 'ranking' &&
+      definition.decision.kind === 'ranking' &&
+      rules.outcome.of !== definition.decision.of)
+  )
+    return refused;
+  const speakers =
+    rules.seats.speakers +
+    Object.values(rules.seats.sides).reduce((sum, count) => sum + count, 0);
+  if (definition.speakerRanks && speakers === 0) return refused;
+  const points = definition.points;
+  if (points) {
+    const unit = scoreUnitFor(points);
+    if (!unit || !isScoreOnScale(points.default, points.scale)) return refused;
+    if (
+      points.per === 'speech' &&
+      rules.segments.some(
+        (segment) =>
+          segment.speak.rights !== 'one' || !isDebatingSeat(segment.speak.seat),
+      )
+    )
+      return refused;
+    if (
+      Object.keys(points.weights ?? {}).some(
+        (key) =>
+          points.per !== 'speech' ||
+          !rules.segments.some((segment) => segment.key === key),
+      )
+    )
+      return refused;
+    const subjects =
+      points.per === 'side'
+        ? rules.sides.length
+        : points.per === 'seat'
+          ? speakers
+          : rules.segments.length;
+    if (subjects === 0) return refused;
+    const criteria =
+      points.criteria.kind === 'grid'
+        ? points.criteria.groups.flatMap((group) => group.categories)
+        : [];
+    if (
+      new Set(criteria.map((criterion) => criterion.id)).size !==
+      criteria.length
+    )
+      return refused;
+    const weights =
+      points.per === 'speech'
+        ? [1, ...Object.values(points.weights ?? {})]
+        : [1];
+    for (const weight of weights) {
+      const bound = scoreCapacity(points.scale.max, unit, weight);
+      if (
+        bound === null ||
+        BigInt(bound) *
+          BigInt(Math.max(1, criteria.length)) *
+          BigInt(subjects) >
+          BigInt(Number.MAX_SAFE_INTEGER)
+      )
+        return refused;
+    }
+  }
+  return { kind: 'frozen', judging: parsed.data };
 };

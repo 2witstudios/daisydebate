@@ -64,6 +64,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.feedback',
         'ballots.ranking',
         'ballots.scores',
+        'ballots.speaker_ranks',
         'billing_customers.synchronization',
         'billing_payment_observations.source',
         'billing_payment_observations.state',
@@ -127,6 +128,7 @@ describe('jsonb columns (ISSUE-24)', () => {
           name === 'ballot_screenings.released_text' ||
           name === 'ballots.feedback' ||
           name === 'ballots.ranking' ||
+          name === 'ballots.speaker_ranks' ||
           name === 'ballots.scores' ||
           name === 'rounds.ranking' ||
           name === 'rounds.judging' ||
