@@ -101,6 +101,11 @@ const inLobby = (scope: LobbyScopeFact): Record<string, Resource> => {
   };
   const judge: Resource = { kind: 'judge', scope: event, actorId: 'person' };
   return {
+    'tournament.sponsorship.consent': {
+      kind: 'tournament_sponsorship',
+      scope: event,
+      sponsorActorId: 'person',
+    },
     'round.read': ownedRound,
     'round.observe.undelayed': ownedRound,
     'room.list': lobby,
