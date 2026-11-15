@@ -13,6 +13,10 @@ export const seedHostingGrant = async (
   } = {},
 ) => {
   const versionId = createId();
+  const [principal] = await sql<
+    { role: string }[]
+  >`select current_user as role`;
+  if (!principal) throw new Error('Test issuer role unavailable');
   await sql.savepoint(async (seed) => {
     await seed.unsafe('reset role');
     await seed`insert into account_hosting_versions
@@ -24,7 +28,9 @@ export const seedHostingGrant = async (
       await seed`delete from account_entitlement_grants where user_id=${userId} and entitlement='tournament_hosting' and source='administrative'`;
     await seed`insert into account_entitlement_grants (user_id,entitlement,source,hosting_version_id)
       values (${userId},'tournament_hosting','administrative',${versionId})`;
-    await seed.unsafe('set local role daisy_web');
+    await seed.unsafe(
+      'set local role "' + principal.role.replaceAll('"', '""') + '"',
+    );
   });
   return versionId;
 };

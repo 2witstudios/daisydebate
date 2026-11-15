@@ -254,9 +254,10 @@ test('test-only family commands attribute the protected subject and cannot reviv
       });
       if (membership.kind !== 'accepted')
         throw new Error('Actual guardian membership refused');
+      await seedHostingGrant(sql, bots.Coach!.userId);
       const paidOrganization = organizationCommand({
         ...common,
-      }); // Test entitlement only.
+      });
       const league = await paidOrganization(as(bots.Coach!), {
         version: 1,
         commandId: createId(),

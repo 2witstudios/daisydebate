@@ -81,8 +81,16 @@ test('actual casual capture volume, verified output and independent transport ov
             import.meta.url,
           ).pathname;
           const source = await Bun.file(sourcePath).text();
+          const fleetSource = await Bun.file(
+            new URL(
+              '../../../packages/db/src/nonranked-capture-capacity.ts',
+              import.meta.url,
+            ),
+          ).text();
           const declared = {
-            fleet: Number(/CASUAL_CAPTURES_AT_ONCE = (\d+)/.exec(source)?.[1]),
+            fleet: Number(
+              /NONRANKED_CAPTURE_FLEET_LIMIT = (\d+)/.exec(fleetSource)?.[1],
+            ),
             host: Number(/CASUAL_CAPTURES_PER_HOST = (\d+)/.exec(source)?.[1]),
           };
           assert({
@@ -140,6 +148,7 @@ test('actual casual capture volume, verified output and independent transport ov
             declaredAdmission: declared,
             declarationSHA256: createHash('sha256')
               .update(source)
+              .update(fleetSource)
               .digest('hex'),
             workerRoles: [one.processed.role, two.processed.role],
             builds: [one.processed.output, two.processed.output],
