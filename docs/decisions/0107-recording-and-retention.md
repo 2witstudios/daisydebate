@@ -1,5 +1,9 @@
 # 0107: Recording and retention
 
+Recording policy is amended by
+[ADR 0134](0134-formats-beyond-two-sides.md). Event Rooms pin `off` or `officials`;
+this amendment does not approve the counsel-gated retention proposal below.
+
 Status: accepted, owner decisions on the Watch plan, 2026-11-02. The retention of
 ranked video after erasure is **proposed and not reviewed by counsel** (COMP-4), and
 may change after that review.
