@@ -1,3 +1,4 @@
+import { engineSettings } from '../operations/engine-settings';
 import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -30,6 +31,11 @@ const [a, b, c, d] = ['ea', 'eb', 'ec', 'ed'].map(id) as [
   string,
 ];
 const member = (entry: string) => `${entry.slice(0, 2)}member`.padEnd(24, '0');
+
+const resolvedSettings = engineSettings([], [], {
+  'room.timing': { preRoundPrepMs: 0, inRoundPrepMsPerSide: 0, countdownMs: 0 },
+  'room.floor': { interruptions: null, yielding: null },
+});
 
 const noFindings: EngineAssessment = { warnings: [], broken: [], invalid: [] };
 
@@ -116,7 +122,7 @@ const facts = (overrides: Partial<DrawFacts> = {}): DrawFacts => ({
   },
   versions: [published1, draft2],
   fixtures,
-  settings: { kind: 'resolved', values: {}, digest: 'digest-1' },
+  settings: { kind: 'resolved', values: resolvedSettings, digest: 'digest-1' },
   engine: {
     entries: [],
     history: { fixtures: [], results: [] },
@@ -1038,7 +1044,13 @@ describe('publish-draw', () => {
         run({}, publish({ drawId: id('draw1') })),
         run({ versions: [published1, { ...draft2, basedOnDrawId: null }] }),
         run({ tabRound: { ...facts().tabRound, timeSlot: null } }),
-        run({ settings: { kind: 'resolved', values: {}, digest: 'digest-2' } }),
+        run({
+          settings: {
+            kind: 'resolved',
+            values: resolvedSettings,
+            digest: 'digest-2',
+          },
+        }),
         run({
           fixtures: [
             ...fixtures.slice(0, 2),

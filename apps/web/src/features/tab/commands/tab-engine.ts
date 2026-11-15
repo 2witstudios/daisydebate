@@ -1,18 +1,14 @@
 /**
- * The port through which `generate-draw`, `assign-judges` and `edit-draw`
- * call the tab engine: its one draw entry point and its assessment of a
- * plan a person changed.
- *
- * Assumption: `@daisy/tab-engine` is being built on the sibling branch
- * `pu/daisy-tab-engines` and is not on this branch, so it is not imported.
- * These types mirror the shapes its public API gives (`draw(input:
- * DrawInput): DrawAnswer` and `assess(input, plans): Assessment[]`, from
- * src/shapes/draw.ts and src/shapes/competition.ts), keeping only what the
- * draw commands read. What the commands pass through untouched (resolved
- * settings, stage history, ratings) is opaque here. When the package lands,
- * wiring adapts `{ draw, assess }` to this port, or these mirrors are
- * replaced by its exported types.
+ * The draw command's minimal engine port. Settings, history and rating facts
+ * use the merged engine's canonical shapes; fixture arrays remain unchecked
+ * until the adapter assesses a person's typed edit against its format.
  */
+import type {
+  FormatDescriptor,
+  ResolvedSettings,
+  StageHistory,
+  RatingSnapshot,
+} from '@daisy/tab-engine';
 
 type EngineId = string;
 
@@ -68,12 +64,9 @@ export type EngineStage =
     };
 
 /** Opaque here: the engine's own shapes, loaded and passed through as they are. */
-export type EngineResolvedSettings = Readonly<Record<string, unknown>>;
-export type EngineStageHistory = {
-  readonly fixtures: readonly unknown[];
-  readonly results: readonly unknown[];
-};
-export type EngineRatings = Readonly<Record<string, unknown>> | null;
+export type EngineResolvedSettings = ResolvedSettings;
+export type EngineStageHistory = StageHistory<FormatDescriptor>;
+export type EngineRatings = RatingSnapshot | null;
 
 export type EngineEventRequest = {
   readonly event: EngineId;
@@ -176,7 +169,10 @@ export type EngineDraw = {
 };
 
 /** A plan as a person may hand it back: the three lists, without costs. */
-type EnginePlan = Pick<EngineDraw, 'event' | 'keep' | 'add' | 'withdraw'>;
+export type EnginePlan = Pick<
+  EngineDraw,
+  'event' | 'keep' | 'add' | 'withdraw'
+>;
 
 export type EngineDrawAnswer =
   | { readonly kind: 'drawn'; readonly draws: readonly EngineDraw[] }

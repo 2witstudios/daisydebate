@@ -18,3 +18,26 @@ export {
   type ForceKey,
   type ResolvedSettings,
 } from './shapes/settings';
+
+export type {
+  FormatDescriptor,
+  Fixture,
+  FixtureOf,
+  TwoSides,
+  FourSides,
+  Speakers,
+  Stage,
+  StageHistory,
+  RatingSnapshot,
+} from './shapes/competition';
+export type {
+  Assessment,
+  Commitment,
+  Draw,
+  DrawAnswer,
+  EventRequest,
+  ExistingFixture,
+  InputsRecord,
+  Judge,
+  FixtureRef,
+} from './shapes/draw';

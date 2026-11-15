@@ -1,3 +1,8 @@
+import { createDrawCommandStore } from './draw-command';
+export { DrawPeopleChanged } from './draw-command-facts';
+export type { DrawCommandInput, LoadedDrawCommand } from './draw-command-facts';
+export type { DrawWrite } from './draw-write';
+export type { DrawRoomAssembly } from './draw-writes';
 export { EntryEnrollmentChanged } from './entry-enrollment';
 export { EventSettingParentsChanged } from './event-setting-context';
 export type { EventSettingContext } from './event-setting-context';
@@ -128,6 +133,7 @@ const roleNamedOf = (
  * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TabDatabase) => ({
+  ...createDrawCommandStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),
   ...createSetupCommandStore(database),

@@ -129,12 +129,12 @@ export type DrawFixtureFacts = {
     readonly entryId: string;
     readonly position: number;
     readonly side: string | null;
-    /** The entry's members, as accounts. */
+    /** The entry's members, as actor identities. */
     readonly members: readonly string[];
   }[];
   readonly judges: readonly {
     readonly tournamentJudgeId: string;
-    /** The judge, as an account. */
+    /** The judge, as an actor identity. */
     readonly person: string;
     readonly chair: boolean;
   }[];
