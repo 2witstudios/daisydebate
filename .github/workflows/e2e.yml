@@ -29,8 +29,9 @@ jobs:
     runs-on: ubuntu-24.04
     # A manual dispatch runs the three-consecutive-run release
     # qualification instead of the single run; three full suites
-    # need more than the single-run budget below.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 60 || 20 }}
+    # reserve aggregate setup/reporting time too (ISSUE-1429). Individual test
+    # deadlines, retries and the complete three-pass inventory stay unchanged.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 75 || 20 }}
     # The read-only fixture admission CLI derives the canonical main slot
     # from this checkout. Dev/test URLs are identity metadata only; browser
     # connections use the separately provisioned DML-only E2E login below.

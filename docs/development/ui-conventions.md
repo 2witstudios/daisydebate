@@ -325,6 +325,13 @@ human judge appears only as `Judge present`; the judge's name never
 reaches the debaters' browsers. Tile height follows the phase. Controls with no
 backend are shown disabled, never faked.
 
+The opening strike panel is a non-shrinking sibling before the media section
+inside the scrolling room frame. Its drawn resolutions and growing confirmation
+must keep their full content height: shrinking to a viewport minimum lets the
+following section paint over the submit controls (ISSUE-1428). Native pointer
+interaction must reach both strike buttons at short desktop heights; forcing a
+click is not a substitute for a reachable control.
+
 After the last speech the room is in its judging window (30 minutes,
 ADR 0053): the clock counts the window down, the controls offer Report a
 problem instead of Tech issue, a Ballots section lists each ballot with its

@@ -1,44 +1,10 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { systemClock } from '@daisy/clock';
-import { boundedStep, StepTimeoutError } from './bounded-step';
+import { boundedStep } from './bounded-step';
 import { committedRefusalState } from './messaging-committed-refusal';
 import { advisedConversationBoundary } from './messaging-refusal-flight';
 import type { watchConversationRecovery } from './messaging-recovery-evidence';
-
-export const refusalResponsePhase = () => ({
-  finishedEntered: false,
-  finishedReturned: false,
-  finishedFailed: false,
-  bodyEntered: false,
-  bodyReturned: false,
-  bodyFailed: false,
-});
-
-/** Observe the existing awaits only; payload/error identity and ordering stay unchanged. */
-export async function readRefusalResponse(
-  response: { finished: () => Promise<unknown>; text: () => Promise<string> },
-  phase: ReturnType<typeof refusalResponsePhase>,
-) {
-  phase.finishedEntered = true;
-  try {
-    const error = await response.finished();
-    phase.finishedReturned = true;
-    if (error) throw error;
-  } catch (error) {
-    phase.finishedFailed = true;
-    throw error;
-  }
-  phase.bodyEntered = true;
-  try {
-    const payload = await response.text();
-    phase.bodyReturned = true;
-    return payload;
-  } catch (error) {
-    phase.bodyFailed = true;
-    throw error;
-  }
-}
 
 export async function pauseMessagingRecovery(page: Page) {
   const anchor = new Date(systemClock.now());
@@ -120,30 +86,47 @@ export async function settledRefusalResponse(
     })
     .toBe(attempt);
   const response = observer.refetchResponses()[attempt - 1]!;
-  const responsePhase = refusalResponsePhase();
   const eventStep = observer.eventStep();
   const pendingAtEntry = observer.snapshot().pending;
   const budgetMs = remaining(deadline);
   let payload: string | undefined;
   const completionFailures: unknown[] = [];
   try {
-    payload = await boundedStep(
-      'the completed actual refusal response',
-      () => readRefusalResponse(response, responsePhase),
-      budgetMs,
-    );
+    const controlled = observer.controlledPayload(response);
+    if (controlled === null)
+      throw new Error('Missing actual controlled refusal bytes');
+    // Chromium can report ERR_ABORTED after the decoder has consumed EOF.
+    // Playwright1.63 never resolves Response.finished() on requestfailed.
+    // Prove the exact fetched bytes at the real decoder instead of accepting
+    // either the network abort or an uncorrelated EOF as completion.
+    await expect
+      .poll(() => observer.consumer(response), {
+        timeout: budgetMs,
+        intervals: [0, 20, 50, 100],
+      })
+      .toMatchObject({
+        sameHttpCorrelation: true,
+        readerOpened: true,
+        eof: true,
+        bytesMatch: true,
+        readRejected: false,
+        readerCancelled: false,
+        bodyCancelled: false,
+        signalAborted: false,
+        byteLimitExceeded: false,
+        digestFailed: false,
+      });
+    payload = controlled;
   } catch (error) {
     completionFailures.push(error);
   }
   try {
-    await test.info().attach('refusal-response-await-safe', {
+    await test.info().attach('refusal-consumption-safe', {
       contentType: 'application/json',
       body: JSON.stringify({
-        phase: 'response-completion',
+        phase: 'exact-consumer-completion',
         attempt,
         budgetMs,
-        ...responsePhase,
-        stepTimedOut: completionFailures[0] instanceof StepTimeoutError,
         pendingAtEntry,
         pendingAtExit: observer.snapshot().pending,
         maximumPendingWholeObservation: observer.snapshot().maximumPending,
@@ -209,7 +192,7 @@ export async function settledRefusalResponse(
       body: JSON.stringify({
         phase: 'completed-response',
         attempt,
-        responseFinished: true,
+        exactResponseConsumed: true,
         settledIdentityMatchesResponse,
         observed: readiness !== null,
         readiness,

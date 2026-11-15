@@ -182,12 +182,12 @@ export function testMessagingRecovery() {
         await boundedStep(
           'the actual controlled refusal delivery',
           async () => {
-            const { response } = await readControlledRefusal(
+            const { response, body } = await readControlledRefusal(
               route,
               info,
               budget,
             );
-            observer!.includeResponse(response.headers()['x-request-id']);
+            await observer!.includeControlledResponse(response, body);
             await route.fulfill({ response });
           },
           budget,
@@ -322,12 +322,12 @@ export function testMessagingRecovery() {
           deliveryDeadline === null
             ? STEP_LIMIT_MS
             : deliveryDeadline - Date.parse(systemClock.now());
-        const { response, advice } = await readControlledRefusal(
+        const { response, advice, body } = await readControlledRefusal(
           route,
           info,
           budget,
         );
-        observer!.includeResponse(response.headers()['x-request-id']);
+        await observer!.includeControlledResponse(response, body);
         if (first) {
           held.resolve(advice !== null);
           await gate.promise;

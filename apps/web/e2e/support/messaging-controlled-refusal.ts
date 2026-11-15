@@ -20,10 +20,11 @@ export async function readControlledRefusal(
         maxRetries: 0,
         maxRedirects: 0,
       });
+      const body = await response.body();
       const advice = advisedRecoveryResponse({
         status: response.status(),
         contentType: response.headers()['content-type'] ?? '',
-        payload: await response.text(),
+        payload: body.toString('utf8'),
       });
       await info.attach('controlled-refusal-response-safe', {
         contentType: 'application/json',
@@ -36,7 +37,7 @@ export async function readControlledRefusal(
         throw new Error(
           'Controlled recovery did not receive an advised Flight response',
         );
-      return { response, advice };
+      return { response, advice, body };
     },
     budget,
   );

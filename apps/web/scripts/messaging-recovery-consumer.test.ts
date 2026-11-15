@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { boundedStep } from '../e2e/support/bounded-step';
 import { observeRecoveryConsumer } from '../e2e/support/messaging-recovery-consumer';
 setupRitewayBun();
 
@@ -111,7 +112,7 @@ test('observation returns the original reader promise and never initiates a read
 test('the serialized page witness preserves fetch identity and excludes speculative or unrelated responses', async () => {
   const { watchRecoveryConsumer } =
     await import('../e2e/support/messaging-recovery-consumer');
-  let binding: (id: string, value: Record<string, boolean>) => void = () => {};
+  let binding: (id: string, value: Record<string, unknown>) => void = () => {};
   let script = '';
   const page = {
     exposeFunction: async (_name: string, callback: typeof binding) => {
@@ -129,12 +130,20 @@ test('the serialized page witness preserves fetch identity and excludes speculat
     headers: { 'x-request-id': 'private-controlled-correlation' },
   });
   const promised = Promise.resolve(response);
+  const digestReady = Promise.withResolvers<void>();
   const browser = {
     fetch: () => promised,
     __messagingRecoveryConsumer: async (
       id: string,
-      value: Record<string, boolean>,
-    ) => binding(id, value),
+      value: Record<string, unknown>,
+    ) => {
+      binding(id, value);
+      if (
+        typeof value['bodyDigest'] === 'string' ||
+        value['digestFailed'] === true
+      )
+        digestReady.resolve();
+    },
   };
   // Execute precisely the script installed before the real page's first target read.
   new Function('window', 'location', script)(browser, {
@@ -156,9 +165,18 @@ test('the serialized page witness preserves fetch identity and excludes speculat
   const absent = snapshot(selected);
   const returned = invoke('/messages/controlled', { headers: { rsc: '1' } });
   await returned;
+  await snapshot.expectBody(
+    'private-controlled-correlation',
+    new TextEncoder().encode('actual bytes'),
+  );
   const reader = response.body!.getReader();
   await reader.read();
   await reader.read();
+  await boundedStep(
+    'the serialized consumer digest',
+    () => digestReady.promise,
+    1000,
+  );
   assert({
     given:
       'the installed exact-target fetch witness sees unrelated, prefetch and actual reads',
@@ -171,7 +189,7 @@ test('the serialized page witness preserves fetch identity and excludes speculat
       target: snapshot(selected),
     },
     expected: {
-      absent: { sameHttpCorrelation: false },
+      absent: { sameHttpCorrelation: false, bytesMatch: false },
       promise: true,
       wrapperInstalled: true,
       target: {
@@ -182,6 +200,10 @@ test('the serialized page witness preserves fetch identity and excludes speculat
         readerCancelled: false,
         bodyCancelled: false,
         lockReleased: false,
+        byteLength: 12,
+        byteLimitExceeded: false,
+        digestFailed: false,
+        bytesMatch: true,
         signalSupplied: false,
         signalAborted: false,
       },
@@ -238,7 +260,7 @@ test('the same passive witness observes only the accepted Home GET consumer', as
       result: snapshot(selected),
     },
     expected: {
-      unrelated: { sameHttpCorrelation: false },
+      unrelated: { sameHttpCorrelation: false, bytesMatch: false },
       samePromise: true,
       result: {
         sameHttpCorrelation: true,
@@ -248,8 +270,94 @@ test('the same passive witness observes only the accepted Home GET consumer', as
         readerCancelled: false,
         bodyCancelled: false,
         lockReleased: false,
+        byteLength: 17,
+        byteLimitExceeded: false,
+        digestFailed: false,
+        bytesMatch: false,
         signalSupplied: false,
         signalAborted: false,
+      },
+    },
+  });
+});
+
+test('consumed bytes identify the exact response independently of network termination', async () => {
+  const bytes = new TextEncoder().encode('actual Flight 🌼\nrequest-identity');
+  const digest = Buffer.from(
+    await crypto.subtle.digest('SHA-256', bytes),
+  ).toString('hex');
+  const consume = async (parts: Uint8Array[]) => {
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          for (const part of parts) controller.enqueue(part);
+          controller.close();
+        },
+      }),
+    );
+    const digestReady = Promise.withResolvers<void>();
+    const state = observeRecoveryConsumer(response, () => {
+      if (state.bodyDigest !== null || state.digestFailed)
+        digestReady.resolve();
+    });
+    const reader = response.body!.getReader();
+    while (!(await reader.read()).done) {
+      /* the real consumer owns reads */
+    }
+    await boundedStep(
+      'the exact-byte control digest',
+      () => digestReady.promise,
+      1000,
+    );
+    return {
+      eof: state.eof,
+      digestComputed: state.bodyDigest !== null && !state.digestFailed,
+      bytesMatch: state.bodyDigest === digest,
+      byteLength: state.byteLength,
+    };
+  };
+  const exact = await consume([bytes.slice(0, 15), bytes.slice(15)]);
+  const truncated = await consume([bytes.slice(0, -1)]);
+  const corrupted = bytes.slice();
+  corrupted[0] = 0;
+  const wrongIdentity = new TextEncoder().encode(
+    'actual Flight 🌼\nother---identity',
+  );
+  assert({
+    given:
+      'exact chunks, a truncated body, a corrupted body and another refusal identity',
+    should:
+      'prove only the exact consumed bytes even when every stream reaches EOF',
+    actual: {
+      exact,
+      truncated,
+      corrupted: await consume([corrupted]),
+      wrongIdentity: await consume([wrongIdentity]),
+    },
+    expected: {
+      exact: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: true,
+        byteLength: bytes.length,
+      },
+      truncated: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: false,
+        byteLength: bytes.length - 1,
+      },
+      corrupted: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: false,
+        byteLength: bytes.length,
+      },
+      wrongIdentity: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: false,
+        byteLength: wrongIdentity.length,
       },
     },
   });

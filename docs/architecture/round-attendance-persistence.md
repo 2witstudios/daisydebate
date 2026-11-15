@@ -145,3 +145,18 @@ backend incarnation retention, first-stamp/decision immutability, receipt
 retention refusal and owning Round cascades. Actual sampler, control lifecycle,
 authenticated receipt, outage evaluation and competitive adjudication require
 their separate composed service proofs; schema tests do not establish them.
+
+## Graceful sampler handoff (ISSUE-1427)
+
+On graceful stop, the availability service clears its timer and waits for its
+current renewal and sampling work. Before releasing its reserved election
+session, it runs the same elected cycle once more: a fresh public check-in
+receipt probe, pending check-in reconciliation, and the normal database health
+assessment and timestamped insertion. A peer that does not win election writes
+nothing. A failed probe or reconciliation records unhealthy evidence; a failed
+cycle is reported, and election is released in `finally`.
+
+This removes accumulated pre-stop sample age from a healthy rolling handoff.
+It does not fabricate coverage or guarantee successor latency: late or missing
+samples still reopen an outage under the unchanged two-second rule. The
+successor must acquire election and produce its own fresh public evidence.
