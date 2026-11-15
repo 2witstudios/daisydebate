@@ -69,6 +69,8 @@ export const historyRowOf = (
   organizationId:
     entry.scope.kind === 'organization' ? entry.scope.organizationId : null,
   lobbyId: entry.scope.kind === 'lobby' ? entry.scope.lobbyId : null,
+  subjectPersonUserId:
+    entry.scope.kind === 'person' ? entry.scope.subjectUserId : null,
   actorUserId: entry.actorUserId,
   ...authorityColumns(entry.authority),
   aggregateKind: entry.aggregate.kind,

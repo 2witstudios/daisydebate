@@ -96,8 +96,8 @@ export const grants = pgTable(
 
 /**
  * The action history: the record of every command, attributed to who ran
- * it, under which authority, on what, when. Exactly one of the two
- * isolation keys and exactly one principal. Append-only: the runtime role
+ * it, under which authority, on what, when. Exactly one organization,
+ * lobby or protected-person scope and exactly one principal. Append-only: the runtime role
  * holds no UPDATE or DELETE and a trigger refuses both for every role.
  */
 export const actionHistory = pgTable(
@@ -110,6 +110,13 @@ export const actionHistory = pgTable(
     lobbyId: text('lobby_id').references(() => lobbies.id, {
       onDelete: 'restrict',
     }),
+    /** The protected person, independently of the command actor. */
+    subjectPersonUserId: text('subject_person_user_id').references(
+      () => users.id,
+      {
+        onDelete: 'restrict',
+      },
+    ),
     actorUserId: text('actor_user_id').references(() => users.id, {
       onDelete: 'restrict',
     }),
@@ -137,6 +144,10 @@ export const actionHistory = pgTable(
       table.appliedAt,
     ),
     index('action_history_lobby_idx').on(table.lobbyId, table.appliedAt),
+    index('action_history_subject_person_idx').on(
+      table.subjectPersonUserId,
+      table.appliedAt,
+    ),
     index('action_history_actor_user_idx').on(table.actorUserId),
     index('action_history_grant_idx').on(table.grantId),
     index('action_history_conflict_idx').on(table.conflictId, table.lobbyId),
@@ -149,7 +160,10 @@ export const actionHistory = pgTable(
       columns: [table.conflictId, table.lobbyId],
       foreignColumns: [conflicts.id, conflicts.lobbyId],
     }).onDelete('restrict'),
-    oneTenantKey('action_history', table.organizationId, table.lobbyId),
+    check(
+      'action_history_one_scope',
+      sql`num_nonnulls(${table.organizationId}, ${table.lobbyId}, ${table.subjectPersonUserId}) = 1`,
+    ),
     check(
       'action_history_one_principal',
       sql`(${table.actorUserId} is null) <> (${table.serviceId} is null)`,

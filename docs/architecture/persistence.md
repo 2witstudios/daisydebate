@@ -84,6 +84,20 @@ reads that immutable field directly. Existing unknown makers remain explicit
 nulls and cannot be reconstructed from current guardians or event history.
 This adds no minor activation, consent or retention policy; those remain closed.
 
+The same action history has exactly one organization, lobby or protected-person
+scope. The protected subject is separate from its actor; organization/lobby
+contexts cannot expose person rows through a matching subject account. Family
+commands fence their current people before relationship/school metadata and
+append one atomic person-scoped receipt. History reads authorize the actual
+current relationship and subject inside shared account fences, including the
+ward fence shared across guardians. Family command/read composition stays
+closed with no approved notice, and the web role still cannot write guardian
+links or restrictions. No family retention/export/erasure policy is inferred.
+The command's person address is explicit, like the lobby address on entry
+commands: its named link must belong to that subject, and a new link's ward must
+match it. Actor-based lookup and an implicit organization or privileged global
+relationship locator are unnecessary.
+
 Organization people are authorized and projected inside the store's transaction,
 under shared canonical viewer-account, organization and actual owned-lobby fences.
 Each lobby is visited under its own tenant scope before its shared lock is taken.

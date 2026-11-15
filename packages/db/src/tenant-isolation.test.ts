@@ -24,9 +24,18 @@ const fenced = (entry: TenantTable): TenantTableFacts => ({
     ...(entry.key === 'person'
       ? []
       : [
-          { name: 'organization_id', notNull: entry.key !== 'either' },
-          { name: 'lobby_id', notNull: entry.key !== 'either' },
+          {
+            name: 'organization_id',
+            notNull: entry.key !== 'either' && entry.key !== 'history',
+          },
+          {
+            name: 'lobby_id',
+            notNull: entry.key !== 'either' && entry.key !== 'history',
+          },
         ]),
+    ...(entry.key === 'history'
+      ? [{ name: 'subject_person_user_id', notNull: false }]
+      : []),
   ],
   policies: tenantPolicies(entry).map((policy) => ({
     name: policy.name,
@@ -39,7 +48,11 @@ const fenced = (entry: TenantTable): TenantTableFacts => ({
   checks:
     entry.key === 'either'
       ? ['CHECK ((num_nonnulls(organization_id, lobby_id) = 1))']
-      : [],
+      : entry.key === 'history'
+        ? [
+            'CHECK ((num_nonnulls(organization_id, lobby_id, subject_person_user_id) = 1))',
+          ]
+        : [],
   references: [],
   openGrantees: [],
 });

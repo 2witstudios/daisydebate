@@ -30,6 +30,14 @@ export type TabCommandOperation = { readonly name: OperationName } & (
         body: unknown,
       ) => Promise<LobbyCommandAnswer<string>>;
     }
+  | {
+      readonly address: 'person';
+      readonly execute: (
+        principal: TabPrincipal,
+        subjectUserId: string,
+        body: unknown,
+      ) => Promise<LobbyCommandAnswer<string>>;
+    }
 );
 export type TabCommandRouteDependencies = Common & TabCommandOperation;
 /**
@@ -53,11 +61,13 @@ export const createTabCommandRoute =
         try {
           if (dependencies.address === 'none')
             return await dependencies.execute(principal, body);
-          const lobby = idSchema.safeParse(
-            new URL(request.url).searchParams.get('lobbyId'),
+          const target = idSchema.safeParse(
+            new URL(request.url).searchParams.get(
+              dependencies.address === 'lobby' ? 'lobbyId' : 'subjectUserId',
+            ),
           );
-          if (!lobby.success) throw createAppError('VALIDATION');
-          return await dependencies.execute(principal, lobby.data, body);
+          if (!target.success) throw createAppError('VALIDATION');
+          return await dependencies.execute(principal, target.data, body);
         } catch (error) {
           if (error instanceof CommandDenied) throw createAppError('NOT_FOUND');
           throw error;

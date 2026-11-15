@@ -1,4 +1,10 @@
 import { createTournamentEventSettingReadStore } from './tournament-event-settings';
+import { createGuardianCommandStore } from './guardian-command';
+import { createFamilyHistoryStore } from './family-history';
+export type { FamilyHistoryFacts } from './family-history';
+export { GuardianPeopleChanged } from './guardian-command-facts';
+export type { LoadedGuardianCommand } from './guardian-command-facts';
+export type { GuardianCommandWrite } from './guardian-command-writes';
 export type { TournamentEventSettingFacts } from './tournament-event-settings';
 import { findLobbyByHandle } from './lobby-handle';
 import { createTournamentSetupReadStore } from './tournament-setup-read';
@@ -138,6 +144,8 @@ const roleNamedOf = (
  * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TabDatabase) => ({
+  ...createGuardianCommandStore(database),
+  ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),

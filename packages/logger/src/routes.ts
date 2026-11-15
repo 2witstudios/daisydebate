@@ -180,6 +180,8 @@ const appRoutes = [
   '/api/tab/tournament-setup',
   '/api/tab/tournament-event-settings',
   '/api/tab/organization-command',
+  '/api/tab/guardian-command',
+  '/api/tab/family-history',
   '/api/tab/lobby-command',
   '/api/tab/settings-command',
   '/api/tab/entries-command',

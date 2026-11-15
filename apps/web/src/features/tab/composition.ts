@@ -1,4 +1,10 @@
 import { readTournamentEventSettings } from './reads/tournament-event-settings';
+import { guardianCommand } from './operations/guardian';
+import { readFamilyHistory } from './reads/family-history';
+import {
+  createFamilyHistoryRoute,
+  type FamilyHistoryRouteDependencies,
+} from './family-history-route';
 import {
   createTournamentEventSettingsRoute,
   type TournamentEventSettingsRouteDependencies,
@@ -45,6 +51,13 @@ export function composeTabRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   const read = readOrganizationPeople({ store, authorize, now });
   const common = { store, authorize, now, newId: createId };
+  // A release flag cannot approve counsel's activation/notice or grant database privileges.
+  const familyReleased = async () => false;
+  const guardians = guardianCommand({
+    ...common,
+    minorsReleased: familyReleased,
+    consentNoticeVersion: null,
+  });
   // The production entitlement issuer is unresolved; creation remains closed until it is supplied.
   const hostingPlan = async () => false;
   const organization = organizationCommand({ ...common, hostingPlan });
@@ -63,6 +76,23 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    guardianCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.guardian.command',
+        address: 'person',
+        execute: guardians,
+      }),
+    familyHistory: (released: FamilyHistoryRouteDependencies['released']) =>
+      createFamilyHistoryRoute({
+        boundary,
+        released,
+        read: readFamilyHistory({
+          store,
+          authorize,
+          now,
+          minorsReleased: familyReleased,
+        }),
+      }),
     tournamentEventSettings: (
       released: TournamentEventSettingsRouteDependencies['released'],
     ) =>

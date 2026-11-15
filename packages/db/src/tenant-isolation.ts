@@ -90,6 +90,7 @@ export const tenantIsolationFactsSql = `
 `;
 
 const keyColumns = ['organization_id', 'lobby_id'] as const;
+const historyColumns = [...keyColumns, 'subject_person_user_id'] as const;
 const retiredKey = 'tournament_id';
 
 const organizationScope = (column: string) =>
@@ -104,6 +105,7 @@ const scopePredicate = (entry: TenantTable): string | null => {
     either: `(${organizationScope('organization_id')} OR ${lobbyScope('lobby_id')})`,
     both: `(${organizationScope('organization_id')} OR ${lobbyScope('lobby_id')})`,
     person: null,
+    history: `(${organizationScope('organization_id')} OR ${lobbyScope('lobby_id')} OR ((subject_person_user_id = daisy_subject_scope()) AND (daisy_organization_scope() IS NULL) AND (daisy_lobby_scope() IS NULL)))`,
   };
   return predicates[entry.key];
 };
@@ -212,6 +214,20 @@ const keyProblems = (
         : `${entry.table} carries a nullable isolation key without the ${entry.table}_one_tenant_key CHECK`,
     ],
     person: [],
+    history: [
+      ...historyColumns.map((name) =>
+        column(name) === undefined
+          ? `${entry.table} has no ${name} column`
+          : column(name)!.notNull
+            ? `${entry.table}.${name} must permit the other history scopes`
+            : null,
+      ),
+      facts.checks.includes(
+        'CHECK ((num_nonnulls(organization_id, lobby_id, subject_person_user_id) = 1))',
+      )
+        ? null
+        : `${entry.table} lacks its one-scope CHECK`,
+    ],
   };
   return problems[entry.key].filter(
     (problem): problem is string => problem !== null,
@@ -288,7 +304,7 @@ export function tenantIsolationProblems(
           ),
         ];
       if (exempt.has(table.table)) return retired;
-      const carried = keyColumns.filter((name) => names.includes(name));
+      const carried = historyColumns.filter((name) => names.includes(name));
       const referenced = table.references.filter((name) => owned.has(name));
       return [
         ...retired,

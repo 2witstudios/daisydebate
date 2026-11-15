@@ -6,8 +6,8 @@ import { createRequestFlagReader } from '../flags/reader';
  * reader for each request, never kept across requests. Only Next route
  * modules import it, so the flag stays out of the proxy's route table.
  */
-export const tabReleasedFor =
-  (app: App) =>
+const releaseFor =
+  (app: App, key: 'daisy-tab' | 'daisy-tab-minors') =>
   (userId: string): Promise<boolean> =>
     createRequestFlagReader({
       read: app.database.readFlagSnapshot,
@@ -18,4 +18,8 @@ export const tabReleasedFor =
           { operation: 'flags.read', cause: 'unavailable' },
           'Release control read failed',
         ),
-    })('daisy-tab', userId);
+    })(key, userId);
+
+export const tabReleasedFor = (app: App) => releaseFor(app, 'daisy-tab');
+export const tabMinorsReleasedFor = (app: App) =>
+  releaseFor(app, 'daisy-tab-minors');

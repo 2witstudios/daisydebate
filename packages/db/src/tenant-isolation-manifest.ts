@@ -18,7 +18,9 @@ export type TenantKey =
   /** Both, on every row: a league's row about a lobby's event. */
   | 'both'
   /** Neither: the row belongs to the people it names. */
-  | 'person';
+  | 'person'
+  /** Exactly one organization, lobby or protected-person action-history scope. */
+  | 'history';
 
 /** The person a row is about, who may read it under the subject scope. */
 export type TenantSubject =
@@ -85,7 +87,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     { table: 'guardian_links', key: 'person', subject: 'guardian' },
     { table: 'restrictions', key: 'person', subject: 'guardian' },
     { table: 'restriction_lobbies', key: 'person', subject: 'guardian' },
-    either('action_history'),
+    { table: 'action_history', key: 'history' },
     lobby('lobbies', { keyColumn: 'id', openRead: true }),
     organization('templates', { openRead: true }),
     lobby('lobby_templates'),

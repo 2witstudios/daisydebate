@@ -40,6 +40,7 @@ describe('historyRowOf', () => {
         commandId: id('c'),
         organizationId: id('o'),
         lobbyId: null,
+        subjectPersonUserId: null,
         actorUserId: id('u'),
         authority: 'grant',
         grantId: id('g'),
@@ -89,6 +90,27 @@ describe('historyRowOf', () => {
       should: 'name the relation alone',
       actual: [row.authority, row.relation, row.grantId],
       expected: ['relationship', 'self', null],
+    });
+  });
+  test('a protected person differs from the actor', () => {
+    const row = historyRowOf(
+      {
+        ...entry,
+        scope: { kind: 'person', subjectUserId: id('w') },
+        authority: { kind: 'relationship', relation: 'guardian' },
+      },
+      receipt,
+    );
+    assert({
+      given: 'a guardian acting for a distinct protected person',
+      should: 'address only the protected person and retain the original actor',
+      actual: [
+        row.organizationId,
+        row.lobbyId,
+        row.subjectPersonUserId,
+        row.actorUserId,
+      ],
+      expected: [null, null, id('w'), id('u')],
     });
   });
 });

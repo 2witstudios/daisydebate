@@ -357,6 +357,13 @@ The guardian link and restriction tables hold no rows and cannot: the web
 application's database role has no INSERT, UPDATE or DELETE on them, and no
 consent is modelled. A later migration opens them once counsel has answered.
 
+The single action history can attribute a family action to its protected person,
+separately from the actor. Its command/read bindings remain closed independently
+of the minors release flag, with no approved consent notice or elevated database
+privileges. Test-only owner fixtures do not activate production collection. This
+scope correction establishes no family-history retention, export, erasure or
+consent-evidence policy; those remain counsel-gated before activation.
+
 ## Processors
 
 | Processor                                 | Purpose                                                                                  | Data                                                                                                                                                                                | Region and transfer safeguard                                                                                                       | DPA status                                                                                                                                                              |
