@@ -3,12 +3,11 @@ import type {
   LoadedEntryEnrollment,
   EntryEnrollmentCommand,
 } from '@daisy/db/tab';
-import { resolveSetting } from '@daisy/protocol/setting-resolution';
+import { eventChain, resolveSetting } from '@daisy/protocol/setting-resolution';
 import type { EntryFacts, EntryPersonFacts } from '../commands/entries';
 import { CommandDenied } from '../commands/run-command';
-import { eventSettingChain } from './setting-chains';
 import { settingRow } from './setting-facts';
-import { formatSettingDefaults } from './format-setting-defaults';
+import { presetSettingDefaults } from './format-setting-defaults';
 
 export const entryEnrollmentFacts = (
   loaded: LoadedEntryEnrollment,
@@ -21,15 +20,16 @@ export const entryEnrollmentFacts = (
     readonly command: EntryEnrollmentCommand;
   },
 ): EntryFacts => {
-  const { event, graph } = loaded;
-  if (!event) throw new CommandDenied('not-found');
-  const chain = eventSettingChain(graph, event);
-  const rows = graph.settings.map(settingRow);
-  const format = formatSettingDefaults(
-    graph,
-    event.formatId,
-    event.formatVersion,
-  );
+  const { event, configuration } = loaded;
+  if (!event || !configuration) throw new CommandDenied('not-found');
+  const chain = eventChain({
+    template: configuration.template,
+    leagueId: configuration.lobby.ownerOrganizationId,
+    lobbyId: configuration.lobby.id,
+    eventId: event.id,
+  });
+  const rows = configuration.rows.map(settingRow);
+  const format = presetSettingDefaults(configuration.preset.config);
   const registration = resolveSetting(
     'entry.registration',
     chain,

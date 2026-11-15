@@ -69,6 +69,11 @@ are read under the counterpart’s own subject scope. Guardian-dependent entry
 additions remain closed while their audit/provenance decisions and counsel
 release are unresolved. Room assembly is a separate operation.
 
+Entry requests address the actual lobby and event and read only that event's
+setting chain. Shared locks on its real parent definitions let unrelated
+consumers proceed while a parent writer waits; a changed parent reference after
+a wait refuses the obsolete request before any entry or audit write.
+
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a
 Round finalization consumes; the recorded-ending read treats a mismatch as

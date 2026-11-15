@@ -125,10 +125,7 @@ export {
 } from './messaging/browser-fixture';
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
-export {
-  withRolledBackDatabase,
-  type RolledBackDatabase,
-} from './testing-rolled-back';
+export { withRolledBackDatabase } from './testing-rolled-back';
 export {
   admitParticipants,
   approveBetaAccess,
@@ -169,3 +166,9 @@ export async function readSpectatorHorizon(
     await client.close();
   }
 }
+
+export { scratchDatabase } from './testing-scratch';
+export {
+  withRuntimeTestTransaction,
+  type SavepointTestDatabase,
+} from './testing-transaction';

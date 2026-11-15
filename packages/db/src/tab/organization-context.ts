@@ -17,9 +17,10 @@ export const loadOrganizationContext = async (
   tx: TabTransaction,
   scope: TenantScope,
   userId: string,
+  strength: 'update' | 'share' = 'update',
 ): Promise<OrganizationAuthorization> => {
   const organization = scope.organizationId
-    ? await lockOrganization(tx, scope.organizationId)
+    ? await lockOrganization(tx, scope.organizationId, strength)
     : null;
   return organization
     ? loadOrganizationAuthorization(tx, scope, {

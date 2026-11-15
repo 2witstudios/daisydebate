@@ -1,3 +1,6 @@
+export { EntryEnrollmentChanged } from './entry-enrollment';
+export { EventSettingParentsChanged } from './event-setting-context';
+export type { EventSettingContext } from './event-setting-context';
 import { createStandingRoomDraftStore } from './standing-room-draft';
 export type { StandingRoomDraftFacts } from './standing-room-draft';
 import { createEntryEnrollmentStore } from './entry-enrollment';

@@ -94,12 +94,13 @@ const organizationColumns = {
 export const lockOrganization = async (
   tx: TabTransaction,
   organizationId: string,
+  strength: 'update' | 'share' = 'update',
 ): Promise<OrganizationRow | null> => {
   const [row] = await tx
     .select(organizationColumns)
     .from(organizations)
     .where(eq(organizations.id, organizationId))
-    .for('update');
+    .for(strength);
   return row ?? null;
 };
 

@@ -1,17 +1,8 @@
 import { SQL, type TransactionSQL } from 'bun';
-import { drizzle } from 'drizzle-orm/bun-sql';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-
-/**
- * A database whose every transaction is a savepoint inside one outer
- * transaction that is always rolled back: append-only tables (action
- * history, results) leave nothing behind.
- */
-export type RolledBackDatabase = {
-  readonly transaction: <T>(
-    work: (tx: BunSQLDatabase) => Promise<T>,
-  ) => Promise<T>;
-};
+import {
+  savepointTestDatabase,
+  type SavepointTestDatabase,
+} from './testing-transaction';
 
 class RolledBack extends Error {}
 
@@ -27,7 +18,7 @@ export async function withRolledBackDatabase<Seeded, T>(
   steps: {
     readonly seed: (sql: TransactionSQL) => Promise<Seeded>;
     readonly work: (
-      database: RolledBackDatabase,
+      database: SavepointTestDatabase,
       seeded: Seeded,
       sql: TransactionSQL,
     ) => Promise<T>;
@@ -39,12 +30,7 @@ export async function withRolledBackDatabase<Seeded, T>(
     await client.begin(async (outer) => {
       const seeded = await steps.seed(outer);
       await outer`set local role daisy_web`;
-      const database: RolledBackDatabase = {
-        transaction: (work) =>
-          outer.savepoint((savepoint) =>
-            work(drizzle({ client: savepoint as SQL })),
-          ),
-      };
+      const database = savepointTestDatabase(outer);
       answer = { value: await steps.work(database, seeded, outer) };
       throw new RolledBack();
     });

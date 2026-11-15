@@ -1,3 +1,4 @@
+import type { FormatSettings } from '@daisy/protocol';
 import type { SettingGraph } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import type { FormatSettingDefaults } from '@daisy/protocol/setting-resolution';
@@ -15,7 +16,13 @@ export const formatSettingDefaults = (
     .sort((a, b) => b.version - a.version)[0];
   if (!preset)
     throw createAppError('INVARIANT', 'Pinned format has no approved settings');
-  const { config } = preset;
+  return presetSettingDefaults(preset.config);
+};
+
+/** The format-owned fallback values of one actual approved preset. */
+export const presetSettingDefaults = (
+  config: FormatSettings,
+): FormatSettingDefaults => {
   return {
     'room.timing': {
       preRoundPrepMs: config.preRoundPrep.enabled

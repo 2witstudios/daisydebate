@@ -1,5 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import { lockOrganization } from './organization-facts';
+import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { EntryCommand } from '@daisy/protocol/lobby/entry-command';
 import type {
@@ -10,7 +9,7 @@ import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { entries, entryMembers } from '../schema/entries';
-import { events, tabRounds } from '../schema/events';
+import { tabRounds } from '../schema/events';
 import { draws } from '../schema/draws';
 import { tournamentJudges } from '../schema/tournament-judges';
 import { fixtureJudges, fixtures } from '../schema/fixtures';
@@ -18,7 +17,7 @@ import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadOrganizationContext } from './organization-context';
 import { loadEntryPeople } from './entry-person-rows';
-import { loadSettingGraph } from './setting-graph';
+import { lockEventSettingContext } from './event-setting-context';
 import {
   appendHistory,
   storedCommand,
@@ -31,6 +30,9 @@ export type EntryEnrollmentCommand = Exclude<
   EntryCommand,
   { readonly type: 'replace-entry-member' | 'choose-break' }
 >;
+/** The accepted entry membership changed while its account fences were acquired. */
+export class EntryEnrollmentChanged extends Error {}
+
 export type EntryEnrollmentInput = {
   readonly lobbyId: string;
   readonly senderUserId: string;
@@ -44,7 +46,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     .select()
     .from(lobbies)
     .where(eq(lobbies.id, input.lobbyId));
-  const scope = {
+  let scope = {
     subjectUserId: input.senderUserId,
     organizationId: found?.ownerOrganizationId ?? undefined,
     lobbyId: found?.id,
@@ -87,44 +89,34 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     input.senderUserId,
     ...namedActors.flatMap((row) => (row.userId === null ? [] : [row.userId])),
   ]);
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended('tab-settings-chains', 0))`,
-  );
   const schoolId =
     input.command.type === 'submit-entry' &&
     input.command.responsible.kind === 'school'
       ? input.command.responsible.schoolOrganizationId
       : entry?.schoolOrganizationId;
-  for (const organizationId of [
-    ...new Set(
-      [scope.organizationId, schoolId].filter((id): id is string =>
-        Boolean(id),
-      ),
-    ),
-  ].sort()) {
-    await scopeTransaction(tx, { ...scope, organizationId });
-    await lockOrganization(tx, organizationId);
-  }
+  const configuration = eventId
+    ? await lockEventSettingContext(tx, {
+        lobbyId: input.lobbyId,
+        eventId,
+        subjectUserId: input.senderUserId,
+        extraOrganizationIds: schoolId ? [schoolId] : [],
+      })
+    : null;
+  if (configuration)
+    scope = {
+      subjectUserId: input.senderUserId,
+      organizationId: configuration.lobby.ownerOrganizationId ?? undefined,
+      lobbyId: configuration.lobby.id,
+    };
   await scopeTransaction(tx, scope);
   const authorization = await loadOrganizationContext(
     tx,
     scope,
     input.senderUserId,
+    'share',
   );
-  const [lobby] = found
-    ? await tx
-        .select()
-        .from(lobbies)
-        .where(eq(lobbies.id, found.id))
-        .for('update')
-    : [];
-  const [event] = eventId
-    ? await tx
-        .select()
-        .from(events)
-        .where(and(eq(events.id, eventId), eq(events.lobbyId, input.lobbyId)))
-        .for('update')
-    : [];
+  const lobby = configuration?.lobby ?? found ?? null;
+  const event = configuration?.event ?? null;
   const [owner] = lobby?.ownerUserId
     ? await tx
         .select({ id: actors.id })
@@ -148,6 +140,8 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
       : members
           .filter((member) => member.entryId === currentEntry?.id)
           .map((member) => member.actorId);
+  if (currentActorIds.some((id) => !namedActorIds.includes(id)))
+    throw new EntryEnrollmentChanged();
   const people = await loadEntryPeople(tx, scope, currentActorIds);
   const [school] = schoolId
     ? await tx
@@ -164,6 +158,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
         tx,
         { ...scope, organizationId: school.id },
         input.senderUserId,
+        'share',
       )
     : null;
   // The school's grants are read under its scope, then the entry's scope is restored.
@@ -194,7 +189,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     guardian,
     guardianActorId: guardianActor?.id ?? null,
     ownerActorId: owner?.id ?? null,
-    graph: await loadSettingGraph(tx, scope, [input.lobbyId]),
+    configuration,
     entries: currentEntries,
     members,
     rounds: await tx

@@ -4,6 +4,8 @@ import type {
 } from '@daisy/auth/authorization';
 import {
   CommandIdTaken,
+  EventSettingParentsChanged,
+  EntryEnrollmentChanged,
   type TabStore,
   type LoadedEntryEnrollment,
   type EntryEnrollmentCommand,
@@ -173,6 +175,11 @@ export const entryEnrollmentCommand =
         },
       );
     } catch (error) {
+      if (
+        error instanceof EventSettingParentsChanged ||
+        error instanceof EntryEnrollmentChanged
+      )
+        return { kind: 'refused', refusal: 'version-conflict' };
       if (error instanceof CommandIdTaken)
         return { kind: 'refused', refusal: 'command-conflict' };
       throw error;
