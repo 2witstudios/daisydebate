@@ -3,6 +3,11 @@
 Status: accepted (owner direction, 2026-11-13; built in the Daisy Tab schema
 slice, TAB-4).
 
+Amended by [ADR 0138](0138-immutable-entry-submitter.md) for entry maker
+provenance, [ADR 0139](0139-structural-admission-at-draw-publication.md) for
+publication admission, and [ADR 0140](0140-complete-tournament-setup-views.md)
+for truthful setup cardinality.
+
 ## Decision
 
 1. **A fixture is not the Round.** A fixture is what is scheduled for one

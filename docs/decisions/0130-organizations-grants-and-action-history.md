@@ -7,6 +7,10 @@ ahead of that reader, declared in `policy/planned-readers.json`
 ([ADR 0057](0057-planned-readers.md)), because the schema is a lock of the
 feature ([ADR 0128](0128-feature-parent-branch.md)).
 
+Amended by [ADR 0136](0136-person-scoped-family-action-history.md) for
+protected-person family journal scope and its unresolved retention, and
+[ADR 0137](0137-scope-first-tab-grants.md) for scope-first lobby grants.
+
 ## Decision
 
 1. **Authority is rows, and only the evaluator reads them.** An
