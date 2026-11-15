@@ -739,6 +739,9 @@ const peopleOf = (fixture: DrawFixtureFacts): string[] =>
         ...fixture.judges.map((judge) => judge.person),
       ];
 
+/** The people a fixture occupies; a bye holds no Room. */
+export { peopleOf as drawFixturePeople };
+
 const assignJudges = (
   engine: TabEngine,
   facts: DrawFacts,

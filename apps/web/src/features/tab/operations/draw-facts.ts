@@ -8,7 +8,11 @@ import {
   eventChain,
   resolveSettings,
 } from '@daisy/protocol/setting-resolution';
-import type { DrawFacts, DrawFixtureFacts } from '../commands/draw';
+import {
+  drawFixturePeople,
+  type DrawFacts,
+  type DrawFixtureFacts,
+} from '../commands/draw';
 import type {
   EngineStage,
   EngineStageHistory,
@@ -157,12 +161,10 @@ export const drawFacts = (
   );
   const elsewhere = fixtures.filter(
     (fixture) =>
-      fixture.status === 'published' && inSlot.has(fixture.tabRoundId),
+      fixture.status === 'published' &&
+      fixture.kind !== 'bye' &&
+      inSlot.has(fixture.tabRoundId),
   );
-  const peopleOf = (fixture: DrawFixtureFacts) => [
-    ...fixture.entries.flatMap((entry) => entry.members),
-    ...fixture.judges.map((judge) => judge.person),
-  ];
   const releasesAtOnce = releaseThings.flatMap((thing) =>
     audiences.flatMap((audience) =>
       settings[`audience.${thing}`].value[audience] === 'at_once' &&
@@ -323,11 +325,11 @@ export const drawFacts = (
       commitments: elsewhere.map((fixture) => ({
         event: fixture.eventId,
         fixture: fixture.id,
-        people: peopleOf(fixture),
+        people: drawFixturePeople(fixture),
       })),
     },
     breakChoicesPending: competition.breakChoicesPending,
-    slotElsewhere: elsewhere.flatMap(peopleOf),
+    slotElsewhere: elsewhere.flatMap(drawFixturePeople),
     releasesAtOnce,
   };
 };

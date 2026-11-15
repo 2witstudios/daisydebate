@@ -84,7 +84,7 @@ export function People({
         <ul>
           {people.people.map((person, index) => (
             <ListRow
-              key={person.name}
+              key={person.id}
               title={person.name}
               detail={
                 <>

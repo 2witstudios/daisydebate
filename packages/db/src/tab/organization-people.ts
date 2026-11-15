@@ -105,7 +105,7 @@ export const loadOrganizationPeople = async (
       .orderBy(asc(lobbies.name), asc(lobbies.id)),
     people: members.map((row) => ({
       userId: row.userId,
-      name: row.username ?? row.userId,
+      name: row.username ?? 'Member',
       membership: row.status,
       grants: grants.filter((grant) => grant.userId === row.userId),
     })),

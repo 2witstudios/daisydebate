@@ -41,6 +41,7 @@ export type HostHome = {
 
 /** A member with the grants they hold, or the owner's fixed position. */
 type PersonRow = {
+  readonly id: string;
   readonly name: string;
   readonly detail: string;
   /** A conflict the evaluator has recorded for this person. */
@@ -397,6 +398,7 @@ function peopleOf(
       ]),
     );
     return {
+      id: member.userId,
       name: member.userId === context.viewerId ? 'You' : member.name,
       detail: member.owner
         ? `Owner of ${view.name} · can't be removed by anyone else`

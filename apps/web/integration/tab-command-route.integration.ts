@@ -82,6 +82,27 @@ test('the HTTP command boundary runs the real tenant-fenced membership operation
           headers: { origin, 'content-type': 'application/json' },
           body: JSON.stringify(body),
         });
+      const missing = {
+        ...invitation,
+        commandId: createId(),
+        command: { ...invitation.command, userId: createId() },
+      };
+      const missingAnswer = await route(world.bots.Director!)(request(missing));
+      const [unchanged] =
+        await sql`select version from organizations where id=${organizationId}`;
+      const [missingHistory] =
+        await sql`select count(*)::int as count from action_history where command_id=${missing.commandId}`;
+      assert({
+        given: 'a valid command id naming a person who does not exist',
+        should:
+          'answer not found and roll back the organization guard and journal',
+        actual: [
+          missingAnswer.status,
+          unchanged?.version,
+          missingHistory?.count,
+        ],
+        expected: [404, organization?.version, 0],
+      });
       const denied = await route(world.bots.Coach!)(request(invitation));
       const hidden = await route(
         world.bots.Director!,

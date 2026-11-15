@@ -1,3 +1,5 @@
+import { createAppError } from '@daisy/errors';
+import { postgresViolation } from '../postgres-violation';
 import { bumpTabAccountRevision } from './command-accounts';
 import { and, eq, isNull } from 'drizzle-orm';
 import type {
@@ -174,9 +176,22 @@ const applyOne = async (
       );
     case 'memberships':
       if (write.op === 'insert') {
-        await tx
-          .insert(memberships)
-          .values({ ...write.row, joinedAt: at(write.row.joinedAt) });
+        try {
+          await tx
+            .insert(memberships)
+            .values({ ...write.row, joinedAt: at(write.row.joinedAt) });
+        } catch (error) {
+          if (
+            postgresViolation(error, '23503')?.constraint ===
+            'memberships_user_id_users_id_fkey'
+          )
+            throw createAppError(
+              'NOT_FOUND',
+              'Membership recipient is missing',
+              error,
+            );
+          throw error;
+        }
         return;
       }
       return exactlyOne(
