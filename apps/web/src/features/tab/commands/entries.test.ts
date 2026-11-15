@@ -106,6 +106,17 @@ const insertedEntry = (decision: EntryDecision) =>
   );
 
 describe('submit-entry', () => {
+  test('a submission requires an authenticated maker even under host authority', () => {
+    assert({
+      given: 'a submit-entry decision without an authenticated account',
+      should: 'refuse without writing an entry with unknown provenance',
+      actual: decideEntry(
+        facts({ sender: { userId: null, host: true } }),
+        submit(),
+      ),
+      expected: { kind: 'refused', refusal: 'not-found' },
+    });
+  });
   test('an entry carries its division and responsible adult', () => {
     const decision = decideEntry(facts(), submit());
     assert({
@@ -130,6 +141,7 @@ describe('submit-entry', () => {
             lobbyId,
             eventId,
             name: 'Lincoln AB',
+            submittedByUserId: coach,
             status: 'pending',
             division: 'Novice',
             responsibleKind: 'school',

@@ -22,6 +22,7 @@ import {
 import { events } from './events';
 import { guardianLinks } from './guardian-links';
 import { organizations } from './organizations';
+import { users } from './users';
 import { constantText, nonEmpty } from './tenant-keys';
 
 /**
@@ -38,6 +39,10 @@ export const entries = pgTable(
     lobbyId: text('lobby_id').notNull(),
     eventId: text('event_id').notNull(),
     name: text('name').notNull(),
+    /** Authenticated maker; null means an existing entry's maker is unknown. */
+    submittedByUserId: text('submitted_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
     status: text('status').$type<(typeof entryStatuses)[number]>().notNull(),
     seed: integer('seed'),
     division: text('division'),

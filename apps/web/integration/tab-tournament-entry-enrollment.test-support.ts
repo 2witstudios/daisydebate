@@ -141,15 +141,21 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
     });
   }
   const rows =
-    await world.sql`select e.status, m.entry_status from entries e join entry_members m on m.entry_id = e.id where e.event_id = ${eventId} order by e.name`;
+    await world.sql`select e.status, m.entry_status, e.submitted_by_user_id from entries e join entry_members m on m.entry_id = e.id where e.event_id = ${eventId} order by e.name`;
   assert({
     given: 'four accepted entries reloaded from PostgreSQL',
-    should: 'keep entry and member status in agreement',
-    actual: rows.map((row: { status: string; entry_status: string }) => [
-      row.status,
-      row.entry_status,
-    ]),
-    expected: Array.from({ length: 4 }, () => ['accepted', 'accepted']),
+    should:
+      'keep entry and member status in agreement and retain each original maker',
+    actual: rows.map(
+      (row: {
+        status: string;
+        entry_status: string;
+        submitted_by_user_id: string | null;
+      }) => [row.status, row.entry_status, row.submitted_by_user_id],
+    ),
+    expected: ['Debater 1', 'Debater 2', 'Debater 3', 'Debater 4'].map(
+      (name) => ['accepted', 'accepted', world.bots[name]!.userId],
+    ),
   });
   world.made.set('entries-version', String(entriesVersion));
 };

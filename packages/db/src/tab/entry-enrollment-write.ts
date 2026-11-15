@@ -4,6 +4,7 @@ type EntryRow = {
   readonly lobbyId: string;
   readonly eventId: string;
   readonly name: string;
+  readonly submittedByUserId: string;
   readonly status: 'pending' | 'accepted' | 'withdrawn';
   readonly division: string | null;
   readonly responsibleKind: 'school' | 'guardian' | 'self';

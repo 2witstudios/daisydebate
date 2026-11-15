@@ -142,7 +142,7 @@ export const entryEnrollmentFacts = (
           division: loaded.entry.division,
           responsibleKind: loaded.entry.responsibleKind,
           guardianUserId: loaded.guardian?.guardianUserId ?? null,
-          submittedByUserId: null,
+          submittedByUserId: loaded.entry.submittedByUserId,
           version: loaded.entry.version,
           members: people,
           liveFixtures: [],

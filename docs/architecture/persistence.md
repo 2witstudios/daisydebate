@@ -77,6 +77,13 @@ Parent policies are selected by scope kind as well as tenant id: a template's
 organization id and an event's lobby id are isolation keys, not a reason to
 include unoffered sibling templates or other events in the addressed chain.
 
+Each new entry captures its authenticated submitter's account id atomically
+with the entry, members and command receipt. Approval does not replace it; a
+database trigger refuses changing or clearing it. The fenced enrollment loader
+reads that immutable field directly. Existing unknown makers remain explicit
+nulls and cannot be reconstructed from current guardians or event history.
+This adds no minor activation, consent or retention policy; those remain closed.
+
 Organization people are authorized and projected inside the store's transaction,
 under shared canonical viewer-account and organization fences. Readers coexist;
 authority writers wait. The same snapshot supplies the organization version and
