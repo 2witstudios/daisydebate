@@ -50,7 +50,7 @@ import { formats } from './formats';
 import { actors } from './actors';
 import { lobbies } from './lobbies';
 import { publishedResolutions } from './published-resolutions';
-import { lobbyTemplates } from './templates';
+import { lobbyTemplates, templates } from './templates';
 import { bothOrNeither } from './tenant-keys';
 
 /**
@@ -133,8 +133,12 @@ export const rooms = pgTable(
       .$type<(typeof lobbyKinds)[number]>()
       .notNull()
       .default(daisyReferenceLobby.kind),
-    /** The template the Room follows, one its lobby offers; null is none. */
+    /** The template the Room follows; standing Rooms require a lobby offer. */
     templateId: text('template_id'),
+    /** Internal constraint key: event pins do not require standing offers. */
+    standingTemplateId: text('standing_template_id').generatedAlwaysAs(
+      sql`case when lobby_kind = 'standing' then template_id else null end`,
+    ),
     /** The pinned ballot definition; null is the Daisy ballot. */
     ballotDefinitionId: text('ballot_definition_id'),
     ballotDefinitionVersion: integer('ballot_definition_version'),
@@ -147,6 +151,11 @@ export const rooms = pgTable(
     unique('rooms_id_lobby_unique').on(table.id, table.lobbyId),
     index('rooms_lobby_kind_idx').on(table.lobbyId, table.lobbyKind),
     index('rooms_lobby_template_idx').on(table.lobbyId, table.templateId),
+    index('rooms_template_idx').on(table.templateId),
+    index('rooms_standing_template_idx').on(
+      table.lobbyId,
+      table.standingTemplateId,
+    ),
     index('rooms_ballot_definition_idx').on(
       table.ballotDefinitionId,
       table.ballotDefinitionVersion,
@@ -157,8 +166,13 @@ export const rooms = pgTable(
       foreignColumns: [lobbies.id, lobbies.kind],
     }).onDelete('restrict'),
     foreignKey({
+      name: 'rooms_template_fk',
+      columns: [table.templateId],
+      foreignColumns: [templates.id],
+    }).onDelete('restrict'),
+    foreignKey({
       name: 'rooms_offered_template_fk',
-      columns: [table.lobbyId, table.templateId],
+      columns: [table.lobbyId, table.standingTemplateId],
       foreignColumns: [lobbyTemplates.lobbyId, lobbyTemplates.templateId],
     }).onDelete('restrict'),
     foreignKey({

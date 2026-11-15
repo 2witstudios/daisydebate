@@ -520,7 +520,7 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
       given:
         "a change to a template's format and to its ballot pin, a tournament lobby offering a template, an event following a template of another format, and a Room following a template its lobby does not offer",
       should:
-        'refuse each, while a rename, a retirement, and a Room following a template its lobby offers are accepted',
+        'refuse invalid pins and standing unoffered templates, while accepting renamed/retired templates, standing offered pins and event followed pins',
       actual: {
         format: await refusedBy(sql, () =>
           sql.unsafe(`update templates set format_id = 'value' where id = $1`, [
@@ -577,6 +577,20 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
         ),
         roomFollowsUnoffered: await room({ template_id: ids.template }),
         roomFollowsOffered: await room({ template_id: daisyPolicy!.id }),
+        eventRoomFollowsTemplate: await room({
+          lobby_id: ids.lobby,
+          lobby_kind: 'tournament',
+          host_actor_id: null,
+          capture: { broadcast: null, recordingPolicy: 'off' },
+          template_id: ids.template,
+        }),
+        eventRoomMissingTemplate: await room({
+          lobby_id: ids.lobby,
+          lobby_kind: 'tournament',
+          host_actor_id: null,
+          capture: { broadcast: null, recordingPolicy: 'off' },
+          template_id: createId(),
+        }),
         seededOffer: (
           await sql.unsafe(
             'select count(*)::int as offered from lobby_templates where lobby_id = $1 and withdrawn_at is null',
@@ -594,6 +608,8 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
         eventOfAnotherFormat: 'events_template_format_fk',
         roomFollowsUnoffered: 'rooms_offered_template_fk',
         roomFollowsOffered: null,
+        eventRoomFollowsTemplate: null,
+        eventRoomMissingTemplate: 'rooms_template_fk',
         seededOffer: { offered: 3 },
       },
     });

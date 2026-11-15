@@ -179,3 +179,9 @@ references, so ending or deleting a Round never changes a document.
 AI practice yield requests carry the intended segment sequence (`segmentIndex`).
 After clock hydration, the application checks that the same segment is open before
 executing the yield, including when one tick catches up across several segments.
+
+Room template pins reference an existing template in every lobby. Standing
+Rooms additionally reference an offer by their own lobby; tournament event
+Rooms follow their event template without a standing offer. The generated
+`rooms.standing_template_id` is an internal foreign-key projection of
+`template_id` for standing Rooms only, never a second product pin (DEC403).

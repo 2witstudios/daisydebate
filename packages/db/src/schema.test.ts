@@ -145,6 +145,8 @@ describe('competitive schema rules', () => {
             'rooms_lobby_template_idx',
             'rooms_preset_version_idx',
             'rooms_published_resolution_idx',
+            'rooms_standing_template_idx',
+            'rooms_template_idx',
           ],
           uniques: ['rooms_id_format_unique', 'rooms_id_lobby_unique'],
           namedKeys: [
@@ -154,6 +156,7 @@ describe('competitive schema rules', () => {
             'rooms_lobby_fk',
             'rooms_offered_template_fk',
             'rooms_preset_provenance_fk',
+            'rooms_template_fk',
           ],
         },
         rounds: {
