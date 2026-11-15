@@ -3,44 +3,30 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('DEC419 acquires pinned SDK archive footprints once on normal Linux CI', async () => {
-  // This is a finite CI acquisition, never an implicit developer-machine download.
+test('DEC421 measures one contained pinned native FFI compile on normal Linux CI', async () => {
   if (process.env.GITHUB_ACTIONS !== 'true') {
     process.stdout.write(
-      'DEC419 archive acquisition is reserved for the authorized Linux CI pass\n',
+      'DEC421 compilation is reserved for its authorized Linux CI pass\n',
     );
     return;
   }
-  const child = Bun.spawn(
-    [
-      process.execPath,
-      `${import.meta.dir}/native-sdk-footprint-process.test-support.ts`,
-    ],
-    {
-      stdout: 'inherit',
-      stderr: 'pipe',
-      timeout: 900000,
-      maxBuffer: 1024 * 1024,
-    },
-  );
-  // Raw transport/loader errors are counted, never forwarded to the CI report.
-  const stderrBytes = (await new Response(child.stderr).arrayBuffer())
-    .byteLength;
-  const exitCode = await child.exited;
-  process.stdout.write(
-    JSON.stringify({
-      event: 'native.sdkFootprint.process',
-      exitCode,
-      signalCode: child.signalCode,
-      stderrBytes,
-    }) + '\n',
-  );
+  const { observeNativeCompile } =
+    await import('./native-owner-compile.test-support');
+  const exit = await observeNativeCompile().catch(() => {
+    process.stdout.write(
+      JSON.stringify({
+        event: 'native.ownerCompile',
+        stage: 'refused',
+        category: 'ci-budget-toolchain-or-supervisor',
+      }) + '\n',
+    );
+    return 1;
+  });
   assert({
     given:
-      'one native Linux CI acquisition with fixed vendor pins and 900s/2GiB bounds',
-    should:
-      'finish without compilation, archive extraction or acquisition retry',
-    actual: { exitCode, signalCode: child.signalCode, stderrBytes },
-    expected: { exitCode: 0, signalCode: null, stderrBytes: 0 },
+      'one fixed-pin compile after real containment controls, within the remaining CI budget',
+    should: 'record its bounded outcome and leave no build descendants',
+    actual: exit,
+    expected: 0,
   });
-}, 910000);
+}, 1810000);
