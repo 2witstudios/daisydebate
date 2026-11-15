@@ -1,5 +1,8 @@
 # 0096: Cross-examination has open microphones and no interruptions
 
+Speak rights and optional segment leads are extended by
+[ADR 0134](0134-formats-beyond-two-sides.md).
+
 Status: accepted (owner, 2026-11-01). Supersedes the `crossExModes[]` capability
 and the "during cross-examination only" interruption state named in
 [ADR 0058](0058-one-round-model.md) and [ADR 0078](0078-standard-formats-league-templates.md).

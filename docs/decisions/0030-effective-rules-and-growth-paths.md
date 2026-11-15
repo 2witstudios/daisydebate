@@ -1,5 +1,8 @@
 # 0030: Effective rules and growth paths
 
+The one-participant-per-side restriction is superseded by
+[ADR 0134](0134-formats-beyond-two-sides.md).
+
 Status: accepted. Extends [ADR 0029](0029-competitive-schema-foundation.md).
 Amended by [ADR 0048](0048-authorization-core.md): ranked belongs to Daisy
 and leagues are tournament tenants, and `visibility` is now read.

@@ -1,5 +1,8 @@
 # 0070: One active Room per user
 
+Decision 1's host-occupancy clause and decision 4 are superseded by
+[ADR 0134](0134-formats-beyond-two-sides.md).
+
 Status: accepted; owner decision 2026-10-26 (room lifecycle brief).
 Extends [ADR 0058](0058-one-round-model.md) §5a and
 [ADR 0067](0067-playable-round-policy-and-acceptance.md); supersedes the

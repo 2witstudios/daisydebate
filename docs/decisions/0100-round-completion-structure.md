@@ -1,5 +1,10 @@
 # 0100: Round completion structure
 
+Outcomes and panels are amended by
+[ADR 0134](0134-formats-beyond-two-sides.md). DEC-277 still gives no winner
+without a strict majority; rank-sum ties share a place, including first,
+and remain a ranking outcome.
+
 Status: accepted by the point guard on the owner's behalf, 2026-11-02. Keeps the
 behavior of [ADR 0095](0095-honest-round-completion.md), except as stated below.
 Plan: [Round completion structure](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/sg0erfrgjv6tsdvok8uqoqfl).
