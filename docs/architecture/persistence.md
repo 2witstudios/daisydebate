@@ -90,6 +90,13 @@ settings in that Room chain. Offers and ownership are checked again after lock
 waits; a changed chain returns no obsolete draft. This consumer does not take
 the global settings-writer fence or enumerate unrelated tournament branches.
 
+The tournament setup host read likewise keeps authorization and projection in
+its shared-fenced transaction. It selects only the addressed tournament's pins,
+schedule and available pool metadata; pool sizes count active wording rows
+without selecting their text. The existing read contract cannot represent an
+empty event list or several sanctioning leagues for one event, so those reads
+remain closed pending the feature's contract decision.
+
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a
 Round finalization consumes; the recorded-ending read treats a mismatch as

@@ -177,6 +177,7 @@ const appRoutes = [
   '/api/rounds/[roundId]/round-analysis',
   '/api/rounds/[roundId]/transcript',
   '/api/tab/organization-people',
+  '/api/tab/tournament-setup',
   '/api/tab/organization-command',
   '/api/tab/lobby-command',
   '/api/tab/settings-command',

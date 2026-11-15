@@ -1,3 +1,4 @@
+import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
@@ -189,6 +190,32 @@ export const setupStage = async (world: World): Promise<void> => {
     should: 'authorize its person owner and follow the stored template',
     actual: follow.kind,
     expected: 'accepted',
+  });
+  const view = await readTournamentSetup({
+    store,
+    authorize,
+    now: world.clock.now,
+  })(as(director), lobbyId);
+  assert({
+    given: 'the actual stored setup after the public-template follow',
+    should: 'serve that event and its real scheduled round to the host',
+    actual: view?.events.map((row) => ({
+      eventId: row.eventId,
+      formatId: row.format.formatId,
+      templateId: row.template?.templateId,
+      rounds: row.tabRounds.map((scheduled) => [
+        scheduled.tabRoundId,
+        scheduled.timeSlotId,
+      ]),
+    })),
+    expected: [
+      {
+        eventId,
+        formatId: 'freestyle',
+        templateId: 's3tw1srulgcs6y2xhbog8gps',
+        rounds: [[String(round.id), String(slot.id)]],
+      },
+    ],
   });
   world.made.set('tournament-version', String(version));
 };

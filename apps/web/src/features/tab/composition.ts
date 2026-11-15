@@ -1,3 +1,8 @@
+import { readTournamentSetup } from './reads/tournament-setup';
+import {
+  createTournamentSetupRoute,
+  type TournamentSetupRouteDependencies,
+} from './tournament-setup-route';
 import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
@@ -53,6 +58,13 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    tournamentSetup: (released: TournamentSetupRouteDependencies['released']) =>
+      createTournamentSetupRoute({
+        boundary,
+        released,
+        lobbyIdOfHandle: store.lobbyIdOfHandle,
+        read: readTournamentSetup({ store, authorize, now }),
+      }),
     organizationCommand: (released: TabCommandRouteDependencies['released']) =>
       commandRoute(released, {
         name: 'tab.organization.command',

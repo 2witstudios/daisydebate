@@ -1,3 +1,6 @@
+import { findLobbyByHandle } from './lobby-handle';
+import { createTournamentSetupReadStore } from './tournament-setup-read';
+export type { TournamentSetupFacts } from './tournament-setup-read';
 import { createDrawCommandStore } from './draw-command';
 export { DrawPeopleChanged } from './draw-command-facts';
 export type { DrawCommandInput, LoadedDrawCommand } from './draw-command-facts';
@@ -140,6 +143,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createJudgeRegistrationStore(database),
   ...createEntryEnrollmentStore(database),
   ...createStandingRoomDraftStore(database),
+  ...createTournamentSetupReadStore(database),
   organizationCommand: <Answer>(
     input: OrganizationCommandInput,
     work: (session: OrganizationCommandSession) => Promise<Answer>,
@@ -194,6 +198,8 @@ export const createTabStore = (database: TabDatabase) => ({
       const scope = await fenceOrganizationRead(tx, input);
       return work(await loadOrganizationPeople(tx, input, scope));
     }),
+  lobbyIdOfHandle: (handle: string): Promise<string | null> =>
+    database.transaction((tx) => findLobbyByHandle(tx, handle)),
   organizationIdOfHandle: (handle: string): Promise<string | null> =>
     database.transaction((tx) => findOrganizationByHandle(tx, handle)),
 });
