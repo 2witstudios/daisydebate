@@ -1,3 +1,20 @@
+import { createId } from '@paralleldrive/cuid2';
+import { createAppError } from '@daisy/errors';
+import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
+import {
+  createTabCommandRoute,
+  type TabCommandRouteDependencies,
+  type TabCommandOperation,
+} from './command-route';
+import { organizationCommand } from './operations/organization';
+import {
+  lobbyAdministrationCommand,
+  isLobbyAdministration,
+} from './operations/lobby-administration';
+import { setupCommand } from './operations/setup';
+import { settingCommand } from './operations/settings';
+import { entryEnrollmentCommand } from './operations/entry-enrollment';
+import { judgeRegistrationCommand } from './operations/judge-registration';
 import { authorize } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { memberHttpBoundary } from '../../server/member-boundary';
@@ -17,7 +34,61 @@ export function composeTabRoutes(app: App) {
   const now = () => app.clock.now();
   const boundary = memberHttpBoundary(app);
   const read = readOrganizationPeople({ store, authorize, now });
+  const common = { store, authorize, now, newId: createId };
+  // The production entitlement issuer is unresolved; creation remains closed until it is supplied.
+  const hostingPlan = async () => false;
+  const organization = organizationCommand({ ...common, hostingPlan });
+  const administration = lobbyAdministrationCommand({ ...common, hostingPlan });
+  const setup = setupCommand(common);
+  const settings = settingCommand(common);
+  const entries = entryEnrollmentCommand(common);
+  // Counsel has not activated minors; cleanup exits are still decided by the operation.
+  const judges = judgeRegistrationCommand({
+    ...common,
+    minorsReleased: async () => false,
+  });
+  const commandRoute = (
+    released: TabCommandRouteDependencies['released'],
+    operation: TabCommandOperation,
+  ) => createTabCommandRoute({ ...operation, boundary, released });
+
   return {
+    organizationCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.organization.command',
+        address: 'none',
+        execute: organization,
+      }),
+    lobbyCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.lobby.command',
+        address: 'none',
+        execute: (principal, body) => {
+          const envelope = lobbySetupCommandEnvelopeSchema.safeParse(body);
+          if (!envelope.success) throw createAppError('VALIDATION');
+          return isLobbyAdministration(envelope.data.command)
+            ? administration(principal, body)
+            : setup(principal, body);
+        },
+      }),
+    settingsCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.settings.command',
+        address: 'none',
+        execute: settings,
+      }),
+    entriesCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.entries.command',
+        address: 'lobby',
+        execute: entries,
+      }),
+    judgesCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.judges.command',
+        address: 'lobby',
+        execute: judges,
+      }),
     organizationPeople: (
       released: OrganizationPeopleRouteDependencies['released'],
     ) =>

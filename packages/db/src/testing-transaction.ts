@@ -27,3 +27,12 @@ export const withRuntimeTestTransaction = <T>(
     await sql`set local role daisy_web`;
     return work({ database: savepointTestDatabase(sql), sql });
   });
+
+/** Each call is a separately committed runtime request, including its decision callback. */
+export const committingRuntimeTestDatabase = (client: SQL) => ({
+  transaction: <T>(work: (tx: BunSQLDatabase) => Promise<T>): Promise<T> =>
+    client.begin(async (sql) => {
+      await sql`set local role daisy_web`;
+      return work(drizzle({ client: sql as SQL }));
+    }),
+});

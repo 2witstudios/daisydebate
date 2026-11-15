@@ -213,6 +213,8 @@ export function samplePeopleView(_scene: SampleScene): OrganizationPeopleView {
   });
   return {
     organizationId: sampleIds.league,
+    version: 1,
+    lobbies: [],
     name: LEAGUE_NAME,
     people: [
       {

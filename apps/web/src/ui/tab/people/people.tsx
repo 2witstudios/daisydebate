@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { People as Read } from '../../../features/tab/organization';
 import type { TimelineRail } from '../../../features/tab/tournament';
@@ -16,9 +17,14 @@ import { eyebrowClass, ListCard, ListRow } from '../list-card/list-card';
 export function People({
   rail,
   people,
+  controls,
 }: {
   readonly rail: TimelineRail;
   readonly people: Read;
+  readonly controls?: {
+    readonly give: ReactNode;
+    readonly people: readonly ReactNode[];
+  };
 }) {
   return (
     <HostShell
@@ -65,12 +71,18 @@ export function People({
       }
     >
       <PageHeader
-        title="People"
-        actions={<ActionButton action={people.give} />}
+        title={
+          <span id="tab-people-title" tabIndex={-1}>
+            People
+          </span>
+        }
+        actions={
+          controls ? controls.give : <ActionButton action={people.give} />
+        }
       />
       <ListCard>
         <ul>
-          {people.people.map((person) => (
+          {people.people.map((person, index) => (
             <ListRow
               key={person.name}
               title={person.name}
@@ -86,7 +98,9 @@ export function People({
               }
               tone={person.conflict === null ? 'plain' : 'selected'}
               trailing={
-                person.owner ? (
+                controls ? (
+                  controls.people[index]
+                ) : person.owner ? (
                   <span className="text-sm text-ink-muted">Everything</span>
                 ) : person.action === null ? null : (
                   <ActionLink action={person.action} about={person.name} />

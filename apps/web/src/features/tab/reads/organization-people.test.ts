@@ -44,6 +44,7 @@ const facts = (
     version: 3,
   },
   people,
+  lobbies: [],
   roles: [role(1, 'Director'), role(2, 'Staff')],
   authorization: {
     account: null,

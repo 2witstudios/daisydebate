@@ -61,6 +61,12 @@ export const organizationPeopleOf = (
   );
   return {
     organizationId: organization.id,
+    version: organization.version,
+    lobbies: facts.lobbies.map((lobby) => ({
+      lobbyId: lobby.id,
+      name: lobby.name,
+      closed: lobby.closedAt !== null,
+    })),
     name: organization.name,
     people: facts.people.map((person) => {
       const grants = held(person.userId);
@@ -109,35 +115,34 @@ export const readOrganizationPeople =
   (
     principal: TabPrincipal,
     organizationId: string,
-  ): Promise<OrganizationPeopleView | null> => {
-    const now = dependencies.now();
-    return gatedRead(
-      dependencies.authorize,
-      organizationReadCatalogue.OrganizationPeopleView,
-      async () => {
-        const facts = await dependencies.store.organizationPeople({
-          viewerUserId: principal.userId,
-          organizationId,
-        });
-        const organization = facts?.authorization.organization ?? null;
-        if (facts === null || organization === null) return null;
-        const { account, grants } = facts.authorization;
-        return {
-          facts,
-          authority: {
-            principal,
-            resource: organization,
-            // Giving at all: no particular role is weighed.
-            context: { account, now, grants, roleGiven: null },
+  ): Promise<OrganizationPeopleView | null> =>
+    dependencies.store.organizationPeople(
+      { viewerUserId: principal.userId, organizationId },
+      async (facts) => {
+        const now = dependencies.now();
+        return gatedRead(
+          dependencies.authorize,
+          organizationReadCatalogue.OrganizationPeopleView,
+          async () => {
+            const organization = facts?.authorization.organization ?? null;
+            if (facts === null || organization === null) return null;
+            const { account, grants } = facts.authorization;
+            return {
+              facts,
+              authority: {
+                principal,
+                resource: organization,
+                context: { account, now, grants, roleGiven: null },
+              },
+            };
           },
-        };
+          (loaded, ask) =>
+            organizationPeopleOf(
+              loaded,
+              principal.userId,
+              now,
+              ask('organization.roles.manage'),
+            ),
+        );
       },
-      (facts, ask) =>
-        organizationPeopleOf(
-          facts,
-          principal.userId,
-          now,
-          ask('organization.roles.manage'),
-        ),
     );
-  };

@@ -112,16 +112,20 @@ const loadedFor = async (
   viewer: Bot,
   organizationId: string,
 ) => {
-  const view = await store.organizationPeople({
-    viewerUserId: viewer.userId,
-    organizationId,
-  });
-  if (view?.authorization.organization == null)
-    throw new Error('the organization is not loaded');
-  return {
-    account: view.authorization.account,
-    organization: view.authorization.organization,
-  };
+  return store.organizationPeople(
+    {
+      viewerUserId: viewer.userId,
+      organizationId,
+    },
+    async (view) => {
+      if (view?.authorization.organization == null)
+        throw new Error('the organization is not loaded');
+      return {
+        account: view.authorization.account,
+        organization: view.authorization.organization,
+      };
+    },
+  );
 };
 
 /**

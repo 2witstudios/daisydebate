@@ -13,6 +13,8 @@ setupRitewayBun();
 const id = (c: string) => c.repeat(24);
 const view: OrganizationPeopleView = {
   organizationId: id('o'),
+  version: 3,
+  lobbies: [],
   name: 'Valley League',
   people: [],
   roles: [],

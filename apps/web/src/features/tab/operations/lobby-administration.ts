@@ -107,7 +107,7 @@ export const lobbyAdministrationCommand =
       !parsed.success ||
       parsed.data.command.type === 'create-lobby-room' ||
       parsed.data.command.type === 'close-lobby' ||
-      !isAdministration(parsed.data.command)
+      !isLobbyAdministration(parsed.data.command)
     )
       throw createAppError('VALIDATION');
     const command = parsed.data.command;
@@ -197,7 +197,7 @@ export const lobbyAdministrationCommand =
     }
   };
 
-const isAdministration = (command: {
+export const isLobbyAdministration = (command: {
   readonly type: string;
 }): command is LobbyAdministrationCommand =>
   [

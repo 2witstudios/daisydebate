@@ -183,13 +183,16 @@ export const createTabStore = (database: TabDatabase) => ({
         },
       });
     }),
-  organizationPeople: (input: {
-    readonly viewerUserId: string;
-    readonly organizationId: string;
-  }): Promise<OrganizationPeopleFacts | null> =>
+  organizationPeople: <Answer>(
+    input: {
+      readonly viewerUserId: string;
+      readonly organizationId: string;
+    },
+    work: (facts: OrganizationPeopleFacts | null) => Promise<Answer>,
+  ): Promise<Answer> =>
     database.transaction(async (tx) => {
       const scope = await fenceOrganizationRead(tx, input);
-      return loadOrganizationPeople(tx, input, scope);
+      return work(await loadOrganizationPeople(tx, input, scope));
     }),
   organizationIdOfHandle: (handle: string): Promise<string | null> =>
     database.transaction((tx) => findOrganizationByHandle(tx, handle)),

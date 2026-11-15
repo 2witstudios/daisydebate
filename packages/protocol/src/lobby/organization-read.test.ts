@@ -72,6 +72,8 @@ const owner = {
 } as const;
 const people = {
   organizationId: id('league'),
+  version: 3,
+  lobbies: [],
   name: 'Southeast League',
   people: [
     owner,

@@ -74,6 +74,12 @@ setting chain. Shared locks on its real parent definitions let unrelated
 consumers proceed while a parent writer waits; a changed parent reference after
 a wait refuses the obsolete request before any entry or audit write.
 
+Organization people are authorized and projected inside the store's transaction,
+under shared canonical viewer-account and organization fences. Readers coexist;
+authority writers wait. The same snapshot supplies the organization version and
+owned lobby choices for role controls; a submission retains the version the host
+saw instead of replacing it with a fresh guard.
+
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a
 Round finalization consumes; the recorded-ending read treats a mismatch as

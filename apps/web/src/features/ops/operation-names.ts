@@ -152,6 +152,11 @@ const OPERATION_NAMES = [
   'round.read',
   'round.view',
   'tab.organization.people',
+  'tab.organization.command',
+  'tab.lobby.command',
+  'tab.settings.command',
+  'tab.entries.command',
+  'tab.judges.command',
 ] as const;
 
 export type OperationName = (typeof OPERATION_NAMES)[number];

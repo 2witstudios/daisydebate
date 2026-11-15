@@ -137,23 +137,27 @@ const staffActsAsStaff = async (
   staffGrantId: string,
   now: string,
 ) => {
-  const view = await store.organizationPeople({
-    viewerUserId: cast.staff.userId,
-    organizationId,
-  });
-  const organization = view?.authorization.organization ?? null;
-  if (view === null || organization === null)
-    throw new StageFailed('Staff loads the organization');
-  const hostRead = authorize({
-    principal: as(cast.staff),
-    capability: 'organization.host.read',
-    resource: organization,
-    context: {
-      account: view.authorization.account,
-      now,
-      grants: view.authorization.grants,
+  const hostRead = await store.organizationPeople(
+    {
+      viewerUserId: cast.staff.userId,
+      organizationId,
     },
-  });
+    async (view) => {
+      const organization = view?.authorization.organization ?? null;
+      if (view === null || organization === null)
+        throw new StageFailed('Staff loads the organization');
+      return authorize({
+        principal: as(cast.staff),
+        capability: 'organization.host.read',
+        resource: organization,
+        context: {
+          account: view.authorization.account,
+          now,
+          grants: view.authorization.grants,
+        },
+      });
+    },
+  );
   expect(
     hostRead.allow &&
       hostRead.authority.kind === 'grant' &&

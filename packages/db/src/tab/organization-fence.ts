@@ -1,3 +1,5 @@
+import { readAuthorizationActors } from '../authorization';
+import { actors } from '../schema/actors';
 import { loadOrganizationGrantRows } from './organization-grant-rows';
 import { and, eq, sql } from 'drizzle-orm';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
@@ -100,5 +102,16 @@ export const fenceOrganizationRead = async (
   const organization = await foundOrganization(tx, input.organizationId);
   const scope = { ...subject, organizationId: organization?.id };
   await scopeTransaction(tx, scope);
+  const [viewer] = await tx
+    .select({ id: actors.id })
+    .from(actors)
+    .where(eq(actors.userId, input.viewerUserId));
+  if (viewer) await readAuthorizationActors(tx, [viewer.id], { maxActors: 1 });
+  if (scope.organizationId)
+    await tx
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, scope.organizationId))
+      .for('share');
   return scope;
 };

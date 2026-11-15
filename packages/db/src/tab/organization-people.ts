@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { MembershipStatus } from '@daisy/protocol/lobby';
 import { memberships, organizations } from '../schema/organizations';
 import { users } from '../schema/users';
+import { lobbies } from '../schema/lobbies';
 import type { TenantScope } from '../tenant-scope';
 import type { GrantRow } from './grant-rows';
 import { loadOrganizationGrantRows } from './organization-grant-rows';
@@ -28,6 +29,11 @@ export type OrganizationPersonRow = {
 /** What the people read projects from, with the viewer's authority. */
 export type OrganizationPeopleFacts = {
   readonly organization: OrganizationRow;
+  readonly lobbies: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly closedAt: Date | null;
+  }[];
   readonly people: readonly OrganizationPersonRow[];
   readonly roles: readonly RoleRow[];
   readonly authorization: OrganizationAuthorization;
@@ -88,6 +94,15 @@ export const loadOrganizationPeople = async (
   );
   return {
     organization,
+    lobbies: await tx
+      .select({
+        id: lobbies.id,
+        name: lobbies.name,
+        closedAt: lobbies.closedAt,
+      })
+      .from(lobbies)
+      .where(eq(lobbies.ownerOrganizationId, organization.id))
+      .orderBy(asc(lobbies.name), asc(lobbies.id)),
     people: members.map((row) => ({
       userId: row.userId,
       name: row.username ?? row.userId,

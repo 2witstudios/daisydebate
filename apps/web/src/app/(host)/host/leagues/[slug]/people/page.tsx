@@ -1,3 +1,4 @@
+import { peopleControls } from './controls';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import {
@@ -38,5 +39,11 @@ export default async function Page({
   await requireTabRelease();
   const stored = await readStoredPeople(slug, chosen, path);
   if (stored === null) notFound();
-  return <People rail={stored.rail} people={stored.people} />;
+  return (
+    <People
+      rail={stored.rail}
+      people={stored.people}
+      controls={peopleControls(stored.view, slug)}
+    />
+  );
 }

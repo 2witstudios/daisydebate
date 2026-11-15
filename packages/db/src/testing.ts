@@ -170,5 +170,6 @@ export async function readSpectatorHorizon(
 export { scratchDatabase } from './testing-scratch';
 export {
   withRuntimeTestTransaction,
+  committingRuntimeTestDatabase,
   type SavepointTestDatabase,
 } from './testing-transaction';

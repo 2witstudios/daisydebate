@@ -171,6 +171,11 @@ export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
 export const organizationPeopleViewSchema = z
   .strictObject({
     organizationId: idSchema,
+    /** The actual organization guard shown with the editable people snapshot. */
+    version: z.int().positive(),
+    lobbies: z.array(
+      z.strictObject({ lobbyId: idSchema, name, closed: z.boolean() }),
+    ),
     name,
     people: z.array(organizationPersonSchema),
     roles: z.array(organizationRoleSchema),

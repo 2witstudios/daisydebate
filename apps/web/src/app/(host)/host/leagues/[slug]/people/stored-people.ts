@@ -30,6 +30,7 @@ export async function readStoredPeople(
   );
   if (view === null) return null;
   return {
+    view,
     rail: organizationRailOf(view),
     people: organizationPeoplePage(view, {
       role,
