@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { boundedStep } from '../e2e/support/bounded-step';
 import { observeRecoveryConsumer } from '../e2e/support/messaging-recovery-consumer';
 setupRitewayBun();
 
@@ -111,7 +112,7 @@ test('observation returns the original reader promise and never initiates a read
 test('the serialized page witness preserves fetch identity and excludes speculative or unrelated responses', async () => {
   const { watchRecoveryConsumer } =
     await import('../e2e/support/messaging-recovery-consumer');
-  let binding: (id: string, value: Record<string, boolean>) => void = () => {};
+  let binding: (id: string, value: Record<string, unknown>) => void = () => {};
   let script = '';
   const page = {
     exposeFunction: async (_name: string, callback: typeof binding) => {
@@ -129,12 +130,20 @@ test('the serialized page witness preserves fetch identity and excludes speculat
     headers: { 'x-request-id': 'private-controlled-correlation' },
   });
   const promised = Promise.resolve(response);
+  const digestReady = Promise.withResolvers<void>();
   const browser = {
     fetch: () => promised,
     __messagingRecoveryConsumer: async (
       id: string,
-      value: Record<string, boolean>,
-    ) => binding(id, value),
+      value: Record<string, unknown>,
+    ) => {
+      binding(id, value);
+      if (
+        typeof value['bodyDigest'] === 'string' ||
+        value['digestFailed'] === true
+      )
+        digestReady.resolve();
+    },
   };
   // Execute precisely the script installed before the real page's first target read.
   new Function('window', 'location', script)(browser, {
@@ -163,7 +172,11 @@ test('the serialized page witness preserves fetch identity and excludes speculat
   const reader = response.body!.getReader();
   await reader.read();
   await reader.read();
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  await boundedStep(
+    'the serialized consumer digest',
+    () => digestReady.promise,
+    1000,
+  );
   assert({
     given:
       'the installed exact-target fetch witness sees unrelated, prefetch and actual reads',
@@ -282,14 +295,23 @@ test('consumed bytes identify the exact response independently of network termin
         },
       }),
     );
-    const state = observeRecoveryConsumer(response, () => {});
+    const digestReady = Promise.withResolvers<void>();
+    const state = observeRecoveryConsumer(response, () => {
+      if (state.bodyDigest !== null || state.digestFailed)
+        digestReady.resolve();
+    });
     const reader = response.body!.getReader();
     while (!(await reader.read()).done) {
       /* the real consumer owns reads */
     }
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await boundedStep(
+      'the exact-byte control digest',
+      () => digestReady.promise,
+      1000,
+    );
     return {
       eof: state.eof,
+      digestComputed: state.bodyDigest !== null && !state.digestFailed,
       bytesMatch: state.bodyDigest === digest,
       byteLength: state.byteLength,
     };
@@ -308,15 +330,35 @@ test('consumed bytes identify the exact response independently of network termin
       'prove only the exact consumed bytes even when every stream reaches EOF',
     actual: {
       exact,
-      truncated: truncated.bytesMatch,
-      corrupted: (await consume([corrupted])).bytesMatch,
-      wrongIdentity: (await consume([wrongIdentity])).bytesMatch,
+      truncated,
+      corrupted: await consume([corrupted]),
+      wrongIdentity: await consume([wrongIdentity]),
     },
     expected: {
-      exact: { eof: true, bytesMatch: true, byteLength: bytes.length },
-      truncated: false,
-      corrupted: false,
-      wrongIdentity: false,
+      exact: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: true,
+        byteLength: bytes.length,
+      },
+      truncated: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: false,
+        byteLength: bytes.length - 1,
+      },
+      corrupted: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: false,
+        byteLength: bytes.length,
+      },
+      wrongIdentity: {
+        eof: true,
+        digestComputed: true,
+        bytesMatch: false,
+        byteLength: wrongIdentity.length,
+      },
     },
   });
 });
