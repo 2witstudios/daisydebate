@@ -1,3 +1,5 @@
+import type { TabAction } from '../../../features/tab/action';
+import { ActionButton } from '../action-control/action-control';
 import type {
   PairingPolicy,
   TournamentSetup,
@@ -31,17 +33,36 @@ export const forceLabel = (policy: PairingPolicy): string => {
  * The pairing panel picks a preset; how strict each policy is comes with the
  * preset and is shown, not edited.
  */
-export function Setup({
-  rail,
-  setup,
-  panel,
-  submit,
-}: {
-  readonly rail: TimelineRail;
-  readonly setup: TournamentSetup;
-  readonly panel: 'pairing' | null;
-  readonly submit: SampleSubmit;
-}) {
+type SetupProps = { readonly rail: TimelineRail } & (
+  | {
+      readonly empty: { readonly addEvent: TabAction | null };
+      readonly setup?: never;
+      readonly panel?: never;
+      readonly submit?: never;
+    }
+  | {
+      readonly empty?: never;
+      readonly setup: TournamentSetup;
+      readonly panel: 'pairing' | null;
+      readonly submit: SampleSubmit;
+    }
+);
+export function Setup(props: SetupProps) {
+  if (props.empty !== undefined)
+    return (
+      <HostShell rail={props.rail} current="setup">
+        <PageHeader title="Setup" lede={props.rail.title} />
+        <ListCard>
+          <section className="flex flex-col items-start gap-3 p-4">
+            <p>No events yet.</p>
+            {props.empty.addEvent === null ? null : (
+              <ActionButton action={props.empty.addEvent} />
+            )}
+          </section>
+        </ListCard>
+      </HostShell>
+    );
+  const { rail, setup, panel, submit } = props;
   const pairing = setup.pairing;
   return (
     <HostShell
@@ -96,7 +117,7 @@ export function Setup({
         <ul>
           {setup.settings.map((setting) => (
             <SettingRow
-              key={setting.label}
+              key={setting.id ?? setting.keys.join('|')}
               setting={setting}
               selected={
                 panel === 'pairing' && setting.keys.includes('pairing.preset')

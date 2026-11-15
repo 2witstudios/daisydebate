@@ -37,6 +37,8 @@ export type SettingControl =
  * create-room form and an event Room's "set by" lines all render this.
  */
 export type SettingLine = {
+  /** Stable identity when several records share one subject, such as sanctioning leagues. */
+  readonly id?: string;
   /** The catalogue keys (or the template pin) this line shows. */
   readonly keys: readonly string[];
   readonly label: string;

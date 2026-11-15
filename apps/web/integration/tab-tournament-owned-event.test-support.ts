@@ -6,7 +6,7 @@ import { setupCommand } from '../src/features/tab/operations/setup';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 /** A real league-owned tournament/event; paid hosting is a test fact, never a production issuer. */
-export const createOwnedEvent = async (world: World) => {
+export const createOwnedTournament = async (world: World) => {
   const common = {
     store: createTabStore(world.database),
     authorize,
@@ -33,10 +33,21 @@ export const createOwnedEvent = async (world: World) => {
   });
   if (created.kind !== 'accepted') throw new Error('League tournament refused');
   const lobbyId = created.receipt.aggregate.id;
+  return { lobbyId, version: created.receipt.resultingVersion };
+};
+export const createOwnedEvent = async (world: World) => {
+  const owned = await createOwnedTournament(world);
+  const { lobbyId } = owned;
+  const common = {
+    store: createTabStore(world.database),
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  };
   const event = await setupCommand(common)(as(world.bots.Director!), {
     version: 1,
     commandId: createId(),
-    expected: { lobby: 1 },
+    expected: { lobby: owned.version },
     command: {
       type: 'add-event',
       lobbyId,

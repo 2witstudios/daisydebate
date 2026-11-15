@@ -68,13 +68,13 @@ const setupEventSchema = z
       .nullable(),
     stages: z.array(setupStageSchema),
     tabRounds: z.array(setupTabRoundSchema),
-    sanction: z
-      .strictObject({
+    sanctions: z.array(
+      z.strictObject({
         organization: organizationRef,
         status: z.enum(sanctionStatuses),
         requestedAt: instant,
-      })
-      .nullable(),
+      }),
+    ),
   })
   .refine(
     (event) => {
@@ -138,7 +138,7 @@ export const lobbySetupViewSchema = z.discriminatedUnion('kind', [
       kind: z.literal('tournament'),
       ...common,
       status: z.enum(tournamentStatuses),
-      events: z.array(setupEventSchema).min(1),
+      events: z.array(setupEventSchema),
       timeSlots: z.array(setupTimeSlotSchema),
       resolutionPools: z.array(setupResolutionPoolSchema),
       capabilities: z.strictObject({ manage: z.boolean() }),

@@ -29,16 +29,6 @@ const project = (
   facts: TournamentSetupFacts,
   manage: boolean,
 ): TournamentSetupView | null => {
-  // The current contract cannot yet represent an empty tournament or several
-  // sanctioning leagues. The approved revision must not fabricate either.
-  if (
-    !facts.events.length ||
-    facts.events.some(
-      (event) =>
-        facts.sanctions.filter((row) => row.eventId === event.id).length > 1,
-    )
-  )
-    return null;
   const view = {
     kind: 'tournament' as const,
     lobbyId: facts.lobby.id,
@@ -56,7 +46,6 @@ const project = (
       const template = event.templateId
         ? facts.templates.find((row) => row.id === event.templateId)
         : null;
-      const sanction = facts.sanctions.find((row) => row.eventId === event.id);
       if (
         !format ||
         (event.ballotDefinitionId && !ballot) ||
@@ -113,13 +102,13 @@ const project = (
             timeSlotId: row.timeSlotId,
             resolutionPoolId: row.resolutionPoolId,
           })),
-        sanction: sanction
-          ? {
-              organization: organizationRef(facts, sanction.organizationId),
-              status: sanction.status,
-              requestedAt: sanction.createdAt.toISOString(),
-            }
-          : null,
+        sanctions: facts.sanctions
+          .filter((row) => row.eventId === event.id)
+          .map((sanction) => ({
+            organization: organizationRef(facts, sanction.organizationId),
+            status: sanction.status,
+            requestedAt: sanction.createdAt.toISOString(),
+          })),
       };
     }),
     timeSlots: facts.slots.map((row) => ({

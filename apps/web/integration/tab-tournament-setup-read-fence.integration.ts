@@ -1,4 +1,4 @@
-import { createOwnedEvent } from './tab-tournament-owned-event.test-support';
+import { createOwnedTournament } from './tab-tournament-owned-event.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -42,7 +42,7 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
     };
     await withRuntimeTestTransaction(owner, async (frame) => {
       await organizationStage({ ...state, ...frame });
-      const owned = await createOwnedEvent({ ...state, ...frame });
+      const owned = await createOwnedTournament({ ...state, ...frame });
       state.made.set('setup-lobby', owned.lobbyId);
     });
     const lobbyId = state.made.get('setup-lobby')!;
@@ -60,7 +60,7 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
       const released = new Promise<void>((resolve) => {
         release = resolve;
       });
-      reading = read({
+      const operation = read({
         tournamentSetup: (input, work) =>
           original.tournamentSetup(input, async (facts) => {
             reached();
@@ -68,14 +68,15 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
             return work(facts);
           }),
       });
-      return ready;
+      reading = operation;
+      return { ready, operation };
     };
     const [held] = await reader`select pg_backend_pid() as pid`;
     const observed = (operation: Promise<unknown>) =>
       finishedOrBlockedBehind(operation, observer, Number(held?.pid), {
         now: Date.now,
       });
-    await pause();
+    await pause().ready;
     overlapping = read(createTabStore(committingRuntimeTestDatabase(owner)));
     const concurrent = await observed(overlapping);
     release();
@@ -86,9 +87,52 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
       actual: [concurrent, first !== null, second !== null],
       expected: ['finished', true, true],
     });
+    const creationRead = pause();
+    await creationRead.ready;
+    changing = setupCommand({
+      store: createTabStore(committingRuntimeTestDatabase(writer)),
+      authorize,
+      now: state.clock.now,
+      newId: createId,
+    })(as(state.bots.Director!), {
+      version: 1,
+      commandId: createId(),
+      expected: { lobby: 1 },
+      command: {
+        type: 'add-event',
+        lobbyId,
+        name: 'Original event',
+        label: 'ONE',
+        entry: { kind: 'person' },
+        pin: {
+          kind: 'format',
+          formatId: 'freestyle',
+          formatVersion: 1,
+          ballotDefinition: null,
+        },
+      },
+    });
+    const creationWait = await observed(changing);
+    release();
+    const empty = await creationRead.operation;
+    const created = await changing;
+    const afterCreation = await read(original);
+    assert({
+      given:
+        'an actual empty setup projection while its owner creates the first event',
+      should:
+        'retain zero events through that callback and show the committed event on the next read',
+      actual: [
+        creationWait,
+        empty?.events,
+        (created as { kind: string }).kind,
+        afterCreation?.events.map((row) => row.name),
+      ],
+      expected: ['blocked', [], 'accepted', ['Original event']],
+    });
     const [event] =
       await owner`select id from events where lobby_id=${lobbyId}`;
-    await pause();
+    await pause().ready;
     changing = setupCommand({
       store: createTabStore(committingRuntimeTestDatabase(writer)),
       authorize,
@@ -128,7 +172,7 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
       await owner`select version from organizations where id=${organizationId}`;
     const [grant] =
       await owner`select id from grants where organization_id=${organizationId} and user_id=${state.bots.Staff!.userId} and revoked_at is null`;
-    await pause();
+    await pause().ready;
     changing = organizationCommand({
       store: createTabStore(committingRuntimeTestDatabase(writer)),
       authorize,

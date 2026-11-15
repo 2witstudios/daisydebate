@@ -78,7 +78,7 @@ export function sampleEvent(
     readonly elimination: readonly [string, number];
     readonly poolId?: string | null;
     readonly template?: SetupEvent['template'];
-    readonly sanction?: SetupEvent['sanction'];
+    readonly sanctions?: SetupEvent['sanctions'];
   },
 ): SetupEvent {
   const prelim = sampleId(`stage${key}prelim`);
@@ -132,7 +132,7 @@ export function sampleEvent(
         resolutionPoolId: shape.poolId ?? null,
       })),
     ],
-    sanction: shape.sanction ?? null,
+    sanctions: shape.sanctions ?? [],
   };
 }
 
@@ -172,11 +172,13 @@ export function sampleAutumnSetup(scene: SampleScene): TournamentSetupView {
           name: 'Varsity debate',
           organization: league,
         },
-        sanction: {
-          organization: league,
-          status: before ? 'requested' : 'approved',
-          requestedAt: '2026-11-12T16:00:00.000Z',
-        },
+        sanctions: [
+          {
+            organization: league,
+            status: before ? 'requested' : 'approved',
+            requestedAt: '2026-11-12T16:00:00.000Z',
+          },
+        ],
       }),
       sampleEvent('noviceautumn', 'Novice debate', {
         ...leagueDebate,
@@ -289,7 +291,11 @@ const setupCopy: SetupCopy = {
       value: 'A second person confirms',
       edit: change,
     },
-    { subject: 'sanction', label: 'Counts for' },
+    {
+      subject: 'sanction',
+      label: 'Counts for',
+      request: () => sampleAction('View request'),
+    },
   ],
   pairing: {
     preset: choice('Pairing preset', [

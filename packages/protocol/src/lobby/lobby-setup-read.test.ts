@@ -49,11 +49,13 @@ const event = {
     },
   ],
   tabRounds: [round],
-  sanction: {
-    organization: league,
-    status: 'requested',
-    requestedAt: '2026-11-12T16:00:00.000Z',
-  },
+  sanctions: [
+    {
+      organization: league,
+      status: 'requested',
+      requestedAt: '2026-11-12T16:00:00.000Z',
+    },
+  ],
 } as const;
 const tournament = {
   kind: 'tournament',

@@ -93,10 +93,9 @@ the global settings-writer fence or enumerate unrelated tournament branches.
 The tournament setup host read likewise keeps authorization and projection in
 its shared-fenced transaction. It selects only the addressed tournament's pins,
 schedule and available pool metadata; pool sizes count active wording rows
-without selecting their text. The existing read contract cannot represent an
-empty event list or several sanctioning leagues for one event. Point guard
-approved representing both on 2026-11-15; until that contract revision lands,
-this read returns no fabricated snapshot for those states.
+without selecting their text. The setup contract permits a real zero-event tournament and exposes every
+authorized sanction on each event. Neither case fabricates an event or selects
+one league in place of the full collection.
 
 The host's resolved event-settings read uses the same bounded event context as
 entry/draft commands, with shared lobby/event metadata locks. Commands keep

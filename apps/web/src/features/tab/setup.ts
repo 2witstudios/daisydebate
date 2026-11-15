@@ -4,7 +4,7 @@ import type {
 } from '@daisy/protocol/lobby/lobby-setup-read';
 import type { ResolvedSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
 import type { SettingKey } from '@daisy/protocol/setting-values';
-import { linkTo, sampleAction, type Choice, type TabAction } from './action';
+import { linkTo, type Choice, type TabAction } from './action';
 import { daysBefore } from './organization';
 import { resolvedEntry } from './reads/resolved-settings';
 import { sampleSetup } from './sample/setup';
@@ -74,6 +74,7 @@ type SetupLineCopy =
   | {
       readonly subject: 'sanction';
       readonly label: string;
+      readonly request?: (organizationId: string) => TabAction | null;
     };
 
 /** The words the setup screen uses, beyond what its reads carry. */
@@ -169,28 +170,44 @@ function resolutionsLine(
   ];
 }
 
-/** The league the event asks to count for, and how long its request has waited. */
-function sanctionLine(
+const sanctionAttention = (
+  sanction: SetupEvent['sanctions'][number],
+  now: string,
+): string | null => {
+  switch (sanction.status) {
+    case 'requested':
+      return `sanction requested ${agoWords(daysBefore(sanction.requestedAt, now))}, not yet answered`;
+    case 'approved':
+      return null;
+    case 'declined':
+      return 'Does not count · sanction declined';
+    case 'withdrawn':
+      return 'Does not count · sanction withdrawn';
+  }
+};
+/** Every league the event asks to count for, with its own request age and action. */
+export function sanctionLines(
   copy: SettingCopy<'sanction'>,
   event: SetupEvent,
   lobby: LineSource,
   now: string,
 ): readonly SettingLine[] {
-  const sanction = event.sanction;
-  if (sanction === null) return [];
-  const waiting = sanction.status === 'requested';
-  return [
-    {
+  return event.sanctions.map((sanction) => {
+    const waiting = sanction.status === 'requested';
+    return {
+      id: sanction.organization.organizationId,
       keys: ['sanction'],
       label: copy.label,
       value: sanction.organization.name,
       source: lobby,
-      control: openSetting(waiting ? sampleAction('View request') : null),
-      attention: waiting
-        ? `sanction requested ${agoWords(daysBefore(sanction.requestedAt, now))}, not yet answered`
-        : null,
-    },
-  ];
+      control: openSetting(
+        waiting
+          ? (copy.request?.(sanction.organization.organizationId) ?? null)
+          : null,
+      ),
+      attention: sanctionAttention(sanction, now),
+    };
+  });
 }
 
 /**
@@ -230,7 +247,7 @@ function tournamentSetupOf(
       case 'resolutions':
         return resolutionsLine(copy, reads, event);
       case 'sanction':
-        return sanctionLine(copy, event, lobby, context.now);
+        return sanctionLines(copy, event, lobby, context.now);
     }
   };
   return {
