@@ -1,0 +1,116 @@
+import type { SQL } from 'bun';
+import { authorize } from '@daisy/auth/authorization';
+import { createTabStore } from '@daisy/db/tab';
+import { committingRuntimeTestDatabase } from '@daisy/db/testing';
+import { isAppError } from '@daisy/errors';
+import { createId } from '@paralleldrive/cuid2';
+import { assert } from 'riteway/bun';
+import { roundViewReader } from '../src/features/round-runtime/reads';
+import { organizationCommand } from '../src/features/tab/operations/organization';
+import {
+  as,
+  presetStaffRoleId,
+} from './tab-tournament-organization-wiring.test-support';
+import type { committedEventRoom } from './tab-event-room-direction.test-support';
+import type { withRoomRuntime } from './room-runtime.test-support';
+
+type Runtime = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
+const denied = async (work: () => Promise<unknown>) => {
+  try {
+    await work();
+    return false;
+  } catch (error) {
+    if (!isAppError(error)) throw error;
+    return error.code === 'NOT_FOUND';
+  }
+};
+
+/** Current read authority uses actual grants, independently of the Room's null host and funding. */
+export const proveEventRoundRead = async (input: {
+  readonly f: Runtime;
+  readonly owner: SQL;
+  readonly world: Awaited<ReturnType<typeof committedEventRoom>>;
+  readonly roundId: string;
+}) => {
+  const { f, owner, world, roundId } = input;
+  const director = world.bots.Director!,
+    stranger = world.bots.Coach!;
+  const lobbyId = world.made.get('tournament-lobby')!;
+  const read = roundViewReader(f.store);
+  const send = organizationCommand({
+    store: createTabStore(committingRuntimeTestDatabase(owner)),
+    authorize,
+    now: () => new Date().toISOString(),
+    newId: createId,
+  });
+  const scope = { kind: 'lobby' as const, lobbyId };
+  const expected = async () => ({
+    lobby: Number(
+      (await owner`select version from lobbies where id=${lobbyId}`)[0]!
+        .version,
+    ),
+  });
+  assert({
+    given:
+      'an actual host-null event Round and the current owner versus a non-seated unrelated adult',
+    should:
+      'read for current event authority and hide the same Round from the unrelated person',
+    actual: [
+      (await read(director, roundId)).id,
+      await denied(() => read(stranger, roundId)),
+    ],
+    expected: [roundId, true],
+  });
+  const granted = await send(as(director), {
+    version: 1,
+    commandId: createId(),
+    expected: await expected(),
+    command: {
+      type: 'give-grant',
+      scope,
+      userId: stranger.userId,
+      roleId: presetStaffRoleId,
+      expiresAt: null,
+    },
+  });
+  if (granted.kind !== 'accepted')
+    throw new Error(`Read authority grant refused: ${JSON.stringify(granted)}`);
+  assert({
+    given:
+      'a genuine scoped Staff grant, without any Room seat, host identity or funding change',
+    should:
+      'let the now-current official reconnect to the same ordinary Round endpoint',
+    actual: [
+      (await read(stranger, roundId)).id,
+      (await read(stranger, roundId)).viewerIsUndelayedObserver,
+    ],
+    expected: [roundId, true],
+  });
+  const [grant] =
+    await owner`select id from grants where lobby_id=${lobbyId} and user_id=${stranger.userId} and revoked_at is null`;
+  const removed = await send(as(director), {
+    version: 1,
+    commandId: createId(),
+    expected: await expected(),
+    command: { type: 'remove-grant', scope, grantId: String(grant!.id) },
+  });
+  if (removed.kind !== 'accepted')
+    throw new Error(
+      `Read authority revocation refused: ${JSON.stringify(removed)}`,
+    );
+  assert({
+    given: 'the actual same read after guarded grant revocation',
+    should:
+      'deny reconnect immediately and preserve current owner access without rewriting the Round',
+    actual: [
+      await denied(() => read(stranger, roundId)),
+      (await read(director, roundId)).id,
+      Number(
+        (
+          await owner`select count(*)::int n from fixture_room_sources where room_id=${world.roomId}`
+        )[0]!.n,
+      ),
+    ],
+    expected: [true, roundId, 1],
+  });
+};

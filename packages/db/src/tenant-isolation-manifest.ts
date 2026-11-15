@@ -118,6 +118,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     lobby('draw_result_inputs'),
     lobby('draw_fixtures'),
     lobby('fixtures'),
+    lobby('fixture_room_sources'),
     lobby('fixture_entries'),
     lobby('fixture_judges'),
     lobby('conflicts'),

@@ -119,6 +119,34 @@ export const proveTournamentCaptureControl = async (input: {
   await pass();
   const recording = await store.findByRound(roundId);
   if (!recording) throw new Error('Admitted capture was not discovered');
+  if (recording.eligibility.kind !== 'tournament_admission')
+    throw new Error('Missing actual admitted source');
+  const pinned = recording.eligibility;
+  const wrong = {
+    ...pinned,
+    deadlineAt: new Date(Date.parse(pinned.deadlineAt) + 1).toISOString(),
+  };
+  const forged = await owner
+    .begin(async (tx) => {
+      await tx`insert into recordings(id,round_id,recording_class,eligibility,status,lifecycle)
+      values(${createId()},${roundId},'casual',${JSON.stringify(wrong)}::text::jsonb,'requested','{"status":"requested"}'::jsonb)`;
+    })
+    .then(
+      () => 'accepted',
+      (error: { constraint?: string }) => error.constraint ?? 'other-error',
+    );
+  assert({
+    given:
+      'a real admitted Recording and another insert naming that admission with a one-millisecond extension',
+    should:
+      'refuse at the owning database source boundary and expose only the original deadline to processing',
+    actual: [
+      forged,
+      (await captures.readPublicHistory(recording.id)).captureUntilMs,
+    ],
+    expected: ['recordings_admission_deadline', Date.parse(pinned.deadlineAt)],
+  });
+
   await pass();
   const unknown = await physical();
   assert({

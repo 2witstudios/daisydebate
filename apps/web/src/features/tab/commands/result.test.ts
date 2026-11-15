@@ -372,7 +372,11 @@ test('a screening hold is settled without rewriting the ballot', () => {
         : { kind, text: { reason: 'The [redacted] case' } },
   });
   const decision = decideScreeningHold(
-    { now, screening: { ...screening, status: 'held' } },
+    {
+      now,
+      originalWritten: { reason: 'Original retained reason' },
+      screening: { ...screening, status: 'held' },
+    },
     resolve('redacted'),
   );
   assert({
@@ -392,6 +396,24 @@ test('a screening hold is settled without rewriting the ballot', () => {
       },
     ],
   });
+  const original = decideScreeningHold(
+    {
+      now,
+      originalWritten: { reason: 'Original retained reason' },
+      screening: { ...screening, status: 'held' },
+    },
+    resolve('original'),
+  );
+  assert({
+    given: 'a held ballot explicitly approved with its original text',
+    should:
+      'persist an explicit copy instead of a null sentinel that invites a read fallback',
+    actual:
+      original.kind === 'accepted'
+        ? original.writes[0]?.set.releasedText
+        : original,
+    expected: { reason: 'Original retained reason' },
+  });
   assert({
     given: 'a screening that is not held',
     should:
@@ -399,13 +421,21 @@ test('a screening hold is settled without rewriting the ballot', () => {
     actual: [
       refusalOf(
         decideScreeningHold(
-          { now, screening: { ...screening, status: 'clear' } },
+          {
+            now,
+            originalWritten: { reason: 'Original retained reason' },
+            screening: { ...screening, status: 'clear' },
+          },
           resolve('original'),
         ),
       ),
       refusalOf(
         decideScreeningHold(
-          { now, screening: { ...screening, status: 'pending' } },
+          {
+            now,
+            originalWritten: { reason: 'Original retained reason' },
+            screening: { ...screening, status: 'pending' },
+          },
           resolve('original'),
         ),
       ),

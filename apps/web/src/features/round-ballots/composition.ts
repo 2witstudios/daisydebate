@@ -1,3 +1,4 @@
+import { eventBallotAccess } from './audience';
 import {
   captureRule,
   readRoundOpening,
@@ -19,13 +20,16 @@ export function composeRoundBallotRoutes(app: App) {
     }),
     read: (caller, roundId) =>
       app.database.readRoundBallot({
+        ballotAccess: (_round, _account, owner) =>
+          eventBallotAccess(caller, owner),
         decideWaitingOn: roundWaitingOn,
         caller,
         roundId,
         captureRule,
-        authorize: (round, account) => canReadRound(caller, round, account),
-        authorizeTranscript: (round, account) =>
-          canReadTranscript(caller, round, account),
+        authorize: (round, account, authority) =>
+          canReadRound(caller, round, account, authority),
+        authorizeTranscript: (round, account, authority) =>
+          canReadTranscript(caller, round, account, authority),
         readOpening: readRoundOpening,
       }),
     assignments: (caller) => app.database.listRoundJudgeAssignments(caller),

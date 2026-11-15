@@ -27,6 +27,14 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     // real Daisy journey only, then remove it before the generated migrations run.
     await sql`alter table rounds add column ballot_definition_id text,add column ballot_definition_version integer`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
+    // Empty decoder interface only: the real pre-upgrade ordinary journey has
+    // no tournament hosting grant, version, issuer or inferred funding account.
+    await sql`alter table account_entitlement_grants add column hosting_version_id text,add column revoked_at timestamptz`;
+    await sql`create table account_hosting_versions (
+      id text,user_id text,source text,version integer,starts_at timestamptz,expires_at timestamptz,
+      issuer_service_id text,issuer_operator_ref text,decision_reference text,
+      subscription_id text,subscription_observed_at timestamptz,subscription_evidence jsonb,coverage jsonb)`;
+    await sql`grant select on account_hosting_versions to daisy_web`;
     const completed: { value: { roundId: string; ballotId: string } | null } = {
       value: null,
     };
@@ -75,6 +83,8 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     const before = await read();
     await sql`alter table rounds drop column ballot_definition_id,drop column ballot_definition_version`;
     await sql`alter table ballots drop column speaker_ranks`;
+    await sql`drop table account_hosting_versions`;
+    await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;
     await scratch.migrate(() => true);
     const after = await read();
     const [owner] =

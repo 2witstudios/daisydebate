@@ -261,6 +261,8 @@ export type {
 } from './ballot-definition';
 export {
   ballotRecordSchema,
+  ballotWrittenRecordSchema,
+  type BallotWrittenRecord,
   ballotCompetitionRecordSchema,
   ballotCompetitionSchemaFor,
   ballotSchemaFor,

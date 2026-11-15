@@ -128,6 +128,7 @@ for (const ladder of ratingLadders)
                 () => true,
                 readRoundOpening,
                 roundWaitingOn,
+                () => false,
               );
               const display = await readRoundRatings(f.store, {
                 round: roundView,

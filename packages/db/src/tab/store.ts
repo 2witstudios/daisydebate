@@ -1,3 +1,8 @@
+import { createReleaseCommandStore } from './release-command';
+export type {
+  LoadedReleaseCommand,
+  ReleaseCommandWrite,
+} from './release-command';
 import { createTournamentSponsorshipStore } from './tournament-sponsorship';
 export type { LoadedTournamentSponsorship } from './tournament-sponsorship';
 import {
@@ -158,6 +163,7 @@ const roleNamedOf = (
  */
 export const createTabStore = (database: TabDatabase) => ({
   ...createResultCommandStore(database),
+  ...createReleaseCommandStore(database),
   ...createTournamentSponsorshipStore(database),
   ...createGuardianCommandStore(database),
   ...createFamilyHistoryStore(database),

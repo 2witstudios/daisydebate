@@ -1,3 +1,4 @@
+import type { BallotWrittenRecord } from '@daisy/protocol';
 import type { ReleaseAudience } from '@daisy/protocol/release-audience';
 import { releaseAudiences } from '@daisy/protocol/release-audience';
 import type {
@@ -294,6 +295,8 @@ export const decideCertification = (
 // ---- Screening holds -------------------------------------------------------
 
 export type ScreeningHoldFacts = {
+  /** Exact retained written fields loaded with the addressed ballot, never client supplied. */
+  readonly originalWritten: BallotWrittenRecord;
   readonly screening: ScreeningRow;
   readonly now: string;
 };
@@ -301,10 +304,10 @@ export type ScreeningHoldWrite = {
   readonly table: 'ballot_screenings';
   readonly op: 'update';
   readonly ballotId: string;
-  /** `releasedText` null releases the ballot's own text. */
+  /** Always an explicit approved copy, including an original-text release. */
   readonly set: {
     readonly status: 'clear';
-    readonly releasedText: Readonly<Record<string, string>> | null;
+    readonly releasedText: BallotWrittenRecord;
     readonly updatedAt: string;
   };
 };
@@ -334,7 +337,7 @@ export const decideScreeningHold = (
               releasedText:
                 command.release.kind === 'redacted'
                   ? command.release.text
-                  : null,
+                  : facts.originalWritten,
               updatedAt: facts.now,
             },
           },

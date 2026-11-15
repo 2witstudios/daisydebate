@@ -34,6 +34,7 @@ const casualOwn = {
 };
 
 const setup = (over: {
+  readonly captureUntilMs?: number;
   readonly processing?: readonly unknown[];
   readonly open?: readonly unknown[];
   readonly jobs?: readonly unknown[];
@@ -88,8 +89,10 @@ const setup = (over: {
         ],
         knownThroughMs: 90_000,
         captureFromMs: 0,
+        captureUntilMs: over.captureUntilMs ?? null,
         prepStartsAtMs: [],
       }),
+      stripSources: log('stripSources'),
       discardSources: log('discardSources'),
       listProcessingUnalerted: async () => over.processing ?? [],
       markDelayAlerted: log('markDelayAlerted', true),
@@ -430,5 +433,50 @@ test('a full page of jobs continues from the last row\u2019s own id', async () =
       'ask for the next by the id the store sorts on, not the pass\u2019s key',
     actual: cursors,
     expected: [null, 'rec-63'],
+  });
+});
+
+test('late physical capture never extends a finite authorization in either queued or retained sources', async () => {
+  const { sweep, calls } = setup({
+    captureUntilMs: 30_000,
+    jobs: [
+      {
+        recordingId: 'queue',
+        state: { status: 'waiting' },
+        lifecycle: {
+          status: 'processing',
+          capture: {
+            source: { kind: 'own_capture' },
+            startedAt: at,
+            endedAt: at,
+            attempts: [{ attempt: 1, egressId: 'EG_1', startedAt: at }],
+          },
+        },
+        sourcesInUse: false,
+      },
+      {
+        recordingId: 'strip',
+        state: { status: 'failed' },
+        lifecycle: { status: 'failed' },
+        sourcesInUse: false,
+      },
+    ],
+  });
+  await sweep();
+  assert({
+    given:
+      'committed speech and physical sources extending past the immutable deadline',
+    should:
+      'pass the same deadline-clipped public interval to both build and private-source stripping',
+    actual: calls
+      .filter(([name]) => name === 'queueJob' || name === 'stripSources')
+      .map(([name, input]) => [
+        name,
+        (input as { publicIntervals: unknown }).publicIntervals,
+      ]),
+    expected: [
+      ['queueJob', [{ fromMs: 2301, toMs: 30_000 }]],
+      ['stripSources', [{ fromMs: 2301, toMs: 30_000 }]],
+    ],
   });
 });

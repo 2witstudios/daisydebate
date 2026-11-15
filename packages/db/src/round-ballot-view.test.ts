@@ -97,6 +97,7 @@ test('only a human judge seated in the Round has an own seat', () => {
 test('judges see their own ballot and the frozen input, others’ only after completion', () => {
   const rows = [row('judge-h'), row('judge-b')];
   const open = ballotReadView({
+    audience: { kind: 'ordinary' },
     status: 'active',
     ownSeatId: 'judge-h',
     viewerSubject: undefined,
@@ -106,6 +107,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
     frozen,
   });
   const done = ballotReadView({
+    audience: { kind: 'ordinary' },
     status: 'completed',
     ownSeatId: undefined,
     viewerSubject: undefined,
@@ -153,6 +155,7 @@ test('a judge who has not submitted sees an empty own ballot', () => {
     given: 'a seated judge with no stored ballot',
     should: 'report the seat with no ballot or revision',
     actual: ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'active',
       ownSeatId: 'judge-h',
       viewerSubject: undefined,
@@ -176,6 +179,7 @@ test('a released ballot carries feedback only for the reader’s own side', () =
   };
   const view = (viewerSubject: 'affirmative' | 'negative' | undefined) =>
     ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'completed',
       ownSeatId: undefined,
       viewerSubject,
@@ -213,6 +217,7 @@ test('a released speaker ranking carries feedback only for the reading speaker',
   } as unknown as Row;
   const view = (viewerSubject: string | undefined) =>
     ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'completed',
       ownSeatId: undefined,
       viewerSubject,

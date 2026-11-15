@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import { ballotWrittenRecordSchema } from '../ballot-schema';
 import { administrativeAwardsSchema } from './result-record';
 import { resultCompetitionReplacementSchema } from './result-record-correction';
 import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
@@ -74,7 +75,7 @@ const resolveScreeningHoldCommandSchema = z.strictObject({
     z.strictObject({ kind: z.literal('original') }),
     z.strictObject({
       kind: z.literal('redacted'),
-      text: z.record(z.string().min(1), z.string().max(20_000)),
+      text: ballotWrittenRecordSchema,
     }),
   ]),
 });
@@ -198,6 +199,8 @@ export const releaseCommandSchema = z.discriminatedUnion('type', [
   releaseResolutionCommandSchema,
 ]);
 export type ReleaseCommand = z.infer<typeof releaseCommandSchema>;
+export const releaseCommandEnvelopeSchema =
+  lobbyCommandEnvelope(releaseCommandSchema);
 
 export const releaseCommandRefusals = [
   'not-manual',

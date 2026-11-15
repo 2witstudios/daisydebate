@@ -2,10 +2,68 @@ import {
   authorize,
   type AuthorizationCapability,
   type RoomAuthorizationFact,
+  type RoomOwnerFact,
 } from '@daisy/auth/authorization';
 import type { RoomDirectionInput } from '@daisy/db/tab';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import { eventSettingResolution } from './operations/event-setting-resolution';
+
+export const eventRoomOwner = (
+  input: RoomDirectionInput,
+  now: string,
+): Extract<RoomOwnerFact, { kind: 'event' }> | null => {
+  const { lobby } = input.configuration;
+  const organization = input.authorization.organization;
+  const owner = organization
+    ? { kind: 'organization' as const, organization }
+    : input.ownerActorId
+      ? { kind: 'person' as const, actorId: input.ownerActorId }
+      : null;
+  if (!owner) return null;
+  return {
+    kind: 'event',
+    fixtureId: input.fixtureId,
+    scope: { lobbyId: lobby.id, lobbyKind: 'tournament', owner },
+    conflict: {
+      connections: input.connections,
+      handling: eventSettingResolution(input.configuration).settings[
+        'conflict.handling'
+      ].value.value,
+      waiverId: null,
+    },
+    viewing: {
+      audiences: [
+        ...(input.authorization.account?.ageBand === 'adult' &&
+        (input.audience.responsibleAdult ||
+          input.audience.schools.some(
+            (school) =>
+              school.organization &&
+              school.account?.actorId &&
+              authorize({
+                principal: {
+                  kind: 'user',
+                  userId: school.account.userId,
+                  actorId: school.account.actorId,
+                },
+                capability: 'school.roster.manage',
+                resource: school.organization,
+                context: {
+                  account: school.account,
+                  grants: school.grants,
+                  now,
+                },
+              }).allow,
+          ))
+          ? ['responsible_adults' as const]
+          : []),
+        ...(input.audience.ownEntry ? ['competitors' as const] : []),
+        ...(input.audience.participant ? ['participants' as const] : []),
+      ],
+      releases: input.audience.releases,
+    },
+    video: { minorSeated: false, guardianCap: 'officials' },
+  };
+};
 
 /** Current Tab authority exported to ordinary Room commands, never a substitute host. */
 export const eventRoomDirectionDecision = (
@@ -18,13 +76,7 @@ export const eventRoomDirectionDecision = (
   input: RoomDirectionInput,
   now: string,
 ) => {
-  const { lobby } = input.configuration;
-  const organization = input.authorization.organization;
-  const owner = organization
-    ? { kind: 'organization' as const, organization }
-    : input.ownerActorId
-      ? { kind: 'person' as const, actorId: input.ownerActorId }
-      : null;
+  const owner = eventRoomOwner(input, now);
   if (!owner) return null;
   const resource: RoomAuthorizationFact = {
     kind: 'room',
@@ -34,20 +86,7 @@ export const eventRoomDirectionDecision = (
     status: room.status,
     revision: room.version,
     participants: room.participants,
-    owner: {
-      kind: 'event',
-      fixtureId: input.fixtureId,
-      scope: { lobbyId: lobby.id, lobbyKind: 'tournament', owner },
-      conflict: {
-        connections: input.connections,
-        handling: eventSettingResolution(input.configuration).settings[
-          'conflict.handling'
-        ].value.value,
-        waiverId: null,
-      },
-      viewing: { audiences: [], releases: [] },
-      video: { minorSeated: false, guardianCap: 'officials' },
-    },
+    owner,
   };
   return authorize({
     principal: { kind: 'user', ...caller },

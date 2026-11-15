@@ -1,3 +1,8 @@
+import { roundOutcomeForAudience } from './round-outcome-audience';
+import {
+  readRoundRoomAuthority,
+  type RoundRoomAuthority,
+} from './round-room-authority';
 import { loadRoomDirection } from './tab/room-direction';
 import { fenceTabAccountRead } from './tab/account-read-fence';
 import {
@@ -174,21 +179,39 @@ export const roomReadOperations = ({
   async readLaunchedRound(
     roundId: string,
     caller: Caller,
-    authorize: (round: LaunchedRound, account: Account) => boolean,
+    authorize: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => boolean,
     readOpening: ReadOpening,
     /** The engine's decision, injected. Required: no read may report a played Round as waiting on nothing. */
     decideWaitingOn: (facts: RoundWaitingFacts) => RoundWaitingOn | null,
+    readEventDecision: (owner: RoundRoomAuthority) => boolean,
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
-        const round = await launchedRoundRows(tx, roundId);
-        if (!authorize(round, account)) throw createAppError('NOT_FOUND');
+        const initial = await launchedRoundRows(tx, roundId);
+        const owner = await readRoundRoomAuthority(tx, {
+          roomId: initial.roomId,
+          userId: caller.userId,
+        });
+        const round =
+          owner.kind === 'event'
+            ? await launchedRoundRows(tx, roundId)
+            : initial;
+        if (!authorize(round, account, owner))
+          throw createAppError('NOT_FOUND');
         return withOpening(
           tx,
           round,
           {
-            ...roundViewFor(round, caller.actorId),
+            ...roundOutcomeForAudience(
+              roundViewFor(round, caller.actorId),
+              owner,
+              readEventDecision(owner),
+            ),
             waitingOn: await readWaitingOn(tx, round, decideWaitingOn),
           },
           { actorId: caller.actorId, account },

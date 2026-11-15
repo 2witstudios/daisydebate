@@ -1,3 +1,4 @@
+import { proveEventBallotReleases } from './tab-event-ballot-release.test-support';
 import type { ResultCompetitionRecord } from '@daisy/protocol/lobby/result-record';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import { SQL } from 'bun';
@@ -191,6 +192,13 @@ test('actual event Round source persists one immutable competition record, compl
             private: false,
             count: 1,
           },
+        });
+        await proveEventBallotReleases({
+          f,
+          owner,
+          world,
+          roundId,
+          competitorActorId: competitors[0]!.actorId,
         });
         const correction = {
           version: 1,

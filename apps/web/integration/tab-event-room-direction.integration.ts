@@ -1,3 +1,4 @@
+import { proveEventRoundRead } from './tab-event-round-read.test-support';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { scratchDatabase } from '@daisy/db/testing';
@@ -69,6 +70,12 @@ for (const mode of ['copy', 'detach'] as const)
             world.roomId,
             start,
           );
+          await proveEventRoundRead({
+            f,
+            owner,
+            world,
+            roundId: response.receipt.roundRef!.id,
+          });
           const replay = await f.operations.command(
             director,
             world.roomId,

@@ -36,3 +36,27 @@ test('sponsorship consent is the named adult account’s authority, independent 
     expected: [true, false, false, false, false, false, true],
   });
 });
+
+test('existing self sponsorship can be withdrawn after admission or age evidence changes', () => {
+  const accounts = [
+    { ageBand: null },
+    { ageBand: '16-17' as const },
+    { beta: { state: 'revoked' as const, revision: 2 } },
+    { restricted: true },
+  ];
+  assert({
+    given:
+      'an existing sponsor with unknown or corrected age, revoked admission or restrictions',
+    should:
+      'allow only its own withdrawal while refusing new consent and another account’s withdrawal',
+    actual: accounts.map((account) => [
+      ask('tournament.sponsorship.withdraw', resource, { account }).allow,
+      ask('tournament.sponsorship.consent', resource, { account }).allow,
+      ask('tournament.sponsorship.withdraw', resource, {
+        account,
+        actorId: 'other',
+      }).allow,
+    ]),
+    expected: accounts.map(() => [true, false, false]),
+  });
+});

@@ -116,6 +116,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         () => true,
         readRoundOpening,
         roundWaitingOn,
+        () => false,
       );
       const [receipt] =
         await f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
@@ -240,6 +241,7 @@ test('a failed AI judge ends a ranked Round honestly: no human countdown, no win
         () => true,
         readRoundOpening,
         roundWaitingOn,
+        () => false,
       );
     const processing = await seen();
     const [row] =
@@ -317,6 +319,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
           () => true,
           readRoundOpening,
           roundWaitingOn,
+          () => false,
         );
       const waiting = await seen();
       const [{ deadline }] =
@@ -385,6 +388,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
       () => true,
       readRoundOpening,
       roundWaitingOn,
+      () => false,
     );
     assert({
       given: 'a played Round with a human judge, frozen',

@@ -75,6 +75,7 @@ test(
             ![
               'tournament_sponsorship_versions',
               'tournament_capture_admissions',
+              'fixture_room_sources',
             ].includes(table.table),
         )
         .map((table) =>

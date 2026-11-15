@@ -1,15 +1,20 @@
+import { fixtureSchoolIds, loadFixtureAudience } from './fixture-audience';
+import { fixtureRoomSources } from '../schema/fixture-room-sources';
 import {
   loadTournamentCaptureFunding,
   type TournamentCaptureFunderLocator,
 } from './tournament-capture-funding';
 import { fixtureConnections } from './fixture-conflict';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, getTableColumns } from 'drizzle-orm';
 import { actors } from '../schema/actors';
 import { fixtures } from '../schema/fixtures';
 import { rooms } from '../schema/rooms';
 import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
-import { lockEventSettingContext } from './event-setting-context';
+import {
+  lockEventSettingContext,
+  EventSettingParentsChanged,
+} from './event-setting-context';
 import type { TabTransaction } from './tab-transaction';
 
 /**
@@ -17,7 +22,7 @@ import type { TabTransaction } from './tab-transaction';
  * external consent read; only the reloaded, account-before-parent locked
  * input can authorize a command or replay. No Room host or cast is invented.
  */
-export const loadRoomDirection = async (
+const loadFixtureRoomDirection = async (
   tx: TabTransaction,
   input: {
     readonly room: Pick<
@@ -28,6 +33,7 @@ export const loadRoomDirection = async (
     readonly snapshot?: boolean;
     readonly captureFunder?: TournamentCaptureFunderLocator | null;
   },
+  source: 'current-room' | 'retained-room',
 ) => {
   if (input.room.hostActorId !== null) return null;
   await scopeTransaction(tx, {
@@ -35,37 +41,62 @@ export const loadRoomDirection = async (
     lobbyId: input.room.lobbyId,
   });
   const [found] = await tx
-    .select()
-    .from(fixtures)
+    .select(getTableColumns(fixtures))
+    .from(fixtureRoomSources)
+    .innerJoin(
+      fixtures,
+      and(
+        eq(fixtures.id, fixtureRoomSources.fixtureId),
+        eq(fixtures.lobbyId, fixtureRoomSources.lobbyId),
+      ),
+    )
     .where(
       and(
-        eq(fixtures.roomId, input.room.id),
+        eq(fixtureRoomSources.roomId, input.room.id),
         eq(fixtures.lobbyId, input.room.lobbyId),
-        eq(fixtures.status, 'published'),
+        source === 'current-room'
+          ? eq(fixtures.roomId, input.room.id)
+          : undefined,
+        source === 'current-room'
+          ? eq(fixtures.status, 'published')
+          : undefined,
       ),
     );
   if (!found) return null;
+  const schoolIds = await fixtureSchoolIds(tx, found.id);
   const configuration = await lockEventSettingContext(tx, {
     lobbyId: found.lobbyId,
     eventId: found.eventId,
     subjectUserId: input.userId,
     strength: 'share',
+    extraOrganizationIds: schoolIds,
     ...(input.snapshot ? { snapshot: true } : {}),
   });
   if (
     !configuration ||
     configuration.lobby.kind !== 'tournament' ||
-    configuration.lobby.closedAt !== null
+    (source === 'current-room' && configuration.lobby.closedAt !== null)
   )
     return null;
+  if (
+    !input.snapshot &&
+    JSON.stringify(await fixtureSchoolIds(tx, found.id)) !==
+      JSON.stringify(schoolIds)
+  )
+    throw new EventSettingParentsChanged();
   const query = tx
     .select()
     .from(fixtures)
     .where(
       and(
         eq(fixtures.id, found.id),
-        eq(fixtures.roomId, input.room.id),
-        eq(fixtures.status, 'published'),
+        eq(fixtures.lobbyId, input.room.lobbyId),
+        source === 'current-room'
+          ? eq(fixtures.roomId, input.room.id)
+          : undefined,
+        source === 'current-room'
+          ? eq(fixtures.status, 'published')
+          : undefined,
       ),
     );
   const [fixture] = await (input.snapshot ? query : query.for('share'));
@@ -100,8 +131,31 @@ export const loadRoomDirection = async (
     ownerActorId: owner?.actorId ?? null,
     fixtureId: fixture.id,
     connections,
+    audience: await loadFixtureAudience(tx, {
+      fixtureId: fixture.id,
+      lobbyId: fixture.lobbyId,
+      tabRoundId: fixture.tabRoundId,
+      userId: input.userId,
+      schoolIds,
+      scope: configuration.scope,
+      ...(input.snapshot ? { snapshot: true } : {}),
+    }),
   };
 };
+export const loadRoomDirection = (
+  tx: TabTransaction,
+  input: Parameters<typeof loadFixtureRoomDirection>[1],
+) => loadFixtureRoomDirection(tx, input, 'current-room');
+
+/** Current authority over the original fixture, even after another Room replaced this one. */
+export const loadRoundDirection = (
+  tx: TabTransaction,
+  input: Pick<
+    Parameters<typeof loadFixtureRoomDirection>[1],
+    'room' | 'userId'
+  >,
+) => loadFixtureRoomDirection(tx, input, 'retained-room');
+
 export type RoomDirectionInput = NonNullable<
   Awaited<ReturnType<typeof loadRoomDirection>>
 >;

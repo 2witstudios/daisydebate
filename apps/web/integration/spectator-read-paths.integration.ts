@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { withSeasons } from '@daisy/db/seasons';
@@ -273,6 +274,7 @@ test('every public and member read holds a ranked outcome until release', async 
         () => true,
         readRoundOpening,
         roundWaitingOn,
+        () => false,
       );
       assert({
         given: 'an account with no seat in the Round',
@@ -284,6 +286,7 @@ test('every public and member read holds a ranked outcome until release', async 
             member: true,
             erased: false,
           } as never,
+          { kind: 'ordinary', checkedAt: new Date().toISOString() },
         ),
         expected: false,
       });
@@ -292,10 +295,12 @@ test('every public and member read holds a ranked outcome until release', async 
         should: 'answer as if the Round did not exist',
         actual: () =>
           f.store.readRoundBallot({
+            ballotAccess: (_round, _account, owner) =>
+              eventBallotAccess(stranger, owner),
             roundId: roundId!,
             caller: stranger,
-            authorize: (r, account) =>
-              canReadRound(stranger, r, account as never),
+            authorize: (r, account, authority) =>
+              canReadRound(stranger, r, account as never, authority),
             authorizeTranscript: () => false,
             decideWaitingOn: roundWaitingOn,
             readOpening: readRoundOpening,

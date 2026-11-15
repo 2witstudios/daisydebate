@@ -388,6 +388,7 @@ for (const captured of [true, false])
             () => true,
             readRoundOpening,
             roundWaitingOn,
+            () => false,
           ),
           now: done.completedAt!,
           viewerActorId: f.host.actorId,

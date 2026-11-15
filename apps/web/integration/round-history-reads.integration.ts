@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import {
   captureRule,
   readRoundOpening,
@@ -209,10 +210,12 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete) values(${createId()},${roundId},${segment.id},${speaker.id},0,'Private transcript',true)`;
     const read = (caller: typeof f.host) =>
       f.store.readRoundTranscript({
+        readEventDecision: () => false,
         captureRule,
         caller,
         roundId,
-        authorize: (r, a) => canReadTranscript(caller, r, a),
+        authorize: (r, a, authority) =>
+          canReadTranscript(caller, r, a, authority),
       });
     assert({
       given: 'a seated debater and the hidden judge',
@@ -234,6 +237,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     // A test audience adapter, not a production spectator grant: neither
     // persistence nor presentation is allowed to add a second seat veto.
     const futureAudience = await f.store.readRoundTranscript({
+      readEventDecision: () => false,
       captureRule,
       caller: spectator,
       roundId,
@@ -241,6 +245,8 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     });
     await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     const completedAudience = await f.store.readRoundBallot({
+      ballotAccess: (_round, _account, owner) =>
+        eventBallotAccess(spectator, owner),
       readOpening: readRoundOpening,
       decideWaitingOn: roundWaitingOn,
       captureRule,

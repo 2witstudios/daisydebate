@@ -8,24 +8,11 @@ import {
 } from '@daisy/protocol';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import { eventSettingResolution } from './event-setting-resolution';
-import { commandDigest } from './command-digest';
+import { orderedWordings } from './resolution-wording-order';
 import type { DrawFixtureFacts } from '../commands/draw';
 import { eventRoomCast } from './event-room-cast';
 
 type Resolved = ReturnType<typeof eventSettingResolution>['settings'];
-type Wording = NonNullable<
-  LoadedDrawCommand['publicationResolution']
->['resolutions'][number];
-/** A server-minted seed fixes selection once; the command id is never its entropy. */
-const orderedWordings = (
-  rows: readonly Wording[],
-  entropy: string,
-  salt: string,
-) =>
-  rows
-    .map((row) => ({ row, rank: commandDigest({ entropy, salt, id: row.id }) }))
-    .sort((a, b) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0))
-    .map(({ row }) => row);
 const postingOpenedAt = (
   loaded: LoadedDrawCommand,
   settings: Resolved,

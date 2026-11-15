@@ -275,7 +275,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         -- Hosting issuance remains outside the participant app; only the canonical source can be read here.
-        when c.relname = 'account_hosting_versions' then
+        when c.relname in ('account_hosting_versions','fixture_room_sources') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
         -- Closed until counsel answers on minors: read only.

@@ -87,6 +87,10 @@ export const recordings = pgTable(
     ),
     check('recordings_status_check', oneOf(table.status, recordingStatuses)),
     jsonbIsObject('recordings', table.eligibility),
+    check(
+      'recordings_tournament_deadline_shape',
+      sql`coalesce(${table.eligibility}->>'kind'<>'tournament_admission' or jsonb_typeof(${table.eligibility}->'deadlineAt')='string',false)`,
+    ),
     jsonbIsObject('recordings', table.lifecycle),
     check(
       'recordings_lifecycle_status_check',

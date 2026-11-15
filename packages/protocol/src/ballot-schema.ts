@@ -344,6 +344,12 @@ export const ballotRecordSchema = z.strictObject({
   speakerRanks: z.array(z.array(z.string().min(1))).optional(),
 });
 export type Ballot = z.infer<typeof ballotRecordSchema>;
+/** Written copy retained by screening; only these fields can be released as text. */
+export const ballotWrittenRecordSchema = ballotRecordSchema.pick({
+  reason: true,
+  feedback: true,
+});
+export type BallotWrittenRecord = z.infer<typeof ballotWrittenRecordSchema>;
 /** The portable competitive fields, validated against their pinned definition before use. */
 export const ballotCompetitionRecordSchema = ballotRecordSchema.omit({
   reason: true,

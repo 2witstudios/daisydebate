@@ -1,3 +1,4 @@
+export type { RoundRoomAuthority } from './round-room-authority';
 import { TranscriptionRecovery } from './transcription-recovery/transcription-recovery';
 import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
 import { roundFloorModeration } from './messaging/round-floor-moderation';
@@ -503,3 +504,5 @@ export function createDatabase({
   });
 }
 export type Database = ReturnType<typeof createDatabase>;
+
+export type { RoundBallotAccess } from './round-ballot-audience';

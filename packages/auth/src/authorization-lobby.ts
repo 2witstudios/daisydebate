@@ -138,7 +138,8 @@ export function lobbyDecision(
       return (capability === 'tournament.sponsorship.consent' ||
         capability === 'tournament.sponsorship.withdraw') &&
         resource.sponsorActorId === holder.actorId &&
-        bandAtLeast(holder.ageBand, 'adult')
+        (capability === 'tournament.sponsorship.withdraw' ||
+          bandAtLeast(holder.ageBand, 'adult'))
         ? allowRelated('self')
         : deny('missing-capability');
     case 'organization_collection':

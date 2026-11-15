@@ -1,3 +1,7 @@
+import { roundOutcomeForAudience } from './round-outcome-audience';
+import type { RoundBallotAccess } from './round-ballot-audience';
+import { ballotScreenings } from './schema/ballot-screenings';
+import type { RoundRoomAuthority } from './round-room-authority';
 import { withOpening, type ReadOpening } from './round-opening-read';
 import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 import { closedStreamGaps, streamKey } from './capture-gaps';
@@ -13,7 +17,7 @@ import {
   type LaunchedRound,
   type RoundBallotRead,
 } from '@daisy/protocol';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
@@ -107,11 +111,21 @@ export const roundBallotReads = ({
   async readRoundBallot(input: {
     readonly roundId: string;
     readonly caller: Caller;
-    readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    readonly authorize: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => boolean;
     readonly authorizeTranscript: (
       round: LaunchedRound,
       account: Account,
+      owner: RoundRoomAuthority,
     ) => boolean;
+    readonly ballotAccess: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => RoundBallotAccess;
     readonly readOpening: ReadOpening;
     /** The engine's decision, injected: an assigned judge's room shows it too. */
     readonly decideWaitingOn: (
@@ -122,14 +136,12 @@ export const roundBallotReads = ({
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
-      let currentAccount: Account = null;
-      const round = await readAuthorizedRound(tx, {
-        ...input,
-        authorize: (candidate, account) => {
-          currentAccount = account;
-          return input.authorize(candidate, account);
-        },
-      });
+      const {
+        round,
+        account: currentAccount,
+        owner,
+      } = await readAuthorizedRound(tx, input);
+      const access = input.ballotAccess(round, currentAccount, owner);
       const ownSeat = ownJudgeSeat(round.participants, input.caller.actorId);
       const [frozenJudging] = await tx
         .select({ judging: rounds.judging })
@@ -139,6 +151,24 @@ export const roundBallotReads = ({
         .select()
         .from(ballots)
         .where(eq(ballots.roundId, input.roundId));
+      const screenings =
+        owner.kind === 'event' && owner.direction && rows.length > 0
+          ? await tx
+              .select()
+              .from(ballotScreenings)
+              .where(
+                and(
+                  eq(
+                    ballotScreenings.lobbyId,
+                    owner.direction.configuration.lobby.id,
+                  ),
+                  inArray(
+                    ballotScreenings.ballotId,
+                    rows.map((row) => row.id),
+                  ),
+                ),
+              )
+          : [];
       const frozen = ownSeat
         ? await readLockedFrozenRoundTranscript(tx, input.roundId)
         : null;
@@ -160,12 +190,29 @@ export const roundBallotReads = ({
         round: await withOpening(
           tx,
           round,
-          { ...roundViewFor(round, input.caller.actorId), waitingOn },
+          {
+            ...roundOutcomeForAudience(
+              roundViewFor(round, input.caller.actorId),
+              owner,
+              access.parts.includes('decision'),
+            ),
+            waitingOn,
+          },
           { actorId: input.caller.actorId, account: currentAccount },
           input.readOpening,
         ),
         judging: frozenJudging?.judging ?? null,
         ...ballotReadView({
+          audience:
+            owner.kind === 'ordinary'
+              ? { kind: 'ordinary' }
+              : {
+                  kind: 'event',
+                  access,
+                  screenings: new Map(
+                    screenings.map((row) => [row.ballotId, row]),
+                  ),
+                },
           status: round.status,
           ownSeatId: ownSeat?.id,
           viewerSubject,
@@ -180,7 +227,7 @@ export const roundBallotReads = ({
         transcript: await audienceTranscript(
           tx,
           input.roundId,
-          completed && input.authorizeTranscript(round, currentAccount),
+          completed && input.authorizeTranscript(round, currentAccount, owner),
           input.captureRule,
         ),
       });

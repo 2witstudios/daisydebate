@@ -1,4 +1,9 @@
 import {
+  eventBallotForAudience,
+  type RoundBallotAccess,
+  type BallotScreeningRead,
+} from './round-ballot-audience';
+import {
   isJudgeSeat,
   storedBallotSchemaFor,
   ballotSchemaFor,
@@ -109,6 +114,13 @@ const feedbackFor = (
  * (ADR 0071).
  */
 export function ballotReadView(input: {
+  readonly audience:
+    | { readonly kind: 'ordinary' }
+    | {
+        readonly kind: 'event';
+        readonly access: RoundBallotAccess;
+        readonly screenings: ReadonlyMap<string, BallotScreeningRead>;
+      };
   readonly status: string;
   readonly ownSeatId: string | undefined;
   /** The subject the reader's feedback is written under (`feedbackSubjectOf`). */
@@ -146,9 +158,19 @@ export function ballotReadView(input: {
         }
       : null,
     ballots:
-      input.status === 'completed'
-        ? input.rows.map((row) => {
-            const ballot = body(row);
+      input.status === 'completed' ||
+      (input.audience.kind === 'event' && input.audience.access.unreleased)
+        ? input.rows.flatMap((row) => {
+            const original = body(row);
+            const ballot =
+              input.audience.kind === 'ordinary'
+                ? original
+                : eventBallotForAudience(
+                    original,
+                    input.audience.access,
+                    input.audience.screenings.get(row.id) ?? null,
+                  );
+            if (Object.keys(ballot).length === 1) return [];
             const own = feedbackFor(ballot.feedback, input.viewerSubject);
             return {
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
@@ -156,8 +178,14 @@ export function ballotReadView(input: {
                 : ('human' as const),
               ballot: {
                 ...ballot,
-                ...(input.definition?.written.feedback
-                  ? { feedback: own }
+                ...(ballot.feedback !== undefined
+                  ? {
+                      feedback:
+                        input.audience.kind === 'event' &&
+                        input.audience.access.unreleased
+                          ? ballot.feedback
+                          : own,
+                    }
                   : {}),
               },
               reportableFeedbackId: Object.keys(own).length > 0 ? row.id : null,
