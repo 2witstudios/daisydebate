@@ -12,7 +12,7 @@ const response = (
   ({
     status: () => status,
     headers: () => ({ 'content-type': contentType }),
-    text: async () => payload,
+    body: async () => Buffer.from(payload),
   }) as unknown as APIResponse;
 const info = { attach: async () => {} } as unknown as TestInfo;
 
@@ -34,11 +34,13 @@ test('controlled refusal reads once without retries or redirects and retains the
       calls,
       sameResponse: loaded.response === actual,
       advised: loaded.advice.retryAfterMs,
+      sameBytes: loaded.body.equals(Buffer.from(flight)),
     },
     expected: {
       calls: [{ timeout: 1000, maxRetries: 0, maxRedirects: 0 }],
       sameResponse: true,
       advised: 1000,
+      sameBytes: true,
     },
   });
 });

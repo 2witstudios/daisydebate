@@ -173,7 +173,15 @@ export function startAvailabilityService(deps: {
       stopped = true;
       deps.timers.clearInterval(timer);
       await Promise.all([running, renewing]);
-      await sampler.close();
+      try {
+        // Refresh real public evidence at the handoff boundary. Otherwise the
+        // successor's next election inherits up to a full tick of sample age.
+        await cycle();
+      } catch (error) {
+        failedSafely(error);
+      } finally {
+        await sampler.close();
+      }
     },
   };
 }

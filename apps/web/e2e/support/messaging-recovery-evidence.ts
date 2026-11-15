@@ -1,21 +1,23 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { Page, Request, Response } from '@playwright/test';
+import type { APIResponse, Page, Request, Response } from '@playwright/test';
 import { systemClock } from '@daisy/clock';
 import { createRecoveryRequestEvents } from './messaging-recovery-events';
 import { isMessagingRefetch } from './messaging-page-locators';
+import type { watchRecoveryConsumer } from './messaging-recovery-consumer';
 
 /** All real RSC reads, including successor routes; explicit speculation stays separate. */
 export function watchConversationRecovery(
   page: Page,
   channelId: string,
-  consumer?: (response: Response) => object,
+  consumer?: Awaited<ReturnType<typeof watchRecoveryConsumer>>,
 ) {
   const lifecycle = createRecoveryRequestEvents(() =>
     Date.parse(systemClock.now()),
   );
   const pending = new Set<Request>();
   const responseIds = new Set<string>();
+  const controlledBodies = new Map<string, string>();
   const refetchResponses: Response[] = [];
   const phases: { name: string; since: number }[] = [];
   const reads: { phase: string; destination: 'original' | 'successor' }[] = [];
@@ -90,6 +92,20 @@ export function watchConversationRecovery(
     },
     phases: () => phases,
     includeResponse,
+    includeControlledResponse: async (response: APIResponse, body: Buffer) => {
+      const id = response.headers()['x-request-id'];
+      if (!id || !consumer)
+        throw new Error(
+          'Controlled refusal requires correlated consumer evidence',
+        );
+      if (!controlledBodies.has(id) && controlledBodies.size >= 4)
+        throw new Error('Controlled refusal evidence limit exceeded');
+      await consumer.expectBody(id, body);
+      controlledBodies.set(id, body.toString('utf8'));
+      includeResponse(id);
+    },
+    controlledPayload: (response: Response) =>
+      controlledBodies.get(response.headers()['x-request-id'] ?? '') ?? null,
     refetchResponses: () => refetchResponses,
     consumer: (response: Response) => consumer?.(response) ?? null,
     eventStep: lifecycle.step,
