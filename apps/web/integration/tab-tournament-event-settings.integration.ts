@@ -12,6 +12,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readTournamentEventSettings } from '../src/features/tab/reads/tournament-event-settings';
 import { settingCommand } from '../src/features/tab/operations/settings';
+import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
+import { storedSetupOf, setupRailOf } from '../src/features/tab/stored-setup';
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
+import { Setup } from '../src/ui/tab/setup/setup';
 import { organizationStage } from './tab-tournament-organization.test-support';
 import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
 import { leagueConfigurationStage } from './tab-tournament-league-configuration.test-support';
@@ -117,6 +122,46 @@ test('the host reads actual event setting sources and locks and cannot change an
         now: world.clock.now,
       });
       const view = await read(as(world.bots.Director!), { lobbyId, eventId });
+      const metadata = await readTournamentSetup({
+        store,
+        authorize,
+        now: world.clock.now,
+      })(as(world.bots.Director!), lobbyId);
+      if (!view || !metadata)
+        throw new Error('The actual setup reads are missing');
+      const projected = storedSetupOf(metadata, view, world.clock.now());
+      if (!projected) throw new Error('The stored setup projection is missing');
+      const html = renderToString(
+        createElement(Setup, {
+          rail: setupRailOf(metadata),
+          setup: projected,
+          panel: null,
+          pairingForm: null,
+        }),
+      );
+      assert({
+        given:
+          'the actual persisted setup and followed template, rendered by the existing Setup component',
+        should:
+          'show its stored event and format, real preset, and real inherited source without sample prose',
+        actual: [
+          projected.event.current,
+          projected.settings.find((line) => line.keys.includes('format'))
+            ?.value,
+          projected.pairing.summary,
+          html.includes(metadata.name),
+          html.includes('Southeast League'),
+          html.includes('4 prelims, then top 8'),
+        ],
+        expected: [
+          metadata.events[0]!.name,
+          `${metadata.events[0]!.format.name} · version ${metadata.events[0]!.format.formatVersion}`,
+          'Round 1 is random. Later rounds pair by record (fold).',
+          true,
+          false,
+          false,
+        ],
+      });
       const cap = view?.settings.find((row) => row.key === 'entry.cap');
       assert({
         given:

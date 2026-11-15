@@ -17,6 +17,7 @@ import { organizationStage } from './tab-tournament-organization.test-support';
 import { createOwnedEvent } from './tab-tournament-owned-event.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import { createBots, scriptClock } from './tab-tournament.test-support';
+import { setupPairingEnvelope } from '../src/features/tab/setup-pairing-form';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const scratch = scratchDatabase(databaseUrl, 'tabeventread');
@@ -122,15 +123,79 @@ test('resolved event readers coexist and retain the actual setting snapshot thro
       actual: [
         wait,
         before?.settings.find((row) => row.key === 'entry.cap')?.value,
+        before && 'settingsVersion' in before ? before.settingsVersion : null,
         written?.kind,
         after?.settings.find((row) => row.key === 'entry.cap')?.value,
+        after && 'settingsVersion' in after ? after.settingsVersion : null,
       ],
       expected: [
         'blocked',
         { perEvent: null, perSchool: null },
+        1,
         'accepted',
         { perEvent: 50, perSchool: null },
+        2,
       ],
+    });
+    if (!before) throw new Error('Expected the original setup snapshot');
+    const form = new FormData();
+    form.set('pairing-preset', 'Random');
+    const stale = await settingCommand({
+      store: createTabStore(committingRuntimeTestDatabase(writer)),
+      authorize,
+      now: state.clock.now,
+      newId: createId,
+    })(
+      as(state.bots.Director!),
+      setupPairingEnvelope(
+        {
+          eventId: owned.eventId,
+          settingsVersion: before.settingsVersion,
+          commandId: createId(),
+          handle: 'stored-tournament',
+        },
+        form,
+      ),
+    );
+    assert({
+      given:
+        'the live pairing form bound to the displayed snapshot before another setting changed',
+      should:
+        'refuse the obsolete guard instead of refreshing it on submission',
+      actual: stale,
+      expected: { kind: 'refused', refusal: 'version-conflict' },
+    });
+    if (!after) throw new Error('Expected the reloaded setup snapshot');
+    const command = setupPairingEnvelope(
+      {
+        eventId: owned.eventId,
+        settingsVersion: after.settingsVersion,
+        commandId: createId(),
+        handle: 'stored-tournament',
+      },
+      form,
+    );
+    const save = settingCommand({
+      store: createTabStore(committingRuntimeTestDatabase(writer)),
+      authorize,
+      now: state.clock.now,
+      newId: createId,
+    });
+    const saved = await save(as(state.bots.Director!), command);
+    const replay = await save(as(state.bots.Director!), command);
+    const reloaded = await read(original);
+    assert({
+      given:
+        'a fresh live pairing form and a retry after its answer might have been lost',
+      should:
+        'save the chosen preset once and recover the original receipt with no second settings revision',
+      actual: [
+        saved.kind,
+        replay.kind === 'accepted' ? replay.receipt.replayed : false,
+        reloaded?.settingsVersion,
+        reloaded?.settings.find((row) => row.key === 'pairing.preset')?.value,
+      ],
+      expected: ['accepted', true, 3, { value: 'random' }],
     });
   } finally {
     release();

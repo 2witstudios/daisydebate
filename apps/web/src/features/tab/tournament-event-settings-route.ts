@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
-  resolvedSettingsViewSchema,
-  type ResolvedSettingsView,
+  tournamentEventSettingsViewSchema,
+  type TournamentEventSettingsView,
 } from '@daisy/protocol/lobby/resolved-settings-read';
 import { z } from 'zod';
 import { parseValidated } from '../../server/http';
@@ -23,7 +23,7 @@ export type TournamentEventSettingsRouteDependencies = {
   readonly read: (
     principal: TabPrincipal,
     input: { readonly lobbyId: string; readonly eventId: string },
-  ) => Promise<ResolvedSettingsView | null>;
+  ) => Promise<TournamentEventSettingsView | null>;
 };
 /** The host's resolved event settings, behind the same closed release as its commands. */
 export const createTournamentEventSettingsRoute =
@@ -45,7 +45,7 @@ export const createTournamentEventSettingsRoute =
         );
         const view = await dependencies.read(principal, input);
         if (view === null) throw createAppError('NOT_FOUND');
-        return resolvedSettingsViewSchema.parse(view);
+        return tournamentEventSettingsViewSchema.parse(view);
       },
       headers: { 'cache-control': 'no-store' },
     });

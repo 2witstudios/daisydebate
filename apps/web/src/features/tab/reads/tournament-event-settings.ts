@@ -9,7 +9,7 @@ import {
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { ResolvedSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
+import type { TournamentEventSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
 import { eventChain } from '@daisy/protocol/setting-resolution';
 import type { SettingScope } from '@daisy/protocol/settings';
 import type { TabPrincipal } from '../tab-principal';
@@ -56,7 +56,7 @@ export const readTournamentEventSettings =
   async (
     principal: TabPrincipal,
     input: { readonly lobbyId: string; readonly eventId: string },
-  ): Promise<ResolvedSettingsView | null> => {
+  ): Promise<TournamentEventSettingsView | null> => {
     if (
       !idSchema.safeParse(input.lobbyId).success ||
       !idSchema.safeParse(input.eventId).success
@@ -86,7 +86,7 @@ export const readTournamentEventSettings =
             dependencies.authorize({ principal, resource, context, capability })
               .allow;
           if (!ask('lobby.host.read')) return null;
-          return resolvedSettingsViewOf(
+          const resolved = resolvedSettingsViewOf(
             {
               at: { kind: 'event', id: event.id },
               chain: eventChain({
@@ -104,6 +104,7 @@ export const readTournamentEventSettings =
             },
             ask('lobby.setup.manage'),
           );
+          return { ...resolved, settingsVersion: event.settingsVersion };
         },
       );
     } catch (error) {

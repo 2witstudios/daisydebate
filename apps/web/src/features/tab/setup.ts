@@ -96,7 +96,11 @@ export type TournamentSetupContext = {
 };
 
 /** Resolutions an event's prelims need from its pool: one per round, or a draw's worth. */
-function resolutionsNeeded(event: SetupEvent, settings: ResolvedSettingsView) {
+function resolutionsNeeded(
+  event: SetupEvent,
+  settings: ResolvedSettingsView,
+  poolId: string | null,
+) {
   const rule = resolvedEntry(settings, 'resolution.rule')?.value as
     { readonly method: string; readonly drawSize?: number } | undefined;
   const preliminary = new Set(
@@ -104,8 +108,9 @@ function resolutionsNeeded(event: SetupEvent, settings: ResolvedSettingsView) {
       .filter((stage) => stage.kind === 'preliminary')
       .map((stage) => stage.stageId),
   );
-  const rounds = event.tabRounds.filter((round) =>
-    preliminary.has(round.stageId),
+  const rounds = event.tabRounds.filter(
+    (round) =>
+      preliminary.has(round.stageId) && round.resolutionPoolId === poolId,
   );
   return rounds.length * (rule?.method === 'strike' ? (rule.drawSize ?? 1) : 1);
 }
@@ -153,21 +158,38 @@ function resolutionsLine(
 ): readonly SettingLine[] {
   const entry = resolvedEntry(reads.settings, 'resolution.rule');
   if (entry === null) return [];
-  const poolId = event.tabRounds.find(
-    (round) => round.resolutionPoolId !== null,
-  )?.resolutionPoolId;
-  const pool = reads.setup.resolutionPools.find(
-    (candidate) => candidate.resolutionPoolId === poolId,
+  const preliminary = new Set(
+    event.stages
+      .filter((stage) => stage.kind === 'preliminary')
+      .map((stage) => stage.stageId),
   );
-  const needed = resolutionsNeeded(event, reads.settings);
-  const short = pool !== undefined && pool.size < needed;
-  return [
-    settingLineOf(entry, {
-      ...copy,
-      edit: linkTo(short ? 'Add resolutions' : 'Change', copy.resolutions),
-      attention: short ? `the pool has ${pool.size}, needs ${needed}` : null,
-    }),
+  const poolIds = [
+    ...new Set(
+      event.tabRounds
+        .filter((round) => preliminary.has(round.stageId))
+        .map((round) => round.resolutionPoolId),
+    ),
   ];
+  return poolIds.map((poolId) => {
+    const pool = reads.setup.resolutionPools.find(
+      (candidate) => candidate.resolutionPoolId === poolId,
+    );
+    const needed = resolutionsNeeded(event, reads.settings, poolId);
+    const short = !pool || pool.size < needed;
+    return {
+      ...settingLineOf(entry, {
+        ...copy,
+        value: pool ? `${copy.value} · ${pool.name}` : copy.value,
+        edit: linkTo(short ? 'Add resolutions' : 'Change', copy.resolutions),
+        attention: !pool
+          ? 'No resolution pool assigned'
+          : short
+            ? `the pool has ${pool.size}, needs ${needed}`
+            : null,
+      }),
+      id: poolId ?? 'unassigned',
+    };
+  });
 }
 
 const sanctionAttention = (
@@ -215,7 +237,7 @@ export function sanctionLines(
  * asked at the event, its template's pins, its stages, its resolution pool
  * and its sanction, from the tournament's setup read.
  */
-function tournamentSetupOf(
+export function tournamentSetupOf(
   reads: TournamentSetupReads,
   context: TournamentSetupContext,
 ): TournamentSetup | null {
