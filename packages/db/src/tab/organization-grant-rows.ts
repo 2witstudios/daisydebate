@@ -35,7 +35,9 @@ const byGrantedThenId = (a: GrantRow, b: GrantRow): number =>
 export const loadOrganizationGrantRows = async (
   tx: TabTransaction,
   scope: TenantScope,
-  input: Parameters<typeof loadGrantRows>[1],
+  input: Parameters<typeof loadGrantRows>[1] & {
+    readonly organizationId: string;
+  },
 ): Promise<readonly GrantRow[]> => {
   const found = new Map(
     (await loadGrantRows(tx, input)).map((row) => [row.id, row]),
@@ -46,10 +48,8 @@ export const loadOrganizationGrantRows = async (
     .where(eq(lobbies.ownerOrganizationId, input.organizationId))
     .orderBy(asc(lobbies.id));
   for (const lobby of owned) {
-    // The fence already shows the lobby it is scoped to.
-    if (lobby.id === scope.lobbyId) continue;
     const rows = await underLobbyScope(tx, scope, lobby.id, () =>
-      loadGrantRows(tx, input),
+      loadGrantRows(tx, { ...input, lobbyId: lobby.id }),
     );
     for (const row of rows) found.set(row.id, row);
   }

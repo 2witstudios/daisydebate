@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { GrantRow } from './grant-rows';
-import { grantAuthorityOf } from './organization-authorization';
+import { grantAuthorityOf } from './authority-facts';
 
 setupRitewayBun();
 
@@ -15,7 +15,6 @@ const grant: GrantRow = {
   grantedAt: '2027-03-06T08:00:00.000Z',
   expiresAt: null,
   revokedAt: null,
-  scopeOrganizationId: id('o'),
   role: {
     id: id('r'),
     organizationId: id('d'),

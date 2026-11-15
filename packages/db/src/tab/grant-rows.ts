@@ -1,11 +1,11 @@
-import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import type { GrantScopeKind } from '@daisy/protocol/lobby';
 import { grants } from '../schema/grants';
 import { lobbies } from '../schema/lobbies';
 import { loadRoles, type RoleRow } from './role-rows';
 import type { TabTransaction } from './tab-transaction';
 
-/** A `grants` row with its role, and the organization its scope belongs to. */
+/** A `grants` row with its role and explicit organization or lobby scope. */
 export type GrantRow = {
   readonly id: string;
   readonly userId: string;
@@ -17,8 +17,6 @@ export type GrantRow = {
   readonly grantedAt: string;
   readonly expiresAt: string | null;
   readonly revokedAt: string | null;
-  /** The organization itself, or the organization that owns the lobby. */
-  readonly scopeOrganizationId: string;
   readonly role: RoleRow;
 };
 
@@ -26,30 +24,31 @@ const iso = (at: Date | null): string | null =>
   at === null ? null : at.toISOString();
 
 /**
- * The grants, revoked ones included, that these people hold in an
- * organization and the lobbies it owns, and any grant named by id. The
+ * The grants, revoked ones included, that these people hold at the named
+ * organization and/or exact lobby, and a grant named within those scopes. The
  * tenant fence decides which rows the transaction can see: the
  * organization's own grants, the subject's, and its lobby's when one is set.
- * `loadOrganizationGrantRows` visits every lobby's.
+ * `loadOrganizationGrantRows` explicitly visits an organization's owned lobbies.
  */
 export const loadGrantRows = async (
   tx: TabTransaction,
   input: {
-    readonly organizationId: string;
     readonly userIds: readonly string[];
     readonly grantIds?: readonly string[];
-  },
+  } & (
+    | { readonly organizationId: string; readonly lobbyId?: string }
+    | { readonly organizationId?: never; readonly lobbyId: string }
+  ),
 ): Promise<readonly GrantRow[]> => {
-  const scopeOrganizationId = sql<
-    string | null
-  >`coalesce(${grants.organizationId}, ${lobbies.ownerOrganizationId})`;
-  const held = and(
-    inArray(grants.userId, [...input.userIds]),
-    or(
-      eq(grants.organizationId, input.organizationId),
-      eq(lobbies.ownerOrganizationId, input.organizationId),
-    ),
+  const target = or(
+    input.organizationId
+      ? eq(grants.organizationId, input.organizationId)
+      : undefined,
+    input.lobbyId ? eq(grants.lobbyId, input.lobbyId) : undefined,
   );
+  const held = input.userIds.length
+    ? inArray(grants.userId, [...input.userIds])
+    : undefined;
   const named =
     input.grantIds === undefined || input.grantIds.length === 0
       ? undefined
@@ -67,19 +66,17 @@ export const loadGrantRows = async (
       grantedAt: grants.grantedAt,
       expiresAt: grants.expiresAt,
       revokedAt: grants.revokedAt,
-      scopeOrganizationId,
     })
     .from(grants)
     .leftJoin(lobbies, eq(lobbies.id, grants.lobbyId))
-    .where(input.userIds.length === 0 ? named : named ? or(held, named) : held)
+    .where(and(target, or(held, named)))
     .orderBy(asc(grants.grantedAt), asc(grants.id));
   const roles = await loadRoles(tx, [
     ...new Set(rows.map((row) => row.roleId)),
   ]);
   return rows.flatMap((row) => {
     const role = roles.find((candidate) => candidate.id === row.roleId);
-    // A grant of a lobby no organization owns belongs to no organization.
-    if (role === undefined || row.scopeOrganizationId === null) return [];
+    if (role === undefined) return [];
     return [
       {
         id: row.id,
@@ -91,7 +88,6 @@ export const loadGrantRows = async (
         grantedAt: row.grantedAt.toISOString(),
         expiresAt: iso(row.expiresAt),
         revokedAt: iso(row.revokedAt),
-        scopeOrganizationId: row.scopeOrganizationId,
         role,
       },
     ];

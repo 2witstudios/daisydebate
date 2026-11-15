@@ -15,7 +15,7 @@ import { tournamentJudges } from '../schema/tournament-judges';
 import { fixtureJudges, fixtures } from '../schema/fixtures';
 import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import { loadEntryPeople } from './entry-person-rows';
 import { lockEventSettingContext } from './event-setting-context';
 import {
@@ -109,7 +109,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
       lobbyId: configuration.lobby.id,
     };
   await scopeTransaction(tx, scope);
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     scope,
     input.senderUserId,
@@ -154,7 +154,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
   if (school)
     await scopeTransaction(tx, { ...scope, organizationId: school.id });
   const schoolAuthorization = school
-    ? await loadOrganizationContext(
+    ? await loadAuthorityContext(
         tx,
         { ...scope, organizationId: school.id },
         input.senderUserId,

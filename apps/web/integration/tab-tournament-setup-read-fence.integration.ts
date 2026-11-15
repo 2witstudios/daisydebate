@@ -185,8 +185,8 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
       expected: { organization: Number(organization?.version) },
       command: {
         type: 'remove-grant',
-        organizationId,
         grantId: String(grant?.id),
+        scope: { kind: 'organization', organizationId: organizationId },
       },
     });
     const grantWait = await observed(changing);

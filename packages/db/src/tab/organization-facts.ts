@@ -3,6 +3,8 @@ import type { MembershipStatus, OrganizationKind } from '@daisy/protocol/lobby';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
 import { loadAuthorizationAccount } from '../authorization';
 import { lobbies } from '../schema/lobbies';
+import { actors } from '../schema/actors';
+import { loadGrantRows } from './grant-rows';
 import { memberships, organizations } from '../schema/organizations';
 import { settings } from '../schema/settings';
 import type { GrantRow } from './grant-rows';
@@ -43,7 +45,14 @@ export type OrganizationCommandFacts = {
   readonly memberships: readonly MembershipRow[];
   readonly grants: readonly GrantRow[];
   readonly role: RoleRow | null;
-  readonly lobbyOwnerOrganizationId: string | null;
+  readonly lobby: {
+    readonly id: string;
+    readonly kind: 'standing' | 'tournament';
+    readonly ownerOrganizationId: string | null;
+    readonly ownerUserId: string | null;
+    readonly ownerActorId: string | null;
+    readonly version: number;
+  } | null;
   readonly personAgeBand: 'under-13' | '13-15' | '16-17' | 'adult' | null;
   readonly staffMinimumBand: StaffMinimumBand;
 };
@@ -71,15 +80,6 @@ export const namedPersonOf = (command: OrganizationCommand): string | null => {
       return null;
   }
 };
-
-/** The organization a command acts on: the one it names, or the one it creates. */
-export const organizationIdOf = (input: {
-  readonly command: OrganizationCommand;
-  readonly newId: string;
-}): string =>
-  input.command.type === 'create-organization'
-    ? input.newId
-    : input.command.organizationId;
 
 const organizationColumns = {
   id: organizations.id,
@@ -139,19 +139,6 @@ export const loadStaffMinimumBand = async (
       ),
     );
   return staffMinimumBandOf(row ?? null);
-};
-
-const lobbyOwnerOf = async (
-  tx: TabTransaction,
-  command: OrganizationCommand,
-): Promise<string | null> => {
-  if (command.type !== 'give-grant' || command.scope.kind !== 'lobby')
-    return null;
-  const [row] = await tx
-    .select({ ownerOrganizationId: lobbies.ownerOrganizationId })
-    .from(lobbies)
-    .where(eq(lobbies.id, command.scope.lobbyId));
-  return row?.ownerOrganizationId ?? null;
 };
 
 /** This organization's memberships of the people named. */
@@ -216,11 +203,41 @@ export const loadOrganizationFacts = async (
   scope: TenantScope,
 ): Promise<OrganizationCommandFacts> => {
   const { command, senderUserId } = input;
-  const organizationId = organizationIdOf(input);
+  const organizationId =
+    scope.organizationId ??
+    (command.type === 'create-organization' ? input.newId : undefined);
   const organization =
-    command.type === 'create-organization'
+    command.type === 'create-organization' || !organizationId
       ? null
-      : await lockOrganization(tx, organizationId);
+      : await lockOrganization(
+          tx,
+          organizationId,
+          scope.lobbyId ? 'share' : 'update',
+        );
+  const [lobbyRow] = scope.lobbyId
+    ? await tx
+        .select()
+        .from(lobbies)
+        .where(eq(lobbies.id, scope.lobbyId))
+        .for('update')
+    : [];
+  const [lobbyOwner] = lobbyRow?.ownerUserId
+    ? await tx
+        .select({ id: actors.id })
+        .from(actors)
+        .where(eq(actors.userId, lobbyRow.ownerUserId))
+    : [];
+  const lobby =
+    lobbyRow && lobbyRow.ownerOrganizationId === (scope.organizationId ?? null)
+      ? {
+          id: lobbyRow.id,
+          kind: lobbyRow.kind,
+          ownerOrganizationId: lobbyRow.ownerOrganizationId,
+          ownerUserId: lobbyRow.ownerUserId,
+          ownerActorId: lobbyOwner?.id ?? null,
+          version: lobbyRow.version,
+        }
+      : null;
   const named = namedPersonOf(command);
   const people = named === null ? [senderUserId] : [senderUserId, named];
   const account = named ? await loadAuthorizationAccount(tx, named) : null;
@@ -231,17 +248,32 @@ export const loadOrganizationFacts = async (
     organization,
     handleTaken:
       command.type === 'create-organization' &&
-      (await handleTaken(tx, command.handle, organizationId)),
-    ...(await peopleRows(
-      tx,
-      scope,
-      organization,
-      [...new Set(people)],
-      command,
-    )),
+      (await handleTaken(tx, command.handle, input.newId)),
+    ...(lobby
+      ? {
+          memberships: organization
+            ? await loadMemberships(tx, organization.id, [...new Set(people)])
+            : [],
+          grants: await loadGrantRows(tx, {
+            ...(organization
+              ? { organizationId: organization.id, lobbyId: lobby.id }
+              : { lobbyId: lobby.id }),
+            userIds: [...new Set(people)],
+            grantIds: command.type === 'remove-grant' ? [command.grantId] : [],
+          }),
+        }
+      : await peopleRows(
+          tx,
+          scope,
+          organization,
+          [...new Set(people)],
+          command,
+        )),
     role: await roleNamedOf(tx, command),
-    lobbyOwnerOrganizationId: await lobbyOwnerOf(tx, command),
+    lobby,
     personAgeBand: account?.ageBand ?? null,
-    staffMinimumBand: await loadStaffMinimumBand(tx, organizationId),
+    staffMinimumBand: organization
+      ? await loadStaffMinimumBand(tx, organization.id)
+      : staffMinimumBandOf(null),
   };
 };

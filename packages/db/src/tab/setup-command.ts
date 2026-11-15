@@ -14,7 +14,7 @@ import { draws } from '../schema/draws';
 import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
 import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import { loadSettingGraph } from './setting-graph';
 import {
   appendHistory,
@@ -47,7 +47,7 @@ const load = async (tx: TabTransaction, input: SetupCommandInput) => {
     lobbyId: found?.id,
   };
   await scopeTransaction(tx, scope);
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     scope,
     input.senderUserId,

@@ -9,7 +9,7 @@ import { lobbies } from '../schema/lobbies';
 import { events } from '../schema/events';
 import { actors } from '../schema/actors';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import { loadSettingGraph, type SettingGraph } from './setting-graph';
 import {
   appendHistory,
@@ -83,7 +83,7 @@ const load = async (tx: TabTransaction, input: SettingCommandInput) => {
     lobbyId: named.lobby?.id,
   };
   await scopeTransaction(tx, scope);
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     scope,
     input.senderUserId,

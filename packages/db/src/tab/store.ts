@@ -49,11 +49,11 @@ import {
   fenceOrganizationRead,
 } from './organization-fence';
 import {
-  loadOrganizationAuthorization,
+  loadTabAuthorization,
   roleAuthorityOf,
-  type OrganizationAuthorization,
+  type TabAuthorization,
   type RoleAuthority,
-} from './organization-authorization';
+} from './authority-facts';
 import {
   loadOrganizationFacts,
   type OrganizationCommandFacts,
@@ -82,9 +82,9 @@ export type { TabDatabase, TabTransaction } from './tab-transaction';
 export type {
   GrantAuthority,
   OrganizationAuthority,
-  OrganizationAuthorization,
+  TabAuthorization,
   RoleAuthority,
-} from './organization-authorization';
+} from './authority-facts';
 export type {
   OrganizationCommandFacts,
   OrganizationCommandInput,
@@ -101,7 +101,7 @@ export type { RoleRow } from './role-rows';
 export type LoadedOrganizationCommand = {
   readonly decision: OrganizationCommandFacts;
   /** The sender's authority here. */
-  readonly authorization: OrganizationAuthorization;
+  readonly authorization: TabAuthorization;
   /** The role the command gives, or the role of the grant it removes. */
   readonly roleNamed: RoleAuthority | null;
 };
@@ -174,7 +174,7 @@ export const createTabStore = (database: TabDatabase) => ({
           const decision = await loadOrganizationFacts(tx, input, scope);
           return {
             decision,
-            authorization: await loadOrganizationAuthorization(tx, scope, {
+            authorization: await loadTabAuthorization(tx, scope, {
               userId: input.senderUserId,
               organization: decision.organization,
               grants: decision.grants,

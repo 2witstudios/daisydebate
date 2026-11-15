@@ -174,7 +174,12 @@ export const organizationPeopleViewSchema = z
     /** The actual organization guard shown with the editable people snapshot. */
     version: z.int().positive(),
     lobbies: z.array(
-      z.strictObject({ lobbyId: idSchema, name, closed: z.boolean() }),
+      z.strictObject({
+        lobbyId: idSchema,
+        name,
+        closed: z.boolean(),
+        version: z.int().positive(),
+      }),
     ),
     name,
     people: z.array(organizationPersonSchema),

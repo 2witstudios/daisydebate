@@ -56,8 +56,8 @@ test('a grant expiring while facts load cannot authorize at request arrival time
         expected: { organization: Number(version?.version) },
         command: {
           type: 'remove-grant',
-          organizationId: leagueId,
           grantId: String(active?.id),
+          scope: { kind: 'organization', organizationId: leagueId },
         },
       });
       if (revoke.kind !== 'accepted')
@@ -68,10 +68,9 @@ test('a grant expiring while facts load cannot authorize at request arrival time
         expected: { organization: revoke.receipt.resultingVersion },
         command: {
           type: 'give-grant',
-          organizationId: leagueId,
           userId: staff.userId,
           roleId: String(active?.role_id),
-          scope: { kind: 'organization' },
+          scope: { kind: 'organization', organizationId: leagueId },
           expiresAt: new Date(
             Date.parse(world.clock.now()) + 60_000,
           ).toISOString(),

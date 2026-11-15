@@ -7,7 +7,7 @@ import { organizations } from '../schema/organizations';
 import { seasons } from '../schema/ratings';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { appendHistory, storedCommand } from './command-record';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import { ladders } from '../schema/ladders';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 import { applyLobbyAdministrationWrites } from './lobby-administration-writes';
@@ -95,7 +95,7 @@ const load = async (
     }
     await scopeTransaction(tx, scope);
   }
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     scope,
     input.senderUserId,

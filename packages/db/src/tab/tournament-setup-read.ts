@@ -10,7 +10,7 @@ import { events, stages, tabRounds, timeSlots } from '../schema/events';
 import { sanctions } from '../schema/sanctions';
 import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
 import { scopeTransaction } from '../tenant-scope';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import { loadTemplateRows } from './setting-definition-rows';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -104,7 +104,7 @@ const load = async (tx: TabTransaction, input: Input) => {
     )
   )
     return null;
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     scope,
     input.viewerUserId,

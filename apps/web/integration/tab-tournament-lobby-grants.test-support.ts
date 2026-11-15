@@ -58,16 +58,13 @@ export const lobbyGrantsComeAndGo = async (
   world: World,
   wired: Wiring,
   cast: Cast,
-  { organizationId, give, granted }: League,
+  { organizationId, give }: League,
 ) => {
   const lobbyId = await standingLobby(world, organizationId);
-  await accepted(
+  const given = await accepted(
     wired.send(
       as(cast.director),
-      envelope(
-        { ...give, scope: { kind: 'lobby', lobbyId } },
-        { organization: granted.resultingVersion },
-      ),
+      envelope({ ...give, scope: { kind: 'lobby', lobbyId } }, { lobby: 1 }),
     ),
     'Staff is given the Staff role at the lobby',
   );
@@ -86,11 +83,14 @@ export const lobbyGrantsComeAndGo = async (
   await accepted(
     wired.send(
       as(cast.director),
-      envelope({
-        type: 'remove-grant',
-        organizationId,
-        grantId: atLobby.grantId,
-      }),
+      envelope(
+        {
+          type: 'remove-grant',
+          grantId: atLobby.grantId,
+          scope: { kind: 'lobby', lobbyId },
+        },
+        { lobby: given.resultingVersion },
+      ),
     ),
     "the Director removes Staff's lobby grant",
   );

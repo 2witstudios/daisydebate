@@ -74,10 +74,9 @@ const formLeague = async ({ send }: Wiring, cast: Cast): Promise<League> => {
   }
   const give: League['give'] = {
     type: 'give-grant',
-    organizationId,
     userId: cast.staff.userId,
     roleId: presetStaffRoleId,
-    scope: { kind: 'organization' },
+    scope: { kind: 'organization', organizationId: organizationId },
     expiresAt: null,
   };
   const given = envelope(give, { organization: version });

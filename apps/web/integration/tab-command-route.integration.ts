@@ -1,4 +1,6 @@
 import { peopleCommandEnvelope } from '../src/features/tab/organization-people-forms';
+import { createOwnedTournament } from './tab-tournament-owned-event.test-support';
+import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
 import { readOrganizationPeople } from '../src/features/tab/reads/organization-people';
 import type { TabStore } from '@daisy/db/tab';
 import { as } from './tab-tournament-organization-wiring.test-support';
@@ -171,6 +173,7 @@ test('the HTTP command boundary runs the real tenant-fenced membership operation
       const context = {
         organizationId,
         organizationVersion: snapshot.version,
+        lobbies: snapshot.lobbies,
         handle: 'league',
         commandId: createId(),
         intent: 'give',
@@ -217,7 +220,8 @@ test('the HTTP command boundary runs the real tenant-fenced membership operation
         commandId: createId(),
         organizationVersion: after.version,
         intent: 'remove',
-        grantIds: [assigned.grantId],
+        lobbies: after.lobbies,
+        grants: [{ grantId: assigned.grantId, scope: assigned.scope }],
       } as const;
       const endFields = new FormData();
       endFields.set('grantId', assigned.grantId);
@@ -289,6 +293,102 @@ test('the HTTP command boundary runs the real tenant-fenced membership operation
           staleAllowed,
         ],
         expected: [null, true],
+      });
+      const owned = await createOwnedTournament(world);
+      const lobbySnapshot = await read(
+        as(world.bots.Director!),
+        organizationId,
+      );
+      if (!lobbySnapshot) throw new Error('Lobby grant snapshot is missing');
+      const lobbyFields = new FormData();
+      lobbyFields.set('userId', world.bots.Coach!.userId);
+      lobbyFields.set('roleId', staffRole.roleId);
+      lobbyFields.set('scope', owned.lobbyId);
+      lobbyFields.set('expiresAt', '');
+      const lobbyContext = {
+        ...context,
+        commandId: createId(),
+        organizationVersion: lobbySnapshot.version,
+        lobbies: lobbySnapshot.lobbies,
+      };
+      const lobbyGiven = await route(world.bots.Director!)(
+        request(peopleCommandEnvelope(lobbyContext, lobbyFields)),
+      );
+      const lobbyAnswer = receipt.parse(await lobbyGiven.json());
+      const afterLobby = await read(as(world.bots.Director!), organizationId);
+      const lobbyGrant = afterLobby?.people
+        .find((person) => person.userId === world.bots.Coach!.userId)
+        ?.grants.find(
+          (grant) =>
+            grant.scope.kind === 'lobby' &&
+            grant.scope.lobbyId === owned.lobbyId,
+        );
+      const staleLobby = await route(world.bots.Director!)(
+        request(
+          peopleCommandEnvelope(
+            { ...lobbyContext, commandId: createId() },
+            lobbyFields,
+          ),
+        ),
+      );
+      const setup = readTournamentSetup({
+        store: createTabStore(database),
+        authorize,
+        now: world.clock.now,
+      });
+      assert({
+        given:
+          'a real lobby role form bound to the organization people snapshot',
+        should:
+          'move only its displayed lobby guard, refuse stale retry under a new id, and authorize its actual recipient',
+        actual: [
+          lobbyGiven.status,
+          lobbyAnswer.receipt.aggregate,
+          afterLobby?.version,
+          afterLobby?.lobbies.find((lobby) => lobby.lobbyId === owned.lobbyId)
+            ?.version,
+          await staleLobby.json(),
+          (await setup(as(world.bots.Coach!), owned.lobbyId))?.lobbyId,
+        ],
+        expected: [
+          200,
+          { kind: 'lobby', id: owned.lobbyId },
+          lobbySnapshot.version,
+          owned.version + 1,
+          { kind: 'refused', refusal: 'version-conflict' },
+          owned.lobbyId,
+        ],
+      });
+      if (!afterLobby || !lobbyGrant)
+        throw new Error('Actual lobby grant is missing');
+      const removalFields = new FormData();
+      removalFields.set('grantId', lobbyGrant.grantId);
+      const lobbyEnded = await route(world.bots.Director!)(
+        request(
+          peopleCommandEnvelope(
+            {
+              ...lobbyContext,
+              commandId: createId(),
+              lobbies: afterLobby.lobbies,
+              intent: 'remove',
+              grants: [
+                { grantId: lobbyGrant.grantId, scope: lobbyGrant.scope },
+              ],
+            },
+            removalFields,
+          ),
+        ),
+      );
+      assert({
+        given:
+          'removal bound to the actual displayed lobby grant and its new guard',
+        should: 'revoke only that target and remove host access on reload',
+        actual: [
+          lobbyEnded.status,
+          (await lobbyEnded.json()).kind,
+          await setup(as(world.bots.Coach!), owned.lobbyId),
+        ],
+        expected: [200, 'accepted', null],
       });
     },
   });

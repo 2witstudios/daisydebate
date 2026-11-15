@@ -127,10 +127,9 @@ describe('organizationAuthorityOf', () => {
       actual: authority(
         {
           type: 'give-grant',
-          organizationId: id('o'),
           userId: id('x'),
           roleId: id('r'),
-          scope: { kind: 'organization' },
+          scope: { kind: 'organization', organizationId: id('o') },
           expiresAt: null,
         },
         loaded({}, role),

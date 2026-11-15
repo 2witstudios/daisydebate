@@ -8,6 +8,7 @@ export function peopleControls(view: OrganizationPeopleView, handle: string) {
   const base = {
     organizationId: view.organizationId,
     organizationVersion: view.version,
+    lobbies: view.lobbies,
     handle,
   };
   const members = view.people
@@ -63,7 +64,10 @@ export function peopleControls(view: OrganizationPeopleView, handle: string) {
             ...base,
             commandId: createId(),
             intent: 'remove',
-            grantIds: person.grants.map((grant) => grant.grantId),
+            grants: person.grants.map((grant) => ({
+              grantId: grant.grantId,
+              scope: grant.scope,
+            })),
           })}
         />
       ) : null,

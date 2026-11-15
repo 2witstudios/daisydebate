@@ -10,6 +10,7 @@ const id = (c: string) => c.repeat(24);
 const context = {
   organizationId: id('o'),
   organizationVersion: 7,
+  lobbies: [{ lobbyId: id('l'), version: 11 }],
   commandId: id('c'),
   handle: 'league',
   intent: 'give',
@@ -28,17 +29,16 @@ const form = () => {
 test('giving a role binds the displayed guard, actual identities and explicit UTC expiry', () => {
   assert({
     given:
-      'a person, preset role, lobby and expiry selected on organization version 7',
+      'a person, preset role, lobby and expiry selected on organization version7 and lobby version11',
     should:
       'retain the displayed version and selected scope in the portable command',
     actual: peopleCommandEnvelope(context, form()),
     expected: {
       version: 1,
       commandId: id('c'),
-      expected: { organization: 7 },
+      expected: { lobby: 11 },
       command: {
         type: 'give-grant',
-        organizationId: id('o'),
         userId: id('u'),
         roleId: id('r'),
         scope: { kind: 'lobby', lobbyId: id('l') },
@@ -66,13 +66,56 @@ test('ending a role cannot switch the bound person grant list or hide duplicate 
     actual: [
       refuses(() =>
         peopleCommandEnvelope(
-          { ...context, intent: 'remove', grantIds: [id('g')] },
+          {
+            ...context,
+            intent: 'remove',
+            grants: [
+              { grantId: id('g'), scope: { kind: 'lobby', lobbyId: id('l') } },
+            ],
+          },
           changed,
         ),
       ),
       refuses(() => peopleCommandEnvelope(context, duplicated)),
     ],
     expected: [true, true],
+  });
+});
+test('organization and removal forms keep the target guard from the displayed snapshot', () => {
+  const organization = form();
+  organization.set('scope', 'organization');
+  const removal = form();
+  removal.set('grantId', id('g'));
+  removal.set('scope', 'organization');
+  const removed = peopleCommandEnvelope(
+    {
+      ...context,
+      intent: 'remove',
+      grants: [
+        { grantId: id('g'), scope: { kind: 'lobby', lobbyId: id('l') } },
+      ],
+    },
+    removal,
+  );
+  assert({
+    given:
+      'an organization grant and a lobby removal with a misleading form scope',
+    should:
+      'use the organization snapshot for the first and the bound grant/lobby snapshot for the second',
+    actual: [
+      peopleCommandEnvelope(context, organization).expected,
+      removed.expected,
+      removed.command,
+    ],
+    expected: [
+      { organization: 7 },
+      { lobby: 11 },
+      {
+        type: 'remove-grant',
+        scope: { kind: 'lobby', lobbyId: id('l') },
+        grantId: id('g'),
+      },
+    ],
   });
 });
 test('a stale snapshot preserves every selected field for a fresh review', () => {

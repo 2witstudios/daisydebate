@@ -6,7 +6,7 @@ import { lobbyTemplates, templates } from '../schema/templates';
 import { formatPresets } from '../schema/format-presets';
 import { settings } from '../schema/settings';
 import { scopeTransaction } from '../tenant-scope';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import { loadTemplateRows } from './setting-definition-rows';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -100,7 +100,7 @@ const load = async (tx: TabTransaction, input: Input) => {
     await scopeTransaction(tx, organizationScope);
     templateAuthorizations.push({
       organizationId,
-      authorization: await loadOrganizationContext(
+      authorization: await loadAuthorityContext(
         tx,
         organizationScope,
         input.viewerUserId,

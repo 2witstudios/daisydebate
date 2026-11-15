@@ -1,4 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
+import { createAppError } from '@daisy/errors';
 import type {
   MembershipStatus,
   OrganizationKind,
@@ -15,8 +16,8 @@ import type { StaffMinimumBand } from './staff-minimum-band';
 import type { TabTransaction } from './tab-transaction';
 
 /**
- * What the evaluator needs about the person asking at one organization, as
- * plain data the application assembles into its authorization input.
+ * Current account and scoped grant authority, with an actual organization
+ * owner when one exists, as plain evaluator inputs.
  */
 
 /** A grant the person holds, as the evaluator reads it. */
@@ -50,11 +51,11 @@ export type RoleAuthority = {
   readonly roleRank: number;
 };
 
-export type OrganizationAuthorization = {
+export type TabAuthorization = {
   /** The person's account with their boundary, always loaded. */
   readonly account: TabAccount | null;
   readonly organization: OrganizationAuthority | null;
-  /** The person's own unrevoked grants here and in its lobbies. */
+  /** The person's own unrevoked grants loaded for the addressed authority target. */
   readonly grants: readonly GrantAuthority[];
   /** The person's own membership status here, null when they have none. */
   readonly membership: MembershipStatus | null;
@@ -67,6 +68,22 @@ export const roleAuthorityOf = (role: {
   permissions: role.permissions,
   roleRank: roleSeniority(role.rank),
 });
+
+const grantScopeOf = (grant: GrantRow): GrantAuthority['scope'] => {
+  if (
+    grant.scopeKind === 'lobby' &&
+    grant.lobbyId !== null &&
+    grant.organizationId === null
+  )
+    return { kind: 'lobby', lobbyId: grant.lobbyId };
+  if (
+    grant.scopeKind === 'organization' &&
+    grant.organizationId !== null &&
+    grant.lobbyId === null
+  )
+    return { kind: 'organization', organizationId: grant.organizationId };
+  throw createAppError('INVARIANT', 'A grant has no valid explicit scope');
+};
 
 /**
  * One unrevoked grant as the evaluator reads it. An organization grant
@@ -81,18 +98,18 @@ export const grantAuthorityOf = (
     readonly staffMinimumBand: StaffMinimumBand;
     readonly revision: number;
   },
-): GrantAuthority => ({
-  grantId: grant.id,
-  scope:
-    grant.scopeKind === 'lobby' && grant.lobbyId !== null
-      ? { kind: 'lobby', lobbyId: grant.lobbyId }
-      : { kind: 'organization', organizationId: grant.scopeOrganizationId },
-  ...roleAuthorityOf(grant.role),
-  expiresAt: grant.expiresAt,
-  membershipActive: grant.scopeKind === 'lobby' || holder.membershipActive,
-  staffMinimumBand: holder.staffMinimumBand,
-  revision: holder.revision,
-});
+): GrantAuthority => {
+  const scope = grantScopeOf(grant);
+  return {
+    grantId: grant.id,
+    scope,
+    ...roleAuthorityOf(grant.role),
+    expiresAt: grant.expiresAt,
+    membershipActive: grant.scopeKind === 'lobby' || holder.membershipActive,
+    staffMinimumBand: holder.staffMinimumBand,
+    revision: holder.revision,
+  };
+};
 
 const loadOrganizationAuthority = async (
   tx: TabTransaction,
@@ -131,7 +148,7 @@ const loadOrganizationAuthority = async (
  * person's usable grants, from the grant and membership rows already loaded
  * in this transaction, whose subject is the person.
  */
-export const loadOrganizationAuthorization = async (
+export const loadTabAuthorization = async (
   tx: TabTransaction,
   scope: TenantScope,
   input: {
@@ -141,7 +158,7 @@ export const loadOrganizationAuthorization = async (
     readonly memberships: readonly MembershipRow[];
     readonly staffMinimumBand: StaffMinimumBand;
   },
-): Promise<OrganizationAuthorization> => {
+): Promise<TabAuthorization> => {
   const account = await loadTabAccount(tx, input.userId, scope);
   const membership =
     input.memberships.find(

@@ -22,7 +22,7 @@ import { rooms } from '../schema/rooms';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { lockEventSettingContext } from './event-setting-context';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import { loadTabCounterpart } from './boundary';
 import type { TabTransaction } from './tab-transaction';
 
@@ -130,7 +130,7 @@ export const loadDrawCommandFacts = async (
     )
   )
     throw new DrawPeopleChanged();
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     configuration.scope,
     input.senderUserId,

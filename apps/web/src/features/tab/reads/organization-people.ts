@@ -66,6 +66,7 @@ export const organizationPeopleOf = (
       lobbyId: lobby.id,
       name: lobby.name,
       closed: lobby.closedAt !== null,
+      version: lobby.version,
     })),
     name: organization.name,
     people: facts.people.map((person) => {

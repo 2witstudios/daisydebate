@@ -10,7 +10,7 @@ import {
 import { createAppError } from '@daisy/errors';
 import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import {
-  organizationCommandCatalogue,
+  organizationCommandDefinition,
   organizationCommandEnvelopeSchema,
   type OrganizationCommand,
   type OrganizationRefusal,
@@ -108,13 +108,22 @@ export const organizationCommand =
                       hostingPlan,
                     }),
                   versions: ({ decision }) =>
-                    decision.organization === null
-                      ? {}
-                      : { organization: decision.organization.version },
-                  scope: ({ decision }) => ({
-                    kind: 'organization',
-                    organizationId: decision.organization?.id ?? newId,
-                  }),
+                    (command.type === 'give-grant' ||
+                      command.type === 'remove-grant') &&
+                    command.scope.kind === 'lobby'
+                      ? { lobby: decision.lobby?.version }
+                      : decision.organization === null
+                        ? {}
+                        : { organization: decision.organization.version },
+                  scope: ({ decision }) =>
+                    (command.type === 'give-grant' ||
+                      command.type === 'remove-grant') &&
+                    command.scope.kind === 'lobby'
+                      ? { kind: 'lobby', lobbyId: command.scope.lobbyId }
+                      : {
+                          kind: 'organization',
+                          organizationId: decision.organization?.id ?? newId,
+                        },
                   recordConflict: neverHeld,
                   holdForConfirmation: neverHeld,
                   apply: session.apply,
@@ -125,7 +134,7 @@ export const organizationCommand =
           now: () => now,
         },
         envelope,
-        organizationCommandCatalogue[command.type],
+        organizationCommandDefinition(command),
         (loaded, decided) => decideOrganization(loaded.decision, decided),
       ),
     );

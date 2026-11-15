@@ -3,6 +3,7 @@ import type { LoadedOrganizationCommand } from '@daisy/db/tab';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
 import { CommandDenied } from '../commands/run-command';
 import type { TabPrincipal } from '../tab-principal';
+import { hostLobbyResource } from './host-lobby-resource';
 
 type Authority = Omit<AuthorizationInput, 'capability'>;
 
@@ -19,6 +20,15 @@ const resourceOf = (
   if (command.type === 'create-organization')
     return { kind: 'organization_collection', proposedKind: command.kind };
   const { organization, membership } = loaded.authorization;
+  if (
+    (command.type === 'give-grant' || command.type === 'remove-grant') &&
+    command.scope.kind === 'lobby'
+  )
+    return hostLobbyResource(
+      loaded.decision.lobby,
+      organization,
+      loaded.decision.lobby?.ownerActorId ?? null,
+    );
   if (organization === null) throw new CommandDenied('not-found');
   const own =
     command.type === 'accept-membership' ||

@@ -1,6 +1,6 @@
 import { fenceTabAccountRead } from './account-read-fence';
-import { loadOrganizationGrantRows } from './organization-grant-rows';
-import { and, eq, sql } from 'drizzle-orm';
+import { loadGrantRows } from './grant-rows';
+import { eq, sql } from 'drizzle-orm';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
@@ -39,20 +39,30 @@ const organizationScope = async (
   const { command } = input;
   if (command.type === 'create-organization')
     return { ...subject, organizationId: input.newId };
-  const organization = await foundOrganization(tx, command.organizationId);
+  if (
+    (command.type === 'give-grant' || command.type === 'remove-grant') &&
+    command.scope.kind === 'lobby'
+  ) {
+    const [lobby] = await tx
+      .select({ id: lobbies.id, organizationId: lobbies.ownerOrganizationId })
+      .from(lobbies)
+      .where(eq(lobbies.id, command.scope.lobbyId));
+    return {
+      ...subject,
+      lobbyId: lobby?.id,
+      organizationId: lobby?.organizationId ?? undefined,
+    };
+  }
+  const organizationId =
+    command.type === 'give-grant' || command.type === 'remove-grant'
+      ? command.scope.kind === 'organization'
+        ? command.scope.organizationId
+        : undefined
+      : command.organizationId;
+  if (!organizationId) return subject;
+  const organization = await foundOrganization(tx, organizationId);
   if (organization === undefined) return subject;
-  if (command.type !== 'give-grant' || command.scope.kind !== 'lobby')
-    return { ...subject, organizationId: organization.id };
-  const [lobby] = await tx
-    .select({ id: lobbies.id })
-    .from(lobbies)
-    .where(
-      and(
-        eq(lobbies.id, command.scope.lobbyId),
-        eq(lobbies.ownerOrganizationId, organization.id),
-      ),
-    );
-  return { ...subject, organizationId: organization.id, lobbyId: lobby?.id };
+  return { ...subject, organizationId: organization.id };
 };
 
 /**
@@ -69,14 +79,25 @@ export const fenceOrganizationCommand = async (
   const scope = await organizationScope(tx, input);
   await scopeTransaction(tx, scope);
   const grant =
-    input.command.type === 'remove-grant' && scope.organizationId
+    input.command.type === 'remove-grant' &&
+    (scope.organizationId || scope.lobbyId)
       ? (
-          await loadOrganizationGrantRows(tx, scope, {
-            organizationId: scope.organizationId,
+          await loadGrantRows(tx, {
+            ...(scope.organizationId
+              ? {
+                  organizationId: scope.organizationId,
+                  ...(scope.lobbyId ? { lobbyId: scope.lobbyId } : {}),
+                }
+              : { lobbyId: scope.lobbyId! }),
             userIds: [],
             grantIds: [input.command.grantId],
           })
-        ).find((row) => row.scopeOrganizationId === scope.organizationId)
+        ).find((row) =>
+          scope.lobbyId
+            ? row.scopeKind === 'lobby' && row.lobbyId === scope.lobbyId
+            : row.scopeKind === 'organization' &&
+              row.organizationId === scope.organizationId,
+        )
       : undefined;
   const named = grant?.userId ?? namedPersonOf(input.command);
   await lockTabCommandAccounts(

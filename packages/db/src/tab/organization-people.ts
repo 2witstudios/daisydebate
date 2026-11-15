@@ -3,13 +3,10 @@ import type { MembershipStatus } from '@daisy/protocol/lobby';
 import { memberships, organizations } from '../schema/organizations';
 import { users } from '../schema/users';
 import { lobbies } from '../schema/lobbies';
-import type { TenantScope } from '../tenant-scope';
+import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import type { GrantRow } from './grant-rows';
 import { loadOrganizationGrantRows } from './organization-grant-rows';
-import {
-  loadOrganizationAuthorization,
-  type OrganizationAuthorization,
-} from './organization-authorization';
+import { loadTabAuthorization, type TabAuthorization } from './authority-facts';
 import {
   loadStaffMinimumBand,
   type MembershipRow,
@@ -33,10 +30,11 @@ export type OrganizationPeopleFacts = {
     readonly id: string;
     readonly name: string;
     readonly closedAt: Date | null;
+    readonly version: number;
   }[];
   readonly people: readonly OrganizationPersonRow[];
   readonly roles: readonly RoleRow[];
-  readonly authorization: OrganizationAuthorization;
+  readonly authorization: TabAuthorization;
 };
 
 /** People still in an organization: invited or active. */
@@ -65,6 +63,34 @@ export const loadOrganizationPeople = async (
     .from(organizations)
     .where(eq(organizations.id, input.organizationId));
   if (organization === undefined) return null;
+  const ownedIds = await tx
+    .select({ id: lobbies.id })
+    .from(lobbies)
+    .where(eq(lobbies.ownerOrganizationId, organization.id))
+    .orderBy(asc(lobbies.id));
+  const ownedLobbies: OrganizationPeopleFacts['lobbies'][number][] = [];
+  for (const identity of ownedIds) {
+    // Row locking also applies the lobby write fence, so visit its actual scope.
+    await scopeTransaction(tx, { ...scope, lobbyId: identity.id });
+    const [lobby] = await tx
+      .select({
+        id: lobbies.id,
+        name: lobbies.name,
+        closedAt: lobbies.closedAt,
+        version: lobbies.version,
+      })
+      .from(lobbies)
+      .where(
+        and(
+          eq(lobbies.id, identity.id),
+          eq(lobbies.ownerOrganizationId, organization.id),
+        ),
+      )
+      .for('share');
+    await scopeTransaction(tx, scope);
+    if (!lobby) return null;
+    ownedLobbies.push(lobby);
+  }
   const members = await tx
     .select({
       organizationId: memberships.organizationId,
@@ -94,15 +120,9 @@ export const loadOrganizationPeople = async (
   );
   return {
     organization,
-    lobbies: await tx
-      .select({
-        id: lobbies.id,
-        name: lobbies.name,
-        closedAt: lobbies.closedAt,
-      })
-      .from(lobbies)
-      .where(eq(lobbies.ownerOrganizationId, organization.id))
-      .orderBy(asc(lobbies.name), asc(lobbies.id)),
+    lobbies: [...ownedLobbies].sort(
+      (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+    ),
     people: members.map((row) => ({
       userId: row.userId,
       name: row.username ?? 'Member',
@@ -110,7 +130,7 @@ export const loadOrganizationPeople = async (
       grants: grants.filter((grant) => grant.userId === row.userId),
     })),
     roles: await loadOfferedRoles(tx, organization.id),
-    authorization: await loadOrganizationAuthorization(tx, scope, {
+    authorization: await loadTabAuthorization(tx, scope, {
       userId: input.viewerUserId,
       organization,
       grants,

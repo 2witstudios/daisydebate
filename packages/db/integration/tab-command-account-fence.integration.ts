@@ -65,8 +65,8 @@ test(
           senderUserId: ids.owner,
           command: {
             type: 'remove-grant',
-            organizationId: ids.league,
             grantId: ids.staffGrant,
+            scope: { kind: 'lobby', lobbyId: ids.lobby },
           },
           newId: createId(),
           now: '2027-03-06T09:00:00.000Z',

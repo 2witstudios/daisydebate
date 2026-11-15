@@ -19,9 +19,9 @@ const organizationHandle = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/);
 
-/** Where a grant gives its role: the organization, or one of its lobbies. */
+/** The addressed grant scope; preset provenance never supplies its target. */
 const grantScope = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('organization') }),
+  z.strictObject({ kind: z.literal('organization'), organizationId: idSchema }),
   z.strictObject({ kind: z.literal('lobby'), lobbyId: idSchema }),
 ]);
 
@@ -55,7 +55,6 @@ export const organizationCommandSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({
     type: z.literal('give-grant'),
-    ...inOrganization,
     userId: idSchema,
     roleId: idSchema,
     scope: grantScope,
@@ -63,7 +62,7 @@ export const organizationCommandSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({
     type: z.literal('remove-grant'),
-    ...inOrganization,
+    scope: grantScope,
     grantId: idSchema,
   }),
   z.strictObject({
@@ -107,6 +106,7 @@ const command = (
   ...definition,
 });
 
+/** Organization defaults; organizationCommandDefinition selects a grant's actual target. */
 export const organizationCommandCatalogue = {
   'create-organization': command({
     gate: ['organization.create'],
@@ -163,3 +163,18 @@ export const organizationCommandCatalogue = {
     refusals: ['not-a-member', 'age-band'],
   }),
 } as const satisfies LobbyCommandCatalogue<OrganizationCommand>;
+
+/** Grant writes guard and journal the actual addressed aggregate. */
+export const organizationCommandDefinition = (
+  requested: OrganizationCommand,
+): LobbyCommandDefinition<OrganizationRefusal> => {
+  const definition: LobbyCommandDefinition<OrganizationRefusal> =
+    organizationCommandCatalogue[requested.type];
+  if (requested.type !== 'give-grant' && requested.type !== 'remove-grant')
+    return definition;
+  return {
+    ...definition,
+    aggregate: requested.scope.kind,
+    versions: [requested.scope.kind],
+  };
+};

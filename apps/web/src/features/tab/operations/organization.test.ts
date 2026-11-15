@@ -24,7 +24,7 @@ const loaded: LoadedOrganizationCommand = {
     memberships: [],
     grants: [],
     role: null,
-    lobbyOwnerOrganizationId: null,
+    lobby: null,
     personAgeBand: null,
     staffMinimumBand: 'adult',
   },

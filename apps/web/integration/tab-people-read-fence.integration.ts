@@ -15,6 +15,9 @@ import { organizationCommand } from '../src/features/tab/operations/organization
 import { readOrganizationPeople } from '../src/features/tab/reads/organization-people';
 import { organizationStage } from './tab-tournament-organization.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
+import { presetStaffRoleId } from './tab-tournament-organization-wiring.test-support';
+import { createOwnedTournament } from './tab-tournament-owned-event.test-support';
+import { organizationPeopleViewSchema } from '@daisy/protocol/lobby/organization-read';
 import { createBots, scriptClock } from './tab-tournament.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -40,6 +43,8 @@ test('a people read retains its actual account and organization fences through t
     };
     await withRuntimeTestTransaction(owner, async (frame) => {
       await organizationStage({ ...state, ...frame });
+      const owned = await createOwnedTournament({ ...state, ...frame });
+      state.made.set('fence-lobby', owned.lobbyId);
       const send = organizationCommand({
         store: createTabStore(frame.database),
         authorize,
@@ -146,6 +151,56 @@ test('a people read retains its actual account and organization fences through t
       newId: createId,
       hostingPlan: async () => false,
     });
+    const lobbyId = state.made.get('fence-lobby')!;
+    revoking = send(as(state.bots.Director!), {
+      version: 1,
+      commandId: createId(),
+      expected: { lobby: 1 },
+      command: {
+        type: 'give-grant',
+        scope: { kind: 'lobby', lobbyId },
+        userId: state.bots.Coach!.userId,
+        roleId: presetStaffRoleId,
+        expiresAt: null,
+      },
+    });
+    const lobbyWait = await finishedOrBlockedBehind(
+      revoking,
+      observer,
+      Number(held?.pid),
+      { now: Date.now },
+    );
+    release();
+    const beforeGrant = organizationPeopleViewSchema.parse(await reading);
+    const granted = await revoking;
+    const afterGrant = await readOrganizationPeople({
+      store: original,
+      authorize,
+      now: state.clock.now,
+    })(as(state.bots.Staff!), organizationId);
+    const lobbyRoles = (view: typeof beforeGrant) =>
+      view.people
+        .find((person) => person.userId === state.bots.Coach!.userId)
+        ?.grants.filter(
+          (grant) =>
+            grant.scope.kind === 'lobby' && grant.scope.lobbyId === lobbyId,
+        ).length;
+    assert({
+      given:
+        'a Staff people snapshot while a different owner gives a lobby role to a different recipient',
+      should:
+        'hold its actual lobby guard and role list through projection, independently of viewer-account locking',
+      actual: [
+        lobbyWait,
+        beforeGrant.lobbies.find((lobby) => lobby.lobbyId === lobbyId)?.version,
+        lobbyRoles(beforeGrant),
+        (granted as { kind: string }).kind,
+        afterGrant?.lobbies.find((lobby) => lobby.lobbyId === lobbyId)?.version,
+        afterGrant ? lobbyRoles(afterGrant) : null,
+      ],
+      expected: ['blocked', 1, 0, 'accepted', 2, 1],
+    });
+    await pauseRead();
     revoking = send(as(state.bots.Director!), {
       version: 1,
       commandId: createId(),
@@ -229,8 +284,8 @@ test('a people read retains its actual account and organization fences through t
       expected: { organization: Number(organization?.version) + 1 },
       command: {
         type: 'remove-grant',
-        organizationId,
         grantId: String(grant?.id),
+        scope: { kind: 'organization', organizationId: organizationId },
       },
     });
     const blocked = await finishedOrBlockedBehind(

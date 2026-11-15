@@ -36,7 +36,6 @@ const grant = (
   lobbyId: null,
   expiresAt: null,
   revokedAt: null,
-  scopeOrganizationId: organizationId,
   ...overrides,
 });
 const facts = (
@@ -60,7 +59,14 @@ const facts = (
   ],
   grants: [grant({ id: 'admin-grant', userId: 'admin', role: director })],
   role: tabStaff,
-  lobbyOwnerOrganizationId: organizationId,
+  lobby: {
+    id: 'cup',
+    kind: 'tournament',
+    ownerOrganizationId: organizationId,
+    ownerUserId: null,
+    ownerActorId: null,
+    version: 1,
+  },
   personAgeBand: 'adult',
   staffMinimumBand: 'adult',
   ...overrides,
@@ -82,10 +88,9 @@ const orgBump = {
 
 const give = {
   type: 'give-grant',
-  organizationId,
   userId: 'member',
   roleId: 'tab',
-  scope: { kind: 'organization' },
+  scope: { kind: 'organization', organizationId: organizationId },
   expiresAt: null,
 } as const satisfies OrganizationCommand;
 
@@ -406,10 +411,15 @@ describe('decideOrganization', () => {
           }),
           give,
         ),
-        refusalOf(facts({ lobbyOwnerOrganizationId: 'elsewhere' }), {
-          ...give,
-          scope: { kind: 'lobby', lobbyId: 'cup' },
-        }),
+        refusalOf(
+          facts({
+            lobby: { ...facts().lobby!, ownerOrganizationId: 'elsewhere' },
+          }),
+          {
+            ...give,
+            scope: { kind: 'lobby', lobbyId: 'cup' },
+          },
+        ),
         refusalOf(facts({ grants: [] }), give),
         refusalOf(
           facts({
@@ -457,7 +467,7 @@ describe('decideOrganization', () => {
       expected: [
         'role-unavailable',
         'role-unavailable',
-        'scope-not-covered',
+        'not-found',
         'scope-not-covered',
         'scope-not-covered',
         'permission-not-held',
@@ -493,8 +503,8 @@ describe('decideOrganization', () => {
   test('removing a grant', () => {
     const remove = {
       type: 'remove-grant',
-      organizationId,
       grantId: 'member-grant',
+      scope: { kind: 'organization', organizationId: organizationId },
     } as const;
     const withGrant = (target: Partial<GrantFact>) =>
       facts({
@@ -530,7 +540,12 @@ describe('decideOrganization', () => {
       actual: [
         refusalOf(withGrant({ revokedAt: now }), remove),
         refusalOf(withGrant({ role: director }), remove),
-        refusalOf(withGrant({ scopeOrganizationId: 'elsewhere' }), remove),
+        refusalOf(
+          withGrant({
+            organizationId: 'elsewhere',
+          }),
+          remove,
+        ),
       ],
       expected: ['grant-ended', 'outranked', 'not-found'],
     });

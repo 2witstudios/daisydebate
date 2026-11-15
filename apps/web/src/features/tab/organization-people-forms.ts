@@ -15,11 +15,23 @@ import {
 export type PeopleCommandContext = {
   readonly organizationId: string;
   readonly organizationVersion: number;
+  readonly lobbies: readonly {
+    readonly lobbyId: string;
+    readonly version: number;
+  }[];
   readonly commandId: string;
   readonly handle: string;
 } & (
   | { readonly intent: 'give' }
-  | { readonly intent: 'remove'; readonly grantIds: readonly string[] }
+  | {
+      readonly intent: 'remove';
+      readonly grants: readonly {
+        readonly grantId: string;
+        readonly scope:
+          | { readonly kind: 'organization' }
+          | { readonly kind: 'lobby'; readonly lobbyId: string };
+      }[];
+    }
 );
 export type PeopleCommandValues = {
   readonly userId: string;
@@ -60,39 +72,53 @@ const expiry = (value: string): string | null => {
   const local = z.iso.datetime({ local: true, precision: -1 }).parse(value);
   return `${local}:00Z`;
 };
-/** Every command retains the exact organization guard bound when the page was read. */
+/** Retain the addressed aggregate's guard from the snapshot the host saw. */
 export const peopleCommandEnvelope = (
   context: PeopleCommandContext,
   form: FormData,
 ) => {
-  const common = { organizationId: context.organizationId };
+  const chosenGrant =
+    context.intent === 'remove'
+      ? context.grants.find(
+          (grant) => grant.grantId === singleFormField(form, 'grantId'),
+        )
+      : null;
+  if (context.intent === 'remove' && !chosenGrant)
+    throw createAppError('VALIDATION');
+  const choice =
+    context.intent === 'give'
+      ? singleFormField(form, 'scope')
+      : chosenGrant?.scope.kind === 'lobby'
+        ? chosenGrant.scope.lobbyId
+        : 'organization';
+  const lobby =
+    choice === 'organization'
+      ? null
+      : context.lobbies.find((one) => one.lobbyId === choice);
+  if (choice !== 'organization' && !lobby) throw createAppError('VALIDATION');
+  const scope = lobby
+    ? { kind: 'lobby', lobbyId: lobby.lobbyId }
+    : { kind: 'organization', organizationId: context.organizationId };
   const command =
     context.intent === 'give'
       ? {
           type: 'give-grant',
-          ...common,
           userId: singleFormField(form, 'userId'),
           roleId: singleFormField(form, 'roleId'),
-          scope:
-            singleFormField(form, 'scope') === 'organization'
-              ? { kind: 'organization' }
-              : { kind: 'lobby', lobbyId: singleFormField(form, 'scope') },
+          scope,
           expiresAt: expiry(singleFormField(form, 'expiresAt')),
         }
       : {
           type: 'remove-grant',
-          ...common,
+          scope,
           grantId: singleFormField(form, 'grantId'),
         };
-  if (
-    context.intent === 'remove' &&
-    !context.grantIds.includes(singleFormField(form, 'grantId'))
-  )
-    throw createAppError('VALIDATION');
   return organizationCommandEnvelopeSchema.parse({
     version: 1,
     commandId: context.commandId,
-    expected: { organization: context.organizationVersion },
+    expected: lobby
+      ? { lobby: lobby.version }
+      : { organization: context.organizationVersion },
     command,
   });
 };

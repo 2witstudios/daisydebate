@@ -28,7 +28,6 @@ const grant = (
   grantedAt: now,
   expiresAt: null,
   revokedAt: null,
-  scopeOrganizationId: id('o'),
   role: role(rank, rank === 1 ? 'Director' : 'Staff'),
   ...overrides,
 });

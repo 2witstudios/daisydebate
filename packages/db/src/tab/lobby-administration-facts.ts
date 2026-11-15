@@ -3,7 +3,7 @@ import type {
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
 import type { LobbyCommand } from '@daisy/protocol/lobby/lobby-setup-command';
-import type { OrganizationAuthorization } from './organization-authorization';
+import type { TabAuthorization } from './authority-facts';
 import type { StoredTabCommand } from './command-record';
 import type { TenantScope } from '../tenant-scope';
 import type { LobbyAdministrationWrite } from './lobby-administration-writes';
@@ -19,7 +19,7 @@ export type LobbyAdministrationInput = {
   readonly now: string;
 };
 export type LobbyAdministrationFacts = {
-  readonly organization: OrganizationAuthorization;
+  readonly organization: TabAuthorization;
   readonly lobby: {
     readonly id: string;
     readonly kind: 'standing' | 'tournament';

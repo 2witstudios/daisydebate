@@ -4,7 +4,7 @@ import { organizations } from '../schema/organizations';
 import { scopeTransaction } from '../tenant-scope';
 import { fenceTabAccountRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 type Input = {
   readonly viewerUserId: string;
@@ -22,7 +22,7 @@ const load = async (tx: TabTransaction, input: Input) => {
   });
   if (!configuration) return null;
   const { scope, lobby, template } = configuration;
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     scope,
     input.viewerUserId,

@@ -16,7 +16,7 @@ import { fixtureJudges, fixtureEntries, fixtures } from '../schema/fixtures';
 import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadTabCounterpart } from './boundary';
-import { loadOrganizationContext } from './organization-context';
+import { loadAuthorityContext } from './authority-context';
 import {
   appendHistory,
   storedCommand,
@@ -82,7 +82,7 @@ const load = async (tx: TabTransaction, input: JudgeRegistrationInput) => {
     tx,
     actor?.userId ? [input.senderUserId, actor.userId] : [input.senderUserId],
   );
-  const authorization = await loadOrganizationContext(
+  const authorization = await loadAuthorityContext(
     tx,
     scope,
     input.senderUserId,

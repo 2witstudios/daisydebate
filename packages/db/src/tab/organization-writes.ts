@@ -9,6 +9,7 @@ import type {
 } from '@daisy/protocol/lobby';
 import { grants } from '../schema/grants';
 import { memberships, organizations } from '../schema/organizations';
+import { lobbies } from '../schema/lobbies';
 import type { TenantScope } from '../tenant-scope';
 import {
   loadOrganizationGrantRows,
@@ -18,6 +19,12 @@ import type { TabTransaction } from './tab-transaction';
 
 /** The rows an accepted organization or grant command writes, as data. */
 export type OrganizationWrite =
+  | {
+      readonly table: 'lobbies';
+      readonly op: 'update';
+      readonly id: string;
+      readonly set: { readonly version: number };
+    }
   | {
       readonly table: 'organizations';
       readonly op: 'insert';
@@ -144,7 +151,7 @@ const revokeGrant = async (
         .where(and(eq(grants.id, write.id), isNull(grants.revokedAt)))
         .returning({ id: grants.id }),
     );
-  const lobbyId = await lobbyOfGrant(tx, scope, write.id);
+  const lobbyId = scope.lobbyId ?? (await lobbyOfGrant(tx, scope, write.id));
   return lobbyId === null
     ? revoke()
     : underLobbyScope(tx, scope, lobbyId, revoke);
@@ -156,6 +163,20 @@ const applyOne = async (
   scope: TenantScope,
 ): Promise<void> => {
   switch (write.table) {
+    case 'lobbies':
+      return exactlyOne(
+        write,
+        await tx
+          .update(lobbies)
+          .set(write.set)
+          .where(
+            and(
+              eq(lobbies.id, write.id),
+              eq(lobbies.version, write.set.version - 1),
+            ),
+          )
+          .returning({ id: lobbies.id }),
+      );
     case 'organizations':
       if (write.op === 'insert') {
         await tx.insert(organizations).values(write.row);

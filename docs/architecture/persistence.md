@@ -85,10 +85,22 @@ nulls and cannot be reconstructed from current guardians or event history.
 This adds no minor activation, consent or retention policy; those remain closed.
 
 Organization people are authorized and projected inside the store's transaction,
-under shared canonical viewer-account and organization fences. Readers coexist;
-authority writers wait. The same snapshot supplies the organization version and
-owned lobby choices for role controls; a submission retains the version the host
-saw instead of replacing it with a fresh guard.
+under shared canonical viewer-account, organization and actual owned-lobby fences.
+Each lobby is visited under its own tenant scope before its shared lock is taken.
+Readers coexist; authority writers wait. The same snapshot supplies organization
+and lobby versions for role controls; a submission retains its target's displayed
+guard instead of replacing it with a fresh one.
+
+Grant commands address either an organization or a lobby. Lobby scope resolves
+its optional owning organization; personal tournaments need no synthetic
+organization or membership. Preset-role ownership supplies provenance, never a
+policy parent. Giver and holder accounts are fenced before parent and target
+locks; subset, seniority and current membership checks retain their canonical
+meaning. Lobby grants move the lobby guard and journal at that lobby, while
+organization grants use the organization guard and history scope. Staff minimum
+age comes from the actual owning organization's policy, or the catalogue default
+when there is no organization. A normal lobby loader reads only its grants and
+its actual parent's organization grants, without visiting sibling lobbies.
 
 Standing Room drafts likewise retain shared account and actual parent fences
 through authorization and projection. The read addresses one lobby, loads only
