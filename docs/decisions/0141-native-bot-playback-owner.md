@@ -55,6 +55,13 @@ not an established substitute for the current abort/cutoff contract.
    for a reveal commit before first audio. A refusal cancels the matching
    generation. Never pre-credit or expose unsaid complete text, treat staged
    samples as consumed, or grant native code database/floor authority.
+   For prototype design/proof, DEC-412 accepts ordered processing of a
+   generation-bound first-consumption witness and terminal receipt when
+   cancellation races before the witness reaches JavaScript: reveal only
+   actually started audio, preserve every existing claim/floor/close refusal,
+   then account for its consumed interruption. Zero-consumed cancellation
+   never reveals. Response loss uses idempotent reveal/close semantics;
+   model success is no real database/native race proof.
 5. **Own cancellation and cutoff at consumption.** A native calibrated
    deadline prevents a frame whose source interval ends past cutoff.
    Generation cancellation fences and joins producers and any current sink
@@ -96,6 +103,7 @@ follows from a model or isolated pass alone.
 
 ## Sources and scope
 
+- [DEC-412](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/pe54r9ih6s82pp7si644bayn) for prototype race direction.
 - [DEC-411](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ayiouxdfdzorqynqs5ikplao),
   after [DEC-410](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/lm9q7zu8sfrykwt5iq4eh8w3).
 - [Plan and retained evidence](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/pe9rojpbtu1aike8ihk45vkn).
