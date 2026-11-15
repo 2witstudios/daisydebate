@@ -186,3 +186,13 @@ needs no change to the speaker:
   its samples before it is authorized.
 - **Keeping the publication across segment rotations.** The publication is
   already joined ahead of generation; it would save no time to first audio.
+
+## Amendment (2026-11-15): native playback owner design and prototype
+
+[ADR 0141](0141-native-bot-playback-owner.md), under point guard DEC-411,
+authorizes design and a narrow native-boundary prototype for paused staging,
+measured readiness, generation-bound start/cancel, consumption cutoff and
+source-consumed receipts. Authority and reveal remain application/database
+operations with the semantics above. This is not runtime adoption, a delivery
+contract correction or a waiver of the original strict timing oracle; retained
+red evidence and the parent hold remain blocking until separately resolved.
