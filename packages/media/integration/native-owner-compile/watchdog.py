@@ -41,7 +41,7 @@ def refusal_code(error):
         'descendants-not-joined-within-bound', 'native-linux-root-required',
         'budget-or-identity-refused', 'cgroup-v2-required', 'preflight-resource-refusal',
         'missing-tool', 'scratch-cap-not-enforced', 'watchdog-qualification-refused',
-        'write-sandbox-qualification-refused', 'no-aged-compile-window', 'worker-report-refused',
+        'write-sandbox-qualification-refused', 'no-aged-compile-window', 'worker-report-refused', 'metadata-control-refusal', 'cgroup-kill-unavailable',
     }
     return str(error) if isinstance(error, RuntimeError) and str(error) in known else 'unclassified-supervisor-refusal'
 
@@ -106,17 +106,40 @@ def properties(unit):
                 '-p', 'KillMode', '-p', 'NoNewPrivileges', '-p', 'ExecMainStatus', '-p', 'Result'])
     return dict(line.split('=', 1) for line in text.splitlines() if '=' in line)
 
-def stop_join(unit, group):
-    # Session/PGID changes do not remove an unprivileged child from this cgroup.
-    for sig in ('SIGTERM', 'SIGKILL'):
-        subprocess.run(['systemctl', 'kill', '--kill-who=all', f'--signal={sig}', unit],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
-        until = clock() + (0.5 if sig == 'SIGTERM' else 2)
-        while group_members(group) and clock() < until:
-            time.sleep(0.05)
-    subprocess.run(['systemctl', 'stop', unit], stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL, timeout=3)
-    return not group_members(group)
+def stop_join(unit, group, observed):
+    # Never make escalation depend on systemctl metadata or on a live leader.
+    # The unit's explicit system.slice path is known before its start request.
+    def request(args, timeout):
+        try:
+            return subprocess.run(args, stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL, timeout=timeout).returncode == 0
+        except Exception:
+            return False
+    request(['systemctl', 'kill', '--kill-who=all', '--signal=SIGTERM', unit], 2)
+    time.sleep(0.25)
+    direct_kill = False
+    try:
+        if (group / 'cgroup.kill').exists():
+            (group / 'cgroup.kill').write_text('1')
+            direct_kill = True
+    except OSError:
+        pass
+    request(['systemctl', 'kill', '--kill-who=all', '--signal=SIGKILL', unit], 2)
+    stopped = request(['systemctl', 'stop', unit], 3)
+    until = clock() + 2
+    empty = False
+    while clock() < until:
+        try:
+            empty = not group_members(group)
+        except OSError:
+            empty = False
+        if empty:
+            break
+        time.sleep(0.05)
+    # Absence alone is insufficient for an asynchronously pending start. Either
+    # stop was accepted, or this exact Restart=no unit was already observed ready.
+    return dict(joined=empty and (stopped or observed), kernelCgroupEmpty=empty,
+                unitStopAccepted=stopped, directCgroupKillAttempted=direct_kill)
 
 def supervise(root, mount, uid, gid, env, budget, mode, limits=LIMITS):
     if CANCELLED:
@@ -131,7 +154,7 @@ def supervise(root, mount, uid, gid, env, budget, mode, limits=LIMITS):
     command = [sys.executable, '-B', str(HERE / ('worker.py' if mode == 'build' else 'watchdog.py')),
                str(root)] if mode == 'build' else [sys.executable, '-B', str(HERE / 'watchdog.py'), '--fault', str(root), mode]
     args = ['systemd-run', '--quiet', '--no-block', f'--unit={unit}',
-            '--property=Type=exec', '--property=ExitType=cgroup', '--property=RemainAfterExit=yes',
+            '--property=Type=exec', '--property=Slice=system.slice', '--property=Restart=no', '--property=ExitType=cgroup', '--property=RemainAfterExit=yes',
             f'--property=User={uid}', f'--property=Group={gid}',
             '--property=MemoryMax=8589934592', '--property=MemorySwapMax=0',
             '--property=CPUQuota=200%', '--property=TasksMax=512',
@@ -146,13 +169,14 @@ def supervise(root, mount, uid, gid, env, budget, mode, limits=LIMITS):
     for key, value in dict(env, XDG_CACHE_HOME=str(root / 'home'), GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1', TMPDIR=str(root / 'tmp'),
                            CARGO_HOME=str(root / 'cargo'), CARGO_TARGET_DIR=str(root / 'target')).items():
         args.append(f'--setenv={key}={value}')
-    group = None
+    group = Path('/sys/fs/cgroup/system.slice') / unit
+    observed = False
+    escape_qualified = False
     peaks = dict(aggregateRssBytes=0, cgroupMemoryPeakBytes=0, scratchFilesystemUsedBytes=0,
                  sourceBytes=0, temporaryAndPrebuiltBytes=0, cargoBytes=0, cargoCacheBytes=0, targetBytes=0,
                  objectArtifactBytes=0, recognizedLinkArtifactBytes=0)
     reason = None
     outcome = {}
-    failure = False
     joined = False
     last_inventory = 0
     last_sample = None
@@ -165,19 +189,27 @@ def supervise(root, mount, uid, gid, env, budget, mode, limits=LIMITS):
             time.sleep(0.05)
         if not ready.exists():
             raise RuntimeError('service-not-ready')
-        facts = properties(unit)
-        if not facts.get('ControlGroup', '').endswith('/' + unit):
+        ready_pid = int(ready.read_text())
+        if ready_pid not in group_members(group):
             raise RuntimeError('unit-cgroup-not-identified')
-        group = Path('/sys/fs/cgroup' + facts['ControlGroup'])
+        observed = True
+        if mode != 'build':
+            child = json.loads((root / 'descendant.json').read_text())
+            if child['pid'] not in group_members(group) or child['pgid'] != child['pid']:
+                raise RuntimeError('session-escape-control-not-in-cgroup')
+            escape_qualified = True
+        if mode == 'metadata':
+            raise RuntimeError('metadata-control-refusal')
+        facts = properties(unit)
+        if facts.get('ControlGroup') != '/system.slice/' + unit:
+            raise RuntimeError('unit-cgroup-not-identified')
         if (facts.get('MemoryMax') != str(8 * GIB) or facts.get('MemorySwapMax') != '0'
                 or facts.get('ProtectSystem') != 'strict' or facts.get('KillMode') != 'control-group'
                 or facts.get('ProtectControlGroups') != 'yes' or facts.get('NoNewPrivileges') != 'yes'
                 or not group.is_dir()):
             raise RuntimeError('containment-properties-refused')
-        if mode != 'build':
-            child = json.loads((root / 'descendant.json').read_text())
-            if child['pid'] not in group_members(group) or child['pgid'] != child['pid']:
-                raise RuntimeError('session-escape-control-not-in-cgroup')
+        if not (group / 'cgroup.kill').exists():
+            raise RuntimeError('cgroup-kill-unavailable')
         fs = os.statvfs(mount)
         admission = dict(now=clock(), deadline=deadline - 10,
                          scratch=(fs.f_blocks-fs.f_bfree)*fs.f_frsize,
@@ -217,23 +249,17 @@ def supervise(root, mount, uid, gid, env, budget, mode, limits=LIMITS):
         outcome = dict(reason=reason, exitCode=int(facts.get('ExecMainStatus', '1')),
                        serviceResult=facts.get('Result', 'unknown'), **peaks)
     except Exception as error:
-        failure = True
         outcome = dict(reason=refusal_code(error), exitCode=None, serviceResult='unknown', **peaks)
     finally:
-        if group is None:
-            # A start can succeed before the metadata read fails; never abandon its unit.
-            facts = properties(unit)
-            group = Path('/sys/fs/cgroup' + facts['ControlGroup']) if facts.get('ControlGroup') else Path('/nonexistent-daisy-cgroup')
-        try:
-            joined = stop_join(unit, group)
-        except Exception:
-            joined = False
-    outcome.update(joined=joined, sessionEscapeQualified=mode != 'build', elapsedMs=round((clock() - started) * 1000),
+        cleanup = stop_join(unit, group, observed)
+        joined = cleanup['joined']
+        outcome.update(cleanup)
+    outcome.update(joined=joined, sessionEscapeQualified=escape_qualified, elapsedMs=round((clock() - started) * 1000),
                    hardBudgetSeconds=budget, pollSleepMs=100, inventoryIntervalMs=2000,
                    maximumSampleGapMs=round(maximum_sample_gap * 1000),
                    measurement='sampled RSS/filesystem and per-category unique inode blocks; kernel cgroup memory.peak; link suffix inventory is not complete linker scratch')
     emit('supervisor-outcome', mode=mode, **outcome)
-    if failure or not joined or clock() > deadline:
+    if not joined or clock() > deadline:
         raise RuntimeError('descendants-not-joined-within-bound')
     return outcome
 
@@ -309,17 +335,18 @@ def main():
              compileHardMaximumSeconds=1800, admittedWindowSeconds=budget, jobs=2,
              cpuCount=os.cpu_count(), scratchFilesystemBytes=fs.f_blocks * fs.f_frsize)
         stage = 'qualification'
-        for mode in ('deadline', 'rss'):
+        for mode in ('deadline', 'rss', 'metadata'):
             limits = dict(LIMITS, rss=64 * 1024 ** 2) if mode == 'rss' else LIMITS
             proof = supervise(mount / mode, mount, uid, gid, env, 15, mode, limits)
-            expected = 'aggregate-rss' if mode == 'rss' else 'deadline'
-            if not proof['joined'] or proof['reason'] != expected:
+            expected = {'rss': 'aggregate-rss', 'deadline': 'deadline', 'metadata': 'metadata-control-refusal'}[mode]
+            if not proof['joined'] or not proof['directCgroupKillAttempted'] or proof['reason'] != expected:
                 raise RuntimeError('watchdog-qualification-refused')
             emit('qualification', control=mode, **proof)
-            sandbox = json.loads((mount / mode / 'sandbox.json').read_text())
-            if not sandbox.get('outsideWriteRefused') or not sandbox.get('sharedMemoryWriteRefused'):
-                raise RuntimeError('write-sandbox-qualification-refused')
-            emit('sandbox-qualified', control=mode, **sandbox)
+            if mode != 'metadata':
+                sandbox = json.loads((mount / mode / 'sandbox.json').read_text())
+                if not sandbox.get('outsideWriteRefused') or not sandbox.get('sharedMemoryWriteRefused'):
+                    raise RuntimeError('write-sandbox-qualification-refused')
+                emit('sandbox-qualified', control=mode, **sandbox)
             shutil.rmtree(mount / mode)
         stage = 'build-admission'
         budget = min(1800, int(end_boot - clock()))
