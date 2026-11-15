@@ -156,9 +156,14 @@ test('the serialized page witness preserves fetch identity and excludes speculat
   const absent = snapshot(selected);
   const returned = invoke('/messages/controlled', { headers: { rsc: '1' } });
   await returned;
+  await snapshot.expectBody(
+    'private-controlled-correlation',
+    new TextEncoder().encode('actual bytes'),
+  );
   const reader = response.body!.getReader();
   await reader.read();
   await reader.read();
+  await new Promise<void>((resolve) => setImmediate(resolve));
   assert({
     given:
       'the installed exact-target fetch witness sees unrelated, prefetch and actual reads',
@@ -171,7 +176,7 @@ test('the serialized page witness preserves fetch identity and excludes speculat
       target: snapshot(selected),
     },
     expected: {
-      absent: { sameHttpCorrelation: false },
+      absent: { sameHttpCorrelation: false, bytesMatch: false },
       promise: true,
       wrapperInstalled: true,
       target: {
@@ -182,6 +187,10 @@ test('the serialized page witness preserves fetch identity and excludes speculat
         readerCancelled: false,
         bodyCancelled: false,
         lockReleased: false,
+        byteLength: 12,
+        byteLimitExceeded: false,
+        digestFailed: false,
+        bytesMatch: true,
         signalSupplied: false,
         signalAborted: false,
       },
@@ -238,7 +247,7 @@ test('the same passive witness observes only the accepted Home GET consumer', as
       result: snapshot(selected),
     },
     expected: {
-      unrelated: { sameHttpCorrelation: false },
+      unrelated: { sameHttpCorrelation: false, bytesMatch: false },
       samePromise: true,
       result: {
         sameHttpCorrelation: true,
@@ -248,9 +257,66 @@ test('the same passive witness observes only the accepted Home GET consumer', as
         readerCancelled: false,
         bodyCancelled: false,
         lockReleased: false,
+        byteLength: 17,
+        byteLimitExceeded: false,
+        digestFailed: false,
+        bytesMatch: false,
         signalSupplied: false,
         signalAborted: false,
       },
+    },
+  });
+});
+
+test('consumed bytes identify the exact response independently of network termination', async () => {
+  const bytes = new TextEncoder().encode('actual Flight 🌼\nrequest-identity');
+  const digest = Buffer.from(
+    await crypto.subtle.digest('SHA-256', bytes),
+  ).toString('hex');
+  const consume = async (parts: Uint8Array[]) => {
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          for (const part of parts) controller.enqueue(part);
+          controller.close();
+        },
+      }),
+    );
+    const state = observeRecoveryConsumer(response, () => {});
+    const reader = response.body!.getReader();
+    while (!(await reader.read()).done) {
+      /* the real consumer owns reads */
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    return {
+      eof: state.eof,
+      bytesMatch: state.bodyDigest === digest,
+      byteLength: state.byteLength,
+    };
+  };
+  const exact = await consume([bytes.slice(0, 15), bytes.slice(15)]);
+  const truncated = await consume([bytes.slice(0, -1)]);
+  const corrupted = bytes.slice();
+  corrupted[0] = 0;
+  const wrongIdentity = new TextEncoder().encode(
+    'actual Flight 🌼\nother---identity',
+  );
+  assert({
+    given:
+      'exact chunks, a truncated body, a corrupted body and another refusal identity',
+    should:
+      'prove only the exact consumed bytes even when every stream reaches EOF',
+    actual: {
+      exact,
+      truncated: truncated.bytesMatch,
+      corrupted: (await consume([corrupted])).bytesMatch,
+      wrongIdentity: (await consume([wrongIdentity])).bytesMatch,
+    },
+    expected: {
+      exact: { eof: true, bytesMatch: true, byteLength: bytes.length },
+      truncated: false,
+      corrupted: false,
+      wrongIdentity: false,
     },
   });
 });
