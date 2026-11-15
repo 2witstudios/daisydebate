@@ -10,19 +10,19 @@ import type {
   ReleaseCommandRefusal,
   ResultCommand,
   ResultCommandRefusal,
-  ResultEntryOutcome,
 } from '@daisy/protocol/lobby/result-command';
 import type { SettingValues } from '@daisy/protocol/setting-values';
-import {
-  fixtureStateOf,
-  resultEntryWrite,
-  resultRowWrite,
-  type FixtureRecord,
-  type ResultEntryWrite,
-  type ResultRow,
-  type ResultRowWrite,
-} from './fixture';
+import { fixtureStateOf, type FixtureRecord, type ResultRow } from './fixture';
 import { refuse, type CommandDecision } from './run-command';
+import {
+  resultCompetitionRecordSchema,
+  type ResultCompetitionRecord,
+} from '@daisy/protocol/lobby/result-record';
+import { replaceResultCompetitionRecord } from '@daisy/protocol/lobby/result-record-correction';
+import {
+  resultCompetitionWrites,
+  type CompetitionWrite,
+} from './result-competition-writes';
 
 /**
  * Ballot, result and release commands (TAB-5.12). A result command writes
@@ -45,18 +45,8 @@ export type FixtureResultFacts = FixtureRecord & {
   readonly now: string;
   readonly mintedResultId: string;
 };
-export type FixtureResultWrite = ResultRowWrite | ResultEntryWrite;
+export type FixtureResultWrite = CompetitionWrite;
 type FixtureResultRefusal = ResultCommandRefusal | 'not-found';
-
-/** The outcome names each of the fixture's entries exactly once. */
-const outcomeFits = (
-  facts: FixtureResultFacts,
-  entries: readonly ResultEntryOutcome[],
-) =>
-  entries.length === facts.entries.length &&
-  facts.entries.every((entry) =>
-    entries.some((outcome) => outcome.entryId === entry.entryId),
-  );
 
 const supersededIds = (results: readonly ResultRow[]): ReadonlySet<string> =>
   new Set(
@@ -67,73 +57,94 @@ const supersededIds = (results: readonly ResultRow[]): ReadonlySet<string> =>
 
 const recorded = (
   facts: FixtureResultFacts,
-  result: Parameters<typeof resultRowWrite>[2],
-  entries: readonly ResultEntryOutcome[],
+  record: ResultCompetitionRecord,
+  supersedes: string | null,
+  reason: string | null,
 ): CommandDecision<FixtureResultRefusal, FixtureResultWrite> => {
   const id = facts.mintedResultId;
-  return {
-    kind: 'accepted',
-    aggregate: { kind: 'result', id },
-    resultingVersion: 1,
-    writes: [
-      resultRowWrite(
-        facts,
-        { id, commandId: facts.commandId, now: facts.now },
-        result,
-      ),
-      ...entries.map((entry) => resultEntryWrite(facts, id, entry)),
-    ],
-    findings: [],
-    fixtureChanges: [],
-  };
+  const answer = resultCompetitionWrites(
+    facts,
+    { id, commandId: facts.commandId, now: facts.now, supersedes, reason },
+    record,
+  );
+  return answer.kind === 'refused'
+    ? refuse(answer.refusal)
+    : {
+        kind: 'accepted',
+        aggregate: { kind: 'result', id },
+        resultingVersion: 1,
+        writes: answer.writes,
+        findings: [],
+        fixtureChanges: [],
+      };
 };
 
 export const decideFixtureResult = (
   facts: FixtureResultFacts,
-  command: Command<'record-administrative-result' | 'correct-result'>,
+  command: Command<
+    'record-decided-result' | 'record-administrative-result' | 'correct-result'
+  >,
 ): CommandDecision<FixtureResultRefusal, FixtureResultWrite> => {
   if (command.fixtureId !== facts.fixture.id) return refuse('not-found');
   const state = fixtureStateOf(facts);
   if (state === 'withdrawn') return refuse('fixture-withdrawn');
   switch (command.type) {
-    case 'record-administrative-result':
+    case 'record-decided-result': {
+      if (state === 'draft') return refuse('fixture-unpublished');
+      if (state === 'has_result') return refuse('result-exists');
+      if (
+        !facts.completedCompetition ||
+        facts.completedCompetition.source.roundId !== facts.round?.id
+      )
+        return refuse('submission-provenance-unavailable');
+      return recorded(facts, facts.completedCompetition, null, null);
+    }
+    case 'record-administrative-result': {
       if (state === 'draft') return refuse('fixture-unpublished');
       if (state === 'has_result') return refuse('result-exists');
       if (isBlank(command.reason)) return refuse('reason-required');
-      if (!outcomeFits(facts, command.entries))
-        return refuse('outcome-mismatch');
-      return recorded(
-        facts,
-        {
-          kind: 'administrative',
-          administrativeReason: command.administrativeReason,
-          roundId: facts.round?.id ?? null,
-          supersedesResultId: null,
-          correctionReason: null,
-        },
-        command.entries,
-      );
+      const parsed = resultCompetitionRecordSchema.safeParse({
+        ...facts.administrativeContext,
+        version: 1,
+        kind: 'administrative',
+        reason: command.administrativeReason,
+        awards: command.awards,
+      });
+      return parsed.success
+        ? recorded(facts, parsed.data, null, null)
+        : refuse('outcome-mismatch');
+    }
     case 'correct-result': {
       const superseded = facts.results.find(
         (result) => result.id === command.supersedesResultId,
       );
-      if (superseded === undefined) return refuse('result-not-in-fixture');
+      if (!superseded) return refuse('result-not-in-fixture');
       if (supersededIds(facts.results).has(superseded.id))
         return refuse('already-superseded');
       if (isBlank(command.reason)) return refuse('reason-required');
-      if (!outcomeFits(facts, command.entries))
-        return refuse('outcome-mismatch');
-      return recorded(
-        facts,
-        {
-          kind: superseded.kind,
-          administrativeReason: superseded.administrativeReason,
-          roundId: superseded.roundId,
-          supersedesResultId: superseded.id,
-          correctionReason: command.reason,
-        },
-        command.entries,
+      // Only the retained predecessor chain can restore original submission provenance.
+      let cursor: ResultRow | undefined = superseded;
+      let original:
+        Extract<ResultCompetitionRecord, { kind: 'decided' }> | undefined;
+      const visited = new Set<string>();
+      while (cursor && !visited.has(cursor.id)) {
+        visited.add(cursor.id);
+        if (cursor.competitionRecord.kind === 'decided')
+          original = cursor.competitionRecord;
+        const parentId: string | null = cursor.supersedesResultId;
+        cursor =
+          parentId === null
+            ? undefined
+            : facts.results.find((row) => row.id === parentId);
+      }
+      const answer = replaceResultCompetitionRecord(
+        superseded.competitionRecord,
+        command.replacement,
+        original,
       );
+      return answer.kind === 'refused'
+        ? refuse(answer.refusal)
+        : recorded(facts, answer.record, superseded.id, command.reason);
     }
   }
 };

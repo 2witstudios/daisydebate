@@ -19,7 +19,7 @@ import {
 } from './columns';
 import { lobbies } from './lobbies';
 import { organizations } from './organizations';
-import { nonEmpty, oneTenantKey } from './tenant-keys';
+import { nonEmpty, oneTenantKey, bothOrNeither } from './tenant-keys';
 
 /**
  * The typed settings of a ballot: identity plus a pointer to the current
@@ -81,6 +81,11 @@ export const ballotDefinitionVersions = pgTable(
   {
     ballotDefinitionId: text('ballot_definition_id').notNull(),
     version: integer('version').notNull(),
+    /** Exact immutable origin of an independently owned template copy; not an inheritance link. */
+    copiedFromBallotDefinitionId: text('copied_from_ballot_definition_id'),
+    copiedFromBallotDefinitionVersion: integer(
+      'copied_from_ballot_definition_version',
+    ),
     organizationId: text('organization_id'),
     lobbyId: text('lobby_id'),
     /** Its contract is the ballot definition schema, which slice F owns. */
@@ -89,6 +94,23 @@ export const ballotDefinitionVersions = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.ballotDefinitionId, table.version] }),
+    index('ballot_definition_versions_copy_source_idx').on(
+      table.copiedFromBallotDefinitionId,
+      table.copiedFromBallotDefinitionVersion,
+    ),
+    foreignKey({
+      name: 'ballot_definition_versions_copy_source_fk',
+      columns: [
+        table.copiedFromBallotDefinitionId,
+        table.copiedFromBallotDefinitionVersion,
+      ],
+      foreignColumns: [table.ballotDefinitionId, table.version],
+    }).onDelete('restrict'),
+    bothOrNeither(
+      'ballot_definition_versions_copy_source_complete',
+      table.copiedFromBallotDefinitionId,
+      table.copiedFromBallotDefinitionVersion,
+    ),
     index('ballot_definition_versions_organization_idx').on(
       table.ballotDefinitionId,
       table.organizationId,

@@ -1,0 +1,2 @@
+ALTER TABLE "results" ADD COLUMN "competition_record" jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "results" ADD CONSTRAINT "results_competition_record_is_object" CHECK (jsonb_typeof("competition_record") = 'object');

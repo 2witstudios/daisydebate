@@ -1,7 +1,10 @@
+import { formatRevisionPinSchema } from '../format-reference';
+import { roundCompetitionFreezeSchema } from '../round-competition-source';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import {
   ballotDefinitionSchema,
+  panelRuleFor,
   ballotDefinitionSourceSchema,
   roundJudgingSchema,
 } from '../ballot-definition';
@@ -23,10 +26,6 @@ import {
 import { scoreUnitFor, scoreUnitSchema, type ScoreUnit } from '../score-unit';
 import { administrativeResultReasons } from './vocabulary';
 
-const formatPin = z.strictObject({
-  formatId: z.string().trim().min(1),
-  formatVersion: z.int().positive(),
-});
 const entry = z.strictObject({
   entryId: idSchema,
   side: sideKeySchema.nullable(),
@@ -52,15 +51,9 @@ const submission = z.discriminatedUnion('kind', [
 const decided = z.strictObject({
   version: z.literal(1),
   kind: z.literal('decided'),
-  format: formatPin,
+  format: formatRevisionPinSchema,
   fixture: z.strictObject({ kind: z.enum(['pairing', 'section']), entries }),
-  source: z.strictObject({
-    roundId: idSchema,
-    freezeRevision: z.int().positive(),
-    /** Read-only frozen execution input, owned by the Round; standings never reload it from Round. */
-    rules: roundRulesSchema,
-    judging: roundJudgingSchema.unwrap(),
-  }),
+  source: roundCompetitionFreezeSchema,
   pointUnit: scoreUnitSchema.nullable(),
   cast: z.array(castMember).min(1).max(MAX_FORMAT_SEATS),
   /** Original fixture panel order: the chair first, with silent judges retained. */
@@ -94,32 +87,56 @@ const credit = {
   rankCredits: z.array(z.int().positive()).max(MAX_FORMAT_SEATS),
   points: pointsCredit,
 };
-export const administrativeAwardsSchema = z.discriminatedUnion('kind', [
-  z.strictObject({
-    kind: z.literal('bye'),
-    /** The policy is pinned; an own-average award is folded from actual played results. */
-    rule: z.enum(['win', 'own_average']),
-    panelSize: z.int().min(1).max(MAX_FORMAT_SEATS),
-  }),
-  z.strictObject({
-    kind: z.literal('winner'),
-    entries: z
-      .array(z.strictObject({ ...credit, won: z.boolean() }))
-      .min(1)
-      .max(MAX_FORMAT_SEATS),
-  }),
-  z.strictObject({
-    kind: z.literal('ranking'),
-    entries: z
-      .array(z.strictObject({ ...credit, rank: z.int().positive() }))
-      .min(1)
-      .max(MAX_FORMAT_SEATS),
-  }),
-]);
+export const administrativeAwardsSchema = z
+  .discriminatedUnion('kind', [
+    z.strictObject({
+      kind: z.literal('bye'),
+      /** The policy is pinned; an own-average award is folded from actual played results. */
+      rule: z.enum(['win', 'own_average']),
+      panelSize: z.int().min(1).max(MAX_FORMAT_SEATS),
+    }),
+    z.strictObject({
+      kind: z.literal('winner'),
+      entries: z
+        .array(z.strictObject({ ...credit, won: z.boolean() }))
+        .min(1)
+        .max(MAX_FORMAT_SEATS),
+    }),
+    z.strictObject({
+      kind: z.literal('ranking'),
+      entries: z
+        .array(z.strictObject({ ...credit, rank: z.int().positive() }))
+        .min(1)
+        .max(MAX_FORMAT_SEATS),
+    }),
+  ])
+  .superRefine((awards, ctx) => {
+    if (awards.kind === 'bye') return;
+    if (
+      new Set(awards.entries.map((entry) => entry.entryId)).size !==
+      awards.entries.length
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Every awarded entry appears exactly once',
+        path: ['entries'],
+      });
+    for (const [index, entry] of awards.entries.entries())
+      if (
+        entry.points.kind === 'speakers' &&
+        new Set(entry.points.speakers.map((person) => person.actorId)).size !==
+          entry.points.speakers.length
+      )
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Every awarded speaker appears exactly once',
+          path: ['entries', index, 'points', 'speakers'],
+        });
+  });
 const administrative = z.strictObject({
   version: z.literal(1),
   kind: z.literal('administrative'),
-  format: formatPin,
+  format: formatRevisionPinSchema,
   ballotSource: ballotDefinitionSourceSchema,
   definition: ballotDefinitionSchema,
   pointUnit: scoreUnitSchema.nullable(),
@@ -285,6 +302,16 @@ const validateAdministrative = (
   ctx: z.RefinementCtx,
 ) => {
   if (!ballotDefinitionSchema.safeParse(record.definition).success) return;
+  if (
+    !roundJudgingSchema.unwrap().safeParse({
+      source: record.ballotSource,
+      ballot: record.definition,
+      panel: panelRuleFor(record.definition),
+    }).success
+  )
+    issue(ctx, 'The source preserves its exact canonical definition', [
+      'ballotSource',
+    ]);
   const entries = record.fixture.entries;
   const ids = entries.map((row) => row.entryId);
   if (!unique(ids) || !unique(entries.flatMap((row) => row.members)))

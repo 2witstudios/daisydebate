@@ -71,12 +71,19 @@ function commandFence(
   room: RoomAssemblyState,
   actorId: string,
   command: RoomCommand,
+  direction: Edges['direction'],
 ): RoomRefusal | null {
   if (command.expectedVersion !== room.version) return 'version-conflict';
   if (!isOpenRoomStatus(room.status)) return 'room-closed';
   if (
     roomCommandPolicies[command.type].authority === 'host' &&
-    room.hostActorId !== actorId
+    room.hostActorId !== actorId &&
+    !(
+      room.hostActorId === null &&
+      direction?.roomId === room.id &&
+      direction.actorId === actorId &&
+      direction.command === command.type
+    )
   )
     return 'host-required';
   return null;
@@ -99,7 +106,7 @@ export function executeRoomCommand(
   const { edit, transition } = roomCommandPolicies[
     command.type
   ] as RoomCommandPolicy<RoomCommandType>;
-  const fenced = commandFence(room, actorId, command);
+  const fenced = commandFence(room, actorId, command, edges.direction);
   if (fenced) return refuse(fenced);
   const outcome = transition(room, actorId, command, consent, edges);
   if (!outcome.ok) return outcome;

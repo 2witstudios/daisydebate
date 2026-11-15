@@ -1,3 +1,4 @@
+import { daisyWinnerBallot, storedBallotDefinition } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import {
@@ -61,6 +62,7 @@ const reached = (overrides: Partial<ReachedChain> = {}): ReachedChain => ({
 });
 const templateRow: TemplateRow = {
   ballotCompatible: true,
+  ballotDefinition: null,
   id: 'tmpl',
   organizationId: 'league',
   name: 'Varsity LD',
@@ -895,6 +897,99 @@ test('template creation, copying and following refuse incompatible canonical bal
       'illegal-definition',
       'template-unavailable',
       'template-unavailable',
+    ],
+  });
+});
+
+test('copying and detaching a custom template retain an independently owned immutable ballot', () => {
+  const originId = 'o'.repeat(24),
+    copiedId = 'n'.repeat(24);
+  const definition = {
+    ...daisyWinnerBallot,
+    key: 'original-custom',
+    revision: 4,
+  };
+  const template = {
+    ...templateRow,
+    ballotDefinitionId: originId,
+    ballotDefinitionVersion: 4,
+    ballotDefinition: definition,
+  };
+  const context = facts({ newId: copiedId, template });
+  const copied = decideSetting(context, {
+    type: 'copy-template',
+    eventId: 'ld',
+    templateId: 'tmpl',
+  });
+  const detached = decideSetting(
+    {
+      ...context,
+      event: {
+        ...event,
+        templateId: 'tmpl',
+        templateOrganizationId: 'league',
+      },
+    },
+    { type: 'stop-following-template', eventId: 'ld' },
+  );
+  const owned = (answer: ReturnType<typeof decideSetting>) =>
+    answer.kind === 'accepted'
+      ? answer.writes.filter(
+          (write) =>
+            write.table === 'ballot_definitions' ||
+            write.table === 'ballot_definition_versions' ||
+            write.table === 'events',
+        )
+      : answer;
+  const copyWrites = [
+    {
+      table: 'ballot_definitions',
+      op: 'insert',
+      row: {
+        id: copiedId,
+        lobbyId: 'cup',
+        name: 'Varsity LD ballot',
+        currentVersion: 1,
+      },
+    },
+    {
+      table: 'ballot_definition_versions',
+      op: 'insert',
+      row: {
+        ballotDefinitionId: copiedId,
+        version: 1,
+        lobbyId: 'cup',
+        copiedFromBallotDefinitionId: originId,
+        copiedFromBallotDefinitionVersion: 4,
+        definition: storedBallotDefinition(copiedId, 1, definition),
+      },
+    },
+  ];
+  const pins = {
+    formatId: 'ld-format',
+    formatVersion: 3,
+    ballotDefinitionId: copiedId,
+    ballotDefinitionVersion: 1,
+    version: 6,
+    settingsVersion: 8,
+  };
+  assert({
+    given:
+      'a valid foreign template custom pin copied or detached into a personal tournament',
+    should:
+      'create a real lobby-owned immutable source with original provenance and pin it without retaining the template link',
+    actual: [owned(copied), owned(detached)],
+    expected: [
+      [...copyWrites, { table: 'events', op: 'update', id: 'ld', set: pins }],
+      [
+        ...copyWrites,
+        {
+          table: 'events',
+          op: 'update',
+          id: 'ld',
+          set: { ...pins, templateId: null },
+        },
+      ],
     ],
   });
 });

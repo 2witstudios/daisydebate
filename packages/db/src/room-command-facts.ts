@@ -42,6 +42,8 @@ export type Account = ReturnType<typeof authorizationAccountFact>;
 export type AuthorizeRoom = (
   state: RoomAssemblyState,
   account: Account,
+  direction?: import('./tab/room-direction').RoomDirectionInput | null,
+  now?: string,
 ) => boolean;
 export const lockedAccount = async (
   tx: Tx,

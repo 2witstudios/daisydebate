@@ -74,7 +74,16 @@ export const startRound = (
   if (blocker) return refuse(blocker);
   if (castHoldsUnadmittedAiJudge(room, edges.hostMaySeatCasualAiJudge))
     return refuse('ai-judge-premium');
-  if (captureUnadmitted(room, edges.hostHoldsCasualCapture))
+  if (
+    captureUnadmitted(
+      room,
+      edges.hostHoldsCasualCapture ||
+        (room.hostActorId === null &&
+          edges.direction?.roomId === room.id &&
+          edges.direction.command === 'start-round' &&
+          edges.direction.captureAdmitted),
+    )
+  )
     return refuse('capture-premium');
   if (room.visibility === 'private' && room.capture?.broadcast)
     return refuse('broadcast-private');

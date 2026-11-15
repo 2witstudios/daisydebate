@@ -1,0 +1,5 @@
+ALTER TABLE "ballot_definition_versions" ADD COLUMN "copied_from_ballot_definition_id" text;--> statement-breakpoint
+ALTER TABLE "ballot_definition_versions" ADD COLUMN "copied_from_ballot_definition_version" integer;--> statement-breakpoint
+CREATE INDEX "ballot_definition_versions_copy_source_idx" ON "ballot_definition_versions" ("copied_from_ballot_definition_id","copied_from_ballot_definition_version");--> statement-breakpoint
+ALTER TABLE "ballot_definition_versions" ADD CONSTRAINT "ballot_definition_versions_copy_source_fk" FOREIGN KEY ("copied_from_ballot_definition_id","copied_from_ballot_definition_version") REFERENCES "ballot_definition_versions"("ballot_definition_id","version") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "ballot_definition_versions" ADD CONSTRAINT "ballot_definition_versions_copy_source_complete" CHECK (("copied_from_ballot_definition_id" is null) = ("copied_from_ballot_definition_version" is null));

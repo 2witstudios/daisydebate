@@ -1,3 +1,6 @@
+import { panelRuleFor } from '@daisy/protocol';
+import { administrativeFixtureRecord } from './tab-result-record.test-support';
+import { daisyWinnerBallot, storedBallotDefinition } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -5,8 +8,10 @@ import { daisyOrganizationId } from '../src/daisy-reference';
 import { scopeTransaction, type TenantScope } from '../src/tenant-scope';
 import { Fixture, digest } from './constraint-helpers';
 import { validConfig, validRules } from './round-fixtures';
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
-import { frozenJudgingFor } from '../src/round-judging-freeze';
+import {
+  daisyBallotDefinitions,
+  emptyRuntimeCheckpointFor,
+} from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 type Row = Readonly<Record<string, unknown>>;
@@ -97,7 +102,7 @@ const at = (minutes: number) =>
  * league's tournament with both shapes: a debate event that follows the
  * league's template, with preliminary rounds and a novice-division break,
  * sharing its first time slot with a speech event; and a rating-seeded
- * single elimination. It has a bye, a decided result and its correction, a
+ * single elimination. It has a bye, explicit administrative point awards and their correction, a
  * certification made before the correction, releases, a sanction and the
  * season rule. It is test support, never a seed.
  */
@@ -192,6 +197,15 @@ export const loadSampleTournament = async (sql: SQL) => {
     tab_round_id: tabRoundId,
   });
 
+  const awardBallotId = createId();
+  const awardDefinition = storedBallotDefinition(awardBallotId, 1, {
+    ...daisyWinnerBallot,
+    points: {
+      ...daisyWinnerBallot.points!,
+      scale: { min: 0, max: 100, step: 0.5 },
+      default: 50,
+    },
+  });
   await asRuntime(sql, { organizationId: ids.league }, async () => {
     await write('organizations', {
       id: ids.league,
@@ -207,10 +221,24 @@ export const loadSampleTournament = async (sql: SQL) => {
         status: 'active',
         joined_at: at(0),
       });
+    await write('ballot_definitions', {
+      id: awardBallotId,
+      organization_id: ids.league,
+      name: 'Schema award half points',
+      current_version: 1,
+    });
+    await write('ballot_definition_versions', {
+      ballot_definition_id: awardBallotId,
+      version: 1,
+      organization_id: ids.league,
+      definition: awardDefinition,
+    });
     await write('templates', {
       id: ids.template,
       organization_id: ids.league,
       name: 'League Policy',
+      ballot_definition_id: awardBallotId,
+      ballot_definition_version: 1,
       format_id: 'policy',
       format_version: 1,
     });
@@ -241,7 +269,10 @@ export const loadSampleTournament = async (sql: SQL) => {
       ballot_definition_id: ids.ballotDefinition,
       version: 1,
       organization_id: ids.league,
-      definition: { outcome: 'ranking' },
+      definition: {
+        ...daisyBallotDefinitions['rank-speakers@1'],
+        key: 'speech-ballot',
+      },
     });
     await write('seasons', {
       id: ids.season,
@@ -330,6 +361,8 @@ export const loadSampleTournament = async (sql: SQL) => {
       format_id: 'policy',
       format_version: 1,
       template_id: ids.template,
+      ballot_definition_id: awardBallotId,
+      ballot_definition_version: 1,
       entry_kind: 'team',
       team_size: 2,
     });
@@ -603,6 +636,13 @@ export const loadSampleTournament = async (sql: SQL) => {
         id: roomId,
         lobby_id: ids.lobby,
         lobby_kind: 'tournament',
+        ...(formatId === 'policy'
+          ? {
+              template_id: ids.template,
+              ballot_definition_id: awardBallotId,
+              ballot_definition_version: 1,
+            }
+          : {}),
         host_actor_id: null,
         title: 'Event Room',
         topic: 'This house would abolish the sample.',
@@ -665,8 +705,49 @@ export const loadSampleTournament = async (sql: SQL) => {
       expires_at: at(600),
     });
 
-    // Results: the pairing is decided, the bye is administrative.
+    // Schema-only outcomes are explicit host awards, never fake judge submissions.
     ids.round = createId();
+    const awardedEntries = ids.teams.slice(0, 2).map((entryId, index) => ({
+      entryId,
+      side: index === 0 ? 'affirmative' : 'negative',
+      members: debaters.slice(index * 2, index * 2 + 2),
+    }));
+    const originalAward = administrativeFixtureRecord(awardedEntries, {
+      definition: awardDefinition,
+      sourceRoundId: ids.round,
+      source: { kind: 'stored', id: awardBallotId, version: 1 },
+      awards: {
+        kind: 'winner',
+        entries: awardedEntries.map((entry, index) => ({
+          entryId: entry.entryId,
+          won: index === 0,
+          ballotCredits: index === 0 ? 1 : 0,
+          rankCredits: [],
+          points: {
+            kind: 'speakers',
+            speakers: entry.members.map((actorId, slot) => ({
+              actorId,
+              units: 55 + (index * 2 + slot) * 2,
+              rank: index * 2 + slot + 1,
+            })),
+          },
+        })),
+      },
+    });
+    const correctedAward = administrativeFixtureRecord(awardedEntries, {
+      definition: awardDefinition,
+      sourceRoundId: ids.round,
+      source: { kind: 'stored', id: awardBallotId, version: 1 },
+      winner: ids.teams[1],
+    });
+    const byeAward = administrativeFixtureRecord(
+      [{ entryId: ids.teams[2], side: null, members: debaters.slice(4, 6) }],
+      {
+        bye: true,
+        definition: awardDefinition,
+        source: { kind: 'stored', id: awardBallotId, version: 1 },
+      },
+    );
     await write('rounds', {
       id: ids.round,
       room_id: ids.room,
@@ -678,7 +759,11 @@ export const loadSampleTournament = async (sql: SQL) => {
       format_version: 1,
       rules_snapshot: validRules,
       runtime_state: emptyRuntimeCheckpointFor(validRules),
-      judging: frozenJudgingFor(validRules),
+      judging: {
+        source: { kind: 'stored', id: awardBallotId, version: 1 },
+        ballot: awardDefinition,
+        panel: panelRuleFor(awardDefinition, validRules.seats.judges),
+      },
       status: 'opening',
     });
     await command(ids.commands.decide, 'record-result', ids.pairing);
@@ -687,7 +772,9 @@ export const loadSampleTournament = async (sql: SQL) => {
       id: ids.decided,
       ...ancestry(ids.debate, ids.round1),
       fixture_id: ids.pairing,
-      kind: 'decided',
+      kind: 'administrative',
+      administrative_reason: 'ruling',
+      competition_record: originalAward,
       round_id: ids.round,
       command_id: ids.commands.decide,
       recorded_at: at(60),
@@ -720,6 +807,7 @@ export const loadSampleTournament = async (sql: SQL) => {
       ...ancestry(ids.debate, ids.round1),
       fixture_id: ids.bye,
       kind: 'administrative',
+      competition_record: byeAward,
       administrative_reason: 'bye',
       command_id: ids.commands.bye,
       recorded_at: at(61),
@@ -754,7 +842,9 @@ export const loadSampleTournament = async (sql: SQL) => {
       id: ids.correction,
       ...ancestry(ids.debate, ids.round1),
       fixture_id: ids.pairing,
-      kind: 'decided',
+      kind: 'administrative',
+      administrative_reason: 'ruling',
+      competition_record: correctedAward,
       round_id: ids.round,
       supersedes_result_id: ids.decided,
       correction_reason: 'The ballot was entered for the wrong side.',

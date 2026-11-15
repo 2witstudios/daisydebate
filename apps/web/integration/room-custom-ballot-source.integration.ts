@@ -1,3 +1,5 @@
+import { readRoundCompetitionSource } from '@daisy/db/round-competition';
+import { withRolledBackDatabase } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { scratchDatabase, daisyOrganizationId } from '@daisy/db/testing';
@@ -172,6 +174,41 @@ test('DEC408 actual Start freezes the exact stored pin after currentVersion move
         const receipt = await operations.submit(principal, roundId, envelope);
         const replay = await operations.submit(principal, roundId, envelope);
         const own = await readBallotAs(f, f.outsider, roundId);
+        const exported = await withRolledBackDatabase(scratch.url, {
+          seed: async () => null,
+          work: (database) =>
+            database.transaction((tx) =>
+              readRoundCompetitionSource(tx, { roundId, roomId: room.id }),
+            ),
+        });
+        const [terminal] =
+          await f.sql`select command_id,resulting_version from round_finalizations where round_id=${roundId}`;
+        const publishedBallot = exported?.panel[0]?.ballot;
+        assert({
+          given: 'the genuinely submitted and finalized custom ballot',
+          should:
+            'publish only exact consumed competition data with its real terminal witness',
+          actual: [
+            exported?.source.freezeRevision,
+            exported?.source.finalization,
+            publishedBallot?.kind === 'submitted'
+              ? publishedBallot.contribution
+              : null,
+            publishedBallot?.kind === 'submitted'
+              ? publishedBallot.ballotId
+              : null,
+          ],
+          expected: [
+            freeze.freeze.revision,
+            {
+              commandId: terminal!.command_id,
+              resultingVersion: Number(terminal!.resulting_version),
+            },
+            body,
+            receipt.ballotId,
+          ],
+        });
+
         const [stored] =
           await f.sql`select b.rubric_version,b.ballot_definition_id,b.ballot_definition_version,b.reason,b.feedback,b.speaker_ranks,f.ballot_digest=daisy_ballot_content_digest(b) as consumed_exactly,(select count(*)::int from round_commands where round_id=${roundId} and type='submit_ballot') as submissions from ballots b join round_finalization_ballots f on f.ballot_id=b.id where b.id=${receipt.ballotId}`;
         assert({

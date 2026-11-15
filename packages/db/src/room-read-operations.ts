@@ -1,3 +1,5 @@
+import { loadRoomDirection } from './tab/room-direction';
+import { fenceTabAccountRead } from './tab/account-read-fence';
 import {
   currentRoomTopic,
   withOpening,
@@ -63,6 +65,7 @@ import {
   roomFacts,
   lockCommand,
   replayReceipt,
+  transactionNow,
 } from './room-command-facts';
 import { roundResolutionAudit } from './room-draw-persistence';
 /**
@@ -285,6 +288,17 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
+        const [found] = await tx
+          .select()
+          .from(rooms)
+          .where(eq(rooms.id, roomId));
+        if (!found) throw createAppError('NOT_FOUND');
+        if (found.hostActorId === null)
+          await fenceTabAccountRead(tx, caller.userId);
+        const direction = await loadRoomDirection(tx, {
+          room: found,
+          userId: caller.userId,
+        });
         const [row] = await tx
           .select()
           .from(rooms)
@@ -292,7 +306,10 @@ export const roomReadOperations = ({
           .for('share');
         if (!row) throw createAppError('NOT_FOUND');
         const facts = await roomFacts(tx, row);
-        if (!authorize(facts.state, account)) throw createAppError('NOT_FOUND');
+        if (
+          !authorize(facts.state, account, direction, await transactionNow(tx))
+        )
+          throw createAppError('NOT_FOUND');
         return {
           state: {
             ...facts.state,

@@ -1,3 +1,7 @@
+import {
+  loadRoomDirection,
+  type RoomDirectionInput,
+} from './tab/room-direction';
 import { admitCasualCapture } from './casual-capture-admission';
 import type { RoundBotAdmission } from './round-bot-admission';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
@@ -71,6 +75,12 @@ import {
 type CommandInput = {
   readonly caller: Caller;
   readonly authorizeRead: AuthorizeRoom;
+  readonly authorizeCommand?: (
+    state: RoomAssemblyState,
+    account: Account,
+    direction: RoomDirectionInput | null,
+    now: string,
+  ) => boolean;
   readonly roomId: string;
   readonly actorId: string;
   readonly commandId: string;
@@ -98,6 +108,7 @@ type CommandInput = {
     state: RoomAssemblyState,
     now: string,
     account: Account,
+    direction?: RoomDirectionInput | null,
   ) => Promise<
     (
       state: RoomAssemblyState,
@@ -112,6 +123,7 @@ type CommandInput = {
       /** This member's standing on the waiver a Ready needs, under this lock. */
       contentWaiver: ContentWaiverStanding | null,
       maySeatCasualAiJudge: boolean,
+      direction?: RoomDirectionInput | null,
     ) => RoomMutationOutcome
   >;
 };
@@ -158,8 +170,7 @@ async function executeOnce(
   judgeAdmission: CasualJudgeAdmission | undefined,
 ): Promise<RoomCommandReceipt> {
   const preparation = await prepareCommand(tx, input);
-  if ('replay' in preparation) return preparation.replay;
-  const { prepared, execute } = preparation;
+  const { prepared } = preparation;
   const botLocked = await lockBotFreeze(
     tx,
     botDebaterLaunch(input, prepared),
@@ -180,6 +191,10 @@ async function executeOnce(
     maxActors: fencedActors.length,
   });
   const account = await loadAuthorizationAccount(tx, input.caller.userId);
+  const direction = await loadRoomDirection(tx, {
+    room: preparation.row,
+    userId: input.caller.userId,
+  });
   const [row] = await tx
     .select()
     .from(rooms)
@@ -187,7 +202,15 @@ async function executeOnce(
     .for('update');
   if (!row) throw createAppError('NOT_FOUND');
   const { state } = await roomFactsForWrite(tx, row);
-  if (!input.authorizeRead(state, account)) throw createAppError('NOT_FOUND');
+  if (!input.authorizeRead(state, account, direction, await transactionNow(tx)))
+    throw createAppError('NOT_FOUND');
+  if (
+    input.authorizeCommand &&
+    !input.authorizeCommand(state, account, direction, await transactionNow(tx))
+  )
+    throw createAppError('AUTHORIZATION');
+  if ('replay' in preparation) return preparation.replay;
+  const execute = preparation.execute;
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
@@ -249,6 +272,7 @@ async function executeOnce(
     grants,
     contentWaiver,
     judgeQuote?.decision.kind === 'admit',
+    direction,
   );
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
@@ -283,6 +307,7 @@ async function executeOnce(
   if (
     outcome.mutation.freeze &&
     outcome.mutation.state.competitionType !== 'ranked' &&
+    outcome.mutation.state.hostActorId !== null &&
     outcome.mutation.state.capture !== null
   )
     await admitCasualCapture(tx, {
@@ -346,7 +371,19 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     .where(eq(rooms.id, input.roomId));
   if (!preparationRow) throw createAppError('NOT_FOUND');
   const { state: prepared } = await roomFacts(tx, preparationRow);
-  if (!input.authorizeRead(prepared, preparationAccount))
+  const direction = await loadRoomDirection(tx, {
+    room: preparationRow,
+    userId: input.caller.userId,
+    snapshot: true,
+  });
+  if (
+    !input.authorizeRead(
+      prepared,
+      preparationAccount,
+      direction,
+      await transactionNow(tx),
+    )
+  )
     throw createAppError('NOT_FOUND');
   if (input.caller.actorId !== input.actorId)
     throw createAppError('AUTHORIZATION');
@@ -357,13 +394,24 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     input.payloadDigest,
     input.roomId,
   );
-  if (replay) return { replay } as const;
+  if (
+    input.authorizeCommand &&
+    !input.authorizeCommand(
+      prepared,
+      preparationAccount,
+      direction,
+      await transactionNow(tx),
+    )
+  )
+    throw createAppError('AUTHORIZATION');
+  if (replay) return { replay, prepared, row: preparationRow } as const;
   const execute = await input.prepare(
     prepared,
     await transactionNow(tx),
     preparationAccount,
+    direction,
   );
-  return { prepared, execute } as const;
+  return { prepared, execute, row: preparationRow } as const;
 }
 
 /** A Launch whose prepared cast seats a bot debater. */

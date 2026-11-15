@@ -245,11 +245,13 @@ const attemptRows = (prepared: number, locked: number) => {
     [accountRow()],
     ...before.slice(4, 11),
     [], // no seat holds
+    before[12]!, // fresh authorization instant before preparation's receipt read
     [],
     before[12]!,
     ...after.slice(0, 3),
     ...after.slice(4, 11),
     [], // no seat holds
+    after[12]!, // final authorization is sampled after account and Room fences
   ];
 };
 /** A whole accepted start at `changeVersion`, through its receipt. */

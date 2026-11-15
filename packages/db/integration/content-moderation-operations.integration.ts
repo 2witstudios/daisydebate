@@ -870,6 +870,7 @@ test('a ranked speaker can report the feedback written under their own participa
     const third = await f.seat(roundId, 'speaker', 2);
     const judge = await f.seat(roundId, 'judge');
     const judging = {
+      source: { kind: 'daisy', key: 'rank-speakers', revision: 1 },
       ballot: daisyBallotDefinitions['rank-speakers@1'],
       panel: { decision: 'rank_sum', quorum: 1 },
     };

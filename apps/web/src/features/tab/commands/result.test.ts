@@ -1,3 +1,9 @@
+import {
+  fixtureCompetition,
+  fixtureAdministrativeContext,
+  fixtureAwards,
+  fixtureReplacement,
+} from './fixture-competition.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type {
   ReleaseCommand,
@@ -22,6 +28,7 @@ const id = (letter: string) => letter.repeat(24);
 const fixtureId = id('f');
 const now = '2026-11-14T10:00:00.000Z';
 const original: ResultRow = {
+  competitionRecord: fixtureCompetition(),
   id: id('q'),
   kind: 'decided',
   administrativeReason: null,
@@ -44,9 +51,21 @@ const published: FixtureResultFacts = {
     roomId: id('o'),
     version: 2,
   },
+  completedCompetition: fixtureCompetition(),
+  administrativeContext: fixtureAdministrativeContext(),
   entries: [
-    { entryId: id('a'), side: 'affirmative', schoolOrganizationId: null },
-    { entryId: id('b'), side: 'negative', schoolOrganizationId: null },
+    {
+      position: 0,
+      entryId: id('a'),
+      side: 'affirmative',
+      schoolOrganizationId: null,
+    },
+    {
+      position: 1,
+      entryId: id('b'),
+      side: 'negative',
+      schoolOrganizationId: null,
+    },
   ],
   members: [],
   panel: [],
@@ -68,14 +87,14 @@ const administrative: Extract<
   fixtureId,
   administrativeReason: 'ruling',
   reason: 'Evidence violation',
-  entries: outcome,
+  awards: fixtureAwards,
 };
 const correct: Extract<ResultCommand, { type: 'correct-result' }> = {
   type: 'correct-result',
   fixtureId,
   supersedesResultId: id('q'),
   reason: 'Ballot entered against the wrong side',
-  entries: outcome,
+  replacement: fixtureReplacement(),
 };
 
 const refusalOf = (decision: { kind: string; refusal?: string }) =>
@@ -121,7 +140,7 @@ test('an administrative result', () => {
       refusalOf(
         decideFixtureResult(published, {
           ...administrative,
-          entries: [outcome[0]!],
+          awards: { ...fixtureAwards, entries: [fixtureAwards.entries[0]!] },
         }),
       ),
       refusalOf(
@@ -154,6 +173,21 @@ test('a correction is a new result naming the one it supersedes', () => {
             tabRoundId: id('t'),
             fixtureId,
             kind: 'decided',
+            competitionRecord: {
+              ...fixtureCompetition(),
+              panel: fixtureCompetition().panel.map((row, index) => ({
+                ...row,
+                ballot:
+                  row.ballot.kind === 'submitted'
+                    ? {
+                        ...row.ballot,
+                        contribution:
+                          fixtureReplacement().contributions[index]!
+                            .contribution,
+                      }
+                    : row.ballot,
+              })),
+            },
             administrativeReason: null,
             roundId: id('d'),
             supersedesResultId: id('q'),

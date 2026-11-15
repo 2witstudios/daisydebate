@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import { administrativeAwardsSchema } from './result-record';
 import { judgingForceKeys } from '../settings/force';
 import {
   lobbyCommandEnvelope,
@@ -70,6 +71,7 @@ const recordForfeitCommandSchema = z.strictObject({
   fixtureId: idSchema,
   entryId: idSchema,
   reason: typedReason,
+  awards: administrativeAwardsSchema,
 });
 
 export const fixtureCommandSchema = z.discriminatedUnion('type', [
@@ -99,6 +101,7 @@ export const fixtureCommandRefusals = [
   'ballot-submitted',
   'round-not-started',
   'entry-not-in-fixture',
+  'outcome-mismatch',
 ] as const;
 export type FixtureCommandRefusal = (typeof fixtureCommandRefusals)[number];
 
@@ -177,6 +180,7 @@ export const fixtureCommandCatalogue = {
       'fixture-bye',
       'result-exists',
       'entry-not-in-fixture',
+      'outcome-mismatch',
       'reason-required',
     ],
     history: 'entry',

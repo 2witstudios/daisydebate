@@ -33,10 +33,26 @@ test('Room assembly read hydrates its pinned definition and current host label',
         rulesSnapshot: room.rules,
       }),
     ],
+    [
+      roomRow({
+        id: room.id,
+        hostActorId: caller.actorId,
+        title: room.title,
+        topic: room.topic,
+        formatId: room.formatId,
+        config: room.config,
+        capture: null,
+        postRoundCall: false,
+        executionPlan: room.executionPlan,
+        rulesSnapshot: room.rules,
+      }),
+    ],
     [[foundationDefinition]],
     [], // the Room has no claimed participants yet
     [[caller.actorId, 'human', 'current-host', null, true, null]],
     [], // no new Round exists
+    [], // no seat holds
+    [{ now: new Date('2026-10-09T00:00:00.000Z') }], // post-fence read authority instant
   ]);
 
   const state = await database.readRoomAssembly(

@@ -19,6 +19,12 @@ import type {
   tournamentJudgeStatuses,
 } from '@daisy/protocol/lobby';
 import type { RoundStatus } from '@daisy/protocol';
+import type { ResultCompetitionRecord } from '@daisy/protocol/lobby/result-record';
+import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
+import {
+  resultCompetitionWrites,
+  type CompetitionWrite,
+} from './result-competition-writes';
 import { refuse, type CommandDecision } from './run-command';
 
 /**
@@ -43,6 +49,7 @@ export type FixtureRow = {
 type FixtureEntryRow = {
   readonly entryId: string;
   readonly side: string | null;
+  readonly position: number;
   readonly schoolOrganizationId: string | null;
 };
 /** An `entry_members` row of one of the fixture's entries. */
@@ -97,6 +104,7 @@ export type ResultRow = {
   readonly roundId: string | null;
   readonly supersedesResultId: string | null;
   readonly recordedAt: string;
+  readonly competitionRecord: ResultCompetitionRecord;
 };
 
 /** The `judging.*` rules a judge assignment is checked against. */
@@ -118,6 +126,16 @@ export type FixtureRecord = {
   readonly round: RoundRow | null;
   readonly ballots: readonly BallotRow[];
   readonly results: readonly ResultRow[];
+  /** Only the actual terminal Round export can make a decided record. */
+  readonly completedCompetition: Extract<
+    ResultCompetitionRecord,
+    { kind: 'decided' }
+  > | null;
+  /** Pinned event/fixture context for explicit administrative awards. */
+  readonly administrativeContext: Omit<
+    Extract<ResultCompetitionRecord, { kind: 'administrative' }>,
+    'version' | 'kind' | 'reason' | 'awards'
+  >;
 };
 
 export type FixtureFacts = FixtureRecord & {
@@ -153,6 +171,7 @@ export type ResultRowWrite = {
     readonly correctionReason: string | null;
     readonly commandId: string;
     readonly recordedAt: string;
+    readonly competitionRecord: ResultCompetitionRecord;
   };
 };
 export type ResultEntryWrite = {
@@ -215,8 +234,7 @@ type FixtureWrite =
       readonly id: string;
       readonly likeRoomId: string;
     }
-  | ResultRowWrite
-  | ResultEntryWrite;
+  | CompetitionWrite;
 
 /** Where a fixture is in its life: the rows of the plan's state table. */
 export type FixtureState =
@@ -492,6 +510,7 @@ export const resultRowWrite = (
     | 'roundId'
     | 'supersedesResultId'
     | 'correctionReason'
+    | 'competitionRecord'
   >,
 ): ResultRowWrite => ({
   table: 'results',
@@ -525,40 +544,6 @@ export const resultEntryWrite = (
     ...outcome,
   },
 });
-
-/**
- * The `decided` result a complete panel makes: each entry's ballots are
- * those naming its side, and an entry wins with a majority of them.
- */
-const decidedResultWrites = (
-  facts: FixtureFacts,
-  round: RoundRow,
-): readonly FixtureWrite[] => {
-  const id = facts.minted.resultId;
-  const tally = (side: string | null) =>
-    facts.ballots.filter((ballot) => ballot.winner === side).length;
-  return [
-    resultRowWrite(
-      facts,
-      { id, commandId: facts.commandId, now: facts.now },
-      {
-        kind: 'decided',
-        administrativeReason: null,
-        roundId: round.id,
-        supersedesResultId: null,
-        correctionReason: null,
-      },
-    ),
-    ...facts.entries.map((entry) =>
-      resultEntryWrite(facts, id, {
-        entryId: entry.entryId,
-        won: tally(entry.side) * 2 > facts.ballots.length,
-        rank: null,
-        ballotsWon: tally(entry.side),
-      }),
-    ),
-  ];
-};
 
 const accepted = (
   facts: FixtureFacts,
@@ -640,30 +625,32 @@ const replaceJudge = (
   );
 };
 
-/** Once a ballot is in, the panel is complete when every judge left has submitted. */
-const completedRound = (
-  facts: FixtureFacts,
-  panel: readonly FixtureJudgeRow[],
-): RoundRow | null => {
-  if (fixtureStateOf(facts) !== 'ballot_in' || panel.length === 0) return null;
-  const submitted = submittedActors(facts);
-  const complete = panel.every((row) => {
-    const judge = judgeOf(facts, row.tournamentJudgeId);
-    return judge !== null && submitted.has(judge.actorId);
-  });
-  return complete ? facts.round : null;
-};
-
+/** Removing a silent judge cannot manufacture a completed Round or a submitted ballot. */
 const unassignJudge = (
   facts: FixtureFacts,
   command: Of<'unassign-judge'>,
 ): Decision => {
   const unseated = unseat(facts, command.judgeId);
   if (unseated.kind === 'refused') return refuse(unseated.refusal);
-  const round = completedRound(facts, unseated.panel);
+  const completed = facts.completedCompetition;
+  const writes =
+    completed === null
+      ? null
+      : resultCompetitionWrites(
+          facts,
+          {
+            id: facts.minted.resultId,
+            commandId: facts.commandId,
+            now: facts.now,
+            supersedes: null,
+            reason: null,
+          },
+          completed,
+        );
+  if (writes?.kind === 'refused') return refuse('outcome-mismatch');
   return accepted(facts, command.type, unseated.panel, [
     unseated.write,
-    ...(round === null ? [] : decidedResultWrites(facts, round)),
+    ...(writes?.kind === 'written' ? writes.writes : []),
   ]);
 };
 
@@ -704,28 +691,36 @@ const recordForfeit = (
   if (!facts.entries.some((entry) => entry.entryId === command.entryId))
     return refuse('entry-not-in-fixture');
   if (isBlank(command.reason)) return refuse('reason-required');
-  const id = facts.minted.resultId;
-  return accepted(facts, command.type, facts.panel, [
-    resultRowWrite(
-      facts,
-      { id, commandId: facts.commandId, now: facts.now },
-      {
-        kind: 'administrative',
-        administrativeReason: 'forfeit',
-        roundId: facts.round?.id ?? null,
-        supersedesResultId: null,
-        correctionReason: null,
-      },
-    ),
-    ...facts.entries.map((entry) =>
-      resultEntryWrite(facts, id, {
-        entryId: entry.entryId,
-        won: entry.entryId !== command.entryId,
-        rank: null,
-        ballotsWon: null,
-      }),
-    ),
-  ]);
+  const parsed = resultCompetitionRecordSchema.safeParse({
+    ...facts.administrativeContext,
+    version: 1,
+    kind: 'administrative',
+    reason: 'forfeit',
+    awards: command.awards,
+  });
+  if (
+    !parsed.success ||
+    parsed.data.kind !== 'administrative' ||
+    parsed.data.awards.kind !== 'winner' ||
+    parsed.data.awards.entries.some(
+      (entry) => entry.won !== (entry.entryId !== command.entryId),
+    )
+  )
+    return refuse('outcome-mismatch');
+  const writes = resultCompetitionWrites(
+    facts,
+    {
+      id: facts.minted.resultId,
+      commandId: facts.commandId,
+      now: facts.now,
+      supersedes: null,
+      reason: null,
+    },
+    parsed.data,
+  );
+  return writes.kind === 'refused'
+    ? refuse(writes.refusal)
+    : accepted(facts, command.type, facts.panel, writes.writes);
 };
 
 /** Judge commands also serve a draft fixture; a restart or forfeit needs it published. */

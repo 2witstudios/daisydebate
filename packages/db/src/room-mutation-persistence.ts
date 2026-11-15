@@ -3,10 +3,12 @@ import { eq } from 'drizzle-orm';
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
   emptyRuntimeCheckpointFor,
+  aiBallotAdmissionRefusal,
+  isJudgeSeat,
   freezePostRoundCall,
   freezeRoomConfig,
 } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
+import { createRefusal, createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
@@ -65,6 +67,18 @@ export const persistRoomMutation = async (
   const judging = mutation.freeze
     ? await freezeRoomBallot(tx, next.id, next.rules)
     : null;
+  if (
+    judging &&
+    next.participants.some((p) => p.kind === 'bot' && isJudgeSeat(p.seat))
+  ) {
+    const refusal = aiBallotAdmissionRefusal(
+      judging.ballot,
+      next.rules,
+      next.participants,
+    );
+    if (refusal)
+      throw createRefusal('CONFLICT', 'ballot-definition-unavailable');
+  }
   if (mutation.publishDefinition)
     await publishDefinition(
       tx,

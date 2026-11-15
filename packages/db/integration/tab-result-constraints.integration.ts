@@ -1,5 +1,10 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import {
+  daisyBallotDefinitions,
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol';
 import { assert, test } from 'riteway/bun';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -35,7 +40,10 @@ const result = async (
     ...round1(ids),
     fixture_id: ids.bye,
     kind: 'administrative',
-    administrative_reason: 'ruling',
+    administrative_reason: 'bye',
+    competition_record: (
+      await sql`select competition_record from results where id=${ids.byeResult}`
+    )[0]!.competition_record,
     command_id: await recordCommand(sql, ids),
     recorded_at: at(120),
     ...rest,
@@ -440,6 +448,32 @@ test('a release names a tab round and the cause that opened it, once per tab rou
 test('ballot definitions are versioned and pinned, and screening never rewrites a ballot', async () => {
   await withSample(url, async (sql, ids) => {
     const fixture = new Fixture(sql);
+    const definitionId = createId();
+    const definition = {
+      ...daisyWinnerBallot,
+      key: 'sample-winner',
+      revision: 1,
+      points: null,
+    };
+    await insertRow(sql, 'ballot_definitions', {
+      id: definitionId,
+      organization_id: ids.league,
+      name: 'Sample winner ballot',
+      current_version: 1,
+    });
+    await insertRow(sql, 'ballot_definition_versions', {
+      ballot_definition_id: definitionId,
+      version: 1,
+      organization_id: ids.league,
+      definition,
+    });
+    await sql`update rounds set judging = ${JSON.stringify({
+      source: { kind: 'stored', id: definitionId, version: 1 },
+      ballot: definition,
+      panel: panelRuleFor(definition),
+    })}::text::jsonb where id = ${ids.round}`;
+    await fixture.seat(ids.round, 'affirmative');
+    await fixture.seat(ids.round, 'negative');
     const judge = await fixture.seat(ids.round, 'judge');
     await fixture.freeze(ids.round);
     const ballot = createId();
@@ -456,10 +490,10 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
         submitted_at: at(50),
         ...rest,
       });
-    // A host's definition is pinned by id and version; it names no Daisy rubric.
+    // A host's ballot keeps its own key/revision as well as the immutable version pin.
     await writeBallot(ballot, {
-      rubric_version: null,
-      ballot_definition_id: ids.ballotDefinition,
+      rubric_version: 'sample-winner@1',
+      ballot_definition_id: definitionId,
       ballot_definition_version: 1,
     });
     const before = (
@@ -536,7 +570,11 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
             ballot_definition_id: ids.ballotDefinition,
             version: 2,
             organization_id: ids.league,
-            definition: { outcome: 'ranking', ranks: 6 },
+            definition: {
+              ...daisyBallotDefinitions['rank-speakers@1'],
+              key: 'speech-ballot',
+              revision: 2,
+            },
           }),
         ),
       },

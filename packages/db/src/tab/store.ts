@@ -1,3 +1,6 @@
+import { createResultCommandStore } from './result-command';
+export type { LoadedResultCommand, ResultWrite } from './result-command';
+export type { RoomDirectionInput } from './room-direction';
 import { createEventBallotReadStore } from './event-ballot-read';
 export type { EventBallotFacts } from './event-ballot-read';
 import { createTournamentEventSettingReadStore } from './tournament-event-settings';
@@ -146,6 +149,7 @@ const roleNamedOf = (
  * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TabDatabase) => ({
+  ...createResultCommandStore(database),
   ...createGuardianCommandStore(database),
   ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),

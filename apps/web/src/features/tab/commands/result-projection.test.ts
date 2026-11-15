@@ -13,7 +13,7 @@ import {
 } from '@daisy/protocol/lobby/result-record';
 import { replaceResultCompetitionRecord } from '@daisy/protocol/lobby/result-record-correction';
 import { standings } from '@daisy/tab-engine';
-import { engineSettings } from './engine-settings';
+import { engineSettings } from '../operations/engine-settings';
 import { projectResultCompetition } from './result-projection';
 
 setupRitewayBun();
@@ -45,6 +45,7 @@ const record = (): Extract<ResultCompetitionRecord, { kind: 'decided' }> => ({
   source: {
     roundId: id('r'),
     freezeRevision: 1,
+    finalization: { commandId: id('z'), resultingVersion: 8 },
     rules: fixtureRules(format),
     judging: {
       source: { kind: 'stored', id: id('w'), version: definition.revision },

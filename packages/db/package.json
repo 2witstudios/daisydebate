@@ -49,7 +49,8 @@
     "./round-incident-rate": "./src/round-incident-rate.ts",
     "./broadcast-worker": "./src/broadcast-worker-store.ts",
     "./recording-worker": "./src/recording-worker-store.ts",
-    "./room-assembly": "./src/room-assembly.ts"
+    "./room-assembly": "./src/room-assembly.ts",
+    "./round-competition": "./src/round-competition-source.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",

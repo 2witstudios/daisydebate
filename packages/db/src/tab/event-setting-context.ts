@@ -27,6 +27,8 @@ export const lockEventSettingContext = async (
     readonly extraOrganizationIds?: readonly string[];
     /** Readers share the aggregate fence; commands retain exclusive locks by default. */
     readonly strength?: 'share' | 'update';
+    /** Preparation only; commands reload under canonical account/parent fences. */
+    readonly snapshot?: boolean;
   },
 ) => {
   const [foundLobby] = await tx
@@ -67,35 +69,40 @@ export const lockEventSettingContext = async (
   ].sort();
   for (const organizationId of organizationIds) {
     await scopeTransaction(tx, { ...scope, organizationId });
-    await tx
+    const query = tx
       .select({ id: organizations.id })
       .from(organizations)
-      .where(eq(organizations.id, organizationId))
-      .for('share');
+      .where(eq(organizations.id, organizationId));
+    await (input.snapshot ? query : query.for('share'));
   }
   if (foundTemplate)
     await scopeTransaction(tx, {
       ...scope,
       organizationId: foundTemplate.organizationId,
     });
-  const [template] = foundTemplate
-    ? await tx
-        .select()
-        .from(templates)
-        .where(eq(templates.id, foundTemplate.id))
-        .for('share')
+  const templateQuery = foundTemplate
+    ? tx.select().from(templates).where(eq(templates.id, foundTemplate.id))
+    : null;
+  const [template] = templateQuery
+    ? await (input.snapshot ? templateQuery : templateQuery.for('share'))
     : [];
   await scopeTransaction(tx, scope);
-  const [lobby] = await tx
+  const lobbyQuery = tx
     .select()
     .from(lobbies)
-    .where(eq(lobbies.id, foundLobby.id))
-    .for(input.strength ?? 'update');
-  const [event] = await tx
+    .where(eq(lobbies.id, foundLobby.id));
+  const [lobby] = await (input.snapshot
+    ? lobbyQuery
+    : lobbyQuery.for(input.strength ?? 'update'));
+  const eventQuery = tx
     .select()
     .from(events)
-    .where(and(eq(events.id, foundEvent.id), eq(events.lobbyId, foundLobby.id)))
-    .for(input.strength ?? 'update');
+    .where(
+      and(eq(events.id, foundEvent.id), eq(events.lobbyId, foundLobby.id)),
+    );
+  const [event] = await (input.snapshot
+    ? eventQuery
+    : eventQuery.for(input.strength ?? 'update'));
   if (
     !lobby ||
     !event ||
@@ -115,7 +122,7 @@ export const lockEventSettingContext = async (
         eq(formatRevisions.version, event.formatVersion),
       ),
     );
-  const [preset] = await tx
+  const presetQuery = tx
     .select()
     .from(formatPresets)
     .where(
@@ -125,8 +132,10 @@ export const lockEventSettingContext = async (
       ),
     )
     .orderBy(desc(formatPresets.version))
-    .limit(1)
-    .for('share');
+    .limit(1);
+  const [preset] = await (input.snapshot
+    ? presetQuery
+    : presetQuery.for('share'));
   if (!definition || !preset)
     throw createAppError(
       'INVARIANT',

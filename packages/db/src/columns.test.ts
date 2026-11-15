@@ -87,6 +87,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'recording_processing_jobs.state',
         'recordings.eligibility',
         'recordings.lifecycle',
+        'results.competition_record',
         'room_commands.result',
         'rooms.capture',
         'rooms.config',

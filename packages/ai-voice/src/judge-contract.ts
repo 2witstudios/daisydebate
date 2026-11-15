@@ -127,4 +127,4 @@ export const caseMapWireSchema: JsonSchema = endpointSubset(
 );
 
 /** Recorded on every attempt: bump when a prompt or wire schema changes. */
-export const judgeContractVersion = 'judge-contract@3';
+export const judgeContractVersion = 'judge-contract@4';

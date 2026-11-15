@@ -76,6 +76,7 @@ test('the writer hands frames over on a 10 ms schedule, `leadMs` ahead', async (
 test('the writer keeps its cadence while a concurrent call stalls 200 ms (ADR 0122)', async () => {
   // Real time: the stall is another promise on the same event loop.
   const stamps: number[] = [];
+  const waits: { due: number; enteredAt: number; resumedAt: number }[] = [];
   const write = createStreamingAudioWriter({
     target: {
       capture10ms: async () => {
@@ -88,8 +89,10 @@ test('the writer keeps its cadence while a concurrent call stalls 200 ms (ADR 01
     channels: 1,
     nowMs: () => performance.now(),
     waitUntilMs: async (due) => {
+      const enteredAt = performance.now();
       while (performance.now() < due)
         await Bun.sleep(Math.max(1, due - performance.now()));
+      waits.push({ due, enteredAt, resumedAt: performance.now() });
     },
     leadMs: 0,
   });
@@ -102,6 +105,18 @@ test('the writer keeps its cadence while a concurrent call stalls 200 ms (ADR 01
   await stall;
   const beforeStallEnded = stamps.filter((at) => at - start < 190).length;
   const gaps = stamps.slice(1).map((at, index) => at - stamps[index]!);
+  process.stderr.write(
+    JSON.stringify({
+      event: 'audio_stream_cadence_observation',
+      maxGapMs: Math.max(...gaps),
+      stamps: stamps.map((at) => at - start),
+      waits: waits.map((wait) => ({
+        due: wait.due - start,
+        enteredAt: wait.enteredAt - start,
+        resumedAt: wait.resumedAt - start,
+      })),
+    }) + '\n',
+  );
   assert({
     given: 'a 300 ms stream and a concurrent 200 ms stall it never awaits',
     should:

@@ -910,3 +910,12 @@ export {
   scoreValueAt,
   type ScoreUnit,
 } from './score-unit';
+
+export {
+  roundCompetitionSourceSchema,
+  roundCompetitionFreezeSchema,
+  type RoundCompetitionSource,
+} from './round-competition-source';
+export { formatRevisionPinSchema } from './format-reference';
+
+export { aiBallotAdmissionRefusal } from './ai-ballot-admission';

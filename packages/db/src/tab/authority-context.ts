@@ -16,20 +16,22 @@ export const loadAuthorityContext = async (
   tx: TabTransaction,
   scope: TenantScope,
   userId: string,
-  strength: 'update' | 'share' = 'update',
+  strength: 'update' | 'share' | null = 'update',
 ): Promise<TabAuthorization> => {
   const organization = scope.organizationId
     ? await lockOrganization(tx, scope.organizationId, strength)
     : null;
-  const [lobby] = scope.lobbyId
-    ? await tx
+  const lobbyQuery = scope.lobbyId
+    ? tx
         .select({
           id: lobbies.id,
           ownerOrganizationId: lobbies.ownerOrganizationId,
         })
         .from(lobbies)
         .where(eq(lobbies.id, scope.lobbyId))
-        .for(strength)
+    : null;
+  const [lobby] = lobbyQuery
+    ? await (strength === null ? lobbyQuery : lobbyQuery.for(strength))
     : [];
   const addressedLobby =
     lobby && lobby.ownerOrganizationId === (organization?.id ?? null)

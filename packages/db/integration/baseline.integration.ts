@@ -101,11 +101,12 @@ test('every jsonb column carries a database CHECK for its shape: an object, or a
             and c.conname = col.table_name || '_' || col.column_name || '_is_object'
             and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''object''%'
         ) or exists (
-          -- A ranking's places are the one jsonb array: its table's CHECK names its shape.
+          -- Ranking columns may be nullable; their own CHECK still requires an array.
           select 1 from pg_constraint c
           where c.conrelid = (quote_ident(col.table_name))::regclass
             and c.contype = 'c'
-            and col.column_name = 'ranking'
+            and (select a.attnum from pg_attribute a
+                 where a.attrelid = c.conrelid and a.attname = col.column_name) = any(c.conkey)
             and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''array''%'
         ) as guarded
       from information_schema.columns col

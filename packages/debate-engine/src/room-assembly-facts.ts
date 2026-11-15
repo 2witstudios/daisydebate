@@ -28,6 +28,13 @@ type Target = RoomParticipant & {
   readonly aiRole: AiRole | null;
 };
 export type Edges = {
+  /** A trusted adapter's exact direction, checked against the real caller and Room. */
+  readonly direction?: {
+    readonly roomId: string;
+    readonly actorId: string;
+    readonly command: 'start-round';
+    readonly captureAdmitted: boolean;
+  } | null;
   readonly now: string;
   readonly participantId: string;
   /** The id of the Round a Start round launches; null on every other command's path. */

@@ -1,3 +1,8 @@
+import {
+  ballotDefinitions,
+  ballotDefinitionVersions,
+} from '../schema/ballot-definitions';
+import type { BallotDefinition } from '@daisy/protocol';
 import type { SettingKey } from '@daisy/protocol/setting-values';
 import { and, eq, isNull } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -24,6 +29,28 @@ type Pins = {
   readonly ballotDefinitionVersion: number | null;
 };
 export type SettingWrite =
+  | {
+      readonly table: 'ballot_definitions';
+      readonly op: 'insert';
+      readonly row: {
+        readonly id: string;
+        readonly lobbyId: string;
+        readonly name: string;
+        readonly currentVersion: number;
+      };
+    }
+  | {
+      readonly table: 'ballot_definition_versions';
+      readonly op: 'insert';
+      readonly row: {
+        readonly ballotDefinitionId: string;
+        readonly version: number;
+        readonly lobbyId: string;
+        readonly definition: BallotDefinition;
+        readonly copiedFromBallotDefinitionId: string;
+        readonly copiedFromBallotDefinitionVersion: number;
+      };
+    }
   | {
       readonly table: 'settings';
       readonly op: 'insert';
@@ -155,6 +182,12 @@ const apply = async (
   newId: () => string,
 ): Promise<void> => {
   switch (write.table) {
+    case 'ballot_definitions':
+      await tx.insert(ballotDefinitions).values(write.row);
+      return;
+    case 'ballot_definition_versions':
+      await tx.insert(ballotDefinitionVersions).values(write.row);
+      return;
     case 'settings':
       return applySetting(tx, write, newId);
     case 'organizations':

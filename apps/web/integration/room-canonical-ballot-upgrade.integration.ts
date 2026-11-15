@@ -1,6 +1,7 @@
+import { readRoundCompetitionSource } from '@daisy/db/round-competition';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
-import { scratchDatabase } from '@daisy/db/testing';
+import { scratchDatabase, withRolledBackDatabase } from '@daisy/db/testing';
 import { judgeSeat } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -76,6 +77,44 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table ballots drop column speaker_ranks`;
     await scratch.migrate(() => true);
     const after = await read();
+    const [owner] =
+      await sql`select r.room_id,f.freeze_revision from rounds r join round_finalizations f on f.round_id=r.id where r.id=${roundId}`;
+    const published = await withRolledBackDatabase(scratch.url, {
+      seed: async () => null,
+      work: (database) =>
+        database.transaction((tx) =>
+          readRoundCompetitionSource(tx, {
+            roundId,
+            roomId: String(owner!.room_id),
+          }),
+        ),
+    });
+    const contribution = published?.panel[0]?.ballot;
+    assert({
+      given:
+        'an actual ordinary finalized ballot whose original reason remains retained through migration',
+      should:
+        'publish its real consumed competition reference without original words or citation text',
+      actual: [
+        contribution?.kind === 'submitted' ? contribution.ballotId : null,
+        published?.source.freezeRevision,
+        JSON.stringify(published).includes(
+          'A real submitted contract fixture, preserved through migration.',
+        ),
+        JSON.stringify(contribution ?? null).includes('"reason"'),
+        JSON.stringify(contribution ?? null).includes('"feedback"'),
+        JSON.stringify(contribution ?? null).includes('"citations"'),
+      ],
+      expected: [
+        ballotId,
+        Number(owner!.freeze_revision),
+        false,
+        false,
+        false,
+        false,
+      ],
+    });
+
     const [digest] =
       await sql`select f.ballot_digest=daisy_ballot_content_digest(b) as unchanged_digest,r.status,(select count(*)::int from results) as results from ballots b join round_finalization_ballots f on f.ballot_id=b.id join rounds r on r.id=b.round_id where b.id=${ballotId}`;
     assert({

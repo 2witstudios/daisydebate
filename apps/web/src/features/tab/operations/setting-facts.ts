@@ -1,3 +1,4 @@
+import { ballotDefinitionSchema } from '@daisy/protocol';
 import { ballotPinCompatible } from './ballot-pin-compatible';
 import type { LoadedSettingCommand, SettingGraph } from '@daisy/db/tab';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
@@ -25,6 +26,18 @@ export const settingRow = (row: StoredSetting): SettingRow => {
     value: row.value,
   }) as SettingRow;
 };
+const canonicalTemplateBallot = (
+  graph: SettingGraph,
+  template: SettingGraph['templates'][number],
+) => {
+  const version = graph.ballots.find(
+    (row) =>
+      row.ballotDefinitionId === template.ballotDefinitionId &&
+      row.version === template.ballotDefinitionVersion,
+  );
+  const parsed = ballotDefinitionSchema.safeParse(version?.definition);
+  return parsed.success ? parsed.data : null;
+};
 export const templateFact = (
   graph: SettingGraph,
   row: SettingGraph['templates'][number],
@@ -39,6 +52,7 @@ export const templateFact = (
   retiredAt: row.retiredAt?.toISOString() ?? null,
   version: row.version,
   ballotCompatible: ballotPinCompatible(graph, { ...row, lobbyId: null }),
+  ballotDefinition: canonicalTemplateBallot(graph, row),
   format: formatSettingDefaults(graph, row.formatId, row.formatVersion),
 });
 const scopeFact = (
@@ -96,7 +110,14 @@ export const settingFacts = (
     command.type === 'set-setting' || command.type === 'clear-setting'
       ? command.scope
       : null;
-  const template = named.template ? templateFact(graph, named.template) : null;
+  const selectedTemplate =
+    named.template ??
+    (command.type === 'stop-following-template'
+      ? graph.templates.find((row) => row.id === named.event?.templateId)
+      : undefined);
+  const template = selectedTemplate
+    ? templateFact(graph, selectedTemplate)
+    : null;
   const event = named.event ? settingEventFact(graph, named.event) : null;
   const pin = command.type === 'create-template' ? command.format : null;
   const format = graph.formats.find(

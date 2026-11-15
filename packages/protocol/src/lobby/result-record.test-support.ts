@@ -28,6 +28,7 @@ export const decidedRecord = () =>
     source: {
       roundId: recordId('r'),
       freezeRevision: 1,
+      finalization: { commandId: recordId('z'), resultingVersion: 8 },
       rules: fixtureRules(oneOnOneFormatFixture),
       judging: {
         source: daisyBallotSource(daisyWinnerBallot),

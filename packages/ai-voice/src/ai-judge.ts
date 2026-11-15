@@ -1,6 +1,12 @@
 import { createInvariantError } from '@daisy/errors';
 import {
   ballotSchemaFor,
+  aiBallotAdmissionRefusal,
+  ballotSubjectsFor,
+  isDebatingSeat,
+  seatOrder,
+  type RoundRules,
+  type SeatRef,
   twoSideKeys,
   type Ballot,
   type BallotDefinition,
@@ -13,12 +19,17 @@ import { ballotAnswer, type JudgedAnswer, type ModelAnswer } from './judge';
 import { ballotWireSchemaFor, type JsonSchema } from './judge-contract';
 import type { ChatMessage } from './openrouter';
 import { judgingStageMessages } from './staged-judge';
+import { subjectJudgeMessages } from './subject-judge';
 import type { TranscriptEvidenceInput } from './transcript-evidence';
 
 /** What the AI judge reads of a Round's rules: its sides and its segments. */
 export type AiJudgeRules = {
   readonly sides: readonly Side[];
-  readonly segments: readonly { readonly key: string }[];
+  readonly segments: readonly {
+    readonly key: string;
+    readonly speak?: RoundRules['segments'][number]['speak'];
+  }[];
+  readonly seats?: RoundRules['seats'];
 };
 
 /**
@@ -55,28 +66,29 @@ const onTwoSidedPreset = (sides: readonly Side[]) =>
 
 /**
  * The AI judge for a frozen definition and a Round's rules. The AI judges
- * sided formats only, and names only sides: a definition that ranks or
- * scores speakers, or scores speeches, addresses subjects the evidence does
- * not name, and is refused.
+ * sided formats only. Speaker and speech subjects come from the complete
+ * frozen cast and rules, never from which voices happened to be transcribed.
  */
 export function aiJudgeFor(
   definition: BallotDefinition,
   rules: AiJudgeRules,
+  participants: readonly { readonly id: string; readonly seat: SeatRef }[] = [],
 ): AiJudge {
   const { sides } = rules;
-  if (sides.length < 2) throw refuse('ai-judge-unsided-format');
-  if (
-    definition.decision.kind === 'ranking' &&
-    definition.decision.of === 'speakers'
-  )
-    throw refuse('ai-judge-ranks-speakers');
-  if (definition.speakerRanks || (definition.points?.per ?? 'side') !== 'side')
-    throw refuse('ai-judge-unnamed-subjects');
-  const subjects: BallotSubjects = {
-    sides: sides.map((side) => side.key),
-    speakers: [],
-    segments: rules.segments.map((segment) => segment.key),
-  };
+  const refusal = aiBallotAdmissionRefusal(definition, rules, participants);
+  if (refusal) throw refuse(refusal);
+  const namedSubjects =
+    definition.speakerRanks ||
+    (definition.decision.kind === 'ranking' &&
+      definition.decision.of === 'speakers') ||
+    (definition.points !== null && definition.points.per !== 'side');
+  const speakers = participants
+    .filter((p) => isDebatingSeat(p.seat))
+    .sort((a, b) => seatOrder(sides)(a.seat, b.seat));
+  const subjects: BallotSubjects = ballotSubjectsFor(
+    rules,
+    namedSubjects ? speakers : [],
+  );
   // Every ballot the definition's schema accepts is a ballot record.
   const ballotSchema = ballotSchemaFor(
     definition,
@@ -91,7 +103,16 @@ export function aiJudgeFor(
     stageMessages: (evidence, stage) => {
       if (stage.stage !== 'first' && !coherency)
         throw refuse('ai-judge-coherency-two-sided');
-      return judgingStageMessages(evidence, stage, definition, sides);
+      return namedSubjects && stage.stage !== 'map'
+        ? subjectJudgeMessages(
+            evidence,
+            stage,
+            definition,
+            rules,
+            speakers,
+            subjects,
+          )
+        : judgingStageMessages(evidence, stage, definition, sides);
     },
     judgeAnswer: (answer) => ballotAnswer(answer, ballotSchema),
   };
