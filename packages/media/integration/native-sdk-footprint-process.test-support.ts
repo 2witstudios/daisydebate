@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   inspectArchiveDirectory,
+  inspectVendorSource,
   readArchiveBody,
 } from './native-sdk-archive.test-support';
 
@@ -95,9 +96,57 @@ try {
     budgetBytes: allowance,
     ...resources(),
   });
-  // Pinned vendor build definitions are evidence of configuration, never measured build peaks.
+  for (const source of [
+    {
+      repo: 'rust-sdks',
+      pin: rustPin,
+      path: 'webrtc-sys/build.rs',
+      blob: '3791253050956a0d6ffc09dc8f03ace44905843f',
+    },
+    {
+      repo: 'rust-sdks',
+      pin: rustPin,
+      path: 'webrtc-sys/build/src/lib.rs',
+      blob: '586b6675123cffb1f8b5d99ce0ffa6d8744e9250',
+    },
+    {
+      repo: 'node-sdks',
+      pin: nodePin,
+      path: 'packages/livekit-rtc/src/audio_source.ts',
+      blob: '42d3d279f977fd204c98bca2d9ff3b55b015c902',
+    },
+  ]) {
+    stage = source.path;
+    const url = `https://raw.githubusercontent.com/livekit/${source.repo}/${source.pin}/${source.path}`;
+    const chunks: Uint8Array[] = [];
+    const result = await receive(url, 1024 * 1024, async (chunk) => {
+      chunks.push(chunk);
+    });
+    const bytes = Buffer.concat(chunks);
+    const identity = inspectVendorSource(bytes);
+    const isPrebuiltHelper = source.path === 'webrtc-sys/build/src/lib.rs';
+    const identityMatches = identity.gitBlob === source.blob;
+    const helperMatches = !isPrebuiltHelper || identity.prebuiltTag === tag;
+    const routesToHelper =
+      source.path !== 'webrtc-sys/build.rs' ||
+      bytes.toString('utf8').includes('webrtc_sys_build::download_webrtc()');
+    // Keep the measured identity before refusing; no raw transport cause is needed.
+    output({
+      stage: 'vendor-source',
+      url,
+      ...source,
+      ...result,
+      ...identity,
+      identityMatches,
+      helperMatches,
+      routesToHelper,
+      measuredBuildPeaks: null,
+    });
+    if (!identityMatches || !helperMatches || !routesToHelper)
+      throw new Error('Vendor source identity differs');
+  }
+  // Optional pinned build definitions are configuration, never measured build peaks.
   for (const path of [
-    'webrtc-sys/build.rs',
     '.github/workflows/node-builds.yml',
     '.github/workflows/webrtc-builds.yml',
   ]) {
@@ -118,11 +167,6 @@ try {
       continue;
     }
     const text = Buffer.concat(chunks).toString('utf8');
-    if (
-      path === 'webrtc-sys/build.rs' &&
-      !text.includes(`pub const WEBRTC_TAG: &str = "${tag}"`)
-    )
-      throw new Error('Vendor prebuilt tag differs');
     output({
       stage,
       url,

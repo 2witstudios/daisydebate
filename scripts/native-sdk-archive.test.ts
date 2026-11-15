@@ -1,9 +1,32 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   inspectArchiveDirectory,
+  inspectVendorSource,
   readArchiveBody,
 } from '../packages/media/integration/native-sdk-archive.test-support';
 setupRitewayBun();
+
+test('vendor identity uses Git blob framing and does not invent a tag in the main build', () => {
+  const plain = inspectVendorSource(Buffer.from('hello\n'));
+  const helper = inspectVendorSource(
+    Buffer.from('pub const WEBRTC_TAG: &str = "webrtc-89d790b";'),
+  );
+  assert({
+    given: 'a known Git blob without a tag and a distinct tag-bearing helper',
+    should:
+      'identify content independently of its saved filename and read the tag only where declared',
+    actual: {
+      blob: plain.gitBlob,
+      mainTag: plain.prebuiltTag,
+      helperTag: helper.prebuiltTag,
+    },
+    expected: {
+      blob: 'ce013625030ba8dba906f756967f9e9ca394464a',
+      mainTag: null,
+      helperTag: 'webrtc-89d790b',
+    },
+  });
+});
 
 test('archive acquisition refuses an oversized stream before accepting excess bytes', async () => {
   let accepted = 0;

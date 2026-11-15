@@ -1,5 +1,17 @@
 import { createHash } from 'node:crypto';
 
+export const inspectVendorSource = (bytes: Buffer) => ({
+  gitBlob: createHash('sha1')
+    .update(`blob ${bytes.length}\0`)
+    .update(bytes)
+    .digest('hex'),
+  sha256: createHash('sha256').update(bytes).digest('hex'),
+  prebuiltTag:
+    /pub const WEBRTC_TAG: &str = "(webrtc-[a-f0-9]+)"/.exec(
+      bytes.toString('utf8'),
+    )?.[1] ?? null,
+});
+
 /** Read a body once, refusing bytes outside the caller's remaining allowance. */
 export const readArchiveBody = async (
   body: ReadableStream<Uint8Array>,
