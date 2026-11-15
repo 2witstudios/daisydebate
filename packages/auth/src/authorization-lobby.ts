@@ -122,6 +122,7 @@ const lobbyResourceKinds: readonly string[] = [
   'ballot',
   'pending_command',
   'sanction',
+  'tournament_sponsorship',
 ] satisfies readonly LobbyResourceFact['kind'][];
 
 /** The decision for an admitted member on an organization, a lobby or anything in one. */
@@ -133,6 +134,13 @@ export function lobbyDecision(
   decideOn: DecideOn,
 ): AuthorizationDecision {
   switch (resource.kind) {
+    case 'tournament_sponsorship':
+      return (capability === 'tournament.sponsorship.consent' ||
+        capability === 'tournament.sponsorship.withdraw') &&
+        resource.sponsorActorId === holder.actorId &&
+        bandAtLeast(holder.ageBand, 'adult')
+        ? allowRelated('self')
+        : deny('missing-capability');
     case 'organization_collection':
       return organizationCreation(holder, resource, context);
     case 'organization':

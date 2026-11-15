@@ -46,6 +46,7 @@ export const authorizationResourceKindSchema = z.enum([
   'ballot',
   'pending_command',
   'sanction',
+  'tournament_sponsorship',
 ]);
 export type AuthorizationResourceKind = z.infer<
   typeof authorizationResourceKindSchema
@@ -235,6 +236,16 @@ const rows: Record<AuthorizationCapability, Row> = {
   'guardian.link.manage': on(['guardian_link'], null),
   'guardian.link.read': on(['guardian_link'], null, read),
   'lobby.create': on(['lobby_collection'], null),
+  'tournament.sponsorship.consent': on(
+    ['tournament_sponsorship'],
+    'lobby',
+    tournament,
+  ),
+  'tournament.sponsorship.withdraw': on(
+    ['tournament_sponsorship'],
+    null,
+    tournament,
+  ),
   'lobby.read': on(['lobby'], 'lobby', read),
   'lobby.host.read': on(['lobby'], 'lobby', read),
   'lobby.room.create': on(['lobby'], 'lobby', { lobbyKind: 'standing' }),

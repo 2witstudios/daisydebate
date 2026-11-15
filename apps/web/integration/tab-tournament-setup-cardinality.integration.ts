@@ -40,7 +40,6 @@ test('a real zero-event setup is readable without inventing its first event', as
         common = { store, authorize, now: world.clock.now, newId: createId };
       const created = await lobbyAdministrationCommand({
         ...common,
-        hostingPlan: async () => true,
       })(as(world.bots.Director!), {
         version: 1,
         commandId: createId(),
@@ -164,7 +163,6 @@ test('host setup exposes every actual authorized sanction without another lobby 
       ]) {
         const organization = await organizationCommand({
           ...common,
-          hostingPlan: async () => true,
         })(as(world.bots.Director!), {
           version: 1,
           commandId: createId(),
@@ -198,7 +196,6 @@ test('host setup exposes every actual authorized sanction without another lobby 
           throw new Error('Sanction template refused');
         const season = await lobbyAdministrationCommand({
           ...common,
-          hostingPlan: async () => true,
         })(as(world.bots.Director!), {
           version: 1,
           commandId: createId(),

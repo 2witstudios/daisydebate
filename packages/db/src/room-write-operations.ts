@@ -1,3 +1,9 @@
+import { reserveTournamentCapture } from './tab/tournament-capture-admission';
+import {
+  locateTournamentCaptureFunder,
+  TournamentCaptureFundingChanged,
+} from './tab/tournament-capture-funding';
+import { lockNonrankedCaptureCapacity } from './nonranked-capture-capacity';
 import {
   loadRoomDirection,
   type RoomDirectionInput,
@@ -22,6 +28,7 @@ import type {
   RoomMutationOutcome,
   PublishedResolution,
   RoomRefusal,
+  TournamentCaptureAdmission,
 } from '@daisy/protocol';
 
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -81,6 +88,11 @@ type CommandInput = {
     direction: RoomDirectionInput | null,
     now: string,
   ) => boolean;
+  readonly captureAdmission?: (
+    state: RoomAssemblyState,
+    direction: RoomDirectionInput | null,
+    now: string,
+  ) => TournamentCaptureAdmission | null;
   readonly roomId: string;
   readonly actorId: string;
   readonly commandId: string;
@@ -149,7 +161,9 @@ export const roomWriteOperations = ({
           transaction((tx) =>
             executeOnce(tx, input, botAdmission, judgeAdmission),
           ),
-        (error) => error instanceof RoomMoved,
+        (error) =>
+          error instanceof RoomMoved ||
+          error instanceof TournamentCaptureFundingChanged,
         ATTEMPTS,
         // The Room kept moving under the command: the caller rereads it.
         () => createRefusal('CONFLICT', 'version-conflict'),
@@ -176,6 +190,15 @@ async function executeOnce(
     botDebaterLaunch(input, prepared),
     botAdmission,
   );
+  const captureFunder =
+    input.type === 'start-round' &&
+    preparation.row.hostActorId === null &&
+    prepared.capture?.recordingPolicy === 'officials'
+      ? await locateTournamentCaptureFunder(tx, {
+          lobbyId: preparation.row.lobbyId,
+          callerUserId: input.caller.userId,
+        })
+      : null;
   const initialSeats = await tx
     .select({ actorId: roomParticipants.actorId })
     .from(roomParticipants)
@@ -183,6 +206,7 @@ async function executeOnce(
   const fencedActors = [
     ...new Set([
       input.caller.actorId,
+      ...(captureFunder ? [captureFunder.actorId] : []),
       ...initialSeats.map((p) => p.actorId),
       ...(input.targetActorId ? [input.targetActorId] : []),
     ]),
@@ -194,6 +218,7 @@ async function executeOnce(
   const direction = await loadRoomDirection(tx, {
     room: preparation.row,
     userId: input.caller.userId,
+    captureFunder,
   });
   const [row] = await tx
     .select()
@@ -259,6 +284,12 @@ async function executeOnce(
           withBot: input.seatsBotDebater(state),
         })
       : null;
+  if (
+    input.type === 'start-round' &&
+    direction &&
+    state.capture?.recordingPolicy === 'officials'
+  )
+    await lockNonrankedCaptureCapacity(tx);
   // Facts can wait on SQL locks. Admission uses one instant after those waits.
   const now = judgeQuote?.now ?? (await transactionNow(tx));
   const outcome = execute(
@@ -308,7 +339,9 @@ async function executeOnce(
     outcome.mutation.freeze &&
     outcome.mutation.state.competitionType !== 'ranked' &&
     outcome.mutation.state.hostActorId !== null &&
-    outcome.mutation.state.capture !== null
+    outcome.mutation.state.capture !== null &&
+    (outcome.mutation.state.capture.recordingPolicy !== 'off' ||
+      outcome.mutation.state.capture.broadcast !== null)
   )
     await admitCasualCapture(tx, {
       hostActorId: chargedHostOf(outcome.mutation.state),
@@ -337,6 +370,24 @@ async function executeOnce(
     now,
     next.changeVersion,
   );
+  if (
+    outcome.mutation.freeze &&
+    next.hostActorId === null &&
+    next.capture !== null &&
+    next.capture.recordingPolicy !== 'off'
+  ) {
+    const admission = input.captureAdmission?.(next, direction, now);
+    if (!admission || !direction)
+      throw createRefusal('CONFLICT', 'capture-premium');
+    await reserveTournamentCapture(tx, {
+      admission,
+      direction,
+      roundId: input.roundId,
+      roomId: next.id,
+      commandId: input.commandId,
+      actorId: input.caller.actorId,
+    });
+  }
   return receipt;
 }
 

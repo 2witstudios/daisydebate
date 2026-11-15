@@ -1,3 +1,5 @@
+export { tournamentHostingGrantFor } from './tournament-hosting-entitlement';
+export { currentEntitlementGrants } from './entitlement-validity';
 export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
 export { canManageBilling, canPurchasePremium } from './billing-policy';
 export { admitAllowance, canUseAiAllowance } from './allowance';

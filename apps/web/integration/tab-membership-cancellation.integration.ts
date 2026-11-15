@@ -45,7 +45,6 @@ test('DEC406: invitation cancellation binds the displayed membership and races a
           authorize,
           now: clock.now,
           newId: createId,
-          hostingPlan: async () => false,
         }),
         people: readOrganizationPeople({ store, authorize, now: clock.now }),
       };

@@ -31,6 +31,11 @@ export type RecordingStatus = (typeof recordingStatuses)[number];
 export const recordingEligibilitySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('ranked') }),
   z.strictObject({ kind: z.literal('host_opt_in'), hostActorId: idSchema }),
+  z.strictObject({
+    kind: z.literal('tournament_admission'),
+    admissionId: idSchema,
+    deadlineAt: z.iso.datetime(),
+  }),
 ]);
 export type RecordingEligibility = z.infer<typeof recordingEligibilitySchema>;
 

@@ -22,7 +22,8 @@ export type BroadcastEgressFact =
   | { readonly kind: 'none' }
   | { readonly kind: 'starting' | 'active'; readonly id: string }
   | { readonly kind: 'failed'; readonly id: string }
-  | { readonly kind: 'complete' };
+  | { readonly kind: 'complete' }
+  | { readonly kind: 'unresolved'; readonly id: string };
 
 /** What the lifecycle decides on. Anything unrecognised counts as failed, never running. */
 export const egressFact = (
@@ -40,8 +41,9 @@ export const egressFact = (
     case EgressStatus.EGRESS_FAILED:
     case EgressStatus.EGRESS_ABORTED:
     case EgressStatus.EGRESS_LIMIT_REACHED:
-    default:
       return { kind: 'failed', id };
+    default:
+      return { kind: 'unresolved', id };
   }
 };
 
@@ -115,7 +117,40 @@ export function createBroadcastEgress(deps: {
     /** A job LiveKit no longer lists is reported failed, so it cannot look alive. */
     async read(id: string): Promise<BroadcastEgressFact> {
       const [info] = await client.listEgress({ egressId: id });
-      return info ? egressFact(info) : { kind: 'failed', id };
+      return !info
+        ? { kind: 'failed', id }
+        : info.egressId === id
+          ? egressFact(info)
+          : { kind: 'unresolved', id };
+    },
+    /** Recover only an exact deployed stage and generation; missing listings never prove non-dispatch. */
+    async readStageAttempt(input: {
+      readonly stageUrl: string;
+      readonly generation: number;
+    }) {
+      const expected = new URL(input.stageUrl);
+      const observed = await client.listEgress();
+      const matches = observed.filter((info) => {
+        if (info.request.case !== 'web') return false;
+        try {
+          const actual = new URL(info.request.value.url);
+          return (
+            actual.origin === expected.origin &&
+            actual.pathname === expected.pathname &&
+            actual.searchParams.get('g') === String(input.generation)
+          );
+        } catch {
+          return false;
+        }
+      });
+      const [actual] = matches;
+      return matches.length === 1 && actual && actual.egressId.length > 0
+        ? {
+            kind: 'observed' as const,
+            egressId: actual.egressId,
+            fact: egressFact(actual),
+          }
+        : { kind: 'unresolved' as const };
     },
     /**
      * Every running stage Egress of this deployment, whatever we recorded: what a
@@ -189,6 +224,8 @@ export function broadcastEgressOnNodes(input: {
     stop: (id) => anyNode((egress) => egress.stop(id)),
     read: (id) => anyNode((egress) => egress.read(id)),
     listStages: (origin) => anyNode((egress) => egress.listStages(origin)),
+    readStageAttempt: (request) =>
+      anyNode((egress) => egress.readStageAttempt(request)),
     revokeObserver: (room) => anyNode((egress) => egress.revokeObserver(room)),
     restoreObserver: (room) =>
       anyNode((egress) => egress.restoreObserver(room)),

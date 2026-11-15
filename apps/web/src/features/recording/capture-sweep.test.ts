@@ -12,6 +12,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   id: 'rec',
   roundId: 'round',
   lifecycle: { status: 'requested' },
+  eligibility: { kind: 'ranked' },
   competitionType: 'ranked',
   roundCapture: null,
   roundStatus: 'active',
@@ -27,6 +28,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 const casualOwn = {
   competitionType: 'casual',
+  eligibility: { kind: 'host_opt_in', hostActorId: 'host' },
   roundCapture: { broadcast: null, recordingPolicy: 'released' },
   broadcast: null,
 };
@@ -54,6 +56,8 @@ const setup = (over: {
   const sweep = createRecordingCaptureSweep({
     store: {
       discoverUnrecorded: async () => over.unrecorded ?? [],
+      listExpiredTournamentAdmissions: async () => [],
+      settleUndispatchedTournamentAdmission: log('settleUndispatched', true),
       listOpen: async () => over.open ?? [],
       listJobs: async (_limit: number, after: string | null) => {
         cursors.push(after);
@@ -66,6 +70,8 @@ const setup = (over: {
       openOwn: log('openOwn'),
       claimOwn: async () => over.claim ?? true,
       holdOwn: log('holdOwn'),
+      beginOwnEgressAttempt: log('beginOwnEgressAttempt', true),
+      settleOwnEgressAttempt: log('settleOwnEgressAttempt', true),
       recordOwnEgressStarted: log(
         'recordOwnEgressStarted',
         over.startWon ?? true,
@@ -98,6 +104,7 @@ const setup = (over: {
     egress: {
       start: log('egress.start', 'EG_NEW') as never,
       stop: log('egress.stop') as never,
+      readStageAttempt: async () => ({ kind: 'unresolved' }),
       read: (async () => over.egressRead ?? { kind: 'none' }) as never,
       revokeObserver: log('egress.revoke'),
       restoreObserver: log('egress.restore'),
@@ -123,6 +130,7 @@ describe('discovery', () => {
           hostActorId: 'host',
           capture: { broadcast: null, recordingPolicy: 'released' },
           hostGrants: [],
+          tournamentAdmission: null,
         },
       ],
     });
@@ -140,6 +148,8 @@ describe('discovery', () => {
             hostActorId: 'host',
             hostOptedIn: true,
             hostHoldsRecording: true,
+            tournamentAdmission: null,
+            now: at,
           },
         ],
       ],
@@ -201,9 +211,13 @@ describe('a Recording with no Broadcast', () => {
         ['openOwn', { recordingId: 'rec', roundId: 'round' }],
         ['holdOwn', { recordingId: 'rec', until: new Date(NOW + 15_000) }],
         [
+          'beginOwnEgressAttempt',
+          { recordingId: 'rec', generation: 1, stageCredentialHash: 'digest' },
+        ],
+        [
           'egress.start',
           {
-            stageUrl: 'https://app.test/stage/rec?c=s3cret',
+            stageUrl: 'https://app.test/stage/rec?c=s3cret&g=1',
             holdPrefix: 'recording-hold/rec/1/',
             segmentSeconds: 4,
           },
@@ -235,6 +249,7 @@ describe('a Recording with no Broadcast', () => {
       expected: [
         ['openOwn'],
         ['holdOwn'],
+        ['beginOwnEgressAttempt'],
         ['egress.start'],
         ['recordOwnEgressStarted'],
         ['report', 'recording.egress.start_lost'],

@@ -27,12 +27,16 @@ import type { RecordingCapturePort } from './capture-port';
 type Store = Pick<
   ReturnType<typeof createDatabase>['recordingCaptures'],
   | 'discoverUnrecorded'
+  | 'listExpiredTournamentAdmissions'
+  | 'settleUndispatchedTournamentAdmission'
   | 'listOpen'
   | 'readRound'
   | 'openOwn'
   | 'claimOwn'
   | 'holdOwn'
   | 'recordOwnEgressStarted'
+  | 'beginOwnEgressAttempt'
+  | 'settleOwnEgressAttempt'
   | 'recordOwnRevoked'
   | 'recordOwnRevocationFailed'
   | 'recordOwnRestored'
@@ -66,6 +70,17 @@ type Egress = {
   }) => Promise<string>;
   readonly stop: (id: string) => Promise<void>;
   readonly read: (id: string) => Promise<StageEgressFact>;
+  readonly readStageAttempt: (input: {
+    readonly stageUrl: string;
+    readonly generation: number;
+  }) => Promise<
+    | {
+        readonly kind: 'observed';
+        readonly egressId: string;
+        readonly fact: StageEgressFact;
+      }
+    | { readonly kind: 'unresolved' }
+  >;
   readonly revokeObserver: (room: string) => Promise<unknown>;
   readonly restoreObserver: (room: string) => Promise<unknown>;
 };
@@ -155,6 +170,7 @@ export const createRecordingCaptureSweep = (deps: {
       nowMs,
       lifecycle: open.lifecycle,
       roundEnded: ended,
+      captureDeadlineAtMs: null,
       path: {
         kind: 'broadcast',
         broadcastId: broadcast?.id ?? null,
@@ -178,8 +194,14 @@ export const createRecordingCaptureSweep = (deps: {
     nowMs,
     lifecycle: open.lifecycle,
     roundEnded: isRoundOver(open.roundStatus),
+    captureDeadlineAtMs:
+      open.eligibility.kind === 'tournament_admission'
+        ? Date.parse(open.eligibility.deadlineAt)
+        : null,
     path: {
       kind: 'own',
+      pendingDispatch: own.egressDispatchedAt !== null && own.egressId === null,
+      physicallySettled: own.egressSettledAt !== null,
       latest: attemptOf(own, nowMs),
       egress: own.egressId ? await egress.read(own.egressId) : { kind: 'none' },
       phase,
@@ -227,6 +249,8 @@ export const createRecordingCaptureSweep = (deps: {
       case 'restore-observer':
       case 'forget-revocation':
       case 'close-own-capture':
+      case 'recover-egress':
+      case 'settle-egress':
         return null;
     }
   };
@@ -240,6 +264,47 @@ export const createRecordingCaptureSweep = (deps: {
   ) => {
     const recordingId = open.id;
     switch (action.type) {
+      case 'recover-egress':
+        return attempt(
+          async () => {
+            if (
+              own.egressDispatchedAt === null ||
+              own.stageCredentialHash === null
+            )
+              return;
+            const observed = await egress.readStageAttempt({
+              stageUrl: deps.stageUrl(recordingId, ''),
+              generation: own.attempt,
+            });
+            if (observed.kind === 'observed')
+              await store.recordOwnEgressStarted({
+                recordingId,
+                egressId: observed.egressId,
+                generation: own.attempt,
+                stageCredentialHash: own.stageCredentialHash,
+                now: new Date(nowMs),
+              });
+          },
+          () => deps.report('recording.egress.start_failed'),
+        );
+      case 'settle-egress':
+        return attempt(
+          async () => {
+            if (!own.egressId) return;
+            const observation = await egress.read(own.egressId);
+            if (
+              observation.kind === 'complete' ||
+              observation.kind === 'failed'
+            )
+              await store.settleOwnEgressAttempt({
+                recordingId,
+                generation: own.attempt,
+                egressId: own.egressId,
+                observation,
+              });
+          },
+          () => deps.report('recording.egress.stop_failed'),
+        );
       case 'start-egress': {
         const credential = deps.newCredential();
         const generation = own.attempt + 1;
@@ -250,8 +315,18 @@ export const createRecordingCaptureSweep = (deps: {
               recordingId,
               until: new Date(nowMs + START_LEASE_MS),
             });
+            const begun = await store.beginOwnEgressAttempt({
+              recordingId,
+              generation,
+              stageCredentialHash: credential.hash,
+            });
+            if (!begun) return;
+            const stage = new URL(
+              deps.stageUrl(recordingId, credential.secret),
+            );
+            stage.searchParams.set('g', String(generation));
             const egressId = await egress.start({
-              stageUrl: deps.stageUrl(recordingId, credential.secret),
+              stageUrl: stage.toString(),
               holdPrefix: holdAttemptPrefix(
                 recordingHoldPrefix(recordingId, OWN_SOURCE),
                 generation,
@@ -330,6 +405,9 @@ export const createRecordingCaptureSweep = (deps: {
       egressId: null,
       attempt: 0,
       egressStartedAt: null,
+      egressDispatchedAt: null,
+      egressSettledAt: null,
+      stageCredentialHash: null,
       observerRevokedAt: null,
       revocationFailures: 0,
     };
@@ -425,6 +503,10 @@ export const createRecordingCaptureSweep = (deps: {
   const failed = () => deps.report('recording.capture_failed');
   const pass = createSweepPass(deps.passBudget);
   const sweep = async () => {
+    for (const expired of await store.listExpiredTournamentAdmissions(BATCH))
+      await store
+        .settleUndispatchedTournamentAdmission(expired.roundId)
+        .catch(failed);
     for (const round of await store.discoverUnrecorded(BATCH))
       await (async () => {
         if (plannedRecording(round) === 'off') return;
@@ -434,6 +516,8 @@ export const createRecordingCaptureSweep = (deps: {
           hostActorId: round.hostActorId,
           hostOptedIn: (round.capture?.recordingPolicy ?? 'off') !== 'off',
           hostHoldsRecording: deps.holdsCapture(round.hostGrants),
+          tournamentAdmission: round.tournamentAdmission,
+          now: iso(deps.now()),
         });
       })().catch(failed);
     await pass.overPages(

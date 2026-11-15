@@ -249,7 +249,13 @@ type SanctionAuthorizationFact = {
 };
 
 /** Every resource the lobby rules decide. */
+export type TournamentSponsorshipAuthorizationFact = {
+  readonly kind: 'tournament_sponsorship';
+  readonly scope: TournamentScopeFact;
+  readonly sponsorActorId: string;
+};
 export type LobbyResourceFact =
+  | TournamentSponsorshipAuthorizationFact
   | OrganizationCollectionAuthorizationFact
   | OrganizationAuthorizationFact
   | MembershipAuthorizationFact

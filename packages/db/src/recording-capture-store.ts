@@ -1,3 +1,14 @@
+import {
+  listExpiredRecordingAdmissions,
+  settleUndispatchedRecordingAdmission,
+} from './recording-tournament-admission';
+import { readDatabaseTime } from './database-clock';
+import { readLockedTournamentAdmission } from './recording-tournament-admission';
+import {
+  beginRecordingEgressAttempt,
+  settleRecordingEgressAttempt,
+} from './recording-egress-dispatch';
+import { readRecordingTournamentAdmission } from './recording-tournament-admission';
 import { seatOfColumns } from './seat-columns';
 import {
   and,
@@ -44,6 +55,10 @@ import { rounds } from './schema/rounds';
  * can delay a debate or its finalization.
  */
 export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
+  listExpiredTournamentAdmissions: (limit: number) =>
+    listExpiredRecordingAdmissions(database, limit),
+  settleUndispatchedTournamentAdmission: (roundId: string) =>
+    settleUndispatchedRecordingAdmission(database, roundId),
   /** Running Rounds that should have a Recording and do not yet, with their host's grants. */
   async discoverUnrecorded(limit: number) {
     const rows = await database
@@ -74,6 +89,10 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         hostGrants: hostUserId
           ? await readEntitlementGrants(database, hostUserId)
           : [],
+        tournamentAdmission: await readRecordingTournamentAdmission(
+          database,
+          row.roundId,
+        ),
       })),
     );
   },
@@ -89,6 +108,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         id: recordings.id,
         roundId: recordings.roundId,
         lifecycle: recordings.lifecycle,
+        eligibility: recordings.eligibility,
         competitionType: rounds.competitionType,
         roundCapture: rounds.capture,
         roundStatus: rounds.status,
@@ -104,6 +124,9 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
           egressId: captures.egressId,
           attempt: captures.egressGeneration,
           egressStartedAt: captures.egressStartedAt,
+          egressDispatchedAt: captures.egressDispatchedAt,
+          egressSettledAt: captures.egressSettledAt,
+          stageCredentialHash: captures.stageCredentialHash,
           observerRevokedAt: captures.observerRevokedAt,
           revocationFailures: captures.revocationFailures,
         },
@@ -119,7 +142,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
           sql`${recordings.id} in (
             select r.id from ${recordings} r where r.status in ('requested', 'capturing')
             union all
-            select c.recording_id from ${captures} c where c.ended_at is null)`,
+            select c.recording_id from ${captures} c where c.ended_at is null or ((c.egress_settled_at is null or c.observer_revoked_at is null) and (c.egress_id is not null or c.egress_dispatched_at is not null)))`,
           after === null ? undefined : gt(recordings.id, after),
         ),
       )
@@ -191,6 +214,12 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
    * stop what it started. A loser's credential is never stored, so its stage page
    * is refused, never signals Egress to record and writes nothing.
    */
+  beginOwnEgressAttempt: (
+    input: Parameters<typeof beginRecordingEgressAttempt>[1],
+  ) => beginRecordingEgressAttempt(database, input),
+  settleOwnEgressAttempt: (
+    input: Parameters<typeof settleRecordingEgressAttempt>[1],
+  ) => settleRecordingEgressAttempt(database, input),
   async recordOwnEgressStarted(input: {
     readonly recordingId: string;
     readonly egressId: string;
@@ -206,13 +235,18 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
           egressGeneration: input.generation,
           revocationFailures: 0,
           stageCredentialHash: input.stageCredentialHash,
-          egressStartedAt: input.now,
+          egressStartedAt: sql`coalesce(${captures.egressStartedAt}, ${input.now.toISOString()}::timestamptz)`,
           ...controlHeartbeat(),
         })
         .where(
           and(
             eq(captures.recordingId, input.recordingId),
-            eq(captures.egressGeneration, input.generation - 1),
+            eq(captures.egressGeneration, input.generation),
+            eq(captures.stageCredentialHash, input.stageCredentialHash),
+            or(
+              isNull(captures.egressId),
+              eq(captures.egressId, input.egressId),
+            ),
           ),
         )
         .returning({ id: captures.recordingId });
@@ -253,15 +287,37 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
   },
 
   async closeOwn(input: { readonly recordingId: string; readonly now: Date }) {
-    await database
-      .update(captures)
-      .set({ endedAt: input.now })
-      .where(
-        and(
-          eq(captures.recordingId, input.recordingId),
-          isNull(captures.endedAt),
-        ),
+    return database.transaction(async (tx) => {
+      const [address] = await tx
+        .select({ roundId: captures.roundId })
+        .from(captures)
+        .where(eq(captures.recordingId, input.recordingId));
+      if (!address) return false;
+      await readLockedTournamentAdmission(tx, address.roundId);
+      const [own] = await tx
+        .select()
+        .from(captures)
+        .where(eq(captures.recordingId, input.recordingId))
+        .for('update');
+      if (!own || own.observerRevokedAt === null) return false;
+      if (
+        (own.egressDispatchedAt !== null || own.egressId !== null) &&
+        own.egressSettledAt === null
+      )
+        return false;
+      const now = await readDatabaseTime(tx);
+      await tx
+        .update(captures)
+        .set({
+          endedAt: own.endedAt ?? now,
+          egressSettledAt: own.egressSettledAt ?? now,
+        })
+        .where(eq(captures.recordingId, input.recordingId));
+      await tx.execute(
+        sql`select public.daisy_recording_settle_tournament_admission(${address.roundId})`,
       );
+      return true;
+    });
   },
 
   /** What the stage page reads for a Recording's own Egress; null for any other id. */
@@ -292,8 +348,16 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
       .where(eq(roundParticipants.roundId, capture.roundId));
     const launched = await launchedRoundRows(database, capture.roundId);
     const seen = new Map(launched.participants.map((p) => [p.id, p]));
+    const admission = await readRecordingTournamentAdmission(
+      database,
+      capture.roundId,
+    );
+    const checkedAt = await readDatabaseTime(database);
     return {
       capture: {
+        captureDeadlineExpired:
+          admission !== null &&
+          checkedAt.getTime() >= Date.parse(admission.deadlineAt),
         stageCredentialHash: capture.stageCredentialHash,
         observerRevokedAt: capture.observerRevokedAt,
         completedAt: capture.endedAt,

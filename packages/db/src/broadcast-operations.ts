@@ -62,10 +62,15 @@ export const openBroadcast = async (
 const watermarkAt = (mediaEnd: Date) =>
   sql`least(greatest(${broadcasts.releasedThroughAt}, ${mediaEnd.toISOString()}::timestamptz), clock_timestamp())`;
 
-/** All the hold worker's role may read: its grant leaves the stage credential out. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- taken out, never read
-const { stageCredentialHash: _stageCredentialHash, ...workerRow } =
-  getTableColumns(broadcasts);
+/** All the hold worker's role may read: private capture-control facts stay out. */
+/* eslint-disable @typescript-eslint/no-unused-vars -- Excluding private control facts preserves the release worker projection and grants. */
+const {
+  stageCredentialHash: _stageCredentialHash,
+  egressDispatchedAt: _egressDispatchedAt,
+  egressSettledAt: _egressSettledAt,
+  ...workerRow
+} = getTableColumns(broadcasts);
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 type ClaimLease = {
   readonly owner: string;
@@ -358,13 +363,20 @@ export const recordEgressStarted = async (
       egressGeneration: input.generation,
       revocationFailures: 0,
       stageCredentialHash: input.stageCredentialHash,
-      egressStartedAt: input.now,
+      egressStartedAt: sql`coalesce(${broadcasts.egressStartedAt}, ${input.now.toISOString()}::timestamptz)`,
       ...controlHeartbeat(),
     })
     .where(
       and(
         eq(broadcasts.id, input.id),
-        eq(broadcasts.egressGeneration, input.generation - 1),
+        eq(broadcasts.egressGeneration, input.generation),
+        eq(broadcasts.stageCredentialHash, input.stageCredentialHash),
+        isNotNull(broadcasts.egressDispatchedAt),
+        isNull(broadcasts.egressSettledAt),
+        or(
+          isNull(broadcasts.egressId),
+          eq(broadcasts.egressId, input.egressId),
+        ),
       ),
     )
     .returning({ id: broadcasts.id, roundId: broadcasts.roundId });
@@ -376,11 +388,7 @@ export const recordEgressStarted = async (
 
 /** An open Broadcast whose observer is, as far as its record says, subscribed. */
 const observerSubscribed = (id: string) =>
-  and(
-    eq(broadcasts.id, id),
-    isNull(broadcasts.completedAt),
-    isNull(broadcasts.observerRevokedAt),
-  );
+  and(eq(broadcasts.id, id), isNull(broadcasts.observerRevokedAt));
 
 /**
  * The observer's revocation landed. The first one stands: a repeat, or a pass
@@ -477,7 +485,10 @@ export const listOpenBroadcasts = (
     .from(broadcasts)
     .where(
       and(
-        isNull(broadcasts.completedAt),
+        sql`${broadcasts.id} in (
+          select b.id from ${broadcasts} b where b.completed_at is null
+          union all
+          select b.id from ${broadcasts} b where (b.egress_id is not null or b.egress_dispatched_at is not null) and (b.egress_settled_at is null or b.observer_revoked_at is null))`,
         after === null ? undefined : gt(broadcasts.id, after),
       ),
     )
@@ -674,10 +685,12 @@ export const readBroadcastObserverHeld = async (
     .where(
       and(
         eq(broadcasts.roundId, input.roundId),
-        isNotNull(broadcasts.egressId),
-        isNull(broadcasts.stoppedAt),
-        isNull(broadcasts.completedAt),
+        or(
+          isNotNull(broadcasts.egressId),
+          isNotNull(broadcasts.egressDispatchedAt),
+        ),
         isNull(broadcasts.observerRevokedAt),
+        or(isNull(broadcasts.completedAt), isNull(broadcasts.egressSettledAt)),
       ),
     );
   return broadcast !== undefined;
@@ -701,9 +714,15 @@ export const readConversationHeld = async (
     .where(
       and(
         eq(recordingCaptures.roundId, input.roundId),
-        isNull(recordingCaptures.endedAt),
         isNull(recordingCaptures.observerRevokedAt),
-        isNotNull(recordingCaptures.egressId),
+        or(
+          isNotNull(recordingCaptures.egressId),
+          isNotNull(recordingCaptures.egressDispatchedAt),
+        ),
+        or(
+          isNull(recordingCaptures.endedAt),
+          isNull(recordingCaptures.egressSettledAt),
+        ),
       ),
     );
   return own !== undefined;

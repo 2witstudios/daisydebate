@@ -13,10 +13,17 @@ export const lobbyLifecycle = async (
   send: Send,
   director: Bot,
   outsider: Bot,
+  ownership: 'personal' | 'organization' = 'personal',
 ): Promise<void> => {
   const command = {
     type: 'create-lobby',
-    owner: { kind: 'self' },
+    owner:
+      ownership === 'personal'
+        ? ({ kind: 'self' } as const)
+        : ({
+            kind: 'organization',
+            organizationId: world.made.get('league')!,
+          } as const),
     name: 'Spring Tournament',
     handle: `spring-${createId()}`,
     lobby: { kind: 'tournament', admitsMinors: false },
@@ -28,7 +35,7 @@ export const lobbyLifecycle = async (
     command,
   });
   assert({
-    given: 'an adult hosting a tournament personally',
+    given: `an adult creating the selected ${ownership} tournament`,
     should: 'create both its lobby and schedule',
     actual: created.kind,
     expected: 'accepted',
@@ -37,6 +44,21 @@ export const lobbyLifecycle = async (
     throw new Error('tournament creation refused');
   const lobbyId = created.receipt.aggregate.id;
   world.made.set('tournament-lobby', lobbyId);
+  const [owner] =
+    await world.sql`select owner_user_id,owner_organization_id from lobbies where id=${lobbyId}`;
+  assert({
+    given: 'the actual creation command owner choice',
+    should:
+      'persist the exact person or organization without a synthetic owner account',
+    actual: owner,
+    expected:
+      ownership === 'personal'
+        ? { owner_user_id: director.userId, owner_organization_id: null }
+        : {
+            owner_user_id: null,
+            owner_organization_id: world.made.get('league')!,
+          },
+  });
   const open = {
     version: 1,
     commandId: createId(),
@@ -44,7 +66,7 @@ export const lobbyLifecycle = async (
     command: { type: 'set-tournament-status', lobbyId, status: 'open' },
   };
   assert({
-    given: 'someone outside a personally owned tournament',
+    given: 'someone outside current tournament host authority',
     should: 'deny its lifecycle controls',
     actual: await deniedAsNotFound(() => send(as(outsider), open)),
     expected: true,

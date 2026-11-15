@@ -29,7 +29,11 @@ export type TenantSubject =
   /** `actor_id` is the person's actor. */
   | 'actor'
   /** `guardian_user_id` and `minor_user_id` are the two people. */
-  | 'guardian';
+  | 'guardian'
+  /** The funding account or the person who acted on its named consent. */
+  | 'tournament-sponsorship'
+  /** The funding account or acting official in immutable capture provenance. */
+  | 'tournament-capture';
 
 export type TenantTable = {
   readonly table: string;
@@ -94,6 +98,10 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     either('settings', { openRead: true }),
     organization('ladders', { openRead: true }),
     lobby('tournaments', { openRead: true }),
+    lobby('tournament_sponsorship_versions', {
+      subject: 'tournament-sponsorship',
+    }),
+    lobby('tournament_capture_admissions', { subject: 'tournament-capture' }),
     lobby('events'),
     lobby('stages'),
     lobby('time_slots'),
@@ -131,6 +139,16 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       table: 'rooms',
       reason:
         'The Room aggregate is read by the Room evaluator path, which filters by lobby in the query; a Room listing is not fenced by a policy.',
+    },
+    {
+      table: 'rounds',
+      reason:
+        'A Round is the existing competitive aggregate, authorized by the current Round evaluator. Its immutable ballot-source FK names only a version already admitted through the locked Room owner/template boundary; it conveys no tenant, Round, transcript or ballot read authority. Round reads use the frozen body, never a new tenant catalogue read.',
+    },
+    {
+      table: 'recordings',
+      reason:
+        'Recording owns its existing Round-protected media/read lifecycle. Its tournament admission FK is finite capture provenance only, not a source of audience, download or sponsor read authority; the Recording capture adapter consumes only a named minimal admission output and rechecks its locked deadline before dispatch.',
     },
     {
       table: 'ballots',

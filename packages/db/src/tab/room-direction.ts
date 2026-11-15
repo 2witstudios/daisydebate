@@ -1,3 +1,7 @@
+import {
+  loadTournamentCaptureFunding,
+  type TournamentCaptureFunderLocator,
+} from './tournament-capture-funding';
 import { fixtureConnections } from './fixture-conflict';
 import { and, eq } from 'drizzle-orm';
 import { actors } from '../schema/actors';
@@ -22,6 +26,7 @@ export const loadRoomDirection = async (
     >;
     readonly userId: string;
     readonly snapshot?: boolean;
+    readonly captureFunder?: TournamentCaptureFunderLocator | null;
   },
 ) => {
   if (input.room.hostActorId !== null) return null;
@@ -84,6 +89,13 @@ export const loadRoomDirection = async (
   });
   return {
     configuration,
+    funding: input.captureFunder
+      ? await loadTournamentCaptureFunding(
+          tx,
+          input.captureFunder,
+          input.userId,
+        )
+      : null,
     authorization,
     ownerActorId: owner?.actorId ?? null,
     fixtureId: fixture.id,

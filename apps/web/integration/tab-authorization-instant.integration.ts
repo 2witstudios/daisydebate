@@ -44,7 +44,6 @@ test('a grant expiring while facts load cannot authorize at request arrival time
         authorize,
         now: world.clock.now,
         newId: createId,
-        hostingPlan: async () => true,
       });
       const [active] =
         await sql`select id, role_id from grants where organization_id = ${leagueId} and user_id = ${staff.userId} and revoked_at is null`;

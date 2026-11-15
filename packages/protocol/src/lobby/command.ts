@@ -187,7 +187,7 @@ export type LobbyCommandAnswer<Refusal extends string = string> =
     };
 
 /** Who a command was accepted under: the evaluator's authority, or a service. */
-const historyAuthoritySchema = z.discriminatedUnion('kind', [
+export const historyAuthoritySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('fixed') }),
   z.strictObject({ kind: z.literal('owner') }),
   z.strictObject({ kind: z.literal('grant'), grantId: idSchema }),

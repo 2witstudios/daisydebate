@@ -15,7 +15,11 @@ import { createBots, scriptClock } from './tab-tournament.test-support';
 export const committedEventRoom = async (
   owner: SQL,
   mode: 'copy' | 'detach',
-  options: { readonly noPrep?: boolean } = {},
+  options: {
+    readonly noPrep?: boolean;
+    readonly recording?: 'off' | 'on';
+    readonly tournamentOwner?: 'personal' | 'organization';
+  } = {},
 ) => {
   const bots = await createBots(owner, [
     'Director',
@@ -39,37 +43,15 @@ export const committedEventRoom = async (
     const copied: {
       value: Awaited<ReturnType<typeof copyForeignBallot>> | null;
     } = { value: null };
-    await preparePublication(world, 'follow', async () => {
-      copied.value = await copyForeignBallot(world, mode);
-      const lobbyId = state.made.get('tournament-lobby')!;
-      const [lobby] =
-        await frame.sql`select settings_version from lobbies where id=${lobbyId}`;
-      const answer = await settingCommand({
-        store: createTabStore(frame.database),
-        authorize,
-        now: state.clock.now,
-        newId: createId,
-      })(as(state.bots.Director!), {
-        version: 1,
-        commandId: createId(),
-        expected: { settings: Number(lobby!.settings_version) },
-        command: {
-          type: 'set-setting',
-          scope: { kind: 'lobby', id: lobbyId },
-          key: 'recording.capture',
-          value: { value: 'off' },
-          hold: 'default',
-        },
-      });
-      if (answer.kind !== 'accepted')
-        throw new Error(
-          `Recording-off policy refused: ${JSON.stringify(answer)}`,
-        );
-      if (options.noPrep) {
-        const eventId = state.made.get('event')!;
-        const [event] =
-          await frame.sql`select version,settings_version,entries_version from events where id=${eventId}`;
-        const timing = await settingCommand({
+    await preparePublication(
+      world,
+      'follow',
+      async () => {
+        copied.value = await copyForeignBallot(world, mode);
+        const lobbyId = state.made.get('tournament-lobby')!;
+        const [lobby] =
+          await frame.sql`select settings_version from lobbies where id=${lobbyId}`;
+        const answer = await settingCommand({
           store: createTabStore(frame.database),
           authorize,
           now: state.clock.now,
@@ -77,27 +59,56 @@ export const committedEventRoom = async (
         })(as(state.bots.Director!), {
           version: 1,
           commandId: createId(),
-          expected: {
-            settings: Number(event!.settings_version),
-            event: Number(event!.version),
-            entries: Number(event!.entries_version),
-          },
+          expected: { settings: Number(lobby!.settings_version) },
           command: {
             type: 'set-setting',
-            scope: { kind: 'event', id: eventId },
-            key: 'room.timing',
-            value: {
-              preRoundPrepMs: 0,
-              inRoundPrepMsPerSide: 0,
-              countdownMs: 0,
-            },
+            scope: { kind: 'lobby', id: lobbyId },
+            key: 'recording.capture',
+            value: { value: options.recording ?? 'off' },
             hold: 'default',
           },
         });
-        if (timing.kind !== 'accepted')
-          throw new Error(`Fixture timing refused: ${JSON.stringify(timing)}`);
-      }
-    });
+        if (answer.kind !== 'accepted')
+          throw new Error(
+            `Recording policy refused: ${JSON.stringify(answer)}`,
+          );
+        if (options.noPrep) {
+          const eventId = state.made.get('event')!;
+          const [event] =
+            await frame.sql`select version,settings_version,entries_version from events where id=${eventId}`;
+          const timing = await settingCommand({
+            store: createTabStore(frame.database),
+            authorize,
+            now: state.clock.now,
+            newId: createId,
+          })(as(state.bots.Director!), {
+            version: 1,
+            commandId: createId(),
+            expected: {
+              settings: Number(event!.settings_version),
+              event: Number(event!.version),
+              entries: Number(event!.entries_version),
+            },
+            command: {
+              type: 'set-setting',
+              scope: { kind: 'event', id: eventId },
+              key: 'room.timing',
+              value: {
+                preRoundPrepMs: 0,
+                inRoundPrepMsPerSide: 0,
+                countdownMs: 0,
+              },
+              hold: 'default',
+            },
+          });
+          if (timing.kind !== 'accepted')
+            throw new Error(
+              `Fixture timing refused: ${JSON.stringify(timing)}`,
+            );
+        }
+      },
+      options,
+    );
     const lobbyId = state.made.get('tournament-lobby')!;
     const [slot] =
       await frame.sql`select version from time_slots where id=${state.made.get('time-slot')!}`;

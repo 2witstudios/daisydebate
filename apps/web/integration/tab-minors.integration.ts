@@ -1,3 +1,4 @@
+import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import type { TransactionSQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import {
@@ -222,11 +223,8 @@ test("a minor's boundary, loaded with the account", async () => {
         made: new Map(),
       };
       const { director, parent, minor } = people;
-      const { store, send } = wiring(world, {
-        director,
-        staff: parent,
-        coach: minor,
-      });
+      await seedHostingGrant(sql, director.userId);
+      const { store, send } = wiring(world);
       const allowed = await leagueWithLobby(world, send, director, 'Allowed');
       const outside = await leagueWithLobby(world, send, director, 'Outside');
       const unbounded = await loadedFor(store, minor, allowed.organizationId);

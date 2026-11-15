@@ -15,13 +15,11 @@ export const preparePublication = async (
   world: World,
   template: 'follow' | 'copy',
   beforeEntries: (world: World) => Promise<void> = async () => {},
+  options: { readonly tournamentOwner?: 'personal' | 'organization' } = {},
 ) => {
-  for (const stage of [
-    organizationStage,
-    leagueAdministrationStage,
-    setupStage,
-  ])
-    await stage(world);
+  await organizationStage(world);
+  await leagueAdministrationStage(world, options);
+  await setupStage(world);
   if (template === 'copy') {
     const eventId = world.made.get('event')!;
     for (const command of [

@@ -69,11 +69,19 @@ test(
     // two-scope contract, then the current contract after the forward migration.
     const afterSchema = await problemsOf(scratch.url, {
       ...tenantIsolationManifest,
-      tables: tenantIsolationManifest.tables.map((table) =>
-        table.table === 'action_history'
-          ? { ...table, key: 'either' as const }
-          : table,
-      ),
+      tables: tenantIsolationManifest.tables
+        .filter(
+          (table) =>
+            ![
+              'tournament_sponsorship_versions',
+              'tournament_capture_admissions',
+            ].includes(table.table),
+        )
+        .map((table) =>
+          table.table === 'action_history'
+            ? { ...table, key: 'either' as const }
+            : table,
+        ),
     });
     await scratch.migrate(() => true);
     const afterAllFolders = await problemsOf(scratch.url);

@@ -311,3 +311,39 @@ describe('refuseUnisolatedTenantTables', () => {
     });
   });
 });
+
+test('the Round source boundary is explicit and never exempts another referencing table', () => {
+  const round = { ...plain('rounds'), references: ['templates'] };
+  assert({
+    given: 'a Round source FK and an unrelated new referencing table',
+    should:
+      'require each own named boundary and keep reporting an unclassified reader',
+    actual: [
+      tenantIsolationProblems([...catalog(small), round], small),
+      tenantIsolationProblems(
+        [
+          ...catalog(small),
+          round,
+          { ...plain('unclassified_reader'), references: ['templates'] },
+        ],
+        {
+          ...small,
+          exempt: [
+            ...small.exempt,
+            {
+              table: 'rounds',
+              reason:
+                'Explicit Round evaluator boundary proved in actual private-source integration',
+            },
+          ],
+        },
+      ),
+    ],
+    expected: [
+      ['rounds references templates but is neither tenant-owned nor exempt'],
+      [
+        'unclassified_reader references templates but is neither tenant-owned nor exempt',
+      ],
+    ],
+  });
+});

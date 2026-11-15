@@ -1,3 +1,4 @@
+import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import { authorize } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { lobbyGrantsComeAndGo } from './tab-tournament-lobby-grants.test-support';
@@ -189,8 +190,9 @@ const staffActsAsStaff = async (
 export const organizationStage = async (world: World): Promise<void> => {
   const { Director: director, Staff: staff, Coach: coach } = world.bots;
   if (!director || !staff || !coach) throw new StageFailed('bots missing');
+  await seedHostingGrant(world.sql, director.userId);
   const cast = { director, staff, coach };
-  const wired = wiring(world, cast);
+  const wired = wiring(world);
   const league = await formLeague(wired, cast);
   world.made.set('league', league.organizationId);
   const staffGrantId = await directorReadsPeople(wired, cast, league);

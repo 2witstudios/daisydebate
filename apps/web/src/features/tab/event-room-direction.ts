@@ -8,7 +8,7 @@ import type { RoomAssemblyState } from '@daisy/protocol';
 import { eventSettingResolution } from './operations/event-setting-resolution';
 
 /** Current Tab authority exported to ordinary Room commands, never a substitute host. */
-export const eventRoomAuthority = (
+export const eventRoomDirectionDecision = (
   caller: { readonly userId: string; readonly actorId: string },
   capability: AuthorizationCapability,
   room: Pick<
@@ -25,7 +25,7 @@ export const eventRoomAuthority = (
     : input.ownerActorId
       ? { kind: 'person' as const, actorId: input.ownerActorId }
       : null;
-  if (!owner) return false;
+  if (!owner) return null;
   const resource: RoomAuthorizationFact = {
     kind: 'room',
     roomId: room.id,
@@ -58,5 +58,10 @@ export const eventRoomAuthority = (
       grants: input.authorization.grants,
       now,
     },
-  }).allow;
+  });
 };
+
+/** Boolean adapter for ordinary Room reads and command gates. */
+export const eventRoomAuthority = (
+  ...input: Parameters<typeof eventRoomDirectionDecision>
+) => eventRoomDirectionDecision(...input)?.allow ?? false;

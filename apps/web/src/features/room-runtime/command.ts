@@ -1,3 +1,4 @@
+import { eventCaptureAdmission } from '../tab/tournament-capture-admission';
 import type { Store, Caller } from './operations';
 import { aiServesSeat } from './ai-seat';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
@@ -56,7 +57,21 @@ export function roomCommandOperation({
   ): Promise<RoomCommandResponse> {
     // One id for the Round a Start round launches: the engine names it and the store inserts it.
     const roundId = ids.next();
+    const captureAdmissionId =
+      command.type === 'start-round' ? ids.next() : null;
     const receipt = await store.executeRoomCommand({
+      captureAdmission: (state, direction, now) =>
+        captureAdmissionId
+          ? eventCaptureAdmission({
+              caller,
+              room: state,
+              direction,
+              now,
+              admissionId: captureAdmissionId,
+              roundId,
+              commandId: command.commandId,
+            })
+          : null,
       caller,
       roomId,
       actorId: caller.actorId,
@@ -181,8 +196,18 @@ export function roomCommandOperation({
                       actorId: caller.actorId,
                       command: 'start-round',
                       captureAdmitted:
-                        state.capture?.recordingPolicy === 'off' &&
-                        state.capture.broadcast === null,
+                        (state.capture?.recordingPolicy === 'off' &&
+                          state.capture.broadcast === null) ||
+                        (captureAdmissionId !== null &&
+                          eventCaptureAdmission({
+                            caller,
+                            room: state,
+                            direction,
+                            now,
+                            admissionId: captureAdmissionId,
+                            roundId,
+                            commandId: command.commandId,
+                          }) !== null),
                     }
                   : null,
               participantId: ids.next(),

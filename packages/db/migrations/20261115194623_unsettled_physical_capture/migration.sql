@@ -1,0 +1,2 @@
+CREATE INDEX "broadcasts_physical_unsettled_idx" ON "broadcasts" ("round_id") WHERE ("egress_id" is not null or "egress_dispatched_at" is not null) and ("egress_settled_at" is null or "observer_revoked_at" is null);--> statement-breakpoint
+CREATE INDEX "recording_captures_physical_unsettled_idx" ON "recording_captures" ("round_id") WHERE ("egress_id" is not null or "egress_dispatched_at" is not null) and ("egress_settled_at" is null or "observer_revoked_at" is null);

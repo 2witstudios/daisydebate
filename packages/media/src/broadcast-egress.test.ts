@@ -345,3 +345,59 @@ describe('one Egress across the media nodes', () => {
     });
   });
 });
+
+test('unknown provider status remains unresolved rather than proving physical failure', () => {
+  assert({
+    given: 'an unrecognized vendor status for a known Egress identity',
+    should: 'keep the physical job unresolved',
+    actual: egressFact({ egressId: 'EG_unknown', status: 999 as EgressStatus }),
+    expected: { kind: 'unresolved', id: 'EG_unknown' },
+  });
+});
+
+test('exact-attempt recovery returns only matching deployment path/generation and never returns stage credentials', async () => {
+  const entry = (egressId: string, url: string) => ({
+    egressId,
+    status: EgressStatus.EGRESS_ACTIVE,
+    request: { case: 'web', value: { url } },
+  });
+  let observed = [
+    entry('EG_current', 'https://daisy.test/stage/owned?c=private-secret&g=2'),
+    entry('EG_old', 'https://daisy.test/stage/owned?c=old-secret&g=1'),
+    entry('EG_foreign', 'https://foreign.test/stage/owned?g=2'),
+    entry('EG_other', 'https://daisy.test/stage/other?g=2'),
+  ];
+  const adapter = createBroadcastEgress({
+    config,
+    client: { listEgress: async () => observed } as never,
+    rooms: {} as never,
+  });
+  const read = () =>
+    adapter.readStageAttempt({
+      stageUrl: 'https://daisy.test/stage/owned?c=',
+      generation: 2,
+    });
+  const found = await read();
+  observed = [];
+  const absent = await read();
+  observed = [
+    entry('EG_a', 'https://daisy.test/stage/owned?g=2'),
+    entry('EG_b', 'https://daisy.test/stage/owned?g=2'),
+  ];
+  assert({
+    given:
+      'one exact observed attempt, a missing listing and an ambiguous duplicate listing',
+    should:
+      'recover only the exact observed identity and hold unknown cases without exposing credentials',
+    actual: [found, absent, await read()],
+    expected: [
+      {
+        kind: 'observed',
+        egressId: 'EG_current',
+        fact: { kind: 'active', id: 'EG_current' },
+      },
+      { kind: 'unresolved' },
+      { kind: 'unresolved' },
+    ],
+  });
+});

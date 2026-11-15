@@ -1,3 +1,4 @@
+import { organizationCommand } from '../src/features/tab/operations/organization';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { daisyWinnerBallot, storedBallotDefinition } from '@daisy/protocol';
@@ -18,7 +19,25 @@ export const copyForeignBallot = async (
   mode: 'copy' | 'detach',
 ) => {
   const { sql } = world;
-  const organizationId = world.made.get('league')!,
+  const foreignOrganization = await organizationCommand({
+    store: createTabStore(world.database),
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  })(as(world.bots.Director!), {
+    version: 1,
+    commandId: createId(),
+    expected: {},
+    command: {
+      type: 'create-organization',
+      kind: 'school',
+      name: 'Foreign source catalogue',
+      handle: `source-${createId()}`,
+    },
+  });
+  if (foreignOrganization.kind !== 'accepted')
+    throw new Error('Actual foreign source organization refused');
+  const organizationId = foreignOrganization.receipt.aggregate.id,
     lobbyId = world.made.get('tournament-lobby')!,
     eventId = world.made.get('event')!;
   const sourceId = createId(),

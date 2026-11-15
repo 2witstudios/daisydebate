@@ -144,6 +144,45 @@ test('DEC408 actual Start freezes the exact stored pin after currentVersion move
               await f.sql`select (select to_jsonb(r) from rounds r where id=${roundId}) as round,(select coalesce(jsonb_agg(to_jsonb(c) order by command_id),'[]'::jsonb) from round_commands c where round_id=${roundId}) as commands,(select coalesce(jsonb_agg(to_jsonb(b) order by id),'[]'::jsonb) from ballots b where round_id=${roundId}) as ballots`
             )[0],
           );
+        const unrelated = (await f.freshCast()).host;
+        const deniedBefore = await state();
+        let foreignSubmit = false;
+        try {
+          await operations.submit(
+            { kind: 'human', actorId: unrelated.actorId },
+            roundId,
+            {
+              ...envelope,
+              commandId: createId(),
+            },
+          );
+        } catch (error) {
+          if (!isAppError(error) || error.code !== 'AUTHORIZATION') throw error;
+          foreignSubmit = true;
+        }
+        let privateReadRefused = false;
+        try {
+          await readBallotAs(f, unrelated, roundId);
+        } catch (error) {
+          if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
+          privateReadRefused = true;
+        }
+        assert({
+          given:
+            'an actual unrelated adult who knows the exact private Round, stored definition, judge seat and ballot body',
+          should:
+            'read no private ballot or Round and submit no impersonated ballot through the ordinary guarded adapters',
+          actual: {
+            privateReadRefused,
+            foreignSubmit,
+            unchanged: deniedBefore === (await state()),
+          },
+          expected: {
+            privateReadRefused: true,
+            foreignSubmit: true,
+            unchanged: true,
+          },
+        });
         const invalidBefore = await state();
         const invalidRefusals = [];
         for (const extra of [

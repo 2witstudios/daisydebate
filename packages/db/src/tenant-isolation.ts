@@ -112,6 +112,10 @@ const scopePredicate = (entry: TenantTable): string | null => {
 
 const subjectPredicates: Record<TenantSubject, string> = {
   user: '(user_id = daisy_subject_scope())',
+  'tournament-sponsorship':
+    '((sponsor_user_id = daisy_subject_scope()) OR (acted_by_user_id = daisy_subject_scope()))',
+  'tournament-capture':
+    '((sponsor_user_id = daisy_subject_scope()) OR (official_user_id = daisy_subject_scope()))',
   actor: '(actor_id = daisy_subject_actor_scope())',
   guardian:
     '((guardian_user_id = daisy_subject_scope()) OR (minor_user_id = daisy_subject_scope()))',

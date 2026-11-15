@@ -56,6 +56,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'include the Room receipt and frozen config alongside every known JSON contract',
       actual: jsonb.map(({ name }) => name).sort(),
       expected: [
+        'account_hosting_versions.coverage',
+        'account_hosting_versions.subscription_evidence',
         'action_history.result',
         'agent_runs.configuration_snapshot',
         'ballot_definition_versions.definition',
@@ -111,6 +113,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rounds.runtime_state',
         'season_standing_rules.rule',
         'settings.value',
+        'tournament_capture_admissions.admission',
+        'tournament_sponsorship_versions.authority',
         'usage_reservations.source',
         'usage_reservations.state',
       ],

@@ -1,3 +1,4 @@
+import { loadAccountHostingFacts } from './account-hosting-facts';
 import { storedCreationCommand } from './creation-replay';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadLobbyActivity } from './lobby-activity';
@@ -159,7 +160,10 @@ const load = async (
             ),
           )
       : [];
+  const activity = await loadLobbyActivity(tx, row?.id ?? null);
+  const hosting = await loadAccountHostingFacts(tx, input.senderUserId);
   return {
+    hosting,
     organization: authorization,
     lobby: row
       ? {
@@ -185,7 +189,7 @@ const load = async (
     activeSeasonId: active?.id ?? null,
     ladder: ladder ?? null,
     handleTaken: taken !== undefined,
-    activity: await loadLobbyActivity(tx, row?.id ?? null),
+    activity,
     scope,
   };
 };

@@ -15,7 +15,6 @@ export const createOwnedTournament = async (world: World) => {
   };
   const created = await lobbyAdministrationCommand({
     ...common,
-    hostingPlan: async () => true,
   })(as(world.bots.Director!), {
     version: 1,
     commandId: createId(),

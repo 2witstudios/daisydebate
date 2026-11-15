@@ -1,3 +1,4 @@
+import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createTabStore } from '@daisy/db/tab';
@@ -186,9 +187,9 @@ test('test-only family commands attribute the protected subject and cannot reviv
       );
       if (secondConsent.kind !== 'accepted')
         throw new Error('Second test consent refused');
+      await seedHostingGrant(sql, bots.Parent!.userId);
       const lobby = await lobbyAdministrationCommand({
         ...common,
-        hostingPlan: async () => true,
       })(as(bots.Parent!), {
         version: 1,
         commandId: createId(),
@@ -219,7 +220,6 @@ test('test-only family commands attribute the protected subject and cannot reviv
         throw new Error('Test restriction refused');
       const organization = organizationCommand({
         ...common,
-        hostingPlan: async () => false,
       });
       const school = await organization(as(bots.Coach!), {
         version: 1,
@@ -256,7 +256,6 @@ test('test-only family commands attribute the protected subject and cannot reviv
         throw new Error('Actual guardian membership refused');
       const paidOrganization = organizationCommand({
         ...common,
-        hostingPlan: async () => true,
       }); // Test entitlement only.
       const league = await paidOrganization(as(bots.Coach!), {
         version: 1,

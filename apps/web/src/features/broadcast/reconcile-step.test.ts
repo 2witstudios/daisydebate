@@ -29,6 +29,10 @@ const world = (over: Partial<ReconcilePorts> = {}) => {
     releaseClaim: async () => {
       log.push('release');
     },
+    beginEgressAttempt: async () => {
+      log.push('begin');
+      return true;
+    },
     startEgress: async () => {
       log.push('start');
       return 'EG_new';
@@ -79,6 +83,7 @@ describe('reconcileStep', () => {
       actual: log,
       expected: [
         'hold',
+        'begin',
         'start',
         'report broadcast.egress.start_lost',
         'stop EG_new',
@@ -93,7 +98,7 @@ describe('reconcileStep', () => {
       given: 'a live Round with no Egress',
       should: 'start one and record it',
       actual: log,
-      expected: ['hold', 'start', 'recordStart EG_new', 'release'],
+      expected: ['hold', 'begin', 'start', 'recordStart EG_new', 'release'],
     });
   });
   test('a failed revocation is recorded, so the next pass stops the Egress', async () => {
@@ -196,6 +201,10 @@ describe('reconcileStep', () => {
   });
   test('a failure in one action never escapes to the caller', async () => {
     const { ports, log } = world({
+      beginEgressAttempt: async () => {
+        log.push('begin');
+        return true;
+      },
       startEgress: async () => {
         throw new Error('no capacity');
       },
@@ -211,8 +220,19 @@ describe('reconcileStep', () => {
       actual: [outcome, log],
       expected: [
         'resolved',
-        ['hold', 'report broadcast.egress.start_failed', 'release'],
+        ['hold', 'begin', 'report broadcast.egress.start_failed', 'release'],
       ],
     });
+  });
+});
+
+test('a refused durable dispatch never reaches the provider', async () => {
+  const { ports, log } = world({ beginEgressAttempt: async () => false });
+  await reconcileStep(facts(), ports);
+  assert({
+    given: 'a stale generation or current capture refusal at the DB fence',
+    should: 'release the claim without any provider Start or fabricated ACK',
+    actual: log,
+    expected: ['hold', 'release'],
   });
 });

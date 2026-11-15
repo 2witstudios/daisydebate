@@ -186,9 +186,8 @@ export const setupStage = async (world: World): Promise<void> => {
     },
   });
   assert({
-    given:
-      'a personally owned event and a public template from another organization',
-    should: 'authorize its person owner and follow the stored template',
+    given: 'a tournament event and a public template from another organization',
+    should: 'authorize its current host and follow the stored template',
     actual: follow.kind,
     expected: 'accepted',
   });

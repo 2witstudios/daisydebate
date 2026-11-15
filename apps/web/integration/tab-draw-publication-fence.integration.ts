@@ -66,7 +66,6 @@ test('publication reloads after account waits and holds actual Room pins through
           authorize,
           now: state.clock.now,
           newId: createId,
-          hostingPlan: async () => false,
         })(as(state.bots.Director!), {
           version: 1,
           commandId: createId(),

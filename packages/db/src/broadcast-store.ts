@@ -1,3 +1,7 @@
+import {
+  beginBroadcastEgressAttempt,
+  settleBroadcastEgressAttempt,
+} from './broadcast-egress-dispatch';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seatOfColumns } from './seat-columns';
 import { eq, getTableColumns } from 'drizzle-orm';
@@ -75,7 +79,7 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     const launched = await launchedRoundRows(database, broadcast.roundId);
     const seen = new Map(launched.participants.map((p) => [p.id, p]));
     return {
-      capture: broadcast,
+      capture: { ...broadcast, captureDeadlineExpired: false },
       round,
       roomName: await readBroadcastRoom(database, broadcast.roundId),
       seats: seats.flatMap(({ participantId, identity, ...columns }) => {
@@ -107,6 +111,12 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
       roomName: await readBroadcastRoom(database, roundId),
     };
   },
+  beginEgressAttempt: (
+    input: Parameters<typeof beginBroadcastEgressAttempt>[1],
+  ) => beginBroadcastEgressAttempt(database, input),
+  settleEgressAttempt: (
+    input: Parameters<typeof settleBroadcastEgressAttempt>[1],
+  ) => settleBroadcastEgressAttempt(database, input),
   recordEgressStarted: (input: Parameters<typeof recordEgressStarted>[1]) =>
     database.transaction((tx) => recordEgressStarted(tx, input)),
   async recordObserverRevoked(

@@ -42,7 +42,6 @@ test('the HTTP command boundary runs the real tenant-fenced membership operation
         authorize,
         now: world.clock.now,
         newId: createId,
-        hostingPlan: async () => false,
       });
       const route = (person: Bot, released = true) =>
         createTabCommandRoute({

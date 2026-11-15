@@ -178,7 +178,6 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
       authorize,
       now: state.clock.now,
       newId: createId,
-      hostingPlan: async () => false,
     })(as(state.bots.Director!), {
       version: 1,
       commandId: createId(),

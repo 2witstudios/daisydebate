@@ -1,3 +1,4 @@
+import type { AccountHostingFacts } from './account-hosting-facts';
 import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
@@ -19,6 +20,7 @@ export type LobbyAdministrationInput = {
   readonly now: string;
 };
 export type LobbyAdministrationFacts = {
+  readonly hosting: AccountHostingFacts;
   readonly organization: TabAuthorization;
   readonly lobby: {
     readonly id: string;

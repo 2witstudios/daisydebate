@@ -78,7 +78,7 @@ export type Cast = {
 };
 
 /** What the stage drives: the wired command and people read over one store. */
-export const wiring = (world: World, cast: Cast) => {
+export const wiring = (world: World) => {
   const store = createTabStore(world.database);
   return {
     store,
@@ -87,8 +87,6 @@ export const wiring = (world: World, cast: Cast) => {
       authorize,
       now: world.clock.now,
       newId: createId,
-      // No hosting plan is stored yet; the Director holds one.
-      hostingPlan: async (userId) => userId === cast.director.userId,
     }),
     people: readOrganizationPeople({ store, authorize, now: world.clock.now }),
   };

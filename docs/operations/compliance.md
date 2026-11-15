@@ -581,3 +581,18 @@ follow the existing mail-intent retention; expired delivery detail is displayed
 as unknown. Unsent mail is cancelled when the grant is removed or the account
 is erased, revoked or restricted; a provider request in flight cannot be
 recalled. Invitation URLs carry no credential and confer no authority.
+
+Canonical tournament hosting (DEC409) uses the existing access/entitlement and
+tournament authority purposes. Its finite grant versions record issuer/decision
+or the exact verified subscription observation, selected tournament coverage,
+and concurrency limits; sponsorship records separate organization proposal,
+funding-account consent, transfer and withdrawal. None grants media read,
+broadcast, download or AI rights. Export includes the subject's own source
+versions and their own sponsorship/acting-official admission audit facts; an
+acting official's export excludes another account's billing/issuer source body.
+Subject-scoped reads confer no media authority. Erasure removes live grants and unreferenced versions after account
+closure; versions already selected into retained tournament sponsorship or
+capture provenance stay with that original competitive authority record, naming
+only the closed account's retained id. No new processor, price, refund policy or
+recording retention period is introduced. Production issuance and all existing
+minors/counsel/activation rails remain closed.

@@ -63,10 +63,8 @@ export function composeTabRoutes(app: App) {
     minorsReleased: familyReleased,
     consentNoticeVersion: null,
   });
-  // The production entitlement issuer is unresolved; creation remains closed until it is supplied.
-  const hostingPlan = async () => false;
-  const organization = organizationCommand({ ...common, hostingPlan });
-  const administration = lobbyAdministrationCommand({ ...common, hostingPlan });
+  const organization = organizationCommand(common);
+  const administration = lobbyAdministrationCommand(common);
   const setup = setupCommand(common);
   const settings = settingCommand(common);
   const entries = entryEnrollmentCommand(common);

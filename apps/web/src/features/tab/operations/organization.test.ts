@@ -15,6 +15,33 @@ const id = (c: string) => c.repeat(24);
 const now = '2027-03-06T08:00:00.000Z';
 const principal = { kind: 'user' as const, userId: id('u'), actorId: id('a') };
 const loaded: LoadedOrganizationCommand = {
+  hosting: {
+    checkedAt: now,
+    grants: [
+      {
+        entitlement: 'tournament_hosting',
+        source: 'administrative',
+        hosting: {
+          id: id('v'),
+          userId: principal.userId,
+          version: 1,
+          startsAt: '2027-03-01T00:00:00.000Z',
+          expiresAt: '2027-04-01T00:00:00.000Z',
+          issuer: {
+            kind: 'administrative',
+            serviceId: 'daisy-admin',
+            operatorRef: id('i'),
+            decisionReference: 'Explicit unit issuer',
+          },
+          coverage: {
+            tournamentIds: [],
+            sponsorConcurrencyLimit: 1,
+            tournamentConcurrencyLimit: 1,
+          },
+        },
+      },
+    ],
+  },
   decision: {
     now,
     senderUserId: id('u'),
@@ -69,7 +96,6 @@ const harness = (idTakenElsewhere = false) => {
     authorize,
     now: () => now,
     newId: () => id('n'),
-    hostingPlan: async () => true,
   });
   return { send, applied, asked };
 };

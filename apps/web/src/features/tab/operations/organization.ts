@@ -1,3 +1,4 @@
+import { currentEntitlementGrants } from '@daisy/auth/authorization';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -16,7 +17,7 @@ import {
   type OrganizationRefusal,
 } from '@daisy/protocol/lobby/organization-command';
 import { decideOrganization } from '../commands/organization';
-import { runLobbyCommand } from '../commands/run-command';
+import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import { commandDigest } from './command-digest';
 import type { TabPrincipal } from '../tab-principal';
 import { organizationAuthorityOf } from './organization-authority';
@@ -36,8 +37,6 @@ export type OrganizationCommandDependencies = {
   readonly now: () => string;
   /** The cuid2 a command that inserts a row gives it. */
   readonly newId: () => string;
-  /** Whether the account holds the hosting plan a league takes. */
-  readonly hostingPlan: (userId: string) => Promise<boolean>;
 };
 
 /** Organization commands are never held: no conflict reaches them. */
@@ -96,17 +95,38 @@ export const organizationCommand =
                   stored: session.stored,
                   facts: async () => {
                     const loaded = await session.load();
-                    hostingPlan = await dependencies.hostingPlan(
-                      principal.userId,
+                    now = loaded.hosting.checkedAt;
+                    hostingPlan = currentEntitlementGrants(
+                      loaded.hosting.grants,
+                      {
+                        now,
+                        betaGrantsPremium: false,
+                      },
+                    ).some(
+                      (grant) =>
+                        grant.entitlement === 'tournament_hosting' &&
+                        grant.hosting.userId === principal.userId,
                     );
-                    now = dependencies.now();
                     return { ...loaded, decision: { ...loaded.decision, now } };
                   },
-                  authority: (loaded) =>
-                    organizationAuthorityOf(principal, command, loaded, {
-                      now,
-                      hostingPlan,
-                    }),
+                  authority: (loaded) => {
+                    const input = organizationAuthorityOf(
+                      principal,
+                      command,
+                      loaded,
+                      { now, hostingPlan },
+                    );
+                    if (
+                      command.type === 'create-organization' &&
+                      !organizationCommandDefinition(command).gate.some(
+                        (capability) =>
+                          dependencies.authorize({ ...input, capability })
+                            .allow,
+                      )
+                    )
+                      throw new CommandDenied('not-found');
+                    return input;
+                  },
                   versions: ({ decision }) => {
                     if (command.type === 'cancel-membership-invitation')
                       return {

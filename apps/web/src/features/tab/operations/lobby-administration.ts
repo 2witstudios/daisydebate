@@ -1,3 +1,4 @@
+import { currentEntitlementGrants } from '@daisy/auth/authorization';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -26,7 +27,6 @@ type Dependencies = {
   readonly authorize: (input: AuthorizationInput) => AuthorizationDecision;
   readonly now: () => string;
   readonly newId: () => string;
-  readonly hostingPlan: (userId: string) => Promise<boolean>;
 };
 const neverHeld = (): never => {
   throw createAppError(
@@ -131,20 +131,50 @@ export const lobbyAdministrationCommand =
               { senderUserId: principal.userId, command, newId, now },
               (session) =>
                 work({
-                  stored: session.stored,
+                  stored: async (id) => {
+                    const record = await session.stored(id);
+                    if (
+                      record &&
+                      command.type === 'create-lobby' &&
+                      !hostingPlan
+                    )
+                      throw new CommandDenied('not-found');
+                    return record;
+                  },
                   facts: async () => {
                     const loaded = await session.load();
-                    hostingPlan = await dependencies.hostingPlan(
-                      principal.userId,
+                    now = loaded.hosting.checkedAt;
+                    hostingPlan = currentEntitlementGrants(
+                      loaded.hosting.grants,
+                      {
+                        now,
+                        betaGrantsPremium: false,
+                      },
+                    ).some(
+                      (grant) =>
+                        grant.entitlement === 'tournament_hosting' &&
+                        grant.hosting.userId === principal.userId,
                     );
-                    now = dependencies.now();
                     return loaded;
                   },
-                  authority: (facts) =>
-                    lobbyAdministrationAuthority(principal, command, facts, {
-                      now,
-                      hostingPlan,
-                    }),
+                  authority: (facts) => {
+                    const input = lobbyAdministrationAuthority(
+                      principal,
+                      command,
+                      facts,
+                      { now, hostingPlan },
+                    );
+                    if (
+                      command.type === 'create-lobby' &&
+                      !lobbySetupCommandCatalogue[command.type].gate.some(
+                        (capability) =>
+                          dependencies.authorize({ ...input, capability })
+                            .allow,
+                      )
+                    )
+                      throw new CommandDenied('not-found');
+                    return input;
+                  },
                   versions: (facts) => ({
                     ...(facts.lobby ? { lobby: facts.lobby.version } : {}),
                     ...(facts.season ? { season: facts.season.version } : {}),

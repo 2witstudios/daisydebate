@@ -10,8 +10,27 @@ export const captureEligibility = (input: {
   readonly hostActorId: string | null;
   readonly hostOptedIn: boolean;
   readonly hostHoldsRecording: boolean;
+  readonly tournamentAdmission?: {
+    readonly admissionId: string;
+    readonly roundId: string;
+    readonly deadlineAt: string;
+  } | null;
+  readonly roundId?: string;
+  readonly now?: string;
 }): RecordingEligibility | null => {
   if (input.competitionType === 'ranked') return { kind: 'ranked' };
+  const admitted = input.tournamentAdmission;
+  if (
+    admitted &&
+    admitted.roundId === input.roundId &&
+    input.now &&
+    Date.parse(input.now) < Date.parse(admitted.deadlineAt)
+  )
+    return {
+      kind: 'tournament_admission',
+      admissionId: admitted.admissionId,
+      deadlineAt: admitted.deadlineAt,
+    };
   return input.hostActorId !== null &&
     input.hostOptedIn &&
     input.hostHoldsRecording

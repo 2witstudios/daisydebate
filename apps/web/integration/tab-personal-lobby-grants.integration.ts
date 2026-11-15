@@ -1,3 +1,4 @@
+import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createTabStore } from '@daisy/db/tab';
@@ -24,10 +25,10 @@ test('a personal tournament gives and removes exact lobby staff without an organ
       const clock = scriptClock(),
         store = createTabStore(database),
         common = { store, authorize, now: clock.now, newId: createId };
+      await seedHostingGrant(sql, director.userId);
       const create = lobbyAdministrationCommand({
         ...common,
-        hostingPlan: async () => true,
-      }); // Observed test entitlement only; production issuer stays closed.
+      });
       const lobbies: string[] = [];
       for (const name of ['Personal target', 'Other personal tournament']) {
         const answer = await create(as(director), {
@@ -57,7 +58,6 @@ test('a personal tournament gives and removes exact lobby staff without an organ
       });
       const send = organizationCommand({
         ...common,
-        hostingPlan: async () => false,
       });
       const give = {
         version: 1,

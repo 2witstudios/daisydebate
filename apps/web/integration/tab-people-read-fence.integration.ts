@@ -50,7 +50,6 @@ test('a people read retains its actual account and organization fences through t
         authorize,
         now: state.clock.now,
         newId: createId,
-        hostingPlan: async () => false,
       });
       const school = await send(as(state.bots.Coach!), {
         version: 1,
@@ -149,7 +148,6 @@ test('a people read retains its actual account and organization fences through t
       authorize,
       now: state.clock.now,
       newId: createId,
-      hostingPlan: async () => false,
     });
     const lobbyId = state.made.get('fence-lobby')!;
     revoking = send(as(state.bots.Director!), {
@@ -277,7 +275,6 @@ test('a people read retains its actual account and organization fences through t
       authorize,
       now: state.clock.now,
       newId: createId,
-      hostingPlan: async () => false,
     })(as(state.bots.Director!), {
       version: 1,
       commandId: createId(),

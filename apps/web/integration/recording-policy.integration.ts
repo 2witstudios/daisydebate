@@ -1,3 +1,4 @@
+import { credentialHash } from '../src/features/stage-capture/stage-access';
 import { requireTestServices } from '@daisy/config';
 import { plannedRecording } from '@daisy/debate-engine';
 import {
@@ -78,6 +79,9 @@ const captureSweep = (database: Database) =>
       },
     }),
     egress: {
+      readStageAttempt: async () => {
+        throw new Error('Unexpected recovery in ordinary fixture');
+      },
       start: async () => createId(),
       stop: async () => {},
       read: async (id) => ({ kind: 'active', id }) as never,
@@ -87,7 +91,7 @@ const captureSweep = (database: Database) =>
     holdsCapture: () => true,
     phaseAt: () => 'speech' as never,
     now: () => Date.now(),
-    newCredential: () => ({ secret: 's', hash: 'digest' }),
+    newCredential: () => ({ secret: 's', hash: credentialHash('s') }),
     stageUrl: (id, credential) =>
       `https://app.test/stage/${id}?c=${credential}`,
     report: () => {},

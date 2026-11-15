@@ -1,3 +1,10 @@
+import { createTournamentSponsorshipStore } from './tournament-sponsorship';
+export type { LoadedTournamentSponsorship } from './tournament-sponsorship';
+import {
+  loadAccountHostingFacts,
+  type AccountHostingFacts,
+} from './account-hosting-facts';
+export type { AccountHostingFacts } from './account-hosting-facts';
 import { createResultCommandStore } from './result-command';
 export type { LoadedResultCommand, ResultWrite } from './result-command';
 export type { RoomDirectionInput } from './room-direction';
@@ -110,6 +117,7 @@ export type { RoleRow } from './role-rows';
 
 /** Everything an organization command reads, loaded in its one transaction. */
 export type LoadedOrganizationCommand = {
+  readonly hosting: AccountHostingFacts;
   readonly decision: OrganizationCommandFacts;
   /** The sender's authority here. */
   readonly authorization: TabAuthorization;
@@ -150,6 +158,7 @@ const roleNamedOf = (
  */
 export const createTabStore = (database: TabDatabase) => ({
   ...createResultCommandStore(database),
+  ...createTournamentSponsorshipStore(database),
   ...createGuardianCommandStore(database),
   ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),
@@ -187,15 +196,17 @@ export const createTabStore = (database: TabDatabase) => ({
         },
         load: async () => {
           const decision = await loadOrganizationFacts(tx, input, scope);
+          const authorization = await loadTabAuthorization(tx, scope, {
+            userId: input.senderUserId,
+            organization: decision.organization,
+            grants: decision.grants,
+            memberships: decision.memberships,
+            staffMinimumBand: decision.staffMinimumBand,
+          });
           return {
             decision,
-            authorization: await loadTabAuthorization(tx, scope, {
-              userId: input.senderUserId,
-              organization: decision.organization,
-              grants: decision.grants,
-              memberships: decision.memberships,
-              staffMinimumBand: decision.staffMinimumBand,
-            }),
+            authorization,
+            hosting: await loadAccountHostingFacts(tx, input.senderUserId),
             roleNamed: roleNamedOf(decision, input.command),
           };
         },

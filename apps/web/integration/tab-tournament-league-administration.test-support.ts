@@ -12,6 +12,7 @@ import type { World } from './tab-tournament.test-support';
 
 export const leagueAdministrationStage = async (
   world: World,
+  options: { readonly tournamentOwner?: 'personal' | 'organization' } = {},
 ): Promise<void> => {
   const director = world.bots.Director!;
   const coach = world.bots.Coach!;
@@ -22,7 +23,6 @@ export const leagueAdministrationStage = async (
     authorize,
     now: world.clock.now,
     newId: createId,
-    hostingPlan: async () => true,
   });
   const create = {
     version: 1,
@@ -127,7 +127,7 @@ export const leagueAdministrationStage = async (
         ? { ...closed, receipt: { ...closed.receipt, replayed: true } }
         : closed,
   });
-  await lobbyLifecycle(world, send, director, coach);
+  await lobbyLifecycle(world, send, director, coach, options.tournamentOwner);
   const closedAgain = await send(as(director), {
     version: 1,
     commandId: createId(),

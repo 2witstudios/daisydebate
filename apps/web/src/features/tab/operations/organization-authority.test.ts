@@ -35,6 +35,7 @@ const loaded = (
   overrides: Partial<LoadedOrganizationCommand['authorization']> = {},
   roleNamed: LoadedOrganizationCommand['roleNamed'] = null,
 ): LoadedOrganizationCommand => ({
+  hosting: { checkedAt: now, grants: [] },
   decision: {} as LoadedOrganizationCommand['decision'],
   authorization: {
     account,

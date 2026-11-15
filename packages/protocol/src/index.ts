@@ -516,8 +516,23 @@ export type {
   RoundBallotRead,
   RoundJudgeAssignment,
 } from './round-ballot-read';
-export { entitlementKinds, entitlementSources } from './entitlements';
-export type { EntitlementGrant } from './entitlements';
+export {
+  entitlementKinds,
+  entitlementSources,
+  accountEntitlementKinds,
+  entitlementGrantSchema,
+} from './entitlements';
+export {
+  tournamentHostingCoverageSchema,
+  tournamentHostingIssuerSchema,
+  tournamentHostingVersionSchema,
+  tournamentHostingGrantSchema,
+} from './tournament-hosting';
+export type {
+  TournamentHostingGrant,
+  TournamentHostingVersion,
+} from './tournament-hosting';
+export type { EntitlementGrant, PremiumEntitlementKind } from './entitlements';
 export {
   roundAnalysisLimits,
   roundAnalysisReportSchema,
@@ -919,3 +934,18 @@ export {
 export { formatRevisionPinSchema } from './format-reference';
 
 export { aiBallotAdmissionRefusal } from './ai-ballot-admission';
+
+export { tournamentSponsorshipVersionSchema } from './tournament-sponsorship';
+export type {
+  TournamentSponsorshipVersion,
+  TournamentSponsorshipChange,
+} from './tournament-sponsorship';
+
+export {
+  tournamentCaptureAdmissionSchema,
+  tournamentCaptureExecutionBudgetMs,
+} from './tournament-capture-admission';
+export type {
+  TournamentCaptureAdmission,
+  TournamentOfficialAuthority,
+} from './tournament-capture-admission';

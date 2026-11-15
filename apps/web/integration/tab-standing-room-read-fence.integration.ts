@@ -168,7 +168,6 @@ test('standing Room readers coexist and retain actual template, offer and member
       authorize,
       now: state.clock.now,
       newId: createId,
-      hostingPlan: async () => false,
     })(as(state.bots.Director!), {
       version: 1,
       commandId: createId(),

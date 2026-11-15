@@ -191,3 +191,27 @@ null and a real `ended_at`. Active membership requires a join; invited and
 declined membership forbid one. Ending an accepted membership preserves its
 actual join. The named cancellation command checks the displayed membership
 version, records its own action and leaves grants untouched (DEC406).
+
+A Round's stored ballot-definition FK is integrity provenance, separate from
+catalogue ownership and read authority. Only `freezeRoomBallot`, inside the
+current authorized Room transaction, admits an exact version owned by the
+Room's lobby, its owning organization or its actual template organization;
+a foreign lobby's version is refused before any Start writes. The Round then
+owns its immutable frozen body and never resolves private content by following
+the FK during a read. As with `ballots`, `rounds` remains the existing aggregate
+protected by current Round/ballot evaluators rather than acquiring catalogue
+RLS. A caller knowing every source and judge identifier gains no private Round
+read or ballot-submission authority; actual private custom-source proofs cover
+both admitted judge reads and unrelated-account refusal without writes.
+
+Tournament capture freezes a separate private admission with the actual Room,
+fixture, accepted Start receipt, funding version and acting-official authority.
+A Recording references that exact admission and Round through a generated
+internal composite FK. Its capture worker consumes only the named admission id
+and finite deadline, never the payer/issuer/official identity and never a
+`createdByActorId` host surrogate. This integrity reference supplies no audience,
+media-read or download authority; those remain the Recording and current Round
+read decisions. Dispatch is durable before vendor I/O. The physical reservation
+survives logical Round end and expiry until a confirmed terminal Egress and
+withdrawn observer permit settlement; an unknown response or missing ambiguous
+attempt listing cannot free it or authorize another start.
