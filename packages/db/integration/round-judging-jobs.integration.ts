@@ -1,3 +1,4 @@
+import { panelJudgedRound } from './judged-round.test-support';
 import { attendanceSettled } from '@daisy/debate-engine';
 import { atFinalJudgingStage } from '../src/testing-judging';
 import { judgingJobRules } from '@daisy/debate-engine';
@@ -35,6 +36,8 @@ requireTestServices(process.env);
 test('durable judging claims fence epochs and preserve one command across recovery', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
+    await createBotSeat(fixture, roundId, 'judge', 1);
+    await createBotSeat(fixture, roundId, 'judge', 2);
     await judgingSponsor(fixture, roundId, run);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'complete')`;
@@ -177,7 +180,6 @@ test('durable judging claims fence epochs and preserve one command across recove
         actual: () => jobs.beginModelCall(second.scope, second.token, 'final'),
         code: 'CONFLICT',
       });
-      await createBotSeat(fixture, roundId, 'judge', 1);
       const prepared = {
         roundId,
         principal: {
@@ -301,5 +303,5 @@ test('durable judging claims fence epochs and preserve one command across recove
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
     }
-  });
+  }, panelJudgedRound);
 });

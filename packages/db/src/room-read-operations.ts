@@ -1,8 +1,6 @@
+import { readAuthorizedRound } from './round-read-authority';
 import { roundOutcomeForAudience } from './round-outcome-audience';
-import {
-  readRoundRoomAuthority,
-  type RoundRoomAuthority,
-} from './round-room-authority';
+import type { RoundRoomAuthority } from './round-room-authority';
 import { loadRoomDirection } from './tab/room-direction';
 import { fenceTabAccountRead } from './tab/account-read-fence';
 import {
@@ -24,9 +22,6 @@ import {
 } from '@daisy/protocol';
 import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
-import { roundLifecycleOfRow, segmentRows } from './round-hydration';
-import { seatOfColumns, seatRowOrder } from './seat-columns';
-import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -47,12 +42,7 @@ import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
-import { rounds } from './schema/rounds';
-import { mediaSessions } from './schema/media-sessions';
-import { recordedPanelRuling } from './round-panel-decisions';
-import { roundCommands } from './schema/round-commands';
-import { readableCheckpoint, roundViewFor } from './round-view-projection';
-import { roundParticipants } from './schema/round-participants';
+import { roundViewFor } from './round-view-projection';
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
 
@@ -72,99 +62,6 @@ import {
   replayReceipt,
   transactionNow,
 } from './room-command-facts';
-import { roundResolutionAudit } from './room-draw-persistence';
-/**
- * Whether the Round's post-round call still stands (ADR 0127): chosen, and
- * not on a Round whose media session has ended. A completed Round's session
- * ends when its call does, so a view of it stops offering the call then.
- */
-async function postRoundCallStands(
-  tx: Pick<BunSQLDatabase, 'select'>,
-  round: Pick<typeof rounds.$inferSelect, 'id' | 'status' | 'postRoundCall'>,
-) {
-  if (!round.postRoundCall || round.status !== 'completed')
-    return round.postRoundCall;
-  const [session] = await tx
-    .select({ endedAt: mediaSessions.endedAt })
-    .from(mediaSessions)
-    .where(eq(mediaSessions.roundId, round.id));
-  return session !== undefined && session.endedAt === null;
-}
-
-export async function launchedRoundRows(
-  tx: Pick<BunSQLDatabase, 'select'>,
-  roundId: string,
-): Promise<LaunchedRound> {
-  const [row] = await tx
-    .select()
-    .from(rounds)
-    .where(eq(rounds.id, roundId))
-    .for('share');
-  if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
-    throw createAppError('NOT_FOUND');
-  const seats = await tx
-    .select()
-    .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, roundId))
-    .orderBy(...seatRowOrder(roundParticipants));
-  const participants = await Promise.all(
-    seats.map(async (p) => {
-      const actor = await actorFact(tx, p.actorId);
-      if (!actor) throw createAppError('INVARIANT');
-      return {
-        id: p.id,
-        actorId: actor.actorId,
-        kind: actor.kind,
-        label: actor.label,
-        seat: seatOfColumns(p),
-      };
-    }),
-  );
-  const lifecycle = roundLifecycleOfRow(row);
-  const round: LaunchedRound = {
-    ...lifecycle,
-    id: row.id,
-    roomId: row.roomId,
-    version: row.version,
-    competitionType: row.competitionType,
-    ladderId: row.ladderId,
-    topic: row.resolution,
-    visibility: row.visibility,
-    hostActorId: row.createdByActorId,
-    hostInherited: row.hostInherited,
-    config: row.roomConfigSnapshot,
-    rules: row.rulesSnapshot,
-    participants,
-    postRoundCall: await postRoundCallStands(tx, row),
-    platformEnding: row.platformEnding,
-    // A ruling belongs to a panel completion: a Round that is not completed carries none.
-    panelRuling:
-      lifecycle.status !== 'completed'
-        ? null
-        : recordedPanelRuling(
-            await tx
-              .select()
-              .from(roundCommands)
-              .where(
-                and(
-                  eq(roundCommands.roundId, roundId),
-                  eq(roundCommands.type, 'complete'),
-                ),
-              ),
-          ),
-    transcriptCompleteness:
-      (
-        await tx
-          .select({ completeness: roundTranscriptFreezes.completeness })
-          .from(roundTranscriptFreezes)
-          .where(eq(roundTranscriptFreezes.roundId, roundId))
-      )[0]?.completeness ?? null,
-    resolutionAudit: await roundResolutionAudit(tx, row),
-    checkpoint: readableCheckpoint(row.runtimeState),
-    segments: await segmentRows(tx, roundId),
-  };
-  return round;
-}
 export const roomReadOperations = ({
   database,
   eventSink,
@@ -191,18 +88,11 @@ export const roomReadOperations = ({
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
-        const account = await sharedAccount(tx, caller);
-        const initial = await launchedRoundRows(tx, roundId);
-        const owner = await readRoundRoomAuthority(tx, {
-          roomId: initial.roomId,
-          userId: caller.userId,
+        const { round, account, owner } = await readAuthorizedRound(tx, {
+          roundId,
+          caller,
+          authorize,
         });
-        const round =
-          owner.kind === 'event'
-            ? await launchedRoundRows(tx, roundId)
-            : initial;
-        if (!authorize(round, account, owner))
-          throw createAppError('NOT_FOUND');
         return withOpening(
           tx,
           round,

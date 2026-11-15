@@ -23,7 +23,7 @@ import {
   recordRevocationFailed,
 } from './broadcast-operations';
 import { heartbeatStale } from './control-heartbeat';
-import { launchedRoundRows } from './room-read-operations';
+import { launchedRoundRows } from './launched-round-read';
 import { hydrateRoundRows } from './round-hydration';
 import { broadcasts } from './schema/broadcasts';
 import { mediaParticipants } from './schema/media-sessions';

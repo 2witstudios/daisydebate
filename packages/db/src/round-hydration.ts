@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import { isRoundLifecycle, type RoundLifecycle } from '@daisy/protocol';
 import { loadRoundOpening, type StoredOpening } from './round-opening-read';
@@ -10,7 +11,7 @@ import type {
   RuntimeCheckpoint,
   SegmentType,
 } from '@daisy/protocol';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { seatOfColumns, seatRowOrder } from './seat-columns';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -159,7 +160,12 @@ async function readRoundRows(
       slot: roundParticipants.slot,
     })
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, id))
+    .where(
+      and(
+        eq(roundParticipants.roundId, id),
+        currentRoundParticipant(roundParticipants.id),
+      ),
+    )
     .orderBy(...seatRowOrder(roundParticipants));
   const participants = seats.map(({ id, actorId, ...seat }) => ({
     id,

@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { judgingJobRules } from '@daisy/debate-engine';
 import {
   ballotCategories,
@@ -129,4 +130,4 @@ export const withJudgingJob = (
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
     }
-  });
+  }, judgedRound);

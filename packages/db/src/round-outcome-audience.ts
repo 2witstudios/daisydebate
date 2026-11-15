@@ -10,4 +10,4 @@ export const roundOutcomeForAudience = <T extends RoundRecord>(
   owner.kind === 'ordinary' ||
   (owner.kind === 'event' && owner.direction !== null && decisionVisible)
     ? view
-    : { ...view, outcome: null };
+    : { ...view, outcome: null, panelRuling: null };

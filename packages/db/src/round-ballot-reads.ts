@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import { roundOutcomeForAudience } from './round-outcome-audience';
 import type { RoundBallotAccess } from './round-ballot-audience';
 import { ballotScreenings } from './schema/ballot-screenings';
@@ -6,7 +7,7 @@ import { withOpening, type ReadOpening } from './round-opening-read';
 import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import type { CaptureRule } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   ballotSubjectsFor,
   idSchema,
@@ -17,14 +18,13 @@ import {
   type LaunchedRound,
   type RoundBallotRead,
 } from '@daisy/protocol';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 import { roundViewFor } from './round-view-projection';
-import { outcomeOfColumns } from './round-outcome-columns';
 import { readWaitingOn } from './round-waiting-read';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
@@ -70,43 +70,81 @@ export const roundBallotReads = ({
 }: {
   readonly database: BunSQLDatabase;
 }) => ({
-  async listRoundJudgeAssignments(caller: Caller) {
-    return database.transaction(async (tx) => {
-      const account = await sharedAccount(tx, caller);
+  async listRoundJudgeAssignments(input: {
+    readonly caller: Caller;
+    readonly authorize: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => boolean;
+    readonly readEventDecision: (owner: RoundRoomAuthority) => boolean;
+    readonly readOpening: ReadOpening;
+  }) {
+    const addresses = await database.transaction(async (tx) => {
+      const account = await sharedAccount(tx, input.caller);
       if (!account?.member || account.erased)
         throw createAppError('AUTHORIZATION');
-      const assignments = await tx
-        .select({
-          roundId: rounds.id,
-          resolution: rounds.resolution,
-          status: rounds.status,
-          winningSide: rounds.winningSide,
-          ranking: rounds.ranking,
-          rules: rounds.rulesSnapshot,
-          ballotSubmitted: sql<boolean>`${ballots.id} is not null`,
-          freezeRevision: roundTranscriptFreezes.revision,
-        })
+      return tx
+        .select({ roundId: rounds.id })
         .from(roundParticipants)
         .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
-        .leftJoin(ballots, eq(ballots.judgeParticipantId, roundParticipants.id))
-        .leftJoin(
-          roundTranscriptFreezes,
-          eq(roundTranscriptFreezes.roundId, rounds.id),
-        )
         .where(
           and(
-            eq(roundParticipants.actorId, caller.actorId),
+            eq(roundParticipants.actorId, input.caller.actorId),
             eq(roundParticipants.seatKind, 'judge'),
+            currentRoundParticipant(roundParticipants.id),
           ),
         )
         .orderBy(desc(rounds.createdAt));
-      return roundJudgeAssignmentsSchema.parse(
-        assignments.map(({ winningSide, ranking, rules, ...assignment }) => ({
-          ...assignment,
-          outcome: outcomeOfColumns({ winningSide, ranking }, rules),
-        })),
-      );
     });
+    const assignments = [];
+    // Each addressed Round owns its parent-lock transaction; a collection never inverts unrelated parent chains.
+    for (const address of addresses) {
+      try {
+        const assignment = await database.transaction(async (tx) => {
+          const { round, account, owner } = await readAuthorizedRound(tx, {
+            ...input,
+            roundId: address.roundId,
+          });
+          const own = ownJudgeSeat(round.participants, input.caller.actorId);
+          if (!own) return null;
+          const [ballot] = await tx
+            .select({ id: ballots.id })
+            .from(ballots)
+            .where(eq(ballots.judgeParticipantId, own.id));
+          const [freeze] = await tx
+            .select({ revision: roundTranscriptFreezes.revision })
+            .from(roundTranscriptFreezes)
+            .where(eq(roundTranscriptFreezes.roundId, round.id));
+          const view = await withOpening(
+            tx,
+            round,
+            {
+              ...roundOutcomeForAudience(
+                roundViewFor(round, input.caller.actorId),
+                owner,
+                input.readEventDecision(owner),
+              ),
+              waitingOn: null,
+            },
+            { actorId: input.caller.actorId, account },
+            input.readOpening,
+          );
+          return {
+            roundId: round.id,
+            resolution: view.topic,
+            status: view.status,
+            outcome: view.outcome,
+            ballotSubmitted: ballot !== undefined,
+            freezeRevision: freeze?.revision ?? null,
+          };
+        });
+        if (assignment) assignments.push(assignment);
+      } catch (error) {
+        if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
+      }
+    }
+    return roundJudgeAssignmentsSchema.parse(assignments);
   },
   async readRoundBallot(input: {
     readonly roundId: string;

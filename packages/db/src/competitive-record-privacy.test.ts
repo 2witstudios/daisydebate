@@ -31,8 +31,12 @@ test('the competitive-record step erases nothing and reads only the subject rows
         'room_participants',
         'room_seat_holds',
         'rooms',
+        'round_finalization_judge_assignments',
+        'round_judge_assignments',
+        'round_judge_slots',
         'round_participants',
         'round_resolution_strikes',
+        'round_source_voids',
         'rounds',
       ],
     ],
@@ -52,6 +56,6 @@ test('the competitive-record step erases nothing and reads only the subject rows
           !query.includes('users'),
       ),
     ],
-    expected: [9, true, false],
+    expected: [13, true, false],
   });
 });

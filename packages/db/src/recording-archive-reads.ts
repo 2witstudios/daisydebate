@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import {
   isJudgeSeat,
   type CompetitionType,
@@ -73,7 +74,7 @@ const publicScope = (clock: SpectatorClock) =>
 const seatedScope = (actorId: string | null) =>
   actorId === null
     ? sql`false`
-    : sql`exists (select 1 from ${roundParticipants} where ${roundParticipants.roundId} = ${rounds.id} and ${roundParticipants.actorId} = ${actorId})`;
+    : sql`exists (select 1 from ${roundParticipants} where ${roundParticipants.roundId} = ${rounds.id} and ${roundParticipants.actorId} = ${actorId} and ${currentRoundParticipant(roundParticipants.id)})`;
 
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
@@ -112,7 +113,7 @@ const cursorInScope = (input: ArchiveInput): SQL =>
   input.query.scope === 'mine'
     ? input.viewerActorId === null
       ? sql`false`
-      : sql`exists (select 1 from round_participants p where p.round_id = c.id and p.actor_id = ${input.viewerActorId})`
+      : sql`exists (select 1 from round_participants p where p.round_id = c.id and p.actor_id = ${input.viewerActorId} and public.daisy_round_participant_is_current(p.id))`
     : sql`coalesce((select v.visibility from rooms v where v.id = c.room_id), c.visibility, 'private') = 'public'
         and ${factReleasedSql(sql`c.completed_at`, cursorRound, input.clock)}`;
 
@@ -189,7 +190,12 @@ export const recordingArchiveReadOperations = ({
               seatKind: roundParticipants.seatKind,
             })
             .from(roundParticipants)
-            .where(eq(roundParticipants.roundId, row.id)),
+            .where(
+              and(
+                eq(roundParticipants.roundId, row.id),
+                currentRoundParticipant(roundParticipants.id),
+              ),
+            ),
         ),
       );
       const named = await namedSeats(

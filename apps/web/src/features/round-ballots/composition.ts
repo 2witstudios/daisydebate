@@ -32,6 +32,14 @@ export function composeRoundBallotRoutes(app: App) {
           canReadTranscript(caller, round, account, authority),
         readOpening: readRoundOpening,
       }),
-    assignments: (caller) => app.database.listRoundJudgeAssignments(caller),
+    assignments: (caller) =>
+      app.database.listRoundJudgeAssignments({
+        caller,
+        readOpening: readRoundOpening,
+        authorize: (round, account, owner) =>
+          canReadRound(caller, round, account, owner),
+        readEventDecision: (owner) =>
+          eventBallotAccess(caller, owner).parts.includes('decision'),
+      }),
   });
 }

@@ -1,7 +1,11 @@
 import { readRoundCompetitionSource } from '@daisy/db/round-competition';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
-import { scratchDatabase, withRolledBackDatabase } from '@daisy/db/testing';
+import {
+  scratchDatabase,
+  withRolledBackDatabase,
+  loanRoundAssignmentInterface,
+} from '@daisy/db/testing';
 import { judgeSeat } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -35,6 +39,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
       issuer_service_id text,issuer_operator_ref text,decision_reference text,
       subscription_id text,subscription_observed_at timestamptz,subscription_evidence jsonb,coverage jsonb)`;
     await sql`grant select on account_hosting_versions to daisy_web`;
+    const removeAssignmentInterface = await loanRoundAssignmentInterface(sql);
     const completed: { value: { roundId: string; ballotId: string } | null } = {
       value: null,
     };
@@ -85,6 +90,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;
+    await removeAssignmentInterface();
     await scratch.migrate(() => true);
     const after = await read();
     const [owner] =

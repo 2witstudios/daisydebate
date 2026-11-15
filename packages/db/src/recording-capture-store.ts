@@ -39,7 +39,7 @@ import {
   readRecordingJobState,
   recordingSourcesRemain,
 } from './recording-processing-operations';
-import { launchedRoundRows } from './room-read-operations';
+import { launchedRoundRows } from './launched-round-read';
 import { hydrateRoundRows } from './round-hydration';
 import { actors } from './schema/actors';
 import { broadcasts } from './schema/broadcasts';

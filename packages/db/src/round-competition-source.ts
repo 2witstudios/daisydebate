@@ -48,6 +48,7 @@ export const readRoundCompetitionSource = async (
         eq(r.id, input.roundId),
         eq(r.roomId, input.roomId),
         eq(r.status, 'completed'),
+        sql`not exists(select 1 from round_source_voids v where v.round_id=${r.id})`,
       ),
     )
     .for('share', { of: r });
@@ -64,7 +65,12 @@ export const readRoundCompetitionSource = async (
       slot: roundParticipants.slot,
     })
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, input.roundId));
+    .where(
+      and(
+        eq(roundParticipants.roundId, input.roundId),
+        sql`(${roundParticipants.seatKind}<>'judge' or exists(select 1 from round_finalization_judge_assignments a where a.round_id=${roundParticipants.roundId} and a.participant_id=${roundParticipants.id}))`,
+      ),
+    );
   const cast = castRows
     .map((row) => ({
       participantId: row.participantId,

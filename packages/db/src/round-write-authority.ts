@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import {
   lockRoundCommandWorker,
   roundCommandWorkerActive,
@@ -128,7 +129,12 @@ export async function fenceRoundWrite(tx: Tx, input: RoundWriteScope) {
   const initialSeats = await tx
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, input.roundId));
+    .where(
+      and(
+        eq(roundParticipants.roundId, input.roundId),
+        currentRoundParticipant(roundParticipants.id),
+      ),
+    );
   const [initialRound] = await tx
     .select({ hostActorId: rounds.createdByActorId })
     .from(rounds)

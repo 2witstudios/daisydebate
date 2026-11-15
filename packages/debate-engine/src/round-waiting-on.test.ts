@@ -21,6 +21,7 @@ const frozen = (
     panel: { decision: 'majority', quorum: 1 },
   },
   completeness: 'complete',
+  emptyJudgeSlots: [],
   humanJudgeSeatIds: [],
   aiJudgeSeatIds: [],
   ballotDeadlineAt: null,

@@ -101,6 +101,7 @@ test('completion follows the panel decision', async () => {
       panel: panelRuleFor(daisyWinnerBallot),
     },
     completeness: 'complete' as const,
+    emptyJudgeSlots: [],
     humanJudgeSeatIds: [seat.id],
     aiJudgeSeatIds: [],
     ballotDeadlineAt: new Date(Date.parse(context.now) + 1).toISOString(),

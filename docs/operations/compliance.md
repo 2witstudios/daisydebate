@@ -326,7 +326,11 @@ requests and private report reads after erasure. Limits of that:
   the member's words: a bot's reply, an answer in cross-examination.
 - A result already decided, its ballots and its rating changes stay as the
   competitive record, and a submitted ballot's reason and feedback can quote the
-  member. A held judgment discarded leaves its Round with no ruling from that
+  member. Immutable judge assignment versions, terminal assignment/ballot witnesses
+  and source-void links share this competitive-record retention. Retiring an
+  unsubmitted assignment removes current authority, not its historical identity;
+  subject export includes that person's own lineage without another judge's identity.
+  This adds no submitted or screened-text retention window. A held judgment discarded leaves its Round with no ruling from that
   judge, so erasing can void a result not yet decided (ISSUE-1170).
 - A Round still running, a capture in flight or a judging job not yet answered
   can write after the erasure (ISSUE-1169).

@@ -73,7 +73,7 @@ async function planFrozenJudging(
 ) {
   const [judges] =
     (await tx.execute(sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
-    where p.round_id=${request.roundId} and p.seat_kind='judge' and a.kind='human') as "humanJudges"`)) as unknown as {
+    where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='human') as "humanJudges"`)) as unknown as {
       humanJudges: boolean;
     }[];
   const plan = request.planJudging({
@@ -100,7 +100,7 @@ async function planFrozenJudging(
   // The AI judge is eligible by its own profile (ISSUE-750); kind alone is insufficient.
   await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts,generation_deadline_at)
     select ${request.roundId},1,p.id,'queued',0,(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.aiJudgingBudgetMs}*interval '1 millisecond' from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
-    where p.round_id=${request.roundId} and p.seat_kind='judge' and a.kind='bot'
+    where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='bot'
     on conflict (round_id,judge_participant_id) do nothing`);
 }
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */

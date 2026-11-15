@@ -489,6 +489,7 @@ test('a seat with a human judge and no deadline has no panel', () => {
   const facts = {
     judging,
     completeness: 'complete' as const,
+    emptyJudgeSlots: [],
     humanJudgeSeatIds: [judges[0]!],
     aiJudgeSeatIds: [judges[1]!],
     ballotDeadlineAt: null,
@@ -515,6 +516,16 @@ test('a seat with a human judge and no deadline has no panel', () => {
       humanWindow: { deadlineAt: deadline, seatIds: [judges[0]!] },
       aiSeats: [{ id: judges[1]!, standing: { state: 'not_dispatched' } }],
     },
+  });
+  assert({
+    given:
+      'a persisted empty original judge slot even after every other judge could rule',
+    should: 'have no completable panel instead of reducing its cardinality',
+    actual: judgingPanelOf(
+      { ...facts, ballotDeadlineAt: deadline, emptyJudgeSlots: [2] },
+      10_000,
+    ),
+    expected: null,
   });
 });
 

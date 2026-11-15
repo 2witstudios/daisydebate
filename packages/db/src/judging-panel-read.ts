@@ -1,6 +1,7 @@
+import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import type { JudgingPanelFacts } from '@daisy/protocol';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
@@ -53,13 +54,20 @@ export async function readJudgingPanelFacts(
       holdsBallot: sql<boolean>`${roundJudgingJobs.pendingBallot} is not null`,
     })
     .from(roundJudgingJobs)
-    .where(eq(roundJudgingJobs.roundId, roundId));
+    .where(
+      and(
+        eq(roundJudgingJobs.roundId, roundId),
+        currentRoundParticipant(roundJudgingJobs.judgeParticipantId),
+      ),
+    );
   const judges =
-    (await tx.execute(sql`select p.id, a.kind from round_participants p
-    join actors a on a.id=p.actor_id
-    where p.round_id=${roundId} and p.seat_kind='judge' order by p.slot`)) as unknown as {
-      id: string;
-      kind: string;
+    (await tx.execute(sql`select s.slot,p.id,a.kind from round_judge_slots s
+    left join round_participants p on p.id=s.participant_id
+    left join actors a on a.id=p.actor_id
+    where s.round_id=${roundId} order by s.slot`)) as unknown as {
+      slot: number;
+      id: string | null;
+      kind: string | null;
     }[];
   const rulings = await tx
     .select({
@@ -73,12 +81,15 @@ export async function readJudgingPanelFacts(
   return {
     judging: round.judging,
     completeness: input.completeness,
-    humanJudgeSeatIds: judges
-      .filter((seat) => seat.kind === 'human')
-      .map((seat) => seat.id),
-    aiJudgeSeatIds: judges
-      .filter((seat) => seat.kind !== 'human')
-      .map((seat) => seat.id),
+    emptyJudgeSlots: judges
+      .filter((seat) => seat.id === null)
+      .map((seat) => seat.slot),
+    humanJudgeSeatIds: judges.flatMap((seat) =>
+      seat.id !== null && seat.kind === 'human' ? [seat.id] : [],
+    ),
+    aiJudgeSeatIds: judges.flatMap((seat) =>
+      seat.id !== null && seat.kind === 'bot' ? [seat.id] : [],
+    ),
     ballotDeadlineAt: round.ballotDeadlineAt,
     jobs: jobs.map((job) => ({
       ...job,

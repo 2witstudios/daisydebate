@@ -1,3 +1,5 @@
+import { judgedRound } from './judged-round.test-support';
+import { loanRoundAssignmentInterface } from '../src/testing-round-assignment-interface';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
@@ -42,12 +44,15 @@ test(
           id text,user_id text,source text,version integer,starts_at timestamptz,expires_at timestamptz,
           issuer_service_id text,issuer_operator_ref text,decision_reference text,
           subscription_id text,subscription_observed_at timestamptz,subscription_evidence jsonb,coverage jsonb)`;
+        const removeAssignmentInterface = await loanRoundAssignmentInterface(
+          f.sql,
+        );
         const run = createBoundedTransaction({
           lane: testLane(f.sql, 4),
           now: performance.now,
         });
-        const queuedId = await f.round(),
-          failedId = await f.round();
+        const queuedId = await judgedRound(f),
+          failedId = await judgedRound(f);
         // Seeded on the schema before ADR 0125's stage columns: no stage records.
         await seedJudgingIntent(
           f,
@@ -77,6 +82,7 @@ test(
             await f.sql`select round_id,revision,frontier,completeness from round_transcript_freezes order by round_id`;
           await f.sql`alter table rounds drop column post_round_call`;
           await f.sql`alter table rounds drop column winning_side, drop column ranking, drop column judging`;
+          await removeAssignmentInterface();
           await f.sql`alter table round_participants drop column seat_kind, drop column side`;
           await f.sql`alter table rounds drop column ballot_definition_id, drop column ballot_definition_version`;
           await f.sql`alter table ballots drop column speaker_ranks`;

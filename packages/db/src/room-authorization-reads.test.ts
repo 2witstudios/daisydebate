@@ -203,6 +203,8 @@ test('Round read returns only the stored receipt and current participant identit
   const account = accountRow();
   const { database } = createTestDatabase([
     [account],
+    [[room.id]], // immutable Round Room locator, before parent or Round locks
+    [[room.id, publicLobbyId, 'standing', caller.actorId]],
     [
       roundRow({
         id: 'c3a1d5f7h9j2k4m6n8p1r3t5',
@@ -241,7 +243,6 @@ test('Round read returns only the stored receipt and current participant identit
     [[caller.actorId, 'human', 'current-host', null, true, null]],
     [], // no transcript freeze
     [], // no played segments
-    [[room.id, publicLobbyId, 'standing', caller.actorId]],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }], // post-source authority instant
   ]);
 

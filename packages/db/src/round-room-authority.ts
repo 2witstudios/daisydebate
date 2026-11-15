@@ -1,6 +1,5 @@
 import { eq } from 'drizzle-orm';
 import { rooms } from './schema/rooms';
-import { readDatabaseTime } from './database-clock';
 import { fenceTabAccountRead } from './tab/account-read-fence';
 import {
   loadRoundDirection,
@@ -18,11 +17,16 @@ export type RoundRoomAuthority =
     }
   | { readonly kind: 'unavailable'; readonly checkedAt: string };
 
+export type RoundRoomSource =
+  | { readonly kind: 'ordinary' }
+  | { readonly kind: 'event'; readonly direction: RoomDirectionInput | null }
+  | { readonly kind: 'unavailable' };
+
 /** Caller already holds its canonical account fence; no capture/funding source grants reading rights. */
 export const readRoundRoomAuthority = async (
   tx: TabTransaction,
   input: { readonly roomId: string | null; readonly userId: string },
-): Promise<RoundRoomAuthority> => {
+): Promise<RoundRoomSource> => {
   const [room] =
     input.roomId === null
       ? []
@@ -38,12 +42,10 @@ export const readRoundRoomAuthority = async (
   if (input.roomId !== null && !room)
     return {
       kind: 'unavailable',
-      checkedAt: (await readDatabaseTime(tx)).toISOString(),
     };
   if (!room || room.lobbyKind !== 'tournament')
     return {
       kind: 'ordinary',
-      checkedAt: (await readDatabaseTime(tx)).toISOString(),
     };
   await fenceTabAccountRead(tx, input.userId);
   const direction = await loadRoundDirection(tx, {
@@ -53,6 +55,5 @@ export const readRoundRoomAuthority = async (
   return {
     kind: 'event',
     direction,
-    checkedAt: (await readDatabaseTime(tx)).toISOString(),
   };
 };

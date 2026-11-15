@@ -74,6 +74,7 @@ export const panelsFromFacts = () => {
   return facts.map(({ name, ...rest }) => {
     const input = {
       ...rest,
+      emptyJudgeSlots: [],
       completeness: 'complete' as const,
       held,
       ballots: [],

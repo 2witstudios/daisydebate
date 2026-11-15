@@ -1,7 +1,10 @@
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
-import { committingRuntimeTestDatabase } from '@daisy/db/testing';
+import {
+  committingRuntimeTestDatabase,
+  finishedOrBlockedBehind,
+} from '@daisy/db/testing';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
@@ -112,5 +115,56 @@ export const proveEventRoundRead = async (input: {
       ),
     ],
     expected: [true, roundId, 1],
+  });
+  const [deadline] =
+    await owner`select clock_timestamp()+interval '1 second' expires_at`;
+  const expiresAt = new Date(deadline!.expires_at).toISOString();
+  const finiteGrant = await send(as(director), {
+    version: 1,
+    commandId: createId(),
+    expected: await expected(),
+    command: {
+      type: 'give-grant',
+      scope,
+      userId: stranger.userId,
+      roleId: presetStaffRoleId,
+      expiresAt,
+    },
+  });
+  if (finiteGrant.kind !== 'accepted')
+    throw new Error('Finite read grant refused');
+  const { reading } = await owner.begin(async (tx) => {
+    await tx`select id from rounds where id=${roundId} for update`;
+    const [backend] = await tx`select pg_backend_pid() pid`;
+    const reading = denied(() => read(stranger, roundId)).then(
+      (ok) => ({ kind: 'answer' as const, ok }),
+      (error) => ({ kind: 'failed' as const, error }),
+    );
+    const blocked = await finishedOrBlockedBehind(
+      reading,
+      f.sql,
+      Number(backend!.pid),
+      { now: Date.now },
+    );
+    const [valid] =
+      await f.sql`select clock_timestamp()<${expiresAt}::timestamptz valid`;
+    assert({
+      given:
+        'a genuine finite Staff grant and a protected read waiting on the ordinary Round row',
+      should: 'reach the actual lock wait while authority is still valid',
+      actual: [blocked, valid!.valid],
+      expected: ['blocked', true],
+    });
+    await tx`select pg_sleep(greatest(0,extract(epoch from (${expiresAt}::timestamptz-clock_timestamp())))+0.02)`;
+    return { reading };
+  });
+  const outcome = await reading;
+  if (outcome.kind === 'failed') throw outcome.error;
+  assert({
+    given: 'the grant expiring during the actual Round lock wait',
+    should:
+      'resample database time after the wait and refuse the stale authority',
+    actual: outcome.ok,
+    expected: true,
   });
 };

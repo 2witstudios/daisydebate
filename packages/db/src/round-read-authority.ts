@@ -6,7 +6,10 @@ import type { TabTransaction } from './tab/tab-transaction';
 import { createAppError } from '@daisy/errors';
 import type { LaunchedRound } from '@daisy/protocol';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
-import { launchedRoundRows } from './room-read-operations';
+import { launchedRoundRows } from './launched-round-read';
+import { eq } from 'drizzle-orm';
+import { rounds } from './schema/rounds';
+import { readDatabaseTime } from './database-clock';
 /** Canonical account fence followed by a fresh protected Round snapshot for private competitive reads. */
 export async function readAuthorizedRound(
   tx: TabTransaction,
@@ -21,15 +24,28 @@ export async function readAuthorizedRound(
   },
 ) {
   const account = await sharedAccount(tx, input.caller);
-  const initial = await launchedRoundRows(tx, input.roundId);
-  const owner = await readRoundRoomAuthority(tx, {
-    roomId: initial.roomId,
+  // Locate only the immutable Room source before parents; never hold a Round lock while waiting for its event parent.
+  const [located] = await tx
+    .select({ roomId: rounds.roomId })
+    .from(rounds)
+    .where(eq(rounds.id, input.roundId));
+  if (!located?.roomId) throw createAppError('NOT_FOUND');
+  const source = await readRoundRoomAuthority(tx, {
+    roomId: located.roomId,
     userId: input.caller.userId,
   });
-  const round =
-    owner.kind === 'event'
-      ? await launchedRoundRows(tx, input.roundId)
-      : initial;
+  if (
+    source.kind === 'unavailable' ||
+    (source.kind === 'event' && !source.direction)
+  )
+    throw createAppError('NOT_FOUND');
+  const round = await launchedRoundRows(tx, input.roundId);
+  if (round.roomId !== located.roomId)
+    throw createAppError('CONFLICT', 'Round source changed');
+  const owner: RoundRoomAuthority = {
+    ...source,
+    checkedAt: (await readDatabaseTime(tx)).toISOString(),
+  };
   if (!input.authorize(round, account, owner))
     throw createAppError('NOT_FOUND');
   return { round, account, owner };

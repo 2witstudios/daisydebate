@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -6,7 +7,7 @@ import {
   type MediaWindowFacts,
   type RoundCommandAuthority,
 } from '@daisy/protocol';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import type { BoundedTransactionContext } from './transaction-context';
 import { actorFact } from './room-command-facts';
@@ -81,7 +82,12 @@ export async function lockMediaRound(
   const seats = await tx
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, roundId));
+    .where(
+      and(
+        eq(roundParticipants.roundId, roundId),
+        currentRoundParticipant(roundParticipants.id),
+      ),
+    );
   const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {

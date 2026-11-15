@@ -19,6 +19,10 @@ export const roundCommandTypes = [
   'leave',
   'complete',
   'submit_ballot',
+  /** Internal authorized assignment and source lifecycle commands (DEC417). */
+  'change_judge',
+  'stop',
+  'void_source',
   'check_in',
   'adjudicate',
 ] as const;

@@ -33,10 +33,13 @@ describe('competitive schema child tables', () => {
           ],
           indexes: [
             'round_participants_actor_idx',
-            'unique round_participants_actor_unique',
+            'round_participants_round_actor_idx',
+            'unique round_participants_fixed_actor_unique',
+            'unique round_participants_fixed_seat_unique',
             'unique round_participants_id_round_unique',
+            'unique round_participants_rating_actor_unique',
           ],
-          uniques: ['round_participants_seat_unique'],
+          uniques: ['round_participants_assignment_identity_unique'],
           namedKeys: [],
         },
         segments: {

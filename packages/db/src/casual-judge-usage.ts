@@ -70,7 +70,7 @@ export async function settleCasualJudgeUsageLocked(tx: Tx, roundId: string) {
     count(*) filter(where j.status is null or j.status in ('queued','leased','recovering','blocked'))::int as open
     from round_participants p join actors a on a.id=p.actor_id and a.kind='bot'
     left join round_judging_jobs j on j.round_id=p.round_id and j.judge_participant_id=p.id
-    where p.round_id=${roundId} and p.seat_kind='judge'`);
+    where p.round_id=${roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id)`);
   if (!isRoundOver(round.status) && (!jobs?.total || jobs.open !== 0)) return;
   const reservation = await judgeReservation(tx, roundId);
   if (!reservation) return;
