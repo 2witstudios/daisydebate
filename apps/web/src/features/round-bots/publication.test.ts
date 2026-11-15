@@ -49,8 +49,12 @@ function harness(
     readonly reveal?: (phraseId: string) => Promise<unknown>;
     /** Fails the handoff of the n-th frame, counting from 0. */
     readonly failHandoff?: (frame: number) => boolean;
+    readonly capture?: () => Promise<void>;
+    readonly nowMs?: () => number;
+    readonly waitUntilMs?: typeof waitUntil;
   } = {},
 ) {
+  const nowMs = options.nowMs ?? (() => performance.now());
   const events: string[] = [];
   const handoffs: number[] = [];
   /** Each silence the queue played between frames, in ms. */
@@ -83,7 +87,7 @@ function harness(
         phrase: { phraseId: string },
       ) => {
         await options.reveal?.(phrase.phraseId);
-        reveals.push({ phraseId: phrase.phraseId, at: performance.now() });
+        reveals.push({ phraseId: phrase.phraseId, at: nowMs() });
         return { revealed: true };
       },
       beginRoundBotPhrase: async (
@@ -92,7 +96,7 @@ function harness(
         phrase: unknown,
         room: unknown,
       ) => {
-        begins.push({ phrase, room, at: performance.now() });
+        begins.push({ phrase, room, at: nowMs() });
         await options.begin?.();
         return { duplicate: false };
       },
@@ -103,7 +107,7 @@ function harness(
         end: unknown,
       ) => {
         await options.end?.(phraseId);
-        ends.push({ phraseId, end, at: performance.now() });
+        ends.push({ phraseId, end, at: nowMs() });
         return { changed: true };
       },
     } as never,
@@ -123,17 +127,18 @@ function harness(
         capture10ms: async () => {
           if (options.failHandoff?.(handoffs.length))
             throw new Error('native source failed');
-          const now = performance.now();
+          const now = nowMs();
           handoffs.push(now);
           // Silence heard: the queue ran dry before this frame arrived.
           if (playedUntil > 0 && now > playedUntil)
             silences.push(now - playedUntil);
           playedUntil = Math.max(playedUntil, now) + 10;
+          if (options.capture) await options.capture();
         },
-        queuedMs: () => Math.max(0, playedUntil - performance.now()),
+        queuedMs: () => Math.max(0, playedUntil - nowMs()),
         clearQueue: () => {
           events.push('clear');
-          playedUntil = performance.now();
+          playedUntil = nowMs();
         },
         close: async () => {
           closed = true;
@@ -143,8 +148,8 @@ function harness(
       } as never;
     },
     nextId: () => 'k'.repeat(24),
-    monotonicNowMs: () => performance.now(),
-    waitUntilMs: waitUntil,
+    monotonicNowMs: nowMs,
+    waitUntilMs: options.waitUntilMs ?? waitUntil,
   });
   return {
     claim: publisher({ scope, token: 't' }),
@@ -389,12 +394,35 @@ test('a speech’s deadline is its segment end on the local clock, never later',
 });
 
 test('a phrase’s close stalling 200 ms never delays the next phrase’s audio (ADR 0122)', async () => {
-  const { claim, handoffs, ends } = harness({ end: () => Bun.sleep(200) });
+  const waits: { due: number; entered: number; resumed: number }[] = [];
+  const { claim, handoffs, ends } = harness({
+    end: () => Bun.sleep(200),
+    waitUntilMs: async (due, signal) => {
+      const entered = performance.now();
+      await waitUntil(due, signal);
+      waits.push({ due, entered, resumed: performance.now() });
+    },
+  });
   const first = await claim.publish(job(400, 'a'.repeat(24)), signal(), far());
   const boundary = handoffs.length;
   await claim.publish(job(400, 'b'.repeat(24)), signal(), far());
   const gap = handoffs[boundary]! - handoffs[boundary - 1]!;
   const gaps = handoffs.slice(1).map((at, index) => at - handoffs[index]!);
+  // Retain the causal interval if the strict oracle fails in a combined run.
+  const gapIndex = gaps.findIndex((ms) => ms >= 60);
+  const lateGap =
+    gapIndex < 0
+      ? null
+      : {
+          frame: gapIndex + 1,
+          from: handoffs[gapIndex]!,
+          to: handoffs[gapIndex + 1]!,
+          waits: waits.filter(
+            ({ entered, resumed }) =>
+              entered >= handoffs[gapIndex]! &&
+              resumed <= handoffs[gapIndex + 1]!,
+          ),
+        };
   await tailPlays();
   await Bun.sleep(300);
   assert({
@@ -405,12 +433,14 @@ test('a phrase’s close stalling 200 ms never delays the next phrase’s audio 
       first,
       boundaryUnder30: gap < 30,
       maxGapUnder60: Math.max(...gaps) < 60,
+      lateGap,
       ends: ends.map((row) => [row.phraseId[0], row.end]),
     },
     expected: {
       first: { complete: true, segmentEnded: false },
       boundaryUnder30: true,
       maxGapUnder60: true,
+      lateGap: null,
       ends: [
         ['a', { kind: 'whole' }],
         ['b', { kind: 'whole' }],
@@ -513,6 +543,72 @@ test('a refused phrase start plays none of its audio', async () => {
     should: 'hand no frame over for the refusal, and play it once written',
     actual: { refusedFrames, played: handoffs.length },
     expected: { refusedFrames: 0, played: 10 },
+  });
+});
+
+test('a next phrase requested during the first join is authorized before first audio without holding it up', async () => {
+  const join = Promise.withResolvers<void>();
+  const captured = Promise.withResolvers<void>();
+  const releaseCapture = Promise.withResolvers<void>();
+  const nextAuthority = Promise.withResolvers<void>();
+  let starts = 0;
+  const { claim, begins, handoffs } = harness({
+    nowMs: () => 0,
+    waitUntilMs: async (due, signal) => {
+      if (due <= 0 || signal.aborted) return;
+      await new Promise<void>((resolve) =>
+        signal.addEventListener('abort', () => resolve(), { once: true }),
+      );
+    },
+    verify: () => join.promise,
+    begin: async () => {
+      starts += 1;
+      if (starts === 2) await nextAuthority.promise;
+    },
+    capture: async () => {
+      captured.resolve();
+      await releaseCapture.promise;
+    },
+  });
+  const controller = new AbortController();
+  const publishing = claim.publish(
+    job(400, 'a'.repeat(24)),
+    controller.signal,
+    60_000,
+  );
+  claim.writeAhead(job(400, 'b'.repeat(24)));
+  const beforeJoin = begins.length;
+  join.resolve();
+  await captured.promise;
+  const atFirstAudio = {
+    starts: begins,
+    frames: handoffs.length,
+  };
+  controller.abort();
+  releaseCapture.resolve();
+  await publishing;
+  nextAuthority.resolve();
+  await claim.close();
+  assert({
+    given:
+      'the next phrase requested before the first join resolves, with its authorization held unresolved',
+    should:
+      'authorize nothing before joining, then ask a whole phrase ahead while first audio proceeds independently',
+    actual: { beforeJoin, ...atFirstAudio },
+    expected: {
+      beforeJoin: 0,
+      starts: ['a', 'b'].map((id, index) => ({
+        phrase: {
+          phraseId: id.repeat(24),
+          text: words,
+          durationMs: 400,
+          startsInMs: index * 400,
+        },
+        room: 'room',
+        at: 0,
+      })),
+      frames: 1,
+    },
   });
 });
 
