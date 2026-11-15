@@ -165,6 +165,20 @@ export const bracketViewSchema = z.discriminatedUnion('visibility', [
 ]);
 export type BracketView = z.infer<typeof bracketViewSchema>;
 
+/**
+ * The standings query: one event's table, whole or one division's. A
+ * division that breaks on its own line (novices) is read on its own, with
+ * its own seeds and break line; the whole table is read with no division.
+ */
+export const standingsQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(200),
+  eventId: idSchema,
+  division: name.nullable(),
+});
+export type StandingsQuery = z.infer<typeof standingsQuerySchema>;
+
 export const standingsReadCatalogue = {
   StandingsView: { gate: ['standings.read'] },
   BracketView: { gate: ['standings.read'] },

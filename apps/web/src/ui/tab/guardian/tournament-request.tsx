@@ -1,8 +1,7 @@
-import Link from 'next/link';
 import type { TournamentRequest as Read } from '../../../features/tab/guardian';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
-import { ActionButton } from '../action-control/action-control';
+import { ActionButton, BackButton } from '../action-control/action-control';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 
 /**
@@ -12,12 +11,7 @@ import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 export function TournamentRequest({ request }: { readonly request: Read }) {
   return (
     <ReadingPage>
-      <Link
-        href={request.back.href}
-        className="self-start font-strong text-ink underline"
-      >
-        {request.back.label}
-      </Link>
+      <BackButton href={request.back.href} label={request.back.label} />
       <PageHeader title={request.title} lede={request.lede} />
       <ListCard label="The tournament">
         <ul>

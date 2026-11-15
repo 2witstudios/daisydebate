@@ -1,7 +1,7 @@
 import type { Family as Read } from '../../../features/tab/guardian';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { ListCard, ListRow } from '../list-card/list-card';
 
 /**
@@ -34,7 +34,11 @@ export function Family({ family }: { readonly family: Read }) {
               <h2 className="text-md font-strong">{minor.name}</h2>
               <p className="text-sm text-ink-muted">{minor.detail}</p>
             </div>
-            <ActionLink action={minor.account} about={minor.name} />
+            <ActionButton
+              size="small"
+              action={minor.account}
+              about={minor.name}
+            />
           </div>
           <ul>
             {minor.entries.map((entry) => (
@@ -46,7 +50,8 @@ export function Family({ family }: { readonly family: Read }) {
                   entry.open === null ? (
                     <span className="text-sm text-ink-muted">Waiting</span>
                   ) : (
-                    <ActionLink
+                    <ActionButton
+                      size="small"
                       action={entry.open}
                       about={`${entry.tournament}, ${minor.name}`}
                     />

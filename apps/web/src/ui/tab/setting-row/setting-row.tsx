@@ -2,7 +2,7 @@ import {
   sourceLabel,
   type ResolvedSetting,
 } from '../../../features/tab/settings';
-import { ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { ListRow } from '../list-card/list-card';
 
 /**
@@ -39,14 +39,22 @@ export function SettingRow({
         setting.control.kind === 'locked' ? (
           <span className="flex items-center gap-3">
             {setting.control.view === null ? null : (
-              <ActionLink action={setting.control.view} about={setting.label} />
+              <ActionButton
+                size="small"
+                action={setting.control.view}
+                about={setting.label}
+              />
             )}
             <span className="text-sm text-ink-muted">Locked</span>
           </span>
         ) : setting.control.edit === null ? null : selected ? (
           <span className="text-sm font-strong">Open</span>
         ) : (
-          <ActionLink action={setting.control.edit} about={setting.label} />
+          <ActionButton
+            size="small"
+            action={setting.control.edit}
+            about={setting.label}
+          />
         )
       }
     />

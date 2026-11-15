@@ -17,8 +17,8 @@ import {
 import { stayOn } from '../../../../server/form-action';
 
 /**
- * Keeps the chosen sample viewer and moment in a session cookie. The posted
- * pair is untrusted: `parseSampleScene` is its trust boundary, and anything
+ * Keeps the chosen sample viewer, moment and scale in a session cookie. The posted
+ * choice is untrusted: `parseSampleScene` is its trust boundary, and anything
  * else reads as the default scene.
  */
 export async function chooseSampleScene(
@@ -27,7 +27,7 @@ export async function chooseSampleScene(
 ): Promise<FormState> {
   await requireTabRelease();
   const scene = parseSampleScene(
-    `${field(form, 'viewer')}.${field(form, 'moment')}`,
+    `${field(form, 'viewer')}.${field(form, 'moment')}.${field(form, 'scale')}`,
   );
   (await cookies()).set(SAMPLE_SCENE_COOKIE, serializeSampleScene(scene), {
     secure: true,

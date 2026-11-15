@@ -68,6 +68,7 @@ export const postedFixture = (
   entries: entrants.map((shown) => ({
     entryId: sampleId(`entry/${shownKey(shown)}`),
     shown,
+    school: null,
   })),
   judges: [...judges],
   video,

@@ -12,21 +12,30 @@ describe('parseSampleScene', () => {
   test('the cookie is untrusted', () => {
     assert({
       given:
-        'a saved scene, no cookie, an unknown viewer and an unknown moment',
-      should: 'read the saved scene and fall back to the default for the rest',
+        'a saved scene, no cookie, an unknown viewer, an unknown moment, no scale and an unknown scale',
+      should:
+        'read the saved scene, fall back to the default for an unknown viewer or moment, and to the normal size for a scale',
       actual: [
         parseSampleScene(
-          serializeSampleScene({ viewer: 'host', moment: 'elims' }),
+          serializeSampleScene({
+            viewer: 'host',
+            moment: 'elims',
+            scale: 'normal',
+          }),
         ),
         parseSampleScene(undefined),
         parseSampleScene('admin.prelims'),
         parseSampleScene('host.tomorrow'),
+        parseSampleScene('host.elims'),
+        parseSampleScene('host.elims.huge'),
       ],
       expected: [
-        { viewer: 'host', moment: 'elims' },
+        { viewer: 'host', moment: 'elims', scale: 'normal' },
         defaultSampleScene,
         defaultSampleScene,
         defaultSampleScene,
+        { viewer: 'host', moment: 'elims', scale: 'normal' },
+        { viewer: 'host', moment: 'elims', scale: 'normal' },
       ],
     });
   });
@@ -37,7 +46,7 @@ describe('parseSampleScene', () => {
       should: 'give the host area to the host alone',
       actual: [
         holdsGrant(defaultSampleScene),
-        holdsGrant({ viewer: 'host', moment: 'before' }),
+        holdsGrant({ viewer: 'host', moment: 'before', scale: 'normal' }),
       ],
       expected: [false, true],
     });

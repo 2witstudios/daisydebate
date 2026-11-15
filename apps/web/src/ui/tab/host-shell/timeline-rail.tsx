@@ -6,6 +6,7 @@ import {
 } from '../../../features/tab/tournament';
 import { cn } from '../../cn';
 import { SampleAction } from '../../components/sample-action/sample-action';
+import { BackButton } from '../action-control/action-control';
 import { eyebrowClass } from '../list-card/list-card';
 
 const stopClass = 'flex justify-between gap-3 rounded-sm px-3 py-2';
@@ -76,9 +77,7 @@ export function TimelineRail({
       aria-label={rail.title}
       className="sticky top-0 flex h-screen w-host-rail shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-surface px-3 py-5 max-compact:static max-compact:h-auto max-compact:w-full max-compact:border-r-0 max-compact:border-b"
     >
-      <Link href="/" className="px-3 font-strong text-ink underline">
-        Back to Daisy
-      </Link>
+      <BackButton href="/" label="Back to Daisy" className="ml-3" />
       <div className="flex flex-col px-3">
         <strong className="font-display text-xl font-bold">{rail.title}</strong>
         {rail.subtitle === null ? null : (

@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { CreateRoom as Read } from '../../../features/tab/league';
 import { Button } from '../../components/button/button';
 import {
@@ -8,6 +7,7 @@ import {
 } from '../../components/form-field/form-field-class';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
+import { BackButton } from '../action-control/action-control';
 import { ChoiceField } from '../choice-field/choice-field';
 import { ListCard, ListHeading } from '../list-card/list-card';
 import { SampleForm, type SampleSubmit } from '../sample-form/sample-form';
@@ -30,12 +30,7 @@ export function CreateRoom({
 }) {
   return (
     <ReadingPage>
-      <Link
-        href={room.lobby.href}
-        className="self-start font-strong text-ink underline"
-      >
-        {room.lobby.name}
-      </Link>
+      <BackButton href={room.lobby.href} label={room.lobby.name} />
       <PageHeader title="Create a room" />
       <SampleForm
         action={submit(room.open.label)}

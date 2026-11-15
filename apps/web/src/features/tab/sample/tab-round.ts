@@ -19,48 +19,21 @@ import {
 } from './moment';
 import { own } from './own';
 import { varsitySwitch } from './event-switch';
-import type { SampleScene } from './scene';
+import { atScale, type SampleScene } from './scene';
 import { speechRoundView } from './speech-round';
+import { sampleFixture, sampleId, sampleInstant } from './fixture';
+import {
+  largeSlotEvents,
+  largeSlotView,
+  largeVarsityRound,
+} from './large-round';
 
-/** A sample's stand-in for a cuid2 id: the seed's letters, padded to 24. */
-export const sampleId = (seed: string): string =>
-  seed
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]/g, '')
-    .padEnd(24, '0')
-    .slice(0, 24);
-
-/** A sample instant on the tournament's day, given as its wall-clock time. */
-export const sampleInstant = (time: string): string =>
-  `2026-10-17T${time}:00.000Z`;
+export { sampleFixture, sampleId, sampleInstant };
 
 /** The samples keep their instants in the tournament's own wall-clock time. */
 export const sampleWallClock: WallClock = (instant) => instant.slice(11, 16);
 
 const minutes = (n: number) => n * 60_000;
-
-/** The samples' parts of a fixture that every state shares. */
-export const sampleFixture = (
-  title: string,
-  room: string | null,
-  judges: readonly string[],
-  state: TabRoundFixture['state'],
-  kind: TabRoundFixture['kind'] = 'pairing',
-): TabRoundFixture => ({
-  fixtureId: sampleId(`fixture${title}${room ?? ''}`),
-  kind,
-  label: null,
-  entries: title
-    .split(' v ')
-    .map((name) => ({ entryId: sampleId(`entry${name}`), name })),
-  room: room === null ? null : { roomId: sampleId(`room${room}`), name: room },
-  judges: judges.map((name) => ({
-    tournamentJudgeId: sampleId(`judge${name}`),
-    name,
-  })),
-  conflict: false,
-  state,
-});
 
 /** A debate decided by its panel: the winner's points, then the loser's. */
 const decided = (
@@ -211,7 +184,11 @@ export function sampleTabRoundView(
   if (slug !== AUTUMN) return null;
   if (event === IMPROMPTU) return speechRoundView(round, scene);
   if (event !== VARSITY) return null;
-  const read = varsityRoundView(round, scene);
+  const ordinary = varsityRoundView(round, scene);
+  const read =
+    ordinary !== null && atScale(scene)
+      ? largeVarsityRound(ordinary)
+      : ordinary;
   return read === null
     ? null
     : {
@@ -306,6 +283,7 @@ const judge = (name: string) => ({
 });
 
 const slotView: TimeSlotHostView = {
+  rooms: [],
   lobbyId: sampleId('winterclassic'),
   timeSlot: {
     timeSlotId: sampleId('slotwinter1200'),
@@ -376,10 +354,12 @@ export function sampleTimeSlotView(
 } | null {
   if (slug !== WINTER || slot !== '1200' || !reached(scene, 'prelims'))
     return null;
+  const large = atScale(scene);
+  const events = large ? largeSlotEvents : slotEvents;
   const slugOf = (eventId: string) =>
-    slotEvents.find(([, event]) => event.eventId === eventId)?.[0] ?? eventId;
+    events.find(([, event]) => event.eventId === eventId)?.[0] ?? eventId;
   return {
-    read: slotView,
+    read: large ? largeSlotView(slotView) : slotView,
     context: {
       address: {
         slot: (eventId) =>
@@ -393,6 +373,6 @@ export function sampleTimeSlotView(
       wallClock: sampleWallClock,
     },
     eventIdOf: (eventSlug) =>
-      slotEvents.find(([known]) => known === eventSlug)?.[1].eventId ?? null,
+      events.find(([known]) => known === eventSlug)?.[1].eventId ?? null,
   };
 }

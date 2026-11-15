@@ -7,7 +7,8 @@ import type { DrawBoardContext } from '../draw';
 import { hostRoutes } from '../routes';
 import { AUTUMN, reached, VARSITY } from './moment';
 import { varsitySwitch } from './event-switch';
-import type { SampleScene } from './scene';
+import { largeDrawView } from './large-draw';
+import { atScale, type SampleScene } from './scene';
 
 /** A sample's stand-in for a cuid2 id: the seed's letters, padded to 24. */
 const sampleId = (seed: string): string =>
@@ -36,11 +37,13 @@ const plain = (
     entries: [
       {
         entryId: sampleId(`entry${affirmative}`),
+        school: null,
         name: affirmative,
         side: affirmativeSide,
       },
       {
         entryId: sampleId(`entry${negative}`),
+        school: null,
         name: negative,
         side: negativeSide,
       },
@@ -65,8 +68,18 @@ const doyleSato: DrawViewFixture = {
     { severity: 'preference_bent', text: 'same school, preference bent' },
   ]),
   entries: [
-    { entryId: sampleId('entryDoyle'), name: 'Doyle', side: negativeSide },
-    { entryId: sampleId('entrySato'), name: 'Sato', side: affirmativeSide },
+    {
+      entryId: sampleId('entryDoyle'),
+      school: null,
+      name: 'Doyle',
+      side: negativeSide,
+    },
+    {
+      entryId: sampleId('entrySato'),
+      school: null,
+      name: 'Sato',
+      side: affirmativeSide,
+    },
   ],
   reasons: [
     'Both have 2 wins and have not met. Doyle has been Affirmative twice, so takes Negative.',
@@ -94,7 +107,14 @@ const oneWin: readonly DrawViewFixture[] = [
     fixtureId: sampleId('fixtureellisbye'),
     kind: 'bye',
     status: 'draft',
-    entries: [{ entryId: sampleId('entryEllis'), name: 'Ellis', side: null }],
+    entries: [
+      {
+        entryId: sampleId('entryEllis'),
+        school: null,
+        name: 'Ellis',
+        side: null,
+      },
+    ],
     judges: [],
     findings: [],
     reasons: ['Ellis has the fewest wins of those without a bye.'],
@@ -175,8 +195,11 @@ export function sampleDrawView(
 } | null {
   if (slug !== AUTUMN || event !== VARSITY || round !== '4') return null;
   if (!reached(scene, 'prelims') || reached(scene, 'break')) return null;
+  const large = atScale(scene) ? largeDrawView(drawView) : null;
+  const known: ReadonlyMap<string, string> =
+    large === null ? slugs : new Map([...slugs, ...large.slugs]);
   return {
-    read: drawView,
+    read: large?.read ?? drawView,
     context: {
       event: varsitySwitch(scene),
       fixtureAddress: (fixtureId) =>
@@ -184,10 +207,10 @@ export function sampleDrawView(
           AUTUMN,
           VARSITY,
           '4',
-          slugs.get(fixtureId) ?? fixtureId,
+          known.get(fixtureId) ?? fixtureId,
         ),
     },
     fixtureIdOf: (fixtureSlug) =>
-      [...slugs].find(([, known]) => known === fixtureSlug)?.[0] ?? null,
+      [...known].find(([, slug]) => slug === fixtureSlug)?.[0] ?? null,
   };
 }

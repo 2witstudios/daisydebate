@@ -1,9 +1,8 @@
-import Link from 'next/link';
 import type { MinorAccount as Read } from '../../../features/tab/guardian';
 import { Button } from '../../components/button/button';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
-import { ActionLink } from '../action-control/action-control';
+import { ActionButton, BackButton } from '../action-control/action-control';
 import { eyebrowClass, ListCard } from '../list-card/list-card';
 import { SampleForm, type SampleSubmit } from '../sample-form/sample-form';
 
@@ -23,12 +22,7 @@ export function MinorAccount({
 }) {
   return (
     <ReadingPage>
-      <Link
-        href={account.back.href}
-        className="self-start font-strong text-ink underline"
-      >
-        {account.back.label}
-      </Link>
+      <BackButton href={account.back.href} label={account.back.label} />
       <PageHeader title={account.name} lede={account.lede} />
       <SampleForm
         action={submit(account.save.label)}
@@ -86,7 +80,11 @@ export function MinorAccount({
         <p className="text-sm text-ink-muted">{account.boundary}</p>
         <Button type="submit">{account.save.label}</Button>
       </SampleForm>
-      <ActionLink action={account.withdraw} className="self-center" />
+      <ActionButton
+        size="small"
+        action={account.withdraw}
+        className="self-center"
+      />
     </ReadingPage>
   );
 }

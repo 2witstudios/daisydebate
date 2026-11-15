@@ -13,7 +13,11 @@ const app = join(import.meta.dir, '../../app');
 // Each host page runs with this viewer in place of the request's cookie. The
 // test calls the page itself, so a page that drops its guard, or names
 // another page's address in it, fails here.
-let viewer: SampleScene = { viewer: 'competitor', moment: 'elims' };
+let viewer: SampleScene = {
+  viewer: 'competitor',
+  moment: 'elims',
+  scale: 'normal',
+};
 mock.module(join(import.meta.dir, 'sample/request-scene.ts'), () => ({
   requestSampleScene: async () => viewer,
 }));
@@ -107,7 +111,7 @@ const hostPages = [...new Glob('(host)/**/page.tsx').scanSync(app)].sort();
 
 describe('the host area', () => {
   test('every host page turns away a viewer without a grant', async () => {
-    viewer = { viewer: 'competitor', moment: 'elims' };
+    viewer = { viewer: 'competitor', moment: 'elims', scale: 'normal' };
     const sent: Array<readonly [string, string | null]> = [];
     for (const file of hostPages)
       sent.push([addressOf(file), await redirectOf(file)]);
@@ -126,7 +130,7 @@ describe('the host area', () => {
   });
 
   test('a viewer with a grant stays in the host area', async () => {
-    viewer = { viewer: 'host', moment: 'elims' };
+    viewer = { viewer: 'host', moment: 'elims', scale: 'normal' };
     const sent: Array<string | null> = [];
     for (const file of hostPages) sent.push(await redirectOf(file));
     assert({

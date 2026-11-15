@@ -34,6 +34,7 @@ const drawFinding = z.strictObject({
 });
 
 const drawEntry = z.strictObject({
+  school: name.nullable(),
   entryId: idSchema,
   name,
   /** The side the format names, or null where the format has none. */
@@ -149,3 +150,11 @@ export const drawReadCatalogue = {
   DrawView: { gate: ['lobby.host.read'] },
   SupersededInputList: { gate: ['lobby.host.read'] },
 } as const satisfies LobbyReadCatalogue<'DrawView' | 'SupersededInputList'>;
+
+/** Search and paging are applied before the screen receives its read. */
+export const drawQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(100),
+});
+export type DrawQuery = z.infer<typeof drawQuerySchema>;

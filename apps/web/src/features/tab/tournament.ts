@@ -4,7 +4,6 @@ import type {
 } from '@daisy/protocol/lobby/day-read';
 import type {
   ListedLobby,
-  LobbyListPage,
   LobbyViewerRole,
   TabRoundRef,
   TournamentLobbyView,
@@ -16,13 +15,9 @@ import type {
 import { linkTo, sampleAction, type TabAction } from './action';
 import { shownName } from './shown-entrant';
 import type { Bracket } from './results';
-import { hostRoutes, tabRoutes } from './routes';
+import { tabRoutes } from './routes';
 import { sampleTimelineRead } from './sample/rail';
-import {
-  sampleAddressOf,
-  sampleTournamentListRead,
-  sampleTournamentReads,
-} from './sample/tournament';
+import { sampleAddressOf, sampleTournamentReads } from './sample/tournament';
 import type { SampleScene } from './sample/scene';
 import type { StandingsTable } from './standings';
 
@@ -71,6 +66,7 @@ export type PinnedRoom = {
 };
 
 type PostingRow = {
+  readonly schools: readonly string[];
   readonly title: string;
   readonly detail: string;
   readonly action: TabAction | null;
@@ -86,6 +82,7 @@ type DayRow = {
 export type TournamentPanel =
   | {
       readonly kind: 'posting';
+      readonly school: string | null;
       readonly heading: string;
       readonly rows: readonly PostingRow[];
       readonly more: number;
@@ -186,7 +183,7 @@ export type TournamentView =
   | { readonly kind: 'standings'; readonly event: string | null }
   | { readonly kind: 'bracket'; readonly event: string | null };
 
-/** A tournament in a list: the index, a league's tournaments. */
+/** A tournament in a list: a league's tournaments. */
 type TournamentRow = {
   readonly name: string;
   readonly detail: string;
@@ -198,13 +195,6 @@ export type TournamentGroup = {
   readonly rows: readonly TournamentRow[];
   /** The rest of the group, behind one link. */
   readonly more: TabAction | null;
-};
-
-/** The tournaments index: this viewer's own first, then what is open. */
-export type TournamentsIndex = {
-  readonly groups: readonly TournamentGroup[];
-  /** Null for a signed-out reader. */
-  readonly host: TabAction | null;
 };
 
 /**
@@ -296,7 +286,7 @@ const minuteMs = 60_000;
 const dayMs = 24 * 60 * minuteMs;
 
 const pad = (n: number) => String(n).padStart(2, '0');
-const clockOf = (at: string): string => {
+export const clockOf = (at: string): string => {
   const date = new Date(at);
   return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 };
@@ -1071,6 +1061,7 @@ function postingPanel(
   lobby: TournamentLobbyView,
   posting: PostingView,
   addressOf: AddressOf,
+  school: string | null,
 ): TournamentPanel {
   const shared = isShared(lobby);
   const rooms = `${posting.roomCount} rooms`;
@@ -1090,6 +1081,7 @@ function postingPanel(
           .join(' · ');
   return {
     kind: 'posting',
+    school,
     heading,
     rows: posting.fixtures.map((fixture) => {
       const names = fixture.entries.map((entry) => shownName(entry.shown));
@@ -1103,6 +1095,13 @@ function postingPanel(
       const roomHref =
         room === null ? null : addressOf({ kind: 'room', roomId: room.roomId });
       return {
+        schools: [
+          ...new Set(
+            fixture.entries.flatMap((entry) =>
+              entry.school === null ? [] : [entry.school],
+            ),
+          ),
+        ],
         title: names.join(names.length === 2 ? ' v ' : ', '),
         detail: [room?.name ?? null, judges]
           .filter((part) => part !== null)
@@ -1306,7 +1305,12 @@ function roundsPage(
             )
         : posting === null
           ? resultsClosed('The posting appears when the round is drawn.')
-          : postingPanel(lobby, posting, addressOf);
+          : postingPanel(
+              lobby,
+              posting,
+              addressOf,
+              'school' in lobby ? (lobby.school?.name ?? null) : null,
+            );
   const watched = severalEvents
     ? undefined
     : lines
@@ -1395,7 +1399,9 @@ function tournamentPageOf(
 
 // The tournaments index.
 
-const ownerWords = (lobby: Extract<ListedLobby, { kind: 'tournament' }>) =>
+export const ownerWords = (
+  lobby: Extract<ListedLobby, { kind: 'tournament' }>,
+) =>
   lobby.entry.eligibility === 'organization_members'
     ? `${lobby.owner.kind === 'organization' ? lobby.owner.name : lobby.owner.username} members`
     : lobby.owner.kind === 'organization'
@@ -1432,7 +1438,7 @@ export function listedFact(
 }
 
 /** What the viewer is doing there, in a few words. */
-function partWords(
+export function partWords(
   part: Extract<ListedLobby, { kind: 'tournament' }>['part'],
 ): string | null {
   if (part === null) return null;
@@ -1448,85 +1454,6 @@ function partWords(
     case 'guardian':
       return listed(part.wards);
   }
-}
-
-/** The tournaments index: the viewer's own first, then what is open. */
-function tournamentsIndexOf(
-  page: LobbyListPage,
-  addressOf: AddressOf,
-): TournamentsIndex {
-  const tournaments = page.lobbies.flatMap((lobby) =>
-    lobby.kind === 'tournament' ? [lobby] : [],
-  );
-  const when = (lobby: (typeof tournaments)[number]) =>
-    lobby.status === 'running'
-      ? 'Today'
-      : lobby.status === 'completed'
-        ? dayMonthOf(lobby.startsAt)
-        : lobby.owner.kind === 'person'
-          ? `${shortDateOf(lobby.startsAt)}, ${clockOf(lobby.startsAt)}`
-          : shortDateOf(lobby.startsAt);
-  const open = (lobby: (typeof tournaments)[number]) =>
-    addressOf({ kind: 'tournament', handle: lobby.handle });
-  const row = (lobby: (typeof tournaments)[number]): TournamentRow => {
-    const fact = listedFact(lobby, page.asOf);
-    const part = partWords(lobby.part);
-    const detail =
-      lobby.status === 'completed'
-        ? [when(lobby), ownerWords(lobby), fact]
-        : fact === null
-          ? [when(lobby), ownerWords(lobby), part]
-          : [when(lobby), part ?? ownerWords(lobby), fact];
-    return {
-      name: lobby.name,
-      detail: detail.filter((one) => one !== null).join(' · '),
-      action:
-        lobby.status === 'completed'
-          ? actionTo('Results', open(lobby))
-          : lobby.part !== null
-            ? actionTo('Open', open(lobby), fact !== null)
-            : actionTo('View', open(lobby)),
-    };
-  };
-  const group = (
-    heading: string,
-    rows: readonly (typeof tournaments)[number][],
-    more: TabAction | null = null,
-  ): TournamentGroup[] =>
-    rows.length === 0 ? [] : [{ heading, rows: rows.map(row), more }];
-  const active = tournaments.filter((lobby) => lobby.status !== 'completed');
-  return {
-    groups: [
-      ...group(
-        "You're in",
-        active.filter((lobby) => lobby.part !== null),
-      ),
-      ...group(
-        'On now',
-        active.filter(
-          (lobby) => lobby.part === null && lobby.status === 'running',
-        ),
-      ),
-      ...group(
-        'Open to enter',
-        active.filter(
-          (lobby) => lobby.part === null && lobby.status !== 'running',
-        ),
-      ),
-      ...group(
-        'Recent',
-        tournaments.filter((lobby) => lobby.status === 'completed'),
-        actionTo(
-          'All past tournaments',
-          addressOf({ kind: 'past_tournaments' }),
-        ),
-      ),
-    ],
-    host:
-      page.capabilities?.createLobby === true
-        ? linkTo('Host a tournament', hostRoutes.home)
-        : null,
-  };
 }
 
 export const readTimelineRail = (
@@ -1545,9 +1472,6 @@ export const readTournamentPage = (
   const reads = sampleTournamentReads(slug, view, scene);
   return reads === null ? null : tournamentPageOf(reads, view, sampleAddressOf);
 };
-
-export const readTournamentsIndex = (scene: SampleScene): TournamentsIndex =>
-  tournamentsIndexOf(sampleTournamentListRead(scene), sampleAddressOf);
 
 /** A stop's standing in the words the rail shows. */
 export const standingLabel = (standing: RailStanding): string => {

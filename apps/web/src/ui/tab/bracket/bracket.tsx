@@ -3,8 +3,9 @@ import type {
   BracketSide,
   BracketStage,
 } from '../../../features/tab/results';
+import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
-import { ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { eyebrowClass } from '../list-card/list-card';
 
 /** A stage's heading: its name, and that it is live or when it starts. */
@@ -44,7 +45,7 @@ function Side({
 }
 
 /** The elimination tree: one column a stage, each fixture a pair of entries. */
-export function Bracket({ bracket }: { readonly bracket: Read }) {
+function BracketRounds({ bracket }: { readonly bracket: Read }) {
   return (
     <section
       aria-label="Bracket"
@@ -87,7 +88,8 @@ export function Bracket({ bracket }: { readonly bracket: Read }) {
                   <p className="flex justify-between gap-3 border-t border-border px-3 py-2 text-sm text-ink-muted">
                     {tie.room}
                     {tie.watch === null ? null : (
-                      <ActionLink
+                      <ActionButton
+                        size="small"
                         action={tie.watch}
                         about={`${tie.top.name} v ${tie.bottom.name}`}
                       />
@@ -105,5 +107,33 @@ export function Bracket({ bracket }: { readonly bracket: Read }) {
         </div>
       ))}
     </section>
+  );
+}
+
+/** Start at the live round; completed rounds remain available in one disclosure. */
+export function Bracket({ bracket }: { readonly bracket: Read }) {
+  const live = bracket.stages.findIndex((stage) => stage.state !== 'done');
+  const from = Math.max(
+    0,
+    Math.min(
+      live === -1 ? bracket.stages.length : live,
+      bracket.stages.length - 3,
+    ),
+  );
+  if (from === 0) return <BracketRounds bracket={bracket} />;
+  return (
+    <div className="flex flex-col gap-3">
+      <details>
+        <summary className={buttonClass('secondary')}>
+          Show earlier rounds ·{' '}
+          {bracket.stages
+            .slice(0, from)
+            .map((stage) => stage.name)
+            .join(', ')}
+        </summary>
+        <BracketRounds bracket={{ stages: bracket.stages.slice(0, from) }} />
+      </details>
+      <BracketRounds bracket={{ stages: bracket.stages.slice(from) }} />
+    </div>
   );
 }

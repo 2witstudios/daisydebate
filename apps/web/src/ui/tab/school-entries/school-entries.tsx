@@ -1,10 +1,9 @@
-import Link from 'next/link';
 import type { SchoolEntries as Read } from '../../../features/tab/entries';
 import { Button } from '../../components/button/button';
 import { errorClass } from '../../components/form-field/form-field-class';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
-import { ActionLink } from '../action-control/action-control';
+import { ActionButton, BackButton } from '../action-control/action-control';
 import { ListCard, ListRow } from '../list-card/list-card';
 import { SampleForm, type SampleSubmit } from '../sample-form/sample-form';
 
@@ -18,12 +17,10 @@ export function SchoolEntries({
 }) {
   return (
     <ReadingPage>
-      <Link
+      <BackButton
         href={entries.tournament.href}
-        className="self-start font-strong text-ink underline"
-      >
-        {entries.tournament.name}
-      </Link>
+        label={entries.tournament.name}
+      />
       <PageHeader title={entries.title} lede={entries.lede} />
       <ListCard>
         <ul>
@@ -46,12 +43,16 @@ export function SchoolEntries({
                 </>
               }
               trailing={
-                <ActionLink action={student.edit} about={student.name} />
+                <ActionButton
+                  size="small"
+                  action={student.edit}
+                  about={student.name}
+                />
               }
             />
           ))}
           <li className="px-4 py-3">
-            <ActionLink action={entries.add} />
+            <ActionButton size="small" action={entries.add} />
           </li>
         </ul>
       </ListCard>
@@ -61,7 +62,11 @@ export function SchoolEntries({
             title={entries.judges.title}
             detail={entries.judges.detail}
             trailing={
-              <ActionLink action={entries.judges.add} about="a judge" />
+              <ActionButton
+                size="small"
+                action={entries.judges.add}
+                about="a judge"
+              />
             }
           />
         </ul>
