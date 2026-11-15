@@ -106,7 +106,17 @@ try {
     const chunks: Uint8Array[] = [];
     const result = await receive(url, 1024 * 1024, async (chunk) => {
       chunks.push(chunk);
-    });
+    }).catch(() => null);
+    if (result === null) {
+      output({
+        stage,
+        url,
+        path,
+        status: 'unavailable',
+        measuredBuildPeaks: null,
+      });
+      continue;
+    }
     const text = Buffer.concat(chunks).toString('utf8');
     if (
       path === 'webrtc-sys/build.rs' &&
