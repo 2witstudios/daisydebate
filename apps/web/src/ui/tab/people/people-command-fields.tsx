@@ -32,7 +32,11 @@ export function PeopleCommandFields({
   readonly noticeId: string;
 }) {
   const label =
-    model.kind === 'give' ? 'Give someone a role' : `Change ${model.person}`;
+    model.kind === 'give'
+      ? 'Give someone a role'
+      : model.kind === 'cancel'
+        ? `Cancel invitation for ${model.person}`
+        : `Change ${model.person}`;
   return (
     <details className="flex flex-col items-start gap-3">
       <summary
@@ -42,7 +46,11 @@ export function PeopleCommandFields({
             : 'cursor-pointer font-strong text-ink underline'
         }
       >
-        {model.kind === 'give' ? 'Give someone a role' : 'Change'}
+        {model.kind === 'give'
+          ? 'Give someone a role'
+          : model.kind === 'cancel'
+            ? 'Cancel invite'
+            : 'Change'}
       </summary>
       <form
         action={submit}
@@ -103,6 +111,10 @@ export function PeopleCommandFields({
                 />
               </label>
             </>
+          ) : model.kind === 'cancel' ? (
+            <p className="text-sm text-ink-muted">
+              Cancel the pending invitation for {model.person}?
+            </p>
           ) : (
             <label className={fieldClass}>
               <span className={labelClass}>Role to end</span>
@@ -124,7 +136,9 @@ export function PeopleCommandFields({
               ? 'Saving…'
               : model.kind === 'give'
                 ? 'Give role'
-                : 'End role'}
+                : model.kind === 'cancel'
+                  ? 'Cancel invite'
+                  : 'End role'}
           </Button>
         </fieldset>
         {!pending && (fields.error || fields.notice) ? (

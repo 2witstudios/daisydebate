@@ -147,6 +147,8 @@ const organizationPersonSchema = z.strictObject({
   name,
   owner: z.boolean(),
   membership: z.enum(membershipStatuses),
+  /** The exact membership lifecycle displayed for invitation cancellation. */
+  membershipVersion: z.int().positive(),
   grants: z.array(personGrantSchema),
   conflicts: z.array(personConflictSchema),
   /** Rule 5: whether the viewer may end this person's grants. Never the owner. */
@@ -191,7 +193,10 @@ export const organizationPeopleViewSchema = z
         value: z.enum(conflictHandlings),
       })
       .nullable(),
-    capabilities: z.strictObject({ give: z.boolean() }),
+    capabilities: z.strictObject({
+      give: z.boolean(),
+      cancelInvitation: z.boolean(),
+    }),
   })
   .refine(
     (view) =>

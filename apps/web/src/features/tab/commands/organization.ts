@@ -408,6 +408,23 @@ export function decideOrganization(
       return respond(facts, organization, 'active');
     case 'decline-membership':
       return respond(facts, organization, 'declined');
+    case 'cancel-membership-invitation': {
+      const membership = membershipOf(facts, command.userId);
+      return membership?.status === 'invited'
+        ? accepted(organization, [
+            {
+              table: 'memberships',
+              op: 'update',
+              key: { organizationId: organization.id, userId: command.userId },
+              set: {
+                status: 'ended',
+                endedAt: facts.now,
+                version: membership.version + 1,
+              },
+            },
+          ])
+        : refuse('invitation-closed');
+    }
     case 'end-membership':
       return endMembership(facts, organization, command.userId);
     case 'transfer-ownership':

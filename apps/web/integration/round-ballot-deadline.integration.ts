@@ -19,6 +19,7 @@ import {
   isSideSeat,
   sideOfSeat,
   winnerOutcome,
+  roundPanelReceiptSchema,
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -200,6 +201,52 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
         ruling: 'partial',
         noRuling: [seats[1]!.id],
         ratings: 0,
+      },
+    });
+    // ISSUE-1408: retain the actual engine's terminal receipt and its consumed
+    // ballot after all disposable commands reach the retention cutoff.
+    const completion = roundPanelReceiptSchema.parse(receipts[0]?.result);
+    const [original] =
+      await f.sql`select command_id,result from round_commands where command_id=${completion.commandId}`;
+    const beforeRetention = await f.store.readRatingFacts(roundId);
+    const disposableId = createId();
+    await f.sql`update round_commands set applied_at='2000-01-01T00:00:00Z' where round_id=${roundId}`;
+    await f.sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at)
+      values(${disposableId},${roundId},${f.host.actorId},'check_in',${'a'.repeat(64)},'{}',1,'2000-01-01T00:00:00Z')`;
+    const deleted = await f.store.purgeExpiredRoundCommands({
+      before: '2001-01-01T00:00:00Z',
+      limit: 500,
+    });
+    const [retained] =
+      await f.sql`select command_id,result from round_commands where command_id=${completion.commandId}`;
+    const afterRetention = await f.store.readRatingFacts(roundId);
+    const afterRound = await f.store.getRound(roundId);
+    const afterView = await f.roundView(f.host, roundId);
+    const [consumed] =
+      await f.sql`select count(*)::int as count, bool_and(m.ballot_digest=daisy_ballot_content_digest(b)) as intact
+      from round_finalization_ballots m join ballots b on b.id=m.ballot_id where m.round_id=${roundId}`;
+    assert({
+      given:
+        'a genuinely completed human-judged Round, its frozen ballot, actual panel receipt and an expired disposable receipt',
+      should:
+        'purge disposable commands while preserving the exact terminal receipt, judged ending and readable panel ruling',
+      actual: {
+        purged: deleted > 0,
+        disposable: (
+          await f.sql`select command_id from round_commands where command_id=${disposableId}`
+        ).length,
+        receipt: retained,
+        endings: [beforeRetention?.ending, afterRetention?.ending],
+        round: [afterRound?.status, afterRound?.outcome, afterView.panelRuling],
+        consumed,
+      },
+      expected: {
+        purged: true,
+        disposable: 0,
+        receipt: original,
+        endings: ['judged', 'judged'],
+        round: ['completed', winnerOutcome('negative'), 'partial'],
+        consumed: { count: 1, intact: true },
       },
     });
   });

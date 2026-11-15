@@ -107,14 +107,25 @@ export const organizationCommand =
                       now,
                       hostingPlan,
                     }),
-                  versions: ({ decision }) =>
-                    (command.type === 'give-grant' ||
-                      command.type === 'remove-grant') &&
-                    command.scope.kind === 'lobby'
-                      ? { lobby: decision.lobby?.version }
-                      : decision.organization === null
-                        ? {}
-                        : { organization: decision.organization.version },
+                  versions: ({ decision }) => {
+                    if (command.type === 'cancel-membership-invitation')
+                      return {
+                        membership: decision.memberships.find(
+                          (row) =>
+                            row.organizationId === command.organizationId &&
+                            row.userId === command.userId,
+                        )?.version,
+                      };
+                    if (
+                      (command.type === 'give-grant' ||
+                        command.type === 'remove-grant') &&
+                      command.scope.kind === 'lobby'
+                    )
+                      return { lobby: decision.lobby?.version };
+                    return decision.organization === null
+                      ? {}
+                      : { organization: decision.organization.version };
+                  },
                   scope: ({ decision }) =>
                     (command.type === 'give-grant' ||
                       command.type === 'remove-grant') &&

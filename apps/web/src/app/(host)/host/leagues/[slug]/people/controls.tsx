@@ -46,9 +46,23 @@ export function peopleControls(view: OrganizationPeopleView, handle: string) {
           Everything
         </span>
       ) : person.membership === 'invited' ? (
-        <span key={person.userId} className="text-sm text-ink-muted">
-          Invitation pending
-        </span>
+        view.capabilities.cancelInvitation ? (
+          <PeopleCommandForm
+            key={person.userId}
+            model={{ kind: 'cancel', person: person.name }}
+            action={peopleCommandAction.bind(null, {
+              ...base,
+              commandId: createId(),
+              intent: 'cancel',
+              userId: person.userId,
+              membershipVersion: person.membershipVersion,
+            })}
+          />
+        ) : (
+          <span key={person.userId} className="text-sm text-ink-muted">
+            Invitation pending
+          </span>
+        )
       ) : person.removable ? (
         <PeopleCommandForm
           key={person.userId}

@@ -20,6 +20,7 @@ export type OrganizationPersonRow = {
   readonly userId: string;
   readonly name: string;
   readonly membership: MembershipStatus;
+  readonly membershipVersion: number;
   readonly grants: readonly GrantRow[];
 };
 
@@ -127,6 +128,7 @@ export const loadOrganizationPeople = async (
       userId: row.userId,
       name: row.username ?? 'Member',
       membership: row.status,
+      membershipVersion: row.version,
       grants: grants.filter((grant) => grant.userId === row.userId),
     })),
     roles: await loadOfferedRoles(tx, organization.id),

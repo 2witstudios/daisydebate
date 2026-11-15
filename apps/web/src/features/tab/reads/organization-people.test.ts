@@ -56,6 +56,7 @@ const person = (userId: string, grants: readonly GrantRow[] = []) => ({
   userId,
   name: `bot-${userId}`,
   membership: 'active' as const,
+  membershipVersion: 1,
   grants,
 });
 

@@ -48,6 +48,7 @@ export const organizationPeopleOf = (
   viewerUserId: string,
   now: string,
   managesRoles: boolean,
+  managesInvitations = managesRoles,
 ): OrganizationPeopleView => {
   const { organization } = facts;
   const held = (userId: string) =>
@@ -77,6 +78,7 @@ export const organizationPeopleOf = (
         name: person.name,
         owner,
         membership: person.membership,
+        membershipVersion: person.membershipVersion,
         grants: grants.map((grant) => ({
           grantId: grant.id,
           roleId: grant.role.id,
@@ -100,7 +102,7 @@ export const organizationPeopleOf = (
       permissions: [...role.permissions],
     })),
     conflictHandling: null,
-    capabilities: { give: managesRoles },
+    capabilities: { give: managesRoles, cancelInvitation: managesInvitations },
   };
 };
 
@@ -143,6 +145,7 @@ export const readOrganizationPeople =
               principal.userId,
               now,
               ask('organization.roles.manage'),
+              ask('organization.roles.manage') || ask('school.roster.manage'),
             ),
         );
       },

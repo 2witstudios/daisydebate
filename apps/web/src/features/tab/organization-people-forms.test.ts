@@ -136,3 +136,29 @@ test('a stale snapshot preserves every selected field for a fresh review', () =>
     },
   });
 });
+
+test('cancelling an invitation keeps its bound person and displayed membership version', () => {
+  const cancellation = {
+    ...context,
+    intent: 'cancel' as const,
+    userId: id('u'),
+    membershipVersion: 3,
+  };
+  const forged = new FormData();
+  forged.set('userId', id('x'));
+  assert({
+    given: 'the invitation rendered for one person and lifecycle version',
+    should: 'bind that identity and guard despite unrelated form values',
+    actual: peopleCommandEnvelope(cancellation, forged),
+    expected: {
+      version: 1,
+      commandId: id('c'),
+      expected: { membership: 3 },
+      command: {
+        type: 'cancel-membership-invitation',
+        organizationId: id('o'),
+        userId: id('u'),
+      },
+    },
+  });
+});

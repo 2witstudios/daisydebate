@@ -57,6 +57,7 @@ const roleGivenOf = (
     case 'give-grant':
     case 'remove-grant':
       return loaded.roleNamed;
+    case 'cancel-membership-invitation':
     case 'invite-member':
     case 'end-membership':
       return null;

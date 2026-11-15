@@ -47,6 +47,12 @@ export const organizationCommandSchema = z.discriminatedUnion('type', [
   /** The sender answers their own invitation. */
   z.strictObject({ type: z.literal('accept-membership'), ...inOrganization }),
   z.strictObject({ type: z.literal('decline-membership'), ...inOrganization }),
+  /** A manager cancels an exact pending invitation, never an active membership. */
+  z.strictObject({
+    type: z.literal('cancel-membership-invitation'),
+    ...inOrganization,
+    userId: idSchema,
+  }),
   /** The member leaves, or someone who manages roles ends it. */
   z.strictObject({
     type: z.literal('end-membership'),
@@ -131,6 +137,11 @@ export const organizationCommandCatalogue = {
   'decline-membership': command({
     gate: ['organization.membership.respond'],
     versions: [],
+    refusals: ['invitation-closed'],
+  }),
+  'cancel-membership-invitation': command({
+    gate: ['organization.roles.manage', 'school.roster.manage'],
+    versions: ['membership'],
     refusals: ['invitation-closed'],
   }),
   'end-membership': command({

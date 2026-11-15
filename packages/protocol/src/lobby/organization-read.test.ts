@@ -66,6 +66,7 @@ const owner = {
   name: 'Jordan Hale',
   owner: true,
   membership: 'active',
+  membershipVersion: 1,
   grants: [],
   conflicts: [],
   removable: false,
@@ -114,7 +115,7 @@ const people = {
     name: 'Autumn Open',
     value: 'second_confirms',
   },
-  capabilities: { give: true },
+  capabilities: { give: true, cancelInvitation: true },
 };
 
 describe('organization reads', async () => {

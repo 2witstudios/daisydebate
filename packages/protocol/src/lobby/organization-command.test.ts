@@ -251,3 +251,22 @@ describe('organizationCommandCatalogue', () => {
     });
   });
 });
+
+test('pending membership cancellation retains its displayed membership guard', () => {
+  const envelope = {
+    version: 1,
+    commandId: id('cancel'),
+    expected: { membership: 3 },
+    command: {
+      type: 'cancel-membership-invitation',
+      organizationId,
+      userId: id('member'),
+    },
+  };
+  assert({
+    given: 'a manager cancelling the invitation version displayed to them',
+    should: 'accept the named cancellation and preserve its membership guard',
+    actual: organizationCommandEnvelopeSchema.safeParse(envelope).success,
+    expected: true,
+  });
+});

@@ -24,6 +24,11 @@ export type PeopleCommandContext = {
 } & (
   | { readonly intent: 'give' }
   | {
+      readonly intent: 'cancel';
+      readonly userId: string;
+      readonly membershipVersion: number;
+    }
+  | {
       readonly intent: 'remove';
       readonly grants: readonly {
         readonly grantId: string;
@@ -77,6 +82,17 @@ export const peopleCommandEnvelope = (
   context: PeopleCommandContext,
   form: FormData,
 ) => {
+  if (context.intent === 'cancel')
+    return organizationCommandEnvelopeSchema.parse({
+      version: 1,
+      commandId: context.commandId,
+      expected: { membership: context.membershipVersion },
+      command: {
+        type: 'cancel-membership-invitation',
+        organizationId: context.organizationId,
+        userId: context.userId,
+      },
+    });
   const chosenGrant =
     context.intent === 'remove'
       ? context.grants.find(
@@ -155,7 +171,12 @@ export const peopleCommandAnswered = (
   if (parsed.data.kind === 'accepted')
     return {
       kind: 'changed',
-      notice: context.intent === 'give' ? 'Role given.' : 'Role ended.',
+      notice:
+        context.intent === 'give'
+          ? 'Role given.'
+          : context.intent === 'cancel'
+            ? 'Invitation cancelled.'
+            : 'Role ended.',
     };
   return peopleCommandRefused(
     values,

@@ -35,6 +35,7 @@ const lobbyAggregateKindSchema = z.enum(lobbyAggregateKinds);
  */
 const commandVersionNames = [
   'organization',
+  'membership',
   'guardianLink',
   'template',
   'lobby',

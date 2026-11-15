@@ -67,6 +67,7 @@ export type OrganizationCommandInput = {
 /** The person a command names, beside its sender. */
 export const namedPersonOf = (command: OrganizationCommand): string | null => {
   switch (command.type) {
+    case 'cancel-membership-invitation':
     case 'invite-member':
     case 'end-membership':
     case 'give-grant':

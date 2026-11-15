@@ -86,3 +86,26 @@ test('a pending command disables the complete control set and hides its previous
     expected: [true, true, false],
   });
 });
+
+test('a pending invitation has its own cancellation control', () => {
+  const html = renderToString(
+    createElement(PeopleCommandFields, {
+      model: { kind: 'cancel', person: 'Ada' },
+      pending: false,
+      noticeId: 'cancel-answer',
+      submit: () => {},
+      fields: peopleCommandFields(initialPeopleCommand()),
+    }),
+  );
+  assert({
+    given: 'a real pending invitation',
+    should: 'offer cancellation without role selectors or a sample link',
+    actual: [
+      html.includes('Cancel invite'),
+      html.includes('name="grantId"'),
+      html.includes('data-sample'),
+      html.includes('Ada'),
+    ],
+    expected: [true, false, false, true],
+  });
+});

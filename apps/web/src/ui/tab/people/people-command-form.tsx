@@ -15,6 +15,7 @@ import { PeopleCommandFields } from './people-command-fields';
 
 type Option = { readonly value: string; readonly label: string };
 export type PeopleCommandModel =
+  | { readonly kind: 'cancel'; readonly person: string }
   | {
       readonly kind: 'give';
       readonly members: readonly Option[];

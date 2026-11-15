@@ -19,7 +19,7 @@ const view: OrganizationPeopleView = {
   people: [],
   roles: [],
   conflictHandling: null,
-  capabilities: { give: true },
+  capabilities: { give: true, cancelInvitation: true },
 };
 
 const route = (

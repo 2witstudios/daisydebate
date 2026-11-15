@@ -1,5 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
+import {
+  organizationCommandSchema,
+  type OrganizationCommand,
+} from '@daisy/protocol/lobby/organization-command';
 import {
   decideOrganization,
   type GrantFact,
@@ -585,5 +588,66 @@ describe('decideOrganization', () => {
       ),
       expected: ['age-band', 'age-band', 'age-band', 'age-band'],
     });
+  });
+});
+
+test('a manager cancels only a pending membership invitation', () => {
+  const command = organizationCommandSchema.parse({
+    type: 'cancel-membership-invitation',
+    organizationId: 'l'.repeat(24),
+    userId: 'm'.repeat(24),
+  });
+  const pending = facts({
+    organization: { ...facts().organization!, id: 'l'.repeat(24) },
+    memberships: [
+      {
+        organizationId: 'l'.repeat(24),
+        userId: 'm'.repeat(24),
+        status: 'invited',
+        version: 3,
+      },
+    ],
+  });
+  const decision = decideOrganization(pending, command);
+  assert({
+    given: 'a pending invitation and its manager after the command gate',
+    should: 'end that invitation and bump its version, with no grant writes',
+    actual: decision.kind === 'accepted' ? decision.writes : decision,
+    expected: [
+      {
+        table: 'organizations',
+        op: 'update',
+        id: 'l'.repeat(24),
+        set: { version: 5 },
+      },
+      {
+        table: 'memberships',
+        op: 'update',
+        key: { organizationId: 'l'.repeat(24), userId: 'm'.repeat(24) },
+        set: { status: 'ended', endedAt: now, version: 4 },
+      },
+    ],
+  });
+  assert({
+    given: 'an active, declined, ended or absent membership',
+    should: 'refuse invitation cancellation without ending active membership',
+    actual: (['active', 'declined', 'ended', null] as const).map((status) =>
+      refusalOf(
+        {
+          ...pending,
+          memberships:
+            status === null
+              ? []
+              : pending.memberships.map((row) => ({ ...row, status })),
+        },
+        command,
+      ),
+    ),
+    expected: [
+      'invitation-closed',
+      'invitation-closed',
+      'invitation-closed',
+      'invitation-closed',
+    ],
   });
 });

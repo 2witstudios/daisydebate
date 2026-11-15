@@ -185,3 +185,9 @@ Rooms additionally reference an offer by their own lobby; tournament event
 Rooms follow their event template without a standing offer. The generated
 `rooms.standing_template_id` is an internal foreign-key projection of
 `template_id` for standing Rooms only, never a second product pin (DEC403).
+
+A membership invitation cancelled by its manager ends with `joined_at` still
+null and a real `ended_at`. Active membership requires a join; invited and
+declined membership forbid one. Ending an accepted membership preserves its
+actual join. The named cancellation command checks the displayed membership
+version, records its own action and leaves grants untouched (DEC406).
