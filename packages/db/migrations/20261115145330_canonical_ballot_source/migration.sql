@@ -5,6 +5,9 @@ UPDATE "rounds" SET "judging" = jsonb_set("judging", '{source}', jsonb_build_obj
   'revision', "judging"->'ballot'->'revision'))
 WHERE "judging" IS NOT NULL AND NOT ("judging" ? 'source');
 --> statement-breakpoint
+-- Validate any deferred row events before changing the same relation.
+SET CONSTRAINTS ALL IMMEDIATE;
+--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "ballot_definition_id" text GENERATED ALWAYS AS (case when judging->'source'->>'kind' = 'stored' then judging->'source'->>'id' else null end) STORED;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "ballot_definition_version" integer GENERATED ALWAYS AS (case when judging->'source'->>'kind' = 'stored' then (judging->'source'->>'version')::integer else null end) STORED;--> statement-breakpoint
 CREATE INDEX "rounds_ballot_definition_idx" ON "rounds" ("ballot_definition_id","ballot_definition_version");--> statement-breakpoint
