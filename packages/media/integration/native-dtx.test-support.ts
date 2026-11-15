@@ -56,8 +56,8 @@ async function publisherObservation(track: LocalAudioTrack) {
     return { kind: 'unknown' as const, reason: 'stats-unavailable' as const };
   }
 }
-/** Synthetic source with DTX explicitly requested; not human silence or peer-hearing evidence. */
-export async function withDtxSource(
+/** Synthetic source with an explicit DTX choice; defaults to the original positive. */
+export async function withDtxSource<Result>(
   work: (input: {
     roomName: string;
     identity: string;
@@ -67,8 +67,9 @@ export async function withDtxSource(
       readonly requestedDtx: boolean | null;
       readonly snapshot: () => ReturnType<typeof publisherObservation>;
     };
-  }) => Promise<void>,
-) {
+  }) => Promise<Result>,
+  requestedDtx = true,
+): Promise<Result> {
   const service = createMediaService({ config }),
     roomName = createId(),
     identity = createId();
@@ -92,11 +93,11 @@ export async function withDtxSource(
     if (!room.localParticipant) throw new Error('Missing fixture publisher');
     const options = new TrackPublishOptions({
       source: TrackSource.SOURCE_MICROPHONE,
-      dtx: true,
+      dtx: requestedDtx,
       red: false,
     });
     await room.localParticipant.publishTrack(track, options);
-    await work({
+    return await work({
       roomName,
       identity,
       sent: () => samples,
