@@ -5,7 +5,7 @@ import type {
 import type { EventSwitch } from '../../../features/tab/setup';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { Bracket } from '../bracket/bracket';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
@@ -87,7 +87,9 @@ export function Results({
                   <>
                     {check.detail}
                     {check.action === null ? null : (
-                      <ActionLink action={check.action} className="block" />
+                      <div className="mt-2">
+                        <ActionButton size="small" action={check.action} />
+                      </div>
                     )}
                   </>
                 }

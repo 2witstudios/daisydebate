@@ -4,6 +4,7 @@ import { parseOutcome } from '../parse-outcome.test-support';
 import {
   lobbyLadderSchema,
   lobbyListPageSchema,
+  lobbyListQuerySchema,
   lobbyReadCatalogue,
   lobbyRoomListQuerySchema,
   lobbyRoomListSchema,
@@ -269,6 +270,8 @@ const listed = {
   startsAt: at,
   events: ['Varsity debate'],
   concurrentEvents: false,
+  divisions: ['varsity'],
+  venue: { place: 'online' },
   entry,
   part: { kind: 'judge', events: ['Varsity debate'] },
   now: { kind: 'round_opens', tabRoundName: 'Round 4', at },
@@ -311,6 +314,97 @@ describe('the lobby list (TAB-5.14)', async () => {
         ),
       ],
       expected: ['accepted', 'accepted', ['lobbies.0.part.events']],
+    });
+  });
+});
+
+describe('where a listed tournament runs', async () => {
+  test('online, or in person in a city', async () => {
+    const page = (venue: unknown) => ({
+      asOf: at,
+      lobbies: [{ ...listed, venue }],
+      more: 0,
+      capabilities: null,
+    });
+    assert({
+      given: 'an online venue, a city with its place, and a city with none',
+      should: 'accept the first two and refuse the city without a place',
+      actual: [
+        verdict(lobbyListPageSchema, page({ place: 'online' })),
+        verdict(
+          lobbyListPageSchema,
+          page({
+            place: 'in_person',
+            city: 'Atlanta, GA',
+            latitude: 33.75,
+            longitude: -84.39,
+          }),
+        ),
+        verdict(
+          lobbyListPageSchema,
+          page({ place: 'in_person', city: 'Atlanta, GA' }),
+        ),
+      ],
+      expected: [
+        'accepted',
+        'accepted',
+        ['lobbies.0.venue.latitude', 'lobbies.0.venue.longitude'],
+      ],
+    });
+  });
+});
+
+describe('asking for the tournaments index', async () => {
+  test('every filter, the tab, the calendar and the page', async () => {
+    const parsed = lobbyListQuerySchema.safeParse({
+      q: '  Peachtree ',
+      format: 'Public Forum',
+      league: 'Southeast League',
+      division: 'varsity',
+      mode: 'in_person',
+      near: { place: 'Atlanta, GA', miles: 50 },
+      from: '2026-11-14',
+      to: '2026-11-30',
+      open: true,
+      tab: 'upcoming',
+      month: '2026-11',
+      day: '2026-11-21',
+      offset: 20,
+      pageSize: 20,
+    });
+    assert({
+      given: 'a query setting every parameter',
+      should: 'accept it, trimming the search',
+      actual: parsed.success ? parsed.data.q : parsed.error.issues,
+      expected: 'Peachtree',
+    });
+    assert({
+      given: 'an empty query',
+      should: 'narrow nothing: the upcoming tab, from the first row, twenty',
+      actual: lobbyListQuerySchema.parse({}),
+      expected: { q: '', tab: 'upcoming', offset: 0, pageSize: 20 },
+    });
+  });
+
+  test('what it refuses', async () => {
+    assert({
+      given:
+        'an unknown division, near me online, dates out of order, a month 13 and a page of 1001',
+      should: 'refuse each by its key',
+      actual: [
+        verdict(lobbyListQuerySchema, { division: 'expert' }),
+        verdict(lobbyListQuerySchema, {
+          mode: 'online',
+          near: { place: 'Atlanta, GA', miles: 50 },
+        }),
+        verdict(lobbyListQuerySchema, {
+          from: '2026-11-30',
+          to: '2026-11-14',
+        }),
+        verdict(lobbyListQuerySchema, { month: '2026-13' }),
+        verdict(lobbyListQuerySchema, { pageSize: 1001 }),
+      ],
+      expected: [['division'], ['near'], ['to'], ['month'], ['pageSize']],
     });
   });
 });

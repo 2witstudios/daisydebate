@@ -16,8 +16,16 @@ const fixture = {
   kind: 'pairing',
   room: { roomId: id('m'), name: 'Room 3' },
   entries: [
-    { entryId: id('a'), shown: { kind: 'name', name: 'Okafor' } },
-    { entryId: id('b'), shown: { kind: 'name', name: 'Wu' } },
+    {
+      entryId: id('a'),
+      school: 'Hartwell',
+      shown: { kind: 'name', name: 'Okafor' },
+    },
+    {
+      entryId: id('b'),
+      school: 'Lakeside',
+      shown: { kind: 'name', name: 'Wu' },
+    },
   ],
   judges: [{ name: 'T. Abara', chair: false }],
   video: true,
@@ -56,6 +64,7 @@ describe('the posting (TAB-5.14)', async () => {
               entries: [
                 {
                   entryId: id('a'),
+                  school: 'Hartwell',
                   shown: { kind: 'initials', initials: 'C. O.' },
                 },
                 fixture.entries[1],
@@ -87,6 +96,7 @@ describe('the posting (TAB-5.14)', async () => {
               entries: [
                 {
                   entryId: id('a'),
+                  school: 'Hartwell',
                   shown: { kind: 'initials', initials: 'Chidi' },
                 },
               ],
@@ -101,6 +111,7 @@ describe('the posting (TAB-5.14)', async () => {
               entries: [
                 {
                   entryId: id('a'),
+                  school: 'Hartwell',
                   shown: { kind: 'name', name: 'Okafor', initials: 'C. O.' },
                 },
               ],

@@ -1,6 +1,6 @@
 import type { BallotSettings as Read } from '../../../features/tab/ballot-definition';
 import type { TimelineRail } from '../../../features/tab/tournament';
-import { ActionLink } from '../action-control/action-control';
+import { BackButton } from '../action-control/action-control';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
 import type { SampleSubmit } from '../sample-form/sample-form';
@@ -23,7 +23,10 @@ export function BallotSettings({
         submit={submit(settings.saveLabel)}
         header={
           <>
-            <ActionLink action={settings.setup} className="self-start" />
+            <BackButton
+              href={settings.setup.href}
+              label={settings.setup.label}
+            />
             <EventSwitcher event={settings.event} />
           </>
         }

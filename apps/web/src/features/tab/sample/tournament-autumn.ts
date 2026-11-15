@@ -1,3 +1,4 @@
+import { largeEntryGroups } from './large-entries';
 import type { DayRow, DayView } from '@daisy/protocol/lobby/day-read';
 import type { TournamentLobbyView } from '@daisy/protocol/lobby/lobby-read';
 import type { PostingView } from '@daisy/protocol/lobby/posting-read';
@@ -22,7 +23,8 @@ import {
   won,
 } from './posting';
 import { readBracket } from '../results';
-import type { SampleScene } from './scene';
+import { atScale, type SampleScene } from './scene';
+import { largePosting } from './large-posting';
 import { sampleStandings } from './standings';
 import { autumnFinish, autumnKeepsakes } from './tournament-after';
 
@@ -58,11 +60,22 @@ function hostOf(scene: SampleScene): NonNullable<TournamentLobbyView['host']> {
     reached(scene, 'break') || n <= 2
       ? ({ kind: 'done' } as const)
       : n === 3
-        ? ({ kind: 'needs_host', count: 2 } as const)
+        ? ({ kind: 'needs_host', count: atScale(scene) ? 7 : 2 } as const)
         : ({ kind: 'drafting' } as const);
   return {
     setupUnfinished: reached(scene, 'prelims') ? 0 : 2,
-    entryCount: reached(scene, 'prelims') ? 48 : 31,
+    entryCount: atScale(scene)
+      ? largeEntryGroups(
+          [varsity, impromptu].map((event) => ({
+            id: sampleId(event.key),
+            name: event.name,
+            label: null,
+          })),
+          !reached(scene, 'prelims'),
+        ).reduce((sum, group) => sum + group.entryCount, 0)
+      : reached(scene, 'prelims')
+        ? 48
+        : 31,
     slots: reached(scene, 'prelims')
       ? [
           ...prelimTimes.map((time, index) => ({
@@ -269,7 +282,8 @@ export function autumnLobby(
           ? ['Chidi', 'Ada'].map((name) => ({ actorId: sampleId(name), name }))
           : [],
       school:
-        scene.viewer === 'coach'
+        scene.viewer === 'coach' ||
+        (atScale(scene) && scene.viewer === 'competitor')
           ? { organizationId: sampleId('hartwell'), name: 'Hartwell' }
           : null,
       host: host ? hostOf(scene) : null,
@@ -312,9 +326,14 @@ function roundFour(visitor: boolean): PostingView {
         entries: [
           {
             entryId: sampleId('entry/Okafor'),
+            school: 'Okafor family',
             shown: visitor ? initials('C. O.') : named('Okafor'),
           },
-          { entryId: sampleId('entry/Wu'), shown: named('Wu') },
+          {
+            entryId: sampleId('entry/Wu'),
+            school: 'Lakeside',
+            shown: named('Wu'),
+          },
         ],
       },
       fixture(4, 'Brooks v Petrov', 'E. Fontaine'),
@@ -747,14 +766,20 @@ export function autumnReads(
   scene: SampleScene,
 ): TournamentReads {
   const visitor = scene.viewer === 'visitor';
+  const posting =
+    view.kind === 'round' && view.round === '3'
+      ? roundThree(visitor)
+      : view.kind === 'home' || view.kind === 'round'
+        ? roundFour(visitor)
+        : null;
   return {
     lobby: autumnLobby(scene, scene.viewer === 'host'),
     posting:
-      view.kind === 'round' && view.round === '3'
-        ? roundThree(visitor)
-        : view.kind === 'home' || view.kind === 'round'
-          ? roundFour(visitor)
-          : null,
+      posting === null
+        ? null
+        : atScale(scene)
+          ? largePosting(posting, visitor)
+          : posting,
     day: dayOfViewer(scene),
     standings:
       view.kind === 'standings'

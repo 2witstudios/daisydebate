@@ -1,7 +1,7 @@
 import type { HostHome as Read } from '../../../features/tab/organization';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { HostShell } from '../host-shell/host-shell';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 
@@ -50,7 +50,7 @@ export function HostHome({
           >
             <h2 className="font-strong">{card.title}</h2>
             <p className="text-sm text-ink-muted">{card.detail}</p>
-            <ActionLink action={card.action} />
+            <ActionButton size="small" action={card.action} />
           </section>
         ))}
       </div>

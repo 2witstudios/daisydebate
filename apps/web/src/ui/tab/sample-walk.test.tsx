@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   sampleMoments,
+  sampleScales,
   sampleViewers,
   type SampleScene,
 } from '../../features/tab/sample/scene';
@@ -10,6 +11,7 @@ import type { StandingsTable as Table } from '../../features/tab/standings';
 import { readWalk } from '../../features/tab/walk';
 import { WithAppRouter } from '../test-support/app-router';
 import { routeExists } from '../test-support/route-exists';
+import { sentenceLinkMark } from './action-control/action-control';
 import { sampleAnswer } from './sample-screens.test-support';
 import { StandingsTable } from './standings/standings-table';
 
@@ -17,9 +19,12 @@ setupRitewayBun();
 
 const appDirectory = join(import.meta.dir, '../../app');
 const scenes: readonly SampleScene[] = sampleViewers.flatMap((viewer) =>
-  sampleMoments.map((moment) => ({ viewer, moment })),
+  sampleMoments.flatMap((moment) =>
+    sampleScales.map((scale) => ({ viewer, moment, scale })),
+  ),
 );
-const sceneName = (scene: SampleScene) => `${scene.viewer}.${scene.moment}`;
+const sceneName = (scene: SampleScene) =>
+  `${scene.viewer}.${scene.moment}.${scene.scale}`;
 
 /** Pages of the product a Tab screen may link to: not Tab's own to answer. */
 const outside = new Set(['/', '/lobby', '/sign-in']);
@@ -79,6 +84,19 @@ const everything = [...crawls.values()]
   .flatMap((walk) => [...walk.html.values()])
   .join('\n');
 
+/** The wrapper a `SentenceLink` draws around its link. */
+const sentenceWrapper = `<span ${sentenceLinkMark}="" class="contents">`;
+
+/** The labels of controls drawn as underlined text links outside a sentence. */
+const underlinedOutsideSentences = (html: string): readonly string[] =>
+  [...html.matchAll(/<(?:a|button)\b[^>]*\bclass="([^"]*)"[^>]*>([^<]*)/g)]
+    .filter(
+      (match) =>
+        (match[1] ?? '').split(/\s+/).includes('underline') &&
+        !html.slice(0, match.index).endsWith(sentenceWrapper),
+    )
+    .map((match) => match[2] ?? '');
+
 /** One line only its board carries, for each board on the canvas. */
 const canvas: Readonly<Record<string, string>> = {
   'Host: tab round running': 'has not opened the ballot',
@@ -109,7 +127,7 @@ const canvas: Readonly<Record<string, string>> = {
   'Host: events and schedule': 'Judges are one pool.',
   'Competitor: entered in three events': 'Later today',
   'Coach: entering a school': 'Fix Amari',
-  'Tournaments: index': 'Open to enter',
+  'Tournaments: index': 'Show 20 more',
   'League: ladder': 'Top of the ladder',
   'League: season': 'How points count',
   'League: tournaments': 'All five count toward',
@@ -141,20 +159,46 @@ describe('the sample tournament', () => {
     });
   });
 
+  test('an action is a button; a link stays only inside a sentence', () => {
+    assert({
+      given: 'every screen reached by any viewer at any moment',
+      should:
+        'draw no control as an underlined text link unless marked as in a sentence',
+      actual: [
+        ...new Set(
+          [...crawls.values()].flatMap((walk) =>
+            [...walk.html].flatMap(([href, html]) =>
+              underlinedOutsideSentences(html).map(
+                (label) => `${href.split('?')[0]}: ${label}`,
+              ),
+            ),
+          ),
+        ),
+      ],
+      expected: [],
+    });
+  });
+
   test('the host area is for a member with a grant', () => {
     assert({
       given: 'a host address opened with and without a grant',
       should:
         'show the host shell to the host and move anyone else to the participant page',
       actual: [
-        sampleAnswer('/host', { viewer: 'host', moment: 'prelims' }).kind,
+        sampleAnswer('/host', {
+          viewer: 'host',
+          moment: 'prelims',
+          scale: 'normal',
+        }).kind,
         sampleAnswer('/host/tournaments/autumn-open/setup', {
           viewer: 'coach',
           moment: 'prelims',
+          scale: 'normal',
         }),
         sampleAnswer('/host/tournaments/autumn-open/standings', {
           viewer: 'competitor',
           moment: 'prelims',
+          scale: 'normal',
         }),
       ],
       expected: [
@@ -167,7 +211,7 @@ describe('the sample tournament', () => {
 
   test('a setting is shown once, with its source and its lock', () => {
     const html = crawls
-      .get('host.before')
+      .get('host.before.normal')
       ?.html.get('/host/tournaments/autumn-open/setup');
     assert({
       given: 'tournament setup on the resolved-settings shape',
@@ -182,7 +226,7 @@ describe('the sample tournament', () => {
   });
 
   test('a template pins the whole ballot', () => {
-    const host = crawls.get('host.prelims')?.html;
+    const host = crawls.get('host.prelims.normal')?.html;
     const setup = host?.get('/host/tournaments/autumn-open/setup') ?? '';
     const ballot =
       host?.get('/host/tournaments/autumn-open/events/varsity-debate/ballot') ??
@@ -207,7 +251,7 @@ describe('the sample tournament', () => {
   });
 
   test('a guardian comes back to their family', () => {
-    const parent = crawls.get('parent.prelims')?.html;
+    const parent = crawls.get('parent.prelims.normal')?.html;
     assert({
       given: "a minor's account and a tournament waiting to be allowed",
       should: 'lead back to the family page, which leads to both',
@@ -229,7 +273,7 @@ describe('the sample tournament', () => {
   });
 
   test("the event picker's other events have a screen", () => {
-    const host = crawls.get('host.prelims')?.html;
+    const host = crawls.get('host.prelims.normal')?.html;
     const impromptu = '/host/tournaments/autumn-open/events/impromptu/rounds/3';
     assert({
       given: 'a host on a Varsity debate page while rounds run',
@@ -249,7 +293,7 @@ describe('the sample tournament', () => {
   test('a finished tournament, for someone who took part', () => {
     const page = (viewer: SampleScene['viewer']) =>
       crawls
-        .get(`${viewer}.finished`)
+        .get(`${viewer}.finished.normal`)
         ?.html.get('/tournaments/autumn-open')
         ?.includes('Your result');
     assert({
@@ -262,6 +306,7 @@ describe('the sample tournament', () => {
 
   test('a screen reads only the shape of its aggregate', () => {
     const table: Table = {
+      divisions: [],
       title: 'Standings',
       lede: '',
       tiebreaks: {
@@ -276,6 +321,7 @@ describe('the sample tournament', () => {
       rows: [
         {
           seed: 1,
+          entryId: 'a'.repeat(24),
           entry: 'Another source',
           school: 'Elsewhere',
           wins: 2,

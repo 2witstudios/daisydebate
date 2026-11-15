@@ -88,6 +88,9 @@ export const stageKinds = ['preliminary', 'elimination'] as const;
 export type StageKind = (typeof stageKinds)[number];
 export const stagePlaces = ['online', 'in_person'] as const;
 export const stageTimings = ['live', 'windowed'] as const;
+/** The divisions a tournament runs, by experience. */
+export const tournamentDivisions = ['novice', 'jv', 'varsity', 'open'] as const;
+export type TournamentDivision = (typeof tournamentDivisions)[number];
 
 export const tournamentJudgeStatuses = [
   'invited',

@@ -3,7 +3,7 @@ import type {
   AttentionRoom,
   RoomAttention,
 } from '../../../features/tab/tab-round';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { ListHeading, ListRow } from '../list-card/list-card';
 
 const labels: Readonly<Record<RoomAttention, string>> = {
@@ -48,7 +48,7 @@ export function AttentionList({
         <AttentionRows rooms={group.rooms} />
         {group.more === null ? null : (
           <li className="px-4 py-3">
-            <ActionLink action={group.more} />
+            <ActionButton size="small" action={group.more} />
           </li>
         )}
       </ul>

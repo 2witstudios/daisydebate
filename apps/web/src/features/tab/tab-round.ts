@@ -4,6 +4,7 @@ import type {
   TimeSlotConcern,
   TimeSlotHostView,
 } from '@daisy/protocol/lobby/tab-round-read';
+import { fixtureWords, roomStatusOf, type RoomStatus } from './at-scale-rooms';
 import { linkTo, sampleAction, type TabAction } from './action';
 import { sampleTabRoundView, sampleTimeSlotView } from './sample/tab-round';
 import type { SampleScene } from './sample/scene';
@@ -14,6 +15,9 @@ export type RoomAttention =
   'needs_you' | 'waiting' | 'live' | 'judging' | 'finished';
 
 export type AttentionRoom = {
+  readonly status?: RoomStatus;
+  readonly need?: 'overdue_ballot' | 'withdrawn_judge';
+  readonly words?: readonly string[];
   readonly title: string;
   readonly detail: string;
   readonly action: TabAction;
@@ -57,6 +61,7 @@ export type TimeSlot = {
     readonly selected: boolean;
   }[];
   readonly needsYou: readonly AttentionRoom[];
+  readonly roomGroups: readonly AttentionGroup[];
   readonly events: readonly SlotEvent[];
   readonly next: {
     readonly heading: string;
@@ -134,7 +139,7 @@ const attentionRoom = (
 ): AttentionRoom => ({ title, detail, action });
 
 const resultLine = (
-  read: TabRoundHostView,
+  read: Pick<TabRoundHostView, 'capabilities' | 'byeCountsAs' | 'sectionSize'>,
   fixture: TabRoundFixture,
   result: Extract<TabRoundFixture['state'], { kind: 'finished' }>['result'],
 ) => {
@@ -180,7 +185,7 @@ const resultLine = (
 
 /** One fixture as a row of the host's running round. */
 const roundRoom = (
-  read: TabRoundHostView,
+  read: Pick<TabRoundHostView, 'capabilities' | 'byeCountsAs' | 'sectionSize'>,
   fixture: TabRoundFixture,
 ): AttentionRoom => {
   const title = titleOf(fixture);
@@ -192,17 +197,20 @@ const roundRoom = (
         state.speechesGiven === fixture.entries.length
           ? `all ${countWord(state.speechesGiven)} have spoken`
           : `${countWord(state.speechesGiven)} of ${countWord(fixture.entries.length)} have spoken`;
-      return attentionRoom(
-        title,
-        [
-          ...(fixture.kind === 'section' ? [roomOf(fixture), spoken] : []),
-          `Judge ${state.judge.name} has not opened the ballot`,
-          `${minutes(state.overdueByMs)} overdue`,
-        ].join(' · '),
-        read.capabilities.officiate
-          ? sampleAction('Replace judge', true)
-          : openRoom,
-      );
+      return {
+        ...attentionRoom(
+          title,
+          [
+            ...(fixture.kind === 'section' ? [roomOf(fixture), spoken] : []),
+            `Judge ${state.judge.name} has not opened the ballot`,
+            `${minutes(state.overdueByMs)} overdue`,
+          ].join(' · '),
+          read.capabilities.officiate
+            ? sampleAction('Replace judge', true)
+            : openRoom,
+        ),
+        need: 'overdue_ballot',
+      };
     }
     case 'confirmation_requested':
       return attentionRoom(
@@ -247,6 +255,7 @@ const roundRoom = (
 };
 
 const attentionOf = (fixture: TabRoundFixture): RoomAttention => {
+  if (fixture.judges.length === 0 && fixture.kind !== 'bye') return 'waiting';
   switch (fixture.state.kind) {
     case 'ballot_overdue':
     case 'confirmation_requested':
@@ -280,7 +289,11 @@ const runningRoundOf = (
   const shown = (attention: RoomAttention): AttentionGroup[] => {
     const rooms = read.open
       .filter((fixture) => attentionOf(fixture) === attention)
-      .map((fixture) => roundRoom(read, fixture));
+      .map((fixture) => ({
+        ...roundRoom(read, fixture),
+        status: roomStatusOf(fixture),
+        words: fixtureWords(fixture),
+      }));
     return rooms.length === 0
       ? []
       : [{ attention, count: null, rooms, more: null }];
@@ -327,7 +340,11 @@ const runningRoundOf = (
       {
         attention: 'finished',
         count: finished.total,
-        rooms: finished.recent.map((fixture) => roundRoom(read, fixture)),
+        rooms: finished.recent.map((fixture) => ({
+          ...roundRoom(read, fixture),
+          status: 'finished',
+          words: fixtureWords(fixture),
+        })),
         more: unlisted > 0 ? sampleAction(`Show ${unlisted} more`) : null,
       },
     ],
@@ -376,20 +393,23 @@ const concernRoom = (
         read.events.find((candidate) => candidate.eventId === concern.eventId)
           ?.formatName ?? '';
       const { replacement } = concern;
-      return attentionRoom(
-        `${event} · ${concern.room.name}`,
-        replacement === null
-          ? `Judge ${concern.judge.name} dropped out. No free judge in this slot is cleared for ${format}.`
-          : `Judge ${concern.judge.name} dropped out. ${replacement.name} is free in this slot, has no conflict here and is cleared for ${format}.`,
-        officiate
-          ? sampleAction(
-              replacement === null
-                ? 'Swap judge'
-                : `Assign ${surname(replacement.name)}`,
-              true,
-            )
-          : sampleAction('Open room'),
-      );
+      return {
+        ...attentionRoom(
+          `${event} · ${concern.room.name}`,
+          replacement === null
+            ? `Judge ${concern.judge.name} dropped out. No free judge in this slot is cleared for ${format}.`
+            : `Judge ${concern.judge.name} dropped out. ${replacement.name} is free in this slot, has no conflict here and is cleared for ${format}.`,
+          officiate
+            ? sampleAction(
+                replacement === null
+                  ? 'Swap judge'
+                  : `Assign ${surname(replacement.name)}`,
+                true,
+              )
+            : sampleAction('Open room'),
+        ),
+        ...(replacement === null ? { need: 'withdrawn_judge' as const } : {}),
+      };
     }
     case 'draw_ready':
       return attentionRoom(
@@ -479,6 +499,30 @@ const timeSlotOf = (
         selected: event.eventId === selectedEventId,
       })),
     ],
+    roomGroups: (
+      ['needs_you', 'waiting', 'live', 'judging', 'finished'] as const
+    ).map((attention) => ({
+      attention,
+      count: null,
+      more: null,
+      rooms: read.rooms
+        .filter(
+          (room) =>
+            inView(room.eventId) && attentionOf(room.fixture) === attention,
+        )
+        .map((room) => ({
+          ...roundRoom(
+            {
+              capabilities: read.capabilities,
+              byeCountsAs: 'win',
+              sectionSize: null,
+            },
+            room.fixture,
+          ),
+          words: fixtureWords(room.fixture),
+          status: roomStatusOf(room.fixture),
+        })),
+    })),
     needsYou: read.concerns
       .filter((concern) => inView(concern.eventId))
       .map((concern) => concernRoom(read, concern, wallClock)),

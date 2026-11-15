@@ -25,7 +25,14 @@ const entryList = {
   lobbyId: id('lobby'),
   eventId: varsity.id,
   asOf: '2026-11-14T12:00:00.000Z',
-  counts: { accepted: 24, pending: 7, judges: 11, rooms: 12, judgesNeeded: 12 },
+  counts: {
+    accepted: 24,
+    withdrawn: 0,
+    pending: 7,
+    judges: 11,
+    rooms: 12,
+    judgesNeeded: 12,
+  },
   groups: [
     {
       responsible: {
@@ -110,15 +117,13 @@ describe('EntryListView', async () => {
     });
   });
 
-  test('a withdrawn entry is not listed', () => {
+  test('withdrawn entries remain readable for the host status filter', () => {
     assert({
-      given: 'a withdrawn entry',
-      should: 'refuse its status',
-      actual: parseOutcome(
-        entryListViewSchema,
-        withEntry({ status: 'withdrawn' }),
-      ),
-      expected: { issues: ['groups.0.entries.0.status'] },
+      given: 'a withdrawn entry in the host roster',
+      should: 'preserve the status so the withdrawn filter can show it',
+      actual: entryListViewSchema.safeParse(withEntry({ status: 'withdrawn' }))
+        .success,
+      expected: true,
     });
   });
 });
@@ -139,11 +144,12 @@ const judgeList = {
   lobbyId: id('lobby'),
   events: [varsity],
   timeSlots: [
-    { id: id('slot1'), name: 'Round 1' },
-    { id: id('slot2'), name: 'Round 2' },
+    { id: id('slot1'), name: 'Round 1', judgesNeeded: 12 },
+    { id: id('slot2'), name: 'Round 2', judgesNeeded: 12 },
   ],
   counts: { debaters: 31, judges: 11 },
   need: {
+    timeSlotId: null,
     tabRoundName: 'Round 1',
     eventName: 'Varsity debate',
     judgesNeeded: 12,

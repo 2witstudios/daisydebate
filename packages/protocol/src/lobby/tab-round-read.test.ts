@@ -111,6 +111,7 @@ const slotEvent = (seed: string, name: string) => ({
 });
 
 const slotView = {
+  rooms: [],
   lobbyId: id('lobby'),
   timeSlot: {
     timeSlotId: id('slot'),

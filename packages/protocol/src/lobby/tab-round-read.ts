@@ -205,6 +205,10 @@ export const timeSlotHostViewSchema = z.strictObject({
   behindByMs: durationMs.nullable(),
   events: z.array(slotEvent).min(1),
   concerns: z.array(slotConcern),
+  /** Rooms of the selected events, for the host to search and scan by status. */
+  rooms: z
+    .array(z.strictObject({ eventId: idSchema, fixture: tabRoundFixture }))
+    .max(500),
   /** The slot after this one, with what is ready for it. */
   next: z
     .strictObject({
@@ -238,3 +242,18 @@ export const tabRoundReadCatalogue = {
 } as const satisfies LobbyReadCatalogue<
   'TabRoundHostView' | 'TimeSlotHostView'
 >;
+
+/** Search and paging are applied before the screen receives its read. */
+export const tabRoundQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  status: z
+    .enum(['all', 'needs_you', 'waiting', 'live', 'judging', 'finished'])
+    .default('all'),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(100),
+});
+export const timeSlotQuerySchema = tabRoundQuerySchema.extend({
+  eventId: idSchema.optional(),
+});
+export type TabRoundQuery = z.infer<typeof tabRoundQuerySchema>;
+export type TimeSlotQuery = z.infer<typeof timeSlotQuerySchema>;

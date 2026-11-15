@@ -3,8 +3,8 @@ import {
   landingStop,
   readTimelineRail,
   readTournamentPage,
-  readTournamentsIndex,
 } from '../tournament';
+import { readTournamentsIndex } from '../tournaments-index';
 import { sampleJudgeBallot } from './ballot';
 import { readLeagueLobby } from '../league';
 import { AUTUMN, IMPROMPTU, LEAGUE, VARSITY } from './moment';
@@ -15,8 +15,12 @@ import { readRunningRound } from '../tab-round';
 
 setupRitewayBun();
 
-const host: SampleScene = { viewer: 'host', moment: 'break' };
-const judge: SampleScene = { viewer: 'judge', moment: 'break' };
+const host: SampleScene = { viewer: 'host', moment: 'break', scale: 'normal' };
+const judge: SampleScene = {
+  viewer: 'judge',
+  moment: 'break',
+  scale: 'normal',
+};
 const inherited = ['constructor', '__proto__', 'toString'];
 
 describe('the sample reads', () => {
@@ -67,6 +71,7 @@ describe('the sample reads', () => {
     const rail = readTimelineRail(AUTUMN, {
       viewer: 'host',
       moment: 'finished',
+      scale: 'normal',
     });
     assert({
       given: 'the host opening Autumn Open once it is certified',
@@ -77,25 +82,30 @@ describe('the sample reads', () => {
   });
 
   test('a visitor reads Autumn Open by whether it has begun', () => {
-    const groupOf = (scene: SampleScene) =>
-      readTournamentsIndex(scene).groups.find((group) =>
-        group.rows.some((row) => row.name === 'Autumn Open'),
-      )?.heading ?? null;
+    const tabOf = (scene: SampleScene) =>
+      (['upcoming', 'live'] as const).find((tab) =>
+        readTournamentsIndex(scene, { tab, q: 'Autumn Open' })
+          .list?.days.flatMap((group) => group.rows)
+          .some((row) => row.name === 'Autumn Open'),
+      ) ?? null;
     assert({
       given: 'a visitor before the tournament and during prelims',
-      should: 'list it as open to enter, then as on now',
+      should: 'list it as upcoming, then as live now',
       actual: [
-        groupOf({ viewer: 'visitor', moment: 'before' }),
-        groupOf({ viewer: 'visitor', moment: 'prelims' }),
+        tabOf({ viewer: 'visitor', moment: 'before', scale: 'normal' }),
+        tabOf({ viewer: 'visitor', moment: 'prelims', scale: 'normal' }),
       ],
-      expected: ['Open to enter', 'On now'],
+      expected: ['upcoming', 'live'],
     });
   });
 
   test("the speech round offers the final's draw only between rounds and elims", () => {
     const next = (moment: SampleScene['moment']) =>
-      readRunningRound(AUTUMN, IMPROMPTU, '3', { viewer: 'host', moment })?.next
-        ?.label ?? null;
+      readRunningRound(AUTUMN, IMPROMPTU, '3', {
+        viewer: 'host',
+        moment,
+        scale: 'normal',
+      })?.next?.label ?? null;
     assert({
       given:
         'Impromptu round 3 while running, at the break, in elims and finished',

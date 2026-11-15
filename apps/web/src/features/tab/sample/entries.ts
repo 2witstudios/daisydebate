@@ -8,7 +8,8 @@ import type {
   SchoolStudent,
 } from '@daisy/protocol/lobby/entry-read';
 import { AUTUMN, reached, WINTER } from './moment';
-import type { SampleScene } from './scene';
+import { largeEntryList, largeJudgeList } from './large-entries';
+import { atScale, type SampleScene } from './scene';
 
 /** A sample record's id: its name, as a 24-character cuid2-shaped id. */
 const sampleId = (name: string): string =>
@@ -58,13 +59,34 @@ export function sampleEntryList(
 ): EntryListView | null {
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
+  const read = ordinaryEntryList(before);
+  return atScale(scene)
+    ? largeEntryList(read, [varsity, impromptu], before)
+    : read;
+}
+
+function ordinaryEntryList(before: boolean): EntryListView {
   return {
     lobbyId: autumnId,
     eventId: varsity.id,
     asOf: '2026-11-14T12:00:00.000Z',
     counts: before
-      ? { accepted: 24, pending: 7, judges: 11, rooms: 12, judgesNeeded: 12 }
-      : { accepted: 48, pending: 0, judges: 12, rooms: 12, judgesNeeded: 12 },
+      ? {
+          accepted: 24,
+          withdrawn: 0,
+          pending: 7,
+          judges: 11,
+          rooms: 12,
+          judgesNeeded: 12,
+        }
+      : {
+          accepted: 48,
+          withdrawn: 0,
+          pending: 0,
+          judges: 12,
+          rooms: 12,
+          judgesNeeded: 12,
+        },
     groups: [
       {
         responsible: {
@@ -174,16 +196,22 @@ export function sampleJudgeList(
 ): JudgeListView | null {
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
+  const read = ordinaryJudgeList(before);
+  return atScale(scene) ? largeJudgeList(read, before) : read;
+}
+
+function ordinaryJudgeList(before: boolean): JudgeListView {
   return {
     lobbyId: autumnId,
     events: [varsity, impromptu, novice],
     timeSlots: ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Break'].map(
-      (name) => ({ id: sampleId(`slot${name}`), name }),
+      (name) => ({ id: sampleId(`slot${name}`), name, judgesNeeded: 12 }),
     ),
     counts: before
       ? { debaters: 31, judges: 11 }
       : { debaters: 48, judges: 12 },
     need: {
+      timeSlotId: sampleId(before ? 'slotRound 1' : 'slotRound 4'),
       tabRoundName: before ? 'Round 1' : 'Round 4',
       eventName: varsity.name,
       judgesNeeded: 12,

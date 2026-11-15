@@ -1,7 +1,7 @@
 import type { ResolutionPool } from '../../../features/tab/resolution-pool';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton, BackButton } from '../action-control/action-control';
 import { ChoiceField } from '../choice-field/choice-field';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
@@ -67,7 +67,7 @@ export function Resolutions({
         </>
       }
     >
-      <ActionLink action={pool.setup} className="self-start" />
+      <BackButton href={pool.setup.href} label={pool.setup.label} />
       <EventSwitcher event={pool.event} />
       <PageHeader
         title="Resolutions"
@@ -85,7 +85,8 @@ export function Resolutions({
               tone={resolution.held ? 'held' : 'plain'}
               trailing={
                 resolution.edit === null ? null : (
-                  <ActionLink
+                  <ActionButton
+                    size="small"
                     action={resolution.edit}
                     about={resolution.text}
                   />
@@ -95,7 +96,7 @@ export function Resolutions({
           ))}
           {pool.more === null ? null : (
             <li className="px-4 py-3">
-              <ActionLink action={pool.more} />
+              <ActionButton size="small" action={pool.more} />
             </li>
           )}
         </ul>

@@ -2,7 +2,7 @@ import type { HostLeague as Read } from '../../../features/tab/league';
 import { holdLabel } from '../../../features/tab/settings';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { HostShell } from '../host-shell/host-shell';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 import { SeasonStandings } from '../season-standings/season-standings';
@@ -24,7 +24,7 @@ export function HostLeague({
       <PageHeader
         title={league.name}
         lede={league.lede}
-        actions={<ActionLink action={league.lobbyView} />}
+        actions={<ActionButton size="small" action={league.lobbyView} />}
       />
       {league.requests.length === 0 ? null : (
         <ListCard>
@@ -69,22 +69,24 @@ export function HostLeague({
                 }
               />
             ))}
-            <li className="px-4 py-3 text-sm text-ink-muted">
-              <ActionLink action={league.template.edit} /> ·{' '}
-              {league.template.note}
+            <li className="flex items-center gap-3 px-4 py-3 text-sm text-ink-muted">
+              <ActionButton size="small" action={league.template.edit} />
+              <span>{league.template.note}</span>
             </li>
           </ul>
         </ListCard>
         <ListCard>
           <ListHeading>{league.season.heading}</ListHeading>
           <SeasonStandings rows={league.season.rows} />
-          <p className="border-t border-border px-4 py-3 text-sm text-ink-muted">
-            {league.season.note} <ActionLink action={league.season.rule} />
-          </p>
+          <div className="flex flex-col items-start gap-2 border-t border-border px-4 py-3 text-sm text-ink-muted">
+            <p>{league.season.note}</p>
+            <ActionButton size="small" action={league.season.rule} />
+          </div>
           <ListHeading>League ladder</ListHeading>
-          <p className="px-4 py-3 text-sm">
-            {league.ladder.detail} <ActionLink action={league.ladder.open} />
-          </p>
+          <div className="flex flex-col items-start gap-2 px-4 py-3 text-sm">
+            <p>{league.ladder.detail}</p>
+            <ActionButton size="small" action={league.ladder.open} />
+          </div>
         </ListCard>
       </div>
       <ListCard>

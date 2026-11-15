@@ -37,11 +37,11 @@ const responsibleGroupSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('self') }),
 ]);
 
-/** A listed entry. A withdrawn entry is not listed. */
+/** A host roster entry, including a withdrawn entry when that status is requested. */
 const listedEntrySchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
-  status: z.enum(entryStatuses).exclude(['withdrawn']),
+  status: z.enum(entryStatuses),
   rating: z.int().min(0).nullable(),
   /** The events this entrant is entered in across the tournament. */
   events: z.array(entryEventSchema).min(1),
@@ -74,6 +74,7 @@ export const entryListViewSchema = z.strictObject({
   asOf: z.iso.datetime(),
   counts: z.strictObject({
     accepted: countSchema,
+    withdrawn: countSchema,
     pending: countSchema,
     judges: countSchema,
     rooms: countSchema,
@@ -143,11 +144,18 @@ export const judgeListViewSchema = z
   .strictObject({
     lobbyId: idSchema,
     events: z.array(entryEventSchema).min(1),
-    timeSlots: z.array(z.strictObject({ id: idSchema, name: nameSchema })),
+    timeSlots: z.array(
+      z.strictObject({
+        id: idSchema,
+        name: nameSchema,
+        judgesNeeded: countSchema,
+      }),
+    ),
     counts: z.strictObject({ debaters: countSchema, judges: countSchema }),
     /** The next tab round's need: judges named so far, or free in its slot. */
     need: z.strictObject({
       tabRoundName: nameSchema,
+      timeSlotId: idSchema.nullable(),
       eventName: nameSchema,
       judgesNeeded: countSchema,
       judgesCounted: countSchema,
@@ -168,6 +176,15 @@ export const judgeListViewSchema = z
         ),
       ),
     { message: 'a judge has one slot per time slot', path: ['groups'] },
+  )
+  .refine(
+    (view) =>
+      view.need.timeSlotId === null ||
+      view.timeSlots.some((slot) => slot.id === view.need.timeSlotId),
+    {
+      message: 'the needed slot belongs to this read',
+      path: ['need', 'timeSlotId'],
+    },
   );
 export type JudgeListView = z.infer<typeof judgeListViewSchema>;
 
@@ -230,3 +247,31 @@ export const entryReadCatalogue = {
 } as const satisfies LobbyReadCatalogue<
   'EntryListView' | 'JudgeListView' | 'SchoolEntriesView'
 >;
+
+/** Search and paging are applied before the screen receives its read. */
+export const entryListQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  status: z
+    .enum([
+      'all',
+      'accepted',
+      'not_answered',
+      'waiting_guardian',
+      'withdrawn',
+      'short',
+    ])
+    .default('all'),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(100),
+});
+export const judgeListQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).default(''),
+  status: z
+    .enum(['all', 'free', 'conflict', 'late', 'not_cleared'])
+    .default('all'),
+  timeSlotId: idSchema.optional(),
+  offset: z.int().nonnegative().default(0),
+  pageSize: z.int().min(1).max(500).default(100),
+});
+export type EntryListQuery = z.infer<typeof entryListQuerySchema>;
+export type JudgeListQuery = z.infer<typeof judgeListQuerySchema>;

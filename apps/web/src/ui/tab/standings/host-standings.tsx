@@ -4,7 +4,7 @@ import type { StandingsTable as Read } from '../../../features/tab/standings';
 import type { EventSwitch } from '../../../features/tab/setup';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton } from '../action-control/action-control';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
 import { StandingsTable } from './standings-table';
@@ -48,13 +48,15 @@ export function HostStandings({
           : '.'}
       </p>
       <StandingsTable table={table} />
-      <p className="text-sm text-ink-muted">
-        {table.remaining} more entries. Standings are worked out from the
-        results each time; nothing here is typed in.{' '}
+      <div className="flex flex-col items-start gap-2 text-sm text-ink-muted">
+        <p>
+          {table.remaining} more entries. Standings are worked out from the
+          results each time; nothing here is typed in.
+        </p>
         {table.correction === null ? null : (
-          <ActionLink action={table.correction} />
+          <ActionButton size="small" action={table.correction} />
         )}
-      </p>
+      </div>
     </HostShell>
   );
 }

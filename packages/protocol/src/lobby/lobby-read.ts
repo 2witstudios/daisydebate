@@ -6,6 +6,7 @@ import {
   releaseCauses,
   stageKinds,
   stagePlaces,
+  tournamentDivisions,
   tournamentStatuses,
 } from './vocabulary';
 
@@ -326,6 +327,18 @@ const listedNowSchema = z
   ])
   .nullable();
 
+/** Where a listed tournament runs: online, or in person in a city. */
+const listedVenueSchema = z.discriminatedUnion('place', [
+  z.strictObject({ place: z.literal('online') }),
+  z.strictObject({
+    place: z.literal('in_person'),
+    /** As people write it: `Atlanta, GA`. */
+    city: name,
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+  }),
+]);
+
 /** One lobby a viewer may see. A lobby open only by link is never listed. */
 const listedLobbySchema = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -349,6 +362,9 @@ const listedLobbySchema = z.discriminatedUnion('kind', [
     events: z.array(name).max(32),
     /** Whether its events run at the same time, sharing time slots. */
     concurrentEvents: z.boolean(),
+    /** The divisions its events run, in order of experience. */
+    divisions: z.array(z.enum(tournamentDivisions)).max(4),
+    venue: listedVenueSchema,
     entry: entryWindowSchema,
     part: listedPartSchema,
     now: listedNowSchema,
@@ -365,9 +381,68 @@ const listedLobbySchema = z.discriminatedUnion('kind', [
 ]);
 export type ListedLobby = z.infer<typeof listedLobbySchema>;
 
+export const lobbyListDefaultPageSize = 20;
+
+/** Which tournaments a list asks for, by where they stand now. */
+export const lobbyListTabs = ['upcoming', 'live', 'past'] as const;
+export type LobbyListTab = (typeof lobbyListTabs)[number];
+
+const day = z.iso.date();
+/** A month whose full week grid stays within four-digit ISO years. */
+export const tournamentMonthSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+  .refine((month) => month >= '0001-01' && month <= '9998-12');
+
+/**
+ * What the tournaments index asks of the lobby list. Omitted narrows nothing:
+ * there is no `any` value, so a client's any-league choice omits the key.
+ * Filters apply in the read before paging; `offset` is the rows already
+ * shown, so "Show 20 more" asks the next page.
+ */
+export const lobbyListQuerySchema = z
+  .strictObject({
+    /** Matches a tournament's name, its league or the school hosting it. */
+    q: z.string().trim().max(100).default(''),
+    /** A format or event name: a tournament running one such event. */
+    format: name.optional(),
+    /** The owning league, by name. */
+    league: name.optional(),
+    division: z.enum(tournamentDivisions).optional(),
+    mode: z.enum(stagePlaces).optional(),
+    /** In person within `miles` of a place; it implies `mode: in_person`. */
+    near: z
+      .strictObject({ place: name, miles: z.int().min(1).max(500) })
+      .optional(),
+    /** Starting on or after `from`, on or before `to`. */
+    from: day.optional(),
+    to: day.optional(),
+    /** Only tournaments whose entry is open now, with a place left. */
+    open: z.boolean().optional(),
+    tab: z.enum(lobbyListTabs).default('upcoming'),
+    /** The calendar's month, `2026-11`: its days' counts. */
+    month: tournamentMonthSchema.optional(),
+    /** The calendar's chosen day: its tournaments, whatever the tab. */
+    day: day.optional(),
+    offset: count.default(0),
+    pageSize: z.int().min(1).max(1000).default(lobbyListDefaultPageSize),
+  })
+  .refine((query) => query.near === undefined || query.mode !== 'online', {
+    path: ['near'],
+    message: 'Near is for tournaments in person.',
+  })
+  .refine(
+    (query) =>
+      query.from === undefined ||
+      query.to === undefined ||
+      query.from <= query.to,
+    { path: ['to'], message: 'The end comes after the start.' },
+  );
+export type LobbyListQuery = z.infer<typeof lobbyListQuerySchema>;
+
 export const lobbyListPageSchema = z.strictObject({
   asOf: instant,
-  lobbies: z.array(listedLobbySchema).max(100),
+  lobbies: z.array(listedLobbySchema).max(1000),
   /** Listed lobbies past this page. */
   more: count,
   /** Null for a signed-out reader. */

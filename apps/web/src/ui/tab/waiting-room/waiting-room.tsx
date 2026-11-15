@@ -1,9 +1,8 @@
-import Link from 'next/link';
 import type { RoomSeat, WaitingRoom as Read } from '../../../features/tab/room';
 import { cn } from '../../cn';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
-import { ActionButton, ActionLink } from '../action-control/action-control';
+import { ActionButton, BackButton } from '../action-control/action-control';
 import { ListCard, ListHeading } from '../list-card/list-card';
 
 const tones: Readonly<Record<RoomSeat['tone'], string>> = {
@@ -59,12 +58,7 @@ function Seat({ seat }: { readonly seat: RoomSeat }) {
 export function WaitingRoom({ room }: { readonly room: Read }) {
   return (
     <ReadingPage>
-      <Link
-        href={room.back.href}
-        className="self-start font-strong text-ink underline"
-      >
-        {room.back.label}
-      </Link>
+      <BackButton href={room.back.href} label={room.back.label} />
       <PageHeader title={room.title} lede={room.lede} />
       <ListCard label="Seats">
         <ul>
@@ -115,9 +109,10 @@ export function WaitingRoom({ room }: { readonly room: Read }) {
         </>
       )}
       {room.help === null ? null : (
-        <p className="text-sm text-ink-muted">
-          {room.help.text} <ActionLink action={room.help.action} />
-        </p>
+        <div className="flex items-center justify-between gap-3 text-sm text-ink-muted">
+          <p>{room.help.text}</p>
+          <ActionButton size="small" action={room.help.action} />
+        </div>
       )}
     </ReadingPage>
   );
