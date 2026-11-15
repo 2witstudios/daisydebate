@@ -29,8 +29,9 @@ import { commandDigest } from './command-digest';
 import { drawFacts, type DrawCompetition } from './draw-facts';
 import { hostLobbyResource } from './host-lobby-resource';
 import { tabEngine } from './tab-engine';
+import { eventRoomPins } from './event-room-pins';
+import { eventRoomAssemblies } from './event-room-assembly';
 
-type DraftCommand = Exclude<DrawCommand, { readonly type: 'publish-draw' }>;
 type Dependencies = {
   readonly store: Pick<TabStore, 'drawCommand'>;
   readonly authorize: (input: AuthorizationInput) => AuthorizationDecision;
@@ -41,11 +42,11 @@ type Dependencies = {
 const neverHeld = (): never => {
   throw createAppError(
     'INVARIANT',
-    'Draft drawing is a fixture-less authority question',
+    'Drawing is a fixture-less authority question',
   );
 };
-/** Draft versions and draft panels, under the actual account, parent, event and slot fences. */
-export const drawDraftCommand =
+/** Draw versions, panels and publication, under the actual account, parent, event and slot fences. */
+export const drawCommand =
   (dependencies: Dependencies) =>
   async (
     principal: TabPrincipal,
@@ -53,13 +54,10 @@ export const drawDraftCommand =
     body: unknown,
   ): Promise<LobbyCommandAnswer<string>> => {
     const parsed = drawCommandEnvelopeSchema.safeParse(body);
-    if (
-      !idSchema.safeParse(lobbyId).success ||
-      !parsed.success ||
-      parsed.data.command.type === 'publish-draw'
-    )
+    if (!idSchema.safeParse(lobbyId).success || !parsed.success)
       throw createAppError('VALIDATION');
     const command = parsed.data.command;
+    const publicationEntropy = dependencies.newId();
     try {
       return await dependencies.store.drawCommand(
         { senderUserId: principal.userId, lobbyId, command },
@@ -100,7 +98,7 @@ export const drawDraftCommand =
                       : command.drawId),
                 );
           return runLobbyCommand<
-            DraftCommand,
+            DrawCommand,
             LoadedDrawCommand,
             string,
             DrawWrite
@@ -161,7 +159,24 @@ export const drawDraftCommand =
                   holdForConfirmation: neverHeld,
                   apply: (writes, history, receipt) =>
                     session.apply(writes, history, receipt, {
-                      rooms: [],
+                      ...(command.type === 'publish-draw'
+                        ? eventRoomAssemblies(
+                            loaded,
+                            drawFacts(
+                              loaded,
+                              dependencies.competition(loaded),
+                              {
+                                commandId: parsed.data.commandId,
+                                now,
+                                newId: dependencies.newId,
+                              },
+                            ),
+                            writes,
+                            principal,
+                            publicationEntropy,
+                            dependencies.newId,
+                          )
+                        : { rooms: [], resolutionPin: null }),
                       closeRoom,
                       activeRoomMembers,
                     }),
@@ -170,6 +185,12 @@ export const drawDraftCommand =
             { ...parsed.data, command },
             drawCommandDefinition(command.type, target?.status ?? 'draft'),
             (facts, requested) => {
+              // Running windowed stages belongs to its separate unreleased layer.
+              if (
+                requested.type === 'publish-draw' &&
+                facts.stage?.timing !== 'live'
+              )
+                throw new CommandDenied('not-found');
               if (
                 requested.type === 'assign-judges' &&
                 target?.status !== 'draft'
@@ -187,14 +208,36 @@ export const drawDraftCommand =
                 )
               )
                 throw new CommandDenied('not-found');
-              return decideDraw(tabEngine)(
-                drawFacts(facts, dependencies.competition(facts), {
-                  commandId: parsed.data.commandId,
-                  now,
-                  newId: dependencies.newId,
-                }),
-                requested,
-              );
+              const mapped = drawFacts(facts, dependencies.competition(facts), {
+                commandId: parsed.data.commandId,
+                now,
+                newId: dependencies.newId,
+              });
+              if (
+                requested.type === 'publish-draw' &&
+                mapped.settings.kind === 'resolved'
+              ) {
+                const current = mapped.versions.find(
+                  (draw) => draw.id === requested.drawId,
+                );
+                if (
+                  current &&
+                  mapped.fixtures.some(
+                    (fixture) =>
+                      current.fixtureIds.includes(fixture.id) &&
+                      fixture.status === 'draft' &&
+                      fixture.kind !== 'bye' &&
+                      !eventRoomPins(
+                        facts,
+                        publicationEntropy,
+                        fixture.id,
+                        now,
+                      ),
+                  )
+                )
+                  return { kind: 'refused', refusal: 'draw-unresolved' };
+              }
+              return decideDraw(tabEngine)(mapped, requested);
             },
           );
         },

@@ -4,7 +4,7 @@ import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { drawDraftCommand } from '../src/features/tab/operations/draw-draft';
+import { drawCommand } from '../src/features/tab/operations/draw-command';
 import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import {
   as,
@@ -34,7 +34,7 @@ export const firstDrawCompetition = (
 export const draftDrawStage = async (world: World): Promise<void> => {
   const { database, sql } = world;
   const store = createTabStore(database);
-  const send = drawDraftCommand({
+  const send = drawCommand({
     store,
     authorize,
     now: world.clock.now,

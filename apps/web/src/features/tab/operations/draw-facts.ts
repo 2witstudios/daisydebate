@@ -5,10 +5,6 @@ import { formatDefinitionSchema } from '@daisy/protocol';
 import { audiences, releaseThings } from '@daisy/protocol/lobby';
 import { drawOverrideSchema } from '@daisy/protocol/lobby/draw-command';
 import {
-  eventChain,
-  resolveSettings,
-} from '@daisy/protocol/setting-resolution';
-import {
   drawFixturePeople,
   type DrawFacts,
   type DrawFixtureFacts,
@@ -20,9 +16,8 @@ import type {
   EngineFormat,
 } from '../commands/tab-engine';
 import { commandDigest } from './command-digest';
-import { presetSettingDefaults } from './format-setting-defaults';
 import { engineSettings } from './engine-settings';
-import { settingRow } from './setting-facts';
+import { eventSettingResolution } from './event-setting-resolution';
 
 const inputsSchema = z.strictObject({
   engine: z
@@ -128,7 +123,7 @@ export const drawFacts = (
   },
 ): DrawFacts => {
   const { configuration, round, stage, slot } = loaded;
-  const { event, lobby, template } = configuration;
+  const { event } = configuration;
   if (
     !stage ||
     stage.kind !== competition.stage.kind ||
@@ -142,15 +137,8 @@ export const drawFacts = (
   const definition = formatDefinitionSchema.parse(
     configuration.definition.definition,
   );
-  const chain = eventChain({
-    template,
-    leagueId: lobby.ownerOrganizationId,
-    lobbyId: lobby.id,
-    eventId: event.id,
-  });
-  const rows = configuration.rows.map(settingRow);
-  const format = presetSettingDefaults(configuration.preset.config);
-  const settings = resolveSettings(chain, rows, format);
+  const { chain, rows, format, settings } =
+    eventSettingResolution(configuration);
   const fixtures = fixtureFacts(loaded);
   const inSlot = new Set(
     loaded.rounds

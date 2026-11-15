@@ -1,3 +1,4 @@
+import { publishDrawStage } from './tab-tournament-publication.test-support';
 import { draftDrawStage } from './tab-tournament-draw-draft.test-support';
 import { leagueConfigurationStage } from './tab-tournament-league-configuration.test-support';
 import { entryEnrollmentStage } from './tab-tournament-entry-enrollment.test-support';
@@ -64,7 +65,7 @@ const stages: readonly Stage<World>[] = [
     name: 'draw published: event Rooms seated, with provenance',
     run: async (world) => {
       await draftDrawStage(world);
-      throw new StageNotWired('publish-draw');
+      await publishDrawStage(world);
     },
   },
   {

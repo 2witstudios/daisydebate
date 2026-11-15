@@ -8,13 +8,18 @@ import { draws, drawFixtures, drawResultInputs } from '../schema/draws';
 import { fixtures, fixtureEntries, fixtureJudges } from '../schema/fixtures';
 import { releases } from '../schema/releases';
 import { jsonObjectSchema } from '../schema/columns';
-import { timeSlots } from '../schema/events';
+import { timeSlots, tabRounds } from '../schema/events';
 import type { TabTransaction } from './tab-transaction';
 import type { LoadedDrawCommand } from './draw-command-facts';
 import type { DrawWrite } from './draw-write';
 
 export type DrawRoomAssembly = {
   readonly rooms: readonly Parameters<typeof assembleRoom>[1][];
+  readonly resolutionPin: {
+    readonly tabRoundId: string;
+    readonly poolResolutionId: string;
+    readonly releasedAt: string | null;
+  } | null;
   readonly closeRoom: (room: RoomAssemblyState) => RoomAssemblyState;
   readonly activeRoomMembers: (room: RoomAssemblyState) => readonly string[];
 };
@@ -32,6 +37,40 @@ export const applyDrawWrites = async (
   assembly: DrawRoomAssembly,
   now: string,
 ): Promise<void> => {
+  const pin = assembly.resolutionPin;
+  if (pin) {
+    if (
+      pin.tabRoundId !== loaded.round.id ||
+      (loaded.round.poolResolutionId !== null &&
+        loaded.round.poolResolutionId !== pin.poolResolutionId) ||
+      !loaded.publicationResolution?.resolutions.some(
+        (row) => row.id === pin.poolResolutionId && row.retiredAt === null,
+      )
+    )
+      throw createAppError(
+        'INVARIANT',
+        'Publication resolution differs from its fenced pool',
+      );
+    one(
+      await tx
+        .update(tabRounds)
+        .set({
+          poolResolutionId: pin.poolResolutionId,
+          resolutionReleasedAt:
+            loaded.round.resolutionReleasedAt ??
+            (pin.releasedAt ? new Date(pin.releasedAt) : null),
+          version: loaded.round.version + 1,
+          updatedAt: new Date(now),
+        })
+        .where(
+          and(
+            eq(tabRounds.id, pin.tabRoundId),
+            eq(tabRounds.version, loaded.round.version),
+          ),
+        )
+        .returning({ id: tabRounds.id }),
+    );
+  }
   for (const write of writes) {
     switch (write.table) {
       case 'draws':

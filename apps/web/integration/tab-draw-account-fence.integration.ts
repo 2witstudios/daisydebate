@@ -10,7 +10,7 @@ import {
 } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { drawDraftCommand } from '../src/features/tab/operations/draw-draft';
+import { drawCommand } from '../src/features/tab/operations/draw-command';
 import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import { organizationStage } from './tab-tournament-organization.test-support';
 import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
@@ -102,7 +102,7 @@ test('draw requests fence the actual cast and refuse a roster discovered after a
       database: Parameters<typeof createTabStore>[0],
       body: unknown,
     ) =>
-      drawDraftCommand({
+      drawCommand({
         store: createTabStore(database),
         authorize,
         now: state.clock.now,
@@ -202,7 +202,7 @@ test('draw requests fence the actual cast and refuse a roster discovered after a
             }),
           ),
       };
-      return drawDraftCommand({
+      return drawCommand({
         store: held,
         authorize,
         now: state.clock.now,

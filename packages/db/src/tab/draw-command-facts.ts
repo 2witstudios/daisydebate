@@ -24,6 +24,7 @@ import { lockTabCommandAccounts } from './command-accounts';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
 import { loadTabCounterpart } from './boundary';
+import { loadDrawResolutionPool } from './draw-resolution-pool';
 import type { TabTransaction } from './tab-transaction';
 
 export type DrawCommandInput = {
@@ -219,6 +220,10 @@ export const loadDrawCommandFacts = async (
     authorization,
     ownerActorId: owner?.id ?? null,
     round,
+    publicationResolution:
+      input.command.type === 'publish-draw'
+        ? await loadDrawResolutionPool(tx, configuration, round)
+        : null,
     stage: stage ?? null,
     slot: slot ?? null,
     accounts,

@@ -494,7 +494,7 @@ test('action history names one tenant, one principal and the authority it ran un
         }),
       },
       expected: {
-        bothTenants: 'action_history_one_tenant_key',
+        bothTenants: 'action_history_one_scope',
         bothPrincipals: 'action_history_one_principal',
         grantWithoutGrant: 'action_history_grant_authority',
         relationshipWithoutRelation: 'action_history_relationship_authority',

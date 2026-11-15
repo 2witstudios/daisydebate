@@ -45,6 +45,8 @@ export const createDrawCommandStore = (database: TabDatabase) => ({
               'INVARIANT',
               'Draw command facts were not loaded',
             );
+          // Releases reference this command; every dependent write still rolls back with its receipt.
+          await appendHistory(tx, history, receipt);
           await applyDrawWrites(
             tx,
             loaded,
@@ -52,7 +54,6 @@ export const createDrawCommandStore = (database: TabDatabase) => ({
             assembly,
             history.appliedAt,
           );
-          await appendHistory(tx, history, receipt);
         },
       });
     }),

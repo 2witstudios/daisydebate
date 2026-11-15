@@ -78,6 +78,7 @@ export const entries = pgTable(
       table.schoolOrganizationKind,
     ),
     index('entries_guardian_link_idx').on(table.guardianLinkId),
+    index('entries_submitted_by_user_idx').on(table.submittedByUserId),
     foreignKey({
       name: 'entries_event_fk',
       columns: [table.eventId, table.lobbyId],

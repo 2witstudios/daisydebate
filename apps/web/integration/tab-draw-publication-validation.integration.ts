@@ -7,7 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { decideDraw } from '../src/features/tab/commands/draw';
 import { drawFacts } from '../src/features/tab/operations/draw-facts';
 import { tabEngine } from '../src/features/tab/operations/tab-engine';
-import { drawDraftCommand } from '../src/features/tab/operations/draw-draft';
+import { drawCommand } from '../src/features/tab/operations/draw-command';
 import {
   draftDrawStage,
   firstDrawCompetition,
@@ -60,7 +60,7 @@ test('the publication decider assesses actual locked draft children from real ed
         await sql`select df.fixture_id from draw_fixtures df where df.draw_id=${originalDraw} order by df.fixture_id`;
       const [moving] =
         await sql`select entry_id from fixture_entries where fixture_id=${fixtures[1]!.fixture_id} order by position limit 1`;
-      const edited = await drawDraftCommand({
+      const edited = await drawCommand({
         store,
         authorize,
         now: world.clock.now,

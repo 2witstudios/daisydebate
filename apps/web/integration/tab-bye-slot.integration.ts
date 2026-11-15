@@ -4,7 +4,7 @@ import { createTabStore } from '@daisy/db/tab';
 import { withRolledBackDatabase } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { drawDraftCommand } from '../src/features/tab/operations/draw-draft';
+import { drawCommand } from '../src/features/tab/operations/draw-command';
 import { entryEnrollmentCommand } from '../src/features/tab/operations/entry-enrollment';
 import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import { setupCommand } from '../src/features/tab/operations/setup';
@@ -71,7 +71,7 @@ test('a published bye occupies no Room and cannot consume a judge in another eve
           throw new Error(`withdrawal failed: ${JSON.stringify(answer)}`);
         aVersion = answer.receipt.resultingVersion;
       }
-      const draw = drawDraftCommand({
+      const draw = drawCommand({
         ...common,
         competition: firstDrawCompetition,
       });

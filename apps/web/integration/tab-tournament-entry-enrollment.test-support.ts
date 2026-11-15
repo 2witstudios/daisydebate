@@ -22,7 +22,10 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
     now: world.clock.now,
     newId: createId,
   });
-  let settingsVersion = 2;
+  const [initial] =
+    await world.sql`select settings_version, entries_version from events where id=${eventId}`;
+  if (!initial) throw new StageFailed('entry event is missing');
+  let settingsVersion = Number(initial.settings_version);
   for (const [key, value] of [
     ['entry.registration', { state: 'open' }],
     ['entry.approval', { value: 'host' }],
@@ -49,7 +52,7 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
     now: world.clock.now,
     newId: createId,
   });
-  let entriesVersion = 1;
+  let entriesVersion = Number(initial.entries_version);
   const otherSelf = await send(as(director), lobbyId, {
     version: 1,
     commandId: createId(),
