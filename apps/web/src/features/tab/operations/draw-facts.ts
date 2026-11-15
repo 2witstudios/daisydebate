@@ -18,6 +18,7 @@ import type {
 import { commandDigest } from './command-digest';
 import { engineSettings } from './engine-settings';
 import { eventSettingResolution } from './event-setting-resolution';
+import { drawEligibleActors } from './draw-admission';
 
 const inputsSchema = z.strictObject({
   engine: z
@@ -124,6 +125,7 @@ export const drawFacts = (
 ): DrawFacts => {
   const { configuration, round, stage, slot } = loaded;
   const { event } = configuration;
+  const eligible = drawEligibleActors(loaded.accounts);
   if (
     !stage ||
     stage.kind !== competition.stage.kind ||
@@ -238,7 +240,9 @@ export const drawFacts = (
       history: competition.history,
       ratings: competition.ratings,
       judges: loaded.judges
-        .filter((judge) => judge.status === 'accepted')
+        .filter(
+          (judge) => judge.status === 'accepted' && eligible.has(judge.actorId),
+        )
         .map((judge) => {
           const seated = fixtures.filter(
             (fixture) =>

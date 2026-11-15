@@ -9,6 +9,8 @@ import {
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import { eventSettingResolution } from './event-setting-resolution';
 import { commandDigest } from './command-digest';
+import type { DrawFixtureFacts } from '../commands/draw';
+import { eventRoomCast } from './event-room-cast';
 
 type Resolved = ReturnType<typeof eventSettingResolution>['settings'];
 type Wording = NonNullable<
@@ -108,7 +110,7 @@ const publicationResolution = (
 export const eventRoomPins = (
   loaded: LoadedDrawCommand,
   entropy: string,
-  fixtureId: string,
+  fixture: DrawFixtureFacts,
   now: string,
 ) => {
   const { settings } = eventSettingResolution(loaded.configuration);
@@ -121,11 +123,13 @@ export const eventRoomPins = (
       settings['judging.panel'].value[loaded.stage.kind].size
   )
     return null;
+  const cast = eventRoomCast(definition, fixture);
+  if (!cast) return null;
   const resolution = publicationResolution(
     loaded,
     settings,
     entropy,
-    fixtureId,
+    fixture.id,
     now,
     definition.sides.map((side) => side.key),
   );
@@ -158,6 +162,7 @@ export const eventRoomPins = (
   };
   return {
     definition,
+    cast,
     config: parsed.data,
     rules: compiled.rules,
     executionPlan: compiled.roomPlan,

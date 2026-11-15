@@ -31,6 +31,7 @@ import { hostLobbyResource } from './host-lobby-resource';
 import { tabEngine } from './tab-engine';
 import { eventRoomPins } from './event-room-pins';
 import { eventRoomAssemblies } from './event-room-assembly';
+import { drawAdmissionsAllowed } from './draw-admission';
 
 type Dependencies = {
   readonly store: Pick<TabStore, 'drawCommand'>;
@@ -198,22 +199,14 @@ export const drawCommand =
                 throw new CommandDenied('not-found');
               if (facts.configuration.lobby.closedAt !== null)
                 return { kind: 'refused', refusal: 'lobby-closed' };
-              if (
-                facts.accounts.some(
-                  ({ account }) =>
-                    !account?.member ||
-                    account.erased ||
-                    account.ageBand !== 'adult' ||
-                    account.boundary !== null,
-                )
-              )
-                throw new CommandDenied('not-found');
               const mapped = drawFacts(facts, dependencies.competition(facts), {
                 commandId: parsed.data.commandId,
                 now,
                 newId: dependencies.newId,
               });
+              const decision = decideDraw(tabEngine)(mapped, requested);
               if (
+                decision.kind === 'accepted' &&
                 requested.type === 'publish-draw' &&
                 mapped.settings.kind === 'resolved'
               ) {
@@ -227,17 +220,17 @@ export const drawCommand =
                       current.fixtureIds.includes(fixture.id) &&
                       fixture.status === 'draft' &&
                       fixture.kind !== 'bye' &&
-                      !eventRoomPins(
-                        facts,
-                        publicationEntropy,
-                        fixture.id,
-                        now,
-                      ),
+                      !eventRoomPins(facts, publicationEntropy, fixture, now),
                   )
                 )
                   return { kind: 'refused', refusal: 'draw-unresolved' };
               }
-              return decideDraw(tabEngine)(mapped, requested);
+              if (
+                decision.kind === 'accepted' &&
+                !drawAdmissionsAllowed(facts, decision.writes)
+              )
+                throw new CommandDenied('not-found');
+              return decision;
             },
           );
         },

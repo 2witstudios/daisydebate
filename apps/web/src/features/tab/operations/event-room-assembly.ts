@@ -1,6 +1,5 @@
 import { activeRoomMembers, executeRoomCommand } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
-import { sideSeat, judgeSeat, type SeatRef } from '@daisy/protocol';
 import type {
   DrawRoomAssembly,
   DrawWrite,
@@ -44,44 +43,24 @@ export const eventRoomAssemblies = (
         'INVARIANT',
         'Published Room has no current fixture',
       );
-    const pins = eventRoomPins(loaded, entropy, fixture.id, facts.now);
-    if (!pins)
-      throw createAppError(
-        'INVARIANT',
-        'Publication Room pins were not validated',
-      );
-    if (pins.resolutionPin) resolutionPin = pins.resolutionPin;
     const placed = facts.fixtures.find((row) => row.id === fixture.id);
     if (!placed)
       throw createAppError(
         'INVARIANT',
         'Published fixture is not in its actual draw facts',
       );
-    const debaters = [...placed.entries]
-      .sort((a, b) => a.position - b.position)
-      .flatMap((entry) =>
-        entry.members.map((actorId, slot) => {
-          const side = pins.definition.sides[entry.position];
-          if (placed.kind !== 'section' && !side)
-            throw createAppError(
-              'INVARIANT',
-              'A published pairing has no declared side',
-            );
-          const seat: SeatRef =
-            placed.kind === 'section'
-              ? { kind: 'speaker', slot: entry.position + slot }
-              : sideSeat(side!.key, slot);
-          return { actorId, seat, commandId: newId(), participantId: newId() };
-        }),
+    const pins = eventRoomPins(loaded, entropy, placed, facts.now);
+    if (!pins)
+      throw createAppError(
+        'INVARIANT',
+        'Publication Room pins were not validated',
       );
-    const judges = [...placed.judges]
-      .sort((a, b) => Number(b.chair) - Number(a.chair))
-      .map((judge, slot) => ({
-        actorId: judge.person,
-        seat: judgeSeat(slot),
-        commandId: newId(),
-        participantId: newId(),
-      }));
+    if (pins.resolutionPin) resolutionPin = pins.resolutionPin;
+    const seats = pins.cast.map((person) => ({
+      ...person,
+      commandId: newId(),
+      participantId: newId(),
+    }));
     return [
       {
         room: {
@@ -119,7 +98,7 @@ export const eventRoomAssemblies = (
             participants,
           }),
         cast: {
-          seats: [...debaters, ...judges],
+          seats,
           apply: (state, seat, target, now) =>
             executeRoomCommand(
               state,
