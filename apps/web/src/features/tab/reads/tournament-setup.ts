@@ -29,8 +29,8 @@ const project = (
   facts: TournamentSetupFacts,
   manage: boolean,
 ): TournamentSetupView | null => {
-  // The locked contract cannot represent an empty tournament or several
-  // sanctioning leagues for one event. Do not fabricate a first event/league.
+  // The current contract cannot yet represent an empty tournament or several
+  // sanctioning leagues. The approved revision must not fabricate either.
   if (
     !facts.events.length ||
     facts.events.some(

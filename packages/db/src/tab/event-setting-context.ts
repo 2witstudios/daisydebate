@@ -25,6 +25,8 @@ export const lockEventSettingContext = async (
     readonly eventId: string;
     readonly subjectUserId: string;
     readonly extraOrganizationIds?: readonly string[];
+    /** Readers share the aggregate fence; commands retain exclusive locks by default. */
+    readonly strength?: 'share' | 'update';
   },
 ) => {
   const [foundLobby] = await tx
@@ -88,12 +90,12 @@ export const lockEventSettingContext = async (
     .select()
     .from(lobbies)
     .where(eq(lobbies.id, foundLobby.id))
-    .for('update');
+    .for(input.strength ?? 'update');
   const [event] = await tx
     .select()
     .from(events)
     .where(and(eq(events.id, foundEvent.id), eq(events.lobbyId, foundLobby.id)))
-    .for('update');
+    .for(input.strength ?? 'update');
   if (
     !lobby ||
     !event ||

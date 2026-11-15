@@ -94,8 +94,15 @@ The tournament setup host read likewise keeps authorization and projection in
 its shared-fenced transaction. It selects only the addressed tournament's pins,
 schedule and available pool metadata; pool sizes count active wording rows
 without selecting their text. The existing read contract cannot represent an
-empty event list or several sanctioning leagues for one event, so those reads
-remain closed pending the feature's contract decision.
+empty event list or several sanctioning leagues for one event. Point guard
+approved representing both on 2026-11-15; until that contract revision lands,
+this read returns no fabricated snapshot for those states.
+
+The host's resolved event-settings read uses the same bounded event context as
+entry/draft commands, with shared lobby/event metadata locks. Commands keep
+their existing exclusive aggregate default. The view comes from the canonical
+resolver, including source names and enforced locks, inside that transaction;
+the HTTP release gate runs before query parsing and returns no-store answers.
 
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a

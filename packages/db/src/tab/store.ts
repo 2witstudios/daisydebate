@@ -1,3 +1,5 @@
+import { createTournamentEventSettingReadStore } from './tournament-event-settings';
+export type { TournamentEventSettingFacts } from './tournament-event-settings';
 import { findLobbyByHandle } from './lobby-handle';
 import { createTournamentSetupReadStore } from './tournament-setup-read';
 export type { TournamentSetupFacts } from './tournament-setup-read';
@@ -144,6 +146,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createEntryEnrollmentStore(database),
   ...createStandingRoomDraftStore(database),
   ...createTournamentSetupReadStore(database),
+  ...createTournamentEventSettingReadStore(database),
   organizationCommand: <Answer>(
     input: OrganizationCommandInput,
     work: (session: OrganizationCommandSession) => Promise<Answer>,

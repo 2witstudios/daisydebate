@@ -1,3 +1,4 @@
+import { readTournamentEventSettings } from '../src/features/tab/reads/tournament-event-settings';
 import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -216,6 +217,22 @@ export const setupStage = async (world: World): Promise<void> => {
         rounds: [[String(round.id), String(slot.id)]],
       },
     ],
+  });
+  const resolved = await readTournamentEventSettings({
+    store,
+    authorize,
+    now: world.clock.now,
+  })(as(director), { lobbyId, eventId });
+  assert({
+    given: 'the event after its settings and template have been persisted',
+    should: 'serve the actual event settings through the host read',
+    actual: resolved && {
+      at: resolved.at,
+      registration: resolved.settings.some(
+        (row) => row.key === 'entry.registration',
+      ),
+    },
+    expected: { at: { kind: 'event', id: eventId }, registration: true },
   });
   world.made.set('tournament-version', String(version));
 };

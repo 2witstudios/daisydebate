@@ -1,6 +1,5 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { readAuthorizationActors } from '../authorization';
-import { actors } from '../schema/actors';
+import { fenceTabAccountRead } from './account-read-fence';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { lobbyTemplates, templates } from '../schema/templates';
@@ -27,11 +26,7 @@ const offeredTemplates = (tx: TabTransaction, lobbyId: string) =>
 /** Only the addressed standing lobby and its actually offered definitions, under shared fences. */
 const load = async (tx: TabTransaction, input: Input) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
-  const [viewer] = await tx
-    .select({ id: actors.id })
-    .from(actors)
-    .where(eq(actors.userId, input.viewerUserId));
-  if (viewer) await readAuthorizationActors(tx, [viewer.id], { maxActors: 1 });
+  await fenceTabAccountRead(tx, input.viewerUserId);
   const [found] = await tx
     .select()
     .from(lobbies)

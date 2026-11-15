@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
-import { readAuthorizationActors } from '../authorization';
+import { fenceTabAccountRead } from './account-read-fence';
 import { actors } from '../schema/actors';
 import { lobbies, tournaments } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
@@ -30,11 +30,7 @@ const sanctionRows = (tx: TabTransaction, lobbyId: string) =>
 /** A host's addressed tournament metadata; resolution text is never selected. */
 const load = async (tx: TabTransaction, input: Input) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
-  const [viewer] = await tx
-    .select({ id: actors.id })
-    .from(actors)
-    .where(eq(actors.userId, input.viewerUserId));
-  if (viewer) await readAuthorizationActors(tx, [viewer.id], { maxActors: 1 });
+  await fenceTabAccountRead(tx, input.viewerUserId);
   const [found] = await tx
     .select()
     .from(lobbies)

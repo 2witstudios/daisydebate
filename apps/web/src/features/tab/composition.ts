@@ -1,3 +1,8 @@
+import { readTournamentEventSettings } from './reads/tournament-event-settings';
+import {
+  createTournamentEventSettingsRoute,
+  type TournamentEventSettingsRouteDependencies,
+} from './tournament-event-settings-route';
 import { readTournamentSetup } from './reads/tournament-setup';
 import {
   createTournamentSetupRoute,
@@ -58,6 +63,14 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    tournamentEventSettings: (
+      released: TournamentEventSettingsRouteDependencies['released'],
+    ) =>
+      createTournamentEventSettingsRoute({
+        boundary,
+        released,
+        read: readTournamentEventSettings({ store, authorize, now }),
+      }),
     tournamentSetup: (released: TournamentSetupRouteDependencies['released']) =>
       createTournamentSetupRoute({
         boundary,

@@ -1,3 +1,4 @@
+import { createOwnedEvent } from './tab-tournament-owned-event.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -11,7 +12,6 @@ import {
 } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
 import { organizationCommand } from '../src/features/tab/operations/organization';
 import { setupCommand } from '../src/features/tab/operations/setup';
 import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
@@ -42,52 +42,8 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
     };
     await withRuntimeTestTransaction(owner, async (frame) => {
       await organizationStage({ ...state, ...frame });
-      const common = {
-        store: createTabStore(frame.database),
-        authorize,
-        now: state.clock.now,
-        newId: createId,
-      };
-      const created = await lobbyAdministrationCommand({
-        ...common,
-        hostingPlan: async () => true,
-      })(as(state.bots.Director!), {
-        version: 1,
-        commandId: createId(),
-        expected: {},
-        command: {
-          type: 'create-lobby',
-          owner: {
-            kind: 'organization',
-            organizationId: state.made.get('league')!,
-          },
-          name: 'League-owned setup',
-          handle: `setup-${createId()}`,
-          lobby: { kind: 'tournament', admitsMinors: false },
-        },
-      });
-      if (created.kind !== 'accepted')
-        throw new Error('League tournament refused');
-      state.made.set('setup-lobby', created.receipt.aggregate.id);
-      const event = await setupCommand(common)(as(state.bots.Director!), {
-        version: 1,
-        commandId: createId(),
-        expected: { lobby: 1 },
-        command: {
-          type: 'add-event',
-          lobbyId: created.receipt.aggregate.id,
-          name: 'Original event',
-          label: 'ONE',
-          entry: { kind: 'person' },
-          pin: {
-            kind: 'format',
-            formatId: 'freestyle',
-            formatVersion: 1,
-            ballotDefinition: null,
-          },
-        },
-      });
-      if (event.kind !== 'accepted') throw new Error('Setup event refused');
+      const owned = await createOwnedEvent({ ...state, ...frame });
+      state.made.set('setup-lobby', owned.lobbyId);
     });
     const lobbyId = state.made.get('setup-lobby')!;
     const original = createTabStore(committingRuntimeTestDatabase(reader));
