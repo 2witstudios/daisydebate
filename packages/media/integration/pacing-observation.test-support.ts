@@ -156,12 +156,6 @@ export async function observeNativePacing(input: {
       stamp('queue-drained', start + 1500);
       // Deliberate capture tail; excluded from in-speech continuity analysis.
       await input.waitUntilMs(performance.now() + 250, controller.signal);
-      const output = new Int16Array(receivedSamples);
-      let offset = 0;
-      for (const chunk of chunks) {
-        output.set(chunk, offset);
-        offset += chunk.length;
-      }
       const codecs = (await track.getStats({ timeoutMs: 2000 })).flatMap(
         (stat) =>
           stat.stats.case === 'codec'
@@ -174,6 +168,12 @@ export async function observeNativePacing(input: {
               ]
             : [],
       );
+      const output = new Int16Array(receivedSamples);
+      let offset = 0;
+      for (const chunk of chunks) {
+        output.set(chunk, offset);
+        offset += chunk.length;
+      }
       return {
         codecs,
         phase: input.phase,
@@ -181,19 +181,28 @@ export async function observeNativePacing(input: {
         result,
         delayed,
         trace,
-        received,
+        received: received.slice(),
         source: pcm,
         pcm: output,
       };
     } finally {
       controller.abort();
-      await reader.cancel();
-      await reading;
-      reader.releaseLock();
+      try {
+        await reader.cancel();
+        await reading;
+      } finally {
+        reader.releaseLock();
+      }
     }
   } finally {
-    await publisher?.close();
-    await subscriber.disconnect();
-    if (await service.exists(roomName)) await service.deleteRoom(roomName);
+    try {
+      await publisher?.close();
+    } finally {
+      try {
+        await subscriber.disconnect();
+      } finally {
+        if (await service.exists(roomName)) await service.deleteRoom(roomName);
+      }
+    }
   }
 }
