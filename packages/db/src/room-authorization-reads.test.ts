@@ -1,3 +1,4 @@
+import { publicLobbyId } from './daisy-reference';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { foundationDefinition } from './reference-formats';
 import {
@@ -238,6 +239,10 @@ test('Round read returns only the stored receipt and current participant identit
       ],
     ],
     [[caller.actorId, 'human', 'current-host', null, true, null]],
+    [], // no transcript freeze
+    [], // no played segments
+    [[room.id, publicLobbyId, 'standing', caller.actorId]],
+    [{ now: new Date('2026-10-09T00:00:00.000Z') }], // post-source authority instant
   ]);
 
   const view = await database.readLaunchedRound(
