@@ -68,17 +68,32 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
         await waitForCadence(start + (i + 1) * 10, signal);
       }
     };
+    // Start these reads beside the source, never as a readiness or pacing gate.
+    const publisherAt = (phase: string) => {
+      const startedAtMs = performance.now();
+      const sourceSamples = source.sent();
+      return source.publisher.snapshot().then((observation) => ({
+        phase,
+        startedAtMs,
+        endedAtMs: performance.now(),
+        sourceSamples,
+        observation,
+      }));
+    };
     try {
       await until(() => binding !== undefined && frames >= 20);
       await send(100, false);
       const tone = await sub.transport(binding!),
         toneFrames = frames;
+      const tonePublisher = publisherAt('tone');
       await send(300, true);
       const quiet = await sub.transport(binding!),
         quietFrames = frames;
+      const zeroPublisher = publisherAt('zero');
       await until(() => frames >= quietFrames + 30);
       const held = await sub.transport(binding!),
         heldFrames = frames;
+      const heldPublisher = publisherAt('held');
       await until(() => frames >= heldFrames + 30);
       const gap = await sub.transport(binding!);
       const observed =
@@ -108,6 +123,17 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
           held.counters.packetsReceived === gap.counters.packetsReceived,
         withheldCallbacks: frames - heldFrames >= 30,
       };
+      // Freeze the original outcome before waiting for diagnostic completion.
+      const gapPublisher = publisherAt('gap');
+      const publisher = {
+        requestedDtx: source.publisher.requestedDtx,
+        phases: await Promise.all([
+          tonePublisher,
+          zeroPublisher,
+          heldPublisher,
+          gapPublisher,
+        ]),
+      };
       process.stdout.write(
         JSON.stringify({
           event: 'native.capture.dtxRequested',
@@ -116,6 +142,7 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
           held: held.kind === 'observed' ? held.counters : held,
           gap: gap.kind === 'observed' ? gap.counters : gap,
           outcome,
+          publisher,
         }) + '\n',
       );
       assert({
