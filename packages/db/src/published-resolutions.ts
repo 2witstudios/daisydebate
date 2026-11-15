@@ -20,7 +20,7 @@ const publication = (
   });
 
 export const readPublishedResolutions = async (
-  database: BunSQLDatabase,
+  database: Pick<BunSQLDatabase, 'select'>,
 ): Promise<readonly PublishedResolution[]> =>
   (
     await database
@@ -32,7 +32,7 @@ export const readPublishedResolutions = async (
 
 /** Called again under the creation transaction's shared publication lock. */
 export async function readPublishedResolution(
-  database: BunSQLDatabase,
+  database: Pick<BunSQLDatabase, 'execute'>,
   id: string,
   kind: 'policy' | 'value',
 ): Promise<PublishedResolution | null> {

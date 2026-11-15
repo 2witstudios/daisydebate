@@ -69,6 +69,14 @@ are read under the counterpart’s own subject scope. Guardian-dependent entry
 additions remain closed while their audit/provenance decisions and counsel
 release are unresolved. Room assembly is a separate operation.
 
+Submitted ballots cannot be updated or directly deleted by the runtime role.
+A database trigger pins a canonical SHA-256 content digest for every ballot a
+Round finalization consumes; the recorded-ending read treats a mismatch as
+unrecorded, so it cannot silently enter ratings. Owning-Round aggregate erasure
+still cascades through ballots and finalization membership. Event Rooms and
+hosted Rooms use one assembly writer for their rows, initial cast and active
+seats; accepted event participation never creates a person's Ready consent.
+
 Every status and vocabulary column is text with a CHECK derived from the protocol where one exists. JSONB writes pass the column's protocol validator and an object-shape CHECK. Foreign keys have leading-column indexes. Lifecycle and provenance constraints are tested against PostgreSQL in `packages/db/integration/`; application checks cover cross-table invariants such as complete seats and a judge ballot on its own Round.
 
 Competitive instants come from the database clock. The application passes one database-sourced instant to the pure Round runtime, then persists its projection under the expected Round version. Segment closes precede inserts in the same transaction. An accepted completion writes the judge ballot and Round result atomically. Redis loss cannot change a result, ballot, rating, or recording reference.

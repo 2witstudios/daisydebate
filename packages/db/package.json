@@ -48,7 +48,8 @@
     "./attendance": "./src/attendance.ts",
     "./round-incident-rate": "./src/round-incident-rate.ts",
     "./broadcast-worker": "./src/broadcast-worker-store.ts",
-    "./recording-worker": "./src/recording-worker-store.ts"
+    "./recording-worker": "./src/recording-worker-store.ts",
+    "./room-assembly": "./src/room-assembly.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
