@@ -4,7 +4,8 @@ import type {
   RoomConfig,
 } from '@daisy/protocol';
 
-export type ResolutionMethod = 'policy' | 'value' | 'strike' | 'custom';
+/** Freestyle's strike from Daisy's bank, or the host's own wording (ADR 0142). */
+export type ResolutionMethod = 'strike' | 'custom';
 
 /** The editable draft is independent of Room identity and membership. */
 export type CreateRoomDraft = {
@@ -26,11 +27,7 @@ export function createRoomDraft(choice: RoomCatalogChoice): CreateRoomDraft {
     ranked: false,
     resolutionMethod: choice.preset.config.resolutionDraw.enabled
       ? 'strike'
-      : choice.formatId === 'policy'
-        ? 'policy'
-        : choice.formatId === 'value'
-          ? 'value'
-          : 'custom',
+      : 'custom',
     customResolution: '',
   };
 }

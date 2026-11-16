@@ -51,7 +51,6 @@ export const state = (): OpenRoom => ({
   changeVersion: 1,
   title: 'Room',
   topic: 'Motion',
-  publishedResolutionId: null,
   visibility: 'public',
   hostActorId: 'host',
   hostInherited: false,

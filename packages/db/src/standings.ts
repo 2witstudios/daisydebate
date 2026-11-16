@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import {
   debateSides,
+  ratingLadders,
   roundOutcomeSchema,
   type RatingLadder,
   type RoundOutcome,
@@ -123,7 +124,7 @@ export const standingsOperations = ({
             isNull(formatPresets.supersededAt),
             eq(formatPresets.rankedEligible, true),
             eq(formatPresets.formatVersion, formats.currentVersion),
-            inArray(formats.id, ['freestyle', 'policy', 'value']),
+            inArray(formats.id, [...ratingLadders]),
           ),
         )
         .orderBy(asc(formats.name)),

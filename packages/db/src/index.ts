@@ -19,7 +19,6 @@ import { moderationOperations } from './moderation/store';
 import { moderationReactions } from './moderation-composition';
 import { peopleListOperations } from './presence/people-list';
 import { memberCardOperations } from './member-cards';
-import { ratingVisibilityOperations } from './ratings-visibility';
 import { createFriendStore } from './friends/store';
 import { createContactStore } from './contacts/store';
 import { contactReactions } from './contact-composition';
@@ -370,7 +369,6 @@ export function createDatabase({
     ...friendshipReadOperations({ database: social, eventSink }),
     ...presenceSettingOperations({ database: social, eventSink }),
     ...peopleListOperations({ database: social, eventSink }),
-    ...ratingVisibilityOperations({ database: social, eventSink }),
     ...memberCardOperations({ database: social, eventSink }),
     ...challengeReadOperations({ database: social, eventSink }),
     ...reportOperations({ database: control, eventSink, moderationReactions }),

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { unequalTemplate } from './assembly.test-support';
+import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import {
   createRoomDraft,
   editRoomDraft,
@@ -9,15 +9,9 @@ import {
 
 setupRitewayBun();
 
-const value = () => ({
-  ...unequalTemplate,
-  formatId: 'value',
-  role: 'standard' as const,
-});
-
 describe('create-room draft', () => {
   test('standards and template identity', () => {
-    const standard = createRoomDraft(value());
+    const standard = createRoomDraft(freestyleChoice);
     const template = createRoomDraft(unequalTemplate);
     assert({
       given:
@@ -36,13 +30,17 @@ describe('create-room draft', () => {
         true,
         unequalTemplate.formatId,
         unequalTemplate.preset.config.speechTiming,
-        'value',
+        'strike',
       ],
     });
   });
 
   test('editing a ranked draft', () => {
-    const original = setDraftRanked(createRoomDraft(value()), true, true);
+    const original = setDraftRanked(
+      createRoomDraft(freestyleChoice),
+      true,
+      true,
+    );
     const edited = editRoomDraft(original, {
       config: { ...original.config, preRoundPrep: { enabled: false } },
     });
@@ -58,12 +56,12 @@ describe('create-room draft', () => {
         original.custom,
         original.ranked,
       ],
-      expected: [true, false, false, 'value', false, true],
+      expected: [true, false, false, 'freestyle', false, true],
     });
   });
 
   test('resolution changes and ranking', () => {
-    const original = createRoomDraft(value());
+    const original = createRoomDraft(freestyleChoice);
     const custom = selectRoomResolution(original, 'custom');
     assert({
       given:

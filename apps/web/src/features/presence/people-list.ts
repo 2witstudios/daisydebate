@@ -16,6 +16,7 @@ import type {
   RoundOutcome,
   DebateRole,
 } from '@daisy/protocol';
+import { ratingLadders } from '@daisy/protocol';
 import type {
   PeopleListCursor,
   PersonRow,
@@ -58,11 +59,6 @@ export type PeopleListDependencies = {
     };
   }>;
   readonly cards: (actorIds: readonly string[]) => Promise<{
-    readonly visibility: readonly {
-      readonly actorId: string;
-      readonly showPolicy: boolean;
-      readonly showValue: boolean;
-    }[];
     readonly ratings: readonly (RatingState & {
       readonly actorId: string;
       readonly ladder: RatingLadder;
@@ -79,16 +75,6 @@ export type PeopleListDependencies = {
   /** Actors whose ratings a judge may not see before their ballot. */
   readonly blinded: (viewerActorId: string) => Promise<readonly string[]>;
 };
-
-/** The ladders a card shows: Freestyle always, the rest by the member's choice. */
-export const shownLadders = (
-  visibility:
-    { readonly showPolicy: boolean; readonly showValue: boolean } | undefined,
-): readonly RatingLadder[] => [
-  'freestyle',
-  ...(visibility?.showPolicy ? (['policy'] as const) : []),
-  ...(visibility?.showValue ? (['value'] as const) : []),
-];
 
 /** An opaque keyset position; a tampered one is a refusal, never a probe. */
 export const encodePeopleListCursor = (cursor: PeopleListCursor): string =>
@@ -178,7 +164,6 @@ export async function readPeopleList(
     dependencies.blinded(actorId),
   ]);
   const hidden = new Set(blinded);
-  const visibilityOf = new Map(cards.visibility.map((v) => [v.actorId, v]));
   const people: Person[] = [];
   for (const row of rows) {
     const status = displayStatus({
@@ -200,7 +185,7 @@ export async function readPeopleList(
       username: row.username,
       status,
       relation: relationOf(row, actorId),
-      ratings: shownLadders(visibilityOf.get(row.actorId)).map((ladder) => {
+      ratings: ratingLadders.map((ladder) => {
         const state = cards.ratings.find(
           (rating) =>
             rating.actorId === row.actorId && rating.ladder === ladder,

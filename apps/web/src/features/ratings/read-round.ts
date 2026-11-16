@@ -1,6 +1,6 @@
 import { isRoundOver } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
-import type { RoundView } from '@daisy/protocol';
+import type { RatingLadder, RoundView } from '@daisy/protocol';
 import { rateDebate, ratingAwaited } from '@daisy/debate-engine';
 import { ratingClassification, ratingStanding } from './standing';
 import { readRatingStandings } from './read';
@@ -15,7 +15,7 @@ type RoundRating = {
   readonly hidden?: boolean;
 };
 export type RoundRatingsView = {
-  readonly ladder: string;
+  readonly ladder: RatingLadder;
   readonly season: string;
   readonly rows: readonly RoundRating[];
   /** What this viewer may see of the posting: a blinded debater's is not read. */

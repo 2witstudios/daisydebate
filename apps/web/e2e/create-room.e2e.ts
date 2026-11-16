@@ -36,9 +36,11 @@ test('Custom settings edits clear Ranked; a standard restores its complete prese
   await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
   await expect(ranked).not.toBeChecked();
   await expect(ranked).toBeDisabled();
-  await form.locator('[name="format"][value="policy"]').check();
-  await expect(form.locator('[name="resolutionMethod"]')).toHaveValue('policy');
-  await form.locator('[name="format"][value="value"]').check();
+  await form.locator('[name="format"][value="freestyle"]').check();
+  await expect(
+    form.locator('[name="format"][value="freestyle"]'),
+  ).toBeChecked();
+  await expect(form.locator('[name="resolutionMethod"]')).toHaveValue('strike');
   await form.locator('[name="format"][value="custom"]').check();
   await expect(duration).toHaveValue(original);
   await expect(ranked).not.toBeChecked();
@@ -140,33 +142,31 @@ test('native format, resolution and speech editing create a room without JavaScr
       .getByRole('button', { name: 'Apply resolution', exact: true })
       .click();
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
-    await form.locator('[name="format"][value="value"]').check();
+    await form.locator('[name="format"][value="freestyle"]').check();
     await form
       .getByRole('button', { name: 'Apply format', exact: true })
       .click();
-    await expect(form.locator('[name="format"][value="value"]')).toBeChecked();
+    await expect(
+      form.locator('[name="format"][value="freestyle"]'),
+    ).toBeChecked();
     await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
       'Native custom room',
     );
-    // Back into Custom: the discarded edit must not leak; the value preset
-    // enables preparation, so the field returns at its preset, not '1:23'.
+    // Back into Custom: the discarded edit must not leak; the field returns
+    // at Freestyle's preset (no prep during the round), not '1:23'.
     await form.locator('[name="format"][value="custom"]').check();
     await form
       .getByRole('button', { name: 'Apply format', exact: true })
       .click();
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
-    await expect(form.locator('[name="duration.inRound"]')).not.toHaveValue(
-      '1:23',
-    );
-    await expect(form.locator('[name="duration.inRound"]')).not.toHaveValue(
-      '0:00',
-    );
-    await form.locator('[name="format"][value="policy"]').check();
+    await expect(form.locator('[name="duration.inRound"]')).toHaveValue('0:00');
+    await form.locator('[name="format"][value="freestyle"]').check();
     await form
       .getByRole('button', { name: 'Apply format', exact: true })
       .click();
+    // Freestyle always strikes; host wording below makes the draft Custom.
     await expect(form.locator('[name="resolutionMethod"]')).toHaveValue(
-      'policy',
+      'strike',
     );
     await form.locator('[name="resolutionMethod"]').selectOption('custom');
     await form
@@ -260,50 +260,42 @@ test('Custom offers a league template selector and Strike stays one option', asy
   ).toContainText('Strike time is additional.');
 });
 
-test('current selection surfaces show exact owner-confirmed Season 1 publications and labels', async ({
+test('Freestyle is the one standard: two format radios, Strike or Custom wording, no published resolution', async ({
   page,
 }) => {
   await signUpMember(page.request);
   await page.goto('/play/room');
   const form = formOf(page);
   await hydrated(form);
-  const publication = form.locator('.create-room-publication');
+  await expect(form.locator('[name="format"]')).toHaveCount(2);
   await expect(
     form.locator('[name="format"][value="freestyle"]'),
   ).toBeChecked();
+  await expect(form.locator('[name="format"][value="custom"]')).toHaveCount(1);
+  await expect(form.locator('[name="resolutionMethod"] option')).toHaveText([
+    'Strike',
+    'Custom',
+  ]);
   await expect(
     form.getByText('Chosen by strike before the round'),
   ).toBeVisible();
-  await form.locator('[name="format"][value="value"]').check();
-  await expect(publication.locator('blockquote')).toHaveText(
-    'Resolved: The world would be a better place if traditional sports were replaced by competitive debate.',
-  );
-  await expect(publication).toContainText(
-    'Beta Season 1 · Culture and social priorities',
-  );
-  const valueId = await form.locator('[name="valueResolutionId"]').inputValue();
-  await form.locator('[name="format"][value="policy"]').check();
-  await expect(publication.locator('blockquote')).toHaveText(
-    'Resolved: Competitive debate should be a mandatory component of the core curriculum in American public education.',
-  );
-  await expect(publication).toContainText(
-    'Beta Season 1 · Education and institutional adoption',
-  );
-  const current = await (await page.request.get('/api/rooms/catalog')).json();
-  const value = current.resolutions.find(
-    (entry: { kind: string }) => entry.kind === 'value',
-  );
-  const policy = current.resolutions.find(
-    (entry: { kind: string }) => entry.kind === 'policy',
-  );
-  expect(value.id).toBe(valueId);
-  expect(policy.id).toBe(
-    await form.locator('[name="policyResolutionId"]').inputValue(),
-  );
-  expect([value.provenance, policy.provenance]).toEqual([
-    'Owner-confirmed Daisy Beta Season 1 (2026-10-29)',
-    'Owner-confirmed Daisy Beta Season 1 (2026-10-29)',
-  ]);
+  await expect(
+    form.getByRole('checkbox', { name: 'Ranked', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    form.getByText('Freestyle ladder', { exact: true }),
+  ).toBeVisible();
+  await expect(form.locator('.create-room-publication')).toHaveCount(0);
+  await expect(
+    form.locator('[name="policyResolutionId"], [name="valueResolutionId"]'),
+  ).toHaveCount(0);
+  const catalog = await (await page.request.get('/api/rooms/catalog')).json();
+  expect(catalog.resolutions).toBeUndefined();
+  expect(
+    catalog.choices
+      .filter((choice: { role: string }) => choice.role === 'standard')
+      .map((choice: { formatId: string }) => choice.formatId),
+  ).toEqual(['freestyle']);
 });
 
 test('Record match stays visible and Ranked shows automatic recording without losing the casual choice', async ({

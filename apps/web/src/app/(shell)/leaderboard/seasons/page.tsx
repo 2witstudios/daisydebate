@@ -1,37 +1,28 @@
-import { parseLadderQuery } from '../../../../features/leaderboard/query';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import {
-  requestLadder,
-  requestPublishedResolutions,
-} from '../../../../lib/request-session';
+import { requestLadder } from '../../../../lib/request-session';
+import { boardLadder } from '../../../../features/leaderboard/board-ladder';
 import {
   buildSeasonsView,
-  listsPublishedResolutions,
   parseSeasonsQuery,
 } from '../../../../features/leaderboard/seasons';
 import { SeasonsPage } from '../../../../ui/leaderboard/seasons-page/seasons-page';
 
 export const metadata: Metadata = { title: 'Seasons' };
 
-/** Public: the resolutions, season overview, champion, snapshot and how rating works. */
+/** Public: the season overview, champion, snapshot and how rating works. */
 export default async function SeasonsRoute({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
   const now = systemClock.now();
-  const params = await searchParams;
-  const { ladder } = parseLadderQuery(params);
   const read = await requestLadder({
-    seasonId: parseSeasonsQuery(params),
-    ladder,
+    seasonId: parseSeasonsQuery(await searchParams),
+    ladder: boardLadder,
     now,
   });
-  const view = read && buildSeasonsView(read.data, now, read.viewer, ladder);
-  const resolutions = listsPublishedResolutions(view)
-    ? await requestPublishedResolutions()
-    : [];
-  return <SeasonsPage view={view} resolutions={resolutions} />;
+  const view = read && buildSeasonsView(read.data, now, read.viewer);
+  return <SeasonsPage view={view} />;
 }

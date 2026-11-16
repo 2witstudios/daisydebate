@@ -37,31 +37,33 @@ describe('ratingText', () => {
 });
 
 describe('AccountRatings', () => {
-  test('lists each ladder with its season and rating, in the order the shell read them', async () => {
-    const html = await render(
+  test('shows the Daisy ladder with its season and rating state', async () => {
+    const rated = await render(
       Promise.resolve({
         state: 'ready',
         standings: [
-          standing({ ladder: 'freestyle', rating: 1512 }),
-          standing({ ladder: 'policy', rating: null }),
-          standing({ ladder: 'value', rating: 1530, provisional: true }),
+          standing({ ladder: 'freestyle', rating: 1530, provisional: true }),
         ],
       }),
     );
+    const unrated = await render(
+      Promise.resolve({
+        state: 'ready',
+        standings: [standing({ ladder: 'freestyle', rating: null })],
+      }),
+    );
     assert({
-      given: 'a member with a rating on each ladder',
+      given: 'a member rated provisionally on Freestyle, and one not yet rated',
       should:
-        'title the section with the season and name each ladder with its rating state, the provisional one starred and italic',
+        'title the section with the season and name the ladder with its rating, starred and italic while provisional',
       actual: [
-        html.includes('Ranked · Autumn 2026'),
-        html.includes('Freestyle'),
-        html.includes('1512'),
-        html.includes('Unrated'),
-        html.includes('1530*'),
-        html.includes('title="Provisional rating"'),
-        html.indexOf('Freestyle') < html.indexOf('Policy'),
+        rated.includes('Ranked · Autumn 2026'),
+        rated.includes('Freestyle'),
+        rated.includes('1530*'),
+        rated.includes('title="Provisional rating"'),
+        unrated.includes('Unrated'),
       ],
-      expected: [true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 

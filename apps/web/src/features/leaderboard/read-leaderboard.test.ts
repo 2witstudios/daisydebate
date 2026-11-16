@@ -11,7 +11,7 @@ test('a season without postings is empty, and no season invents no dates or stan
       listLadderSeasons: async () => [],
       readStandings: async () => ({ ratings: [], changes: [] }),
     },
-    { seasonId: null, ladder: 'policy', now, username: null },
+    { seasonId: null, ladder: 'freestyle', now, username: null },
   );
   const active = await readLadder(
     {
@@ -28,7 +28,7 @@ test('a season without postings is empty, and no season invents no dates or stan
       ],
       readStandings: async () => ({ ratings: [], changes: [] }),
     },
-    { seasonId: null, ladder: 'value', now, username: 'ada' },
+    { seasonId: null, ladder: 'freestyle', now, username: 'ada' },
   );
   assert({
     given: 'no season or an active Season1 without a ranked result',

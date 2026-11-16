@@ -12,8 +12,6 @@ const authorizationCapabilities = [
   'social.challenge.list',
   'social.people.list',
   'social.report',
-  'social.rating_visibility.read',
-  'social.rating_visibility.update',
   'social.moderation_notice.read',
   'social.moderation_notice.acknowledge',
   'social.presence.read',

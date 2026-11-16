@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
+import {
+  freestyleChoice,
+  unequalTemplate,
+} from '../../../features/rooms/assembly.test-support';
 import { CreateAssemblyFields } from './create-assembly-form';
 
 setupRitewayBun();
@@ -11,20 +14,20 @@ test('creation presents format first and a complete progressively enhanced edito
       state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'m'.repeat(24)}
-      choices={[{ ...unequalTemplate, formatId: 'value', role: 'standard' }]}
+      choices={[freestyleChoice]}
     />,
   );
   assert({
-    given: 'a room creator with an authoritative Value preset',
+    given: 'a room creator with the authoritative Freestyle preset',
     should:
-      'offer four format choices, four resolution methods and editable settings without a topic-first form',
+      'offer Freestyle or Custom, Strike or Custom wording, and editable settings without a topic-first form',
     actual: [
-      ['freestyle', 'policy', 'value', 'custom'].every(
+      ['freestyle', 'custom'].every(
         (format) =>
           html.includes(`name="format"`) && html.includes(`value="${format}"`),
       ),
-      html.includes('Policy res'),
-      html.includes('Value res'),
+      ['policy', 'value'].some((format) => html.includes(`value="${format}"`)),
+      html.includes('Policy res') || html.includes('Value res'),
       html.includes('Points of information (POI)'),
       html.includes('name="duration.segment.0"'),
       html.includes('name="duration.preRound"'),
@@ -32,7 +35,7 @@ test('creation presents format first and a complete progressively enhanced edito
       html.includes('name="resolutionMethod"'),
       html.includes('name="topic"'),
     ],
-    expected: [true, true, true, false, false, false, false, true, false],
+    expected: [true, false, false, false, false, false, false, true, false],
   });
 });
 

@@ -1,3 +1,4 @@
+import { ladderLabels } from '../../features/ratings/ladder-labels';
 import type { RoundRatingsView } from '../../features/ratings/read-round';
 import {
   markedRating,
@@ -16,7 +17,7 @@ export function RoundRatings({
       className="flex flex-col gap-3 rounded-xl bg-surface p-4 shadow-1"
     >
       <h2 className="text-base font-bold">
-        {view.ladder[0]!.toUpperCase() + view.ladder.slice(1)} · {view.season}
+        {ladderLabels[view.ladder]} · {view.season}
       </h2>
       {view.posting === 'rated' ? <p>Rated</p> : null}
       {view.posting === 'pending' ? (

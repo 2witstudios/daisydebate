@@ -6,10 +6,8 @@ import {
   recordText,
 } from '../../../features/leaderboard/labels';
 import type { SeasonsView } from '../../../features/leaderboard/seasons';
-import type { PublishedResolution } from '@daisy/protocol';
 import { Badge } from '../../components/badge/badge';
 import { LadderRow } from '../ladder-row/ladder-row';
-import { PublishedResolutions } from '../published-resolutions/published-resolutions';
 import { LadderHeading } from '../ladder-row/ladder-heading';
 import { Segmented } from '../segmented/segmented';
 import { seasonsCardClass, seasonsEyebrowClass } from './seasons-class';
@@ -18,8 +16,6 @@ import { cn } from '../../cn';
 export type SeasonsPageProps = {
   /** Null when no season has opened. */
   readonly view: SeasonsView | null;
-  /** Empty when this view does not list them; see listsPublishedResolutions. */
-  readonly resolutions: readonly PublishedResolution[];
 };
 
 const openLadder = 'text-base font-strong';
@@ -46,7 +42,7 @@ const howItWorks: readonly { title: string; body: string }[] = [
     body: 'Provisional while rating deviation is above 110.',
   },
   {
-    title: 'Three ladders per season',
+    title: 'One ladder per season',
     body: 'A new season starts a new ladder.',
   },
 ];
@@ -94,16 +90,14 @@ function RangePicture() {
 
 /**
  * One season at a glance: dates, champion, a top-ten snapshot, and how rating
- * works, with the current published resolutions beside it, which are not the
- * season's (ADR 0092). With no season at all, the resolutions alone.
+ * works. With no season at all, it says so.
  */
-export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
+export function SeasonsPage({ view }: SeasonsPageProps) {
   if (view === null)
     return (
       <div className={frame}>
         <h1 className={title}>Seasons</h1>
         <NoActiveSeason />
-        <PublishedResolutions resolutions={resolutions} />
       </div>
     );
   const closed = view.state !== 'running';
@@ -115,7 +109,6 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
         <Segmented label="Season" segments={view.chips} />
       </header>
       {view.state === 'none-active' ? <NoActiveSeason /> : null}
-      <PublishedResolutions resolutions={resolutions} />
       <section className={seasonsCardClass}>
         <Badge tone={closed ? 'gold' : 'accent'}>{view.tag}</Badge>
         <h2 className="font-display text-2xl font-bold">
