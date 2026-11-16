@@ -148,6 +148,8 @@ export const rounds = pgTable(
       sql`case when judging->'source'->>'kind' = 'stored' then (judging->'source'->>'version')::integer else null end`,
     ),
     /** The one authority for ratedness: null when this round never rates. */
+    /** Own standing league ladder frozen from the source Room at Start. */
+    leagueLadderId: text('league_ladder_id'),
     ladderId: text('ladder_id').$type<RatingLadder>(),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
@@ -180,6 +182,23 @@ export const rounds = pgTable(
     const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
     const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${noOutcome} and ${table.completedAt} is not null`;
     return [
+      index('rounds_room_league_ladder_idx').on(
+        table.roomId,
+        table.leagueLadderId,
+      ),
+      index('rounds_league_ladder_completed_idx').on(
+        table.leagueLadderId,
+        table.completedAt,
+      ),
+      foreignKey({
+        name: 'rounds_room_league_ladder_fk',
+        columns: [table.roomId, table.leagueLadderId],
+        foreignColumns: [rooms.id, rooms.leagueLadderId],
+      }).onDelete('restrict'),
+      check(
+        'rounds_league_ladder_source_check',
+        sql`${table.leagueLadderId} is null or (${table.roomId} is not null and ${table.ladderId} is null and ${table.competitionType} = 'casual')`,
+      ),
       index('rounds_published_resolution_idx').on(table.publishedResolutionId),
       /** Lets `rating_changes` pin a change to the round's own format. */
       unique('rounds_id_format_unique').on(table.id, table.formatId),
