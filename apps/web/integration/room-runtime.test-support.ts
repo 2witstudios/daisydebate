@@ -34,6 +34,7 @@ export async function withRoomRuntime(
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
+    | 'roundTime'
   > & {
     /** A private scratch database whose owner drops the entire aggregate. */ readonly databaseUrl?: string;
   } = {},
@@ -55,6 +56,7 @@ async function fixture(
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
+    | 'roundTime'
   > & { readonly databaseUrl?: string },
 ) {
   const { databaseUrl = services.databaseUrl, ...storeOptions } = options;

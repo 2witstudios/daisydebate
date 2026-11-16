@@ -8,7 +8,10 @@ import {
   lockedRoundVersion,
   writeProjectionWithPhaseSignal,
 } from './round-projection-writer';
-import { sampleRoundExecutionTime } from './round-execution-time';
+import {
+  sampleRoundExecutionTime,
+  type RoundTimeSource,
+} from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
 
 type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
@@ -28,11 +31,12 @@ export type LockedRoundTickInput = {
 export async function executeLockedRoundTick(
   tx: Tx,
   input: LockedRoundTickInput,
+  roundTime?: RoundTimeSource,
 ) {
   const current = await lockedRoundVersion(tx, input.roundId);
   const round = await hydrateRoundRows(tx, input.roundId);
   if (!round) throw createAppError('NOT_FOUND');
-  const now = await sampleRoundExecutionTime(tx);
+  const now = await sampleRoundExecutionTime(tx, roundTime);
   let changed = false;
   if (
     round.status === 'active' ||

@@ -28,6 +28,7 @@ export type Bot = {
  */
 export type World = {
   readonly database: SavepointTestDatabase;
+  readonly runtimeDatabaseUrl?: string;
   readonly sql: SQL;
   readonly clock: ScriptClock;
   readonly bots: Readonly<Record<string, Bot>>;

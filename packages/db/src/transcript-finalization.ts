@@ -19,7 +19,10 @@ import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
 } from './round-clock-transaction';
-import { sampleRoundExecutionTime } from './round-execution-time';
+import {
+  sampleRoundExecutionTime,
+  type RoundTimeSource,
+} from './round-execution-time';
 import {
   readLockedFrozenRoundTranscript,
   readTranscriptFreeze,
@@ -108,8 +111,9 @@ export async function finalizeLockedRoundTranscript(
   tx: BoundedTransactionContext,
   request: FreezeRequest,
   assertCurrent: () => Promise<void> = async () => {},
+  roundTime?: RoundTimeSource,
 ) {
-  const clock = await executeLockedRoundTick(tx, request);
+  const clock = await executeLockedRoundTick(tx, request, roundTime);
   await assertCurrent();
   const existing = await readTranscriptFreeze(tx, request.roundId);
   if (existing) return { status: 'frozen' as const, freeze: existing };
@@ -135,7 +139,7 @@ export async function finalizeLockedRoundTranscript(
     tx,
     request.roundId,
   );
-  const now = await sampleRoundExecutionTime(tx);
+  const now = await sampleRoundExecutionTime(tx, roundTime);
   await assertCurrent();
   const state = finalizationState(
     facts,
@@ -161,6 +165,7 @@ export async function finalizeLockedRoundTranscript(
     .insert(roundTranscriptFreezes)
     .values({
       roundId: request.roundId,
+      frozenAt: new Date(now),
       revision: 1,
       frontier: revision,
       completeness: state,

@@ -1,3 +1,4 @@
+import type { RoundTimeSource } from './round-execution-time';
 import type { JudgingPanelFacts } from '@daisy/protocol';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { roundBallotReads } from './round-ballot-reads';
@@ -112,6 +113,7 @@ async function replayBallot(
 async function lockedBallotContext(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
+  roundTime?: RoundTimeSource,
 ) {
   const scope = {
     ...input,
@@ -124,6 +126,7 @@ async function lockedBallotContext(
     scope,
     fenced.accounts,
     'ballot',
+    roundTime,
   );
   requireFencedParticipants(fresh.round.participants, fenced.actorIds);
   requireHumanRoundPrincipal(input.principal, fenced.accounts);
@@ -152,9 +155,10 @@ async function lockedBallotContext(
 export async function executeLockedRoundBallot(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
+  roundTime?: RoundTimeSource,
 ): Promise<RoundBallotReceipt> {
   requireCommandInput(input, roundBallotEnvelopeSchema);
-  const { current, context } = await lockedBallotContext(tx, input);
+  const { current, context } = await lockedBallotContext(tx, input, roundTime);
   const fresh = context;
   const replay = await replayBallot(tx, input);
   if (replay) return replay;
@@ -283,13 +287,17 @@ async function insertFrozenBallot(
 export const roundBallotOperations = ({
   database,
   eventSink,
+  roundTime,
 }: {
   readonly database: BunSQLDatabase;
+  readonly roundTime?: RoundTimeSource | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   ...roundBallotReads({ database }),
   executeRoundBallot: (input: LockedRoundBallotInput) =>
     instrumented(eventSink, 'executeRoundBallot', () =>
-      database.transaction((tx) => executeLockedRoundBallot(tx, input)),
+      database.transaction((tx) =>
+        executeLockedRoundBallot(tx, input, roundTime),
+      ),
     ),
 });

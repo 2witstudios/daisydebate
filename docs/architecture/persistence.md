@@ -159,6 +159,18 @@ That close fixes `final_segment_ended_at` and the immutable
 capture deadline. Historical speaking eligibility remains a separate requirement
 from admission cutoff and transcript freeze.
 
+Round persistence factories accept an explicit trusted `RoundTimeSource` for
+committed deterministic proofs (DEC426). Production omits it and samples the
+database after the required locks. Requests, tenant settings and environment
+flags cannot choose time. The proof resource applies only to Round execution,
+attendance and judging; Room Ready, Start, immutable audit creation and physical
+capture funding/settlement retain their production clocks. Check-in production
+receipts keep the first writer-identity timestamp, including its microseconds;
+a controlled proof uses the same explicit UTC source for the attempt, receipt
+and closure. A freeze stores its freshly sampled instant and derives its one
+ballot deadline from it. Controlled time proves owner composition, never native
+capture or staging acceptance.
+
 ## Roles and migration baseline
 
 The single greenfield baseline ([ADR 0038](../decisions/0038-drizzle-1-baseline.md)) creates `daisy_web` with DML but no schema, `TRUNCATE`, or migration-log privilege. `daisy_realtime` gets only explicit read models and outbox access; it cannot read authentication secrets or private user fields. `daisy_e2e` is a local loopback login and member of `daisy_web`. Migrations run through a separate owner credential. A baseline squash requires the recorded policy entry and a one-time reset of local and test databases; deployed migrations are never rewritten.
@@ -211,7 +223,12 @@ internal composite FK. Its capture worker consumes only the named admission id
 and finite deadline, never the payer/issuer/official identity and never a
 `createdByActorId` host surrogate. This integrity reference supplies no audience,
 media-read or download authority; those remain the Recording and current Round
-read decisions. Dispatch is durable before vendor I/O. The physical reservation
+read decisions. Dispatch is durable before vendor I/O. Once work is dispatched, its physical reservation
 survives logical Round end and expiry until a confirmed terminal Egress and
-withdrawn observer permit settlement; an unknown response or missing ambiguous
+withdrawn observer permit settlement. A terminal Round with no Recording,
+capture or Broadcast may settle its never-opened admission immediately at the
+actual database clock under that admission's lock (DEC429). Terminal status is
+absorbing, and every Recording insert over an admitted Round takes that same
+fence and validates the exact open source, so later use cannot reopen released
+capacity. An existing recorder still uses its close/revocation/egress owner; an unknown response or missing ambiguous
 attempt listing cannot free it or authorize another start.

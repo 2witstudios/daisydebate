@@ -1,3 +1,4 @@
+import type { RoundTimeSource } from './round-execution-time';
 import {
   fenceRoundWrite,
   readRoundWriteContext,
@@ -80,8 +81,10 @@ async function replayCommand(
 export const roundCommandOperations = ({
   database,
   eventSink,
+  roundTime,
 }: {
   readonly database: BunSQLDatabase;
+  readonly roundTime?: RoundTimeSource | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Internal time-only producer; no public route or read invokes this operation. */
@@ -89,7 +92,9 @@ export const roundCommandOperations = ({
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'executeRoundTick', () =>
-      database.transaction((tx) => executeLockedRoundTick(tx, input)),
+      database.transaction((tx) =>
+        executeLockedRoundTick(tx, input, roundTime),
+      ),
     );
   },
   async executeRoundCommand(input: CommandInput): Promise<RoundCommandReceipt> {
@@ -105,6 +110,8 @@ export const roundCommandOperations = ({
           tx,
           { ...input, commandId: input.envelope.commandId },
           fenced.accounts,
+          'command',
+          roundTime,
         );
         requireFencedParticipants(context.round.participants, fenced.actorIds);
         requireHumanRoundPrincipal(input.principal, fenced.accounts);

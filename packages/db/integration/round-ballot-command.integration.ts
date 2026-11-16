@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { attendanceSettled } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -23,12 +24,9 @@ const ballot: Ballot = {
 
 test('ballot writes require actual frozen input and replay reauthorizes without changing the original receipt', async () => {
   await withFixture(url, async (f) => {
-    const roundId = await f.round({
-      status: 'active',
-      current_stage: 'live',
-      started_at: new Date(0),
-    });
+    const roundId = await judgedRound(f);
     const judge = await f.seat(roundId, 'judge');
+    await f.sql`update rounds set status='active',current_stage='live',started_at=${new Date(0)} where id=${roundId}`;
     await f.sql.unsafe(
       'update users set email_verified=true where id=(select user_id from actors where id=$1)',
       [judge.actorId],

@@ -1,3 +1,5 @@
+import type { RoundTimeSource } from './round-execution-time';
+export type { RoundTimeSource } from './round-execution-time';
 export type { RoundRoomAuthority } from './round-room-authority';
 import { TranscriptionRecovery } from './transcription-recovery/transcription-recovery';
 import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
@@ -187,8 +189,11 @@ export function createDatabase({
   judging,
   botPublication,
   roundAnalysis,
+  roundTime,
 }: {
   url: string;
+  /** Trusted Round persistence time resource; absent in production composition. */
+  roundTime?: RoundTimeSource;
   /** The process's lane reservations; web unless a caller asks for another. */
   profile?: WorkloadProfile;
   /** No implicit bot capacity or quota: absence truthfully refuses bot-debater admission. */
@@ -240,8 +245,8 @@ export function createDatabase({
     ...usageRecoveryOperations(controlTransaction),
     ...billingOperations({ run: controlTransaction, nextId: nextActorId }),
     ...botAdmissionOperations,
-    ...roundMaintenanceOperations(competitiveTransaction),
-    ...roundPanelCompletionOperations(competitiveTransaction),
+    ...roundMaintenanceOperations(competitiveTransaction, roundTime),
+    ...roundPanelCompletionOperations(competitiveTransaction, roundTime),
     ...roundWorkerEntrypoints({
       run: competitiveTransaction,
       nextId: nextActorId,
@@ -271,6 +276,7 @@ export function createDatabase({
       }),
     ),
     ...attendanceEntrypoints({
+      roundTime,
       run: competitiveTransaction,
       nextId: nextActorId,
     }),
@@ -436,8 +442,8 @@ export function createDatabase({
       ),
     }),
     ...roundOperations({ database, eventSink }),
-    ...roundCommandOperations({ database, eventSink }),
-    ...roundBallotOperations({ database, eventSink }),
+    ...roundCommandOperations({ database, eventSink, roundTime }),
+    ...roundBallotOperations({ database, eventSink, roundTime }),
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),

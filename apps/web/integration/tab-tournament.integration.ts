@@ -1,3 +1,4 @@
+import { resultsStage } from './tab-tournament-results.test-support';
 import { officiatingStage } from './tab-tournament-officiating.test-support';
 import { publishDrawStage } from './tab-tournament-publication.test-support';
 import { draftDrawStage } from './tab-tournament-draw-draft.test-support';
@@ -79,7 +80,7 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'ballots to results: late ballot, correction',
-    run: unwired('results'),
+    run: resultsStage,
   },
   {
     name: 'standings, break, bracket and certification',
@@ -123,6 +124,7 @@ test('the scripted tournament', async () => {
     reports = await runStages(stages, {
       database: committingRuntimeTestDatabase(owner),
       sql: owner,
+      runtimeDatabaseUrl: scratch.url,
       clock: scriptClock(Date.now() - 60 * 60_000),
       bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
       made: new Map(),
