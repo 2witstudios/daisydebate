@@ -127,6 +127,7 @@ export async function loadLeagueMembershipEvents(
           actorIds.has(member.actorId) || eligibleEntryIds.has(member.entryId),
       );
       received.push({
+        startsAt: at,
         competition: {
           ...competition,
           results,

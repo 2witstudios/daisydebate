@@ -119,7 +119,8 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
-    sanctionCommand: (released: TabCommandRouteDependencies['released']) => createSanctionCommandRoute({...common,boundary,released}),
+    sanctionCommand: (released: TabCommandRouteDependencies['released']) =>
+      createSanctionCommandRoute({ ...common, boundary, released }),
     hostRoster: (released: HostEventsRouteDependencies['released']) =>
       createHostRosterRoute({
         boundary,

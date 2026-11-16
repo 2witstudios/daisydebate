@@ -280,6 +280,7 @@ and shows each school's obligation alongside its accepted, eligible judges
 cleared for the selected event. Affiliation identifies the school group; it does
 not assert who furnished a judge. These obligations are distinct from panel
 demand and carry no payment behavior.
+
 ## Tournament inbox notifications
 
 Tournament assignments and publication use the existing Notifications inbox,

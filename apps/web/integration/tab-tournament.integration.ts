@@ -136,8 +136,7 @@ test('the scripted tournament', async () => {
   }
   process.stdout.write(`${reportLines(reports)}\n`);
   assert({
-    given:
-      'the complete league-and-notifications tournament journey',
+    given: 'the complete league-and-notifications tournament journey',
     should: 'execute every stage with no pending record',
     actual: [
       reports.filter((report) => report.outcome === 'passed').length,

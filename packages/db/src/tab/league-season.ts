@@ -13,6 +13,7 @@ import { loadAuthorityContext } from './authority-context';
 import { readDatabaseTime } from '../database-clock';
 import { loadLeagueEvents } from './league-events';
 import { loadLeagueMembershipEvents } from './league-membership-events';
+import { loadLeagueRoomList } from './league-room-list';
 import { scopeTransaction } from '../tenant-scope';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -88,14 +89,25 @@ async function load(tx: TabTransaction, input: Input) {
       ),
     )
     .for('share');
-  const events =
+  const automaticEvents =
     rule.counting === 'membership'
       ? await loadLeagueMembershipEvents(tx, {
           ...input,
           startsAt: season.startsAt,
           endsAt: season.endsAt,
         })
+      : [];
+  const events =
+    rule.counting === 'membership'
+      ? automaticEvents
       : await loadLeagueEvents(tx, { ...input, seasonId: season.id });
+  const automaticCalendar = automaticEvents.map((row) => ({
+    lobby: row.competition.configuration.lobby,
+    event: row.competition.configuration.event,
+    templateId: row.templateId,
+    startsAt: row.startsAt,
+    certifiedAt: row.certifiedAt,
+  }));
   const peopleIds = [
     ...new Set(
       events.flatMap((row) =>
@@ -163,7 +175,13 @@ async function load(tx: TabTransaction, input: Input) {
       });
   }
   await scopeTransaction(tx, scope);
+  const roomList = await loadLeagueRoomList(tx, {
+    ...input,
+    lobbyId: standingLobby?.id ?? null,
+  });
+  await scopeTransaction(tx, scope);
   return {
+    ...roomList,
     organization,
     standingLobby: standingLobby ?? null,
     templateSettings,
@@ -174,6 +192,7 @@ async function load(tx: TabTransaction, input: Input) {
     people,
     schools,
     calendar,
+    automaticCalendar,
     authorization,
     now: (await readDatabaseTime(tx)).toISOString(),
   };
