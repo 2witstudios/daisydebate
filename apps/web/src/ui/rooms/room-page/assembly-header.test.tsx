@@ -10,7 +10,6 @@ import { initialInvitationForm } from '../../../features/room-invitations/submit
 import { byText, findElements } from '../../test-support/find-elements';
 import { AssemblyHeader, RoomResolution } from './assembly-header';
 import { RoomInvite } from './room-invite';
-import { ROOM_SETUP_HOME } from './room-setup-modal';
 
 setupRitewayBun();
 const action = async () => idle();
@@ -66,15 +65,15 @@ test('the room name is the page title, with status and meta lines and no badges'
   });
 });
 
-test('the host reaches Room setup from the header and has no seat to leave', () => {
+test('the host has no seat to leave, and settings live off the header (ADR 0143)', () => {
   const html = renderToStaticMarkup(
     header(assemblySnapshot, assemblySnapshot.hostActorId),
   );
   assert({
     given: 'the host before taking a seat',
-    should: 'link Room setup without Leave seat',
-    actual: [html.includes('href="#room-setup"'), html.includes('Leave seat')],
-    expected: [true, false],
+    should: 'offer neither Leave seat nor a header Room setup button',
+    actual: [html.includes('>Room setup<'), html.includes('Leave seat')],
+    expected: [false, false],
   });
 });
 
@@ -136,13 +135,12 @@ test('only the host of an open room is offered Invite people, as a dialog in the
     given:
       'the host of a room being set up with one pending invitation, then of a ready room, a started room and a closed room, then a guest',
     should:
-      'offer Invite people with the count between Copy invite link and Room setup, opening a dialog that holds the pending invitation, only to the host while the room is open',
+      'offer Invite people with the count after Copy invite link, opening a dialog that holds the pending invitation, only to the host while the room is open',
     actual: [
       buttons.includes('aria-labelledby="invite-people-title"'),
       buttons.includes('Invite people (1'),
       buttons.includes('@coach · invited to judge'),
-      buttons.indexOf('Copy invite link') < buttons.indexOf('Invite people') &&
-        buttons.indexOf('Invite people') < buttons.indexOf('Room setup'),
+      buttons.indexOf('Copy invite link') < buttons.indexOf('Invite people'),
       html({ ...invited, status: 'ready' }).includes('Invite people'),
       html({ ...invited, status: 'started' }).includes('Invite people'),
       html({ ...invited, status: 'closed' }).includes('Invite people'),
@@ -181,18 +179,6 @@ test('a host keeps Leave seat apart from Close room, and a seatless host is labe
       seatlessHost.includes('Leave seat'),
     ],
     expected: [true, true, true, false, true, false],
-  });
-});
-
-test('the header Room setup link is where focus falls back when the sheet closes', () => {
-  const html = renderToStaticMarkup(
-    header(assemblySnapshot, assemblySnapshot.hostActorId!),
-  );
-  assert({
-    given: 'the host’s assembling room',
-    should: 'mark the header Room setup link as the focus fallback',
-    actual: new RegExp(`<a href="#room-setup" ${ROOM_SETUP_HOME}=`).test(html),
-    expected: true,
   });
 });
 

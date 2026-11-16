@@ -11,7 +11,7 @@ import { CloseRoom } from './close-room';
 import { InvitePeople } from './invite-people';
 import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
-import { ROOM_SETUP_HOME, ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
+import { ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
 
 /** The resolution, labelled as such: the statement the two sides debate. */
 export function RoomResolution({
@@ -132,15 +132,6 @@ export function AssemblyHeader({
               invitations={view.invitations}
               action={invitationAction}
             />
-          ) : null}
-          {view.capabilities.canEdit ? (
-            <a
-              href={ROOM_SETUP_HREF}
-              {...{ [ROOM_SETUP_HOME]: '' }}
-              className={buttonClass('secondary')}
-            >
-              Room setup
-            </a>
           ) : null}
           {hostOfOpenRoom ? (
             <CloseRoom

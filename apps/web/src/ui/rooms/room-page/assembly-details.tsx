@@ -10,41 +10,6 @@ import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
 import { AssemblyCommandFields } from './assembly-command-fields';
-import { roomVisibilityChoices } from '../../../features/rooms/room-visibility';
-
-/** Who can join, as words; private rooms return with an invite path (ISSUE-443). */
-function VisibilityField({
-  saved,
-  disabled,
-}: {
-  readonly saved: string;
-  readonly disabled: boolean;
-}) {
-  return (
-    <fieldset className="flex flex-col gap-2 border-0 p-0">
-      <legend className="mb-1 text-sm font-strong">Who can join</legend>
-      {roomVisibilityChoices.map(({ value, label, detail }) => (
-        <label
-          key={value}
-          className="flex min-h-room-target items-start gap-3 text-sm"
-        >
-          <input
-            type="radio"
-            name="visibility"
-            value={value}
-            disabled={disabled}
-            defaultChecked={saved === value}
-            className="mt-1 size-4 shrink-0"
-          />
-          <span>
-            {label}
-            <span className="text-ink-muted"> — {detail}</span>
-          </span>
-        </label>
-      ))}
-    </fieldset>
-  );
-}
 
 type View = Pick<
   RoomView,
@@ -102,9 +67,11 @@ export function AssemblyDetailsFields({
           </p>
         </>
       )}
-      <VisibilityField
-        saved={state.values.visibility ?? view.visibility}
-        disabled={!view.capabilities.canEdit}
+      {/* Who can join is set from the page's Room controls (ADR 0143). */}
+      <input
+        type="hidden"
+        name="visibility"
+        value={state.values.visibility ?? view.visibility}
       />
       <AssemblyEditFeedback state={state} roomId={view.id} />
       {view.capabilities.canEdit ? (

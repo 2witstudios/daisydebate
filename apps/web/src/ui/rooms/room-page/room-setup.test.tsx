@@ -34,7 +34,7 @@ const html = renderToStaticMarkup(
   </WithAppRouter>,
 );
 
-test('Room setup is one modal sheet its fragment opens', () => {
+test('Edit settings is one modal dialog its fragment opens', () => {
   assert({
     given: 'the host’s room',
     should:
@@ -45,7 +45,7 @@ test('Room setup is one modal sheet its fragment opens', () => {
       html.includes('aria-modal="true"'),
       html.includes('aria-labelledby="room-setup-title"'),
       html.includes(
-        `href="/rooms/${assemblySnapshot.id}" aria-label="Close room setup"`,
+        `href="/rooms/${assemblySnapshot.id}" aria-label="Close settings"`,
       ),
     ],
     expected: [true, true, true, true, true],

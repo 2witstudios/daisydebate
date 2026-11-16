@@ -37,6 +37,7 @@ import { InvitedNotice } from './invited-notice';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { RoomRoster } from './room-roster';
+import { RoomControls } from './room-controls';
 import { RoomSettings } from './room-settings';
 import { RoomChat, type RoomChatProps } from '../../room-chat/room-chat';
 import { chatAuthorSeat } from './room-labels';
@@ -166,7 +167,17 @@ export function RoomLive(props: Props) {
             footer={start}
           />
         )}
-        aside={<RoomSettings view={view} />}
+        aside={
+          <>
+            <RoomControls
+              view={view}
+              commandIds={{ visibility: ids.visibility, capture: ids.capture }}
+              detailsAction={props.detailsAction}
+              commandAction={props.commandAction}
+            />
+            <RoomSettings view={view} />
+          </>
+        }
         view={view}
         actorId={props.actorId}
         read={read}

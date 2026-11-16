@@ -84,9 +84,10 @@ function useSheetFocus(roomHref: string) {
 }
 
 /**
- * The host's one place to set up the room: who can join and the
- * resolution, then the round: its format (Daisy's standards or Custom)
- * and settings, simple first with the full rules one disclosure away. Both forms keep their native posts.
+ * Edit settings (ADR 0143): the host's near-full-screen dialog for the
+ * Room's name and resolution, the round's format and settings, and the
+ * broadcast's delay. Who can join, Broadcast and Record are also on the
+ * page. Every form keeps its native post.
  */
 export function RoomSetup({
   view,
@@ -129,49 +130,63 @@ export function RoomSetup({
         aria-hidden="true"
         className="absolute inset-0 bg-scrim"
       />
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-room-sheet flex-col overflow-y-auto border-l border-border bg-surface text-ink shadow-3">
-        <header className="flex items-start gap-3 border-b border-border px-6 py-5">
-          <div className="min-w-0 flex-1">
-            <h2
-              ref={heading}
-              id="room-setup-title"
-              tabIndex={-1}
-              className="font-display text-xl font-semibold"
-            >
-              Room setup
-            </h2>
-            <p className="text-sm text-ink-muted">
-              Everyone in the room sees these. You can change them until the
-              round starts.
-            </p>
-          </div>
+      <div className="absolute inset-0 m-auto flex max-h-full w-full max-w-room-dialog-wide flex-col overflow-y-auto border border-border bg-surface text-ink shadow-3 tiny:inset-6 tiny:rounded-xl">
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-surface px-6 py-4">
+          <h2
+            ref={heading}
+            id="room-setup-title"
+            tabIndex={-1}
+            className="min-w-0 flex-1 font-display text-xl font-semibold"
+          >
+            Settings
+          </h2>
           <a
             href={roomHref}
             onClick={close}
-            aria-label="Close room setup"
+            aria-label="Close settings"
             className="flex size-room-target shrink-0 items-center justify-center rounded-round"
           >
             <Icon name="close" size={18} />
           </a>
         </header>
-        <div className="flex flex-col gap-8 px-6 py-6">
-          <section
-            aria-labelledby="room-setup-room"
-            className="flex flex-col gap-4"
-          >
-            <h3
-              id="room-setup-room"
-              className="text-xs font-bold tracking-wide text-ink-muted uppercase"
+        <div className="grid room-settings-dialog gap-8 px-6 py-6">
+          <div className="flex flex-col gap-8">
+            <section
+              aria-labelledby="room-setup-room"
+              className="flex flex-col gap-4"
             >
-              The room
-            </h3>
-            <AssemblyDetails
-              view={view}
-              commandId={commandIds.details}
-              action={detailsAction}
-              onSaved={saved}
-            />
-          </section>
+              <h3
+                id="room-setup-room"
+                className="text-xs font-bold tracking-wide text-ink-muted uppercase"
+              >
+                The room
+              </h3>
+              <AssemblyDetails
+                view={view}
+                commandId={commandIds.details}
+                action={detailsAction}
+                onSaved={saved}
+              />
+            </section>
+            {view.captureOffer ? (
+              <section
+                aria-labelledby="room-setup-capture"
+                className="flex flex-col gap-4"
+              >
+                <h3
+                  id="room-setup-capture"
+                  className="text-xs font-bold tracking-wide text-ink-muted uppercase"
+                >
+                  Broadcast
+                </h3>
+                <CaptureChoice
+                  view={view}
+                  commandId={commandIds.capture}
+                  action={commandAction}
+                />
+              </section>
+            ) : null}
+          </div>
           <section
             aria-labelledby="room-setup-round"
             className="flex flex-col gap-4"
@@ -207,24 +222,6 @@ export function RoomSetup({
               onSaved={saved}
             />
           </section>
-          {view.captureOffer ? (
-            <section
-              aria-labelledby="room-setup-capture"
-              className="flex flex-col gap-4"
-            >
-              <h3
-                id="room-setup-capture"
-                className="text-xs font-bold tracking-wide text-ink-muted uppercase"
-              >
-                Broadcast and recording
-              </h3>
-              <CaptureChoice
-                view={view}
-                commandId={commandIds.capture}
-                action={commandAction}
-              />
-            </section>
-          ) : null}
         </div>
       </div>
     </section>
