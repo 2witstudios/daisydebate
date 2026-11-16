@@ -12,7 +12,9 @@ import {
   profilePhotoUploadResultSchema,
   publicProfileEditSchema,
   type OwnPublicProfileView,
+  type ProfilePhotoStatus,
 } from '@daisy/protocol/public-profile';
+import type { Identity } from '@daisy/auth';
 import { idSchema } from '@daisy/protocol';
 import { requireMemberActor } from '../access/actor';
 import { squareWebpRenditions } from '../image-intake/square-renditions';
@@ -72,9 +74,26 @@ const viewOf = (
     photoUploads,
   });
 
+/** Whether the reader is the photo's owner: only they see it in review. */
+const viewerOf = (identity: Identity, actorId: string): 'owner' | 'other' =>
+  'principal' in identity &&
+  identity.principal.kind === 'user' &&
+  identity.principal.actorId === actorId
+    ? 'owner'
+    : 'other';
+
+/** A published photo caches for the moderation bound; anything else never. */
+const cacheControlOf = (status: ProfilePhotoStatus) =>
+  status === 'published'
+    ? `public, max-age=${PHOTO_CACHE_SECONDS}, must-revalidate`
+    : 'private, no-store';
+
 /** The declared type without parameters, lower case. */
 const mimeOf = (request: Request) =>
-  (request.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
+  (request.headers.get('content-type') ?? '')
+    .split(';')[0]!
+    .trim()
+    .toLowerCase();
 
 /**
  * The member's public profile (ADR 0142): read and edit their display name
@@ -158,13 +177,14 @@ export function composePublicProfileRoutes(app: App) {
           const { principal } = identity;
           const fence = own(principal, 'profile.public.update');
           try {
-            const bytes = await readBytes(request, PROFILE_PHOTO_MAX_BYTES).catch(
-              (error: unknown) => {
-                throw isAppError(error) && error.code === 'PAYLOAD_TOO_LARGE'
-                  ? createRefusal('PAYLOAD_TOO_LARGE', 'photo-too-large')
-                  : error;
-              },
-            );
+            const bytes = await readBytes(
+              request,
+              PROFILE_PHOTO_MAX_BYTES,
+            ).catch((error: unknown) => {
+              throw isAppError(error) && error.code === 'PAYLOAD_TOO_LARGE'
+                ? createRefusal('PAYLOAD_TOO_LARGE', 'photo-too-large')
+                : error;
+            });
             const result = await intakeProfilePhoto(
               principal,
               { mime: mimeOf(request), bytes },
@@ -244,22 +264,13 @@ export function composePublicProfileRoutes(app: App) {
         const photo = await app.database.readProfilePhoto(photoId.data);
         if (!photo || !app.profilePhotoObjects)
           return new Response(null, { status: 404 });
-        let viewer: 'owner' | 'other' = 'other';
-        if (photo.status !== 'published') {
-          const identity = await boundary.identify(request);
-          viewer =
-            'principal' in identity &&
-            identity.principal.kind === 'user' &&
-            identity.principal.actorId === photo.actorId
-              ? 'owner'
-              : 'other';
-        }
+        const viewer =
+          photo.status === 'published'
+            ? 'other'
+            : viewerOf(await boundary.identify(request), photo.actorId);
         if (!isProfilePhotoVisible(photo.status, viewer))
           return new Response(null, { status: 404 });
-        const cache =
-          photo.status === 'published'
-            ? `public, max-age=${PHOTO_CACHE_SECONDS}, must-revalidate`
-            : 'private, no-store';
+        const cache = cacheControlOf(photo.status);
         const etag = `"${photo.photoId}-${size.data}-${photo.status}"`;
         if (request.headers.get('if-none-match') === etag)
           return new Response(null, {
@@ -292,6 +303,5 @@ export function composePublicProfileRoutes(app: App) {
         });
       }
     },
-
   };
 }

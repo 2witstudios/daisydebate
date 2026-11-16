@@ -82,7 +82,8 @@ test('an allowed photo is stored and published', async () => {
   const result = await intakeProfilePhoto(principal, jpeg, run.dependencies);
   assert({
     given: 'a clean JPEG the check allows',
-    should: 'spend the budget, store both renditions under the photo prefix and publish it',
+    should:
+      'spend the budget, store both renditions under the photo prefix and publish it',
     actual: {
       status: result.status,
       limited: run.limited,

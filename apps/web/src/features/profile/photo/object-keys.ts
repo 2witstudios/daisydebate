@@ -8,5 +8,7 @@ import type { ProfilePhotoSize } from '@daisy/protocol/public-profile';
 export const photoObjectPrefix = (photoId: string): string =>
   `profile-photos/${idSchema.parse(photoId)}`;
 
-export const photoObjectKey = (prefix: string, size: ProfilePhotoSize): string =>
-  `${prefix}/${size}.webp`;
+export const photoObjectKey = (
+  prefix: string,
+  size: ProfilePhotoSize,
+): string => `${prefix}/${size}.webp`;

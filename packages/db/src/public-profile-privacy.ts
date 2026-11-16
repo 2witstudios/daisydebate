@@ -16,7 +16,9 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   async erase(tx, subject, { now }) {
     const actorId = idSchema.parse(subject.actorId);
-    await tx.execute(sql`delete from member_profiles where actor_id = ${actorId}`);
+    await tx.execute(
+      sql`delete from member_profiles where actor_id = ${actorId}`,
+    );
     await tx.execute(sql`update profile_photos set status = 'erased',
         ended_at = ${now}::timestamptz, delete_after = ${now}::timestamptz,
         version = version + 1

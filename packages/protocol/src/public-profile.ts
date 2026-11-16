@@ -18,7 +18,7 @@ const RAW_TEXT_MAX = 1_000;
  */
 const invisible =
   // eslint-disable-next-line no-control-regex -- the control range is the point
-  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F​-‏‪-‮⁠-⁤⁦-⁯﻿]/gu;
+  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/gu;
 
 /** NFC, invisible characters removed, whitespace collapsed to one space, trimmed. */
 export const normalizeDisplayName = (raw: string): string =>
@@ -116,7 +116,11 @@ export const profilePhotoSizeSchema = z.coerce
   .pipe(z.union(profilePhotoSizes.map((size) => z.literal(size))));
 
 /** The image types a member may upload; never SVG or anything animated. */
-export const profilePhotoMimes = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const profilePhotoMimes = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
 export type ProfilePhotoMime = (typeof profilePhotoMimes)[number];
 
 /** The upload bound, before any decode. */
@@ -166,6 +170,16 @@ const moved = (to: ProfilePhotoStatus): ProfilePhotoTransition => ({
 const unchanged: ProfilePhotoTransition = { kind: 'unchanged' };
 const refused: ProfilePhotoTransition = { kind: 'refused' };
 
+/** An operator's move: the one status it applies to, and where it leads. */
+const operatorMoves = {
+  approve: { from: 'in_review', to: 'published' },
+  reject: { from: 'in_review', to: 'rejected' },
+  remove: { from: 'published', to: 'removed' },
+} as const satisfies Record<
+  Exclude<ProfilePhotoEvent, 'withdraw' | 'erase'>,
+  { readonly from: ProfilePhotoStatus; readonly to: ProfilePhotoStatus }
+>;
+
 /**
  * The photo lifecycle, total over status × event. A repeat of the command that
  * put a photo where it is answers `unchanged`; anything else from a terminal
@@ -175,30 +189,13 @@ export function profilePhotoTransition(
   status: ProfilePhotoStatus,
   event: ProfilePhotoEvent,
 ): ProfilePhotoTransition {
-  switch (event) {
-    case 'approve':
-      return status === 'in_review'
-        ? moved('published')
-        : status === 'published'
-          ? unchanged
-          : refused;
-    case 'reject':
-      return status === 'in_review'
-        ? moved('rejected')
-        : status === 'rejected'
-          ? unchanged
-          : refused;
-    case 'remove':
-      return status === 'published'
-        ? moved('removed')
-        : status === 'removed'
-          ? unchanged
-          : refused;
-    case 'withdraw':
-      return isProfilePhotoTerminal(status) ? unchanged : moved('withdrawn');
-    case 'erase':
-      return isProfilePhotoTerminal(status) ? unchanged : moved('erased');
-  }
+  if (event === 'withdraw' || event === 'erase')
+    return isProfilePhotoTerminal(status)
+      ? unchanged
+      : moved(event === 'withdraw' ? 'withdrawn' : 'erased');
+  const move = operatorMoves[event];
+  if (status === move.from) return moved(move.to);
+  return status === move.to ? unchanged : refused;
 }
 
 /** The member's own public profile, as Settings edits it. */

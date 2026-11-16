@@ -20,7 +20,8 @@ const edit = (displayName: string, bio: string) =>
 describe('public profile text', () => {
   test('display name normalization', () => {
     assert({
-      given: 'a name with a bidi override, zero-width space, control and runs of space',
+      given:
+        'a name with a bidi override, zero-width space, control and runs of space',
       should: 'remove what does not render and collapse the spaces',
       actual: normalizeDisplayName('  Ada‮ ​\u0007  Lovelace\n '),
       expected: 'Ada Lovelace',
@@ -115,7 +116,13 @@ describe('profile photo lifecycle predicates', () => {
 
 describe('profilePhotoTransition', () => {
   test('total over status and event', () => {
-    const events = ['approve', 'reject', 'remove', 'withdraw', 'erase'] as const;
+    const events = [
+      'approve',
+      'reject',
+      'remove',
+      'withdraw',
+      'erase',
+    ] as const;
     const table = Object.fromEntries(
       profilePhotoStatuses.map((status) => [
         status,

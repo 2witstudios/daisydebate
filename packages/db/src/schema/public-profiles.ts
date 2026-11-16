@@ -83,7 +83,10 @@ export const profilePhotos = pgTable(
     version: versionColumn(),
   },
   (table) => [
-    check('profile_photos_status_check', oneOf(table.status, profilePhotoStatuses)),
+    check(
+      'profile_photos_status_check',
+      oneOf(table.status, profilePhotoStatuses),
+    ),
     check(
       'profile_photos_check_verdict_check',
       sql`${table.checkVerdict} is null or ${oneOf(table.checkVerdict, photoCheckVerdicts)}`,

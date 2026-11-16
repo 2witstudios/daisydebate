@@ -107,7 +107,10 @@ export const publicProfileOperations = ({
   readonly database: Database;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  readOwnPublicProfile: (scope: Scope, authorize: OwnCollectionFence<Scope>) => {
+  readOwnPublicProfile: (
+    scope: Scope,
+    authorize: OwnCollectionFence<Scope>,
+  ) => {
     requireOwnScope(scope);
     return instrumented(eventSink, 'readOwnPublicProfile', () =>
       readOwnCollection(database, scope, authorize, (tx) =>
@@ -304,7 +307,11 @@ export const publicProfileOperations = ({
     readonly limit: number;
   }) =>
     instrumented(eventSink, 'duePhotoDeletions', async () => {
-      if (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 500)
+      if (
+        !Number.isSafeInteger(input.limit) ||
+        input.limit < 1 ||
+        input.limit > 500
+      )
         throw createAppError('VALIDATION');
       const found = await rowsOf<{
         id: string;
@@ -316,13 +323,11 @@ export const publicProfileOperations = ({
           where ended_at is not null and delete_after <= ${input.now}::timestamptz
           order by delete_after, id limit ${input.limit}`,
       );
-      return found.map(
-        (row): PhotoDeletion => ({
-          photoId: row.id,
-          objectPrefix: row.object_prefix,
-          attempts: row.delete_attempts,
-        }),
-      );
+      return found.map((row): PhotoDeletion => ({
+        photoId: row.id,
+        objectPrefix: row.object_prefix,
+        attempts: row.delete_attempts,
+      }));
     }),
 
   /** Storage confirmed the image gone: the obligation, and the row, end. */
@@ -354,4 +359,6 @@ export const publicProfileOperations = ({
     }),
 });
 
-export type PublicProfileOperations = ReturnType<typeof publicProfileOperations>;
+export type PublicProfileOperations = ReturnType<
+  typeof publicProfileOperations
+>;

@@ -28,7 +28,9 @@ export async function squareWebpRenditions(
   requireDecodeLimits(limits);
   if (
     sizes.length < 1 ||
-    sizes.some((size) => !Number.isSafeInteger(size) || size < 16 || size > 2048)
+    sizes.some(
+      (size) => !Number.isSafeInteger(size) || size < 16 || size > 2048,
+    )
   )
     throw createAppError('INFRASTRUCTURE');
   try {

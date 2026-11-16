@@ -41,8 +41,14 @@ test('the sweep deletes images before rows and defers failures', async () => {
   });
   assert({
     given: 'two due photos, the first refused by storage',
-    should: 'still delete the second, complete only it and defer the first with backoff',
-    actual: { result, removed, completed: fake.completed, deferred: fake.deferred },
+    should:
+      'still delete the second, complete only it and defer the first with backoff',
+    actual: {
+      result,
+      removed,
+      completed: fake.completed,
+      deferred: fake.deferred,
+    },
     expected: {
       result: { deleted: 1, retried: 1, owed: 7 },
       removed: [photo(2).objectPrefix],
@@ -58,8 +64,16 @@ test('no storage configured keeps every deletion owed', async () => {
   assert({
     given: 'due photos and no storage',
     should: 'complete nothing and defer each',
-    actual: { result, completed: fake.completed, deferred: fake.deferred.length },
-    expected: { result: { deleted: 0, retried: 2, owed: 7 }, completed: [], deferred: 2 },
+    actual: {
+      result,
+      completed: fake.completed,
+      deferred: fake.deferred.length,
+    },
+    expected: {
+      result: { deleted: 0, retried: 2, owed: 7 },
+      completed: [],
+      deferred: 2,
+    },
   });
 });
 

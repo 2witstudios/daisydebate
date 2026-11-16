@@ -84,6 +84,62 @@ async function verdictOf(
   }
 }
 
+/** The upload's declared type and size, before any byte is read for meaning. */
+function requireAcceptable(upload: PhotoUpload): ProfilePhotoMime {
+  if (!isMime(upload.mime))
+    throw refuse('VALIDATION', 'photo-type-unsupported');
+  if (upload.bytes.byteLength < 1)
+    throw refuse('VALIDATION', 'photo-unreadable');
+  if (upload.bytes.byteLength > PROFILE_PHOTO_MAX_BYTES)
+    throw refuse('PAYLOAD_TOO_LARGE', 'photo-too-large');
+  return upload.mime;
+}
+
+/** Malware first: an inconclusive scan is an outage, never a pass. */
+async function requireClean(scanner: FileScanner, bytes: Uint8Array) {
+  let scanned: 'clean' | 'infected';
+  try {
+    scanned = await scanner.scan(bytes, {
+      maxBytes: PROFILE_PHOTO_MAX_BYTES,
+      serviceMs: PHOTO_DECODE_LIMITS.serviceMs,
+    });
+  } catch {
+    throw refuse('INFRASTRUCTURE', 'photo-unavailable');
+  }
+  if (scanned === 'infected') throw refuse('VALIDATION', 'photo-malware');
+}
+
+/** The square renditions, or the refusal that says why there are none. */
+async function render(
+  dependencies: PhotoIntakeDependencies,
+  bytes: Uint8Array,
+  mime: ProfilePhotoMime,
+): Promise<readonly SquareRendition[]> {
+  try {
+    return await dependencies.renditions(
+      bytes,
+      mime,
+      profilePhotoSizes,
+      PHOTO_DECODE_LIMITS,
+    );
+  } catch (error) {
+    if (!isAppError(error)) throw refuse('VALIDATION', 'photo-unreadable');
+    if (error.code === 'PAYLOAD_TOO_LARGE')
+      throw refuse('PAYLOAD_TOO_LARGE', 'photo-too-large');
+    if (error.code === 'INFRASTRUCTURE') throw error;
+    throw refuse('VALIDATION', 'photo-unreadable');
+  }
+}
+
+const renditionOf = (
+  renditions: readonly SquareRendition[],
+  size: number,
+): SquareRendition => {
+  const found = renditions.find((each) => each.size === size);
+  if (!found) throw refuse('INFRASTRUCTURE', 'photo-unavailable');
+  return found;
+};
+
 /**
  * A member's new profile photo (ADR 0142): bounded, scanned, decoded and
  * re-encoded as square WebP without metadata, checked, stored, then recorded.
@@ -102,43 +158,13 @@ export async function intakeProfilePhoto(
   await dependencies.limit(scope.actorId);
   const { storage } = dependencies;
   if (!storage) throw refuse('INFRASTRUCTURE', 'photo-unavailable');
-  if (!isMime(upload.mime))
-    throw refuse('VALIDATION', 'photo-type-unsupported');
-  if (upload.bytes.byteLength < 1)
-    throw refuse('VALIDATION', 'photo-unreadable');
-  if (upload.bytes.byteLength > PROFILE_PHOTO_MAX_BYTES)
-    throw refuse('PAYLOAD_TOO_LARGE', 'photo-too-large');
-
-  let scanned: 'clean' | 'infected';
-  try {
-    scanned = await storage.scanner.scan(upload.bytes, {
-      maxBytes: PROFILE_PHOTO_MAX_BYTES,
-      serviceMs: PHOTO_DECODE_LIMITS.serviceMs,
-    });
-  } catch {
-    throw refuse('INFRASTRUCTURE', 'photo-unavailable');
-  }
-  if (scanned === 'infected') throw refuse('VALIDATION', 'photo-malware');
-
-  let renditions: readonly SquareRendition[];
-  try {
-    renditions = await dependencies.renditions(
-      upload.bytes,
-      upload.mime,
-      profilePhotoSizes,
-      PHOTO_DECODE_LIMITS,
-    );
-  } catch (error) {
-    throw isAppError(error) && error.code === 'PAYLOAD_TOO_LARGE'
-      ? refuse('PAYLOAD_TOO_LARGE', 'photo-too-large')
-      : isAppError(error) && error.code === 'INFRASTRUCTURE'
-        ? error
-        : refuse('VALIDATION', 'photo-unreadable');
-  }
-  const largest = renditions.find(({ size }) => size === profilePhotoSizes[0]);
-  if (!largest) throw refuse('INFRASTRUCTURE', 'photo-unavailable');
-
-  const verdict = await verdictOf(dependencies.classifier, largest.bytes);
+  const mime = requireAcceptable(upload);
+  await requireClean(storage.scanner, upload.bytes);
+  const renditions = await render(dependencies, upload.bytes, mime);
+  const verdict = await verdictOf(
+    dependencies.classifier,
+    renditionOf(renditions, profilePhotoSizes[0]).bytes,
+  );
   const decision = checkDecision(verdict);
   if (decision.kind === 'refuse') throw refuse('VALIDATION', 'photo-blocked');
 
@@ -146,14 +172,11 @@ export async function intakeProfilePhoto(
   const objectPrefix = photoObjectPrefix(photoId);
   const status = decision.kind === 'publish' ? 'published' : 'in_review';
   try {
-    for (const size of profilePhotoSizes) {
-      const rendition = renditions.find((each) => each.size === size);
-      if (!rendition) throw refuse('INFRASTRUCTURE', 'photo-unavailable');
+    for (const size of profilePhotoSizes)
       await storage.objects.put(
         photoObjectKey(objectPrefix, size),
-        rendition.bytes,
+        renditionOf(renditions, size).bytes,
       );
-    }
     const profile = await dependencies.record(scope, {
       photoId,
       objectPrefix,
@@ -165,6 +188,8 @@ export async function intakeProfilePhoto(
   } catch (error) {
     // Nothing records this photo, so nothing else would delete its objects.
     await storage.objects.removePrefix(objectPrefix).catch(() => undefined);
-    throw isAppError(error) ? error : refuse('INFRASTRUCTURE', 'photo-unavailable');
+    throw isAppError(error)
+      ? error
+      : refuse('INFRASTRUCTURE', 'photo-unavailable');
   }
 }

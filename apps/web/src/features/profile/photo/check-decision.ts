@@ -11,7 +11,9 @@ export type CheckDecision =
  * (null), or a check that failed (also null) goes to an operator. A `block`
  * is refused and its image never stored.
  */
-export function checkDecision(verdict: PhotoCheckVerdict | null): CheckDecision {
+export function checkDecision(
+  verdict: PhotoCheckVerdict | null,
+): CheckDecision {
   switch (verdict) {
     case 'allow':
       return { kind: 'publish' };
