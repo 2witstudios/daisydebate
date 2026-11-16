@@ -39,25 +39,26 @@ const onCall = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
 export const ownSeatRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'>,
   participantId: string,
-) =>
-  snapshot.participants.some(
-    (seat) =>
-      seat.id === participantId && seat.kind === 'human' && !seat.eligible,
+) => {
+  const seat = snapshot.participants.find(
+    (candidate) => candidate.id === participantId,
   );
+  return seat === undefined || (seat.kind === 'human' && !seat.eligible);
+};
+
 /** Issued old-room tokens require rotation; departed unbound seats cannot veto it. */
 export const admissionRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'> & {
     readonly bindings: readonly { readonly roundParticipantId: string }[];
   },
 ) =>
-  snapshot.bindings.some((binding) =>
-    snapshot.participants.some(
-      (seat) =>
-        seat.id === binding.roundParticipantId &&
-        seat.kind === 'human' &&
-        !seat.eligible,
-    ),
-  );
+  snapshot.bindings.some((binding) => {
+    const seat = snapshot.participants.find(
+      (candidate) => candidate.id === binding.roundParticipantId,
+    );
+    return seat === undefined || (seat.kind === 'human' && !seat.eligible);
+  });
+
 /**
  * A seat's media grants. A withdrawn seat (a human whose participant access
  * was revoked, ISSUE-714) gets none: the next reconcile demotes it in the

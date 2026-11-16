@@ -92,7 +92,7 @@ const base: FixtureFacts = {
 };
 
 const round = { id: id('d'), status: 'active' } as const;
-const ballot = { id: id('x'), judgeActorId: id('3'), winner: 'affirmative' };
+const ballot = { id: id('x'), judgeActorId: id('3') };
 const result = {
   competitionRecord: fixtureCompetition(),
   id: id('q'),
@@ -344,10 +344,11 @@ test('assign-judge checks the panel, the judge and the judging rules', () => {
       refusalOf(
         {
           ...base,
-          slotBookings: [{ fixtureId: id('g'), tournamentJudgeId: id('k') }],
+          slotBookings: [{ fixtureId: id('g'), actorId: id('4') }],
         },
         assign,
       ),
+      refusalOf(withJudge({ actorId: id('1') }), assign),
       refusalOf(struck, assign),
       refusalOf(withJudge({ availableInSlot: false }), assign),
       refusalOf(struck, {
@@ -366,10 +367,11 @@ test('assign-judge checks the panel, the judge and the judging rules', () => {
       'judge-unavailable',
       'judge-unavailable',
       'judge-double-booked',
+      'judge-double-booked',
       'rule-broken',
       'rule-broken',
       'reason-required',
-      'accepted',
+      'rule-broken',
     ],
   });
   const sameSchool = withJudge({ schoolOrganizationId: id('s') });
@@ -527,10 +529,9 @@ test('restart and forfeit', () => {
     actual: restarted.kind === 'accepted' ? restarted.writes : restarted,
     expected: [
       {
-        table: 'rounds',
-        op: 'update',
-        id: id('d'),
-        set: { status: 'abandoned' },
+        table: 'round_source_voids',
+        op: 'insert',
+        row: { roundId: id('d') },
       },
       { table: 'rooms', op: 'insert', id: id('m'), likeRoomId: id('o') },
       {
@@ -539,6 +540,25 @@ test('restart and forfeit', () => {
         id: fixtureId,
         set: { version: 5, roomId: id('m') },
       },
+    ],
+  });
+
+  const historical = decideFixture(
+    { ...inState.ballot_in, round: { id: id('d'), status: 'completed' } },
+    restart,
+  );
+  assert({
+    given: 'a completed historical Round without a fixture result',
+    should:
+      'request separate source invalidation while preserving its historical ending',
+    actual:
+      historical.kind === 'accepted'
+        ? historical.writes.filter(
+            (write) => write.table === 'round_source_voids',
+          )
+        : historical,
+    expected: [
+      { table: 'round_source_voids', op: 'insert', row: { roundId: id('d') } },
     ],
   });
 

@@ -74,6 +74,7 @@ const logged = async (pass: () => Promise<unknown>) => {
     lastPassAt: '2026-01-01T00:00:00.000Z',
     roundChangedAt: '2026-01-01T00:00:05.000Z',
     roundStatus: 'active',
+    sourceVoided: false,
     finalSegmentEndedAt: null,
     unsafe: false,
     lastPassClean: true,

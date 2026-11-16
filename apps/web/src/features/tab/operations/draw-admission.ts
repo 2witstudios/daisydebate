@@ -1,29 +1,12 @@
-import { participantAccess } from '@daisy/auth/authorization';
+import { eligibleTournamentActors } from './tournament-participant-admission';
 import type { DrawWrite, LoadedDrawCommand } from '@daisy/db/tab';
-
-/** The closed-minors cast rule, using each person's canonical fenced account. */
-export const drawEligibleActors = (
-  accounts: LoadedDrawCommand['accounts'],
-): ReadonlySet<string> =>
-  new Set(
-    accounts
-      .filter(
-        ({ account }) =>
-          account?.member &&
-          !account.erased &&
-          participantAccess(account) &&
-          account.ageBand === 'adult' &&
-          account.boundary === null,
-      )
-      .map((person) => person.actorId),
-  );
 
 /** Only additions admit people. Removing a draft never admits its former cast. */
 export const drawAdmissionsAllowed = (
   loaded: LoadedDrawCommand,
   writes: readonly DrawWrite[],
 ): boolean => {
-  const eligible = drawEligibleActors(loaded.accounts);
+  const eligible = eligibleTournamentActors(loaded.accounts);
   return writes.every((write) => {
     if (write.op !== 'insert') return true;
     if (write.table === 'room_participants')

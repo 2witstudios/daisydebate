@@ -1,3 +1,8 @@
+import { createFixtureCommandStore } from './fixture-command';
+export type { FixtureWrite } from './fixture-write';
+export type { FixtureOwnerEffects } from './fixture-owner-write';
+export type { LoadedFixtureCommand } from './fixture-command-facts';
+export { FixturePeopleChanged } from './fixture-command-context';
 import { createReleaseCommandStore } from './release-command';
 export type {
   LoadedReleaseCommand,
@@ -163,6 +168,7 @@ const roleNamedOf = (
  */
 export const createTabStore = (database: TabDatabase) => ({
   ...createResultCommandStore(database),
+  ...createFixtureCommandStore(database),
   ...createReleaseCommandStore(database),
   ...createTournamentSponsorshipStore(database),
   ...createGuardianCommandStore(database),

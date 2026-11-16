@@ -1,3 +1,4 @@
+import { roundSourceVoided } from './round-source-state';
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -48,7 +49,7 @@ export const readRoundCompetitionSource = async (
         eq(r.id, input.roundId),
         eq(r.roomId, input.roomId),
         eq(r.status, 'completed'),
-        sql`not exists(select 1 from round_source_voids v where v.round_id=${r.id})`,
+        sql`not ${roundSourceVoided(r.id)}`,
       ),
     )
     .for('share', { of: r });

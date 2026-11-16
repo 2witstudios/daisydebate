@@ -230,3 +230,18 @@ export const releaseRestrictedMember = (
       }
     : closeRoom(freed);
 };
+
+/** An ordinary owner changed one judge; open Rooms ask every seat to consent again. */
+export const afterRoomJudgeChange = (
+  room: RoomAssemblyState,
+): RoomAssemblyState =>
+  isOpenRoom(room)
+    ? {
+        ...room,
+        status: assembledStatus(room),
+        participants: room.participants.map((person) => ({
+          ...person,
+          consentCommandId: null,
+        })),
+      }
+    : room;

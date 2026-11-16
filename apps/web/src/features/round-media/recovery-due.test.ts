@@ -19,6 +19,7 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
   lastPassAt: at(10),
   roundChangedAt: at(5),
   roundStatus: 'active',
+  sourceVoided: false,
   finalSegmentEndedAt: null,
   postRoundCall: noPostRoundCall('active'),
   unsafe: false,
@@ -340,5 +341,15 @@ test('waitingFloors names what held each due floor this tick', () => {
       { roundId: 'running', cause: 'running' },
       { roundId: 'full', cause: 'capacity' },
     ],
+  });
+});
+
+test('an explicit source void is due before the normal heartbeat', () => {
+  assert({
+    given:
+      'a clean historical session just passed, with source invalidation now committed',
+    should: 'schedule ordinary teardown without waiting for heartbeat',
+    actual: recoveryNeed(idle({ sourceVoided: true }), HEARTBEAT_MS),
+    expected: 'repair',
   });
 });

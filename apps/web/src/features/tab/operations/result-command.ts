@@ -5,6 +5,7 @@ import type {
 import {
   CommandIdTaken,
   EventSettingParentsChanged,
+  FixturePeopleChanged,
   type TabStore,
   type LoadedResultCommand,
 } from '@daisy/db/tab';
@@ -50,7 +51,7 @@ export const resultCommand =
         async (session) => {
           const loaded = await session.load();
           if (!loaded) throw new CommandDenied('not-found');
-          const now = dependencies.now();
+          const now = loaded.checkedAt;
           const lobby = hostLobbyResource(
             loaded.configuration.lobby,
             loaded.authorization.organization,
@@ -148,7 +149,10 @@ export const resultCommand =
           kind: 'refused' as const,
           refusal: 'command-conflict' as const,
         };
-      if (error instanceof EventSettingParentsChanged)
+      if (
+        error instanceof EventSettingParentsChanged ||
+        error instanceof FixturePeopleChanged
+      )
         throw createAppError('CONFLICT', 'Event settings changed');
       throw error;
     }

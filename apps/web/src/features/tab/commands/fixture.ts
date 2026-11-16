@@ -82,10 +82,10 @@ type JudgeStrikeRow = {
   readonly tournamentJudgeId: string;
   readonly source: (typeof judgeStrikeSources)[number];
 };
-/** A `fixture_judges` row of another published fixture in the same time slot. */
+/** An actual competitor or judge's booking in another published fixture in the same slot. */
 type SlotBookingRow = {
   readonly fixtureId: string;
-  readonly tournamentJudgeId: string;
+  readonly actorId: string;
 };
 /** The `rounds` row of the fixture's current Room, once its Round has started. */
 type RoundRow = { readonly id: string; readonly status: RoundStatus };
@@ -93,7 +93,6 @@ type RoundRow = { readonly id: string; readonly status: RoundStatus };
 type BallotRow = {
   readonly id: string;
   readonly judgeActorId: string;
-  readonly winner: string;
 };
 /** A `results` row of this fixture. */
 export type ResultRow = {
@@ -222,10 +221,10 @@ type FixtureWrite =
       readonly set: { readonly version: number; readonly roomId?: string };
     }
   | {
-      readonly table: 'rounds';
-      readonly op: 'update';
-      readonly id: string;
-      readonly set: { readonly status: Extract<RoundStatus, 'abandoned'> };
+      /** The ordinary owner stops live play or separately voids a historical ending. */
+      readonly table: 'round_source_voids';
+      readonly op: 'insert';
+      readonly row: { readonly roundId: string };
     }
   | {
       /** A new event Room pinned and seated as the Room it replaces. */
@@ -354,9 +353,8 @@ const brokenRules = (
 };
 
 /**
- * A broken `rule` is refused unless an override names its key with a
- * reason; a broken `preference` or `warning` is reported; `off` is not
- * applied.
+ * A broken hard rule is always refused. Preference and warning findings remain
+ * visible; a supplied annotation needs its reason and grants no rule exception.
  */
 const checkRules = (
   facts: FixtureFacts,
@@ -364,18 +362,14 @@ const checkRules = (
   chair: boolean,
   overrides: readonly JudgingOverride[],
 ): RuleCheck => {
+  if (overrides.some((override) => isBlank(override.reason)))
+    return { kind: 'refused', refusal: 'reason-required' };
   const findings: CommandFinding[] = [];
   for (const rule of brokenRules(facts, judge, chair)) {
     const force = facts.judgingForces[rule];
     switch (force) {
-      case 'rule': {
-        const override = overrides.find((entry) => entry.key === rule);
-        if (override === undefined)
-          return { kind: 'refused', refusal: 'rule-broken' };
-        if (isBlank(override.reason))
-          return { kind: 'refused', refusal: 'reason-required' };
-        break;
-      }
+      case 'rule':
+        return { kind: 'refused', refusal: 'rule-broken' };
       case 'preference':
       case 'warning':
         findings.push({ kind: force, key: rule, detail: judge.id });
@@ -415,10 +409,12 @@ const seat = (
   if (judge === null) return { kind: 'refused', refusal: 'not-found' };
   if (judge.status !== 'accepted' || !judge.allowedEvent)
     return { kind: 'refused', refusal: 'judge-unavailable' };
+  if (facts.members.some((member) => member.actorId === judge.actorId))
+    return { kind: 'refused', refusal: 'judge-double-booked' };
   if (
     facts.slotBookings.some(
       (booking) =>
-        booking.tournamentJudgeId === judgeId &&
+        booking.actorId === judge.actorId &&
         booking.fixtureId !== facts.fixture.id,
     )
   )
@@ -667,10 +663,9 @@ const restartFixture = (
     facts.panel,
     [
       {
-        table: 'rounds',
-        op: 'update',
-        id: facts.round.id,
-        set: { status: 'abandoned' },
+        table: 'round_source_voids',
+        op: 'insert',
+        row: { roundId: facts.round.id },
       },
       {
         table: 'rooms',

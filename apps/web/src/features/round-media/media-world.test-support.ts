@@ -109,6 +109,7 @@ export function createMediaWorld(
   };
   /** What the engine's phase rule reads, as the store reads it. */
   const mediaWindow = (): MediaWindowFacts => ({
+    sourceVoided: false,
     status,
     now,
     finalSegmentEndedAt: null,
@@ -362,6 +363,7 @@ export function createMediaWorld(
               lastPassAt: null,
               roundChangedAt: '2026-01-01T00:00:00.000Z',
               roundStatus: status,
+              sourceVoided: false,
               finalSegmentEndedAt: null,
               postRoundCall: mediaWindow().postRoundCall,
               unsafe: false,

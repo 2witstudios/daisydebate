@@ -1,3 +1,5 @@
+import { sql as query } from 'drizzle-orm';
+import { roundCommands } from '../src/schema/round-commands';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { scratchDatabase } from '@daisy/db/testing';
@@ -69,6 +71,51 @@ async function withJudgedRound(
     await sql.close();
     await scratch.drop();
   }
+}
+
+async function completeOrdinaryForfeit(
+  sql: SQL,
+  f: Fixture,
+  roundId: string,
+  judgeActorId: string,
+) {
+  const db = drizzle({ client: sql });
+  const first = await f.seat(roundId, 'affirmative', 0),
+    second = await f.seat(roundId, 'negative', 0);
+  const actorIds = [judgeActorId, first.actorId, second.actorId];
+  await db.transaction(async (tx) => {
+    await lockAuthorizationActors(tx, actorIds, {
+      maxActors: actorIds.length,
+    });
+    const current = await lockedRoundVersion(tx, roundId);
+    const round = (await hydrateRoundRows(tx, roundId))!;
+    const now = (await readDatabaseTime(tx)).toISOString();
+    const projection = createRoundRuntime({
+      ...round,
+      round,
+      nextSegmentId: createId,
+    }).execute({
+      command: { type: 'forfeit' },
+      actorId: first.actorId,
+      now,
+    });
+    await commitRoundCommand(tx, {
+      roundId,
+      current,
+      projection,
+      now,
+      command: {
+        commandId: createId(),
+        actorId: first.actorId,
+        serviceId: null,
+        type: 'forfeit',
+        payloadDigest: new Bun.CryptoHasher('sha3-256')
+          .update('actual ordinary forfeit')
+          .digest('hex'),
+      },
+    });
+  });
+  return actorIds;
 }
 
 test(
@@ -334,44 +381,10 @@ for (const ending of ['opening', 'completed'] as const)
       withJudgedRound(async ({ sql, f, roundId, actorId, participantId }) => {
         const db = drizzle({ client: sql });
         const commandId = createId();
-        const actorIds = [actorId];
-        if (ending === 'completed') {
-          const first = await f.seat(roundId, 'affirmative', 0),
-            second = await f.seat(roundId, 'negative', 0);
-          actorIds.push(first.actorId, second.actorId);
-          await db.transaction(async (tx) => {
-            await lockAuthorizationActors(tx, actorIds, {
-              maxActors: actorIds.length,
-            });
-            const current = await lockedRoundVersion(tx, roundId);
-            const round = (await hydrateRoundRows(tx, roundId))!;
-            const now = (await readDatabaseTime(tx)).toISOString();
-            const projection = createRoundRuntime({
-              ...round,
-              round,
-              nextSegmentId: createId,
-            }).execute({
-              command: { type: 'forfeit' },
-              actorId: first.actorId,
-              now,
-            });
-            await commitRoundCommand(tx, {
-              roundId,
-              current,
-              projection,
-              now,
-              command: {
-                commandId: createId(),
-                actorId: first.actorId,
-                serviceId: null,
-                type: 'forfeit',
-                payloadDigest: new Bun.CryptoHasher('sha3-256')
-                  .update('actual ordinary forfeit')
-                  .digest('hex'),
-              },
-            });
-          });
-        }
+        const actorIds =
+          ending === 'completed'
+            ? await completeOrdinaryForfeit(sql, f, roundId, actorId)
+            : [actorId];
         const [before] =
           await sql`select status,completed_at,winning_side,version from rounds where id=${roundId}`;
         const input = {
@@ -441,10 +454,10 @@ for (const ending of ['opening', 'completed'] as const)
           },
           expected: {
             status: ending === 'opening' ? 'abandoned' : 'completed',
-            version: ending === 'opening' ? 2 : Number(before!.version),
+            version: Number(before!.version) + 1,
             replay: true,
-            firstVersion: 2,
-            replayVersion: 2,
+            firstVersion: Number(before!.version) + 1,
+            replayVersion: Number(before!.version) + 1,
             command: commandId,
             type: ending === 'opening' ? 'stop' : 'void_source',
             assignmentVersion: 1,
@@ -505,6 +518,80 @@ test(
           'refuse appending a competitor after its constructor transaction',
         actual: await rejectedBy(() => f.seat(roundId, 'affirmative', 0)),
         expected: 'round_participants_fixed_cast',
+      });
+    }),
+  60_000,
+);
+
+test(
+  'retiring an unsubmitted judge after finalization preserves the actual terminal witness',
+  () =>
+    withJudgedRound(async ({ sql, f, roundId, actorId, participantId }) => {
+      const actorIds = await completeOrdinaryForfeit(sql, f, roundId, actorId);
+      const [before] =
+        await sql`select completed_at,winning_side,version from rounds where id=${roundId}`;
+      const snapshot =
+        await sql`select * from round_finalization_judge_assignments where round_id=${roundId} order by slot`;
+      const commandId = createId();
+      await drizzle({ client: sql }).transaction(async (tx) => {
+        await lockAuthorizationActors(tx, actorIds, {
+          maxActors: actorIds.length,
+        });
+        await lockedRoundVersion(tx, roundId);
+        const now = (await readDatabaseTime(tx)).toISOString();
+        await tx.insert(roundCommands).values({
+          commandId,
+          roundId,
+          actorId,
+          serviceId: null,
+          type: 'change_judge',
+          payloadDigest: 'd'.repeat(64),
+          result: {
+            kind: 'judge_assignment',
+            roundId,
+            slot: 0,
+            assignmentVersion: 2,
+            participantId: null,
+          },
+          resultingVersion: Number(before!.version) + 1,
+          appliedAt: new Date(now),
+        });
+        await tx.execute(
+          query`select public.daisy_append_round_judge_assignment(${roundId},0,${Number(before!.version)},1,null,${commandId})`,
+        );
+      });
+      const [after] =
+        await sql`select status,completed_at,winning_side,version from rounds where id=${roundId}`;
+      const [slot] =
+        await sql`select current_version,participant_id from round_judge_slots where round_id=${roundId} and slot=0`;
+      assert({
+        given:
+          'the approved unsubmitted retirement before a fixture result, after ordinary historical finalization',
+        should:
+          'retire current authority while preserving the exact terminal panel and ending',
+        actual: {
+          status: after!.status,
+          ended:
+            after!.completed_at.getTime() === before!.completed_at.getTime(),
+          winner: after!.winning_side,
+          version: Number(after!.version),
+          current: [slot!.current_version, slot!.participant_id],
+          terminal: [
+            ...(await sql`select * from round_finalization_judge_assignments where round_id=${roundId} order by slot`),
+          ],
+          oldAuthority: (
+            await sql`select public.daisy_round_participant_is_current(${participantId}) current`
+          )[0]!.current,
+        },
+        expected: {
+          status: 'completed',
+          ended: true,
+          winner: before!.winning_side,
+          version: Number(before!.version) + 1,
+          current: [2, null],
+          terminal: [...snapshot],
+          oldAuthority: false,
+        },
       });
     }),
   60_000,

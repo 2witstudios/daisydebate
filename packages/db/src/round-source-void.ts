@@ -1,3 +1,5 @@
+import { rounds } from './schema/rounds';
+import { appendRoundPhaseChanged } from './round-projection-writer';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   isRoundRunning,
@@ -118,10 +120,14 @@ export async function voidLockedRoundSource(
       judgingEndReason: input.judgingEndReason,
     });
   } else {
+    await tx
+      .update(rounds)
+      .set({ version: current.version + 1, updatedAt: new Date(now) })
+      .where(eq(rounds.id, input.roundId));
     receipt = {
       commandId: input.commandId,
       roundId: input.roundId,
-      resultingVersion: current.version,
+      resultingVersion: current.version + 1,
       replayed: false,
     };
     await insertCommandRow(
@@ -135,11 +141,13 @@ export async function voidLockedRoundSource(
         type: 'void_source',
         result: { ...receipt, kind: 'round_source_void' },
       },
-      current.version,
+      current.version + 1,
     );
   }
   await tx.execute(
     sql`select public.daisy_mark_round_source_void(${input.roundId},${input.commandId})`,
   );
+  if (!isRoundRunning(current.status))
+    await appendRoundPhaseChanged(tx, input.roundId, receipt.resultingVersion);
   return receipt;
 }

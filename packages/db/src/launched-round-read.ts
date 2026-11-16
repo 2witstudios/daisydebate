@@ -1,3 +1,4 @@
+import { roundSourceVoided } from './round-source-state';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -27,10 +28,15 @@ async function postRoundCallStands(
   if (!round.postRoundCall || round.status !== 'completed')
     return round.postRoundCall;
   const [session] = await tx
-    .select({ endedAt: mediaSessions.endedAt })
+    .select({
+      endedAt: mediaSessions.endedAt,
+      sourceVoided: roundSourceVoided(round.id),
+    })
     .from(mediaSessions)
     .where(eq(mediaSessions.roundId, round.id));
-  return session !== undefined && session.endedAt === null;
+  return (
+    session !== undefined && session.endedAt === null && !session.sourceVoided
+  );
 }
 
 export async function launchedRoundRows(

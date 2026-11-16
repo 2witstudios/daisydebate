@@ -1,3 +1,4 @@
+import { roundSourceVoided } from './round-source-state';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import {
@@ -136,6 +137,7 @@ export async function readMediaWindowFacts(
 ): Promise<MediaWindowFacts> {
   const [row] = await tx
     .select({
+      sourceVoided: roundSourceVoided(rounds.id),
       status: rounds.status,
       finalSegmentEndedAt: rounds.finalSegmentEndedAt,
       completedAt: rounds.completedAt,
@@ -150,6 +152,7 @@ export async function readMediaWindowFacts(
     .where(eq(rounds.id, roundId));
   if (!row) throw createAppError('NOT_FOUND');
   return {
+    sourceVoided: row.sourceVoided,
     status: row.status,
     now: at.now,
     finalSegmentEndedAt:

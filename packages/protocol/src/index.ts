@@ -951,3 +951,7 @@ export type {
   TournamentCaptureAdmission,
   TournamentOfficialAuthority,
 } from './tournament-capture-admission';
+export {
+  roundJudgeAssignmentReceiptSchema,
+  type RoundJudgeAssignmentReceipt,
+} from './round-judge-assignment';

@@ -59,6 +59,7 @@ export { namesHumanJudge, type JudgeNamingFacts } from './room-assembly-facts';
 export {
   eraseSeats,
   executeRoomCommand,
+  afterRoomJudgeChange,
   hostIdentityHidden,
   projectRoom,
   startHiddenFrom,

@@ -186,6 +186,7 @@ test('a media operation answers the phase it is handed', async () => {
   const facts = (status: RoundStatus): MediaWindowFacts => ({
     status,
     now: end,
+    sourceVoided: false,
     finalSegmentEndedAt: null,
     postRoundCall: noPostRoundCall(status),
   });

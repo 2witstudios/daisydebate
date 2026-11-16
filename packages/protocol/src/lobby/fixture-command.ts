@@ -17,7 +17,7 @@ import {
 /** A reason a person typed: blank is allowed here and refused by the rule that needs one. */
 const typedReason = z.string().max(2000);
 
-/** A broken `judging.*` rule kept anyway, named with the reason. */
+/** A preference or warning deliberately overridden, named with its reason; hard rules never relax. */
 const judgingOverrideSchema = z.strictObject({
   key: z.enum(judgingForceKeys),
   reason: typedReason,
@@ -202,8 +202,9 @@ const judgeCommands = new Set<FixtureCommand['type']>([
 export const fixtureCommandDefinition = (
   type: FixtureCommand['type'],
   status: 'draft' | 'published' | 'withdrawn',
-): LobbyCommandDefinition => {
-  const definition: LobbyCommandDefinition = fixtureCommandCatalogue[type];
+): LobbyCommandDefinition<FixtureCommandRefusal> => {
+  const definition: LobbyCommandDefinition<FixtureCommandRefusal> =
+    fixtureCommandCatalogue[type];
   if (!judgeCommands.has(type)) return definition;
   return {
     ...definition,
