@@ -13,7 +13,11 @@ import type {
   TemplateView,
 } from '@daisy/protocol/lobby/template-read';
 import type { SettingKey } from '@daisy/protocol/setting-values';
-import { linkTo, unavailableAction as sampleAction } from './action';
+import { linkTo, unavailableAction } from './action';
+import type { LadderScope, LeagueView } from './league-view';
+
+export { leagueViewOf } from './league-view';
+export type { LadderScope, LeagueView } from './league-view';
 import { dayWords, isSameDay, monthWords } from './organization';
 import { resolvedEntry } from './reads/resolved-settings';
 import { hostRoutes, tabRoutes } from './routes';
@@ -124,19 +128,6 @@ export type LadderRow = {
   readonly profile: TabAction;
 };
 
-export type LadderScope = 'top' | 'around';
-
-/** One tab of a league's lobby, with what its address chose on it. */
-export type LeagueView =
-  | { readonly tab: 'rooms' }
-  | {
-      readonly tab: 'ladder';
-      readonly scope: LadderScope;
-      readonly search: string;
-    }
-  | { readonly tab: 'season'; readonly event: string | null }
-  | { readonly tab: 'tournaments' };
-
 export type LeaguePanel =
   | {
       readonly kind: 'rooms';
@@ -225,7 +216,7 @@ export type CreateRoom = {
 };
 
 const opens = (label: string, address: string | null): TabAction =>
-  address === null ? sampleAction(label) : linkTo(label, address);
+  address === null ? unavailableAction(label) : linkTo(label, address);
 
 /** How a tournament on the season's calendar stands, as the rail says it. */
 const calendarStanding = (
@@ -350,7 +341,7 @@ function hostLeagueOf(
   const { league, template, season, sanctions, lobbySettings } = reads;
   const standings = season.standings;
   const awaiting = standings.awaitingCertification.map((lobby) => lobby.name);
-  const change = sampleAction('Change');
+  const change = unavailableAction('Change');
   return {
     name: league.name,
     lede: `${league.schoolCount} schools · ${league.memberCount} members · ${league.openRoomCount} rooms open in the lobby right now`,
@@ -364,8 +355,8 @@ function hostLeagueOf(
         event: sanction.lobby.name,
         facts: `${sanction.event.name} · ${dayWords(sanction.lobby.startsAt)} · hosted by ${sanction.host.name}`,
         meets: meetsWords(sanction),
-        decline: sampleAction('Decline'),
-        sanction: sampleAction('Sanction it', true),
+        decline: unavailableAction('Decline'),
+        sanction: unavailableAction('Sanction it', true),
       })),
     template: {
       name: `${template.name} template`,
@@ -394,7 +385,7 @@ function hostLeagueOf(
           ),
         ),
       ],
-      edit: sampleAction('Edit template'),
+      edit: unavailableAction('Edit template'),
       note: copy.template.note,
     },
     season: {
@@ -414,7 +405,7 @@ function hostLeagueOf(
       ]
         .filter((part): part is string => part !== null)
         .join(' '),
-      rule: sampleAction('How points are counted'),
+      rule: unavailableAction('How points are counted'),
     },
     ladder: {
       detail: `Rates lobby rooms and tournaments run here. ${league.ratedCount} members rated. Separate from Daisy's ladders.`,
@@ -431,10 +422,6 @@ function hostLeagueOf(
     }),
   };
 }
-
-/** Whether a league address is the sample walk's league. */
-export const isSampleLeague = (slug: string): boolean =>
-  slug === sampleLeagueView.handle;
 
 export const readLeagueRail = (
   slug: string,
@@ -570,7 +557,7 @@ function ladderPanel(
       rating: line.rating,
       change: line.change,
       you,
-      profile: sampleAction(name),
+      profile: unavailableAction(name),
     };
   };
   const searching = view.search !== '';
@@ -589,9 +576,9 @@ function ladderPanel(
       : ladder.pages > 1
         ? `${ladder.entrants} debaters · Page ${ladder.page} of ${ladder.pages}`
         : `${ladder.entrants} debaters`,
-    next: top && ladder.page < ladder.pages ? sampleAction('Next') : null,
+    next: top && ladder.page < ladder.pages ? unavailableAction('Next') : null,
     note: "Rates this lobby's rooms and the league's tournaments. Separate from Daisy's ladders.",
-    rules: sampleAction('How ratings work'),
+    rules: unavailableAction('How ratings work'),
   };
 }
 
@@ -741,31 +728,6 @@ export function readLeagueLobby(
     : leagueLobbyOf({ lobby, panel }, sampleAddressOf);
 }
 
-/** The view an address asks for; anything unknown reads as the Rooms tab. */
-export function leagueViewOf(query: {
-  readonly tab: string | null;
-  readonly scope: string | null;
-  readonly search: string | null;
-  readonly event: string | null;
-}): LeagueView {
-  switch (query.tab) {
-    case 'ladder':
-      return {
-        tab: 'ladder',
-        scope: query.scope === 'around' ? 'around' : 'top',
-        search: (query.search ?? '').trim().slice(0, 40),
-      };
-    case 'season':
-      return { tab: 'season', event: query.event };
-    case 'tournaments':
-      return { tab: 'tournaments' };
-    case 'rooms':
-    case null:
-    default:
-      return { tab: 'rooms' };
-  }
-}
-
 /** The words the create-room form uses for the template it offers first. */
 export type CreateRoomCopy = {
   /** The name the form proposes for the Room. */
@@ -862,7 +824,7 @@ function createRoomOf(
       detail: `${copy.ladder} ladder`,
       checked: (ladder?.ladderId ?? null) !== null,
     },
-    open: sampleAction('Create room', true),
+    open: unavailableAction('Create room', true),
   };
 }
 

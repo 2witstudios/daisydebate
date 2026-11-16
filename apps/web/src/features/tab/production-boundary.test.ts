@@ -8,9 +8,7 @@ const source = resolve(import.meta.dir, '../..');
 const app = join(source, 'app');
 const productionPages = [...new Glob('**/page.tsx').scanSync(app)].filter(
   (file) =>
-    /^(\(host\)|\(tab\)|\(tab-live\))\//.test(file) &&
-    !file.includes('/walk/') &&
-    !file.includes('/leagues/'),
+    /^(\(host\)|\(tab\)|\(tab-live\))\//.test(file) && !file.includes('/walk/'),
 );
 const read = (file: string) => readFileSync(file, 'utf8');
 
@@ -62,8 +60,7 @@ describe('production Tab routes', () => {
   });
   test('sample facts stay in the walk', () => {
     assert({
-      given:
-        'the complete value import graph of every non-league production Tab page',
+      given: 'the complete value import graph of every production Tab page',
       should: 'never load sample facts, even through a presentation projector',
       actual: productionPages.flatMap((file) =>
         sampleDependencies(join(app, file)).map((dependency) => [
