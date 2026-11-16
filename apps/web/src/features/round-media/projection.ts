@@ -1,3 +1,4 @@
+import { mediaBindingRevoked } from '@daisy/protocol';
 import {
   createRoundRuntime,
   inPreRoundPrep,
@@ -39,12 +40,7 @@ const onCall = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
 export const ownSeatRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'>,
   participantId: string,
-) => {
-  const seat = snapshot.participants.find(
-    (candidate) => candidate.id === participantId,
-  );
-  return seat === undefined || (seat.kind === 'human' && !seat.eligible);
-};
+) => mediaBindingRevoked(snapshot.participants, participantId);
 
 /** Issued old-room tokens require rotation; departed unbound seats cannot veto it. */
 export const admissionRevoked = (
@@ -52,12 +48,9 @@ export const admissionRevoked = (
     readonly bindings: readonly { readonly roundParticipantId: string }[];
   },
 ) =>
-  snapshot.bindings.some((binding) => {
-    const seat = snapshot.participants.find(
-      (candidate) => candidate.id === binding.roundParticipantId,
-    );
-    return seat === undefined || (seat.kind === 'human' && !seat.eligible);
-  });
+  snapshot.bindings.some((binding) =>
+    mediaBindingRevoked(snapshot.participants, binding.roundParticipantId),
+  );
 
 /**
  * A seat's media grants. A withdrawn seat (a human whose participant access

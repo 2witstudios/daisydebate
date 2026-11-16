@@ -1,3 +1,4 @@
+export { mediaBindingRevoked } from './media-binding-authority';
 export {
   privateSpanChanges,
   publicClips,
