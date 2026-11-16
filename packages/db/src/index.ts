@@ -105,6 +105,12 @@ export type {
   NotificationEmailDelivery,
   NotificationEmailOutcome,
 } from './notifications';
+export type {
+  OwnPublicProfile,
+  PhotoDeletion,
+  PublicProfileCard,
+  StoredProfilePhoto,
+} from './public-profile-operations';
 export type { SpectatorTimelineRead } from './spectator-timeline-reads';
 export type { LiveBroadcastPage } from './live-broadcast-reads';
 import { roomCommandOperations } from './room-command-operations';

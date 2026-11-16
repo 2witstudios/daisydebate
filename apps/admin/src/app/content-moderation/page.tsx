@@ -7,6 +7,7 @@ import {
   contentModerationHref,
   contentModerationNoticeText,
   contentModerationQuery,
+  photoReviewsHref,
   queueLabels,
   statusLabels,
 } from '../../features/content-moderation/view';
@@ -62,10 +63,11 @@ export default async function ContentModerationPage({
           <h1>Moderation</h1>
         </div>
       </div>
-      <p>
+      <p className="row-actions">
         <Link href="/content-moderation/failed-recordings">
           Failed ranked recordings
         </Link>
+        <Link href={photoReviewsHref}>In-review photos</Link>
       </p>
       {query.notice ? (
         <p role="status" className="notice notice-ok">

@@ -200,3 +200,36 @@ export function profilePhotoTransition(
       return isProfilePhotoTerminal(status) ? unchanged : moved('erased');
   }
 }
+
+/** The member's own public profile, as Settings edits it. */
+export const ownPublicProfileSchema = z.strictObject({
+  version: z.literal(1),
+  displayName: z.string().nullable(),
+  bio: z.string().nullable(),
+  photo: z.strictObject({
+    /** The photo everyone sees. */
+    published: idSchema.nullable(),
+    /** A newer photo only its owner sees, until an operator decides. */
+    inReview: idSchema.nullable(),
+  }),
+  /** Whether this deployment can take a photo upload at all. */
+  photoUploads: z.enum(['available', 'unavailable']),
+});
+export type OwnPublicProfileView = z.infer<typeof ownPublicProfileSchema>;
+
+/** What a photo upload answers: where the new photo stands, and the profile. */
+export const profilePhotoUploadResultSchema = z.strictObject({
+  version: z.literal(1),
+  status: z.enum(['published', 'in_review']),
+  profile: ownPublicProfileSchema,
+});
+
+/** Every word a photo upload may answer with, for the route to expose. */
+export const profilePhotoRefusals = [
+  'photo-type-unsupported',
+  'photo-too-large',
+  'photo-unreadable',
+  'photo-malware',
+  'photo-blocked',
+  'photo-unavailable',
+] as const satisfies readonly ProfilePhotoRefusal[];

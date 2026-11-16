@@ -44,6 +44,8 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
     contentModeration: {
       listModerationReports: async () => [],
       listRebuildableRecordings: async () => [],
+      listProfilePhotoReviews: async () => [],
+      readOperatorProfilePhoto: async () => null,
       readModerationReport: async () => null,
       runModerationCommand: async () => ({ v: 1, outcome: 'applied' }),
     },
@@ -85,6 +87,7 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
         mailState: 'sent' as const,
       }),
     },
+    profilePhotos: null,
     nextId: () => 'i'.repeat(24),
     logger: { log: () => {} },
     reporter: noopErrorReporter,

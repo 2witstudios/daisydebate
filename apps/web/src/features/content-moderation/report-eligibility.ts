@@ -34,6 +34,11 @@ export type ReportTargetFacts =
   | {
       readonly kind: 'ballot_feedback';
       readonly feedbackIsForReporter: boolean;
+    }
+  | {
+      /** A published photo, or a display name or bio that is set (ADR 0142). */
+      readonly kind: 'profile';
+      readonly ownedByReporter: boolean;
     };
 
 export type ReportRefusal = 'report-not-found' | 'report-not-eligible';
@@ -50,7 +55,8 @@ const eligibleFootage = (
 /**
  * Who may report what. Anyone with an account may report conduct. Only a seat
  * of a ranked Round disputes its result, and only the debater who received
- * ballot feedback may report it, with no other access to private feedback. A
+ * ballot feedback may report it, with no other access to private feedback.
+ * Anyone may report someone else's public profile photo, display name or bio. A
  * target on a Round the reporter cannot reach, private or unlisted with no link
  * and no seat in it, answers exactly as a missing one does, before any other rule can tell them apart.
  */
@@ -62,6 +68,7 @@ export const reportRefusal = (
   if (facts.kind === 'missing') return 'report-not-found';
   if (
     facts.kind !== 'ballot_feedback' &&
+    facts.kind !== 'profile' &&
     !(facts.kind === 'footage' && facts.reporterSeated) &&
     !facts.audience.inLiveRoom &&
     !audienceAdmits(facts.audience, presentedHashOf(facts.audience.roundId))
@@ -76,5 +83,8 @@ export const reportRefusal = (
       return facts.ownMessage ? 'report-not-eligible' : null;
     case 'ballot_feedback':
       return facts.feedbackIsForReporter ? null : 'report-not-found';
+    // A public profile is anyone's to report, except its owner's own.
+    case 'profile':
+      return facts.ownedByReporter ? 'report-not-eligible' : null;
   }
 };

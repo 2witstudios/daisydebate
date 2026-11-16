@@ -11,7 +11,11 @@ import {
   contentReportsCursorSchema,
   contentReportsPageSchema,
   contentReportsQuerySchema,
+  operatorProfilePhotoSchema,
+  profilePhotoReviewsSchema,
   rebuildableRecordingsSchema,
+  type OperatorProfilePhoto,
+  type ProfilePhotoReviews,
   type RebuildableRecordings,
   type ContentModerationAction,
   type ContentModerationCommand,
@@ -22,7 +26,10 @@ import {
   type ContentReportsPage,
 } from '@daisy/protocol/content-moderation';
 import { operatorLimits } from '@daisy/protocol/operator';
+import type { ProfilePhotoStatus } from '@daisy/protocol/public-profile';
 import type { z } from 'zod';
+import { photoObjectKey } from '../profile/photo/object-keys';
+import type { ProfilePhotoObjects } from '../profile/photo/ports';
 
 /** One moderation change, named for what it does and carrying its own target. */
 export type ContentModerationChange =
@@ -61,6 +68,25 @@ export type ContentModerationChange =
     }
   | { readonly action: 'chat_message.remove'; readonly messageId: string }
   | {
+      readonly action: 'profile_photo.review';
+      readonly photoId: string;
+      readonly expectedVersion: number;
+      readonly outcome: ContentModerationCommand<'profile_photo.review'>['outcome'];
+    }
+  | {
+      readonly action: 'profile_photo.remove';
+      readonly photoId: string;
+      readonly expectedVersion: number;
+      readonly reason: ContentModerationCommand<'profile_photo.remove'>['reason'];
+    }
+  | {
+      readonly action: 'profile_text.remove';
+      readonly profileId: string;
+      readonly expectedVersion: number;
+      readonly field: ContentModerationCommand<'profile_text.remove'>['field'];
+      readonly reason: ContentModerationCommand<'profile_text.remove'>['reason'];
+    }
+  | {
       readonly action: 'account.audience_ban.update';
       readonly userId: string;
       readonly state: 'banned' | 'lifted';
@@ -82,6 +108,13 @@ export type ContentModerationStore = {
   readonly listRebuildableRecordings: () => Promise<
     RebuildableRecordings['items']
   >;
+  readonly listProfilePhotoReviews: () => Promise<ProfilePhotoReviews['items']>;
+  /** Where a live photo's renditions sit; null once it ended or never was. */
+  readonly readOperatorProfilePhoto: (photoId: string) => Promise<{
+    readonly status: ProfilePhotoStatus;
+    readonly version: number;
+    readonly objectPrefix: string;
+  } | null>;
   /**
    * One transaction: the receipt first (the same digest replays, another
    * conflicts), then the change, then the commit deadline last (ADR 0079).
@@ -99,6 +132,8 @@ export type ContentModerationStore = {
 
 type Deps = {
   readonly store: ContentModerationStore;
+  /** The private photo bucket; null when none is configured (ADR 0142). */
+  readonly profilePhotos: ProfilePhotoObjects | null;
   readonly crypto: OperatorCrypto;
   readonly nowMs: () => number;
   readonly logger: Pick<Logger, 'log'>;
@@ -118,6 +153,11 @@ export type ContentModerationRoute =
   | 'rebuildRecording'
   | 'listRebuildableRecordings'
   | 'removeChatMessage'
+  | 'listProfilePhotoReviews'
+  | 'readProfilePhoto'
+  | 'reviewProfilePhoto'
+  | 'removeProfilePhoto'
+  | 'removeProfileText'
   | 'setAudienceBan';
 
 type OperatorPrincipal = Extract<
@@ -130,7 +170,8 @@ const requireCapability = (
   capability:
     | ContentModerationAction
     | 'content_report.queue.read'
-    | 'recording.rebuildable.read',
+    | 'recording.rebuildable.read'
+    | 'profile_photo.review.read',
 ): OperatorPrincipal => {
   const decision = authorize({
     principal,
@@ -259,6 +300,52 @@ const commandOf = {
     action: 'chat_message.remove',
     messageId: id,
   }),
+  reviewProfilePhoto: (
+    id: string,
+    body: Uint8Array,
+  ): ContentModerationChange => {
+    const { outcome, expectedVersion } = parsedBody(
+      contentModerationCommands['profile_photo.review'],
+      body,
+    );
+    return {
+      action: 'profile_photo.review',
+      photoId: id,
+      expectedVersion,
+      outcome,
+    };
+  },
+  removeProfilePhoto: (
+    id: string,
+    body: Uint8Array,
+  ): ContentModerationChange => {
+    const { reason, expectedVersion } = parsedBody(
+      contentModerationCommands['profile_photo.remove'],
+      body,
+    );
+    return {
+      action: 'profile_photo.remove',
+      photoId: id,
+      expectedVersion,
+      reason,
+    };
+  },
+  removeProfileText: (
+    id: string,
+    body: Uint8Array,
+  ): ContentModerationChange => {
+    const { field, reason, expectedVersion } = parsedBody(
+      contentModerationCommands['profile_text.remove'],
+      body,
+    );
+    return {
+      action: 'profile_text.remove',
+      profileId: id,
+      expectedVersion,
+      field,
+      reason,
+    };
+  },
   setAudienceBan: (id: string, body: Uint8Array): ContentModerationChange => ({
     action: 'account.audience_ban.update',
     userId: id,
@@ -337,6 +424,46 @@ async function listRebuildable(
   });
 }
 
+async function listPhotoReviews(
+  deps: Deps,
+  principal: AuthorizationPrincipal,
+): Promise<ProfilePhotoReviews> {
+  requireCapability(principal, 'profile_photo.review.read');
+  return profilePhotoReviewsSchema.parse({
+    items: await deps.store.listProfilePhotoReviews(),
+  });
+}
+
+/**
+ * The largest 512px rendition an operator read carries: its base64 text
+ * stays within the response schema's bound (4/3 of the bytes).
+ */
+const OPERATOR_PHOTO_MAX_BYTES = 750_000;
+
+/** A live photo's 512px rendition, for an operator to look at (ADR 0142). */
+async function readPhoto(
+  deps: Deps,
+  principal: AuthorizationPrincipal,
+  photoId: string,
+): Promise<OperatorProfilePhoto> {
+  requireCapability(principal, 'profile_photo.review.read');
+  if (!deps.profilePhotos) throw createAppError('INFRASTRUCTURE');
+  const photo = await deps.store.readOperatorProfilePhoto(photoId);
+  if (!photo) throw createAppError('NOT_FOUND');
+  const bytes = await deps.profilePhotos.read(
+    photoObjectKey(photo.objectPrefix, 512),
+    OPERATOR_PHOTO_MAX_BYTES,
+  );
+  if (bytes.byteLength > OPERATOR_PHOTO_MAX_BYTES)
+    throw createAppError('INFRASTRUCTURE');
+  return operatorProfilePhotoSchema.parse({
+    photoId,
+    status: photo.status,
+    version: photo.version,
+    imageWebpBase64: Buffer.from(bytes).toString('base64'),
+  });
+}
+
 async function runCommand(
   deps: Deps,
   principal: AuthorizationPrincipal,
@@ -387,6 +514,10 @@ export function contentModerationRoute(
       return readReport(deps, principal, id!);
     case 'listRebuildableRecordings':
       return listRebuildable(deps, principal);
+    case 'listProfilePhotoReviews':
+      return listPhotoReviews(deps, principal);
+    case 'readProfilePhoto':
+      return readPhoto(deps, principal, id!);
     default:
       return runCommand(
         deps,

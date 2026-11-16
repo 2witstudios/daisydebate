@@ -41,6 +41,25 @@ export type ContentModerationRequest =
     }
   | { readonly action: 'chat_message.remove'; readonly targetId: string }
   | {
+      readonly action: 'profile_photo.review';
+      readonly targetId: string;
+      readonly expectedVersion: number;
+      readonly outcome: 'approve' | 'reject';
+    }
+  | {
+      readonly action: 'profile_photo.remove';
+      readonly targetId: string;
+      readonly expectedVersion: number;
+      readonly reason: string;
+    }
+  | {
+      readonly action: 'profile_text.remove';
+      readonly targetId: string;
+      readonly expectedVersion: number;
+      readonly field: 'display_name' | 'bio';
+      readonly reason: string;
+    }
+  | {
       readonly action: 'account.audience_ban.update';
       readonly targetId: string;
       readonly state: 'banned' | 'lifted';
@@ -60,19 +79,35 @@ const paths: Readonly<Record<ContentModerationAction, (id: string) => string>> =
       `/operator/v1/recordings/${id}/legal-removal`,
     'recording.rebuild': (id) => `/operator/v1/recordings/${id}/rebuild`,
     'chat_message.remove': (id) => `/operator/v1/chat-messages/${id}/removal`,
+    'profile_photo.review': (id) => `/operator/v1/profile-photos/${id}/review`,
+    'profile_photo.remove': (id) => `/operator/v1/profile-photos/${id}/removal`,
+    'profile_text.remove': (id) => `/operator/v1/profiles/${id}/text-removal`,
     'account.audience_ban.update': (id) =>
       `/operator/v1/accounts/${id}/audience-ban`,
   };
 
+/** The closed value an intent records beyond its target, if any. */
+const auditedValue = (request: ContentModerationRequest): string | null =>
+  request.action === 'recording.legal_remove'
+    ? request.reason
+    : request.action === 'profile_photo.review'
+      ? request.outcome
+      : request.action === 'profile_text.remove'
+        ? request.field
+        : null;
+
 /**
  * What the audit chain records before a command is signed: the action and its target
  * id, closed, naming no person's content. A legal removal outruns every hold, so its
- * closed legal ground is on the record too.
+ * closed legal ground is on the record too. A photo review records which way it
+ * went, and a text removal which field it cleared: one target, two different acts.
  */
-export const auditedIntent = (request: ContentModerationRequest): string =>
-  request.action === 'recording.legal_remove'
-    ? `${request.action}:${request.targetId}:${request.reason}`
-    : `${request.action}:${request.targetId}`;
+export const auditedIntent = (request: ContentModerationRequest): string => {
+  const value = auditedValue(request);
+  return value === null
+    ? `${request.action}:${request.targetId}`
+    : `${request.action}:${request.targetId}:${value}`;
+};
 
 /** Where a request goes, and the command body it signs. */
 export function contentModerationCall(

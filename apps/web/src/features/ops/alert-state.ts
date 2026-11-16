@@ -38,6 +38,7 @@ export const ALERT_THRESHOLDS = {
     privacy_jobs: 2 * 60 * MINUTE_MS,
     billing_cleanup: 2 * 60 * MINUTE_MS,
     messaging_file_maintenance: 2 * 60 * MINUTE_MS,
+    profile_photo_deletions: 2 * 60 * MINUTE_MS,
   } satisfies Record<ScheduledWorkerName, number>,
   /**
    * ISSUE-220: handed-off auth mail work shed past its bound (512 holding
@@ -109,6 +110,7 @@ const WORKER_ALERT_IDS = {
   privacy_jobs: 'privacy_jobs_missed',
   billing_cleanup: 'billing_cleanup_missed',
   messaging_file_maintenance: 'file_maintenance_missed',
+  profile_photo_deletions: 'profile_photo_deletions_missed',
 } as const satisfies Record<ScheduledWorkerName, string>;
 type WorkerAlertId = (typeof WORKER_ALERT_IDS)[ScheduledWorkerName];
 
@@ -138,6 +140,7 @@ const RUNBOOK_ANCHOR = {
   privacy_jobs_missed: '#scheduled-worker-missed',
   billing_cleanup_missed: '#scheduled-worker-missed',
   file_maintenance_missed: '#scheduled-worker-missed',
+  profile_photo_deletions_missed: '#scheduled-worker-missed',
   mail_shed: '#auth-mail-shed-past-the-bound',
   network_limited: '#magic-link-requests-limited-per-network',
 } as const satisfies Record<AlertConditionId, string>;

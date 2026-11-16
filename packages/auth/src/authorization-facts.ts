@@ -265,6 +265,11 @@ type PresenceSettingAuthorizationFact = {
   readonly kind: 'presence_setting';
   readonly actorId: string;
 };
+/** A member's own public profile: display name, bio and photo (ADR 0142). */
+type PublicProfileAuthorizationFact = {
+  readonly kind: 'public_profile';
+  readonly actorId: string;
+};
 /**
  * A member's own profile history, private Rounds included (ISSUE-600):
  * the subject is the member whose profile is read.
@@ -289,6 +294,7 @@ export type AuthorizationInput = {
     | RatingVisibilityAuthorizationFact
     | ModerationNoticeAuthorizationFact
     | PresenceSettingAuthorizationFact
+    | PublicProfileAuthorizationFact
     | MemberHistoryAuthorizationFact
     | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact

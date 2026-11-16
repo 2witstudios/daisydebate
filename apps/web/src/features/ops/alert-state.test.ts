@@ -274,9 +274,14 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       runningWorkers({ fileMaintenanceIntervalMs }).map(({ name }) => name);
     assert({
       given: 'no configured file maintenance',
-      should: 'expect the three always-on workers',
+      should: 'expect the four always-on workers',
       actual: names(null),
-      expected: ['observation_purges', 'privacy_jobs', 'billing_cleanup'],
+      expected: [
+        'observation_purges',
+        'privacy_jobs',
+        'billing_cleanup',
+        'profile_photo_deletions',
+      ],
     });
     assert({
       given: 'configured file maintenance',
@@ -287,14 +292,16 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
         'privacy_jobs',
         'billing_cleanup',
         'messaging_file_maintenance',
+        'profile_photo_deletions',
       ],
     });
     const DAY_MS = 86_400_000;
     assert({
       given: 'a daily maintenance interval',
       should: 'allow three intervals before it counts as missed',
-      actual: runningWorkers({ fileMaintenanceIntervalMs: DAY_MS }).at(-1)
-        ?.missedAfterMs,
+      actual: runningWorkers({ fileMaintenanceIntervalMs: DAY_MS }).find(
+        ({ name }) => name === 'messaging_file_maintenance',
+      )?.missedAfterMs,
       expected: 3 * DAY_MS,
     });
   });
