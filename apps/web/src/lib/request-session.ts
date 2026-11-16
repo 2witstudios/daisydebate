@@ -515,6 +515,7 @@ export const requestLeaguePage = async (
   const principal = identity.principal;
   const season = await readLeagueSeason({ store, authorize })(principal, {
     organizationId,
+    ...(address.lobbyId ? { lobbyId: address.lobbyId } : {}),
     ...(input.seasonId ? { seasonId: input.seasonId } : {}),
     ...(input.templateId ? { templateId: input.templateId } : {}),
   });
