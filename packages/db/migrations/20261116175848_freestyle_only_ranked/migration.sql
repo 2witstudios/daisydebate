@@ -14,7 +14,8 @@ CREATE TEMP TABLE deleted_rounds ON COMMIT DROP AS
 -- find it from its rows. Dropping a row whose media remains would orphan it,
 -- so the operator removes these recordings and withdraws these feeds first
 -- (docs/operations/database.md, ADR 0142), and this refuses until every
--- recording is removed, every capture has ended and every feed is withdrawn.
+-- recording is removed, every capture has ended and every broadcast is
+-- withdrawn and completed (completion follows the settled hold discard).
 -- A live media session would lose the row that closes its vendor room, so
 -- every Policy and Value Round's session must have ended too.
 DO $$
@@ -27,12 +28,13 @@ BEGIN
      WHERE round_id IN (SELECT id FROM deleted_rounds) AND ended_at IS NULL
   ) OR EXISTS (
     SELECT 1 FROM public.broadcasts
-     WHERE round_id IN (SELECT id FROM deleted_rounds) AND feed_withdrawn_at IS NULL
+     WHERE round_id IN (SELECT id FROM deleted_rounds)
+       AND (feed_withdrawn_at IS NULL OR completed_at IS NULL)
   ) OR EXISTS (
     SELECT 1 FROM public.media_sessions
      WHERE round_id IN (SELECT id FROM deleted_rounds) AND ended_at IS NULL
   ) THEN
-    RAISE EXCEPTION 'Freestyle only (ADR 0142) requires every Policy and Value recording removed, broadcast feed withdrawn and media session ended first: see docs/operations/database.md';
+    RAISE EXCEPTION 'Freestyle only (ADR 0142) requires every Policy and Value recording removed, broadcast withdrawn and completed and media session ended first: see docs/operations/database.md';
   END IF;
 END
 $$;--> statement-breakpoint

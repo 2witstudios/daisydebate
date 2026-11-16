@@ -154,9 +154,7 @@ test(
         .then(
           () => 'migrated',
           (error: unknown) =>
-            String(error).includes(
-              'requires every Policy and Value recording removed, broadcast feed withdrawn and media session ended first',
-            ),
+            String(error).includes('Freestyle only (ADR 0142) requires'),
         );
       assert({
         given:
@@ -259,3 +257,74 @@ test(
   },
   ddlTimeoutMs * 4,
 );
+
+/** Each guard clause, alone, holds the migration back (ADR 0142). */
+const blockers: readonly {
+  readonly name: string;
+  readonly seed: (f: Fixture, roundId: string) => Promise<unknown>;
+}[] = [
+  {
+    name: 'a recording that is not removed',
+    seed: (f, roundId) =>
+      f.sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
+        values (${createId()},${roundId},'casual',${{ kind: 'casual_opted_in', hostActorId: createId() }},'ready',${{ status: 'ready' }})`,
+  },
+  {
+    name: 'a capture that has not ended',
+    seed: async (f, roundId) => {
+      const recordingId = createId();
+      await f.sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
+        values (${recordingId},${roundId},'casual',${{ kind: 'casual_opted_in', hostActorId: createId() }},'removed',${{ status: 'removed', cause: 'participant_request', requestedAt: '2026-10-02T00:00:00.000Z', removedAt: '2026-10-02T00:10:00.000Z' }})`;
+      await f.sql`insert into recording_captures (recording_id, round_id) values (${recordingId}, ${roundId})`;
+    },
+  },
+  {
+    name: 'a broadcast whose feed is withdrawn but which has not completed',
+    seed: (f, roundId) =>
+      f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,stopped_at,stop_reason,feed_withdrawn_at)
+        values (${createId()},${roundId},${createId()},${JSON.stringify({ kind: 'delay', delayMs: 15_000 })}::text::jsonb,now(),'policy_violation',now())`,
+  },
+  {
+    name: 'a media session that has not ended',
+    seed: (f, roundId) =>
+      f.sql`insert into media_sessions (id,round_id,room_name) values (${createId()},${roundId},${`room-${createId()}`})`,
+  },
+];
+
+for (const blocker of blockers)
+  test(
+    `the migration refuses while a Value Round has ${blocker.name}`,
+    async () => {
+      const guarded = scratchDatabase(url, 'freestyleguard');
+      try {
+        await guarded.create();
+        await guarded.migrate((folder) => folder < migration);
+        const client = new SQL(guarded.url);
+        const f = new Fixture(client);
+        try {
+          const roundId = await f.round({ format_id: 'value' });
+          await blocker.seed(f, roundId);
+          const refused = await guarded
+            .migrate((folder) => folder <= migration)
+            .then(
+              () => false,
+              (error: unknown) =>
+                String(error).includes('Freestyle only (ADR 0142) requires'),
+            );
+          const [left] = await f.sql`
+            select count(*)::int as rounds from rounds where id = ${roundId}`;
+          assert({
+            given: `a Value Round with ${blocker.name}`,
+            should: 'refuse the migration and keep the Round',
+            actual: { refused, left },
+            expected: { refused: true, left: { rounds: 1 } },
+          });
+        } finally {
+          await client.close();
+        }
+      } finally {
+        await guarded.drop();
+      }
+    },
+    ddlTimeoutMs * 4,
+  );
