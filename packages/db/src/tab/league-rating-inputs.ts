@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { settings } from '../schema/settings';
+import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { ladders } from '../schema/ladders';
@@ -8,7 +9,7 @@ import { rounds } from '../schema/rounds';
 import { roundFinalizations } from '../schema/round-finalizations';
 import { roundParticipants } from '../schema/round-participants';
 import { scopeTransaction } from '../tenant-scope';
-import { loadLeagueEvents } from './league-events';
+import { loadLeagueCertifiedRatingInputs } from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -77,7 +78,7 @@ export async function loadLeagueRatingInputs(
           ),
         )
     : [];
-  const tournaments = await loadLeagueEvents(tx, {
+  const tournaments = await loadLeagueCertifiedRatingInputs(tx, {
     viewerUserId: input.viewerUserId,
     organizationId: home.ladder.organizationId,
   });
@@ -86,7 +87,13 @@ export async function loadLeagueRatingInputs(
     ...new Set([
       ...participants.map((row) => row.actorId),
       ...tournaments.flatMap((row) =>
-        row.competition.members.map((member) => member.actorId),
+        row.competitionRecord.kind === 'decided'
+          ? row.competitionRecord.cast
+              .filter((member) => member.entryId !== null)
+              .map((member) => member.actorId)
+          : row.competitionRecord.fixture.entries.flatMap(
+              (entry) => entry.members,
+            ),
       ),
     ]),
   ];
@@ -97,7 +104,32 @@ export async function loadLeagueRatingInputs(
         .innerJoin(users, eq(users.id, actors.userId))
         .where(inArray(actors.id, actorIds))
     : [];
-  return { ...home, roomRounds, participants, tournaments, actors: actorRows };
+  const postingSettings = await tx
+    .select()
+    .from(settings)
+    .where(
+      and(
+        eq(settings.key, 'audience.posting'),
+        or(
+          and(
+            eq(settings.scopeKind, 'organization'),
+            eq(settings.organizationId, home.ladder.organizationId),
+          ),
+          and(
+            eq(settings.scopeKind, 'lobby'),
+            eq(settings.lobbyId, home.lobby.id),
+          ),
+        ),
+      ),
+    );
+  return {
+    ...home,
+    roomRounds,
+    participants,
+    tournaments,
+    actors: actorRows,
+    postingSettings,
+  };
 }
 export type LeagueRatingInputs = NonNullable<
   Awaited<ReturnType<typeof loadLeagueRatingInputs>>

@@ -1,7 +1,12 @@
+import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
 import { assembleRoom } from '@daisy/db/room-assembly';
 import { validRules } from '@daisy/db/testing';
 import { createTabStore } from '@daisy/db/tab';
-import { roomConfigSchema, emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import {
+  roomConfigSchema,
+  freezeRoomConfig,
+  emptyRuntimeCheckpointFor,
+} from '@daisy/protocol';
 import { activeRoomMembers } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { authorize } from '@daisy/auth/authorization';
@@ -92,15 +97,40 @@ export async function leagueRoomRating(world: World) {
     actual: room!.league_ladder_id,
     expected: ladder!.id,
   });
+  const [currentLobby] =
+    await world.sql`select version from lobbies where id=${lobbyId}`;
+  const disabled = await lobbyAdministrationCommand({
+    store,
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  })(principal, {
+    version: 1,
+    commandId: createId(),
+    expected: { lobby: Number(currentLobby!.version) },
+    command: {
+      type: 'set-ladder',
+      organizationId: world.made.get('league')!,
+      lobbyId,
+      ladder: { enabled: false },
+    },
+  });
+  assert({
+    given: 'a ladder frozen by a stored league Room',
+    should: 'refuse deletion without a foreign-key exception',
+    actual: disabled,
+    expected: { kind: 'refused', refusal: 'ladder-in-use' },
+  });
   const roundId = createId();
   const commandId = createId();
   const at = world.clock.advance(1);
-  await world.sql`insert into rounds(id,room_id,league_ladder_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,started_at,completed_at,winning_side,runtime_state) values(${roundId},${roomId},${ladder!.id},'League proof','casual','freestyle',1,${validRules},'completed',${at},${at},'affirmative',${emptyRuntimeCheckpointFor(validRules)})`;
+  await world.sql`insert into rounds(id,room_id,room_config_snapshot,visibility,created_by_actor_id,league_ladder_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,started_at,completed_at,winning_side,runtime_state) values(${roundId},${roomId},${freezeRoomConfig(config)},'unlisted',${principal.actorId},${ladder!.id},'League proof','casual','freestyle',1,${validRules},'opening',null,null,null,${emptyRuntimeCheckpointFor(validRules)})`;
   for (const [side, actorId] of [
     ['affirmative', world.bots['Debater 1']!.actorId],
     ['negative', world.bots['Debater 2']!.actorId],
   ])
     await world.sql`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot) values(${createId()},${roundId},${actorId!},'side',${side!},0)`;
+  await world.sql`update rounds set status='completed',started_at=${at},completed_at=${at},winning_side='affirmative' where id=${roundId}`;
   await world.sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${principal.actorId},'forfeit',${'a'.repeat(64)},${{}},1,${at})`;
   await world.sql`insert into round_finalizations(round_id,command_id,resulting_version) values(${roundId},${commandId},1)`;
   const after = await read(principal, { lobbyId });

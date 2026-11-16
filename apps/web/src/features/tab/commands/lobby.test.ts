@@ -497,7 +497,7 @@ describe('set-ladder', () => {
       should: 'insert the ladder, then delete it, moving the lobby version',
       actual: [
         writesOf(facts(), enable),
-        writesOf(facts({ ladder: { id: id('d') } }), disable),
+        writesOf(facts({ ladder: { id: id('d'), inUse: false } }), disable),
       ],
       expected: [
         {
@@ -538,6 +538,17 @@ describe('set-ladder', () => {
       ],
     });
   });
+  test('keeps a ladder named by immutable Room history', () => {
+    assert({
+      given: 'a ladder selected by an existing Room',
+      should: 'refuse disabling by name before any delete',
+      actual: refusalOf(
+        facts({ ladder: { id: id('d'), inUse: true } }),
+        disable,
+      ),
+      expected: 'ladder-in-use',
+    });
+  });
   test('names each refusal', () => {
     assert({
       given:
@@ -549,7 +560,7 @@ describe('set-ladder', () => {
           facts({ lobby: { ...standing, ownerOrganizationId: id('x') } }),
           enable,
         ),
-        refusalOf(facts({ ladder: { id: id('d') } }), enable),
+        refusalOf(facts({ ladder: { id: id('d'), inUse: false } }), enable),
         refusalOf(facts(), disable),
       ],
       expected: [

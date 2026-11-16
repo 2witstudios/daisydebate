@@ -91,7 +91,7 @@ export type LobbyFacts = {
   readonly activeSeasonId: string | null;
   readonly season: SeasonFact | null;
   /** The lobby's ladder, if it has one. */
-  readonly ladder: { readonly id: string } | null;
+  readonly ladder: { readonly id: string; readonly inUse: boolean } | null;
   readonly room: LobbyRoomFacts;
 };
 
@@ -428,6 +428,8 @@ const setLadder = (
         change,
         bump(lobby, version),
       ]);
+    if (!command.ladder.enabled && ladder?.inUse)
+      return refuse('ladder-in-use');
     if (!command.ladder.enabled)
       return ladder === null
         ? refuse('ladder-unchanged')

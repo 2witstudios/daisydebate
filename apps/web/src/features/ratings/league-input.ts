@@ -3,10 +3,11 @@ import {
   ladderInput,
   type LadderGame,
   type LadderInput,
-  type StageHistory,
+  type ResultOf,
   type TwoSides,
 } from '@daisy/tab-engine';
-import { eventCompetition } from '../tab/operations/event-competition';
+import { projectResultCompetition } from '../tab/commands/result-projection';
+import { createAppError } from '@daisy/errors';
 
 /** Consume only the league's received, certified tournament output and own frozen Rooms. */
 export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
@@ -38,41 +39,63 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       },
     ];
   });
-  const tournaments: LadderInput['tournaments'][number][] =
-    input.tournaments.flatMap(({ competition, certifiedAt }) => {
-      if (certifiedAt === null) return [];
-      const folded = eventCompetition(competition, {
-        stageIds: competition.stages.map((stage) => stage.id),
-        cutoff: Number.MAX_SAFE_INTEGER,
-        division: null,
-        seed: new TextEncoder().encode(competition.configuration.event.id),
+  const fixtures = new Map<string, (typeof input.tournaments)[number][]>();
+  for (const record of input.tournaments)
+    fixtures.set(record.fixtureId, [
+      ...(fixtures.get(record.fixtureId) ?? []),
+      record,
+    ]);
+  const tournaments: LadderInput['tournaments'][number][] = [
+    ...fixtures.values(),
+  ].flatMap((records) => {
+    const latest = records.at(-1)!;
+    const record = latest.competitionRecord;
+    if (
+      record.fixture.kind !== 'pairing' ||
+      record.fixture.entries.length !== 2
+    )
+      return [];
+    const members = (entryId: string) =>
+      record.kind === 'decided'
+        ? record.cast
+            .filter((person) => person.entryId === entryId)
+            .map((person) => person.actorId)
+        : record.fixture.entries.find((entry) => entry.entryId === entryId)!
+            .members;
+    const sides = record.fixture.entries.map((entry) => entry.entryId);
+    const projected = records.flatMap((row) => {
+      const projected = projectResultCompetition(row.competitionRecord, {
+        id: row.id,
+        fixture: row.fixtureId,
+        supersedes: row.supersedesResultId,
+        certified: true,
       });
-      if (folded.format.outcome !== 'winner') return [];
-      const history = folded.history as StageHistory<TwoSides>;
+      if (projected.kind !== 'projected')
+        throw createAppError(
+          'INVARIANT',
+          'Certified rating input cannot be projected',
+        );
+      if (projected.projection.engine.outcome.kind !== 'winner') return [];
       return [
         {
-          event: competition.configuration.event.id,
-          sanctioned: true,
-          entries: folded.entries,
-          results: history.results.flatMap((result) => {
-            const fixture = history.fixtures.find(
-              (row) => row.id === result.fixture,
-            )?.fixture;
-            const retained = competition.results.find(
-              (row) => row.id === result.id,
-            );
-            if (
-              fixture?.kind !== 'pairing' ||
-              fixture.sides.length !== 2 ||
-              !retained
-            )
-              return [];
-            return [
-              { result, fixture, playedAt: retained.recordedAt.toISOString() },
-            ];
-          }),
+          result: projected.projection.engine as ResultOf<TwoSides>,
+          fixture: {
+            kind: 'pairing' as const,
+            sides: [sides[0]!, sides[1]!] as const,
+            panel: [],
+          },
+          playedAt: row.playedAt.toISOString(),
         },
       ];
     });
+    return [
+      {
+        event: latest.eventId,
+        sanctioned: true,
+        entries: sides.map((id) => ({ id, members: members(id) })),
+        results: projected,
+      },
+    ];
+  });
   return ladderInput({ rooms, tournaments });
 }

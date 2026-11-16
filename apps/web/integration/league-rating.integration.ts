@@ -1,3 +1,4 @@
+import { leagueRatingCorrection } from './league-rating-correction.test-support';
 import { leagueRoomRating } from './league-room-rating.test-support';
 import { requireTestServices } from '@daisy/config';
 import {
@@ -75,8 +76,9 @@ test('league ratings replay certified inputs and freeze the later tournament see
     await owner`insert into sanctions (id,organization_id,lobby_id,event_id,season_id,template_id,status,decided_at) values (${createId()},${world.made.get('league')!},${world.made.get('tournament-lobby')!},${world.made.get('event')!},${season!.id},${world.made.get('league-template')!},'approved',${world.clock.now()})`;
     await leagueRoomRating(world);
     await ratingStage(world);
+    await leagueRatingCorrection(world);
   } finally {
     await owner.close();
     await scratch.drop();
   }
-}, 90_000);
+}, 180_000);

@@ -1,3 +1,6 @@
+import { resolveSetting, roomChain } from '@daisy/protocol/setting-resolution';
+import { audiences } from '@daisy/protocol/lobby';
+import { settingRow } from '../tab/operations/setting-facts';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -33,11 +36,34 @@ export const readLeagueLadder =
       async (facts) => {
         if (!facts) return null;
         const { authority } = facts;
-        const resource = hostLobbyResource(
+        const hosted = hostLobbyResource(
           authority.lobby,
           authority.authorization.organization,
           authority.ownerActorId,
         );
+        if (hosted.kind !== 'lobby') return null;
+        const posting = resolveSetting(
+          'audience.posting',
+          roomChain({
+            organizationId: facts.input.ladder.organizationId,
+            lobbyId: facts.input.lobby.id,
+            templateId: null,
+          }),
+          facts.input.postingSettings.map(settingRow),
+        ).value;
+        const resource = {
+          ...hosted,
+          viewing: {
+            audiences:
+              authority.authorization.membership === 'active'
+                ? ['participants' as const]
+                : [],
+            releases: [],
+          },
+          postingAudiences: audiences.filter(
+            (audience) => posting[audience] !== 'never',
+          ),
+        };
         if (
           !dependencies.authorize({
             principal,

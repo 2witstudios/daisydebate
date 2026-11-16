@@ -386,6 +386,7 @@ export const lobbySetupRefusals = [
   'season-closed',
   'ladder-foreign',
   'ladder-unchanged',
+  'ladder-in-use',
   'setting-enforced',
   'template-not-offered',
   'template-required',
@@ -475,7 +476,12 @@ export const lobbySetupCommandCatalogue = {
     aggregate: 'lobby',
     gate: ['organization.manage'],
     versions: ['lobby'],
-    refusals: ['ladder-foreign', 'lobby-not-standing', 'ladder-unchanged'],
+    refusals: [
+      'ladder-foreign',
+      'lobby-not-standing',
+      'ladder-unchanged',
+      'ladder-in-use',
+    ],
     history: 'entry',
   },
   'create-lobby-room': {

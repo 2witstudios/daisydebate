@@ -44,6 +44,14 @@ export async function ratingStage(world: World): Promise<void> {
     ],
     expected: [null, null],
   });
+  assert({
+    given: 'the active Coach member without a host grant',
+    should:
+      'read the ladder through the resolved participants posting audience',
+    actual: (await read(as(world.bots.Coach!), { lobbyId: standingLobbyId }))
+      ?.entrants,
+    expected: before.entrants,
+  });
   const daisyBefore =
     await world.sql`select count(*)::int as count from rating_changes`;
   const created = await lobbyAdministrationCommand(common)(director, {
@@ -78,84 +86,92 @@ export async function ratingStage(world: World): Promise<void> {
     lobbyVersion = answer.receipt.resultingVersion;
     return answer.receipt.aggregate.id;
   };
-  await acceptSetup({
-    type: 'add-event',
-    lobbyId,
-    name: 'Rated singles',
-    label: null,
-    entry: { kind: 'person' },
-    pin: { kind: 'template', templateId: world.made.get('league-template')! },
-  });
-  const [event] =
-    await world.sql`select id from events where lobby_id=${lobbyId}`;
-  const eventId = String(event!.id);
-  await acceptSetup({
-    type: 'add-stage',
-    lobbyId,
-    eventId,
-    kind: 'elimination',
-    place: 'online',
-    timing: { timing: 'live' },
-    division: null,
-  });
-  const [stage] =
-    await world.sql`select id from stages where event_id=${eventId}`;
-  await acceptSetup({
-    type: 'add-tab-round',
-    lobbyId,
-    stageId: String(stage!.id),
-    name: 'Semifinals',
-    resolution: null,
-  });
-  const [round] =
-    await world.sql`select id from tab_rounds where event_id=${eventId}`;
-  const roundId = String(round!.id);
-  let settingsVersion = 1;
-  const settings = settingCommand(common);
-  for (const [key, value] of [
-    ['standings.rating_ladder', { ladderId }],
-    ['break.seeding', { value: 'rating' }],
-    ['break.line', { default: { kind: 'fixed', size: 4 }, byDivision: {} }],
-    ['entry.registration', { state: 'open' }],
-    ['entry.approval', { value: 'automatic' }],
-  ] as const) {
-    const answer = await settings(director, {
-      version: 1,
-      commandId: createId(),
-      expected: { settings: settingsVersion },
-      command: {
-        type: 'set-setting',
-        scope: { kind: 'event', id: eventId },
-        key,
-        value,
-        hold: 'default',
-      } as SettingCommand,
+  const prepareRatedEvent = async (name: string) => {
+    await acceptSetup({
+      type: 'add-event',
+      lobbyId,
+      name,
+      label: null,
+      entry: { kind: 'person' },
+      pin: { kind: 'template', templateId: world.made.get('league-template')! },
     });
-    if (answer.kind !== 'accepted')
-      throw new StageFailed(`rating setting ${key}: ${JSON.stringify(answer)}`);
-    settingsVersion += 1;
-  }
-  const enroll = entryEnrollmentCommand(common);
-  let entriesVersion = 1;
-  for (const name of ['Debater 1', 'Debater 2', 'Debater 3', 'Debater 4']) {
-    const person = world.bots[name]!;
-    const answer = await enroll(as(person), lobbyId, {
-      version: 1,
-      commandId: createId(),
-      expected: { entries: entriesVersion },
-      command: {
-        type: 'submit-entry',
-        eventId,
-        name,
-        memberActorIds: [person.actorId],
-        responsible: { kind: 'self' },
-        division: null,
-      },
+    const [event] =
+      await world.sql`select id from events where lobby_id=${lobbyId} and name=${name}`;
+    const eventId = String(event!.id);
+    await acceptSetup({
+      type: 'add-stage',
+      lobbyId,
+      eventId,
+      kind: 'elimination',
+      place: 'online',
+      timing: { timing: 'live' },
+      division: null,
     });
-    if (answer.kind !== 'accepted')
-      throw new StageFailed(`rating entry: ${JSON.stringify(answer)}`);
-    entriesVersion += 1;
-  }
+    const [stage] =
+      await world.sql`select id from stages where event_id=${eventId}`;
+    await acceptSetup({
+      type: 'add-tab-round',
+      lobbyId,
+      stageId: String(stage!.id),
+      name: 'Semifinals',
+      resolution: null,
+    });
+    const [round] =
+      await world.sql`select id from tab_rounds where event_id=${eventId}`;
+    const roundId = String(round!.id);
+    let settingsVersion = 1;
+    const settings = settingCommand(common);
+    for (const [key, value] of [
+      ['standings.rating_ladder', { ladderId }],
+      ['break.seeding', { value: 'rating' }],
+      ['break.line', { default: { kind: 'fixed', size: 4 }, byDivision: {} }],
+      ['entry.registration', { state: 'open' }],
+      ['entry.approval', { value: 'automatic' }],
+    ] as const) {
+      const answer = await settings(director, {
+        version: 1,
+        commandId: createId(),
+        expected: { settings: settingsVersion },
+        command: {
+          type: 'set-setting',
+          scope: { kind: 'event', id: eventId },
+          key,
+          value,
+          hold: 'default',
+        } as SettingCommand,
+      });
+      if (answer.kind !== 'accepted')
+        throw new StageFailed(
+          `rating setting ${key}: ${JSON.stringify(answer)}`,
+        );
+      settingsVersion += 1;
+    }
+    const enroll = entryEnrollmentCommand(common);
+    let entriesVersion = 1;
+    for (const name of ['Debater 1', 'Debater 2', 'Debater 3', 'Debater 4']) {
+      const person = world.bots[name]!;
+      const answer = await enroll(as(person), lobbyId, {
+        version: 1,
+        commandId: createId(),
+        expected: { entries: entriesVersion },
+        command: {
+          type: 'submit-entry',
+          eventId,
+          name,
+          memberActorIds: [person.actorId],
+          responsible: { kind: 'self' },
+          division: null,
+        },
+      });
+      if (answer.kind !== 'accepted')
+        throw new StageFailed(`rating entry: ${JSON.stringify(answer)}`);
+      entriesVersion += 1;
+    }
+    return { eventId, roundId, settingsVersion, entriesVersion };
+  };
+  const { eventId, roundId, settingsVersion, entriesVersion } =
+    await prepareRatedEvent('Rated singles');
+  const parallelEvent = await prepareRatedEvent('Parallel rated singles');
   const generate = drawCommand({ ...common, competition: drawCompetition });
   const envelope = {
     version: 1,
@@ -172,7 +188,32 @@ export async function ratingStage(world: World): Promise<void> {
       seed: 'fa'.repeat(32),
     },
   };
-  const answer = await generate(director, lobbyId, envelope);
+  const [answer, parallel] = await Promise.all([
+    generate(director, lobbyId, envelope),
+    generate(director, lobbyId, {
+      ...envelope,
+      commandId: createId(),
+      expected: {
+        ...envelope.expected,
+        entries: parallelEvent.entriesVersion,
+        settings: parallelEvent.settingsVersion,
+      },
+      command: { ...envelope.command, tabRoundId: parallelEvent.roundId },
+    }),
+  ]);
+  assert({
+    given: 'concurrent first draws for two events in one tournament',
+    should:
+      'serialize without deadlock and accept both against one frozen snapshot',
+    actual: [
+      answer.kind,
+      parallel.kind,
+      (
+        await world.sql`select count(*)::int as count from tournament_rating_snapshots where lobby_id=${lobbyId}`
+      )[0]!.count,
+    ],
+    expected: ['accepted', 'accepted', 1],
+  });
   if (answer.kind !== 'accepted')
     throw new StageFailed(`rating draw: ${JSON.stringify(answer)}`);
   const [stored] =
