@@ -171,11 +171,27 @@ export async function leagueRoomRating(world: World) {
     },
     { databaseUrl: world.runtimeDatabaseUrl },
   );
-  const after = await read(principal, { lobbyId });
   const games = (actorId: string, lines: typeof before) => {
     const row = lines?.lines.find((row) => row.actorId === actorId);
     return row ? row.wins + row.losses : 0;
   };
+  // A check-in writer still in doubt is a Round Daisy refuses to rate
+  // (`check-in-pending`): the league ladder refuses it on the same facts.
+  const attemptId = createId();
+  await world.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,backend_pid,backend_started_at)
+    values (${attemptId},${createId()},${roundId},${'0'.repeat(64)},${world.bots['Debater 1']!.actorId},1,now())`;
+  const pending = await read(principal, { lobbyId });
+  assert({
+    given: 'a forfeited league Round whose check-in writer is still in doubt',
+    should: 'count on the league ladder for no competitor, as Daisy rates it',
+    actual: [world.bots['Debater 1']!, world.bots['Debater 2']!].map(
+      (person) =>
+        games(person.actorId, pending) - games(person.actorId, before),
+    ),
+    expected: [0, 0],
+  });
+  await world.sql`update round_check_in_attempts set state='aborted',resolved_at=now() where attempt_id=${attemptId}`;
+  const after = await read(principal, { lobbyId });
   assert({
     given: 'a finalized own-lobby result and its frozen actor seats',
     should:

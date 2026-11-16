@@ -8,16 +8,21 @@ import {
 } from '@daisy/tab-engine';
 import { projectResultCompetition } from '../tab/commands/result-projection';
 import { createAppError } from '@daisy/errors';
+import { endingRating } from '@daisy/debate-engine';
 
 /** Consume only the league's received, certified tournament output and own frozen Rooms. */
 export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
   const rooms: LadderGame[] = input.roomRounds.flatMap((round) => {
     const [first, second] = round.rules.sides;
+    // Daisy's own rule for whether an ending rates: a Round Daisy refuses
+    // (unrecorded, unjudged, check-in pending, attendance unsettled, no
+    // winner) counts on no league ladder either. An unreadable row never rates.
+    const rated = round.ending ? endingRating(round.ending) : null;
     if (
+      rated?.kind !== 'rated' ||
       round.rules.sides.length !== 2 ||
       !first ||
-      !second ||
-      !round.completedAt
+      !second
     )
       return [];
     const sides = [first, second].map((side) =>
@@ -27,15 +32,15 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
         )
         .map((person) => person.actorId),
     );
-    if (round.winningSide !== first.key && round.winningSide !== second.key)
-      return [];
+    const { side } = rated.outcome;
+    if (side !== first.key && side !== second.key) return [];
     return [
       {
         result: round.id,
         source: 'league_room',
-        playedAt: round.completedAt.toISOString(),
+        playedAt: rated.occurredAt,
         sides: [sides[0]!, sides[1]!],
-        winner: round.winningSide === first.key ? 0 : 1,
+        winner: side === first.key ? 0 : 1,
       },
     ];
   });

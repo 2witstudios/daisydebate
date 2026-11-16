@@ -54,6 +54,7 @@ export {
   isProvisional,
 } from './rating';
 export {
+  endingRating,
   planRating,
   ratingAwaited,
   ratingEligibility,

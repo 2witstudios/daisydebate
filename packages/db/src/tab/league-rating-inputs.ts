@@ -1,13 +1,13 @@
 import { settings } from '../schema/settings';
-import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { ladders } from '../schema/ladders';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { rounds } from '../schema/rounds';
-import { roundFinalizations } from '../schema/round-finalizations';
 import { roundParticipants } from '../schema/round-participants';
+import { readEndingRatingFacts } from '../rating-discovery';
 import { scopeTransaction } from '../tenant-scope';
 import { loadLeagueCertifiedRatingInputs } from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
@@ -42,24 +42,30 @@ export async function loadLeagueRatingInputs(
     lobbyId: home.lobby.id,
   };
   await scopeTransaction(tx, scope);
-  const roomRounds = await tx
-    .select({
-      id: rounds.id,
-      winningSide: rounds.winningSide,
-      completedAt: rounds.completedAt,
-      rules: rounds.rulesSnapshot,
-    })
+  const completedRounds = await tx
+    .select({ id: rounds.id, rules: rounds.rulesSnapshot })
     .from(rounds)
-    .innerJoin(roundFinalizations, eq(roundFinalizations.roundId, rounds.id))
     .where(
       and(
         eq(rounds.leagueLadderId, home.ladder.id),
         eq(rounds.status, 'completed'),
-        isNotNull(rounds.completedAt),
-        isNotNull(rounds.winningSide),
       ),
     )
     .orderBy(asc(rounds.completedAt), asc(rounds.id));
+  // The same ending facts Daisy's ratings read: the engine's `endingRating`
+  // decides which of these Rounds the ladder counts.
+  const endings = new Map(
+    (
+      await readEndingRatingFacts(
+        tx,
+        completedRounds.map((round) => round.id),
+      )
+    ).map((read) => [read.roundId, read.facts]),
+  );
+  const roomRounds = completedRounds.map((round) => ({
+    ...round,
+    ending: endings.get(round.id) ?? null,
+  }));
   const participants = roomRounds.length
     ? await tx
         .select({

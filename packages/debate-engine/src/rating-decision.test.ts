@@ -8,6 +8,7 @@ import { sideSeat, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateDebate, ratingPolicy } from './rating';
 import {
+  endingRating,
   planRating,
   ratingAwaited,
   ratingEligibility,
@@ -191,6 +192,33 @@ describe('ratingEligibility over how the Round ended', () => {
       actual: ratingEligibility({ ...completed, attendance: unsettled }),
       expected: { kind: 'attendance-unsettled' },
     });
+  });
+});
+
+describe('endingRating', () => {
+  test('decides an ending exactly as a Daisy rating does, without reading a ladder', () => {
+    assert({
+      given: 'a completed judged Round',
+      should: 'rate its outcome at its completion',
+      actual: endingRating(completed),
+      expected: {
+        kind: 'rated',
+        outcome: winnerOutcome('affirmative'),
+        occurredAt: at,
+      },
+    });
+    for (const facts of [
+      { ending: 'unrecorded' },
+      { ending: 'unjudged' },
+      { attendance: unsettled },
+      { attendance: { ...completed.attendance, pendingWriter: true } },
+    ] as const)
+      assert({
+        given: `an ending Daisy refuses (${JSON.stringify(facts)})`,
+        should: 'refuse it for the same reason',
+        actual: endingRating({ ...completed, ...facts }),
+        expected: ratingEligibility({ ...completed, ...facts }),
+      });
   });
 });
 
