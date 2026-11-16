@@ -29,6 +29,7 @@ import {
 } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import { spectatorClockAt } from '../spectating/spectator-clock';
+import { withSeatRatings } from '../ratings/room-seat-ratings';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
@@ -66,6 +67,8 @@ export type Store = Pick<
   | 'readActiveRoomFacts'
   | 'readContentWaiverStanding'
   | 'readWatchableRoundOfRoom'
+  | 'readMemberCardRatings'
+  | 'readRatingBlindings'
 >;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
@@ -161,12 +164,21 @@ export function createRoomRuntimeOperations({
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
     return {
-      ...projectRoom(
-        state,
-        caller.actorId,
-        currentRoomConsent(consent, now),
+      ...(await withSeatRatings(
+        projectRoom(
+          state,
+          caller.actorId,
+          currentRoomConsent(consent, now),
+          now,
+        ),
+        {
+          // A seat's rating waits for the spectator timeline, as a card's does.
+          ratings: (actorIds) =>
+            store.readMemberCardRatings(actorIds, spectatorClockAt(now)),
+          blinded: () => store.readRatingBlindings(caller.actorId),
+        },
         now,
-      ),
+      )),
       aiJudgeSeating: await roomAiJudgeSeating(state, caller.actorId, () =>
         store.readOwnCasualJudgeAllowance(
           caller,

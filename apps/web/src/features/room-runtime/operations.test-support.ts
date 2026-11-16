@@ -91,6 +91,8 @@ export function makeOperations(
       reason: 'free-judge-unbound',
     }),
     readContentWaiverStanding: async () => 'signed',
+    readMemberCardRatings: async () => [],
+    readRatingBlindings: async () => [],
     listRoomCatalogSources: async (
       _caller: typeof caller,
       authorize: (fact: AccountAuthorizationFact) => boolean,

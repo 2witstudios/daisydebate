@@ -143,6 +143,7 @@ describe('who sees which resolution, stage by stage', () => {
         draw: started.mutation.draw!.state,
         prepMs: null,
         stops: [],
+        sides: null,
       },
     };
     const done = reveal(striking, ['other', 'aff', 'other', 'aff']);

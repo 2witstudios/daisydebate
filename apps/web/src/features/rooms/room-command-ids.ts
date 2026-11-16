@@ -14,12 +14,18 @@ export type RoomCommandIds = {
   };
   readonly settings: string;
   readonly capture: string;
+  /** Team 1's side (ADR 0143). */
+  readonly sides: string;
+  /** Who can join, from the page's Room controls. */
+  readonly visibility: string;
   /** Per declared seat, in `declaredSeats` order. */
   readonly seats: readonly {
     readonly claim: string;
     readonly assign: string;
     readonly remove: string;
     readonly ai: string;
+    /** The seated debater's team or position (ADR 0143). */
+    readonly move: string;
   }[];
   /** Choosing a standard, Back to the basis, and starting from a league template (FMT-3). */
   readonly format: {
@@ -51,8 +57,20 @@ export function roomCommandIds(
     assign: nextId(),
     remove: nextId(),
     ai: nextId(),
+    move: nextId(),
   }));
   const format = { choose: nextId(), reset: nextId(), template: nextId() };
   const capture = nextId();
-  return { header, readiness, settings, capture, seats, format };
+  const sides = nextId();
+  const visibility = nextId();
+  return {
+    header,
+    readiness,
+    settings,
+    capture,
+    sides,
+    visibility,
+    seats,
+    format,
+  };
 }

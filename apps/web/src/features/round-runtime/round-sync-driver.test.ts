@@ -109,7 +109,12 @@ describe('openingDeadline', () => {
       given: 'a strike with 15 s left and prep with 60 s left, read at 1000',
       should: 'read exactly when each runs out',
       actual: [
-        deadline({ step: { step: 'strike' }, draw, canStrike: false }),
+        deadline({
+          step: { step: 'strike' },
+          draw,
+          canStrike: false,
+          sides: null,
+        }),
         deadline({
           step: {
             step: 'prep',
@@ -119,6 +124,7 @@ describe('openingDeadline', () => {
           },
           draw: null,
           canStrike: false,
+          sides: null,
         }),
       ],
       expected: [16_000, 61_000],
@@ -135,11 +141,13 @@ describe('openingDeadline', () => {
           step: { step: 'complete', at: '2026-10-12T00:00:00.000Z' },
           draw: null,
           canStrike: false,
+          sides: null,
         }),
         deadline({
           step: { step: 'strike' },
           draw: { ...draw, turn: { ...turn, remainingMs: 0 } },
           canStrike: false,
+          sides: null,
         }),
       ],
       expected: [null, null, null],

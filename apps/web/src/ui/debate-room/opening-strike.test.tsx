@@ -28,7 +28,12 @@ const debaterDraw = {
   revealedAt: null,
 } as const;
 const opening = (canStrike: boolean) =>
-  ({ step: { step: 'strike' }, draw: debaterDraw, canStrike }) as const;
+  ({
+    step: { step: 'strike' },
+    draw: debaterDraw,
+    canStrike,
+    sides: null,
+  }) as const;
 const view = {
   id: 'r'.repeat(24),
   version: 4,
@@ -121,6 +126,7 @@ describe('OpeningStatus', () => {
               step: { step: 'strike' },
               draw: progress,
               canStrike: false,
+              sides: null,
             },
           } as RoundView
         }
@@ -141,6 +147,7 @@ describe('OpeningStatus', () => {
               },
               draw: progress,
               canStrike: false,
+              sides: null,
             },
           } as RoundView
         }

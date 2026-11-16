@@ -13,12 +13,14 @@ describe('roomCommandIds', () => {
       given:
         'a room declaring two affirmative, three negative and one judge seat',
       should:
-        'name the header (details, leave, close), readiness, settings and capture forms, four intents per seat and the three format forms',
+        'name the header (details, leave, close), readiness, settings, capture, sides and visibility forms, five intents per seat and the three format forms',
       actual: {
         header: built.header,
         readiness: built.readiness,
         settings: built.settings,
         capture: built.capture,
+        sides: built.sides,
+        visibility: built.visibility,
         seats: built.seats.length,
         format: built.format,
         distinct: new Set([
@@ -28,6 +30,8 @@ describe('roomCommandIds', () => {
           ...Object.values(built.readiness),
           built.settings,
           built.capture,
+          built.sides,
+          built.visibility,
           ...built.seats.flatMap((seat) => Object.values(seat)),
           ...Object.values(built.format),
         ]).size,
@@ -36,10 +40,12 @@ describe('roomCommandIds', () => {
         header: { details: 'c-1', leave: 'c-2', close: 'c-3' },
         readiness: { ready: 'c-4', unready: 'c-5', 'start-round': 'c-6' },
         settings: 'c-7',
-        capture: 'c-35',
+        capture: 'c-41',
+        sides: 'c-42',
+        visibility: 'c-43',
         seats: 6,
-        format: { choose: 'c-32', reset: 'c-33', template: 'c-34' },
-        distinct: 8 + 6 * 4 + 3,
+        format: { choose: 'c-38', reset: 'c-39', template: 'c-40' },
+        distinct: 10 + 6 * 5 + 3,
       },
     });
   });

@@ -1,6 +1,7 @@
 import type { ClockStop } from './clock-stops';
 import { z } from 'zod';
 import { debateSideSchema, idSchema } from './primitives';
+import type { SeatDraw } from './seat-draw';
 
 /**
  * The pre-round resolution draw (FMT-7): the debaters strike alternately
@@ -297,6 +298,12 @@ export type RoundOpening = {
   readonly prepMs: number | null;
   /** Time a platform incident held the clock; strikes and prep owe it back. */
   readonly stops: readonly ClockStop[];
+  /**
+   * What Start round's seat draw did (ADR 0143), frozen on the Round and
+   * public; null when the Round predates it. Shown, never timed: no step or
+   * anchor reads it.
+   */
+  readonly sides: SeatDraw | null;
 };
 
 const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);

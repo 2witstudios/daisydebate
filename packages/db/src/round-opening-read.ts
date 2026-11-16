@@ -4,6 +4,7 @@ import {
   type LaunchedRound,
   type RoundView,
   type RuntimeCheckpoint,
+  type SeatDraw,
 } from '@daisy/protocol';
 import type { RoundOpening } from '@daisy/protocol/resolution-draw';
 import { transactionNow, type Account, type Tx } from './room-command-facts';
@@ -26,6 +27,7 @@ export const loadRoundOpening = async (
     readonly createdAt: Date;
     readonly preRoundPrepMs: number | null;
     readonly runtimeState: RuntimeCheckpoint;
+    readonly seatDraw: SeatDraw | null;
   },
 ): Promise<StoredOpening | null> => {
   if (round.status !== 'opening') return null;
@@ -36,6 +38,7 @@ export const loadRoundOpening = async (
       draw: draw?.state ?? null,
       prepMs: round.preRoundPrepMs,
       stops: clockStopsOf(round.runtimeState),
+      sides: round.seatDraw,
     },
     seed: draw?.seed ?? null,
   };
@@ -61,6 +64,7 @@ const openingNow = async (tx: Tx, roundId: string) => {
       createdAt: rounds.createdAt,
       preRoundPrepMs: rounds.preRoundPrepMs,
       runtimeState: rounds.runtimeState,
+      seatDraw: rounds.seatDraw,
     })
     .from(rounds)
     .where(eq(rounds.id, roundId));
