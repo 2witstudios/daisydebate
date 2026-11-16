@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 from policy import GIB, LIMITS, refusal
+from source_inputs import REFUSALS
 from diagnostics import classify_failure, INPUT_BYTES
 
 HERE = Path(__file__).resolve().parent
@@ -361,7 +362,7 @@ def main():
             raise RuntimeError('worker-report-refused')
         raw_status = json.loads(status_file.read_text()) if status_file.exists() else {}
         worker_stage = raw_status.get('stage', 'not-admitted')
-        if worker_stage not in ('not-admitted', 'source-fetch', 'cargo-build', 'complete'):
+        if worker_stage not in ('not-admitted', 'source-fetch', 'source-refused', 'cargo-build', 'complete'):
             raise RuntimeError('worker-report-refused')
         versions = {}
         for tool in ('cargo', 'rustc', 'clang++'):
@@ -371,7 +372,8 @@ def main():
         prerequisites = raw_status.get('prerequisiteTools', {})
         prerequisites = prerequisites if isinstance(prerequisites, dict) else {}
         observed_tools = {tool: prerequisites.get(tool) if isinstance(prerequisites.get(tool), bool) else None for tool in ('protoc', 'cmake', 'clang++', 'pkg-config', 'make')}
-        status = dict(stage=worker_stage, prerequisiteTools=observed_tools, glibPkgConfig=raw_status.get('glibPkgConfig') if isinstance(raw_status.get('glibPkgConfig'), bool) else None, rustPin='7187f6a42ca6382b73c631b75a9d560253f5b90f',
+        status = dict(stage=worker_stage, sourceInputsVerified=raw_status.get('sourceInputsVerified') is True,
+                      sourceRefusal=raw_status.get('sourceRefusal') if raw_status.get('sourceRefusal') in REFUSALS else None, prerequisiteTools=observed_tools, glibPkgConfig=raw_status.get('glibPkgConfig') if isinstance(raw_status.get('glibPkgConfig'), bool) else None, rustPin='7187f6a42ca6382b73c631b75a9d560253f5b90f',
                       nodePin='31d9d7e306e6c70c2eb748efde5afbded95a170e',
                       toolchainVersions=versions, profile='release', target='x86_64-unknown-linux-gnu',
                       jobs=2, qualification='stock pinned Node FFI baseline; no native owner implementation or runtime qualification')
