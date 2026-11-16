@@ -162,7 +162,10 @@ test('the HTTP command boundary runs the real tenant-fenced membership operation
       });
       const snapshot = await read(as(world.bots.Director!), organizationId);
       if (!snapshot) throw new Error('owner people snapshot missing');
-      const staffRole = snapshot.roles.find((role) => role.name === 'Staff');
+      const staffRole = snapshot.roles.find((role) =>
+        role.permissions.includes('organization.roles.manage'),
+      );
+      if (!staffRole) throw new Error('Actual people-management role missing');
       if (!staffRole) throw new Error('Staff preset missing');
       const selected = new FormData();
       selected.set('userId', world.bots['Judge A']!.userId);

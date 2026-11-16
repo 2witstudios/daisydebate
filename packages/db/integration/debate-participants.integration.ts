@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -23,7 +24,7 @@ const constraintOf = (attempt: () => Promise<unknown>) => rejectedBy(attempt);
  */
 test('round_participants is the authoritative seat record', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const [first, second, third] = [createId(), createId(), createId()];
     await fixture.insert(
       'round_participants',
@@ -147,7 +148,7 @@ test('round_participants is the authoritative seat record', async () => {
  */
 test('a judge seat with a submitted ballot is RESTRICTed from deletion', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const freezeRevision = await fixture.freeze(roundId);
     const seat = await fixture.seat(roundId, 'judge');
     await fixture.insert(

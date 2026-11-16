@@ -1,3 +1,4 @@
+import { rejectedBy } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -118,7 +119,15 @@ test('reconciliation fences original erased or unproven subjects instead of a su
           const [original] =
             await f.sql`select actor_id from round_participants where id=${window.roundParticipantId}`;
           const successor = await f.actor(await f.user());
-          await f.sql`update round_participants set actor_id=${successor} where id=${window.roundParticipantId}`;
+          assert({
+            given: 'a rewrite of an original frozen participant identity',
+            should: 'refuse the successor before changing any provenance',
+            actual: await rejectedBy(
+              () =>
+                f.sql`update round_participants set actor_id=${successor} where id=${window.roundParticipantId}`,
+            ),
+            expected: 'round_participants_identity_immutable',
+          });
           await f.sql`update users set deleted_at=clock_timestamp(),email_verified=false,version=version+1 where id in (select user_id from actors where id=${original!.actor_id})`;
         } else {
           await f.sql`update necessary_evidence set original_subject_actor_ids=null where id=${id}`;

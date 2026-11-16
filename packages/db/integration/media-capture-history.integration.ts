@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -9,6 +10,7 @@ requireTestServices(process.env);
 
 test('signed capture reader returns only scoped debater bindings and committed historical intervals', async () => {
   await withBoundedRound(async (fixture, transaction, roundId) => {
+    const judge = await fixture.seat(roundId, 'judge');
     const { store, lease, clip, start, end } = await historicalCapture(
       fixture,
       transaction,
@@ -26,7 +28,6 @@ test('signed capture reader returns only scoped debater bindings and committed h
         round_participant_id: clip.roundParticipantId,
         identity,
       });
-      const judge = await fixture.seat(roundId, 'judge');
       await fixture.insert('media_participants', {
         id: createId(),
         session_id: lease.sessionId,
@@ -88,7 +89,7 @@ test('signed capture reader returns only scoped debater bindings and committed h
     } finally {
       await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);
     }
-  });
+  }, judgedRound);
 });
 
 test('capture history pagination requires one exact version and never silently truncates grants', async () =>

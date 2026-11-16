@@ -32,3 +32,18 @@ export function panelJudgedRound(fixture: Fixture) {
     { rules: compiled.rules },
   );
 }
+
+/** A separately authored fixture grammar with exactly its tested panel size. */
+export async function authoredJudgedRound(fixture: Fixture, judges: number) {
+  const definition = {
+    ...oneOnOneDefinition,
+    seats: { ...oneOnOneDefinition.seats, judges },
+  };
+  const compiled = resolveRoomConfiguration(definition, oneOnOneSettings);
+  if (!compiled.ok) throw new Error('Authored panel fixture did not compile');
+  const formatId = await fixture.format(definition);
+  return fixture.round(
+    { format_id: formatId, format_version: 1 },
+    { rules: compiled.rules },
+  );
+}

@@ -57,6 +57,7 @@ const withReadyRecording = (
       change: Parameters<RunModerationCommand>[0]['change'],
     ) => ReturnType<RunModerationCommand>;
   }) => Promise<void>,
+  status: 'completed' | 'abandoned' = 'completed',
 ) =>
   withRoomRuntime(async (f) => {
     const room = await f.assemble({
@@ -71,7 +72,7 @@ const withReadyRecording = (
       },
     });
     const { roundId } = await launchRuntimeRound(f, room);
-    await f.sql`update rounds set status='completed', current_stage=null, started_at=${at}::timestamptz, completed_at=${at}::timestamptz where id=${roundId}`;
+    await f.sql`update rounds set status=${status}, current_stage=null, started_at=${at}::timestamptz, completed_at=${at}::timestamptz where id=${roundId}`;
     const database = f.store as never as Parameters<
       typeof recordingPersistence
     >[0]['database'];
@@ -366,8 +367,7 @@ test('a Recording taken down during an open Broadcast comes back to its audience
 
 test('a Recording of an abandoned Round can be found, and a participant can remove it', async () => {
   await withReadyRecording(
-    async ({ store, inputs, id, roundId, sql, seat, stranger }) => {
-      await sql`update rounds set status='abandoned', winning_side=null where id=${roundId}`;
+    async ({ store, inputs, id, roundId, seat, stranger }) => {
       const list = async (scope: 'all' | 'mine', viewerActorId: string) =>
         (
           await store.listArchive({
@@ -402,6 +402,7 @@ test('a Recording of an abandoned Round can be found, and a participant can remo
         expected: 'removing',
       });
     },
+    'abandoned',
   );
 });
 

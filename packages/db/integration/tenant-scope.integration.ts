@@ -79,7 +79,7 @@ test('the runtime role with no scope reads no row of any scoped table and writes
         ...unscoped,
       },
       expected: {
-        filledBySample: 32,
+        filledBySample: 33,
         visible: [],
         insert: '42501',
         updated: 0,

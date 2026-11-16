@@ -1,9 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { createRoundRuntime } from '@daisy/debate-engine';
-import {
-  withRoomRuntime,
-  launchRuntimeRound,
-} from './round-runtime.test-support';
+import { withRoomRuntime } from './round-runtime.test-support';
 import { foundationSelection } from './foundation-selection.test-support';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 
@@ -15,22 +12,28 @@ export const withAttendanceRound = (
     readonly roundId: string;
     readonly segmentId: string;
   }) => Promise<void>,
+  participant?: { readonly userId: string; readonly actorId: string },
 ) =>
   withRoomRuntime(async (f) => {
     const config = foundationSelection.config;
-    const room = await f.assemble({
-      selection: {
-        ...foundationSelection,
-        config: {
-          ...config,
-          preRoundPrep: { enabled: false },
-          resolutionDraw: { enabled: false },
-          inRoundPrep: { enabled: false },
-          speechTiming: { ...config.speechTiming, countdownMs: 0 },
+    const host = participant ?? f.host;
+    const room = await f.assemble(
+      {
+        selection: {
+          ...foundationSelection,
+          config: {
+            ...config,
+            preRoundPrep: { enabled: false },
+            resolutionDraw: { enabled: false },
+            inRoundPrep: { enabled: false },
+            speechTiming: { ...config.speechTiming, countdownMs: 0 },
+          },
         },
       },
-    });
-    const { roundId } = await launchRuntimeRound(f, room);
+      { host, guest: f.guest },
+    );
+    const launched = await f.command(host, room, { type: 'start-round' });
+    const roundId = launched.view.roundRef!.id;
     await f.store.executeRoundTick({
       roundId,
       buildProjection: ({ round, now }) =>

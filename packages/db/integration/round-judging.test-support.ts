@@ -1,4 +1,4 @@
-import { judgedRound } from './judged-round.test-support';
+import { authoredJudgedRound, judgedRound } from './judged-round.test-support';
 import { judgingJobRules } from '@daisy/debate-engine';
 import {
   ballotCategories,
@@ -72,12 +72,16 @@ export async function seedJudgingIntent(
     target: { roundId: string; judgeParticipantId: string },
   ) => Promise<void>,
   stage: 'first' | 'final' = 'final',
+  judges = 1,
 ) {
   const seat = await createBotSeat(fixture, roundId, 'judge');
+  for (let slot = 1; slot < judges; slot++)
+    await createBotSeat(fixture, roundId, 'judge', slot);
   await judgingSponsor(fixture, roundId, run);
   const target = { roundId, judgeParticipantId: seat.id };
-  await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
+
   await beforeFreeze?.(fixture, target);
+  await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
   await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,${completeness})`;
   await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
   // Most suites are about the final ballot; stage suites start at the first pass.
@@ -100,34 +104,41 @@ export const withJudgingJob = (
     target: { roundId: string; judgeParticipantId: string },
   ) => Promise<void>,
   stage: 'first' | 'final' = 'final',
+  judges = 1,
 ) =>
-  withBoundedRound(async (fixture, run, roundId) => {
-    const target = await seedJudgingIntent(
-      fixture,
-      roundId,
-      run,
-      completeness,
-      beforeFreeze,
-      stage,
-    );
-    try {
-      await work({
+  withBoundedRound(
+    async (fixture, run, roundId) => {
+      const target = await seedJudgingIntent(
         fixture,
         roundId,
-        target,
         run,
-        jobs: createRoundJudgingJobs({
+        completeness,
+        beforeFreeze,
+        stage,
+        judges,
+      );
+      try {
+        await work({
+          fixture,
+          roundId,
+          target,
           run,
-          nextId: createId,
-          nextToken: () => randomBytes(32).toString('base64url'),
-          leaseMs: 30000,
-          model: 'anthropic/claude-sonnet-5.5',
-          contractVersion: 'fixture-contract',
-          rules: judgingJobRules,
-          accountEligible: canUseAiAllowance,
-        }),
-      });
-    } finally {
-      await fixture.sql`delete from rounds where id=${roundId}`;
-    }
-  }, judgedRound);
+          jobs: createRoundJudgingJobs({
+            run,
+            nextId: createId,
+            nextToken: () => randomBytes(32).toString('base64url'),
+            leaseMs: 30000,
+            model: 'anthropic/claude-sonnet-5.5',
+            contractVersion: 'fixture-contract',
+            rules: judgingJobRules,
+            accountEligible: canUseAiAllowance,
+          }),
+        });
+      } finally {
+        await fixture.sql`delete from rounds where id=${roundId}`;
+      }
+    },
+    judges === 1
+      ? judgedRound
+      : (fixture) => authoredJudgedRound(fixture, judges),
+  );

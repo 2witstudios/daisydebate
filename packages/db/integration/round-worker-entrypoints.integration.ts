@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '../src/testing-judging';
 import { judgingJobRules } from '@daisy/debate-engine';
@@ -172,4 +173,4 @@ test('configured root judging aliases share the owned pool and claim actual froz
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
     }
-  }));
+  }, judgedRound));

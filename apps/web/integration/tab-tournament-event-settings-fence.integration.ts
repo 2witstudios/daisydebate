@@ -1,3 +1,4 @@
+import { grantHostReader } from './tab-host-reader-grant.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -47,6 +48,7 @@ test('resolved event readers coexist and retain the actual setting snapshot thro
     const owned = await withRuntimeTestTransaction(owner, async (frame) => {
       const world = { ...state, ...frame };
       await organizationStage(world);
+      await grantHostReader(world);
       return createOwnedEvent(world);
     });
     const original = createTabStore(committingRuntimeTestDatabase(reader));

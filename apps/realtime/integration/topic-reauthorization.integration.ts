@@ -21,8 +21,8 @@ test('actual periodic topic batch removes silent revoked membership while preser
   );
   const rounds = roundAudienceFixture(fixture.client, fixture.actorId);
   try {
-    const removed = await rounds.seed('private', sideSeat('affirmative'));
-    const retained = await rounds.seed('private', judgeSeat());
+    const removed = await rounds.seed('private', judgeSeat());
+    const retained = await rounds.seed('private', sideSeat('affirmative'));
     const port = fixture.runtime.server.port;
     if (port === undefined)
       throw new Error('Actual authority listener unavailable');
@@ -52,9 +52,18 @@ test('actual periodic topic batch removes silent revoked membership while preser
         attached: [true, true, true],
       },
     });
+    // Persist the actual guarded assignment transition without an outbox hint.
     await fixture.client.begin(async (tx) => {
-      await tx`delete from round_participants where round_id=${removed.id} and actor_id=${fixture.actorId}`;
-      await tx`update rounds set version=version+1 where id=${removed.id}`;
+      await rounds.unassignJudge(tx as typeof fixture.client, removed.id);
+    });
+    const [history] =
+      await fixture.client`select count(*)::int count,bool_and(not public.daisy_round_participant_is_current(id)) retired from round_participants where round_id=${removed.id} and actor_id=${fixture.actorId}`;
+    assert({
+      given: 'a genuine judge unassignment',
+      should:
+        'retain the immutable identity while removing only its current authority',
+      actual: [history!.count, history!.retired],
+      expected: [1, true],
     });
     fixture.advanceToRevalidation();
     await waitFor(

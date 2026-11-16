@@ -7,7 +7,7 @@ import type { SQL } from 'bun';
  * Remove every loan before applying the real forward migration. Runtime never calls this.
  */
 export async function loanRoundAssignmentInterface(client: SQL) {
-  await client`alter table round_participants add column rating_actor_id text`;
+  await client`alter table round_participants add column rating_actor_id text,add column legacy_rating_participant boolean not null default false`;
   await client.unsafe(`create function public.daisy_round_participant_is_current(target_participant_id text)
     returns boolean language sql stable as $$
       select exists(select 1 from public.round_participants where id=target_participant_id)
@@ -22,6 +22,6 @@ export async function loanRoundAssignmentInterface(client: SQL) {
     await client.unsafe(
       'drop function public.daisy_round_participant_is_current(text)',
     );
-    await client`alter table round_participants drop column rating_actor_id`;
+    await client`alter table round_participants drop column rating_actor_id,drop column legacy_rating_participant`;
   };
 }

@@ -1,3 +1,5 @@
+import { judgedRound } from './judged-round.test-support';
+import { existingBotJudgeSeat } from './bot-seat.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -130,31 +132,43 @@ test('concurrent refund attempts after a Round ended refund the practice exactly
 test('the AI judge never decides the separate bot-debater refund (ADR 0117)', async () => {
   const outcomes: Record<string, boolean> = {};
   for (const bot of ['failed', 'unknown'] as const)
-    await withGeneration(async (generation) => {
-      const { fixture, target, operations } = generation;
-      const judge = await createBotSeat(fixture, target.roundId, 'judge');
-      await fixture.insert('agent_runs', {
-        id: createId(),
-        round_participant_id: judge.id,
-        kind: 'judging',
-        provider: 'openrouter',
-        configuration_snapshot: { providerOutcome: 'received' },
-        requests: 1,
-        started_at: new Date(),
-      });
-      const claim = await operations.claimWorker(target);
-      const begun = await operations.beginGeneration(claim.scope, claim.token, {
-        kind: 'language',
-      });
-      if (bot === 'failed')
-        await operations.finishGeneration(claim.scope, begun.execution, bot, {
-          inputTokens: 0,
-          outputTokens: 0,
-          characters: 0,
+    await withGeneration(
+      async (generation) => {
+        const { fixture, target, operations } = generation;
+        const judge = await existingBotJudgeSeat(fixture, target.roundId, 0);
+        await fixture.insert('agent_runs', {
+          id: createId(),
+          round_participant_id: judge.id,
+          kind: 'judging',
+          provider: 'openrouter',
+          configuration_snapshot: { providerOutcome: 'received' },
+          requests: 1,
+          started_at: new Date(),
         });
-      await abandon(generation);
-      outcomes[bot] = (await refunded(generation)) !== null;
-    });
+        const claim = await operations.claimWorker(target);
+        const begun = await operations.beginGeneration(
+          claim.scope,
+          claim.token,
+          {
+            kind: 'language',
+          },
+        );
+        if (bot === 'failed')
+          await operations.finishGeneration(claim.scope, begun.execution, bot, {
+            inputTokens: 0,
+            outputTokens: 0,
+            characters: 0,
+          });
+        await abandon(generation);
+        outcomes[bot] = (await refunded(generation)) !== null;
+      },
+      {
+        makeRound: judgedRound,
+        beforeStart: async (fixture, roundId) => {
+          await createBotSeat(fixture, roundId, 'judge');
+        },
+      },
+    );
   assert({
     given:
       'a served AI judge call beside a bot debater whose call definitely failed, then one still unknown',

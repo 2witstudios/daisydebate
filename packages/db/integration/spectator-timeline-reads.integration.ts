@@ -1,3 +1,5 @@
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { formatDefinitionSchema, formatSettingsSchema } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -21,8 +23,10 @@ const withLiveRound = async (
       readonly client: SQL;
       readonly roundId: string;
       readonly fixture: Fixture;
+      readonly judgeParticipantId: string | null;
     },
   ) => Promise<void>,
+  judged = false,
 ) => {
   const client = new SQL(databaseUrl, { max: 2 });
   try {
@@ -30,23 +34,36 @@ const withLiveRound = async (
       const formatId = await f.format();
       const host = await f.actor(await f.user());
       const room = await f.room(host, formatId);
-      const roundId = await f.round({
-        room_id: room,
-        visibility: 'public',
-        room_config_snapshot: {},
-        status: 'active',
-        current_stage: 'live',
-        started_at: started,
-        ...(competitionType === 'ranked'
-          ? {
-              competition_type: 'ranked',
-              format_id: 'freestyle',
-              preset_version: 1,
-              ladder_id: 'freestyle',
-            }
-          : {}),
-      });
-      const seat = await f.seat(roundId, 'affirmative');
+      const [source] =
+        await f.sql`select r.definition,p.config from format_revisions r join format_presets p on p.format_id=r.format_id and p.format_version=r.version where r.format_id='freestyle' and r.version=1 and p.version=1`;
+      if (!source) throw new Error('Original ranked source missing');
+      const compiled = resolveRoomConfiguration(
+        formatDefinitionSchema.parse(source.definition),
+        formatSettingsSchema.parse(source.config),
+      );
+      if (!compiled.ok)
+        throw new Error('Original ranked source did not compile');
+      const { id: roundId, seats } = await f.roundWithCast(
+        {
+          room_id: room,
+          visibility: 'public',
+          room_config_snapshot: {},
+          status: 'active',
+          current_stage: 'live',
+          started_at: started,
+          ...(competitionType === 'ranked'
+            ? {
+                competition_type: 'ranked',
+                format_id: 'freestyle',
+                preset_version: 1,
+                ladder_id: 'freestyle',
+              }
+            : {}),
+        },
+        [{ seat: 'affirmative' }, ...(judged ? [{ seat: 'judge' }] : [])],
+        judged ? { rules: compiled.rules } : {},
+      );
+      const seat = seats[0]!;
       const segment = createId();
       await client`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
         values (${segment},${roundId},0,'speech','1AC',${started},60000)`;
@@ -63,7 +80,12 @@ const withLiveRound = async (
         await run(
           (horizonMs) =>
             readSpectatorTimeline({ roundId, horizonOf: () => horizonMs }),
-          { client, roundId, fixture: f },
+          {
+            client,
+            roundId,
+            fixture: f,
+            judgeParticipantId: judged ? seats[1]!.id : null,
+          },
         );
       } finally {
         await client`delete from utterances where round_id=${roundId}`;
@@ -153,44 +175,49 @@ test('a legal removal takes the captions too', async () => {
 });
 
 test('a takedown takes the ballots from a finished Round, and its result stands', async () => {
-  await withLiveRound('ranked', async (read, { client, roundId, fixture }) => {
-    const judge = await fixture.seat(roundId, 'judge');
-    const revision = await fixture.freeze(roundId);
-    const ballotId = createId();
-    await client`insert into ballots (id, judge_participant_id, round_id, freeze_revision,
+  await withLiveRound(
+    'ranked',
+    async (read, { client, roundId, fixture, judgeParticipantId }) => {
+      if (!judgeParticipantId)
+        throw new Error('Original judge identity missing');
+      const revision = await fixture.freeze(roundId);
+      const ballotId = createId();
+      await client`insert into ballots (id, judge_participant_id, round_id, freeze_revision,
         rubric_version, winner, scores, reason, feedback, submitted_at)
-      values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@2',
+      values (${ballotId}, ${judgeParticipantId}, ${roundId}, ${revision}, 'speaker-10@2',
         'affirmative', ${JSON.stringify({})}::text::jsonb, 'A reason',
         ${JSON.stringify({})}::text::jsonb, now())`;
-    await client`update rounds set status='completed', current_stage=null, winning_side='affirmative',
+      await client`update rounds set status='completed', current_stage=null, winning_side='affirmative',
       completed_at=${later} where id=${roundId}`;
-    const reasons = async () => {
-      const read_ = (await read(margin(later) + 1000)) as {
-        ballots: { reason: string }[];
-        outcomeReleased: boolean;
+      const reasons = async () => {
+        const read_ = (await read(margin(later) + 1000)) as {
+          ballots: { reason: string }[];
+          outcomeReleased: boolean;
+        };
+        return [read_.outcomeReleased, read_.ballots.map((b) => b.reason)];
       };
-      return [read_.outcomeReleased, read_.ballots.map((b) => b.reason)];
-    };
-    const shown = await reasons();
-    const id = createId();
-    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+      const shown = await reasons();
+      const id = createId();
+      await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
       values (${id},${roundId},'ranked','taken_down',
         jsonb_build_object('kind','ranked'),
         ${JSON.stringify({ status: 'taken_down', takenDownAt: later.toISOString(), held: null })}::text::jsonb)`;
-    const hidden = await reasons();
-    await client`delete from recordings where id=${id}`;
-    await client`delete from ballots where id=${ballotId}`;
-    assert({
-      given: 'a released ballot, then the Recording taken down',
-      should:
-        'show its reason, then no ballot, with the outcome still released',
-      actual: [shown, hidden],
-      expected: [
-        [true, ['A reason']],
-        [true, []],
-      ],
-    });
-  });
+      const hidden = await reasons();
+      await client`delete from recordings where id=${id}`;
+      await client`delete from ballots where id=${ballotId}`;
+      assert({
+        given: 'a released ballot, then the Recording taken down',
+        should:
+          'show its reason, then no ballot, with the outcome still released',
+        actual: [shown, hidden],
+        expected: [
+          [true, ['A reason']],
+          [true, []],
+        ],
+      });
+    },
+    true,
+  );
 });
 
 test('after a takedown the text is hidden from the audience', async () => {

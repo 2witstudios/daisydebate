@@ -54,7 +54,30 @@ test('publication reloads after account waits and holds actual Room pins through
         made: new Map<string, string>(),
       };
       await withRuntimeTestTransaction(owner, async (frame) => {
-        await preparePublication({ ...frame, ...state }, template);
+        await preparePublication({ ...frame, ...state }, template, async () => {
+          const lobbyId = state.made.get('tournament-lobby')!;
+          const [settings] =
+            await frame.sql`select settings_version from lobbies where id=${lobbyId}`;
+          const configured = await settingCommand({
+            store: createTabStore(frame.database),
+            authorize,
+            now: state.clock.now,
+            newId: createId,
+          })(as(state.bots.Director!), {
+            version: 1,
+            commandId: createId(),
+            expected: { settings: Number(settings!.settings_version) },
+            command: {
+              type: 'set-setting',
+              scope: { kind: 'lobby', id: lobbyId },
+              key: 'recording.capture',
+              value: { value: 'on' },
+              hold: 'default',
+            },
+          });
+          if (configured.kind !== 'accepted')
+            throw new Error('Actual officials recording setting refused');
+        });
         const [role] =
           await frame.sql`select r.id from roles r join role_permissions p on p.role_id=r.id where r.preset=true and p.permission='lobby.setup.manage' order by r.rank,r.id limit 1`;
         const [lobby] =

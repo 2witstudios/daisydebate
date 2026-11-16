@@ -42,3 +42,15 @@ export async function createBotSeat(
     await createBotActor(fixture, role === 'judge' ? 'judge' : 'debater'),
   );
 }
+
+/** The already frozen bot judge identity, never a post-Start replacement. */
+export async function existingBotJudgeSeat(
+  fixture: Fixture,
+  roundId: string,
+  slot: number,
+) {
+  const [seat] =
+    await fixture.sql`select p.id,p.actor_id as "actorId" from round_participants p join actors a on a.id=p.actor_id where p.round_id=${roundId} and p.seat_kind='judge' and p.slot=${slot} and a.kind='bot' and public.daisy_round_participant_is_current(p.id)`;
+  if (!seat) throw new Error('Original frozen bot judge missing');
+  return { id: String(seat.id), actorId: String(seat.actorId) };
+}

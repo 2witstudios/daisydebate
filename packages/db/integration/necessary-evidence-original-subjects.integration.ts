@@ -1,3 +1,4 @@
+import { rejectedBy } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -26,13 +27,21 @@ test('original content subjects survive successor cast and aggregate erasure bef
       const [original] =
         await f.sql`select to_jsonb(e)->'original_subject_actor_ids' as subjects from necessary_evidence e where id=${id}`;
       const successor = await f.actor(await f.user());
-      await f.sql`update round_participants set actor_id=${successor} where id=${window.roundParticipantId}`;
+      assert({
+        given: 'a rewrite of an original frozen participant identity',
+        should: 'refuse the successor before changing any provenance',
+        actual: await rejectedBy(
+          () =>
+            f.sql`update round_participants set actor_id=${successor} where id=${window.roundParticipantId}`,
+        ),
+        expected: 'round_participants_identity_immutable',
+      });
       await f.sql`delete from rounds where id=${roundId}`;
       const [detached] =
         await f.sql`select round_id,state,to_jsonb(e)->'original_subject_actor_ids' as subjects from necessary_evidence e where id=${id}`;
       assert({
         given:
-          'a durable pre-custody intent, a changed current cast and then aggregate erasure',
+          'a durable pre-custody intent, a refused successor cast and then aggregate erasure',
         should:
           'retain the exact original content subjects for immediate privacy fencing and bounded cleanup without reauthorizing against the successor',
         actual: { original: original!.subjects, detached },

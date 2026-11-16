@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { afterAll } from 'bun:test';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -583,7 +584,7 @@ test(
 
 test('the new seat, outcome, ballot and capture CHECKs refuse what the shapes cannot say', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const seatRow = (columns: Record<string, unknown>) => ({
       id: createId(),
       round_id: roundId,

@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
@@ -26,12 +27,12 @@ export async function completedRound(
   const end = new Date(clock!.now.getTime() - completedAgoMs);
   const start = new Date(end.getTime() - 1000);
   const winner = await fixture.winningSideColumn();
-  await fixture.sql.unsafe(
-    `update rounds set visibility='public',status='completed',${winner}='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1`,
-    [roundId, start, end, new Date(end.getTime() + 120000)],
-  );
   const aff = await fixture.seat(roundId, 'affirmative', 0, affActorId);
   const neg = await fixture.seat(roundId, 'negative');
+  await fixture.sql.unsafe(
+    `update rounds set visibility='public',status='active',current_stage='live',${winner}=null,started_at=$2,completed_at=null,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1`,
+    [roundId, start, end, new Date(end.getTime() + 120000)],
+  );
   await fixture.sql`update users set email_verified=true where deleted_at is null and id in (select user_id from actors where id in (${aff.actorId},${neg.actorId}))`;
   const segmentId = createId();
   await fixture.insert('round_segments', {
@@ -50,17 +51,11 @@ export async function completedRound(
   ] as const)
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values(${createId()},${roundId},${segmentId},${seat},${sequence},'a frozen line')`;
   await fixture.sql`insert into round_transcripts(round_id,revision) values(${roundId},2)`;
-  if (beforeFreeze) {
-    await fixture.sql.unsafe(
-      `update rounds set status='active',current_stage='live',completed_at=null,${winner}=null where id=$1`,
-      [roundId],
-    );
-    await beforeFreeze(aff);
-    await fixture.sql.unsafe(
-      `update rounds set status='completed',current_stage=null,completed_at=$2,${winner}='affirmative' where id=$1`,
-      [roundId, end],
-    );
-  }
+  if (beforeFreeze) await beforeFreeze(aff);
+  await fixture.sql.unsafe(
+    `update rounds set status='completed',current_stage=null,completed_at=$2,${winner}='affirmative' where id=$1`,
+    [roundId, end],
+  );
   if (frozen)
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness)
       select ${roundId},1,revision,'complete' from round_transcripts where round_id=${roundId}`;
@@ -94,6 +89,8 @@ export const withCompletedRound = (
   }) => Promise<void>,
   options: {
     readonly frozen?: boolean;
+    readonly judged?: boolean;
+    readonly beforeStart?: (fixture: Fixture, roundId: string) => Promise<void>;
     readonly betaGrantsPremium?: boolean;
     readonly capacity?: number;
     readonly leaseMs?: number;
@@ -105,63 +102,67 @@ export const withCompletedRound = (
     ) => Promise<void>;
   } = {},
 ) =>
-  withBoundedRound(async (fixture, run, roundId, client) => {
-    const { beforeFreeze } = options;
-    const { aff, neg } = await completedRound(
-      fixture,
-      roundId,
-      options.frozen ?? true,
-      beforeFreeze ? (aff) => beforeFreeze(fixture, client, aff) : undefined,
-      undefined,
-      options.completedAgoMs,
-    );
-    const key = (seat: Seat) => ({ roundId, roundParticipantId: seat.id });
-    const allowance: AiAllowanceOptions = {
-      accountEligible: canUseAiAllowance,
-      decide: (account, facts, request, now) =>
-        admitAllowance(account, facts, request, {
-          now,
-          betaMonthlyCap: 5,
-          betaGrantsPremium: options.betaGrantsPremium ?? true,
-        }),
-    };
-    const request = createRoundAnalysisRequests({
-      run,
-      nextId: createId,
-      allowance,
-      capacity: options.capacity ?? 8,
-    });
-    const caller = async (seat: { roundParticipantId: string }) => {
-      const [row] =
-        await fixture.sql`select a.user_id as "userId",a.id as "actorId" from round_participants p join actors a on a.id=p.actor_id where p.id=${seat.roundParticipantId}`;
-      if (!row?.userId) throw Error('Expected human fixture seat');
-      return { userId: String(row.userId), actorId: String(row.actorId) };
-    };
-    await work({
-      caller,
-      request: async (seat) =>
-        request({
-          roundId: seat.roundId,
-          caller: await caller(seat),
-          authorize: (access) => canUseAiAllowance(access.account),
-        }),
-      fixture,
-      roundId,
-      client,
-      aff,
-      neg,
-      seats: { aff: key(aff), neg: key(neg) },
-      jobs: createRoundAnalysisJobs({
+  withBoundedRound(
+    async (fixture, run, roundId, client) => {
+      const { beforeFreeze } = options;
+      await options.beforeStart?.(fixture, roundId);
+      const { aff, neg } = await completedRound(
+        fixture,
+        roundId,
+        options.frozen ?? true,
+        beforeFreeze ? (aff) => beforeFreeze(fixture, client, aff) : undefined,
+        undefined,
+        options.completedAgoMs,
+      );
+      const key = (seat: Seat) => ({ roundId, roundParticipantId: seat.id });
+      const allowance: AiAllowanceOptions = {
+        accountEligible: canUseAiAllowance,
+        decide: (account, facts, request, now) =>
+          admitAllowance(account, facts, request, {
+            now,
+            betaMonthlyCap: 5,
+            betaGrantsPremium: options.betaGrantsPremium ?? true,
+          }),
+      };
+      const request = createRoundAnalysisRequests({
         run,
         nextId: createId,
-        accountEligible: canUseAiAllowance,
-        nextToken: () => randomBytes(32).toString('base64url'),
-        leaseMs: options.leaseMs ?? 30000,
-        model: 'anthropic/claude-sonnet-5.5',
-      }),
-      facts: (seat) => readRoundAnalysisFacts(drizzle({ client }), key(seat)),
-    });
-  });
+        allowance,
+        capacity: options.capacity ?? 8,
+      });
+      const caller = async (seat: { roundParticipantId: string }) => {
+        const [row] =
+          await fixture.sql`select a.user_id as "userId",a.id as "actorId" from round_participants p join actors a on a.id=p.actor_id where p.id=${seat.roundParticipantId}`;
+        if (!row?.userId) throw Error('Expected human fixture seat');
+        return { userId: String(row.userId), actorId: String(row.actorId) };
+      };
+      await work({
+        caller,
+        request: async (seat) =>
+          request({
+            roundId: seat.roundId,
+            caller: await caller(seat),
+            authorize: (access) => canUseAiAllowance(access.account),
+          }),
+        fixture,
+        roundId,
+        client,
+        aff,
+        neg,
+        seats: { aff: key(aff), neg: key(neg) },
+        jobs: createRoundAnalysisJobs({
+          run,
+          nextId: createId,
+          accountEligible: canUseAiAllowance,
+          nextToken: () => randomBytes(32).toString('base64url'),
+          leaseMs: options.leaseMs ?? 30000,
+          model: 'anthropic/claude-sonnet-5.5',
+        }),
+        facts: (seat) => readRoundAnalysisFacts(drizzle({ client }), key(seat)),
+      });
+    },
+    options.judged ? judgedRound : undefined,
+  );
 
 /** Only durable requested work is discoverable, independent of Round age. */
 export const listedSeats = async (

@@ -1,3 +1,4 @@
+import { judgedRound, authoredJudgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { at, digest, rejected, withFixture } from './constraint-helpers';
@@ -35,7 +36,7 @@ const ballot = (
 describe('ballots (DATA-3.1)', () => {
   test('one ballot per judge seat', async () => {
     await withFixture(url, async (fixture) => {
-      const roundId = await fixture.round();
+      const roundId = await authoredJudgedRound(fixture, 2);
       await fixture.freeze(roundId);
       const seat = await fixture.seat(roundId, 'judge');
       const submitted = !(await fixture.rejects(
@@ -66,7 +67,7 @@ describe('ballots (DATA-3.1)', () => {
 
   test('a ballot cannot borrow a seat from another round', async () => {
     await withFixture(url, async (fixture) => {
-      const roundA = await fixture.round();
+      const roundA = await judgedRound(fixture);
       await fixture.freeze(roundA);
       const seatInA = await fixture.seat(roundA, 'judge');
       const foreignSeat = await fixture.rejectedBy(
@@ -82,7 +83,7 @@ describe('ballots (DATA-3.1)', () => {
         should: 'accept the seat and refuse the stranger outright',
         actual: { foreignSeat, ownSeat },
         expected: {
-          foreignSeat: 'ballots_judge_seat_fk',
+          foreignSeat: 'ballots_current_judge_assignment',
           ownSeat: null,
         },
       });
@@ -91,7 +92,7 @@ describe('ballots (DATA-3.1)', () => {
 
   test('a round deletes through its cascade graph', async () => {
     await withFixture(url, async (fixture) => {
-      const roundId = await fixture.round();
+      const roundId = await judgedRound(fixture);
       await fixture.seat(roundId, 'judge');
       await fixture.participant(roundId, 'affirmative');
       await fixture.insert(

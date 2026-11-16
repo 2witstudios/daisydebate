@@ -1,3 +1,4 @@
+import { rejectedBy } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -216,7 +217,11 @@ test('an evidence writer queued behind canonical closure reads the committed tom
           'an actual account-closure transaction holding the canonical exclusive fence before capture starts',
         should:
           'wait on that same account fence and refuse the committed tombstone without admitting work',
-        actual: { waiting: waiters.length > 0, result, count: row!.count },
+        actual: {
+          waiting: waiters.length > 0,
+          result,
+          count: row!.count,
+        },
         expected: { waiting: true, result: 'AUTHORIZATION', count: 0 },
       });
     } finally {
@@ -236,13 +241,15 @@ test('a changed cast after the Round wait refuses instead of adding late account
     const change = Promise.withResolvers<void>();
     const id = createId();
     let writer: Promise<string> | undefined;
-    const mutation = f.sql.begin(async (tx) => {
-      await tx`select id from rounds where id=${roundId} for no key update`;
-      const [row] = await tx`select pg_backend_pid() as pid`;
-      ready.resolve(row!.pid as number);
-      await change.promise;
-      await tx`update round_participants set slot=slot+1 where id=${window.roundParticipantId}`;
-    });
+    const mutation = rejectedBy(() =>
+      f.sql.begin(async (tx) => {
+        await tx`select id from rounds where id=${roundId} for no key update`;
+        const [row] = await tx`select pg_backend_pid() as pid`;
+        ready.resolve(row!.pid as number);
+        await change.promise;
+        await tx`update round_participants set slot=slot+1 where id=${window.roundParticipantId}`;
+      }),
+    );
     try {
       const holderPid = await ready.promise;
       writer = store
@@ -258,17 +265,27 @@ test('a changed cast after the Round wait refuses instead of adding late account
         );
       const waiters = await blockedBy(observer, holderPid);
       change.resolve();
-      await mutation;
+      const mutationRefusal = await mutation;
       const result = await writer;
       const [row] =
         await f.sql`select count(*)::integer as count from necessary_evidence where id=${id}`;
       assert({
         given:
-          'a cast slot changed under the held Round after original subject discovery',
+          'a cast rewrite refused under the held Round after original subject discovery',
         should:
-          'refuse the stale exact cast and leave no intent or new after-Round account fence',
-        actual: { waiting: waiters.length > 0, result, count: row!.count },
-        expected: { waiting: true, result: 'CONFLICT', count: 0 },
+          'retain the exact original cast and admit its intent after the refused rewrite releases the Round',
+        actual: {
+          waiting: waiters.length > 0,
+          mutationRefusal,
+          result,
+          count: row!.count,
+        },
+        expected: {
+          waiting: true,
+          mutationRefusal: 'round_participants_identity_immutable',
+          result: 'claimed',
+          count: 1,
+        },
       });
     } finally {
       change.resolve();

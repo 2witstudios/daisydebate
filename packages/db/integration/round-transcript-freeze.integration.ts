@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectedBy, withFixture } from './constraint-helpers';
@@ -7,7 +8,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 test('one immutable transcript revision fences the durable judging intent', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const judge = await fixture.seat(roundId, 'judge');
     await fixture.sql`insert into round_transcripts(round_id,revision) values(${roundId},7)`;
     const freeze = () =>

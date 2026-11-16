@@ -1,3 +1,4 @@
+import { grantHostReader } from './tab-host-reader-grant.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
@@ -43,6 +44,7 @@ test('a people read retains its actual account and organization fences through t
     };
     await withRuntimeTestTransaction(owner, async (frame) => {
       await organizationStage({ ...state, ...frame });
+      await grantHostReader({ ...state, ...frame });
       const owned = await createOwnedTournament({ ...state, ...frame });
       state.made.set('fence-lobby', owned.lobbyId);
       const send = organizationCommand({
@@ -94,7 +96,7 @@ test('a people read retains its actual account and organization fences through t
     const organizationId = state.made.get('league')!;
     const [held] = await reader`select pg_backend_pid() as pid`;
     const [grant] =
-      await owner`select id from grants where organization_id=${organizationId} and user_id=${state.bots.Staff!.userId} and revoked_at is null`;
+      await owner`select id from grants where organization_id=${organizationId} and scope_kind='organization' and user_id=${state.bots.Staff!.userId} and revoked_at is null and role_id in (select role_id from role_permissions where permission='organization.roles.manage')`;
     const [organization] =
       await owner`select version from organizations where id=${organizationId}`;
     const original = createTabStore(committingRuntimeTestDatabase(reader));

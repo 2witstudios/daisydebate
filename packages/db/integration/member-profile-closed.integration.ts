@@ -31,14 +31,20 @@ test('a closed member keeps a profile with only the public subset, for everyone 
       visibility: 'private',
     });
     const reader = await createAuthorizationSubject(fixture);
-    const lost = await roomRound(fixture, {
-      status: 'completed',
-      winning_side: 'negative',
-      started_at: at(3, 11),
-      completed_at: at(3),
-    });
-    await fixture.participant(lost, 'affirmative', 0, member);
-    await fixture.participant(lost, 'negative', 0, reader.actorId);
+    const lost = await roomRound(
+      fixture,
+      {
+        status: 'completed',
+        winning_side: 'negative',
+        started_at: at(3, 11),
+        completed_at: at(3),
+      },
+      'public',
+      [
+        { seat: 'affirmative', actorId: member },
+        { seat: 'negative', actorId: reader.actorId },
+      ],
+    );
     await fixture.sql`update users set email=null, name='', image=null,
         deleted_at=${at(4)} where id=${subject.userId}`;
     const visitor = await present(

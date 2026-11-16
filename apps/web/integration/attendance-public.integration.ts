@@ -46,8 +46,6 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
   try {
     await withAttendanceRound(async ({ f, roundId, segmentId }) => {
       try {
-        // Isolated resource setup: canonical Round seat belongs to the actual signed member.
-        await f.sql`update round_participants set actor_id=${identity.principal.actorId} where round_id=${roundId} and seat_kind='side' and side='affirmative'`;
         const mounted = app.routes.attendance;
         handler = (request) => {
           const { pathname } = new URL(request.url);
@@ -206,7 +204,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
         await Promise.allSettled([...pending]);
         await app.app.auth().settled();
       }
-    });
+    }, identity.principal);
   } finally {
     await server.stop(true);
   }

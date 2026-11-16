@@ -1,3 +1,4 @@
+import { grantHostReader } from './tab-host-reader-grant.test-support';
 import { createOwnedTournament } from './tab-tournament-owned-event.test-support';
 import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
@@ -42,6 +43,7 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
     };
     await withRuntimeTestTransaction(owner, async (frame) => {
       await organizationStage({ ...state, ...frame });
+      await grantHostReader({ ...state, ...frame });
       const owned = await createOwnedTournament({ ...state, ...frame });
       state.made.set('setup-lobby', owned.lobbyId);
     });
@@ -171,7 +173,7 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
     const [organization] =
       await owner`select version from organizations where id=${organizationId}`;
     const [grant] =
-      await owner`select id from grants where organization_id=${organizationId} and user_id=${state.bots.Staff!.userId} and revoked_at is null`;
+      await owner`select id from grants where organization_id=${organizationId} and scope_kind='organization' and user_id=${state.bots.Staff!.userId} and revoked_at is null and role_id in (select role_id from role_permissions where permission='organization.roles.manage')`;
     await pause().ready;
     changing = organizationCommand({
       store: createTabStore(committingRuntimeTestDatabase(writer)),

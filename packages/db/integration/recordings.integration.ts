@@ -713,15 +713,22 @@ test('the archive pages, filters and holds back what is not released', async () 
     async ({ ops, archive, reads, db, fixture, track, client }) => {
       const debater = await fixture.actor();
       const completed = (minutes: number, competition: 'casual' | 'ranked') =>
-        fixture.round({
-          status: 'completed',
-          competition_type: competition,
-          visibility: 'public',
-          started_at: new Date(Date.UTC(2026, 10, 2, 9, minutes)).toISOString(),
-          completed_at: new Date(
-            Date.UTC(2026, 10, 2, 10, minutes),
-          ).toISOString(),
-        });
+        fixture
+          .roundWithCast(
+            {
+              status: 'completed',
+              competition_type: competition,
+              visibility: 'public',
+              started_at: new Date(
+                Date.UTC(2026, 10, 2, 9, minutes),
+              ).toISOString(),
+              completed_at: new Date(
+                Date.UTC(2026, 10, 2, 10, minutes),
+              ).toISOString(),
+            },
+            [{ seat: 'affirmative', actorId: debater }],
+          )
+          .then(({ id }) => id);
       const make = async (
         minutes: number,
         options: { visibility?: string; durationMs?: number } = {},
@@ -729,7 +736,6 @@ test('the archive pages, filters and holds back what is not released', async () 
         const roundId = track(await completed(minutes, 'casual'));
         if (options.visibility)
           await client`update rounds set visibility=${options.visibility} where id=${roundId}`;
-        await fixture.seat(roundId, 'affirmative', 0, debater);
         const id = createId();
         await ops.requestRecording({
           id,

@@ -11,7 +11,6 @@ import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup'
 import {
   as,
   deniedAsNotFound,
-  presetStaffRoleId,
 } from './tab-tournament-organization-wiring.test-support';
 import { createBots, scriptClock } from './tab-tournament.test-support';
 setupRitewayBun();
@@ -59,6 +58,9 @@ test('a personal tournament gives and removes exact lobby staff without an organ
       const send = organizationCommand({
         ...common,
       });
+      const [setupRole] =
+        await sql`select r.id from roles r join role_permissions p on p.role_id=r.id where r.preset=true and p.permission='lobby.setup.manage' order by r.rank,r.id limit 1`;
+      if (!setupRole) throw new Error('Actual setup role missing');
       const give = {
         version: 1,
         commandId: createId(),
@@ -67,7 +69,7 @@ test('a personal tournament gives and removes exact lobby staff without an organ
           type: 'give-grant',
           scope: { kind: 'lobby', lobbyId },
           userId: staff.userId,
-          roleId: presetStaffRoleId,
+          roleId: String(setupRole.id),
           expiresAt: null,
         },
       };

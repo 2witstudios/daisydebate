@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -195,7 +196,7 @@ test('actual global capacity fails closed', async () => {
 
 test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', async () => {
   await withBoundedRound(async (fixture, run, firstRound) => {
-    const judged = await fixture.round();
+    const judged = await judgedRound(fixture);
     const finished = await fixture.round();
     const unseated = await fixture.round();
     const refused = await fixture.round();

@@ -113,9 +113,11 @@ const daisyKeys: Record<string, Row> = {
  * deleted in `finally`, so a failing assertion leaves no rows behind.
  */
 export class Fixture {
-  readonly tracked = new Map<string, string[]>();
   private daisyKeyed: Promise<Set<string>> | undefined;
-  constructor(readonly sql: SQL) {}
+  constructor(
+    readonly sql: SQL,
+    readonly tracked = new Map<string, string[]>(),
+  ) {}
 
   /**
    * A fixture Room or season that names no owner is Daisy's, as Daisy's own
@@ -193,11 +195,11 @@ export class Fixture {
    * first: `formats_current_revision_fk` is DEFERRABLE, but each statement
    * here autocommits, so the target row has to exist before the pointer.
    */
-  async format() {
+  async format(definition = foundationDefinition) {
     const id = `fmt-${createId()}`;
     await this.insert(
       'format_revisions',
-      { format_id: id, version: 1, definition: foundationDefinition },
+      { format_id: id, version: 1, definition },
       'format_id',
     );
     await this.insert('formats', {
@@ -352,6 +354,48 @@ export class Fixture {
       ...overrides,
     });
     return id;
+  }
+
+  /** Construct a fixture's complete initial cast before it starts or completes. */
+  async roundWithCast(
+    overrides: Row,
+    cast: readonly {
+      readonly seat: string;
+      readonly actorId?: string;
+      readonly slot?: number;
+    }[],
+    options: { readonly rules?: typeof validRules } = {},
+  ) {
+    return this.sql.begin(async (tx) => {
+      const fixture = new Fixture(tx as SQL, this.tracked);
+      const lifecycle = new Set([
+        'status',
+        'current_stage',
+        'started_at',
+        'completed_at',
+        'winning_side',
+        'ranking',
+        'outcome',
+      ]);
+      const initial = Object.fromEntries(
+        Object.entries(overrides).filter(([key]) => !lifecycle.has(key)),
+      );
+      const id = await fixture.round(initial, options);
+      const seats = [];
+      for (const person of cast)
+        seats.push(
+          await fixture.seat(id, person.seat, person.slot ?? 0, person.actorId),
+        );
+      const changes = Object.entries(overrides).filter(([key]) =>
+        lifecycle.has(key),
+      );
+      if (changes.length)
+        await tx.unsafe(
+          `update rounds set ${changes.map(([key], index) => `${key}=$${index + 2}`).join(',')} where id=$1`,
+          [id, ...changes.map(([, value]) => value)],
+        );
+      return { id, seats };
+    });
   }
 
   /**
