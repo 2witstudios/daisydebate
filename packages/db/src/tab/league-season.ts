@@ -79,15 +79,6 @@ async function load(tx: TabTransaction, input: Input) {
         eq(settings.scopeKind, 'template'),
       ),
     );
-  const approvals = await tx
-    .select()
-    .from(sanctions)
-    .where(
-      and(
-        eq(sanctions.organizationId, organization.id),
-        eq(sanctions.seasonId, season.id),
-      ),
-    );
   const automaticEvents =
     rule.counting === 'membership'
       ? await loadLeagueMembershipEvents(tx, {
@@ -107,6 +98,15 @@ async function load(tx: TabTransaction, input: Input) {
     startsAt: row.startsAt,
     certifiedAt: row.certifiedAt,
   }));
+  const approvals = await tx
+    .select()
+    .from(sanctions)
+    .where(
+      and(
+        eq(sanctions.organizationId, organization.id),
+        eq(sanctions.seasonId, season.id),
+      ),
+    );
   const peopleIds = [
     ...new Set(
       events.flatMap((row) =>
