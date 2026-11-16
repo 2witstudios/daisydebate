@@ -197,6 +197,8 @@ const appRoutes = [
   '/api/tab/guardian-command',
   '/api/tab/family-history',
   '/api/tab/lobby-command',
+  '/api/tab/league-school-command',
+  '/api/tab/sanction-command',
   '/api/tab/settings-command',
   '/api/tab/entries-command',
   '/api/tab/judges-command',

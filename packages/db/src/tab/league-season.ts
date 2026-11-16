@@ -87,8 +87,7 @@ async function load(tx: TabTransaction, input: Input) {
         eq(sanctions.organizationId, organization.id),
         eq(sanctions.seasonId, season.id),
       ),
-    )
-    .for('share');
+    );
   const automaticEvents =
     rule.counting === 'membership'
       ? await loadLeagueMembershipEvents(tx, {

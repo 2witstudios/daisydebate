@@ -18,7 +18,7 @@ import {
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import { commandDigest } from './command-digest';
 import { eventSettingResolution } from './event-setting-resolution';
-import { hostLobbyResource } from './host-lobby-resource';
+import { sanctionAuthority, sanctionAuthorization } from './sanction-authority';
 import type { TabPrincipal } from '../tab-principal';
 
 const pins = (row: {
@@ -66,6 +66,7 @@ export const sanctionCommand =
       command.leagueId !== input.organizationId
     )
       throw new CommandDenied('not-found');
+    const authorize = sanctionAuthorization(command, dependencies.authorize);
     const newId = dependencies.newId();
     let now = '';
     const never = (): never => {
@@ -81,7 +82,7 @@ export const sanctionCommand =
       SanctionWrite
     >(
       {
-        authorize: dependencies.authorize,
+        authorize,
         digest: commandDigest,
         now: () => now,
         transaction: (work) =>
@@ -95,46 +96,12 @@ export const sanctionCommand =
                   now = f.now;
                   return f;
                 },
-                authority: (f) => {
-                  const request = command.type === 'request-sanction';
-                  const organization = f.organization.organization;
-                  const resource = request
-                    ? hostLobbyResource(
-                        f.lobby.lobby,
-                        f.lobby.authorization.organization,
-                        f.lobby.ownerActorId,
-                      )
-                    : organization;
-                  if (!resource) throw new CommandDenied('not-found');
-                  const auth = request ? f.lobby.authorization : f.organization;
-                  const authority = {
-                    principal,
-                    resource,
-                    context: {
-                      account: auth.account,
-                      grants: auth.grants,
-                      now: f.now,
-                    },
-                  };
-                  if (
-                    !sanctionCommandCatalogue[command.type].gate.some(
-                      (capability) =>
-                        dependencies.authorize({ ...authority, capability })
-                          .allow,
-                    )
-                  )
-                    throw new CommandDenied('not-found');
-                  return authority;
-                },
+                authority: (f) =>
+                  sanctionAuthority(principal, command, f, authorize).authority,
                 stored: session.stored,
                 versions: (f) => ({ sanction: f.sanction?.version ?? 0 }),
-                scope: () =>
-                  command.type === 'request-sanction'
-                    ? { kind: 'lobby', lobbyId: input.lobbyId }
-                    : {
-                        kind: 'organization',
-                        organizationId: input.organizationId,
-                      },
+                scope: (f) =>
+                  sanctionAuthority(principal, command, f, authorize).scope,
                 recordConflict: never,
                 holdForConfirmation: never,
                 apply: session.apply,

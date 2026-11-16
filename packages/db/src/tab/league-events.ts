@@ -31,8 +31,7 @@ export async function loadLeagueEvents(
         ...(input.seasonId ? [eq(sanctions.seasonId, input.seasonId)] : []),
       ),
     )
-    .orderBy(asc(sanctions.lobbyId), asc(sanctions.eventId))
-    .for('share');
+    .orderBy(asc(sanctions.lobbyId), asc(sanctions.eventId));
   const events: {
     competition: EventCompetitionFacts;
     certifiedAt: string | null;
@@ -46,6 +45,29 @@ export async function loadLeagueEvents(
       strength: 'share',
     });
     if (!competition) continue;
+    // Parents precede the sanction fence, matching approval/withdrawal writers.
+    // A row read before a lock wait is only a locator, never admission.
+    await scopeTransaction(tx, { ...scope, lobbyId: sanction.lobbyId });
+    const [current] = await tx
+      .select()
+      .from(sanctions)
+      .where(
+        and(
+          eq(sanctions.id, sanction.id),
+          eq(sanctions.organizationId, input.organizationId),
+          eq(sanctions.status, 'approved'),
+        ),
+      )
+      .for('share');
+    if (
+      !current ||
+      current.eventId !== sanction.eventId ||
+      current.lobbyId !== sanction.lobbyId ||
+      current.templateId !== sanction.templateId ||
+      current.seasonId !== sanction.seasonId
+    )
+      continue;
+
     const certifiedIds = new Set(
       competition.certified.map((row) => row.resultId),
     );
