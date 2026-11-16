@@ -1,3 +1,4 @@
+import type { pendingCommandStatuses } from './vocabulary';
 import { z } from 'zod';
 import type { AuthorizationCapability } from '../authorization';
 import { idSchema } from '../primitives';
@@ -168,11 +169,23 @@ export const lobbyCommandReceiptSchema = z.strictObject({
 });
 export type LobbyCommandReceipt = z.infer<typeof lobbyCommandReceiptSchema>;
 
+/** A held proposal settled without applying its command; replay preserves its actual status and deadline. */
+export type SettledLobbyCommand = {
+  readonly kind: 'settled';
+  readonly pendingCommandId: string;
+  readonly status: Exclude<
+    (typeof pendingCommandStatuses)[number],
+    'pending' | 'confirmed'
+  >;
+  readonly expiresAt: string;
+};
+
 /**
  * The one answer. A command a conflict holds for a second person is stored
  * whole and answered `pending`; nothing changes until it is confirmed.
  */
 export type LobbyCommandAnswer<Refusal extends string = string> =
+  | SettledLobbyCommand
   | { readonly kind: 'accepted'; readonly receipt: LobbyCommandReceipt }
   | {
       readonly kind: 'pending';
@@ -242,6 +255,7 @@ export const versionsHold = (
 
 /** What the record holds for a command id: its accepted receipt, or its hold. */
 export type StoredOutcome =
+  | SettledLobbyCommand
   | { readonly kind: 'accepted'; readonly receipt: LobbyCommandReceipt }
   | {
       readonly kind: 'pending';
@@ -251,6 +265,7 @@ export type StoredOutcome =
 
 /** What the stored record says about a command id that arrives again. */
 export type CommandReplay =
+  | SettledLobbyCommand
   | { readonly kind: 'new' }
   | { readonly kind: 'replay'; readonly receipt: LobbyCommandReceipt }
   | {

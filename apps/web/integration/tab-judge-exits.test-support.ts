@@ -1,3 +1,4 @@
+import { inTabTestTransaction } from './tab-test-transaction.test-support';
 import { authorize, type AuthorizationInput } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
@@ -36,7 +37,7 @@ export const judgeExitStage = async (world: World): Promise<void> => {
     newId: createId,
     minorsReleased: async () => false,
   };
-  await world.sql.savepoint(async (sql) => {
+  await inTabTestTransaction(world.sql, async (sql) => {
     await sql`reset role`;
     await sql`update account_age set birth_month = ${seventeenYearsAgo()}, version = version + 1 where user_id = ${minor.userId}`;
     await sql`update users set version = version + 1 where id = ${minor.userId}`;
@@ -61,7 +62,7 @@ export const judgeExitStage = async (world: World): Promise<void> => {
     expected: true,
   });
   const judgeId = createId();
-  await world.sql.savepoint(async (sql) => {
+  await inTabTestTransaction(world.sql, async (sql) => {
     await sql`reset role`;
     const linkId = createId();
     await sql`insert into guardian_links (id, guardian_user_id, minor_user_id, kind, status) values (${linkId}, ${parent.userId}, ${minor.userId}, 'parent', 'active')`;

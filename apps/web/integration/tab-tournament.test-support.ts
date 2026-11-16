@@ -1,4 +1,4 @@
-import type { SQL, TransactionSQL } from 'bun';
+import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
   admitParticipants,
@@ -28,7 +28,7 @@ export type Bot = {
  */
 export type World = {
   readonly database: SavepointTestDatabase;
-  readonly sql: TransactionSQL;
+  readonly sql: SQL;
   readonly clock: ScriptClock;
   readonly bots: Readonly<Record<string, Bot>>;
   readonly made: Map<string, string>;

@@ -120,6 +120,10 @@ export const actionHistory = pgTable(
     actorUserId: text('actor_user_id').references(() => users.id, {
       onDelete: 'restrict',
     }),
+    /** The actual second person who confirmed this proposer's command. */
+    confirmedByUserId: text('confirmed_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
     serviceId: text('service_id'),
     authority: text('authority')
       .$type<(typeof commandAuthorities)[number]>()
@@ -149,6 +153,11 @@ export const actionHistory = pgTable(
       table.appliedAt,
     ),
     index('action_history_actor_user_idx').on(table.actorUserId),
+    index('action_history_confirmed_by_idx').on(table.confirmedByUserId),
+    check(
+      'action_history_second_person_check',
+      sql`${table.confirmedByUserId} is null or (${table.actorUserId} is not null and ${table.confirmedByUserId}<>${table.actorUserId} and ${table.conflictId} is not null)`,
+    ),
     index('action_history_grant_idx').on(table.grantId),
     index('action_history_conflict_idx').on(table.conflictId, table.lobbyId),
     index('action_history_aggregate_idx').on(

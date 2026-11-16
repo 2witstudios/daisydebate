@@ -152,21 +152,21 @@ const gateOf = (
 const accountOf = (input: Omit<AuthorizationInput, 'capability'>) =>
   input.principal.kind === 'user' ? input.principal.userId : null;
 
-const historyAuthority = (
-  input: Omit<AuthorizationInput, 'capability'>,
-  decision: Extract<AuthorizationDecision, { allow: true }>,
+export const commandHistoryAuthority = (
+  principal: AuthorizationInput['principal'],
+  authority: Extract<AuthorizationDecision, { allow: true }>['authority'],
 ): ActionHistoryEntry['authority'] => {
-  if (input.principal.kind === 'service')
-    return { kind: 'service', serviceId: input.principal.serviceId };
-  switch (decision.authority.kind) {
+  if (principal.kind === 'service')
+    return { kind: 'service', serviceId: principal.serviceId };
+  switch (authority.kind) {
     case 'fixed':
       return { kind: 'fixed' };
     case 'owner':
       return { kind: 'owner' };
     case 'grant':
-      return { kind: 'grant', grantId: decision.authority.grantId };
+      return { kind: 'grant', grantId: authority.grantId };
     case 'relationship':
-      return { kind: 'relationship', relation: decision.authority.relation };
+      return { kind: 'relationship', relation: authority.relation };
   }
 };
 
@@ -202,6 +202,8 @@ export const runLobbyCommand = <
     switch (replay.kind) {
       case 'replay':
         return { kind: 'accepted', receipt: replay.receipt };
+      case 'settled':
+        return replay;
       case 'pending':
         return {
           kind: 'pending',
@@ -256,7 +258,7 @@ export const runLobbyCommand = <
         aggregate: outcome.aggregate,
         type: envelope.command.type,
         actorUserId,
-        authority: historyAuthority(input, decision),
+        authority: commandHistoryAuthority(input.principal, decision.authority),
         conflictId,
         confirmedByUserId: null,
         payloadDigest,

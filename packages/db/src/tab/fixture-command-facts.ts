@@ -24,7 +24,9 @@ export type FixtureCommandInput = {
   readonly commandId: string;
   readonly command: FixtureCommand;
 };
-const namedJudges = (command: FixtureCommand): readonly string[] => {
+export const fixtureCommandJudgeIds = (
+  command: FixtureCommand,
+): readonly string[] => {
   switch (command.type) {
     case 'assign-judge':
     case 'unassign-judge':
@@ -45,7 +47,7 @@ export async function loadFixtureCommandFacts(
     senderUserId: input.senderUserId,
     lobbyId: input.lobbyId,
     fixtureId: input.command.fixtureId,
-    namedJudgeIds: namedJudges(input.command),
+    namedJudgeIds: fixtureCommandJudgeIds(input.command),
     roundSource: 'current-round',
   });
   if (!context) return null;
@@ -67,7 +69,7 @@ export async function loadFixtureCommandFacts(
   const judgeIds = [
     ...new Set([
       ...panel.map((row) => row.tournamentJudgeId),
-      ...namedJudges(input.command),
+      ...fixtureCommandJudgeIds(input.command),
     ]),
   ];
   const judges = judgeIds.length

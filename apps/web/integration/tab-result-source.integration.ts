@@ -76,8 +76,6 @@ test('actual event Round source persists one immutable competition record, compl
           authorize,
           now: () => new Date().toISOString(),
           newId: createId,
-          confirmationExpiresAt: (now) =>
-            new Date(Date.parse(now) + 60_000).toISOString(),
         });
         const replacement = await officiate(as(director), lobbyId, {
           version: 1,
@@ -128,8 +126,6 @@ test('actual event Round source persists one immutable competition record, compl
           authorize,
           now: () => new Date().toISOString(),
           newId: createId,
-          confirmationExpiresAt: (now) =>
-            new Date(Date.parse(now) + 60_000).toISOString(),
         });
         const [beforeRace] =
           await owner`select version from fixtures where id=${initial!.id}`;
@@ -259,8 +255,6 @@ test('actual event Round source persists one immutable competition record, compl
           authorize,
           now: () => new Date().toISOString(),
           newId: createId,
-          confirmationExpiresAt: (now) =>
-            new Date(Date.parse(now) + 60_000).toISOString(),
         });
         const envelope = {
           version: 1,
@@ -516,8 +510,6 @@ test('actual event Round source persists one immutable competition record, compl
           authorize,
           now: () => new Date().toISOString(),
           newId: createId,
-          confirmationExpiresAt: (now) =>
-            new Date(Date.parse(now) + 60_000).toISOString(),
         });
         let rolledBack = false;
         try {

@@ -72,6 +72,7 @@ export const historyRowOf = (
   subjectPersonUserId:
     entry.scope.kind === 'person' ? entry.scope.subjectUserId : null,
   actorUserId: entry.actorUserId,
+  confirmedByUserId: entry.confirmedByUserId,
   ...authorityColumns(entry.authority),
   aggregateKind: entry.aggregate.kind,
   aggregateId: entry.aggregate.id,

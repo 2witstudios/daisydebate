@@ -1,3 +1,4 @@
+import { inTabTestTransaction } from './tab-test-transaction.test-support';
 import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import type { TransactionSQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
@@ -71,7 +72,7 @@ const leagueWithLobby = async (
   );
   const organizationId = created.aggregate.id;
   const lobbyId = createId();
-  await world.sql.savepoint(async (sql) => {
+  await inTabTestTransaction(world.sql, async (sql) => {
     await sql`select set_config('daisy.lobby_scope', ${lobbyId}, true)`;
     await sql`insert into lobbies (id, kind, owner_organization_id, name, handle)
       values (${lobbyId}, 'standing', ${organizationId}, ${`${name} Rooms`},
@@ -91,7 +92,7 @@ const restrictTo = (
   minor: Bot,
   lobbyId: string,
 ): Promise<void> =>
-  world.sql.savepoint(async (sql) => {
+  inTabTestTransaction(world.sql, async (sql) => {
     await sql`reset role`;
     const linkId = createId();
     await sql`insert into guardian_links

@@ -6,7 +6,11 @@ import { judgeRegistrationStage } from './tab-tournament-judge-registration.test
 import { setupStage } from './tab-tournament-setup.test-support';
 import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
 import { requireTestServices } from '@daisy/config';
-import { withRolledBackDatabase } from '@daisy/db/testing';
+import {
+  scratchDatabase,
+  committingRuntimeTestDatabase,
+} from '@daisy/db/testing';
+import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   StageNotWired,
@@ -105,25 +109,31 @@ const names = [
 ];
 
 test('the scripted tournament', async () => {
-  // The tab record is append-only by trigger, so the run is one transaction
-  // that is rolled back: the suite leaves no rows behind. The bots are made
-  // as the migration owner; every stage runs as the web runtime role, so
-  // the tenant fences bind.
-  const reports = await withRolledBackDatabase(databaseUrl, {
-    seed: (sql) => createBots(sql, names),
-    work: (database, bots, sql) =>
-      runStages(stages, {
-        database,
-        sql,
-        clock: scriptClock(),
-        bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
-        made: new Map(),
-      }),
-  });
+  // The entire private database is dropped. Each command commits under the
+  // actual runtime role, so ordinary Room/Round requests see real publication
+  // and later stages cannot depend on an uncommitted owner transaction.
+  const scratch = scratchDatabase(databaseUrl, 'fulltournament');
+  await scratch.create();
+  const owner = new SQL(scratch.url, { max: 4 });
+  let reports;
+  try {
+    await scratch.migrate(() => true);
+    const bots = await createBots(owner, names);
+    reports = await runStages(stages, {
+      database: committingRuntimeTestDatabase(owner),
+      sql: owner,
+      clock: scriptClock(Date.now() - 60 * 60_000),
+      bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
+      made: new Map(),
+    });
+  } finally {
+    await owner.close();
+    await scratch.drop();
+  }
   assert({
     given: 'a tournament scripted from an empty database',
     should: 'run every stage to certified results',
     actual: reportLines(reports).replace(/ \(\d+ ms\)/g, ''),
     expected: stages.map((stage) => `  ✓ ${stage.name}`).join('\n'),
   });
-});
+}, 90_000);

@@ -34,8 +34,6 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
       authorize,
       now: () => new Date().toISOString(),
       newId: createId,
-      confirmationExpiresAt: (now: string) =>
-        new Date(Date.parse(now) + 60_000).toISOString(),
     };
     const send = fixtureCommand(dependencies);
     const [fixture] =

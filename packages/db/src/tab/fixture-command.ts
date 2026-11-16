@@ -1,11 +1,9 @@
-import { and, eq, sql } from 'drizzle-orm';
-import { readDatabaseTime } from '../database-clock';
+import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
-import { fixtures, fixtureJudges } from '../schema/fixtures';
 import { appendHistory } from './command-record';
 import {
   loadFixtureCommandFacts,
@@ -17,12 +15,8 @@ import {
   recordFixtureConflict,
   holdFixtureCommand,
 } from './fixture-command-observation';
-import {
-  applyFixtureJudge,
-  restartFixtureRoom,
-  type FixtureOwnerEffects,
-} from './fixture-owner-write';
-import { applyResultWrites } from './result-writes';
+import type { FixtureOwnerEffects } from './fixture-owner-write';
+import { applyFixtureWrites } from './fixture-writes';
 import type { FixtureWrite } from './fixture-write';
 import type { TabDatabase } from './tab-transaction';
 
@@ -82,81 +76,8 @@ export const createFixtureCommandStore = (database: TabDatabase) => ({
           }),
         apply: async (writes, history, receipt, effects) => {
           if (!loaded) throw createAppError('INVARIANT');
-          const { fixture } = loaded.context;
           await appendHistory(tx, history, receipt);
-          await applyFixtureJudge(tx, loaded, input, effects);
-          for (const write of writes) {
-            switch (write.table) {
-              case 'fixture_judges':
-                if (write.op === 'insert') {
-                  if (
-                    write.row.fixtureId !== fixture.id ||
-                    write.row.lobbyId !== input.lobbyId
-                  )
-                    throw createAppError('INVARIANT');
-                  await tx.insert(fixtureJudges).values(write.row);
-                } else {
-                  if (write.fixtureId !== fixture.id)
-                    throw createAppError('INVARIANT');
-                  const where = and(
-                    eq(fixtureJudges.fixtureId, fixture.id),
-                    eq(fixtureJudges.lobbyId, input.lobbyId),
-                    eq(
-                      fixtureJudges.tournamentJudgeId,
-                      write.tournamentJudgeId,
-                    ),
-                  );
-                  const changed =
-                    write.op === 'delete'
-                      ? await tx.delete(fixtureJudges).where(where).returning()
-                      : await tx
-                          .update(fixtureJudges)
-                          .set(write.set)
-                          .where(where)
-                          .returning();
-                  if (changed.length !== 1) throw createAppError('INVARIANT');
-                }
-                break;
-              case 'fixtures': {
-                if (write.id !== fixture.id) throw createAppError('INVARIANT');
-                const changed = await tx
-                  .update(fixtures)
-                  .set(write.set)
-                  .where(
-                    and(
-                      eq(fixtures.id, fixture.id),
-                      eq(fixtures.lobbyId, input.lobbyId),
-                      eq(fixtures.version, fixture.version),
-                    ),
-                  )
-                  .returning();
-                if (changed.length !== 1) throw createAppError('CONFLICT');
-                break;
-              }
-              case 'round_source_voids':
-                if (
-                  write.row.roundId !== loaded.context.round?.id ||
-                  input.command.type !== 'restart-fixture'
-                )
-                  throw createAppError('INVARIANT');
-                // The following Room effect invokes the ordinary source owner atomically.
-                break;
-              case 'rooms':
-                if (
-                  write.likeRoomId !== fixture.roomId ||
-                  input.command.type !== 'restart-fixture'
-                )
-                  throw createAppError('INVARIANT');
-                await restartFixtureRoom(tx, loaded, effects, write.id);
-                break;
-              case 'results':
-              case 'result_entries':
-              case 'result_speakers':
-                await applyResultWrites(tx, input.lobbyId, [write]);
-                break;
-            }
-          }
-          effects.authorize((await readDatabaseTime(tx)).toISOString());
+          await applyFixtureWrites(tx, loaded, input, writes, effects);
         },
       });
     }),

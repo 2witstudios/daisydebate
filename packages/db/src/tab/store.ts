@@ -1,3 +1,8 @@
+import { createConfirmationCommandStore } from './confirmation-command';
+export { createConfirmationCommandStore } from './confirmation-command';
+export type { ConfirmationOwnerEffects } from './confirmation-command';
+export type { LoadedConfirmationCommand } from './confirmation-command-facts';
+export type { ConfirmationWrite } from './confirmation-write';
 import { createFixtureCommandStore } from './fixture-command';
 export type { FixtureWrite } from './fixture-write';
 export type { FixtureOwnerEffects } from './fixture-owner-write';
@@ -169,6 +174,7 @@ const roleNamedOf = (
 export const createTabStore = (database: TabDatabase) => ({
   ...createResultCommandStore(database),
   ...createFixtureCommandStore(database),
+  ...createConfirmationCommandStore(database),
   ...createReleaseCommandStore(database),
   ...createTournamentSponsorshipStore(database),
   ...createGuardianCommandStore(database),

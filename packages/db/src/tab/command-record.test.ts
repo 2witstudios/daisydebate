@@ -42,6 +42,7 @@ describe('historyRowOf', () => {
         lobbyId: null,
         subjectPersonUserId: null,
         actorUserId: id('u'),
+        confirmedByUserId: null,
         authority: 'grant',
         grantId: id('g'),
         relation: null,

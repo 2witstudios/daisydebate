@@ -1,3 +1,4 @@
+import { inTabTestTransaction } from './tab-test-transaction.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import {
   accepted,
@@ -31,7 +32,8 @@ const standingLobby = async (
   organizationId: string,
 ): Promise<string> => {
   const lobbyId = createId();
-  await world.sql.savepoint(async (sql) => {
+  await inTabTestTransaction(world.sql, async (sql) => {
+    await sql`set local role daisy_web`;
     await sql`select set_config('daisy.lobby_scope', ${lobbyId}, true)`;
     await sql`insert into lobbies (id, kind, owner_organization_id, name, handle)
       values (${lobbyId}, 'standing', ${organizationId}, ${lobbyName},

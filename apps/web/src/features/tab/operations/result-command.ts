@@ -19,9 +19,8 @@ import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import type { FixtureResultWrite } from '../commands/result';
 import type { ResultCommandRefusal } from '@daisy/protocol/lobby/result-command';
 import { decideFixtureResult } from '../commands/result';
-import { hostLobbyResource } from './host-lobby-resource';
+import { fixtureAuthority } from './fixture-authority';
 import { resultFacts } from './result-facts';
-import { eventSettingResolution } from './event-setting-resolution';
 import { commandDigest } from './command-digest';
 import type { TabPrincipal } from '../tab-principal';
 
@@ -32,7 +31,6 @@ export const resultCommand =
     readonly authorize: (input: AuthorizationInput) => AuthorizationDecision;
     readonly now: () => string;
     readonly newId: () => string;
-    readonly confirmationExpiresAt: (now: string) => string;
   }) =>
   async (principal: TabPrincipal, lobbyId: string, body: unknown) => {
     const parsed = resultCommandEnvelopeSchema.safeParse(body);
@@ -52,34 +50,7 @@ export const resultCommand =
           const loaded = await session.load();
           if (!loaded) throw new CommandDenied('not-found');
           const now = loaded.checkedAt;
-          const lobby = hostLobbyResource(
-            loaded.configuration.lobby,
-            loaded.authorization.organization,
-            loaded.ownerActorId,
-          );
-          if (lobby.kind !== 'lobby' || lobby.scope.lobbyKind !== 'tournament')
-            throw new CommandDenied('not-found');
-          const authority = {
-            principal,
-            resource: {
-              kind: 'fixture' as const,
-              fixtureId: loaded.fixture.id,
-              scope: lobby.scope,
-              conflict: {
-                connections: loaded.connections,
-                handling: eventSettingResolution(loaded.configuration).settings[
-                  'conflict.handling'
-                ].value.value,
-                waiverId: null,
-              },
-              viewing: { audiences: [], releases: [] },
-            },
-            context: {
-              account: loaded.authorization.account,
-              grants: loaded.authorization.grants,
-              now,
-            },
-          };
+          const authority = fixtureAuthority(loaded, principal, now);
           // A retained receipt is not current authority to access another tenant's history.
           if (
             !definition.gate.some((capability) => {
@@ -124,7 +95,6 @@ export const resultCommand =
                       payloadDigest: held.payloadDigest,
                       expected: held.expected,
                       conflictId: held.conflictId,
-                      expiresAt: dependencies.confirmationExpiresAt(now),
                     }),
                   apply: session.apply,
                 }),

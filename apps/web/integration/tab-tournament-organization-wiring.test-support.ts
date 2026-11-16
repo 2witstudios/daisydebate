@@ -1,3 +1,4 @@
+import { inTabTestTransaction } from './tab-test-transaction.test-support';
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -64,7 +65,8 @@ export const underFence = <Row>(
   scope: { readonly organizationId?: string; readonly lobbyId?: string },
   read: (sql: SQL) => Promise<unknown>,
 ): Promise<Row[]> =>
-  world.sql.savepoint(async (sql) => {
+  inTabTestTransaction(world.sql, async (sql) => {
+    await sql`set local role daisy_web`;
     await sql`select
       set_config('daisy.organization_scope', ${scope.organizationId ?? ''}, true),
       set_config('daisy.lobby_scope', ${scope.lobbyId ?? ''}, true)`;

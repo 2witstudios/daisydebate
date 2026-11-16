@@ -100,8 +100,6 @@ test('actual fixture retirement disconnects a native hidden judge and fences its
             authorize,
             now: () => new Date().toISOString(),
             newId: createId,
-            confirmationExpiresAt: (now) =>
-              new Date(Date.parse(now) + 60_000).toISOString(),
           });
           const changed = await send(as(director), lobbyId, {
             version: 1,

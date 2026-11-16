@@ -1,9 +1,10 @@
-import type { TransactionSQL } from 'bun';
+import { inTabTestTransaction } from './tab-test-transaction.test-support';
+import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 
 /** Explicit operator fixture only, never a production issuer or inferred Premium upgrade. */
 export const seedHostingGrant = async (
-  sql: TransactionSQL,
+  sql: SQL,
   userId: string,
   options: {
     readonly tournamentIds?: readonly string[];
@@ -17,7 +18,7 @@ export const seedHostingGrant = async (
     { role: string }[]
   >`select current_user as role`;
   if (!principal) throw new Error('Test issuer role unavailable');
-  await sql.savepoint(async (seed) => {
+  await inTabTestTransaction(sql, async (seed) => {
     await seed.unsafe('reset role');
     await seed`insert into account_hosting_versions
       (id,user_id,source,version,starts_at,expires_at,issuer_service_id,issuer_operator_ref,decision_reference,coverage)
