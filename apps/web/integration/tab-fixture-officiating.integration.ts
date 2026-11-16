@@ -12,7 +12,7 @@ import { withRoomRuntime } from './room-runtime.test-support';
 import { committedEventRoom } from './tab-event-room-direction.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import { fixtureCommand } from '../src/features/tab/operations/fixture-command';
-import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
+import { registerFixtureJudge } from './tab-fixture-judge.test-support';
 import { isAppError } from '@daisy/errors';
 import { roundViewReader } from '../src/features/round-runtime/reads';
 import { CommandDenied } from '../src/features/tab/commands/run-command';
@@ -43,54 +43,12 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
     const [oldJudge] =
       await owner`select j.id,j.actor_id,p.id participant_id from fixture_judges fj join tournament_judges j on j.id=fj.tournament_judge_id join room_participants p on p.actor_id=j.actor_id and p.room_id=${world.roomId} where fj.fixture_id=${fixture!.id}`;
     const sparePerson = world.bots['Judge C']!;
-    const register = judgeRegistrationCommand({
+    const spare = await registerFixtureJudge({
+      owner,
       store,
-      authorize,
-      now: dependencies.now,
-      newId: createId,
-      minorsReleased: async () => false,
+      world,
+      person: sparePerson,
     });
-    const invitation = await register(as(director), lobbyId, {
-      version: 1,
-      commandId: createId(),
-      expected: {},
-      command: {
-        type: 'invite-judge',
-        actorId: sparePerson.actorId,
-        schoolOrganizationId: null,
-        chairQualified: true,
-        eventIds: [world.made.get('event')!],
-      },
-    });
-    if (invitation.kind !== 'accepted')
-      throw new Error(
-        `Spare judge invitation refused: ${JSON.stringify(invitation)}`,
-      );
-    const [spare] =
-      await owner`select id,actor_id from tournament_judges where lobby_id=${lobbyId} and actor_id=${sparePerson.actorId}`;
-    const accepted = await register(as(sparePerson), lobbyId, {
-      version: 1,
-      commandId: createId(),
-      expected: {},
-      command: {
-        type: 'accept-judge-invitation',
-        tournamentJudgeId: String(spare!.id),
-      },
-    });
-    const available = await register(as(sparePerson), lobbyId, {
-      version: 1,
-      commandId: createId(),
-      expected: {},
-      command: {
-        type: 'set-judge-availability',
-        tournamentJudgeId: String(spare!.id),
-        availability: [
-          { timeSlotId: world.made.get('time-slot')!, available: true },
-        ],
-      },
-    });
-    if (accepted.kind !== 'accepted' || available.kind !== 'accepted')
-      throw new Error('Spare judge acceptance/availability refused');
     const envelope = {
       version: 1,
       commandId: createId(),

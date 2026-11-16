@@ -24,6 +24,21 @@ const source = () =>
       roundId: id('r'),
       freezeRevision: 2,
       finalization: { commandId: id('f'), resultingVersion: 21 },
+      judgeAssignments: [
+        {
+          slot: 0,
+          versions: [
+            {
+              version: 1,
+              participantId: id('j'),
+              actorId: id('k'),
+              source: 'initial',
+              commandId: null,
+              recordedAt: '2026-11-15T09:00:00.000Z',
+            },
+          ],
+        },
+      ],
       rules: fixtureRules(oneOnOneFormatFixture),
       judging: {
         source: daisyBallotSource(daisyWinnerBallot),
@@ -116,5 +131,77 @@ test('Round competition export rejects private words, missing cast, wrong panel 
       (value) => roundCompetitionSourceSchema.safeParse(value).success,
     ),
     expected: invalid.map(() => false),
+  });
+});
+
+test('competitive finality requires the actual frozen judge assignment lineage', () => {
+  const held = source();
+  const withoutLineage = {
+    ...held,
+    source: Object.fromEntries(
+      Object.entries(held.source).filter(([key]) => key !== 'judgeAssignments'),
+    ),
+  };
+  assert({
+    given:
+      'otherwise valid competitive output without its terminal assignment history',
+    should:
+      'refuse an incomplete immutable source rather than infer an original assignment',
+    actual: roundCompetitionSourceSchema.safeParse(withoutLineage).success,
+    expected: false,
+  });
+});
+
+test('terminal assignment history preserves replacements and explicit vacancies', () => {
+  const held = source();
+  const first = {
+    version: 1,
+    participantId: id('n'),
+    actorId: id('o'),
+    source: 'initial',
+    commandId: null,
+    recordedAt: '2026-11-15T09:00:00.000Z',
+  };
+  const empty = {
+    version: 2,
+    participantId: null,
+    actorId: null,
+    source: 'command',
+    commandId: id('x'),
+    recordedAt: '2026-11-15T09:01:00.000Z',
+  };
+  const last = {
+    version: 3,
+    participantId: id('j'),
+    actorId: id('k'),
+    source: 'command',
+    commandId: id('y'),
+    recordedAt: '2026-11-15T09:02:00.000Z',
+  };
+  const withVersions = (versions: readonly unknown[]) => ({
+    ...held,
+    source: { ...held.source, judgeAssignments: [{ slot: 0, versions }] },
+  });
+  assert({
+    given:
+      'a real-shaped initial assignment, explicit unassignment and new terminal occupant',
+    should:
+      'accept the complete prefix and refuse gaps, a different final occupant, reused identity and missing command provenance',
+    actual: [
+      roundCompetitionSourceSchema.safeParse(withVersions([first, empty, last]))
+        .success,
+      roundCompetitionSourceSchema.safeParse(withVersions([first, last]))
+        .success,
+      roundCompetitionSourceSchema.safeParse(
+        withVersions([first, empty, { ...last, actorId: id('o') }]),
+      ).success,
+      roundCompetitionSourceSchema.safeParse(
+        withVersions([{ ...first, participantId: id('j') }, empty, last]),
+      ).success,
+      roundCompetitionSourceSchema.safeParse(
+        withVersions([first, empty, { ...last, commandId: null }]),
+      ).success,
+    ],
+    expected: [true, false, false, false, false],
   });
 });

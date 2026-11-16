@@ -28,6 +28,19 @@ export const fixtureCompetition = (): Extract<
     roundId: id('d'),
     freezeRevision: 1,
     finalization: { commandId: id('z'), resultingVersion: 8 },
+    judgeAssignments: ['3', '4', '5'].map((letter, slot) => ({
+      slot,
+      versions: [
+        {
+          version: 1,
+          participantId: id(letter),
+          actorId: id(letter),
+          source: 'initial' as const,
+          commandId: null,
+          recordedAt: '2026-11-14T08:00:00.000Z',
+        },
+      ],
+    })),
     rules: fixtureRules({
       ...oneOnOneFormatFixture,
       seats: { ...oneOnOneFormatFixture.seats, judges: 3 },

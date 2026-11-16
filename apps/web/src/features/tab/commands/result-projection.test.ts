@@ -46,6 +46,19 @@ const record = (): Extract<ResultCompetitionRecord, { kind: 'decided' }> => ({
     roundId: id('r'),
     freezeRevision: 1,
     finalization: { commandId: id('z'), resultingVersion: 8 },
+    judgeAssignments: ['g', 'h', 'i'].map((letter, slot) => ({
+      slot,
+      versions: [
+        {
+          version: 1,
+          participantId: id(letter),
+          actorId: id(['j', 'k', 'l'][slot]!),
+          source: 'initial' as const,
+          commandId: null,
+          recordedAt: '2026-11-14T08:00:00.000Z',
+        },
+      ],
+    })),
     rules: fixtureRules(format),
     judging: {
       source: { kind: 'stored', id: id('w'), version: definition.revision },

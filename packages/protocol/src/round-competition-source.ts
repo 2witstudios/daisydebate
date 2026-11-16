@@ -1,3 +1,7 @@
+import {
+  roundJudgeLineageSchema,
+  terminalJudgeLineageMatches,
+} from './round-judge-lineage';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { formatRevisionPinSchema } from './format-reference';
@@ -19,6 +23,7 @@ export const roundCompetitionFreezeSchema = z.strictObject({
     commandId: idSchema,
     resultingVersion: z.int().positive(),
   }),
+  judgeAssignments: roundJudgeLineageSchema,
   rules: roundRulesSchema,
   judging: roundJudgingSchema.unwrap(),
 });
@@ -59,6 +64,16 @@ export const roundCompetitionSourceSchema = sourceShape.superRefine(
     )
       return;
     const add = (message: string) => ctx.addIssue({ code: 'custom', message });
+    if (
+      !terminalJudgeLineageMatches(
+        value.source.judgeAssignments,
+        rules.seats.judges,
+        value.cast,
+      )
+    )
+      add(
+        'Terminal judge assignment history must preserve each frozen slot and its actual final occupant',
+      );
     const occupied = value.cast.map((person) => seatKey(person.seat));
     const declared = everySeatOf(rules).map(seatKey);
     if (

@@ -19,6 +19,21 @@ const source = (): RoundCompetitionSource => ({
     roundId: id('r'),
     freezeRevision: 1,
     finalization: { commandId: id('z'), resultingVersion: 8 },
+    judgeAssignments: [
+      {
+        slot: 0,
+        versions: [
+          {
+            version: 1,
+            participantId: id('e'),
+            actorId: id('j'),
+            source: 'initial',
+            commandId: null,
+            recordedAt: '2026-11-15T09:00:00.000Z',
+          },
+        ],
+      },
+    ],
     rules: fixtureRules(oneOnOneFormatFixture),
     judging: {
       source: daisyBallotSource(daisyWinnerBallot),

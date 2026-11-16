@@ -29,6 +29,21 @@ export const decidedRecord = () =>
       roundId: recordId('r'),
       freezeRevision: 1,
       finalization: { commandId: recordId('z'), resultingVersion: 8 },
+      judgeAssignments: [
+        {
+          slot: 0,
+          versions: [
+            {
+              version: 1,
+              participantId: recordId('g'),
+              actorId: recordId('h'),
+              source: 'initial',
+              commandId: null,
+              recordedAt: '2026-11-15T09:00:00.000Z',
+            },
+          ],
+        },
+      ],
       rules: fixtureRules(oneOnOneFormatFixture),
       judging: {
         source: daisyBallotSource(daisyWinnerBallot),

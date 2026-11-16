@@ -1,3 +1,6 @@
+import { interleaveRoundWriters } from './tab-round-interleaving.test-support';
+import { registerFixtureJudge } from './tab-fixture-judge.test-support';
+import { fixtureCommand } from '../src/features/tab/operations/fixture-command';
 import { proveEventBallotReleases } from './tab-event-ballot-release.test-support';
 import type { ResultCompetitionRecord } from '@daisy/protocol/lobby/result-record';
 import { as } from './tab-tournament-organization-wiring.test-support';
@@ -22,7 +25,7 @@ import {
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import { resultCommand } from '../src/features/tab/operations/result-command';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { CommandDenied } from '../src/features/tab/commands/run-command';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -32,7 +35,9 @@ test('actual event Round source persists one immutable competition record, compl
   await scratch.create();
   const owner = new SQL(scratch.url, { max: 1 });
   try {
-    await scratch.migrate(() => true);
+    await scratch.migrate(
+      (path) => !path.includes('20261116000843_result_judge_lineage'),
+    );
     const world = await committedEventRoom(owner, 'copy', { noPrep: true });
     await withRoomRuntime(
       async (f) => {
@@ -56,6 +61,38 @@ test('actual event Round source persists one immutable competition record, compl
           expectedVersion: room.version,
         });
         const roundId = started.receipt.roundRef!.id;
+        const store = createTabStore(committingRuntimeTestDatabase(owner));
+        const nextJudge = await registerFixtureJudge({
+          owner,
+          store,
+          world,
+          person: world.bots['Judge C']!,
+        });
+        const [initial] =
+          await owner`select f.id,f.version,j.id judge_id,p.id participant_id from fixtures f join fixture_judges fj on fj.fixture_id=f.id join tournament_judges j on j.id=fj.tournament_judge_id join room_participants p on p.room_id=f.room_id and p.actor_id=j.actor_id where f.room_id=${world.roomId}`;
+        const replacementId = createId();
+        const officiate = fixtureCommand({
+          store,
+          authorize,
+          now: () => new Date().toISOString(),
+          newId: createId,
+          confirmationExpiresAt: (now) =>
+            new Date(Date.parse(now) + 60_000).toISOString(),
+        });
+        const replacement = await officiate(as(director), lobbyId, {
+          version: 1,
+          commandId: replacementId,
+          expected: { fixture: Number(initial!.version) },
+          command: {
+            type: 'replace-judge',
+            fixtureId: String(initial!.id),
+            outJudgeId: String(initial!.judge_id),
+            inJudgeId: nextJudge.id,
+            overrides: [],
+          },
+        });
+        if (replacement.kind !== 'accepted')
+          throw new Error('Real Round judge replacement refused');
         // Bounded storage/command proof: existing elapsed-time and attendance
         // fixtures are explicit; this is not the full availability/media journey.
         await playOut(f, roundId, false);
@@ -64,7 +101,7 @@ test('actual event Round source persists one immutable competition record, compl
           throw new Error(`Expected real freeze, got ${frozen.status}`);
         await seedSettledAttendanceLedger(f, roundId);
         const round = (await f.store.getRound(roundId))!;
-        const judge = round.participants.find(
+        const firstJudge = round.participants.find(
           (person) => person.seat.kind === 'judge',
         )!;
         const competitors = round.participants
@@ -86,22 +123,137 @@ test('actual event Round source persists one immutable competition record, compl
           ),
           speakerRanks: competitors.map((person) => [person.id]),
         };
-        const submitted = await submit.submit(
-          { kind: 'human', actorId: judge.actorId },
-          roundId,
-          {
-            version: 1,
-            commandId: createId(),
-            expectedVersion: round.version,
-            judgeParticipantId: judge.id,
-            freezeRevision: frozen.freeze.revision,
-            ballot,
+        const raceOfficiate = fixtureCommand({
+          store: createTabStore(committingRuntimeTestDatabase(f.sql)),
+          authorize,
+          now: () => new Date().toISOString(),
+          newId: createId,
+          confirmationExpiresAt: (now) =>
+            new Date(Date.parse(now) + 60_000).toISOString(),
+        });
+        const [beforeRace] =
+          await owner`select version from fixtures where id=${initial!.id}`;
+        const returnId = createId();
+        const raceEnvelope = {
+          version: 1,
+          commandId: returnId,
+          expected: { fixture: Number(beforeRace!.version) },
+          command: {
+            type: 'replace-judge',
+            fixtureId: String(initial!.id),
+            outJudgeId: nextJudge.id,
+            inJudgeId: String(initial!.judge_id),
+            overrides: [],
           },
-        );
+        };
+        const retiredSubmission = {
+          version: 1 as const,
+          commandId: createId(),
+          expectedVersion: round.version,
+          judgeParticipantId: firstJudge.id,
+          freezeRevision: frozen.freeze.revision,
+          ballot,
+        };
+        const replacingFirst = await interleaveRoundWriters({
+          owner,
+          observer: f.sql,
+          roundId,
+          first: () => raceOfficiate(as(director), lobbyId, raceEnvelope),
+          second: () =>
+            submit.submit(
+              { kind: 'human', actorId: firstJudge.actorId },
+              roundId,
+              retiredSubmission,
+            ),
+        });
+        if (replacingFirst.first.kind === 'failed')
+          throw replacingFirst.first.error;
+        const retiredError =
+          replacingFirst.second.kind === 'failed'
+            ? replacingFirst.second.error
+            : null;
+        assert({
+          given:
+            'replacement holds actual accounts and waits on the Round before the old judge submission arrives',
+          should:
+            'commit one fresh assignment and refuse a stale unfenced cast after the real account wait',
+          actual: [
+            replacingFirst.first.value.kind,
+            isAppError(retiredError) ? retiredError.code : null,
+            (
+              await owner`select count(*)::int n from ballots where round_id=${roundId}`
+            )[0]!.n,
+          ],
+          expected: ['accepted', 'CONFLICT', 0],
+        });
+        let retiredRetry: unknown = null;
+        try {
+          await submit.submit(
+            { kind: 'human', actorId: firstJudge.actorId },
+            roundId,
+            retiredSubmission,
+          );
+        } catch (error) {
+          retiredRetry = error;
+        }
+        assert({
+          given:
+            'the retired judge retrying after all actual current accounts can be fenced afresh',
+          should:
+            'refuse current judging authority and retain no ballot or command receipt',
+          actual: [
+            isAppError(retiredRetry) ? retiredRetry.code : null,
+            (
+              await owner`select count(*)::int n from round_commands where command_id=${retiredSubmission.commandId}`
+            )[0]!.n,
+          ],
+          expected: ['AUTHORIZATION', 0],
+        });
+        const currentRound = (await f.store.getRound(roundId))!;
+        const judge = currentRound.participants.find(
+          (person) => person.seat.kind === 'judge',
+        )!;
+        const [beforeSubmit] =
+          await owner`select version from fixtures where id=${initial!.id}`;
+        const submittingFirst = await interleaveRoundWriters({
+          owner,
+          observer: f.sql,
+          roundId,
+          first: () =>
+            submit.submit({ kind: 'human', actorId: judge.actorId }, roundId, {
+              ...retiredSubmission,
+              commandId: createId(),
+              expectedVersion: currentRound.version,
+              judgeParticipantId: judge.id,
+            }),
+          second: () =>
+            raceOfficiate(as(director), lobbyId, {
+              ...raceEnvelope,
+              commandId: createId(),
+              expected: { fixture: Number(beforeSubmit!.version) },
+              command: {
+                ...raceEnvelope.command,
+                outJudgeId: String(initial!.judge_id),
+                inJudgeId: nextJudge.id,
+              },
+            }),
+        });
+        if (submittingFirst.first.kind === 'failed')
+          throw submittingFirst.first.error;
+        if (submittingFirst.second.kind === 'failed')
+          throw submittingFirst.second.error;
+        const submitted = submittingFirst.first.value;
+        assert({
+          given:
+            'the actual ballot writer holds accounts and waits on the Round before replacement arrives',
+          should:
+            'retain its submitted identity and refuse replacement after the real wait',
+          actual: submittingFirst.second.value,
+          expected: { kind: 'refused', refusal: 'ballot-submitted' },
+        });
         await finalizeByMaintenance(f, roundId);
         const [fixture] =
           await owner`select id,version from fixtures where room_id=${world.roomId}`;
-        const store = createTabStore(committingRuntimeTestDatabase(owner));
         const send = resultCommand({
           store,
           authorize,
@@ -133,6 +285,85 @@ test('actual event Round source persists one immutable competition record, compl
         const [saved] =
           await owner`select competition_record,kind,round_id from results where id=${answer.receipt.aggregate.id}`;
         const record = saved!.competition_record;
+        const lineage = await owner<
+          {
+            slot: number;
+            version: number;
+            participant_id: string;
+            actor_id: string;
+            source: string;
+            command_id: string | null;
+            recorded_at: Date;
+          }[]
+        >`select a.* from round_finalization_judge_assignments z join round_judge_assignments a on a.round_id=z.round_id and a.slot=z.slot and a.version<=z.assignment_version where z.round_id=${roundId} order by a.slot,a.version`;
+        assert({
+          given:
+            'a genuine post-Start judge replacement followed by its real ballot and ordinary finality',
+          should:
+            'retain both immutable assignment identities and exact command/observation provenance in the result-owned terminal prefix',
+          actual: [
+            record.source.judgeAssignments,
+            lineage.length,
+            lineage[0]!.participant_id,
+            lineage[1]!.command_id,
+          ],
+          expected: [
+            [
+              {
+                slot: 0,
+                versions: lineage.map((row) => ({
+                  version: row.version,
+                  participantId: row.participant_id,
+                  actorId: row.actor_id,
+                  source: row.source,
+                  commandId: row.command_id,
+                  recordedAt: row.recorded_at.toISOString(),
+                })),
+              },
+            ],
+            3,
+            initial!.participant_id,
+            replacementId,
+          ],
+        });
+        const [currentFixture] =
+          await owner`select version from fixtures where id=${initial!.id}`;
+        const submittedRetirement = await officiate(as(director), lobbyId, {
+          version: 1,
+          commandId: createId(),
+          expected: { fixture: Number(currentFixture!.version) },
+          command: {
+            type: 'unassign-judge',
+            fixtureId: String(initial!.id),
+            judgeId: nextJudge.id,
+          },
+        });
+        assert({
+          given: 'the actual submitted terminal assignment',
+          should:
+            'refuse retirement after its ballot and retained fixture result',
+          actual: submittedRetirement,
+          expected: { kind: 'refused', refusal: 'result-exists' },
+        });
+        // Private populated predecessor-shape loan: remove only the new field
+        // from the genuinely produced a4-shaped record, without changing any
+        // outcome, identity, command, competitive word or consumed digest.
+        await owner.begin(async (tx) => {
+          await tx`alter table results disable trigger results_append_only`;
+          await tx`update results set competition_record=competition_record #- '{source,judgeAssignments}' where id=${answer.receipt.aggregate.id}`;
+          await tx`alter table results enable trigger results_append_only`;
+        });
+        await scratch.migrate(() => true);
+        const [upgraded] =
+          await owner`select competition_record from results where id=${answer.receipt.aggregate.id}`;
+        assert({
+          given:
+            'the genuine retained predecessor-shaped record upgraded by forward132',
+          should:
+            'add exactly its actual frozen lineage while preserving every other retained byte value',
+          actual: upgraded!.competition_record,
+          expected: record,
+        });
         const [terminal] =
           await owner`select command_id,resulting_version from round_finalizations where round_id=${roundId}`;
         const [digest] =

@@ -1,3 +1,5 @@
+import { roundJudgeAssignments } from './schema/round-judge-assignments';
+import { roundFinalizationJudgeAssignments } from './schema/round-finalization-judge-assignments';
 import { roundSourceVoided } from './round-source-state';
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -57,6 +59,42 @@ export const readRoundCompetitionSource = async (
     return null;
   const rules = roundRulesSchema.parse(frame.rules);
   const judging = roundJudgingSchema.unwrap().parse(frame.judging);
+  const lineageRows = await tx
+    .select({
+      slot: roundJudgeAssignments.slot,
+      version: roundJudgeAssignments.version,
+      participantId: roundJudgeAssignments.participantId,
+      actorId: roundJudgeAssignments.actorId,
+      source: roundJudgeAssignments.source,
+      commandId: roundJudgeAssignments.commandId,
+      recordedAt: roundJudgeAssignments.recordedAt,
+    })
+    .from(roundFinalizationJudgeAssignments)
+    .innerJoin(
+      roundJudgeAssignments,
+      and(
+        eq(
+          roundJudgeAssignments.roundId,
+          roundFinalizationJudgeAssignments.roundId,
+        ),
+        eq(roundJudgeAssignments.slot, roundFinalizationJudgeAssignments.slot),
+        sql`${roundJudgeAssignments.version}<=${roundFinalizationJudgeAssignments.assignmentVersion}`,
+      ),
+    )
+    .where(eq(roundFinalizationJudgeAssignments.roundId, input.roundId))
+    .orderBy(roundJudgeAssignments.slot, roundJudgeAssignments.version);
+  const judgeAssignments = Array.from(
+    { length: rules.seats.judges },
+    (_, slot) => ({
+      slot,
+      versions: lineageRows
+        .filter((row) => row.slot === slot)
+        .map(({ slot: _slot, recordedAt, ...row }) => ({
+          ...row,
+          recordedAt: recordedAt.toISOString(),
+        })),
+    }),
+  );
   const castRows = await tx
     .select({
       participantId: roundParticipants.id,
@@ -182,6 +220,7 @@ export const readRoundCompetitionSource = async (
       },
       rules,
       judging,
+      judgeAssignments,
     },
     cast,
     panel,

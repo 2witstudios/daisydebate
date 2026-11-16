@@ -1,3 +1,4 @@
+import { terminalJudgeLineageMatches } from '../round-judge-lineage';
 import { formatRevisionPinSchema } from '../format-reference';
 import { roundCompetitionFreezeSchema } from '../round-competition-source';
 import { z } from 'zod';
@@ -213,6 +214,17 @@ const validateDecided = (
   const judges = record.cast
     .filter((person) => isJudgeSeat(person.seat))
     .sort((a, b) => a.seat.slot - b.seat.slot);
+  if (
+    !terminalJudgeLineageMatches(
+      record.source.judgeAssignments,
+      record.source.rules.seats.judges,
+      record.cast,
+    )
+  )
+    issue(ctx, 'The result preserves its frozen terminal judge lineage', [
+      'source',
+      'judgeAssignments',
+    ]);
   const panelFits =
     record.panel.length === judges.length &&
     unique(record.panel.map((row) => row.tournamentJudgeId)) &&
