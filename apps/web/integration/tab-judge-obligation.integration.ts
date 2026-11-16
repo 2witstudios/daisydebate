@@ -4,6 +4,7 @@ import { createTabStore } from '@daisy/db/tab';
 import { withRolledBackDatabase } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import { settingCommand } from '../src/features/tab/operations/settings';
 import { readTournamentEventSettings } from '../src/features/tab/reads/tournament-event-settings';
 import { readHostRoster } from '../src/features/tab/reads/host-roster';
@@ -44,7 +45,9 @@ test('host obligations resolve policy from the real chain and count accepted sch
         made: new Map<string, string>(),
       };
       await organizationStage(world);
-      await leagueAdministrationStage(world);
+      await leagueAdministrationStage(world, {
+        tournamentOwner: 'organization',
+      });
       await setupStage(world);
       await judgeRegistrationStage(world);
       const store = createTabStore(database),
@@ -201,10 +204,30 @@ test('host obligations resolve policy from the real chain and count accepted sch
         actual: [group?.judgesNamed, acceptedJudges > 0],
         expected: [acceptedJudges, true],
       });
-      await sql`update tournament_judges set status='withdrawn' where lobby_id=${lobbyId}`;
+      const removed = await judgeRegistrationCommand({
+        store,
+        authorize,
+        now: world.clock.now,
+        newId: createId,
+        minorsReleased: async () => false,
+      })(principal, lobbyId, {
+        version: 1,
+        commandId: createId(),
+        expected: {},
+        command: {
+          type: 'remove-judge',
+          tournamentJudgeId: world.made.get('judge-a')!,
+        },
+      });
+      assert({
+        given: 'a host removing an accepted school judge',
+        should: 'accept the real registration command',
+        actual: removed.kind,
+        expected: 'accepted',
+      });
       const withdrawn = await read(principal, { lobbyId, eventId });
       assert({
-        given: 'withdrawn school judges',
+        given: 'removed school judges',
         should: 'no longer count them toward what the school has',
         actual: withdrawn?.entries.groups.find(
           (g) =>
