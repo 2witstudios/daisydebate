@@ -9,7 +9,8 @@ import type { TabTransaction } from './tab-transaction';
 
 /**
  * Current standing-lobby list metadata; no ballots, results or contact
- * details. A private Room is listed only to its host and seated people.
+ * details. Only public Rooms are listed to everyone; an unlisted or private
+ * Room only to its host and seated people.
  */
 export async function loadLeagueRoomList(
   tx: TabTransaction,
@@ -38,10 +39,10 @@ export async function loadLeagueRoomList(
       and(
         eq(rooms.lobbyId, input.lobbyId),
         inArray(rooms.status, ['assembling', 'ready', 'started']),
-        // The lobby is members-only, so its public and unlisted Rooms are
-        // listed to members; a private Room only to its host and its seats.
+        // A public Room is listed in the lobby; an unlisted or private one
+        // only to its host and its seats (docs/domains/rooms.md, Visibility).
         or(
-          inArray(rooms.visibility, ['public', 'unlisted']),
+          eq(rooms.visibility, 'public'),
           inArray(
             rooms.hostActorId,
             tx
