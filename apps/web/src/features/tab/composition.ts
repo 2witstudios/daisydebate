@@ -1,3 +1,5 @@
+import { completionCommand } from './operations/completion-command';
+import { resultCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { readHostNavigation } from './reads/host-navigation';
 import {
   createHostNavigationRoute,
@@ -85,6 +87,7 @@ export function composeTabRoutes(app: App) {
   const settings = settingCommand(common);
   const fixtures = fixtureCommand(common);
   const results = resultCommand(common);
+  const completion = completionCommand(common);
   const releases = releaseCommand(common);
   const confirmations = settlePendingCommand(common);
   const waivers = requestConflictWaiver(common);
@@ -118,7 +121,12 @@ export function composeTabRoutes(app: App) {
       commandRoute(released, {
         name: 'tab.result.command',
         address: 'lobby',
-        execute: results,
+        execute: (principal, lobbyId, body) => {
+          const parsed = resultCommandEnvelopeSchema.safeParse(body);
+          return parsed.success && 'fixtureId' in parsed.data.command
+            ? results(principal, lobbyId, body)
+            : completion(principal, lobbyId, body);
+        },
       }),
     releaseCommand: (released: TabCommandRouteDependencies['released']) =>
       commandRoute(released, {

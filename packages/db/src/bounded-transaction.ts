@@ -130,7 +130,21 @@ class TransactionAttempt {
       ),
     });
     const result = await run(
-      transactionContext(database, this.checkLifetime, this.refuseControl),
+      transactionContext(
+        database,
+        this.checkLifetime,
+        this.refuseControl,
+        async (scope) => {
+          this.checkLifetime();
+          // Tenant addressing is adapter-owned. Arbitrary callback configuration
+          // still passes through the unchanged rejecting statement guard.
+          const writer = this.work!;
+          await writer`select set_config('daisy.organization_scope', ${scope.organizationId ?? ''}, true),
+          set_config('daisy.lobby_scope', ${scope.lobbyId ?? ''}, true),
+          set_config('daisy.subject_scope', ${scope.subjectUserId ?? ''}, true)`;
+          this.checkLifetime();
+        },
+      ),
       this.controller.signal,
       this.metadata,
     );

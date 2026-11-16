@@ -1,4 +1,5 @@
-import { judgedRound } from './judged-round.test-support';
+import { screenBallotContacts } from '@daisy/debate-engine/ballot-contact-screening';
+import { constructBallotRound } from './ballot-round-construction.test-support';
 import { attendanceSettled } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -24,8 +25,8 @@ const ballot: Ballot = {
 
 test('ballot writes require actual frozen input and replay reauthorizes without changing the original receipt', async () => {
   await withFixture(url, async (f) => {
-    const roundId = await judgedRound(f);
-    const judge = await f.seat(roundId, 'judge');
+    const { roundId, judges } = await constructBallotRound(f);
+    const judge = judges[0]!;
     await f.sql`update rounds set status='active',current_stage='live',started_at=${new Date(0)} where id=${roundId}`;
     await f.sql.unsafe(
       'update users set email_verified=true where id=(select user_id from actors where id=$1)',
@@ -47,6 +48,7 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
       },
       payloadDigest: 'a'.repeat(64),
       nextBallotId: createId,
+      screenWritten: screenBallotContacts,
       authorize: () => {},
       attendanceSettled,
       buildProjection: () => null,

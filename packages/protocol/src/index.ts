@@ -264,6 +264,8 @@ export {
   ballotRecordSchema,
   ballotWrittenRecordSchema,
   type BallotWrittenRecord,
+  ballotTextScreeningSchema,
+  type BallotTextScreening,
   ballotCompetitionRecordSchema,
   ballotCompetitionSchemaFor,
   ballotSchemaFor,

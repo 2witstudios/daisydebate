@@ -60,6 +60,8 @@ const facts = (held: DrawFixtureFacts = fixture): DrawFacts => ({
       status: 'draft',
       basedOnDrawId: null,
       inputs: {
+        stage: { kind: 'preliminary' },
+        breakResultIds: [],
         engine: null,
         settingsDigest: 'same',
         broken: [],
@@ -99,6 +101,8 @@ const facts = (held: DrawFixtureFacts = fixture): DrawFacts => ({
     commitments: [],
   },
   breakChoicesPending: false,
+  feederResultsComplete: true,
+  breakResultIds: [],
   slotElsewhere: [],
   releasesAtOnce: [],
 });

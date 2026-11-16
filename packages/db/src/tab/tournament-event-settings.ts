@@ -10,6 +10,7 @@ type Input = {
   readonly viewerUserId: string;
   readonly lobbyId: string;
   readonly eventId: string;
+  readonly strength?: 'share' | 'update';
 };
 export const loadTournamentEventSettingFacts = async (
   tx: TabTransaction,
@@ -21,7 +22,7 @@ export const loadTournamentEventSettingFacts = async (
     lobbyId: input.lobbyId,
     eventId: input.eventId,
     subjectUserId: input.viewerUserId,
-    strength: 'share',
+    strength: input.strength ?? 'share',
   });
   if (!configuration) return null;
   const { scope, lobby, template } = configuration;

@@ -19,11 +19,11 @@ export class EventSettingParentsChanged extends Error {}
  * settings writers' metadata locks. It never enumerates unrelated lobbies or their records.
  */
 export const lockEventSettingContext = async (
-  tx: TabTransaction,
+  tx: Pick<TabTransaction, 'select' | 'execute'>,
   input: {
     readonly lobbyId: string;
     readonly eventId: string;
-    readonly subjectUserId: string;
+    readonly subjectUserId?: string;
     readonly extraOrganizationIds?: readonly string[];
     /** Readers share the aggregate fence; commands retain exclusive locks by default. */
     readonly strength?: 'share' | 'update';

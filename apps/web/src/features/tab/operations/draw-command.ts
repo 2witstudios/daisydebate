@@ -1,3 +1,4 @@
+import { eventResultsVersion } from './event-results-version';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -36,7 +37,10 @@ import { drawAdmissionsAllowed } from './draw-admission';
 type Dependencies = {
   readonly store: Pick<TabStore, 'drawCommand'>;
   readonly authorize: (input: AuthorizationInput) => AuthorizationDecision;
-  readonly competition: (facts: LoadedDrawCommand) => DrawCompetition;
+  readonly competition: (
+    facts: LoadedDrawCommand,
+    command: DrawCommand,
+  ) => DrawCompetition;
   readonly now: () => string;
   readonly newId: () => string;
 };
@@ -149,7 +153,7 @@ export const drawCommand =
                       ),
                     entries: facts.configuration.event.entriesVersion,
                     settings: facts.configuration.event.settingsVersion,
-                    results: facts.results.length || undefined,
+                    results: eventResultsVersion(facts),
                     timeSlot: facts.slot?.version,
                   }),
                   scope: (facts) => ({
@@ -165,7 +169,7 @@ export const drawCommand =
                             loaded,
                             drawFacts(
                               loaded,
-                              dependencies.competition(loaded),
+                              dependencies.competition(loaded, command),
                               {
                                 commandId: parsed.data.commandId,
                                 now,
@@ -199,11 +203,15 @@ export const drawCommand =
                 throw new CommandDenied('not-found');
               if (facts.configuration.lobby.closedAt !== null)
                 return { kind: 'refused', refusal: 'lobby-closed' };
-              const mapped = drawFacts(facts, dependencies.competition(facts), {
-                commandId: parsed.data.commandId,
-                now,
-                newId: dependencies.newId,
-              });
+              const mapped = drawFacts(
+                facts,
+                dependencies.competition(facts, command),
+                {
+                  commandId: parsed.data.commandId,
+                  now,
+                  newId: dependencies.newId,
+                },
+              );
               const decision = decideDraw(tabEngine)(mapped, requested);
               if (
                 decision.kind === 'accepted' &&

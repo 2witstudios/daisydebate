@@ -61,6 +61,8 @@ const fixture = (
 });
 
 const inputs = {
+  stage: { kind: 'preliminary' as const },
+  breakResultIds: [],
   engine: null,
   settingsDigest: 'digest-1',
   broken: [],
@@ -131,6 +133,8 @@ const facts = (overrides: Partial<DrawFacts> = {}): DrawFacts => ({
     commitments: [],
   },
   breakChoicesPending: false,
+  feederResultsComplete: true,
+  breakResultIds: [],
   slotElsewhere: [],
   releasesAtOnce: [],
   ...overrides,

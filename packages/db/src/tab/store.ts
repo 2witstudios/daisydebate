@@ -1,3 +1,8 @@
+import { createCompletionCommandStore } from './completion-command';
+export type {
+  LoadedCompletionCommand,
+  CompletionWrite,
+} from './completion-command';
 import { createHostNavigationStore } from './host-navigation';
 export type { HostNavigationFacts } from './host-navigation';
 import { createEventCompetitionStore } from './event-competition';
@@ -188,6 +193,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),
   ...createEventCompetitionStore(database),
+  ...createCompletionCommandStore(database),
   ...createHostNavigationStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),

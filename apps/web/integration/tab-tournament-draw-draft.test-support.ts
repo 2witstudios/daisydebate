@@ -1,3 +1,4 @@
+import { drawCompetition } from '../src/features/tab/operations/draw-competition';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import type { DrawCompetition } from '../src/features/tab/operations/draw-facts';
 import { authorize } from '@daisy/auth/authorization';
@@ -28,6 +29,8 @@ export const firstDrawCompetition = (
     history: { fixtures: [], results: [] },
     ratings: null,
     breakChoicesPending: false,
+    feederResultsComplete: true,
+    breakResultIds: [],
   };
 };
 
@@ -39,7 +42,7 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     authorize,
     now: world.clock.now,
     newId: createId,
-    competition: firstDrawCompetition,
+    competition: drawCompetition,
   });
   const lobbyId = world.made.get('tournament-lobby')!;
   const roundId = world.made.get('tab-round')!;
@@ -50,6 +53,7 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     version: 1,
     commandId: createId(),
     expected: {
+      results: 1,
       entries: Number(event?.entries_version),
       settings: Number(event?.settings_version),
     },

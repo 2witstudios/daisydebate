@@ -81,6 +81,7 @@ test('a published bye occupies no Room and cannot consume a judge in another eve
         version: 1,
         commandId: createId(),
         expected: {
+          results: 1,
           entries: Number(a?.entries_version),
           settings: Number(a?.settings_version),
         },
@@ -258,6 +259,7 @@ test('a published bye occupies no Room and cannot consume a judge in another eve
         version: 1,
         commandId: createId(),
         expected: {
+          results: 1,
           entries: Number(current?.entries_version),
           settings: Number(current?.settings_version),
         },

@@ -1406,3 +1406,7 @@ BEGIN
  RETURN true;
 END;
 $$;
+
+--> statement-breakpoint
+ALTER TABLE "ballot_screenings" ADD COLUMN "rule_set_version" text NOT NULL;--> statement-breakpoint
+ALTER TABLE "ballot_screenings" ADD CONSTRAINT "ballot_screenings_rule_set_version_nonempty" CHECK (length("rule_set_version") > 0);

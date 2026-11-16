@@ -1,3 +1,4 @@
+import { constructBallotRound } from './ballot-round-construction.test-support';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -448,6 +449,10 @@ test('a release names a tab round and the cause that opened it, once per tab rou
 test('ballot definitions are versioned and pinned, and screening never rewrites a ballot', async () => {
   await withSample(url, async (sql, ids) => {
     const fixture = new Fixture(sql);
+    const { roundId, judges } = await constructBallotRound(fixture, {
+      tournamentLobbyId: ids.lobby,
+      inTransaction: true,
+    });
     const definitionId = createId();
     const definition = {
       ...daisyWinnerBallot,
@@ -471,17 +476,17 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
       source: { kind: 'stored', id: definitionId, version: 1 },
       ballot: definition,
       panel: panelRuleFor(definition),
-    })}::text::jsonb where id = ${ids.round}`;
-    await fixture.seat(ids.round, 'affirmative');
-    await fixture.seat(ids.round, 'negative');
-    const judge = await fixture.seat(ids.round, 'judge');
-    await fixture.freeze(ids.round);
+    })}::text::jsonb where id = ${roundId}`;
+    await fixture.seat(roundId, 'affirmative');
+    await fixture.seat(roundId, 'negative');
+    const judge = judges[0]!;
+    await fixture.freeze(roundId);
     const ballot = createId();
     const writeBallot = (id: string, rest: Record<string, unknown> = {}) =>
       insertRow(sql, 'ballots', {
         id,
         judge_participant_id: judge.id,
-        round_id: ids.round,
+        round_id: roundId,
         freeze_revision: 1,
         rubric_version: 'speaker-10@2',
         winner: 'affirmative',
@@ -503,11 +508,13 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
     )[0];
     const screenedElsewhere = await refusedBy(sql, () =>
       insertRow(sql, 'ballot_screenings', {
+        rule_set_version: 'constraint-fixture',
         ballot_id: ballot,
         lobby_id: ids.otherLobby,
       }),
     );
     await insertRow(sql, 'ballot_screenings', {
+      rule_set_version: 'constraint-fixture',
       ballot_id: ballot,
       lobby_id: ids.lobby,
     });

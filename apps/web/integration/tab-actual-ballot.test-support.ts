@@ -1,4 +1,5 @@
 import type { SQL } from 'bun';
+import type { Ballot, BallotWrittenRecord } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { playTournamentRound } from './tab-tournament-round.test-support';
@@ -9,14 +10,24 @@ import type { committedEventRoom } from './tab-event-room-direction.test-support
 /** Actual original copied pin, Ready/Start/attendance/freeze/submit; only competitive execution time is controlled. */
 export async function withActualCopiedBallot(
   input: {
+    readonly ballot?: Ballot;
+    readonly written?: BallotWrittenRecord;
+    readonly beforeSubmission?: (input: {
+      readonly roundId: string;
+      readonly submit: () => Promise<{ readonly ballotId: string }>;
+    }) => Promise<void>;
     readonly owner: SQL;
     readonly databaseUrl: string;
-    readonly world: Awaited<ReturnType<typeof committedEventRoom>>;
+    readonly world: Pick<
+      Awaited<ReturnType<typeof committedEventRoom>>,
+      'roomId' | 'bots'
+    >;
   },
   work: (value: {
     readonly runtime: Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
     readonly roundId: string;
     readonly ballotId: string;
+    readonly replay: () => Promise<{ readonly ballotId: string }>;
   }) => Promise<void>,
 ) {
   const { owner, world } = input;
@@ -58,7 +69,8 @@ export async function withActualCopiedBallot(
         );
       if (!judge?.actorId || !round.judging)
         throw new Error('The genuine assigned judge or pin is missing');
-      const ballot = {
+      const ballot = input.ballot ?? {
+        ...input.written,
         rubricVersion:
           round.judging.ballot.key + '@' + round.judging.ballot.revision,
         winner: 'affirmative',
@@ -71,19 +83,33 @@ export async function withActualCopiedBallot(
           .filter((person) => person.seat.kind === 'side')
           .map((person) => [person.id]),
       };
-      const submitted = await createRoundBallotOperations({
+      const operations = createRoundBallotOperations({
         store: runtime.store,
         nextBallotId: createId,
         nextSegmentId: createId,
-      }).submit({ kind: 'human', actorId: judge.actorId }, roundId, {
-        version: 1,
+      });
+      const envelope = {
+        version: 1 as const,
         commandId: createId(),
         expectedVersion: round.version,
         judgeParticipantId: judge.id,
         freezeRevision: frozen.revision,
         ballot,
+      };
+      const submit = () =>
+        operations.submit(
+          { kind: 'human', actorId: judge.actorId! },
+          roundId,
+          envelope,
+        );
+      await input.beforeSubmission?.({ roundId, submit });
+      const submitted = await submit();
+      await work({
+        runtime,
+        roundId,
+        ballotId: submitted.ballotId,
+        replay: submit,
       });
-      await work({ runtime, roundId, ballotId: submitted.ballotId });
     },
     { databaseUrl: input.databaseUrl, roundTime: async () => clock.now() },
   );

@@ -181,6 +181,7 @@ test('draw admission follows new seats while unrelated accounts and cleanup do n
         version: 1,
         commandId: createId(),
         expected: {
+          results: 1,
           entries: Number(event!.entries_version),
           settings: Number(event!.settings_version),
         },
@@ -260,6 +261,7 @@ test('draw admission follows new seats while unrelated accounts and cleanup do n
         version: 1,
         commandId: createId(),
         expected: {
+          results: 1,
           entries: Number(event!.entries_version),
           settings: Number(event!.settings_version),
         },

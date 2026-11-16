@@ -13,6 +13,7 @@ export type EventCompetitionInput = {
   readonly viewerUserId: string;
   readonly lobbyId: string;
   readonly eventId: string;
+  readonly strength?: 'share' | 'update';
 };
 
 /** The event metadata fence protects a coherent append-only competition read. */

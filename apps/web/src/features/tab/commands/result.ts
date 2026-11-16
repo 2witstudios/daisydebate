@@ -213,7 +213,7 @@ const certified = (
   return {
     kind: 'accepted',
     aggregate,
-    resultingVersion: facts.resultsVersion,
+    resultingVersion: facts.resultsVersion + 1,
     writes: [
       {
         table: 'certifications',

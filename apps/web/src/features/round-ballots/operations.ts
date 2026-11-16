@@ -1,3 +1,4 @@
+import { screenBallotContacts } from '@daisy/debate-engine/ballot-contact-screening';
 import { bindRoundBallotPrincipal } from '@daisy/auth';
 import {
   attendanceSettled,
@@ -49,6 +50,7 @@ export function prepareRoundBallotSubmission(
     principal: input.principal,
     envelope,
     nextBallotId: input.nextBallotId,
+    screenWritten: screenBallotContacts,
     payloadDigest: new Bun.CryptoHasher('sha3-256')
       .update(JSON.stringify(envelope))
       .digest('hex'),

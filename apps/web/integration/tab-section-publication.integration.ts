@@ -147,7 +147,11 @@ for (const size of [5, 6, 7])
         const generated = await draw(director, lobbyId, {
           version: 1,
           commandId: createId(),
-          expected: { entries: current.entries, settings: current.settings },
+          expected: {
+            results: 1,
+            entries: current.entries,
+            settings: current.settings,
+          },
           command: {
             type: 'generate-draw',
             tabRoundId: world.made.get('tab-round')!,

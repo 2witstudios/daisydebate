@@ -95,6 +95,8 @@ const fixtureStateOfDraw = (fixture: DrawFixtureFacts): FixtureState => {
 
 /** What a draw version records in its `inputs` beside the engine's record. */
 type DrawInputs = {
+  readonly stage: EngineStage;
+  readonly breakResultIds: readonly string[];
   /** The engine's inputs record; null for a typed draw never computed. */
   readonly engine: EngineInputsRecord | null;
   /** The digest of the event's resolved settings the version was made under. */
@@ -149,6 +151,8 @@ export type DrawFixtureFacts = {
  * command needing more than it gives is refused `fresh-ids-short`.
  */
 export type DrawFacts = {
+  readonly feederResultsComplete: boolean;
+  readonly breakResultIds: readonly string[];
   readonly commandId: string;
   readonly now: string;
   readonly freshIds: readonly string[];
@@ -649,6 +653,7 @@ const generateDraw = (
   command: Extract<DrawCommand, { type: 'generate-draw' }>,
 ): DrawDecision => {
   if (command.tabRoundId !== facts.tabRound.id) return refuse('not-found');
+  if (!facts.feederResultsComplete) return refuse('results-incomplete');
   if (facts.settings.kind === 'incomplete')
     return refuse('settings-incomplete');
   if (facts.breakChoicesPending) return refuse('choices-pending');
@@ -700,13 +705,15 @@ const generateDraw = (
     engineVersion: engineVersionOf(drawn.inputs),
     basedOnDrawId: latestPublished(facts.versions)?.id ?? null,
     inputs: {
+      stage: facts.tabRound.stage,
+      breakResultIds: facts.breakResultIds,
       engine: drawn.inputs,
       settingsDigest: settings.digest,
       broken: drawn.assessment.broken.map((rule) => rule.key),
       overrides: [],
     },
     fixtures,
-    resultIds: drawn.inputs.results,
+    resultIds: [...new Set([...drawn.inputs.results, ...facts.breakResultIds])],
   });
   if (draft === null) return refuse('fresh-ids-short');
   return onDraw(
@@ -1094,7 +1101,12 @@ const editDraw = (
         ? { kind: 'new', fixture: item.fixture }
         : { kind: 'kept', id: item.keptId },
     ),
-    resultIds: based.inputs.engine?.results ?? [],
+    resultIds: [
+      ...new Set([
+        ...(based.inputs.engine?.results ?? []),
+        ...based.inputs.breakResultIds,
+      ]),
+    ],
   });
   if (draft === null) return refuse('fresh-ids-short');
   return onDraw(

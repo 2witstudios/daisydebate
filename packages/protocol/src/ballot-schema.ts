@@ -350,6 +350,21 @@ export const ballotWrittenRecordSchema = ballotRecordSchema.pick({
   feedback: true,
 });
 export type BallotWrittenRecord = z.infer<typeof ballotWrittenRecordSchema>;
+/** A trusted screening producer's disposition; held text has no audience copy. */
+export const ballotTextScreeningSchema = z.discriminatedUnion('status', [
+  z.strictObject({
+    ruleSetVersion: z.string().min(1).max(80),
+    status: z.literal('held'),
+    releasedText: z.null(),
+  }),
+  z.strictObject({
+    ruleSetVersion: z.string().min(1).max(80),
+    status: z.literal('clear'),
+    releasedText: ballotWrittenRecordSchema,
+  }),
+]);
+export type BallotTextScreening = z.infer<typeof ballotTextScreeningSchema>;
+
 /** The portable competitive fields, validated against their pinned definition before use. */
 export const ballotCompetitionRecordSchema = ballotRecordSchema.omit({
   reason: true,

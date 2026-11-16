@@ -19,8 +19,19 @@ import { commandDigest } from './command-digest';
 import { engineSettings } from './engine-settings';
 import { eventSettingResolution } from './event-setting-resolution';
 import { eligibleTournamentActors } from './tournament-participant-admission';
+import { idSchema } from '@daisy/protocol';
+export const drawStageSnapshotSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('preliminary') }),
+  z.strictObject({
+    kind: z.literal('elimination'),
+    division: z.string().nullable(),
+    bracket: z.strictObject({ seeds: z.array(idSchema) }),
+  }),
+]);
 
 const inputsSchema = z.strictObject({
+  stage: drawStageSnapshotSchema,
+  breakResultIds: z.array(idSchema),
   engine: z
     .looseObject({
       engine: z.record(z.string(), z.string()),
@@ -40,6 +51,8 @@ export type DrawCompetition = {
   readonly history: EngineStageHistory;
   readonly ratings: EngineRatings;
   readonly breakChoicesPending: boolean;
+  readonly feederResultsComplete: boolean;
+  readonly breakResultIds: readonly string[];
 };
 type StoredFixture = DrawFixtureFacts & {
   readonly tabRoundId: string;
@@ -321,6 +334,8 @@ export const drawFacts = (
       })),
     },
     breakChoicesPending: competition.breakChoicesPending,
+    feederResultsComplete: competition.feederResultsComplete,
+    breakResultIds: competition.breakResultIds,
     slotElsewhere: elsewhere.flatMap(drawFixturePeople),
     releasesAtOnce,
   };

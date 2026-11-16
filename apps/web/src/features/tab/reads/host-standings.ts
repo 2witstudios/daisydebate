@@ -11,30 +11,9 @@ import {
 } from '@daisy/protocol/lobby/standings-read';
 import { standings } from '@daisy/tab-engine';
 import { eventBreaks } from '../operations/event-breaks';
-import { hostLobbyResource } from '../operations/host-lobby-resource';
+import { hostResultsAuthority } from '../operations/host-results-authority';
 import { eventCompetition } from '../operations/event-competition';
 import type { TabPrincipal } from '../tab-principal';
-
-/** One results-area authority seam; participant release reads have their own projection. */
-export function hostResultsAuthority(
-  facts: EventCompetitionFacts,
-  principal: TabPrincipal,
-  now: string,
-) {
-  return {
-    principal,
-    resource: hostLobbyResource(
-      facts.configuration.lobby,
-      facts.authorization.organization,
-      facts.ownerActorId,
-    ),
-    context: {
-      account: facts.authorization.account,
-      grants: facts.authorization.grants,
-      now,
-    },
-  };
-}
 
 export function hostStandingsView(
   facts: EventCompetitionFacts,
@@ -67,7 +46,7 @@ export function hostStandingsView(
       },
     },
   });
-  const computedBreak = eventBreaks(facts);
+  const computedBreak = eventBreaks(facts).answer;
   const firstBreak =
     computedBreak.kind === 'resolved' ? computedBreak.stages[0] : null;
   const firstRound = facts.rounds.find(

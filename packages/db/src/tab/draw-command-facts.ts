@@ -13,7 +13,7 @@ import {
   judgeStrikes,
 } from '../schema/tournament-judges';
 import { results, resultEntries, resultSpeakers } from '../schema/results';
-import { certificationResults } from '../schema/certifications';
+import { certifications, certificationResults } from '../schema/certifications';
 import { releases } from '../schema/releases';
 import { rounds } from '../schema/rounds';
 import { ballots } from '../schema/ballots';
@@ -286,6 +286,10 @@ export const loadDrawCommandFacts = async (
       .select()
       .from(results)
       .where(eq(results.eventId, eventId)),
+    certifications: await tx
+      .select()
+      .from(certifications)
+      .where(eq(certifications.eventId, eventId)),
     fixtureResults: await tx
       .select({ fixtureId: results.fixtureId })
       .from(results)

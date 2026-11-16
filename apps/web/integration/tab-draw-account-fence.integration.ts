@@ -88,6 +88,7 @@ test('draw requests fence the actual cast and refuse a roster discovered after a
       version: 1,
       commandId: createId(),
       expected: {
+        results: 1,
         entries: Number(event?.entries_version),
         settings: Number(event?.settings_version),
       },

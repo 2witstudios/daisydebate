@@ -1,10 +1,10 @@
 {
-  "id": "d9830fb9-cd2c-48a6-ab21-159e2e87b07a",
+  "version": "8",
+  "dialect": "postgres",
+  "id": "a438b937-6633-4a68-adb0-cd7811c6ad26",
   "prevIds": [
     "0d6bb0bc-a9d5-4f53-99ef-61c65000839a"
   ],
-  "version": "8",
-  "dialect": "postgres",
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -2433,6 +2433,19 @@
       "generated": null,
       "identity": null,
       "name": "lobby_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballot_screenings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rule_set_version",
       "entityType": "columns",
       "schema": "public",
       "table": "ballot_screenings"
@@ -44776,6 +44789,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "ballot_definitions"
+    },
+    {
+      "value": "length(\"rule_set_version\") > 0",
+      "name": "ballot_screenings_rule_set_version_nonempty",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ballot_screenings"
     },
     {
       "value": "\"status\" in ('pending', 'clear', 'held')",
