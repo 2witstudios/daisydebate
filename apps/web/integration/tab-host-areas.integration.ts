@@ -1,3 +1,6 @@
+import { proveDrawArea } from './tab-host-draw-area.test-support';
+import { readHostRound } from '../src/features/tab/reads/host-round';
+import { readHostDrawOverview } from '../src/features/tab/reads/host-draw-overview';
 import { readHostResults } from '../src/features/tab/reads/host-results';
 import {
   createHostResultsRoute,
@@ -131,6 +134,12 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
             actual: [
               nav?.areas,
               nav && hostNavigationRail(nav).items.map((item) => item.id),
+              await readHostRound(dependencies)(as(person), {
+                lobbyId,
+                eventId,
+                tabRoundId: world.made.get('tab-round')!,
+              }),
+              await readHostDrawOverview(dependencies)(as(person), { lobbyId }),
               await setup(as(person), lobbyId),
               await settings(as(person), { lobbyId, eventId }),
               await ballot(as(person), { lobbyId, eventId }),
@@ -141,6 +150,8 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
             expected: [
               [expectedArea],
               index === 0 ? ['ballots'] : ['break', 'results'],
+              null,
+              null,
               null,
               null,
               null,
@@ -304,6 +315,11 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
         }
       },
     );
+    await proveDrawArea({
+      ...world,
+      sql: owner,
+      database: committingRuntimeTestDatabase(owner),
+    });
   } finally {
     await owner.close();
     await scratch.drop();

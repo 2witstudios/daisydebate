@@ -1,5 +1,5 @@
 import { createHostRoundStore } from './host-round';
-export type { HostRoundFacts } from './host-round';
+export type { HostRoundFacts, HostDrawOverviewFacts } from './host-round';
 import { createHostResultsStore } from './host-results';
 export type { HostResultsFacts } from './host-results';
 export type { EventCompletionFacts } from './event-completion';

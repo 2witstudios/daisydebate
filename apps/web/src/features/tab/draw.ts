@@ -153,7 +153,10 @@ const restOf = (groups: DrawView['recordGroups']): string | null => {
 };
 
 /** The draft draw board: a projection of the host's `DrawView`. */
-const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
+export const drawBoardOf = (
+  read: DrawView,
+  context: DrawBoardContext,
+): DrawBoard => {
   const fixtures = read.recordGroups.flatMap((group) => group.fixtures);
   const findings = fixtures.flatMap((fixture) => fixture.findings);
   const counted = (severity: DrawFindingSeverity) =>
@@ -181,7 +184,7 @@ const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
     version: read.draw.version,
     basis:
       read.resultsThroughRound === null
-        ? 'from the seeding'
+        ? 'before any results'
         : `from results through round ${read.resultsThroughRound}`,
     rulesBroken: counted('rule_broken'),
     preferencesBent: counted('preference_bent'),

@@ -1,3 +1,9 @@
+import {
+  createHostRoundRoute,
+  createHostDrawOverviewRoute,
+} from './host-draw-route';
+import { readHostRound } from './reads/host-round';
+import { readHostDrawOverview } from './reads/host-draw-overview';
 import { createDrawCommandRoute } from './draw-command-route';
 import { readHostResults } from './reads/host-results';
 import {
@@ -111,6 +117,18 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    hostRound: (released: TabCommandRouteDependencies['released']) =>
+      createHostRoundRoute({
+        boundary,
+        released,
+        read: readHostRound({ store, authorize }),
+      }),
+    hostDrawOverview: (released: TabCommandRouteDependencies['released']) =>
+      createHostDrawOverviewRoute({
+        boundary,
+        released,
+        read: readHostDrawOverview({ store, authorize }),
+      }),
     drawCommand: (released: TabCommandRouteDependencies['released']) =>
       createDrawCommandRoute({ ...common, boundary, released }),
     hostResults: (released: HostResultsRouteDependencies['released']) =>

@@ -1,3 +1,8 @@
+import {
+  AUTUMN,
+  WINTER,
+} from '../../../../../../../../../features/tab/sample/moment';
+import { StoredRound } from './stored-round';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { readDrawBoard } from '../../../../../../../../../features/tab/draw';
@@ -19,6 +24,15 @@ export default async function Page({
 }) {
   const { slug, event, round } = await params;
   const { fixture } = await searchParams;
+  if (slug !== AUTUMN && slug !== WINTER)
+    return (
+      <StoredRound
+        handle={slug}
+        eventId={event}
+        tabRoundId={round}
+        selectedFixtureId={typeof fixture === 'string' ? fixture : null}
+      />
+    );
   const scene = await requireGrant(hostRoutes.round(slug, event, round));
   const rail = readTimelineRail(slug, scene);
   if (rail === null) notFound();

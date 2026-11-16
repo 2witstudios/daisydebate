@@ -1,3 +1,4 @@
+import { drawFormEnvelope } from '../src/features/tab/draw-form';
 import { readHostRound } from '../src/features/tab/reads/host-round';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -32,7 +33,7 @@ export const publishDrawStage = async (world: World): Promise<void> => {
     await sql`select version from time_slots where id=${world.made.get('time-slot')!}`;
   const [event] =
     await sql`select entries_version from events where id=${world.made.get('event')!}`;
-  const envelope = {
+  const target = {
     version: 1,
     commandId: createId(),
     expected: {
@@ -42,6 +43,21 @@ export const publishDrawStage = async (world: World): Promise<void> => {
     },
     command: { type: 'publish-draw', drawId, overrides: [] },
   };
+  const envelope = drawFormEnvelope(
+    {
+      handle: 'tournament',
+      lobbyId,
+      eventId: world.made.get('event')!,
+      tabRoundId: world.made.get('tab-round')!,
+      overrideKeys: [],
+      envelope: {
+        ...target,
+        version: 1,
+        command: { ...target.command, type: 'publish-draw' },
+      },
+    },
+    new FormData(),
+  );
   const nonHostDenied = await deniedAsNotFound(() =>
     send(as(world.bots.Coach!), lobbyId, envelope),
   );

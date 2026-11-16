@@ -7,6 +7,7 @@ import {
 } from '../parse-outcome.test-support';
 import {
   drawReadCatalogue,
+  hostRoundViewSchema,
   drawViewSchema,
   supersededInputListSchema,
 } from './draw-read';
@@ -236,5 +237,33 @@ describe('the draw reads', () => {
         [{ data: 'lobby.host.draw.read' }],
       ],
     });
+  });
+});
+
+test('an addressed draft retains its source guard and child identity', () => {
+  const read = {
+    kind: 'draft',
+    lobbyId: drawView.lobbyId,
+    eventId: drawView.eventId,
+    tabRound: { ...drawView.tabRound, name: null },
+    guards: { draw: 3, entries: 2, settings: 4, results: 1, timeSlot: null },
+    capabilities: { generate: true },
+    draw: drawView,
+  };
+  assert({
+    given: 'a real-shaped draft and substituted guard or child address',
+    should: 'accept the coherent read and refuse both substitutions',
+    actual: [
+      hostRoundViewSchema.safeParse(read).success,
+      hostRoundViewSchema.safeParse({
+        ...read,
+        guards: { ...read.guards, draw: 99 },
+      }).success,
+      hostRoundViewSchema.safeParse({
+        ...read,
+        draw: { ...drawView, eventId: id('foreign') },
+      }).success,
+    ],
+    expected: [true, false, false],
   });
 });

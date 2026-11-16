@@ -1,3 +1,6 @@
+import { events, tabRounds } from '../schema/events';
+import { draws } from '../schema/draws';
+import { loadLobbyAuthority } from './lobby-authority';
 import { eq, inArray } from 'drizzle-orm';
 import { readDatabaseTime } from '../database-clock';
 import { actors } from '../schema/actors';
@@ -71,7 +74,37 @@ async function load(tx: TabTransaction, input: HostRoundInput) {
   };
 }
 export type HostRoundFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
+async function loadOverview(
+  tx: TabTransaction,
+  input: { readonly viewerUserId: string; readonly lobbyId: string },
+) {
+  const authority = await loadLobbyAuthority(tx, input);
+  if (!authority || authority.lobby.kind !== 'tournament') return null;
+  return {
+    ...authority,
+    events: await tx
+      .select()
+      .from(events)
+      .where(eq(events.lobbyId, input.lobbyId)),
+    rounds: await tx
+      .select()
+      .from(tabRounds)
+      .where(eq(tabRounds.lobbyId, input.lobbyId)),
+    draws: await tx
+      .select()
+      .from(draws)
+      .where(eq(draws.lobbyId, input.lobbyId)),
+  };
+}
+export type HostDrawOverviewFacts = NonNullable<
+  Awaited<ReturnType<typeof loadOverview>>
+>;
 export const createHostRoundStore = (database: TabDatabase) => ({
+  hostDrawOverview: <Answer>(
+    input: { readonly viewerUserId: string; readonly lobbyId: string },
+    work: (facts: HostDrawOverviewFacts | null) => Promise<Answer>,
+  ): Promise<Answer> =>
+    database.transaction(async (tx) => work(await loadOverview(tx, input))),
   hostRound: <Answer>(
     input: HostRoundInput,
     work: (facts: HostRoundFacts | null) => Promise<Answer>,

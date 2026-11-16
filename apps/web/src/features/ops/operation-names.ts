@@ -157,6 +157,8 @@ const OPERATION_NAMES = [
   'tab.host.standings',
   'tab.host.ballots',
   'tab.host.results',
+  'tab.host.round',
+  'tab.host.draw',
   'tab.host.navigation',
   'tab.fixture.command',
   'tab.draw.command',

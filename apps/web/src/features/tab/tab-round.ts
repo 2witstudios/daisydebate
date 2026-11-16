@@ -300,6 +300,8 @@ const attentionOf = (fixture: TabRoundFixture): RoomAttention => {
 
 /** What the running round needs beside the read: the event picker and its addresses. */
 export type RunningRoundContext = {
+  readonly fixtureAction?: (fixture: TabRoundFixture) => TabAction;
+  readonly overviewAction?: TabAction;
   readonly event: EventSwitch;
   readonly address: {
     readonly posting: string;
@@ -311,7 +313,7 @@ export type RunningRoundContext = {
 };
 
 /** The host's running round: a projection of `TabRoundHostView`. */
-const runningRoundOf = (
+export const runningRoundOf = (
   read: TabRoundHostView,
   context: RunningRoundContext,
 ): RunningRound => {
@@ -320,6 +322,9 @@ const runningRoundOf = (
       .filter((fixture) => attentionOf(fixture) === attention)
       .map((fixture) => ({
         ...roundRoom(read, fixture),
+        ...(context.fixtureAction
+          ? { action: context.fixtureAction(fixture) }
+          : {}),
         status: roomStatusOf(fixture),
         words: fixtureWords(fixture),
       }));
@@ -348,12 +353,14 @@ const runningRoundOf = (
           : lateness(read.progress.behindByMs)
         : 'every ballot is in',
     ].join(' · '),
-    participantView: linkTo(
-      'View as participant',
-      read.postedToParticipants
-        ? context.address.posting
-        : context.address.tournament,
-    ),
+    participantView:
+      context.overviewAction ??
+      linkTo(
+        'View as participant',
+        read.postedToParticipants
+          ? context.address.posting
+          : context.address.tournament,
+      ),
     next:
       next === null
         ? null
@@ -375,6 +382,9 @@ const runningRoundOf = (
         count: finished.total,
         rooms: finished.recent.map((fixture) => ({
           ...roundRoom(read, fixture),
+          ...(context.fixtureAction
+            ? { action: context.fixtureAction(fixture) }
+            : {}),
           status: 'finished',
           words: fixtureWords(fixture),
         })),

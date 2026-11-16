@@ -1,3 +1,7 @@
+import {
+  hostRoundViewSchema,
+  type HostRoundView,
+} from '@daisy/protocol/lobby/draw-read';
 import type { TabStore } from '@daisy/db/tab';
 import type {
   AuthorizationInput,
@@ -22,7 +26,7 @@ export const readHostRound =
       readonly eventId: string;
       readonly tabRoundId: string;
     },
-  ) => {
+  ): Promise<HostRoundView | null> => {
     if (
       ![input.lobbyId, input.eventId, input.tabRoundId].every(
         (id) => idSchema.safeParse(id).success,
@@ -47,32 +51,44 @@ export const readHostRound =
           .sort((a, b) => b.version - a.version);
         const version = versions[0];
         const guards = {
-          draw: version?.version ?? 0,
+          draw: version?.version ?? null,
           entries: loaded.configuration.event.entriesVersion,
           settings: loaded.configuration.event.settingsVersion,
           results: eventResultsVersion(loaded),
           timeSlot: loaded.slot?.version ?? null,
         };
-        if (!version) return { kind: 'undrawn' as const, guards };
+        const common = {
+          lobbyId: input.lobbyId,
+          eventId: input.eventId,
+          tabRound: {
+            tabRoundId: loaded.round.id,
+            number: loaded.round.number,
+            name: loaded.round.name,
+          },
+          guards,
+          capabilities: { generate: ask('tournament.draw.edit') },
+        };
+        if (!version)
+          return hostRoundViewSchema.parse({ ...common, kind: 'undrawn' });
         if (version.status === 'published')
-          return {
-            kind: 'published' as const,
-            guards,
+          return hostRoundViewSchema.parse({
+            ...common,
+            kind: 'published',
             round: hostRunningRoundView(
               facts,
               version.id,
               ask('tournament.rooms.officiate'),
               principal.actorId ?? null,
             ),
-          };
-        return {
-          kind: 'draft' as const,
-          guards,
+          });
+        return hostRoundViewSchema.parse({
+          ...common,
+          kind: 'draft',
           draw: hostDrawView(facts, version.id, {
             edit: ask('tournament.draw.edit'),
             publish: ask('tournament.draw.publish'),
           }),
-        };
+        });
       },
     );
   };

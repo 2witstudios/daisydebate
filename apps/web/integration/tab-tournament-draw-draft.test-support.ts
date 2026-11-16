@@ -1,3 +1,16 @@
+import {
+  hostRoundViewSchema,
+  hostDrawOverviewSchema,
+} from '@daisy/protocol/lobby/draw-read';
+import {
+  hostRoundPath,
+  hostDrawOverviewPath,
+} from '../src/features/tab/host-draw-route';
+import {
+  hostDrawHttp,
+  hostDrawRequest,
+} from './tab-tournament-host-draw.test-support';
+import { drawFormEnvelope } from '../src/features/tab/draw-form';
 import { readHostRound } from '../src/features/tab/reads/host-round';
 import { createDrawCommandRoute } from '../src/features/tab/draw-command-route';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
@@ -99,7 +112,41 @@ export const draftDrawStage = async (world: World): Promise<void> => {
   const eventId = world.made.get('event')!;
   const [event] =
     await sql`select entries_version, settings_version from events where id=${eventId}`;
-  const generate = {
+  const address = { lobbyId, eventId, tabRoundId: roundId };
+  const http = hostDrawHttp(world, world.bots.Director!);
+  const undrawnResponse = await http.round(
+    hostDrawRequest(hostRoundPath(address)),
+  );
+  const undrawn = hostRoundViewSchema.parse(await undrawnResponse.json());
+  const overviewResponse = await http.overview(
+    hostDrawRequest(hostDrawOverviewPath(lobbyId)),
+  );
+  const overview = hostDrawOverviewSchema.parse(await overviewResponse.json());
+  assert({
+    given: 'the actual host Draw HTTP reads before the first draft',
+    should:
+      'return no-store current source guards, null absent draw and the real scheduled Round',
+    actual: [
+      undrawn.kind,
+      undrawn.guards.draw,
+      undrawnResponse.headers.get('cache-control'),
+      overview.events
+        .find((row) => row.eventId === eventId)
+        ?.rounds.some((row) => row.tabRoundId === roundId && row.draw === null),
+      (
+        await hostDrawHttp(world, world.bots.Director!, false).round(
+          hostDrawRequest(hostRoundPath(address)),
+        )
+      ).status,
+      (
+        await hostDrawHttp(world, world.bots['Debater 1']!).round(
+          hostDrawRequest(hostRoundPath(address)),
+        )
+      ).status,
+    ],
+    expected: ['undrawn', null, 'no-store', true, 404, 404],
+  });
+  const target = {
     version: 1,
     commandId: createId(),
     expected: {
@@ -114,6 +161,30 @@ export const draftDrawStage = async (world: World): Promise<void> => {
       seed: 'ab'.repeat(32),
     },
   };
+  const form = new FormData();
+  form.set('commandId', createId());
+  form.set('tabRoundId', createId());
+  const generate = drawFormEnvelope(
+    {
+      handle: 'tournament',
+      lobbyId,
+      eventId,
+      tabRoundId: roundId,
+      overrideKeys: [],
+      envelope: {
+        ...target,
+        version: 1,
+        expected: {
+          entries: undrawn.guards.entries,
+          settings: undrawn.guards.settings,
+          results: undrawn.guards.results,
+        },
+        command: { ...target.command, type: 'generate-draw' },
+      },
+    },
+    form,
+  );
+
   assert({
     given: 'an entrant asking to draw the tournament',
     should: 'deny the operation without host authority',
@@ -133,7 +204,7 @@ export const draftDrawStage = async (world: World): Promise<void> => {
         commandId: createId(),
         expected: {
           ...generate.expected,
-          entries: generate.expected.entries - 1,
+          entries: undrawn.guards.entries - 1,
         },
       }),
       await deniedAsNotFound(() =>
@@ -199,6 +270,16 @@ export const draftDrawStage = async (world: World): Promise<void> => {
   const expectedFixtures = await sql<
     { fixture_id: string }[]
   >`select fixture_id from draw_fixtures where draw_id=${drawId} order by fixture_id`;
+  const foreignRead = await readRound(as(world.bots.Director!), {
+    lobbyId: world.made.get('standing-lobby')!,
+    eventId,
+    tabRoundId: roundId,
+  });
+  const addressedAgain = await readRound(as(world.bots.Director!), {
+    lobbyId,
+    eventId,
+    tabRoundId: roundId,
+  });
   assert({
     given: 'the actual generated draft and its retained source guards',
     should:
@@ -213,11 +294,8 @@ export const draftDrawStage = async (world: World): Promise<void> => {
             )
             .sort()
         : null,
-      await readRound(as(world.bots.Director!), {
-        lobbyId: world.made.get('standing-lobby')!,
-        eventId,
-        tabRoundId: roundId,
-      }),
+      foreignRead,
+      addressedAgain?.kind,
     ],
     expected: [
       'draft',
@@ -226,14 +304,15 @@ export const draftDrawStage = async (world: World): Promise<void> => {
         entries: Number(event!.entries_version),
         settings: Number(event!.settings_version),
         results: 1,
-        timeSlot: Number(
-          (
-            await sql`select version from time_slots where id=${world.made.get('time-slot')!}`
-          )[0]!.version,
-        ),
+        timeSlot: (
+          await sql<
+            { version: number | null }[]
+          >`select s.version from tab_rounds r left join time_slots s on s.id=r.time_slot_id where r.id=${roundId}`
+        )[0]!.version,
       },
       expectedFixtures.map((fixture) => fixture.fixture_id),
       null,
+      'draft',
     ],
   });
 
