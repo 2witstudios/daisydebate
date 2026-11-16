@@ -5,7 +5,7 @@ import type {
 } from '@daisy/protocol/lobby/entry-command';
 import type { entryStatuses, responsibleKinds } from '@daisy/protocol/lobby';
 import type { FixtureChange } from '@daisy/protocol/lobby/command';
-import { isRepairable, type LiveFixtureState } from './draw';
+import { isRepairable, type LiveFixtureState } from './fixture-lifecycle';
 import { refuse, type CommandDecision } from './run-command';
 
 type EntryStatus = (typeof entryStatuses)[number];

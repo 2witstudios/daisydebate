@@ -1,23 +1,29 @@
-/**
- * One control on a Tab screen. With an address it is a link; with none there
- * is no operation behind it yet, and the screen answers with the shell's
- * sample-action banner.
- */
+/** A control is either an addressed link or explicitly unavailable. */
 export type TabAction = {
   readonly label: string;
-  readonly href: string | null;
   readonly primary: boolean;
-};
+} & (
+  | { readonly kind: 'link'; readonly href: string }
+  | { readonly kind: 'unavailable' }
+);
 
 export const linkTo = (
   label: string,
   href: string,
   primary = false,
-): TabAction => ({ label, href, primary });
-
-export const sampleAction = (label: string, primary = false): TabAction => ({
+): Extract<TabAction, { kind: 'link' }> => ({
+  kind: 'link',
   label,
-  href: null,
+  href,
+  primary,
+});
+
+export const unavailableAction = (
+  label: string,
+  primary = false,
+): TabAction => ({
+  kind: 'unavailable',
+  label,
   primary,
 });
 

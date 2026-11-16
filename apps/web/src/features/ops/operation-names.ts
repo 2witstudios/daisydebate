@@ -152,6 +152,7 @@ const OPERATION_NAMES = [
   'round.read',
   'round.view',
   'tab.organization.people',
+  'tab.lobby.people',
   'tab.tournament.setup',
   'tab.tournament.event.settings',
   'tab.host.standings',

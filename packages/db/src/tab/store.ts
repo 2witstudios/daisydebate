@@ -14,6 +14,9 @@ export type {
   LoadedLeagueSchoolCommand,
   LeagueSchoolWrite,
 } from './league-school-command';
+import { createLobbyPeopleStore } from './lobby-people';
+export type { LobbyPeopleFacts } from './lobby-people';
+export { roleAuthorityOf } from './authority-facts';
 import { createHostRosterStore } from './host-roster';
 import { createSanctionCommandStore } from './sanction-command';
 export type { SanctionCommandFacts } from './sanction-command';
@@ -227,6 +230,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createEventCompetitionStore(database),
   ...createCompletionCommandStore(database),
   ...createHostNavigationStore(database),
+  ...createLobbyPeopleStore(database),
   ...createHostBallotsStore(database),
   ...createHostResultsStore(database),
   ...createHostRoundStore(database),

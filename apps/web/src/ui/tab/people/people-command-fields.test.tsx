@@ -109,3 +109,44 @@ test('a pending invitation has its own cancellation control', () => {
     expected: [true, false, false, true],
   });
 });
+
+test('lobby roles ask for a username and keep the applies-to scope fixed', () => {
+  const html = renderToString(
+    createElement(PeopleCommandFields, {
+      model: {
+        kind: 'give-lobby',
+        lobbyName: 'Autumn Open',
+        roles: [{ value: 'role-id', label: 'Staff' }],
+      },
+      pending: false,
+      noticeId: 'lobby-role-answer',
+      submit: () => {},
+      fields: {
+        values: {
+          username: 'ada',
+          roleId: 'role-id',
+          expiresAt: '',
+          grantId: '',
+        },
+        error: 'That person does not meet this role’s staff age requirement.',
+        notice: null,
+      },
+    }),
+  );
+  assert({
+    given: 'a lobby-scoped role form rejected for recipient age',
+    should:
+      'retain the username, explain the refusal and offer no organization or foreign-lobby selector',
+    actual: [
+      html.includes('name="username"'),
+      html.includes('value="ada"'),
+      html.includes('Applies only to'),
+      html.includes('Autumn Open'),
+      html.includes('name="scope"'),
+      html.includes('name="userId"'),
+      html.includes('staff age requirement'),
+      html.includes('role="alert"'),
+    ],
+    expected: [true, true, true, true, false, false, true, true],
+  });
+});

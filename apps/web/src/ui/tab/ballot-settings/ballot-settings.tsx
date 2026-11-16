@@ -24,7 +24,7 @@ export function BallotSettings({
         header={
           <>
             <BackButton
-              href={settings.setup.href}
+              href={settings.setup.kind === 'link' ? settings.setup.href : null}
               label={settings.setup.label}
             />
             <EventSwitcher event={settings.event} />

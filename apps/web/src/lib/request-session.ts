@@ -3,6 +3,13 @@ import { readStandingRoomDraft } from '../features/tab/reads/standing-room-draft
 import { authorize } from '@daisy/auth/authorization';
 import { readLeagueSeason } from '../features/tab/reads/league-season';
 import { readLeagueLadder } from '../features/ratings/read-league-ladder';
+import { appDiscoverActor } from '../features/account/username-discovery';
+import {
+  resolveLobbyGrantTarget,
+  type LobbyGrantTargetInput,
+} from '../features/tab/lobby-grant-target';
+import { readLobbyPeople } from '../features/tab/reads/lobby-people';
+import { requireSameOrigin } from '../server/http';
 import { channelMessagesWindow } from '@daisy/protocol';
 import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
 import { readNotificationItems } from '../features/notifications/read-notifications';
@@ -547,3 +554,32 @@ export const requestStandingRoomPage = async (
     { lobbyId, ...(templateId ? { templateId } : {}) },
   );
 };
+/** A server action's budgeted username resolution, behind its real request boundary. */
+export async function requestLobbyGrantTarget(
+  input: LobbyGrantTargetInput,
+): Promise<string | null> {
+  const app = processApp();
+  requireSameOrigin(
+    new Request(app.auth().config.PUBLIC_APP_URL, {
+      method: 'POST',
+      headers: new Headers(await headers()),
+    }),
+    app.auth().config.PUBLIC_APP_URL,
+  );
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  return resolveLobbyGrantTarget(identity.principal, input, {
+    readPeople: readLobbyPeople({
+      store: app.database.tabCommands,
+      authorize,
+      now: () => app.clock.now(),
+    }),
+    discover: appDiscoverActor(app),
+    userIdOfActor: (actorId) =>
+      app.database.getActiveHumanUserIdByActorId(actorId),
+  });
+}

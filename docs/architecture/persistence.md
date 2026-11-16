@@ -108,6 +108,14 @@ commands: its named link must belong to that subject, and a new link's ward must
 match it. Actor-based lookup and an implicit organization or privileged global
 relationship locator are unnecessary.
 
+Lobby People is a separate exact-lobby grant read. It lists the actual personal
+or organization owner and the recipients of live grants at that lobby, with no
+organization-membership prerequisite or roster inference. Its current lobby
+guard, roles and per-role give/remove capabilities are projected while canonical
+viewer-account, actual organization and lobby shared fences remain held.
+The `lobby.host.people.read` evaluator gate and existing lobby-scoped grant
+commands own its authority; no invitation or membership is fabricated.
+
 Organization people are authorized and projected inside the store's transaction,
 under shared canonical viewer-account, organization and actual owned-lobby fences.
 Each lobby is visited under its own tenant scope before its shared lock is taken.
@@ -155,6 +163,15 @@ and the existing engine coordinates. Native Round and segment rows distinguish
 waiting for start, preparing, speaking, judging and awaiting a Tab result.
 Start and lateness remain null without their actual source; a fixture's Room
 reference is its stored Room, never a synthetic address.
+
+Judge assignment collections use one database transaction and retain the caller's
+account fence for the whole read. Each Round is projected under a read savepoint;
+rolling back to it releases that Round's parent and aggregate locks before the
+next unrelated parent chain is visited. No writes occur inside that boundary.
+Ordinary Daisy ballots require both reason and feedback at submission (feedback
+is a subject-keyed object, including an empty object); nullable written columns
+serve event definitions which omit those fields. Ordinary feedback readers map a
+stored null to the same empty object.
 
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a

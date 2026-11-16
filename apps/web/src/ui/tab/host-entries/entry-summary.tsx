@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { sampleAction } from '../../../features/tab/action';
+import { unavailableAction } from '../../../features/tab/action';
 import {
   entryStatusLabels,
   type HostEntries,
@@ -77,7 +77,7 @@ export function EntrySummary({ entries }: { readonly entries: HostEntries }) {
               trailing={
                 <ActionButton
                   size="small"
-                  action={sampleAction(`Remind the ${unanswered}`)}
+                  action={unavailableAction(`Remind the ${unanswered}`)}
                 />
               }
             />
@@ -89,7 +89,7 @@ export function EntrySummary({ entries }: { readonly entries: HostEntries }) {
               trailing={
                 <ActionButton
                   size="small"
-                  action={sampleAction(`Remind ${short.length} coaches`)}
+                  action={unavailableAction(`Remind ${short.length} coaches`)}
                 />
               }
             />
@@ -100,7 +100,7 @@ export function EntrySummary({ entries }: { readonly entries: HostEntries }) {
               trailing={
                 <ActionButton
                   size="small"
-                  action={sampleAction(`Remind ${guardians} guardians`)}
+                  action={unavailableAction(`Remind ${guardians} guardians`)}
                 />
               }
             />

@@ -11,11 +11,11 @@ import {
   indexHref,
   indexStateOf,
   lobbyListQueryOf,
-  readTournamentsIndex,
   tournamentsIndexOf,
   type IndexParams,
   type TournamentsIndex,
 } from './tournaments-index';
+import { readTournamentsIndex } from './sample/read-tournaments-index';
 
 setupRitewayBun();
 

@@ -1,3 +1,4 @@
+import type { IndexPlace } from '../tournaments-index';
 import type { ListedLobby } from '@daisy/protocol/lobby/lobby-read';
 import type { TournamentDivision } from '@daisy/protocol/lobby';
 import { LEAGUE, LEAGUE_NAME } from './moment';
@@ -6,11 +7,7 @@ import { at, sampleId } from './posting';
 type ListedTournament = Extract<ListedLobby, { kind: 'tournament' }>;
 
 /** A place a tournament runs in, or a reader is near. */
-export type SamplePlace = {
-  readonly city: string;
-  readonly latitude: number;
-  readonly longitude: number;
-};
+export type SamplePlace = IndexPlace;
 
 type SampleLeague = {
   readonly key: string;

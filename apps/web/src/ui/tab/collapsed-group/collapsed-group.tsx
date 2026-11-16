@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   linkTo,
-  sampleAction,
+  unavailableAction,
   type TabAction,
 } from '../../../features/tab/action';
 import type { Collapsed } from '../../../features/tab/at-scale';
@@ -66,7 +66,7 @@ export function CollapsedRow<Item>({
     <CountedRow
       title={collapsedTitle(group.rest, noun)}
       detail={detail}
-      action={href === null ? sampleAction(text) : linkTo(text, href)}
+      action={href === null ? unavailableAction(text) : linkTo(text, href)}
       about={noun}
     />
   );

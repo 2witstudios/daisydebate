@@ -18,7 +18,7 @@ import {
   type LaunchedRound,
   type RoundBallotRead,
 } from '@daisy/protocol';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
@@ -80,11 +80,11 @@ export const roundBallotReads = ({
     readonly readEventDecision: (owner: RoundRoomAuthority) => boolean;
     readonly readOpening: ReadOpening;
   }) {
-    const addresses = await database.transaction(async (tx) => {
+    return database.transaction(async (tx) => {
       const account = await sharedAccount(tx, input.caller);
       if (!account?.member || account.erased)
         throw createAppError('AUTHORIZATION');
-      return tx
+      const addresses = await tx
         .select({ roundId: rounds.id })
         .from(roundParticipants)
         .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
@@ -96,18 +96,18 @@ export const roundBallotReads = ({
           ),
         )
         .orderBy(desc(rounds.createdAt));
-    });
-    const assignments = [];
-    // Each addressed Round owns its parent-lock transaction; a collection never inverts unrelated parent chains.
-    for (const address of addresses) {
-      try {
-        const assignment = await database.transaction(async (tx) => {
+      const assignments = [];
+      for (const address of addresses) {
+        // Roll back each read's locks before visiting another parent chain.
+        // The account fence predates the savepoint and survives every rollback.
+        await tx.execute(sql`savepoint judge_assignment`);
+        try {
           const { round, account, owner } = await readAuthorizedRound(tx, {
             ...input,
             roundId: address.roundId,
           });
           const own = ownJudgeSeat(round.participants, input.caller.actorId);
-          if (!own) return null;
+          if (!own) continue;
           const [ballot] = await tx
             .select({ id: ballots.id })
             .from(ballots)
@@ -130,21 +130,23 @@ export const roundBallotReads = ({
             { actorId: input.caller.actorId, account },
             input.readOpening,
           );
-          return {
+          assignments.push({
             roundId: round.id,
             resolution: view.topic,
             status: view.status,
             outcome: view.outcome,
             ballotSubmitted: ballot !== undefined,
             freezeRevision: freeze?.revision ?? null,
-          };
-        });
-        if (assignment) assignments.push(assignment);
-      } catch (error) {
-        if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
+          });
+        } catch (error) {
+          if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
+        } finally {
+          await tx.execute(sql`rollback to savepoint judge_assignment`);
+          await tx.execute(sql`release savepoint judge_assignment`);
+        }
       }
-    }
-    return roundJudgeAssignmentsSchema.parse(assignments);
+      return roundJudgeAssignmentsSchema.parse(assignments);
+    });
   },
   async readRoundBallot(input: {
     readonly roundId: string;

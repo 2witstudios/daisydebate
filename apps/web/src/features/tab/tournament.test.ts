@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { linkTo, sampleAction } from './action';
+import { linkTo, unavailableAction } from './action';
 import { landingStop, type RailItem, type TimelineRail } from './tournament';
 
 setupRitewayBun();
@@ -43,7 +43,7 @@ describe('landingStop', () => {
         ),
         landingStop(
           rail([
-            stop('entries', needsYou, sampleAction('Entries')),
+            stop('entries', needsYou, unavailableAction('Entries')),
             stop('setup', done, linkTo('Setup', '/setup')),
           ]),
         ),

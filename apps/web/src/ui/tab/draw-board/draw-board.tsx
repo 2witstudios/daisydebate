@@ -125,6 +125,7 @@ export function DrawBoard({
               ].join(' · '),
               action: {
                 label: 'Open',
+                kind: 'link' as const,
                 href: fixture.href,
                 primary: fixture.selected,
               },
@@ -140,6 +141,7 @@ export function DrawBoard({
                 detail: [fixture.judges, ...fixture.schools].join(' · '),
                 action: {
                   label: 'Open',
+                  kind: 'link' as const,
                   href: fixture.href,
                   primary: fixture.selected,
                 },

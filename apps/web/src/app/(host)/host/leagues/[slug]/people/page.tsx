@@ -1,15 +1,15 @@
-import { peopleControls } from './controls';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import {
   isSampleLeague,
   readLeagueRail,
 } from '../../../../../../features/tab/league';
-import { readPeople } from '../../../../../../features/tab/organization';
 import { requireTabRelease } from '../../../../../../features/tab/release';
 import { hostRoutes } from '../../../../../../features/tab/routes';
+import { readPeople } from '../../../../../../features/tab/sample/read-organization';
 import { People } from '../../../../../../ui/tab/people/people';
 import { requireGrant } from '../../../require-grant';
+import { peopleControls } from './controls';
 import { readStoredPeople } from './stored-people';
 
 export const metadata: Metadata = { title: 'People' };

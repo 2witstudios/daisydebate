@@ -290,3 +290,27 @@ test('only the event unreleased projection carries screening review addressing',
     ],
   });
 });
+
+test('ordinary ballot readers treat absent stored feedback as the same empty feedback record', () => {
+  const project = (feedback: null | Record<string, string>) =>
+    [undefined, 'judge-h'].flatMap((ownSeatId) =>
+      [undefined, 'affirmative', 'negative'].map((viewerSubject) =>
+        ballotReadView({
+          audience: { kind: 'ordinary' },
+          status: 'completed',
+          ownSeatId,
+          viewerSubject,
+          aiJudgeSeatIds: new Set<string>(),
+          ...judged,
+          rows: [row('judge-h', null, feedback)],
+          frozen: null,
+        }),
+      ),
+    );
+  assert({
+    given: 'ordinary own-ballot and released-ballot readers for every subject',
+    should: 'project null feedback identically to the original empty object',
+    actual: project(null),
+    expected: project({}),
+  });
+});

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { mock } from 'bun:test';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { walkHref } from './walk-href';
 import { participantPathOf } from './routes';
 import { LEAGUE } from './sample/moment';
 import type { SampleScene } from './sample/scene';
@@ -40,6 +41,7 @@ const sampleFor = (file: string): Readonly<Record<string, string>> =>
 const addressOf = (file: string): string => {
   const values = sampleFor(file);
   return `/${file
+    .replace('(host-preview)/tournaments/walk/', '')
     .replace(/\/?page\.tsx$/, '')
     .split('/')
     .filter((segment) => !/^\(.*\)$/.test(segment))
@@ -55,35 +57,47 @@ type Page = (props: {
 // Literal specifiers, so the import boundaries can check them. The first test
 // fails when a page under (host) is missing from this list.
 const loaders: Readonly<Record<string, () => Promise<unknown>>> = {
-  '(host)/host/leagues/[slug]/page.tsx': () =>
-    import('../../app/(host)/host/leagues/[slug]/page'),
-  '(host)/host/leagues/[slug]/people/page.tsx': () =>
-    import('../../app/(host)/host/leagues/[slug]/people/page'),
-  '(host)/host/page.tsx': () => import('../../app/(host)/host/page'),
-  '(host)/host/tournaments/[slug]/entries/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/entries/page'),
-  '(host)/host/tournaments/[slug]/events/[event]/ballot/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/events/[event]/ballot/page'),
-  '(host)/host/tournaments/[slug]/events/[event]/resolutions/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/events/[event]/resolutions/page'),
-  '(host)/host/tournaments/[slug]/events/[event]/rounds/[round]/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/events/[event]/rounds/[round]/page'),
-  '(host)/host/tournaments/[slug]/events/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/events/page'),
-  '(host)/host/tournaments/[slug]/judges/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/judges/page'),
-  '(host)/host/tournaments/[slug]/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/page'),
-  '(host)/host/tournaments/[slug]/people/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/people/page'),
-  '(host)/host/tournaments/[slug]/results/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/results/page'),
-  '(host)/host/tournaments/[slug]/setup/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/setup/page'),
-  '(host)/host/tournaments/[slug]/slots/[slot]/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/slots/[slot]/page'),
-  '(host)/host/tournaments/[slug]/standings/page.tsx': () =>
-    import('../../app/(host)/host/tournaments/[slug]/standings/page'),
+  '(host-preview)/tournaments/walk/host/leagues/[slug]/page.tsx': () =>
+    import('../../app/(host-preview)/tournaments/walk/host/leagues/[slug]/page'),
+  '(host-preview)/tournaments/walk/host/leagues/[slug]/people/page.tsx': () =>
+    import('../../app/(host-preview)/tournaments/walk/host/leagues/[slug]/people/page'),
+  '(host-preview)/tournaments/walk/host/page.tsx': () =>
+    import('../../app/(host-preview)/tournaments/walk/host/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/entries/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/entries/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/events/[event]/ballot/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/events/[event]/ballot/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/events/[event]/resolutions/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/events/[event]/resolutions/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/events/[event]/rounds/[round]/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/events/[event]/rounds/[round]/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/events/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/events/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/judges/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/judges/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/page.tsx': () =>
+    import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/people/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/people/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/results/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/results/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/setup/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/setup/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/slots/[slot]/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/slots/[slot]/page'),
+  '(host-preview)/tournaments/walk/host/tournaments/[slug]/standings/page.tsx':
+    () =>
+      import('../../app/(host-preview)/tournaments/walk/host/tournaments/[slug]/standings/page'),
 };
 
 /** Where the page sent its viewer, or null when it answered some other way. */
@@ -123,9 +137,9 @@ const storedPages = hostPages.filter((file) => {
 const storedLeaguePages = hostPages.filter((file) =>
   readFileSync(join(app, file), 'utf8').includes('await requestLeaguePage('),
 );
-const samplePages = hostPages.filter(
-  (file) => !storedPages.includes(file) && !storedLeaguePages.includes(file),
-);
+const samplePages = [
+  ...new Glob('(host-preview)/tournaments/walk/host/**/page.tsx').scanSync(app),
+].sort();
 
 describe('the host area', () => {
   test('stored league pages require an evaluated host read', () => {
@@ -164,13 +178,34 @@ describe('the host area', () => {
           source
             .slice(navigation, read)
             .includes('if (!navigation) notFound();'),
-          source.slice(read).includes('if (!index) notFound();'),
-          source.includes('api/tab/host-ballots/route'),
+          source.slice(read).includes('notFound();'),
+          !source.includes('/sample/'),
         ];
       }),
       expected: [
         [
           '(host)/host/tournaments/[slug]/ballots/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
+          '(host)/host/tournaments/[slug]/people/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
+          '(host)/host/tournaments/[slug]/results/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
+          '(host)/host/tournaments/[slug]/standings/page.tsx',
           true,
           true,
           true,
@@ -188,12 +223,12 @@ describe('the host area', () => {
     assert({
       given: 'each sample page under /host, opened by a competitor',
       should: 'send them to the participant page for that page’s own address',
-      actual: [samplePages.length >= 14, sent],
+      actual: [samplePages.length >= 15, sent],
       expected: [
         true,
         samplePages.map((file) => [
           addressOf(file),
-          participantPathOf(addressOf(file)),
+          walkHref(participantPathOf(addressOf(file))),
         ]),
       ],
     });
@@ -209,7 +244,8 @@ describe('the host area', () => {
         'answer with its screen, or move on to another host page, never the participant side',
       actual: sent.filter(
         (destination) =>
-          destination !== null && !destination.startsWith('/host/'),
+          destination !== null &&
+          !destination.startsWith('/tournaments/walk/host/'),
       ),
       expected: [],
     });

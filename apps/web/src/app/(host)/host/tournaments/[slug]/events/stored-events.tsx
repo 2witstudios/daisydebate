@@ -1,40 +1,41 @@
-import type { ReactNode } from 'react';
-import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import { hostEventsViewSchema } from '@daisy/protocol/lobby/host-events-read';
-import { requireTabRelease } from '../../../../../../features/tab/release';
-import { hostEventsPath } from '../../../../../../features/tab/host-events-route';
+import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { linkTo } from '../../../../../../features/tab/action';
+import type { EventFormContext } from '../../../../../../features/tab/event-form';
 import {
   eventAside,
   storedEventsSchedule,
 } from '../../../../../../features/tab/events';
+
+import { hostEventsPath } from '../../../../../../features/tab/host-events-route';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
+import { requireTabRelease } from '../../../../../../features/tab/release';
 import { hostRoutes } from '../../../../../../features/tab/routes';
-import { linkTo } from '../../../../../../features/tab/action';
-import type { EventFormContext } from '../../../../../../features/tab/event-form';
-import { EventsSchedule } from '../../../../../../ui/tab/events-schedule/events-schedule';
-import {
-  EventMetadataFields,
-  StageFields,
-  RoundFields,
-  SlotFields,
-  ResolutionFields,
-} from '../../../../../../ui/tab/events-schedule/event-command-fields';
-import { ReplayCommandForm } from '../../../../../../ui/form-action/replay-command-form';
-import { ActionButton } from '../../../../../../ui/tab/action-control/action-control';
-import {
-  ListCard,
-  ListHeading,
-  ListRow,
-} from '../../../../../../ui/tab/list-card/list-card';
 import {
   controlClass,
   fieldClass,
   labelClass,
 } from '../../../../../../ui/components/form-field/form-field-class';
-import { readStoredHostNavigation } from '../../../read-navigation';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { ReplayCommandForm } from '../../../../../../ui/form-action/replay-command-form';
+import { ActionButton } from '../../../../../../ui/tab/action-control/action-control';
+import {
+  EventMetadataFields,
+  ResolutionFields,
+  RoundFields,
+  SlotFields,
+  StageFields,
+} from '../../../../../../ui/tab/events-schedule/event-command-fields';
+import { EventsSchedule } from '../../../../../../ui/tab/events-schedule/events-schedule';
+import {
+  ListCard,
+  ListHeading,
+  ListRow,
+} from '../../../../../../ui/tab/list-card/list-card';
 import { GET } from '../../../../../api/tab/host-events/route';
+import { readStoredHostNavigation } from '../../../read-navigation';
 import { eventAction } from './actions';
 
 export async function StoredEvents({

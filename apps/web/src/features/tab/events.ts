@@ -6,8 +6,6 @@ import type {
 } from '@daisy/protocol/lobby/lobby-setup-read';
 import type { Choice, TabAction } from './action';
 import { hostRoutes } from './routes';
-import { sampleEventsSchedule } from './sample/events';
-import type { SampleScene } from './sample/scene';
 
 type ScheduledEvent = {
   readonly slug: string;
@@ -152,7 +150,7 @@ function timesOf(
 }
 
 /** The events and schedule screen from a tournament's setup read. */
-function eventsScheduleOf(
+export function eventsScheduleOf(
   setup: TournamentSetupView,
   selected: string | null,
   copy: EventsCopy,
@@ -195,17 +193,6 @@ function eventsScheduleOf(
           },
   };
 }
-
-export const readEventsSchedule = (
-  slug: string,
-  event: string | null,
-  scene: SampleScene,
-): EventsSchedule | null => {
-  const sample = sampleEventsSchedule(slug, scene);
-  return sample === null
-    ? null
-    : eventsScheduleOf(sample.setup, event, sample.copy);
-};
 
 export type EventAside =
   | { readonly kind: 'none' }

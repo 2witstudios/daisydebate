@@ -3,7 +3,7 @@ import type {
   EventRoomView,
   PinnedSettingLine,
 } from '@daisy/protocol/lobby/event-room-read';
-import { sampleAction } from '../action';
+import { unavailableAction } from '../action';
 import type { LiveSection, RoomSeat, WaitingRoom } from '../room';
 import { AUTUMN, CHAMPIONSHIP, VARSITY, WINTER } from './moment';
 import { own } from './own';
@@ -27,7 +27,7 @@ const seat = (
   action: null,
 });
 
-const tab = sampleAction('Message tab');
+const tab = unavailableAction('Message tab');
 
 const at = (day: string, time: string) => `${day}T${time}:00.000Z`;
 const AUTUMN_DAY = '2026-11-14';
@@ -310,10 +310,10 @@ export function sampleStandingRoom(
       seat('Y', 'teal', 'You', 'Speaker', 'Not ready'),
       {
         ...seat('+', 'neutral', 'Open seat', 'Anyone in the lobby', null),
-        action: sampleAction('Invite'),
+        action: unavailableAction('Invite'),
       },
     ],
-    primary: sampleAction("I'm ready", true),
+    primary: unavailableAction("I'm ready", true),
     primaryNote: 'The host starts the round.',
     pinned: null,
     runOfShow: {

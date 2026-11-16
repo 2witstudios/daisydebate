@@ -8,20 +8,21 @@ import { GET as settingsGET } from '../../../../../api/tab/tournament-event-sett
 import { judgeObligationAction } from './actions';
 import { notFound } from 'next/navigation';
 import { hostRosterViewSchema } from '@daisy/protocol/lobby/entry-read';
-import { requireTabRelease } from '../../../../../../features/tab/release';
-import { hostRosterPath } from '../../../../../../features/tab/host-roster-route';
+import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { linkTo } from '../../../../../../features/tab/action';
 import {
   hostEntriesOf,
   hostJudgesOf,
 } from '../../../../../../features/tab/entries';
+
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
+import { hostRosterPath } from '../../../../../../features/tab/host-roster-route';
+import { requireTabRelease } from '../../../../../../features/tab/release';
 import { hostRoutes } from '../../../../../../features/tab/routes';
-import { linkTo } from '../../../../../../features/tab/action';
 import { HostEntries } from '../../../../../../ui/tab/host-entries/host-entries';
 import { HostJudges } from '../../../../../../ui/tab/host-entries/host-judges';
-import { readStoredHostNavigation } from '../../../read-navigation';
-import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
 import { GET } from '../../../../../api/tab/host-roster/route';
+import { readStoredHostNavigation } from '../../../read-navigation';
 export async function StoredRoster({
   handle,
   kind,

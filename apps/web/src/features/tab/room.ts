@@ -1,13 +1,6 @@
 import type { EventRoomView } from '@daisy/protocol/lobby/event-room-read';
-import { sampleAction, type TabAction } from './action';
+import { unavailableAction, type TabAction } from './action';
 import { tabRoutes } from './routes';
-import {
-  sampleEventRoom,
-  sampleLiveSection,
-  sampleStandingRoom,
-} from './sample/rooms';
-import type { SampleScene } from './sample/scene';
-import { sampleAddressOf } from './sample/tournament';
 import {
   actionTo,
   capitalized,
@@ -151,7 +144,10 @@ function panelSeat(room: EventRoomView): RoomSeat {
  * An event Room before its Round starts: the fixture's seats, who has
  * arrived, and what publishing pinned on it with the scope that set it.
  */
-function waitingRoomOf(room: EventRoomView, addressOf: AddressOf): WaitingRoom {
+export function waitingRoomOf(
+  room: EventRoomView,
+  addressOf: AddressOf,
+): WaitingRoom {
   const arrangement: Exclude<SeatArrangement, 'open'> =
     room.kind === 'section'
       ? 'section'
@@ -232,7 +228,7 @@ function waitingRoomOf(room: EventRoomView, addressOf: AddressOf): WaitingRoom {
       ? actionTo('Open your ballot', ballot, true)
       : arrangement === 'section'
         ? actionTo('Go to the section', live, true)
-        : sampleAction('Check camera and microphone', true),
+        : unavailableAction('Check camera and microphone', true),
     primaryNote: null,
     pinned: {
       setBy: 'name' in room.pinned.source ? room.pinned.source.name : 'Daisy',
@@ -246,31 +242,16 @@ function waitingRoomOf(room: EventRoomView, addressOf: AddressOf): WaitingRoom {
       arrangement === 'section'
         ? {
             text: 'The speaking order is assigned by the tournament.',
-            action: sampleAction('Message tab'),
+            action: unavailableAction('Message tab'),
           }
         : arrangement === 'four_sides'
           ? {
               text: 'Positions are assigned by the tournament.',
-              action: sampleAction('Message tab'),
+              action: unavailableAction('Message tab'),
             }
           : {
               text: 'Seats are assigned by the tournament.',
-              action: sampleAction('Something wrong? Message tab'),
+              action: unavailableAction('Something wrong? Message tab'),
             },
   };
 }
-
-export const readRoom = (
-  id: string,
-  scene: SampleScene,
-): WaitingRoom | null => {
-  const room = sampleEventRoom(id, scene);
-  return room === null
-    ? sampleStandingRoom(id, scene)
-    : waitingRoomOf(room, sampleAddressOf);
-};
-
-export const readLiveSection = (
-  id: string,
-  scene: SampleScene,
-): LiveSection | null => sampleLiveSection(id, scene);

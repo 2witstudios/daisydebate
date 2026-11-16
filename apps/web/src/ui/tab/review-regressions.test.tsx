@@ -1,9 +1,10 @@
 import { sampleTournamentReads } from '../../features/tab/sample/tournament';
-import { readStandings, withDivisionBreak } from '../../features/tab/standings';
+import { withDivisionBreak } from '../../features/tab/standings';
+import { readStandings } from '../../features/tab/sample/read-standings';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readRunningRound } from '../../features/tab/tab-round';
+import { readRunningRound } from '../../features/tab/sample/read-tab-round';
 import { sampleTabRoundView } from '../../features/tab/sample/tab-round';
-import { readTournamentPage } from '../../features/tab/tournament';
+import { readTournamentPage } from '../../features/tab/sample/read-tournament';
 import { sampleAnswer } from './sample-screens.test-support';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { WithAppRouter } from '../test-support/app-router';
@@ -14,7 +15,7 @@ describe('interface-3 review regressions', () => {
   test('calendar queries terminate at both year boundaries', async () => {
     const results = [];
     for (const month of ['0000-01', '9999-12']) {
-      const code = `import {readTournamentsIndex} from ${JSON.stringify(Bun.resolveSync('../../features/tab/tournaments-index.ts', import.meta.dir))}; const page=readTournamentsIndex(${JSON.stringify(large)},{view:'calendar',month:${JSON.stringify(month)}}); console.log(page.calendar?.weeks.length);`;
+      const code = `import {readTournamentsIndex} from ${JSON.stringify(Bun.resolveSync('../../features/tab/sample/read-tournaments-index.ts', import.meta.dir))}; const page=readTournamentsIndex(${JSON.stringify(large)},{view:'calendar',month:${JSON.stringify(month)}}); console.log(page.calendar?.weeks.length);`;
       const child = Bun.spawn(['bun', '-e', code], {
         stdout: 'pipe',
         stderr: 'pipe',
