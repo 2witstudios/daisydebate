@@ -66,7 +66,9 @@ test('a Freestyle Room keeps its standard through a metadata edit and refuses ho
 test('the native Custom editor persists exact settings, POI and its template basis through canonical creation', async () => {
   await withRoomRuntime(async (f) => {
     const catalog = await f.operations.catalog(f.host);
-    const choice = catalog.choices.find((entry) => entry.formatId === 'nsda-ld')!;
+    const choice = catalog.choices.find(
+      (entry) => entry.formatId === 'nsda-ld',
+    )!;
     const form = new FormData();
     Object.entries(draftFormValues(createRoomDraft(choice))).forEach(
       ([key, value]) => form.set(key, value),

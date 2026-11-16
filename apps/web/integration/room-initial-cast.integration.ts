@@ -162,15 +162,11 @@ test('a cast refusal rolls the whole create back', async () => {
 });
 
 /** A fresh fixture bot and the practice create that seats it at negative. */
-const practiceBody = async (f: {
-  bot: () => Promise<{ actorId: string }>;
-}) => {
+const practiceBody = async (f: { bot: () => Promise<{ actorId: string }> }) => {
   const { actorId: botId } = await f.bot();
   return {
     botId,
-    body: practiceCreate([
-      { actorId: botId, role: 'negative', slot: 0 },
-    ]),
+    body: practiceCreate([{ actorId: botId, role: 'negative', slot: 0 }]),
   };
 };
 
@@ -333,9 +329,7 @@ test('a concurrent bot-profile deactivation serializes with fresh cast creation'
       `;
       created = f.operations.create(
         member,
-        practiceCreate([
-          { actorId: botId, role: 'negative', slot: 0 },
-        ]),
+        practiceCreate([{ actorId: botId, role: 'negative', slot: 0 }]),
       );
       // Observe the exact database lock wait rather than assuming the other
       // transaction reached the profile fence before deactivation.

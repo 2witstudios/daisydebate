@@ -7,7 +7,7 @@ import { withSql } from './fixtures';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const { f, routes, headers, member, command } = createRoomHttpFixture();
+const { f, routes, member, command } = createRoomHttpFixture();
 
 test('recording create HTTP binds the receipt to its payload and member and refuses missing entitlement atomically', async () => {
   const host = await member();
