@@ -472,14 +472,15 @@ describe('resolutions and sanctions', () => {
       ],
     });
   });
-  test('a sanction is read by either side’s host readers', () => {
+  test('a sanction is read by either side’s setup authority', () => {
     assert({
       given: 'the league’s owner, the tournament’s staff and a stranger',
       should: 'allow the first two',
       actual: [
         ask('sanction.read', sanction, { actorId: 'league-owner' }).allow,
-        ask('sanction.read', sanction, { grants: [lobbyGrant('hosted', [])] })
-          .allow,
+        ask('sanction.read', sanction, {
+          grants: [lobbyGrant('hosted', ['lobby.setup.manage'])],
+        }).allow,
         ask('sanction.read', sanction).allow,
       ],
       expected: [true, true, false],
@@ -527,6 +528,13 @@ describe('the whole list', () => {
       {},
     ],
     'lobby.host.read': [lobbyFact(hosted), { actorId: 'host' }],
+    'lobby.host.draw.read': [lobbyFact(hosted), { actorId: 'host' }],
+    'lobby.host.entries.read': [lobbyFact(hosted), { actorId: 'host' }],
+    'lobby.host.ballots.read': [lobbyFact(hosted), { actorId: 'host' }],
+    'lobby.host.results.read': [lobbyFact(hosted), { actorId: 'host' }],
+    'lobby.host.recordings.read': [lobbyFact(hosted), { actorId: 'host' }],
+    'lobby.host.people.read': [lobbyFact(hosted), { actorId: 'host' }],
+
     'lobby.room.create': [lobbyFact(standing, { viewing: participant }), {}],
     'template.read': [{ kind: 'template', organization: league }, {}],
     'entry.submit': [entry({ kind: 'self', actorId: 'person' }), {}],

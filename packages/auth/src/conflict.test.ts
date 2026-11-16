@@ -51,6 +51,7 @@ const sensitive = (conflict: ReturnType<typeof connected>) =>
     ['tournament.draw.edit', fixture(hosted, { conflict })],
     ['tournament.ballots.read_unreleased', fixture(hosted, { conflict })],
     ['tournament.ballots.read_unreleased', ballot(conflict)],
+    ['lobby.host.ballots.read', ballot(conflict)],
   ] as const;
 const outcome = (decision: ReturnType<typeof ask>) =>
   decision.allow ? 'allow' : decision.reason;

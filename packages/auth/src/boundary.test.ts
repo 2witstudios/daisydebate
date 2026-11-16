@@ -114,6 +114,13 @@ const inLobby = (scope: LobbyScopeFact): Record<string, Resource> => {
     'room.manage': ownedRoom,
     'lobby.read': lobby,
     'lobby.host.read': lobby,
+    'lobby.host.draw.read': lobby,
+    'lobby.host.entries.read': lobby,
+    'lobby.host.ballots.read': lobby,
+    'lobby.host.results.read': lobby,
+    'lobby.host.recordings.read': lobby,
+    'lobby.host.people.read': lobby,
+
     'lobby.room.create': lobbyFact(scope, {
       viewing: { audiences: ['participants'], releases: [] },
     }),

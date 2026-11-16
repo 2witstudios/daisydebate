@@ -10,6 +10,7 @@ import {
   deny,
 } from './authorization-decision';
 import { admitsCapability } from './participant-access';
+import { hostAreaCapabilities } from '@daisy/protocol/capability-metadata';
 import { validResourceKind } from './authorization-resource-kind';
 import { operatorDecision, operatorResource } from './authorization-operator';
 export { accountEntitlements } from './account-entitlements';
@@ -262,6 +263,26 @@ export function assessPendingProposer(
   return { kind: 'eligible', authority: assessed.authority };
 }
 
+
+/** Authorized host areas, using the same facts and boundary as each area's read. */
+export function authorizedHostAreas(
+  input: Omit<AuthorizationInput, 'capability'> & {
+    readonly resource: Extract<
+      AuthorizationInput['resource'],
+      { kind: 'lobby' | 'organization' }
+    >;
+  },
+): readonly AuthorizationCapability[] {
+  const shell =
+    input.resource.kind === 'lobby'
+      ? 'lobby.host.read'
+      : 'organization.host.read';
+  return authorize({ ...input, capability: shell }).allow
+    ? hostAreaCapabilities.filter(
+        (capability) => authorize({ ...input, capability }).allow,
+      )
+    : [];
+}
 function askedDecision({
   principal,
   capability,
