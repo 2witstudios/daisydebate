@@ -11,6 +11,7 @@ import {
 } from './lobby-setup-command';
 import { sharedLobbyRefusals } from './command';
 import { tournamentStatuses } from './vocabulary';
+import { plainRoomConfig } from '../format-fixtures.test-support';
 
 setupRitewayBun();
 
@@ -146,8 +147,20 @@ const valid = {
     },
   ],
   'create-lobby-room': [
-    { type: 'create-lobby-room', lobbyId, templateId: id('t'), room },
-    { type: 'create-lobby-room', lobbyId, templateId: null, room },
+    {
+      type: 'create-lobby-room',
+      lobbyId,
+      templateId: id('t'),
+      room,
+      config: plainRoomConfig,
+    },
+    {
+      type: 'create-lobby-room',
+      lobbyId,
+      templateId: null,
+      room,
+      config: plainRoomConfig,
+    },
   ],
   'add-event': [
     {
@@ -377,6 +390,11 @@ const invalid: readonly (readonly [string, unknown, string])[] = [
     'an enabled ladder with no name',
     { ...valid['set-ladder'][0], ladder: { enabled: true } },
     'ladder.name',
+  ],
+  [
+    'a Room create without the displayed settings',
+    { ...valid['create-lobby-room'][0], config: undefined },
+    'config',
   ],
   [
     'a Room create that is not one',
