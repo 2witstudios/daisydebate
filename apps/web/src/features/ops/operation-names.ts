@@ -169,6 +169,7 @@ const OPERATION_NAMES = [
   'tab.confirmation.command',
   'tab.event.ballot',
   'tab.organization.command',
+  'tab.league.school.command',
   'tab.guardian.command',
   'tab.family.history',
   'tab.lobby.command',

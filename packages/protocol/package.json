@@ -33,6 +33,7 @@
     "./lobby": "./src/lobby/vocabulary.ts",
     "./lobby/command": "./src/lobby/command.ts",
     "./lobby/read": "./src/lobby/read.ts",
+    "./lobby/league-school-command": "./src/lobby/league-school-command.ts",
     "./lobby/organization-command": "./src/lobby/organization-command.ts",
     "./lobby/guardian-command": "./src/lobby/guardian-command.ts",
     "./lobby/setting-command": "./src/lobby/setting-command.ts",

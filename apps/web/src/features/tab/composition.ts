@@ -1,3 +1,4 @@
+import { createLeagueSchoolCommandRoute } from './league-school-command-route';
 import { createHostRosterRoute } from './host-roster-route';
 import { createSanctionCommandRoute } from './sanction-command-route';
 import { readHostRoster } from './reads/host-roster';
@@ -239,6 +240,8 @@ export function composeTabRoutes(app: App) {
         lobbyIdOfHandle: store.lobbyIdOfHandle,
         read: readTournamentSetup({ store, authorize, now }),
       }),
+    leagueSchoolCommand: (released: TabCommandRouteDependencies['released']) =>
+      createLeagueSchoolCommandRoute({ ...common, boundary, released }),
     organizationCommand: (released: TabCommandRouteDependencies['released']) =>
       commandRoute(released, {
         name: 'tab.organization.command',

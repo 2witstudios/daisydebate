@@ -1,3 +1,7 @@
+import {
+  leagueSchoolCommandCatalogue,
+  leagueSchoolCommandSchema,
+} from './league-school-command';
 import { z } from 'zod';
 import type { LobbyCommandDefinition } from './command';
 import {
@@ -48,6 +52,7 @@ import {
  */
 export const lobbyCommandGroups = {
   organization: [organizationCommandSchema, organizationCommandCatalogue],
+  leagueSchool: [leagueSchoolCommandSchema, leagueSchoolCommandCatalogue],
   guardian: [guardianCommandSchema, guardianCommandCatalogue],
   setting: [settingCommandSchema, settingCommandCatalogue],
   lobbySetup: [lobbySetupCommandSchema, lobbySetupCommandCatalogue],

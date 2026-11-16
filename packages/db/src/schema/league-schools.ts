@@ -1,3 +1,7 @@
+import {
+  leagueSchoolStatuses,
+  type LeagueSchoolStatus,
+} from '@daisy/protocol/lobby/league-school-command';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -27,7 +31,7 @@ export const leagueSchools = pgTable(
     leagueKind: constantText('league_kind', 'league'),
     schoolId: text('school_id').notNull(),
     schoolKind: constantText('school_kind', 'school'),
-    status: text('status').$type<'invited' | 'active' | 'ended'>().notNull(),
+    status: text('status').$type<LeagueSchoolStatus>().notNull(),
     invitedByUserId: text('invited_by_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
@@ -57,7 +61,7 @@ export const leagueSchools = pgTable(
     index('league_schools_school_idx').on(table.schoolId),
     check(
       'league_schools_status_check',
-      oneOf(table.status, ['invited', 'active', 'ended']),
+      oneOf(table.status, leagueSchoolStatuses),
     ),
     check(
       'league_schools_state_check',

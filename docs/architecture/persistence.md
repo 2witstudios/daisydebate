@@ -308,3 +308,27 @@ judges receive a generic removal linked to the tournament, with no former Room
 or result access. Notification destinations are protected reads; inbox text and
 signals contain no outcome. Privacy export and erasure include these subjects,
 and the existing read-retention policy applies.
+
+### League member schools
+
+`league_schools` is the explicit relation between a league and a school.
+`organization_id` is the league's isolation key; composite foreign keys prove
+that its two organizations have kinds `league` and `school`. It grants no
+person permissions and is never inferred from a person's membership.
+
+The league controller invites through `invite-league-school`; only a school
+controller can activate that invitation through `accept-league-school`. Both
+commands evaluate `organization.manage` at their own organization. An invitation
+is not active membership. Either controller can explicitly end the relation or
+cancel an invitation through `end-league-school`, naming their side. Rejoining
+requires a fresh invitation and fresh school assent.
+
+All commands run through `/api/tab/league-school-command`, the canonical command
+runner and the single action history. Invitations carry the league's displayed
+organization version; acceptance and ending carry the relation's membership
+version. Account fences precede both organization fences in sorted id order.
+Every accepted transition increments the relation and league versions atomically
+with a journal entry identifying the exact `league_school` aggregate, acting
+account and evaluated authority. The relation retains invitation, joining and
+ending times and acting accounts; only `status = 'active'` supplies member-school
+ids to the season fold.

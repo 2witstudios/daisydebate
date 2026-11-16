@@ -2,6 +2,11 @@ import { createLeagueSeasonStore } from './league-season';
 export type { LeagueSeasonFacts } from './league-season';
 import { createLeagueRatingStore } from './league-rating-inputs';
 export type { LeagueRatingInputs } from './league-rating-inputs';
+import { createLeagueSchoolCommandStore } from './league-school-command';
+export type {
+  LoadedLeagueSchoolCommand,
+  LeagueSchoolWrite,
+} from './league-school-command';
 import { createHostRosterStore } from './host-roster';
 import { createSanctionCommandStore } from './sanction-command';
 export type { SanctionCommandFacts } from './sanction-command';
@@ -202,6 +207,7 @@ const roleNamedOf = (
 export const createTabStore = (database: TabDatabase) => ({
   ...createSanctionCommandStore(database),
   ...createLeagueSeasonStore(database),
+  ...createLeagueSchoolCommandStore(database),
   ...createResultCommandStore(database),
   ...createFixtureCommandStore(database),
   ...createConfirmationCommandStore(database),
