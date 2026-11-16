@@ -69,6 +69,39 @@ const playRounds = (count: number, rounds: number, seed: number) => {
 };
 
 describe('two-sided draw', () => {
+  test('Swiss power keeps record groups despite a side repeat', () => {
+    const first = drawsOf(
+      draw(slot([request(twoSides, { entries: entries(4) })])),
+    )[0]!;
+    const history = playTwoSided({ fixtures: [], results: [] }, first, 1);
+    const winners = fixturesOf(first).flatMap((fixture) =>
+      fixture.kind === 'pairing' ? [fixture.sides[0]] : [],
+    );
+    const next = drawsOf(
+      draw(
+        slot([
+          request(twoSides, {
+            entries: entries(4),
+            tabRound: 2,
+            cutoff: 1,
+            history,
+          }),
+        ]),
+      ),
+    )[0]!;
+    assert({
+      given: 'two winners on the same side and two losers on the other side',
+      should: 'pair within each record group even though a side must repeat',
+      actual: fixturesOf(next).map(
+        (fixture) =>
+          fixture.kind === 'pairing' &&
+          winners.includes(fixture.sides[0]) ===
+            winners.includes(fixture.sides[1]),
+      ),
+      expected: [true, true],
+    });
+  });
+
   test('breaks no rule, places every active entry once and gives at most one bye', () => {
     const failures: string[] = [];
     for (let seed = 0; seed < 12; seed += 1) {
