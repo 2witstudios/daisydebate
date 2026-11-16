@@ -743,7 +743,16 @@ CREATE TABLE "round_source_voids" (
 ALTER TABLE "round_participants" DROP CONSTRAINT "round_participants_seat_unique";--> statement-breakpoint
 ALTER TABLE "rating_changes" DROP CONSTRAINT "rating_changes_participant_fk";--> statement-breakpoint
 DROP INDEX "round_participants_actor_unique";--> statement-breakpoint
-ALTER TABLE "round_participants" ADD COLUMN "rating_actor_id" text GENERATED ALWAYS AS (case when seat_kind in ('side','speaker') then actor_id else null end) STORED;--> statement-breakpoint
+-- Preserve only actual historical ledger identities, including old judge ratings.
+-- The marker is migration-only; the identity guard below refuses it on new seats.
+ALTER TABLE "round_participants" ADD COLUMN "legacy_rating_participant" boolean DEFAULT false NOT NULL;
+--> statement-breakpoint
+UPDATE public.round_participants p SET legacy_rating_participant=true
+ WHERE p.seat_kind NOT IN ('side','speaker') AND EXISTS(
+  SELECT 1 FROM public.rating_changes c WHERE c.round_id=p.round_id AND c.actor_id=p.actor_id
+ );
+--> statement-breakpoint
+ALTER TABLE "round_participants" ADD COLUMN "rating_actor_id" text GENERATED ALWAYS AS (case when seat_kind in ('side','speaker') or legacy_rating_participant then actor_id else null end) STORED;--> statement-breakpoint
 ALTER TABLE "round_participants" ADD CONSTRAINT "round_participants_assignment_identity_unique" UNIQUE("id","round_id","slot","actor_id");--> statement-breakpoint
 CREATE INDEX "round_finalization_judge_assignments_version_idx" ON "round_finalization_judge_assignments" ("round_id","slot","assignment_version","participant_id");--> statement-breakpoint
 CREATE INDEX "round_judge_assignments_participant_idx" ON "round_judge_assignments" ("participant_id","round_id","slot","actor_id");--> statement-breakpoint
@@ -807,8 +816,16 @@ $$;
 REVOKE ALL ON FUNCTION public.daisy_round_judge_slot_count(jsonb) FROM PUBLIC;
 --> statement-breakpoint
 -- Only actual pre-existing relationships are observed. No previous command or assignment instant is inferred.
+-- Historical snapshots are not a deployment precondition. Valid frozen counts
+-- supply empty slots; every actual stored judge independently supplies its slot.
+-- Missing/malformed counts supply no invented grammar. Their original JSON stays.
 INSERT INTO public.round_judge_slots(round_id,slot)
- SELECT r.id,n FROM public.rounds r CROSS JOIN LATERAL generate_series(0,public.daisy_round_judge_slot_count(r.rules_snapshot)-1) n;
+ SELECT r.id,n FROM public.rounds r CROSS JOIN LATERAL generate_series(0,
+  CASE WHEN jsonb_typeof(r.rules_snapshot#>'{seats,judges}')='number' AND r.rules_snapshot#>>'{seats,judges}' ~ '^(0|[1-9][0-9]{0,2})$'
+   THEN CASE WHEN (r.rules_snapshot#>>'{seats,judges}')::integer<=256
+    THEN (r.rules_snapshot#>>'{seats,judges}')::integer ELSE 0 END
+   ELSE 0 END-1) n
+ UNION SELECT p.round_id,p.slot FROM public.round_participants p WHERE p.seat_kind='judge';
 --> statement-breakpoint
 INSERT INTO public.round_judge_assignments(round_id,slot,version,participant_id,actor_id,source,recorded_at)
  SELECT p.round_id,p.slot,1,p.id,p.actor_id,'observed',clock_timestamp()
@@ -866,6 +883,9 @@ BEGIN
  IF TG_OP<>'INSERT' THEN
   IF TG_OP='DELETE' AND NOT EXISTS(SELECT 1 FROM public.rounds WHERE id=OLD.round_id) THEN RETURN OLD; END IF;
   RAISE EXCEPTION 'A Round participant identity cannot be rewritten' USING ERRCODE='23514',CONSTRAINT='round_participants_identity_immutable';
+ END IF;
+ IF NEW.legacy_rating_participant THEN
+  RAISE EXCEPTION 'Historical rating provenance cannot be created' USING ERRCODE='23514',CONSTRAINT='round_participants_legacy_rating_marker';
  END IF;
  SELECT * INTO parent FROM public.rounds WHERE id=NEW.round_id FOR NO KEY UPDATE;
  IF NOT FOUND THEN RETURN NEW; END IF; -- The actual owning FK supplies the refusal.

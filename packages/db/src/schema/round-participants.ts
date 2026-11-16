@@ -1,5 +1,12 @@
 import { sql } from 'drizzle-orm';
-import { index, pgTable, text, unique, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  pgTable,
+  text,
+  unique,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { rounds } from './rounds';
 import {
   seatActorId,
@@ -28,9 +35,13 @@ export const roundParticipants = pgTable(
     seatKind: seatKindColumn(),
     side: seatSideColumn(),
     slot: seatSlot(),
-    /** Internal candidate key: a rating can name only an actual debating identity. */
+    /** Observed pre-migration rated identity; runtime can never set this marker. */
+    legacyRatingParticipant: boolean('legacy_rating_participant')
+      .notNull()
+      .default(false),
+    /** Internal candidate key: a rating names a debater or its observed historical identity. */
     ratingActorId: text('rating_actor_id').generatedAlwaysAs(
-      sql`case when seat_kind in ('side','speaker') then actor_id else null end`,
+      sql`case when seat_kind in ('side','speaker') or legacy_rating_participant then actor_id else null end`,
     ),
   },
   (table) => [

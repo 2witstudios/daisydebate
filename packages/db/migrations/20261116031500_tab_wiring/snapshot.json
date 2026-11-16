@@ -18240,13 +18240,26 @@
       "table": "round_participants"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "legacy_rating_participant",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_participants"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": {
-        "as": "case when seat_kind in ('side','speaker') then actor_id else null end",
+        "as": "case when seat_kind in ('side','speaker') or legacy_rating_participant then actor_id else null end",
         "type": "stored"
       },
       "identity": null,

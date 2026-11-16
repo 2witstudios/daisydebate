@@ -199,3 +199,22 @@ and [run listing](https://cli.github.com/manual/gh_run_list). The installed
 CLI help was checked when writing this procedure. `--all` includes disabled
 workflows in run listings. No deployment or remote data proof was performed
 while writing this document.
+
+## Stored Round backfill rehearsal
+
+The wiring migration observes every existing judge identity and its actual
+slot, including slots outside a usable stored count. Missing or malformed
+counts do not prevent deployment and are not rewritten into a new grammar.
+Future Round writes retain the strict count checks. Existing rating ledger
+references also survive: a migration-only immutable marker preserves an
+actual historical non-debating rated identity without changing its seat or
+allowing new callers to manufacture that provenance.
+
+`packages/db/integration/staging-rehearsal.integration.ts` starts from the
+main migration history, then applies every parent and wiring folder. It
+includes absent, malformed, string, negative, oversized, fractional and zero
+judge counts, judges outside the count, and existing side and judge rating
+rows. It compares the existing ledger, cast and unrelated data exactly,
+checks the observed assignment identities, refuses new or rewritten legacy
+markers and verifies all constraints are validated. This is an isolated
+database rehearsal; it does not authorize staging or production deployment.
