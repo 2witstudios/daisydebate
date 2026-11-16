@@ -98,6 +98,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
         'rounds.runtime_state',
+        'rounds.seat_draw',
         'usage_reservations.source',
         'usage_reservations.state',
       ],

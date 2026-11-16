@@ -114,6 +114,7 @@ export function executeRoomCommand(
     publishDefinition,
     draw,
     seatDraw,
+    roundSeed,
   } = outcome.mutation;
   if (edit) next = afterEdit(room, next);
   if (isOpenRoom(next)) next = { ...next, status: assembledStatus(next) };
@@ -133,6 +134,7 @@ export function executeRoomCommand(
       publishDefinition,
       draw,
       seatDraw,
+      roundSeed,
       members: activeRoomMembers(next),
     },
   };

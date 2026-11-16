@@ -472,6 +472,8 @@ type RoomMutation = {
   } | null;
   /** What a Start round's seat draw did, frozen on its Round (ADR 0143). */
   readonly seatDraw: SeatDraw | null;
+  /** The Round's secret seed (hex), stored with it and never delivered; null off Start round. */
+  readonly roundSeed: string | null;
   /** The human actors the next state holds as active members (ADR 0070). */
   readonly members: readonly string[];
 };

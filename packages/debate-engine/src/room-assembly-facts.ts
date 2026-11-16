@@ -115,6 +115,7 @@ export const acceptedRoomMutation = (
     publishDefinition: false,
     draw: null,
     seatDraw: null,
+    roundSeed: null,
     members: activeRoomMembers(state),
     ...overrides,
   },

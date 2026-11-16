@@ -1,5 +1,6 @@
 import type {
   CompetitionType,
+  DebateSide,
   RoomConfig,
   RoomExecutionPlan,
   RoundRules,
@@ -21,6 +22,8 @@ export type NewRoom = {
     readonly presetVersion: number;
   } | null;
   readonly competitionType: CompetitionType;
+  /** Team 1's side, or null for a coin flip at Start round (ADR 0143). */
+  readonly teamOneSide: DebateSide | null;
   readonly config: RoomConfig;
   readonly executionPlan: RoomExecutionPlan;
   readonly rules: RoundRules;
@@ -39,6 +42,7 @@ export const newRoomValues = (room: NewRoom) => ({
   basisFormatId: room.basis?.formatId ?? null,
   basisPresetVersion: room.basis?.presetVersion ?? null,
   competitionType: room.competitionType,
+  teamOneSide: room.teamOneSide,
   config: room.config,
   executionPlan: room.executionPlan,
   rulesSnapshot: room.rules,

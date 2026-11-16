@@ -46,7 +46,10 @@ export const seatDrawSchema = z.strictObject({
     .array(
       z.strictObject({
         participantId: idSchema,
-        open: z.array(z.enum(['team', 'position'])).min(1).readonly(),
+        open: z
+          .array(z.enum(['team', 'position']))
+          .min(1)
+          .readonly(),
         from: placement,
         to: placement,
       }),

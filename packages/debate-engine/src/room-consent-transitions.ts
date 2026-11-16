@@ -115,6 +115,7 @@ export const startRound = (
   return acceptedRoomMutation(next, {
     draw,
     seatDraw: seats.seatDraw,
+    roundSeed: edges.seatSeed,
     freeze: true,
     seatsBotDebater: castSeatsBotDebater(next),
   });
