@@ -609,6 +609,7 @@ test('a seat taken and given up changes nothing about a DM between the two debat
     const dm = await openDm(databaseUrl);
     const { channelId, subject, survivor } = dm;
     let roundId = await env.audienceRound();
+    const spectatorRoundId = roundId;
     try {
       await broadcast(env.client, roundId);
       const facts = async () => [
@@ -660,7 +661,7 @@ test('a seat taken and given up changes nothing about a DM between the two debat
       });
     } finally {
       // Its author goes with the DM fixture, so the crowd's line goes first.
-      await env.client`delete from messaging_channels where round_id=${roundId}`;
+      await env.client`delete from messaging_channels where round_id in (${roundId},${spectatorRoundId})`;
       await dm.close();
     }
   });

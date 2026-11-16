@@ -129,9 +129,22 @@ export async function applyDevSeed({
           .onConflictDoNothing();
         await applyBetaEntitlementGrants(tx, person.userId, 'approved');
       }
+      const [previous] = await tx
+        .select({
+          createdAt: sql<string>`${rounds.createdAt}::text`,
+          updatedAt: sql<string>`${rounds.updatedAt}::text`,
+        })
+        .from(rounds)
+        .where(sql`${rounds.id} = ${seed.round.id}`);
       await tx.delete(rounds).where(sql`${rounds.id} = ${seed.round.id}`);
       await tx.insert(rounds).values({
         id: seed.round.id,
+        ...(previous
+          ? {
+              createdAt: sql`${previous.createdAt}::timestamptz`,
+              updatedAt: sql`${previous.updatedAt}::timestamptz`,
+            }
+          : {}),
         createdByActorId: seed.round.createdByActorId,
         resolution: seed.round.resolution,
         competitionType: 'casual',

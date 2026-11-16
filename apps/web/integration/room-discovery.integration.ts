@@ -1,3 +1,4 @@
+import { buildRoundTopic } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -48,6 +49,11 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     let view = await f.assemble({ title });
     view = (await f.command(f.host, view, { type: 'start-round' })).view;
     const roundId = view.roundRef!.id;
+    const abandonedCast = await f.freshCast();
+    const abandonedRoom = await f.assemble({ title }, abandonedCast);
+    const abandonedLaunch = await f.command(abandonedCast.host, abandonedRoom, {
+      type: 'start-round',
+    });
     const consentReads = f.consentReads();
     f.unavailable(true);
     const list = (who = f.outsider) =>
@@ -64,11 +70,6 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     const frozenSeat = await list(f.guest);
     await f.sql`update rounds set status='completed',current_stage=null,winning_side='affirmative',completed_at=statement_timestamp() where id=${roundId}`;
     const completed = await list(f.host);
-    const abandonedCast = await f.freshCast();
-    const abandonedRoom = await f.assemble({ title }, abandonedCast);
-    const abandonedLaunch = await f.command(abandonedCast.host, abandonedRoom, {
-      type: 'start-round',
-    });
     await f.sql`update rounds set status='abandoned',current_stage=null,winning_side=null,completed_at=statement_timestamp() where id=${abandonedLaunch.view.roundRef!.id}`;
     const abandoned = await list(f.host);
     assert({
@@ -180,9 +181,10 @@ test('selected Round locks recheck frozen visibility and terminal status races',
           pageSize: 1,
         });
         await blocked(f.sql, pid);
-        if (change === 'erasure')
+        if (change === 'erasure') {
           await holder`delete from rounds where id=${view.roundRef!.id}`;
-        else
+          await holder`delete from outbox where topic=${buildRoundTopic(view.roundRef!.id)}`;
+        } else
           await holder`update rounds set status='abandoned',current_stage=null,completed_at=statement_timestamp() where id=${view.roundRef!.id}`;
         await holder.unsafe('COMMIT');
         assert({
