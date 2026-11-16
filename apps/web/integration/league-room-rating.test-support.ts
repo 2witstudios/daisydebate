@@ -1,12 +1,10 @@
+import { withRoomRuntime } from './room-runtime.test-support';
+import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
 import { assembleRoom } from '@daisy/db/room-assembly';
 import { validRules } from '@daisy/db/testing';
 import { createTabStore } from '@daisy/db/tab';
-import {
-  roomConfigSchema,
-  freezeRoomConfig,
-  emptyRuntimeCheckpointFor,
-} from '@daisy/protocol';
+import { roomConfigSchema, sideSeat } from '@daisy/protocol';
 import { activeRoomMembers } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { authorize } from '@daisy/auth/authorization';
@@ -16,7 +14,7 @@ import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
-/** Exercise the real Room assembly selection, then provide immutable terminal fixture provenance. */
+/** Exercise Room assembly, Ready, Start and forfeit through their actual owners. */
 export async function leagueRoomRating(world: World) {
   const lobbyId = world.made.get('standing-lobby')!;
   const [ladder] =
@@ -48,7 +46,11 @@ export async function leagueRoomRating(world: World) {
     throw new Error(`Room ladder setting: ${JSON.stringify(answer)}`);
   const [preset] =
     await world.sql`select config from format_presets where format_id='freestyle' and version=1`;
-  const config = roomConfigSchema.parse(preset!.config);
+  const config = {
+    ...roomConfigSchema.parse(preset!.config),
+    preRoundPrep: { enabled: false as const },
+    resolutionDraw: { enabled: false as const },
+  };
   const roomId = createId();
   await world.database.transaction((tx) =>
     assembleRoom(tx, {
@@ -121,18 +123,54 @@ export async function leagueRoomRating(world: World) {
     actual: disabled,
     expected: { kind: 'refused', refusal: 'ladder-in-use' },
   });
-  const roundId = createId();
-  const commandId = createId();
-  const at = world.clock.advance(1);
-  await world.sql`insert into rounds(id,room_id,room_config_snapshot,visibility,created_by_actor_id,league_ladder_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,started_at,completed_at,winning_side,runtime_state) values(${roundId},${roomId},${freezeRoomConfig(config)},'unlisted',${principal.actorId},${ladder!.id},'League proof','casual','freestyle',1,${validRules},'opening',null,null,null,${emptyRuntimeCheckpointFor(validRules)})`;
-  for (const [side, actorId] of [
-    ['affirmative', world.bots['Debater 1']!.actorId],
-    ['negative', world.bots['Debater 2']!.actorId],
-  ])
-    await world.sql`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot) values(${createId()},${roundId},${actorId!},'side',${side!},0)`;
-  await world.sql`update rounds set status='completed',started_at=${at},completed_at=${at},winning_side='affirmative' where id=${roundId}`;
-  await world.sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${principal.actorId},'forfeit',${'a'.repeat(64)},${{}},1,${at})`;
-  await world.sql`insert into round_finalizations(round_id,command_id,resulting_version) values(${roundId},${commandId},1)`;
+  if (!world.runtimeDatabaseUrl)
+    throw new Error('League Room proof needs its committed runtime resource');
+  let roundId = '';
+  await withRoomRuntime(
+    async (f) => {
+      const host = world.bots.Director!;
+      let view = await f.operations.view(host, roomId);
+      for (const [side, person] of [
+        ['affirmative', world.bots['Debater 1']!],
+        ['negative', world.bots['Debater 2']!],
+      ] as const) {
+        view = (
+          await f.command(person, view, {
+            type: 'claim-seat',
+            seat: sideSeat(side),
+          })
+        ).view;
+      }
+      for (const person of [world.bots['Debater 1']!, world.bots['Debater 2']!])
+        view = (await f.consent(person, view, 'ready')).view;
+      await f.command(host, view, { type: 'start-round' });
+      const [frozen] =
+        await world.sql`select id,league_ladder_id,ladder_id from rounds where room_id=${roomId}`;
+      if (!frozen) throw new Error('League Room Start did not create a Round');
+      roundId = String(frozen.id);
+      assert({
+        given: 'the actual ordinary Room Ready and Start operations',
+        should:
+          'copy the selected league ladder and leave Daisy ratedness empty',
+        actual: [frozen.league_ladder_id, frozen.ladder_id],
+        expected: [ladder!.id, null],
+      });
+      const round = (await f.store.getRound(roundId))!;
+      const debater = round.participants.find(
+        (person) => person.actorId === world.bots['Debater 1']!.actorId,
+      )!;
+      await createRoundRuntimeOperations({
+        store: f.store,
+        nextSegmentId: createId,
+      }).command({ kind: 'human', actorId: debater.actorId! }, roundId, {
+        version: 1,
+        commandId: createId(),
+        expectedVersion: round.version,
+        command: { type: 'forfeit', participantId: debater.id },
+      });
+    },
+    { databaseUrl: world.runtimeDatabaseUrl },
+  );
   const after = await read(principal, { lobbyId });
   const games = (actorId: string, lines: typeof before) => {
     const row = lines?.lines.find((row) => row.actorId === actorId);
