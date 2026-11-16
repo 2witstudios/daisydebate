@@ -27251,6 +27251,34 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "school_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"status\" <> 'ended'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_schools_open_pair_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_schools"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "school_id",
           "isExpression": false,
           "asc": true,
@@ -44985,18 +45013,6 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "ladders"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "organization_id",
-        "school_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "league_schools_pair_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "league_schools"
     },
     {
       "nameExplicit": true,

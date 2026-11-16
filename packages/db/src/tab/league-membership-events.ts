@@ -1,9 +1,10 @@
-import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import { memberships } from '../schema/organizations';
 import { leagueSchools } from '../schema/league-schools';
 import { lobbies } from '../schema/lobbies';
 import { events, timeSlots } from '../schema/events';
 import { templates } from '../schema/templates';
+import { certifications } from '../schema/certifications';
 import { actors } from '../schema/actors';
 import { scopeTransaction } from '../tenant-scope';
 import { loadEventCompetition } from './event-competition';
@@ -24,35 +25,68 @@ export async function loadLeagueMembershipEvents(
     organizationId: input.organizationId,
   };
   await scopeTransaction(tx, scope);
+  // Membership counts as it stood when the event ran: every period that
+  // began, kept with its end, so a school that left keeps its past points and
+  // one that joined later gains none from before it joined.
   const members = await tx
-    .select({ userId: memberships.userId })
+    .select({
+      userId: memberships.userId,
+      joinedAt: memberships.joinedAt,
+      endedAt: memberships.endedAt,
+    })
     .from(memberships)
     .where(
       and(
         eq(memberships.organizationId, input.organizationId),
-        eq(memberships.status, 'active'),
+        inArray(memberships.status, ['active', 'ended']),
+        isNotNull(memberships.joinedAt),
       ),
     )
     .for('share');
   const schools = await tx
-    .select({ id: leagueSchools.schoolId })
+    .select({
+      id: leagueSchools.schoolId,
+      joinedAt: leagueSchools.joinedAt,
+      endedAt: leagueSchools.endedAt,
+    })
     .from(leagueSchools)
     .where(
       and(
         eq(leagueSchools.leagueId, input.organizationId),
-        eq(leagueSchools.status, 'active'),
+        isNotNull(leagueSchools.joinedAt),
       ),
     )
     .for('share');
-  const memberUserIds = members.map((row) => row.userId),
-    schoolIds = new Set(schools.map((row) => row.id));
+  const heldAt = (
+    period: { readonly joinedAt: Date | null; readonly endedAt: Date | null },
+    at: Date,
+  ) =>
+    period.joinedAt !== null &&
+    period.joinedAt <= at &&
+    (period.endedAt === null || at < period.endedAt);
+  const memberUserIds = [...new Set(members.map((row) => row.userId))];
   const memberActors = memberUserIds.length
     ? await tx
-        .select({ id: actors.id })
+        .select({ id: actors.id, userId: actors.userId })
         .from(actors)
         .where(inArray(actors.userId, memberUserIds))
     : [];
-  const actorIds = new Set(memberActors.map((row) => row.id));
+  const membersAt = (at: Date) => {
+    const users = new Set(
+      members.filter((row) => heldAt(row, at)).map((row) => row.userId),
+    );
+    return {
+      users,
+      actors: new Set(
+        memberActors
+          .filter((row) => row.userId !== null && users.has(row.userId))
+          .map((row) => row.id),
+      ),
+      schools: new Set(
+        schools.filter((row) => heldAt(row, at)).map((row) => row.id),
+      ),
+    };
+  };
   const series = await tx
     .select({ id: templates.id })
     .from(templates)
@@ -89,6 +123,12 @@ export async function loadLeagueMembershipEvents(
     const at = slot?.startsAt ?? lobby.createdAt;
     if (at < input.startsAt || (input.endsAt !== null && at >= input.endsAt))
       continue;
+    const held = membersAt(at);
+    if (
+      lobby.ownerOrganizationId !== input.organizationId &&
+      (lobby.ownerUserId === null || !held.users.has(lobby.ownerUserId))
+    )
+      continue;
     const following = await tx
       .select({ id: events.id, templateId: events.templateId })
       .from(events)
@@ -99,7 +139,25 @@ export async function loadLeagueMembershipEvents(
         ),
       )
       .orderBy(asc(events.id));
+    // Only a certified event reaches the season, so a running tournament's
+    // results are never read or held here.
+    const certified = following.length
+      ? await tx
+          .select({ eventId: certifications.eventId })
+          .from(certifications)
+          .where(
+            and(
+              eq(certifications.lobbyId, lobby.id),
+              inArray(
+                certifications.eventId,
+                following.map((event) => event.id),
+              ),
+            ),
+          )
+      : [];
+    const certifiedEvents = new Set(certified.map((row) => row.eventId));
     for (const event of following) {
+      if (!certifiedEvents.has(event.id)) continue;
       const competition = await loadEventCompetition(tx, {
         viewerUserId: input.viewerUserId,
         lobbyId: lobby.id,
@@ -118,13 +176,14 @@ export async function loadLeagueMembershipEvents(
           .filter(
             (entry) =>
               entry.schoolOrganizationId !== null &&
-              schoolIds.has(entry.schoolOrganizationId),
+              held.schools.has(entry.schoolOrganizationId),
           )
           .map((entry) => entry.id),
       );
       const eligibleMembers = competition.members.filter(
         (member) =>
-          actorIds.has(member.actorId) || eligibleEntryIds.has(member.entryId),
+          held.actors.has(member.actorId) ||
+          eligibleEntryIds.has(member.entryId),
       );
       received.push({
         startsAt: at,

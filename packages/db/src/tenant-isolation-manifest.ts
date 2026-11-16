@@ -44,6 +44,11 @@ export type TenantTable = {
   readonly subject?: TenantSubject;
   /** Any tenant may read the rows; writing still needs the key in scope. */
   readonly openRead?: true;
+  /**
+   * A second organization the row is about reads it under its own scope;
+   * writing still needs the key in scope.
+   */
+  readonly counterpart?: 'school_id';
 };
 
 export type TenantExemption = {
@@ -84,7 +89,7 @@ const either = (
 export const tenantIsolationManifest: TenantIsolationManifest = {
   tables: [
     organization('organizations', { keyColumn: 'id', openRead: true }),
-    organization('league_schools'),
+    organization('league_schools', { counterpart: 'school_id' }),
     organization('memberships', { subject: 'user' }),
     organization('roles', { openRead: true }),
     organization('role_permissions', { openRead: true }),

@@ -24,14 +24,19 @@ export type LeagueSchoolWrite = {
   readonly id: string;
   readonly version: number;
 };
-/** An invitation records only league assent. School confirmation alone activates it. */
+/**
+ * An invitation records only league assent. School confirmation alone
+ * activates it. Each membership period is its own aggregate.
+ */
 export const decideLeagueSchool = (
   facts: LeagueSchoolFacts,
   command: LeagueSchoolCommand,
 ): CommandDecision<LeagueSchoolRefusal, LeagueSchoolWrite> => {
   if (facts.league.kind !== 'league' || facts.school.kind !== 'school')
     return refuse('wrong-organization-kind');
-  const membership = facts.membership;
+  // An ended period is history: a new invitation opens a new period.
+  const membership =
+    facts.membership?.status === 'ended' ? null : facts.membership;
   let type: LeagueSchoolWrite['type'];
   switch (command.type) {
     case 'invite-league-school':

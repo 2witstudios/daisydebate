@@ -146,7 +146,7 @@ for (const immediate of [false, true])
             actual:
               stage === draftDrawStage
                 ? judged.length
-                : judged.length > 0 && judged.every((row) => row.n === 1),
+                : judged.length > 0 && judged.every((row: { n: number }) => row.n === 1),
             expected: stage === draftDrawStage ? 0 : true,
           });
         }

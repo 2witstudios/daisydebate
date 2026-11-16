@@ -11,8 +11,7 @@ CREATE TABLE "league_schools" (
 	"joined_at" timestamp with time zone,
 	"ended_by_user_id" text,
 	"ended_at" timestamp with time zone,
-	"version" integer DEFAULT 1 NOT NULL,
-	CONSTRAINT "league_schools_pair_unique" UNIQUE("organization_id","school_id")
+	"version" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "tournament_rating_snapshots" (
@@ -28,6 +27,7 @@ ALTER TABLE "rooms" ADD COLUMN "league_ladder_id" text;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "league_ladder_id" text;--> statement-breakpoint
 ALTER TABLE "ladders" ADD CONSTRAINT "ladders_id_lobby_unique" UNIQUE("id","lobby_id");--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_id_league_ladder_unique" UNIQUE("id","league_ladder_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "league_schools_open_pair_unique" ON "league_schools" ("organization_id","school_id") WHERE "status" <> 'ended';--> statement-breakpoint
 CREATE INDEX "league_schools_school_idx" ON "league_schools" ("school_id","school_kind");--> statement-breakpoint
 CREATE UNIQUE INDEX "notifications_fixture_command_once" ON "notifications" ("user_id","kind","fixture_id","tab_command_id");--> statement-breakpoint
 CREATE INDEX "notifications_fixture_idx" ON "notifications" ("fixture_id","notification_lobby_id");--> statement-breakpoint
@@ -125,6 +125,8 @@ REVOKE UPDATE, DELETE ON tournament_rating_snapshots FROM daisy_web;
 ALTER TABLE "league_schools" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 CREATE POLICY "league_schools_scope" ON "league_schools" FOR ALL USING (organization_id = daisy_organization_scope()) WITH CHECK (organization_id = daisy_organization_scope());
+--> statement-breakpoint
+CREATE POLICY "league_schools_counterpart" ON "league_schools" FOR SELECT USING (school_id = daisy_organization_scope());
 --> statement-breakpoint
 ALTER TABLE "tournament_rating_snapshots" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint

@@ -9,7 +9,7 @@ import {
   index,
   pgTable,
   text,
-  unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations';
 import { users } from './users';
@@ -21,7 +21,11 @@ import {
   oneOf,
 } from './columns';
 
-/** League invitation, school assent, and explicit termination; never inferred from a person's membership. */
+/**
+ * League invitation, school assent, and explicit termination; never inferred
+ * from a person's membership. A re-invitation after an end starts a new row,
+ * so every period stays queryable.
+ */
 export const leagueSchools = pgTable(
   'league_schools',
   {
@@ -47,7 +51,10 @@ export const leagueSchools = pgTable(
     version: versionColumn(),
   },
   (table) => [
-    unique('league_schools_pair_unique').on(table.leagueId, table.schoolId),
+    // Each membership period is its own row; only one may be open at once.
+    uniqueIndex('league_schools_open_pair_unique')
+      .on(table.leagueId, table.schoolId)
+      .where(sql`${table.status} <> 'ended'`),
     foreignKey({
       name: 'league_schools_league_fk',
       columns: [table.leagueId, table.leagueKind],

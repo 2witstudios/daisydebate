@@ -112,3 +112,29 @@ test('each command names exactly its own organization controller', () => {
     ],
   });
 });
+
+test('a re-invitation after an ended membership opens a new period', () => {
+  assert({
+    given: 'an ended membership period between the league and the school',
+    should: 'invite under a new id at version one, leaving the period intact',
+    actual: decideLeagueSchool(
+      {
+        ...facts,
+        membership: {
+          id: 'n4ytkbngn40ssmxy6xbi31ub',
+          status: 'ended',
+          version: 3,
+        },
+      },
+      command('invite-league-school'),
+    ),
+    expected: {
+      kind: 'accepted',
+      aggregate: { kind: 'league_school', id: facts.newId },
+      resultingVersion: 1,
+      findings: [],
+      fixtureChanges: [],
+      writes: [{ type: 'invite', id: facts.newId, version: 1 }],
+    },
+  });
+});

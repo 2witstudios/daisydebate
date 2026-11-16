@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type {
   ActionHistoryEntry,
@@ -56,6 +56,7 @@ const load = async (tx: TabTransaction, input: Input) => {
     subjectUserId: input.senderUserId,
     organizationId: league.id,
   });
+  // The open period, if any; ended periods stay as their own rows.
   const [membership] = await tx
     .select()
     .from(leagueSchools)
@@ -63,6 +64,7 @@ const load = async (tx: TabTransaction, input: Input) => {
       and(
         eq(leagueSchools.leagueId, league.id),
         eq(leagueSchools.schoolId, school.id),
+        ne(leagueSchools.status, 'ended'),
       ),
     )
     .for('update');
@@ -126,26 +128,15 @@ export const createLeagueSchoolCommandStore = (database: TabDatabase) => ({
               schoolId: loaded.school.id,
             };
             if (write.type === 'invite') {
-              const value = {
+              // An invitation always opens a new period.
+              await tx.insert(leagueSchools).values({
+                id: write.id,
                 ...pair,
                 status: 'invited' as const,
                 invitedByUserId: input.senderUserId,
                 invitedAt: at,
-                joinedByUserId: null,
-                joinedAt: null,
-                endedByUserId: null,
-                endedAt: null,
                 version: write.version,
-              };
-              if (loaded.membership)
-                await tx
-                  .update(leagueSchools)
-                  .set(value)
-                  .where(eq(leagueSchools.id, write.id));
-              else
-                await tx
-                  .insert(leagueSchools)
-                  .values({ id: write.id, ...value });
+              });
             } else {
               const value =
                 write.type === 'join'
