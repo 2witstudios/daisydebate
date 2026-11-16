@@ -40,6 +40,7 @@ const seasonNote = (read: LeagueSeasonProjection) =>
       ? `Preliminary win points capped at ${read.formula.preliminaryWin.cap}`
       : null,
     read.formula ? null : 'Points rule is unconfigured',
+    ...(read.exceptions ?? []).map((exception) => exception.message),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -123,33 +124,45 @@ export function storedLeagueLobbyOf(
   read: LeagueSeasonProjection,
   view: LeagueView,
   ladder: LobbyLadder | null,
+  rooms?: LeagueSeasonRead['rooms'],
 ): LeagueLobby {
   const tab =
     view.tab === 'ladder'
       ? 'ladder'
       : view.tab === 'tournaments'
         ? 'tournaments'
-        : 'season';
+        : view.tab === 'rooms'
+          ? 'rooms'
+          : 'season';
   return {
     name: read.view.organization.name,
     lede: read.view.name,
     create: null,
+    ...(rooms?.canCreate
+      ? { creationUnavailable: 'New room is unavailable here.' }
+      : {}),
     tabs: [
-      ['season', 'Season'],
+      ['rooms', 'Rooms'],
       ['ladder', 'Ladder'],
+      ['season', 'Season'],
       ['tournaments', 'Tournaments'],
     ].map(([id, label]) => ({
-      id: id as 'season' | 'ladder' | 'tournaments',
+      id: id as 'rooms' | 'season' | 'ladder' | 'tournaments',
       label: label!,
-      href: tabRoutes.league(handle, id as 'season' | 'ladder' | 'tournaments'),
+      href: tabRoutes.league(
+        handle,
+        id as 'rooms' | 'season' | 'ladder' | 'tournaments',
+      ),
       selected: id === tab,
     })),
     panel:
-      view.tab === 'ladder' && ladder
-        ? ladderPanel(handle, ladder, view)
-        : view.tab === 'tournaments'
-          ? calendarPanel(read)
-          : seasonPanel(handle, read),
+      view.tab === 'rooms' && rooms
+        ? rooms.panel
+        : view.tab === 'ladder' && ladder
+          ? ladderPanel(handle, ladder, view)
+          : view.tab === 'tournaments'
+            ? calendarPanel(read)
+            : seasonPanel(handle, read),
   };
 }
 export function storedHostLeagueOf(
@@ -207,7 +220,7 @@ export function storedHostLeagueOf(
         'League ratings include eligible lobby Rooms and certified tournaments.',
       open: linkTo('Open the ladder', tabRoutes.league(handle, 'ladder')),
     },
-    lobby: [],
+    lobby: read.rooms?.settings ?? [],
   };
 }
 export const storedLeagueRail = (

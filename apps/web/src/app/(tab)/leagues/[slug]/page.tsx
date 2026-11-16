@@ -40,10 +40,16 @@ export default async function Page({
         }
       : {}),
   });
-  if (!read) notFound();
+  if (!read || (view.tab === 'rooms' && !read.season.rooms)) notFound();
   return (
     <LeagueLobby
-      lobby={storedLeagueLobbyOf(slug, read.season, view, read.ladder)}
+      lobby={storedLeagueLobbyOf(
+        slug,
+        read.season,
+        view,
+        read.ladder,
+        read.season.rooms,
+      )}
     />
   );
 }

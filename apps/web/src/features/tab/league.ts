@@ -185,6 +185,7 @@ export type LeaguePanel =
 
 /** A league's standing lobby, as one of its members sees it. */
 export type LeagueLobby = {
+  readonly creationUnavailable?: string;
   readonly name: string;
   readonly lede: string;
   /** Null for someone who is not a member: only members open rooms here. */

@@ -1,3 +1,9 @@
+import { readLeagueRooms, type LeagueRoomsRead } from './league-rooms';
+import {
+  leagueSeasonExceptions,
+  type LeagueSeasonException,
+} from './league-exceptions';
+import { projectLeagueCalendar } from './league-calendar';
 import { z } from 'zod';
 import type {
   AuthorizationInput,
@@ -23,6 +29,7 @@ export const seasonFormulaSchema = z.strictObject({
 });
 export type LeagueSeasonProjection = {
   readonly asOf: string;
+  readonly exceptions?: readonly LeagueSeasonException[];
   readonly view: SeasonView;
   readonly formula: SeasonFormula | null;
   readonly series: readonly { readonly id: string; readonly name: string }[];
@@ -45,6 +52,7 @@ export type LeagueSeasonRead = LeagueSeasonProjection & {
       readonly hold: 'default' | 'enforced';
     }[];
   };
+  readonly rooms: LeagueRoomsRead | null;
   readonly canHost: boolean;
   readonly canManage: boolean;
   readonly requests: readonly {
@@ -122,6 +130,7 @@ export function projectLeagueSeason(
   }));
   return {
     asOf: facts.now,
+    exceptions: leagueSeasonExceptions(folded.exceptions, facts),
     formula,
     series: facts.series.map((row) => ({ id: row.id, name: row.name })),
     view: seasonViewSchema.parse({
@@ -132,30 +141,27 @@ export function projectLeagueSeason(
         name: facts.organization.name,
       },
       counting: facts.rule.counting,
-      calendar: facts.calendar
-        .filter((row) => row.sanction.templateId === template.id)
-        .map((row) => ({
-          lobbyId: row.lobby.id,
-          handle: row.lobby.handle,
-          name: row.lobby.name,
-          when: { precision: 'day', startsAt: row.startsAt.toISOString() },
-          completed: events.some(
-            (event) =>
-              event.competition.configuration.lobby.id === row.lobby.id &&
-              event.certifiedAt !== null,
-          ),
-          sanction: row.sanction.status,
-        })),
+      calendar: projectLeagueCalendar(facts, template.id),
       standings: {
         series: { templateId: template.id, name: template.name },
-        certifiedCount: events.filter((event) => event.certifiedAt !== null)
-          .length,
-        awaitingCertification: events
-          .filter((event) => event.certifiedAt === null)
-          .map((event) => ({
-            lobbyId: event.competition.configuration.lobby.id,
-            name: event.competition.configuration.lobby.name,
-          })),
+        certifiedCount: new Set(
+          events
+            .filter((event) => event.certifiedAt !== null)
+            .map((event) => event.competition.configuration.lobby.id),
+        ).size,
+        awaitingCertification: [
+          ...new Map(
+            events
+              .filter((event) => event.certifiedAt === null)
+              .map((event) => [
+                event.competition.configuration.lobby.id,
+                {
+                  lobbyId: event.competition.configuration.lobby.id,
+                  name: event.competition.configuration.lobby.name,
+                },
+              ]),
+          ).values(),
+        ],
         rows,
       },
     }),
@@ -238,6 +244,7 @@ export const readLeagueSeason =
                 })),
             };
           })(),
+          rooms: readLeagueRooms(facts, principal, dependencies.authorize),
           canHost,
           canManage,
           requests: canHost

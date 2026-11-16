@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import type {
   LeagueLobby as Read,
   LeaguePanel,
@@ -64,9 +65,20 @@ export function LeagueLobby({ lobby }: { readonly lobby: Read }) {
         title={lobby.name}
         lede={lobby.lede}
         actions={
-          lobby.create === null ? null : <ActionButton action={lobby.create} />
+          lobby.creationUnavailable ? (
+            <Button disabled aria-describedby="league-create-unavailable">
+              New room
+            </Button>
+          ) : lobby.create === null ? null : (
+            <ActionButton action={lobby.create} />
+          )
         }
       />
+      {lobby.creationUnavailable ? (
+        <p id="league-create-unavailable" className="text-sm text-ink-muted">
+          {lobby.creationUnavailable}
+        </p>
+      ) : null}
       <TabLinks label="League" tabs={lobby.tabs} />
       <Panel panel={lobby.panel} />
     </ReadingPage>

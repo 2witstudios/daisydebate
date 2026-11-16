@@ -1,3 +1,6 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import { createElement } from 'react';
+import { LeagueLobby } from '../../ui/tab/league-lobby/league-lobby';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { storedLeagueLobbyOf } from './stored-league';
 setupRitewayBun();
@@ -25,6 +28,14 @@ test('stored league season projection', () => {
       },
     },
     series: [{ id: 'template', name: 'Varsity' }],
+    exceptions: [
+      {
+        entrant: 'Actual debater',
+        event: 'Varsity',
+        message:
+          'Actual debater · Varsity: preliminary win points were not counted.',
+      },
+    ],
     formula: {
       preliminaryWin: { points: 2, cap: null },
       eliminationRound: { points: 3 },
@@ -38,6 +49,15 @@ test('stored league season projection', () => {
     { tab: 'season', event: null },
     null,
   );
+  const html = renderToStaticMarkup(createElement(LeagueLobby, { lobby }));
+  assert({
+    given: 'a stored season with an explicit omitted points term',
+    should: 'render its named exception beside the standings',
+    actual: html.includes(
+      'Actual debater · Varsity: preliminary win points were not counted.',
+    ),
+    expected: true,
+  });
   assert({
     given: 'stored certified standings and the actual configured formula',
     should:
@@ -50,7 +70,7 @@ test('stored league season projection', () => {
     ],
     expected: [
       'Actual League',
-      ['season', 'ladder', 'tournaments'],
+      ['rooms', 'ladder', 'season', 'tournaments'],
       [
         {
           place: 1,
