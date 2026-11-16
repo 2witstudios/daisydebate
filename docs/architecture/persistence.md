@@ -87,3 +87,15 @@ references, so ending or deleting a Round never changes a document.
 AI practice yield requests carry the intended segment sequence (`segmentIndex`).
 After clock hydration, the application checks that the same segment is open before
 executing the yield, including when one tick catches up across several segments.
+
+## Startup across forward migrations
+
+The production tenant gate accepts a database ahead of its image only when the
+image migration hashes and instants form the exact prefix of the live journal.
+The image snapshot still requires all its tables/columns, and its declared
+tenant policies remain strict. Unused additions from later migrations do not
+block an older machine restart. Exact whole-schema authoring validation remains
+in doctor and integration tests. The release runner maintains read-only
+journal provenance for the web role; startup has no DDL or grants. This does
+not make destructive schema or contract rewrites reversible. Details and role
+permissions are in [database operations](../operations/database.md#tenant-isolation).

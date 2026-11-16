@@ -327,11 +327,15 @@ export const readTenantIsolationProblems = async (
 export async function refuseUnisolatedTenantTables(app: {
   readonly config: { readonly NODE_ENV: string };
   readonly database: {
-    readonly tenantIsolationProblems: () => Promise<readonly string[]>;
+    readonly tenantIsolationProblems: (options?: {
+      readonly acceptNewerMigrations: boolean;
+    }) => Promise<readonly string[]>;
   };
 }): Promise<void> {
   if (app.config.NODE_ENV !== 'production') return;
-  const problems = await app.database.tenantIsolationProblems();
+  const problems = await app.database.tenantIsolationProblems({
+    acceptNewerMigrations: true,
+  });
   if (problems.length > 0)
     throw new Error(
       `Production refuses a schema whose tenant isolation is incomplete: ${problems.join('; ')}`,
