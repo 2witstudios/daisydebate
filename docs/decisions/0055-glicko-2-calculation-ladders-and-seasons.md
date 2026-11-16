@@ -3,7 +3,8 @@
 Status: partially accepted. DEC-110 confirms calculation parameters and
 DEC-119 confirms posting order; DEC-111 season/provisional calibration
 remains unresolved. [ADR 0090](0090-three-rating-ladders.md) supersedes the
-single-ladder vocabulary with three ladders. Implements [ADR 0029](0029-competitive-schema-foundation.md)
+single-ladder vocabulary with three ladders, and [ADR 0142](0142-freestyle-the-one-standard-and-ladder.md) returns it to one,
+Freestyle. Implements [ADR 0029](0029-competitive-schema-foundation.md)
 item 8 (Glicko-2, one debate is one rating period).
 When this record is accepted it amends, in its own `## Amendment` section,
 [ADR 0029](0029-competitive-schema-foundation.md) item 8 (the rating key

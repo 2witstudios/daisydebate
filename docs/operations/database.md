@@ -277,7 +277,7 @@ COMMIT;
 
 An existing closed Season 1 is returned closed; it is never reopened. Any competing season refuses. No start date can be supplied.
 
-Authorized beta checks cover Freestyle, Policy and Value: native opt-in setup,
+Authorized beta checks cover the Freestyle ladder (ADR 0142): native opt-in setup,
 selected resolution/strike freeze, eligible human/AI judged and forfeit result,
 one matching ledger pair, actor+ladder+season projection, exact leaderboard,
 profile and Round figures, provisional state and judge blinding. Check empty

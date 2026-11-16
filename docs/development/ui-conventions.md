@@ -143,7 +143,8 @@ the gaps it cannot.
   brand panel.
 - Exception, owner decision 2026-10-05: the three onboarding intro steps
   (`/onboarding/daisy`, `/onboarding/styles`, `/onboarding/debate`) may
-  explain how Daisy works, the three debate styles and how a debate runs. They
+  explain how Daisy works (including Freestyle's draw and strikes), Freestyle
+  and Custom, and how a debate runs. They
   are the one place that teaches the product, shown once after sign-up and
   reopened from Help; every other onboarding step follows the rule.
 

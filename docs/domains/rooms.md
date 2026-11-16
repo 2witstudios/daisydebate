@@ -53,16 +53,15 @@ that a member or a tournament has no rating.
 
 ## Formats
 
-A casual Room runs one of Daisy's standards (Policy, Value and Freestyle,
-which strikes its resolution) or Custom. Every edit to a standard's times or
-rules makes the Room Custom, "based on" the standard, with the changes listed
-and a Back to standard action that restores the exact preset it started from.
+A Room runs Freestyle, Daisy's one standard, which strikes its resolution,
+or Custom (ADR 0142). Every edit to Freestyle's times or rules makes the Room
+Custom, "based on" Freestyle, with the changes listed and a Back to standard
+action that restores the exact preset it started from.
 Custom can also start from a league template (NSDA Lincoln-Douglas, NDT
 policy, Public Forum and others) whose rules Daisy runs faithfully; a template
 always reads as Custom. IPDA and Team IPDA templates strike their
 resolution the way the IPDA bylaws do. Choosing a format that strikes its
-resolution clears the topic; choosing Policy or Value loads its current
-published resolution. League-template and Custom rooms may author a
+resolution clears the topic. League-template and Custom rooms may author a
 resolution. Standing is derived from the Room and its basis, never
 stored. Templates set structure only, never judging (DEC-243). Ranked Rooms
 run their format unchanged. See ADR 0078.
@@ -158,15 +157,10 @@ membership. Every terminal state frees its members:
 
 ## Choosing the resolution
 
-Creation offers Policy res, Value res, Strike and Custom. Policy and Value
-use immutable published resolutions, selected by ID and rechecked under the
-write transaction; their text and publication reference freeze onto the
-Round. Beta Season 1 publication labels and themes are descriptive metadata,
-independent from rating-season authority. Only Custom asks for host-authored
-wording. Strike exposes no custom
-draw settings in creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md).
-The Seasons page lists the current publications as a read-only input and
-gives them no link to a rating season.
+Creation offers Strike and Custom. Freestyle always strikes; only Custom
+asks for host-authored wording. Strike exposes no custom draw settings in
+creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md)
+as amended by [ADR 0142](../decisions/0142-freestyle-the-one-standard-and-ladder.md).
 
 A Room either names its resolution (its topic) or a Round draws one in its
 opening ([ADR 0104](../decisions/0104-round-owns-its-opening.md)). Start round

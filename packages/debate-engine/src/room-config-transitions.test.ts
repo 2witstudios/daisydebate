@@ -8,8 +8,8 @@ test('a custom resolution leaves a standard and cannot alter a ranked room', () 
   const original = state();
   const room = {
     ...original,
-    formatId: 'value',
-    catalogFormat: { name: 'Value', role: 'standard' as const, leagues: [] },
+    formatId: 'freestyle',
+    catalogFormat: { name: 'Freestyle', role: 'standard' as const, leagues: [] },
   };
   const command = {
     type: 'update-details' as const,
