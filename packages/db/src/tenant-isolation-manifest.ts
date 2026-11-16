@@ -84,6 +84,7 @@ const either = (
 export const tenantIsolationManifest: TenantIsolationManifest = {
   tables: [
     organization('organizations', { keyColumn: 'id', openRead: true }),
+    organization('league_schools'),
     organization('memberships', { subject: 'user' }),
     organization('roles', { openRead: true }),
     organization('role_permissions', { openRead: true }),
