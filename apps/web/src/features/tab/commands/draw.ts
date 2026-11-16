@@ -18,7 +18,14 @@ import type {
   DrawRefusal,
 } from '@daisy/protocol/lobby/draw-command';
 import { fixtureChangesOf, type PublishedVersion } from './fixture-changes';
-import { officiatingRefusal, type FixtureState } from './fixture';
+import { officiatingRefusal } from './fixture';
+import {
+  fixtureState,
+  publishedFixtureState,
+  isRepairable,
+  type LiveFixtureState,
+  type FixtureState,
+} from './fixture-lifecycle';
 import { refuse, type CommandDecision } from './run-command';
 import type {
   EngineAssessment,
@@ -46,53 +53,9 @@ type DrawMethod = (typeof drawMethods)[number];
 type FixtureKind = (typeof fixtureKinds)[number];
 type FixtureStatus = (typeof fixtureStatuses)[number];
 
-/**
- * Where a published fixture's Room is, in the state table's terms. What a
- * draw may do to a fixture follows from it: only one whose Round has not
- * started may be re-paired, withdrawn or left out of a new version.
- */
-export type LiveFixtureState =
-  'not_open' | 'open' | 'round_live' | 'ballot_in' | 'has_result';
-
-/** A live Round, a ballot or a result fixes a fixture's pairing. */
-export const isRepairable = (state: LiveFixtureState): boolean => {
-  switch (state) {
-    case 'not_open':
-    case 'open':
-      return true;
-    case 'round_live':
-    case 'ballot_in':
-    case 'has_result':
-      return false;
-  }
-};
-
-/**
- * A draw fixture's row of the state table, as the officiating commands read
- * it (`officiatingRefusal` in fixture.ts), so a draw-level judge assignment
- * follows the same table as a fixture-level one.
- */
-const fixtureStateOfDraw = (fixture: DrawFixtureFacts): FixtureState => {
-  switch (fixture.status) {
-    case 'draft':
-      return 'draft';
-    case 'withdrawn':
-      return 'withdrawn';
-    case 'published':
-      switch (fixture.state) {
-        case null:
-        case 'not_open':
-        case 'open':
-          return 'not_started';
-        case 'round_live':
-          return 'round_started';
-        case 'ballot_in':
-          return 'ballot_in';
-        case 'has_result':
-          return 'has_result';
-      }
-  }
-};
+/** Draw and officiating commands consult the same fixture lifecycle. */
+const fixtureStateOfDraw = (fixture: DrawFixtureFacts): FixtureState =>
+  fixtureState(fixture.status, publishedFixtureState(fixture.state));
 
 /** What a draw version records in its `inputs` beside the engine's record. */
 type DrawInputs = {

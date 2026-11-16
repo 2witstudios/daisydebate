@@ -37,7 +37,13 @@ const resolvedSettings = engineSettings([], [], {
   'room.floor': { interruptions: null, yielding: null },
 });
 
-const noFindings: EngineAssessment = { warnings: [], broken: [], invalid: [] };
+const noFindings: EngineAssessment = {
+  fixtures: [],
+  totals: [],
+  warnings: [],
+  broken: [],
+  invalid: [],
+};
 
 const fixture = (
   name: string,
@@ -160,14 +166,23 @@ const unused: TabEngine = {
   },
 };
 
-const engineDraw = (overrides: Partial<EngineDraw> = {}): EngineDraw => ({
+type TwoSideDraw = Extract<EngineDraw, { format: { outcome: 'winner' } }>;
+const engineDraw = (overrides: Partial<TwoSideDraw> = {}): TwoSideDraw => ({
   event: eventId,
+  format: { outcome: 'winner', sides: 2 },
+  tabRound: 2,
   keep: [],
   add: [],
   withdraw: [],
   assessment: noFindings,
   inputs: {
+    call: 'windowed',
     engine: { method: 'two-sided@1' },
+    settings: resolvedSettings,
+    entriesDigest: 'entries',
+    judgesDigest: 'judges',
+    existing: [],
+    ratings: null,
     settingsDigest: 'digest-1',
     seed,
     cutoff: 1,
@@ -269,6 +284,7 @@ describe('generate-draw', () => {
     const { engine, calls } = engineReturning({
       kind: 'infeasible',
       cause: 'slot',
+      collisions: [],
     });
     decideDraw(engine)(
       facts({
@@ -340,10 +356,20 @@ describe('generate-draw', () => {
           cause: 'structure',
           event: eventId,
           fact: 'missing_result',
+          fixture: id('missing'),
         }),
-        run({ kind: 'infeasible', cause: 'rules', event: eventId }),
+        run({
+          kind: 'infeasible',
+          cause: 'rules',
+          event: eventId,
+          rules: [],
+          relaxations: [],
+          certificate: { kind: 'schedule' },
+          witnesses: [],
+        }),
         run({
           kind: 'unresolved',
+          method: 'test',
           event: eventId,
           attempt: engineDraw(),
           broken: [],
@@ -541,13 +567,23 @@ describe('assign-judges', () => {
       given: 'too few judges, a slot collision and a judge seated twice',
       should: 'name each refusal',
       actual: [
-        run({ kind: 'infeasible', cause: 'panels', draws: [] }),
-        run({ kind: 'infeasible', cause: 'slot' }),
+        run({
+          kind: 'infeasible',
+          cause: 'panels',
+          draws: [],
+          short: [],
+          removed: [],
+          committed: 0,
+        }),
+        run({ kind: 'infeasible', cause: 'slot', collisions: [] }),
         run({
           kind: 'drawn',
           draws: [
             engineDraw({
-              assessment: { ...noFindings, invalid: [{ fact: 'judge_twice' }] },
+              assessment: {
+                ...noFindings,
+                invalid: [{ fact: 'judge_twice', judge: id('judge') }],
+              },
             }),
           ],
         }),
@@ -680,9 +716,9 @@ describe('edit-draw', () => {
 
   test('an edited fixture is replaced; an untouched one is the same fixture', () => {
     const { engine } = engineReturning(
-      { kind: 'infeasible', cause: 'slot' },
+      { kind: 'infeasible', cause: 'slot', collisions: [] },
       {
-        warnings: [],
+        ...noFindings,
         broken: [
           {
             event: eventId,
@@ -737,7 +773,11 @@ describe('edit-draw', () => {
         fixture('f2', [c, d]),
       ],
     });
-    const { engine } = engineReturning({ kind: 'infeasible', cause: 'slot' });
+    const { engine } = engineReturning({
+      kind: 'infeasible',
+      cause: 'slot',
+      collisions: [],
+    });
     assert({
       given:
         'an edit on an older version, on a fixture with a ballot, and on an unknown fixture',
@@ -770,7 +810,11 @@ describe('edit-draw', () => {
   });
 
   test('a bye replaces the fixture the entry left', () => {
-    const { engine } = engineReturning({ kind: 'infeasible', cause: 'slot' });
+    const { engine } = engineReturning({
+      kind: 'infeasible',
+      cause: 'slot',
+      collisions: [],
+    });
     assert({
       given: 'an entry of a pairing set to a bye',
       should: 'make two new fixtures: the bye and what is left of the pairing',

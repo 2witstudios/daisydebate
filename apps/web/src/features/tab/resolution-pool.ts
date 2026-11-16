@@ -6,14 +6,11 @@ import type {
 import {
   choice,
   linkTo,
-  sampleAction,
+  unavailableAction,
   type Choice,
   type TabAction,
 } from './action';
 import { hostRoutes } from './routes';
-import { varsitySwitch } from './sample/event-switch';
-import { sampleResolutionPoolView } from './sample/resolutions';
-import type { SampleScene } from './sample/scene';
 import type { EventSwitch } from './setup';
 
 type PoolResolution = {
@@ -133,7 +130,7 @@ const poolResolutionOf =
       held: hold !== null && !released,
       edit:
         edit && origin.kind === 'lobby' && !released
-          ? sampleAction('Edit')
+          ? unavailableAction('Edit')
           : null,
     };
   };
@@ -141,7 +138,7 @@ const poolResolutionOf =
 const clock = (instant: string): string => instant.slice(11, 16);
 
 /** A host's resolutions screen for one event, from the read their gate allowed. */
-function resolutionPoolOf(
+export function resolutionPoolOf(
   view: ResolutionPoolView,
   event: EventSwitch,
   slug: string,
@@ -161,9 +158,9 @@ function resolutionPoolOf(
               : ` Striking from ${inWords(view.shortfall.drawSize).toLowerCase()} needs ${view.shortfall.needed}.`
           }`
         : `${total} in the pool: ${fromPool} from the league, ${addedHere} added here.`,
-    add: sampleAction('Add a resolution', true),
+    add: unavailableAction('Add a resolution', true),
     pool: view.resolutions.map(poolResolutionOf(view.capabilities.edit)),
-    more: hidden > 0 ? sampleAction(`Show ${hidden} more`) : null,
+    more: hidden > 0 ? unavailableAction(`Show ${hidden} more`) : null,
     byRound: view.rules.map(roundRuleOf),
     unreleased:
       unreleased === undefined || unreleased.text.kind === 'withheld'
@@ -172,18 +169,7 @@ function resolutionPoolOf(
             heading: `${unreleased.tabRound.name ?? `Round ${unreleased.tabRound.number}`} · not released`,
             text: unreleased.text.text,
             readers: `Only you${unreleased.readerRoles.map((role) => ` and the ${role}`).join('')} can see this until ${clock(unreleased.releasesAt)}.`,
-            release: sampleAction('Release now'),
+            release: unavailableAction('Release now'),
           },
   };
 }
-
-export const readResolutionPool = (
-  slug: string,
-  event: string,
-  scene: SampleScene,
-): ResolutionPool | null => {
-  const view = sampleResolutionPoolView(slug, event, scene);
-  return view === null
-    ? null
-    : resolutionPoolOf(view, varsitySwitch(scene), slug);
-};

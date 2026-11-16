@@ -4,7 +4,7 @@ import type {
   LobbyRoomList,
   StandingLobbyView,
 } from '@daisy/protocol/lobby/lobby-read';
-import { linkTo, sampleAction } from '../action';
+import { linkTo, unavailableAction } from '../action';
 import type { LadderScope, LeaguePanel, SeasonRow } from '../league';
 import { tabRoutes } from '../routes';
 import { seasonRow, topOfSeason } from './league';
@@ -264,7 +264,7 @@ export function sampleSeasonPanel(event: string | null): LeaguePanel | null {
     })),
     event: slug,
     rows: chosen.rows,
-    all: sampleAction(`All ${chosen.entries} entries`),
+    all: unavailableAction(`All ${chosen.entries} entries`),
     points: chosen.points,
     note: 'From 1 certified tournament, September Opener. Autumn Open is added when its results are certified. Only tournaments the league has sanctioned count; lobby rooms do not.',
     tournaments: linkTo('Tournaments', tabRoutes.league(LEAGUE, 'tournaments')),

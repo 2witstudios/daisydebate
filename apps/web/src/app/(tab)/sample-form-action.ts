@@ -23,7 +23,7 @@ export async function sampleFormAction(
   _form: FormData,
 ): Promise<FormState> {
   await requireTabRelease();
-  if (!isTabPath(returnTo))
+  if (!isTabPath(returnTo) || !returnTo.startsWith('/tournaments/walk/'))
     return refusedWith({}, 'That page is not part of Daisy Tab.');
   // Each answer is a new address: a form that was moved on to the address it
   // is already on would stay waiting, and a second submit would do nothing.

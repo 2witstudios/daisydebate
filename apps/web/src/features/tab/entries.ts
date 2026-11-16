@@ -5,16 +5,9 @@ import type {
   ListedEntry,
   SchoolEntriesView,
 } from '@daisy/protocol/lobby/entry-read';
-import { sampleAction, type TabAction } from './action';
+import { unavailableAction, type TabAction } from './action';
 import { tabRoutes } from './routes';
 import type { EventSwitch } from './setup';
-import {
-  sampleEntryList,
-  sampleJudgeList,
-  sampleSchoolEntries,
-} from './sample/entries';
-import { varsitySwitch } from './sample/event-switch';
-import type { SampleScene } from './sample/scene';
 
 export type EntryStatus =
   'accepted' | 'not_answered' | 'waiting_guardian' | 'withdrawn';
@@ -183,8 +176,8 @@ export function hostEntriesOf(
     lede: `${accepted} entries accepted${pending > 0 ? `, ${pending} still to answer` : ''}. ${judges} accepted eligible judges; ${judgesNeeded === null ? 'panel demand is not shown' : `${rooms} rooms need ${judgesNeeded}`}.`,
     actions: manage
       ? [
-          ...(pending > 0 ? [sampleAction(`Remind the ${pending}`)] : []),
-          sampleAction('Invite a school or parent', true),
+          ...(pending > 0 ? [unavailableAction(`Remind the ${pending}`)] : []),
+          unavailableAction('Invite a school or parent', true),
         ]
       : [],
     tabs: { debaters: accepted + pending + withdrawn, judges },
@@ -210,7 +203,7 @@ export function hostEntriesOf(
         })),
         more:
           hidden > 0 && responsible.kind !== 'self'
-            ? sampleAction(`${hidden} more from ${name}`)
+            ? unavailableAction(`${hidden} more from ${name}`)
             : null,
       };
     }),
@@ -268,7 +261,7 @@ export function hostJudgesOf(view: JudgeListView): HostJudges {
         : `${need.tabRoundName} needs ${need.judgesNeeded} judges in ${need.eventName} and ${need.judgesCounted} ${
             need.counting === 'named' ? 'have been named' : 'are free then'
           }.${short.join('')}`,
-    add: sampleAction('Add a judge', true),
+    add: unavailableAction('Add a judge', true),
     tabs: view.counts,
     defaultSlotId: view.need?.timeSlotId ?? view.timeSlots.at(-1)?.id ?? null,
     slots: view.timeSlots.map((slot, index) => ({
@@ -305,7 +298,7 @@ export function hostJudgesOf(view: JudgeListView): HostJudges {
           group.judgesOwed !== null &&
           group.judgesNamed < group.judgesOwed &&
           view.capabilities.manageJudges
-            ? sampleAction('Remind the coach')
+            ? unavailableAction('Remind the coach')
             : null,
         judges: group.judges.map((judge) => {
           const never = [
@@ -337,7 +330,7 @@ export function hostJudgesOf(view: JudgeListView): HostJudges {
     more:
       view.notShown === null
         ? null
-        : sampleAction(
+        : unavailableAction(
             `Show ${view.notShown.count} more from ${view.notShown.schoolName}`,
           ),
   };
@@ -366,8 +359,11 @@ const dayLabel = (instant: string): string => {
 };
 
 /** A responsible adult's entries screen at one tournament. */
-function schoolEntriesOf(view: SchoolEntriesView, slug: string): SchoolEntries {
-  const edit = sampleAction('Edit');
+export function schoolEntriesOf(
+  view: SchoolEntriesView,
+  slug: string,
+): SchoolEntries {
+  const edit = unavailableAction('Edit');
   const guardian = view.responsible.kind === 'guardian';
   const blocked = view.students.filter((student) => student.clash !== null);
   const { judges } = view;
@@ -395,11 +391,11 @@ function schoolEntriesOf(view: SchoolEntriesView, slug: string): SchoolEntries {
           : `${student.clash.eventNames[0]} and ${student.clash.eventNames[1]} run at the same time. Keep one.`,
       edit,
     })),
-    add: sampleAction(guardian ? 'Add a child' : 'Add a student'),
+    add: unavailableAction(guardian ? 'Add a child' : 'Add a student'),
     judges: {
       title: `You owe ${plural(judges.owed, 'judge')}, and have named ${judges.named}`,
       detail: judges.terms,
-      add: sampleAction('Add'),
+      add: unavailableAction('Add'),
     },
     submit: {
       label: 'Submit entries',
@@ -411,27 +407,3 @@ function schoolEntriesOf(view: SchoolEntriesView, slug: string): SchoolEntries {
     },
   };
 }
-
-export const readHostEntries = (
-  slug: string,
-  scene: SampleScene,
-): HostEntries | null => {
-  const view = sampleEntryList(slug, scene);
-  return view === null ? null : hostEntriesOf(view, varsitySwitch(scene));
-};
-
-export const readHostJudges = (
-  slug: string,
-  scene: SampleScene,
-): HostJudges | null => {
-  const view = sampleJudgeList(slug, scene);
-  return view === null ? null : hostJudgesOf(view);
-};
-
-export const readSchoolEntries = (
-  slug: string,
-  scene: SampleScene,
-): SchoolEntries | null => {
-  const view = sampleSchoolEntries(slug, scene);
-  return view === null ? null : schoolEntriesOf(view, slug);
-};

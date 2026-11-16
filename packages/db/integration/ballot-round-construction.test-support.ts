@@ -9,6 +9,7 @@ export async function constructBallotRound(
   parent: Fixture,
   input: {
     readonly panel?: boolean;
+    readonly judgeActorId?: string;
     readonly botJudges?: boolean;
     readonly tournamentLobbyId?: string;
     readonly inTransaction?: boolean;
@@ -58,7 +59,12 @@ export async function constructBallotRound(
         judges.push(
           input.botJudges
             ? await createBotSeat(constructing, roundId, 'judge', slot)
-            : await constructing.seat(roundId, 'judge', slot),
+            : await constructing.seat(
+                roundId,
+                'judge',
+                slot,
+                input.judgeActorId,
+              ),
         );
       return { roundId, judges };
     } finally {

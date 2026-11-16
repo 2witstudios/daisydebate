@@ -12,7 +12,7 @@ import type {
   TemplateView,
 } from '@daisy/protocol/lobby/template-read';
 import type { SettingKey } from '@daisy/protocol/setting-values';
-import { linkTo, sampleAction } from './action';
+import { linkTo, unavailableAction as sampleAction } from './action';
 import { dayWords, isSameDay, monthWords } from './organization';
 import { resolvedEntry } from './reads/resolved-settings';
 import { hostRoutes, tabRoutes } from './routes';

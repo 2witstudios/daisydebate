@@ -4,15 +4,8 @@ import type {
   WardEntry,
   WardEntryRequestView,
 } from '@daisy/protocol/lobby/guardian-read';
-import { linkTo, sampleAction, type TabAction } from './action';
+import { linkTo, unavailableAction, type TabAction } from './action';
 import { tabRoutes } from './routes';
-import {
-  samplePronouns,
-  sampleGuardianView,
-  sampleWardAccount,
-  sampleWardEntryRequest,
-} from './sample/guardian';
-import type { SampleScene } from './sample/scene';
 
 /** A lobby a guardian may allow a minor to see and join. */
 type AllowedLobby = {
@@ -139,7 +132,7 @@ const familyEntryOf = (entry: WardEntry): FamilyEntry => {
 };
 
 /** A guardian's family page. */
-function familyOf(
+export function familyOf(
   view: GuardianView,
   pronouns: (wardId: string) => WardPronouns,
 ): Family {
@@ -162,7 +155,7 @@ function familyOf(
         detail: `Age ${ward.age} · account ${linkStatus} · ${allowedLobbyCount} ${allowedLobbyCount === 1 ? 'lobby' : 'lobbies'} allowed`,
         account: capabilities.manageAccount
           ? linkTo('Account', tabRoutes.minor(ward.handle))
-          : sampleAction('Account'),
+          : unavailableAction('Account'),
         entries: entries.map(familyEntryOf),
       }),
     ),
@@ -177,7 +170,7 @@ const recordingOptions = (name: string, pronouns: WardPronouns) =>
   }) as const;
 
 /** The guardian's page for one ward's account and its restriction. */
-function minorAccountOf(
+export function minorAccountOf(
   view: WardAccountView,
   pronouns: WardPronouns,
 ): MinorAccount {
@@ -200,13 +193,13 @@ function minorAccountOf(
       chosen: caps.indexOf(view.videoAudienceCap),
     },
     boundary: `${name} can see, join, watch and message only inside these lobbies, and in tournaments ${pronouns.subject} is entered in. That holds for search and for links people send ${pronouns.object}. ${capitalized(pronouns.possessive)} profile is never public. If a coach enters ${pronouns.object} somewhere outside these lobbies, it waits for you to allow it.`,
-    save: sampleAction('Save', true),
-    withdraw: sampleAction(`Withdraw consent and close ${name}'s account`),
+    save: unavailableAction('Save', true),
+    withdraw: unavailableAction(`Withdraw consent and close ${name}'s account`),
   };
 }
 
 /** The guardian's decision on an entry outside the allowed lobbies. */
-function tournamentRequestOf(
+export function tournamentRequestOf(
   view: WardEntryRequestView,
   pronouns: WardPronouns,
 ): TournamentRequest {
@@ -238,30 +231,8 @@ function tournamentRequestOf(
       allows: `${ward.name} can see this tournament, join ${pronouns.possessive} rooms, watch its rounds and message people in it until it ends.`,
       keeps: `${tournament.organizerName}'s lobby and its other tournaments stay closed to ${pronouns.object}.`,
     },
-    allow: sampleAction('Allow this tournament', true),
-    decline: sampleAction('Decline'),
+    allow: unavailableAction('Allow this tournament', true),
+    decline: unavailableAction('Decline'),
     declineNote: `Declining withdraws the entry and tells ${pronouns.possessive} ${enteredBy.relation}.`,
   };
 }
-
-export const readFamily = (scene: SampleScene): Family | null => {
-  const view = sampleGuardianView(scene);
-  return view === null ? null : familyOf(view, () => samplePronouns);
-};
-
-export const readMinorAccount = (
-  minor: string,
-  scene: SampleScene,
-): MinorAccount | null => {
-  const view = sampleWardAccount(minor, scene);
-  return view === null ? null : minorAccountOf(view, samplePronouns);
-};
-
-export const readTournamentRequest = (
-  minor: string,
-  slug: string,
-  scene: SampleScene,
-): TournamentRequest | null => {
-  const view = sampleWardEntryRequest(minor, slug, scene);
-  return view === null ? null : tournamentRequestOf(view, samplePronouns);
-};

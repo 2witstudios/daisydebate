@@ -420,8 +420,8 @@ information page.
   shell. Anyone without a grant who opens a host address is sent to the
   participant page at the same path (`participantPathOf`).
 - **One module per aggregate.** `features/tab/<aggregate>.ts` owns that
-  aggregate's read types and its `read…` function; the sample source is in
-  `features/tab/sample/`. A screen takes the read as a prop and nothing else,
+  aggregate's pure read projection; sample `read…` adapters and their facts live
+  in `features/tab/sample/` and are consumed only by the walk and tests. A screen takes the read as a prop and nothing else,
   so the source changes without a screen changing.
 - **A setting is one shape.** Tournament setup, a league's template, the
   create-room form of a standing lobby and an event Room's "set by" lines all
@@ -433,9 +433,11 @@ information page.
   choose; setup's locked Ballot row carries a View link to that page. Format
   and Recording are locked the same way.
 - **The event picker leads to screens.** `EventSwitch.others` are `TabAction`s:
-  an event with a screen is a link, one without answers as a sample action.
-- **Controls.** A read carries each control as a `TabAction`: with an address
-  it is a link, with none it is a sample action. A form posts to the one
+  an event with a screen is a link; an unavailable event is explicitly disabled.
+- **Controls.** A read carries each control as a `TabAction`: `kind: 'link'`
+  carries a non-null address; `kind: 'unavailable'` has none and renders disabled
+  on production pages. Only beneath `/tournaments/walk` does the latter show a
+  simulated answer. Preview forms alone post to the
   sample server action (`app/(tab)/sample-form-action.ts`) through
   `SampleForm`, so it follows the mutating-form rules above while saving
   nothing. An action is drawn as a button (`ActionButton`, `size="small"` for
@@ -447,12 +449,14 @@ information page.
   (`ui/tab/ballot/configured-ballot.tsx`): scale and step, ranks, a criteria
   grid, the allowed outcomes and the written fields. Ballot settings redraw
   the same component as a preview on every choice.
-- **Sample Rooms** sit at `/rooms/sample/[room]`, beside the live Room route
-  and never inside it. A live speech section renders outside the shell, as
-  every live Round does.
+- **Sample Rooms** sit at `/tournaments/walk/rooms/sample/[room]`. Preview
+  navigation prefixes Tab addresses with `/tournaments/walk`; ordinary Room
+  addresses always belong to real Rooms. Host previews keep their own shell
+  through the `(host-preview)` route group.
 - **The sample viewer and moment** are a cookie chosen on `/tournaments/walk`,
   which lists every screen that viewer can open then. It exists so the sample
-  can be walked, and goes when the screens have real viewers.
+  can be walked independently of production data. Real routes never reserve
+  sample handles, and sample-only screens have no production fallback.
   `ui/tab/sample-walk.test.tsx` follows every link from it for every viewer
   and moment.
 - **Not built here:** a role editor, setting a policy's force key by key (a

@@ -11,10 +11,6 @@ import {
 } from '@daisy/protocol/lobby';
 import { linkTo, type TabAction } from './action';
 import { hostRoutes, tabRoutes } from './routes';
-import type { SamplePlace } from './sample/tournament-catalogue';
-import { samplePlaces } from './sample/tournament-catalogue';
-import { sampleAddressOf, sampleTournamentListRead } from './sample/tournament';
-import type { SampleScene } from './sample/scene';
 import {
   actionTo,
   clockOf,
@@ -25,6 +21,13 @@ import {
   shortDateOf,
   type AddressOf,
 } from './tournament';
+
+/** A location supplied by the index reader for distance filtering. */
+export type IndexPlace = {
+  readonly city: string;
+  readonly latitude: number;
+  readonly longitude: number;
+};
 
 type Listed = Extract<ListedLobby, { kind: 'tournament' }>;
 
@@ -249,7 +252,7 @@ const named = (value: string | undefined): string | null =>
  */
 export function indexStateOf(
   params: IndexParams,
-  places: readonly SamplePlace[] = samplePlaces,
+  places: readonly IndexPlace[] = [],
 ): IndexState {
   const mode = oneOf<IndexMode>(['online', 'in_person'], first(params.mode));
   const near = first(params.near);
@@ -329,16 +332,15 @@ const noFilters = {
 export function lobbyListQueryOf(state: IndexState): LobbyListQuery {
   const pageSize = state.view === 'calendar' ? dayPageSize : indexPageSize;
   const shown = state.shown ?? pageSize;
-  const place = samplePlaces.find((one) => one.city === state.near);
   return {
     q: state.q,
     ...(state.format === null ? {} : { format: state.format }),
     ...(state.league === null ? {} : { league: state.league }),
     ...(state.division === null ? {} : { division: state.division }),
     ...(state.mode === null ? {} : { mode: state.mode }),
-    ...(place === undefined
+    ...(state.near === null
       ? {}
-      : { near: { place: place.city, miles: nearMiles } }),
+      : { near: { place: state.near, miles: nearMiles } }),
     ...(state.from === null ? {} : { from: state.from }),
     ...(state.to === null ? {} : { to: state.to }),
     ...(state.open ? { open: true } : {}),
@@ -435,7 +437,7 @@ export function matches(
   lobby: Listed,
   state: IndexState,
   asOf: string,
-  places: readonly SamplePlace[] = samplePlaces,
+  places: readonly IndexPlace[] = [],
 ): boolean {
   const q = state.q.toLowerCase();
   const day = dayOf(lobby.startsAt);
@@ -743,7 +745,7 @@ export function tournamentsIndexOf(
   page: LobbyListPage,
   state: IndexState,
   addressOf: AddressOf,
-  places: readonly SamplePlace[] = samplePlaces,
+  places: readonly IndexPlace[] = [],
 ): TournamentsIndex {
   const every = page.lobbies.flatMap((lobby) =>
     lobby.kind === 'tournament' ? [lobby] : [],
@@ -865,14 +867,3 @@ export function tournamentsIndexOf(
         : null,
   };
 }
-
-/** The index for a sample viewer and the address's query. */
-export const readTournamentsIndex = (
-  scene: SampleScene,
-  params: IndexParams = {},
-): TournamentsIndex =>
-  tournamentsIndexOf(
-    sampleTournamentListRead(scene),
-    indexStateOf(params),
-    sampleAddressOf,
-  );

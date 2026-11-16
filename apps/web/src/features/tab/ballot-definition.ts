@@ -5,9 +5,6 @@ import type {
 } from '@daisy/protocol/lobby/ballot-read';
 import { linkTo, type TabAction } from './action';
 import { hostRoutes } from './routes';
-import { varsitySwitch } from './sample/event-switch';
-import { sampleEventBallot, sampleJudgeBallot } from './sample/ballot';
-import type { SampleScene } from './sample/scene';
 import { lockedSetting, type ResolvedSetting } from './settings';
 import type { EventSwitch } from './setup';
 
@@ -195,7 +192,7 @@ const preview: BallotSettings['preview'] = {
 };
 
 /** A host's ballot settings screen for one event. */
-function ballotSettingsOf(
+export function ballotSettingsOf(
   view: EventBallotView,
   event: EventSwitch,
   slug: string,
@@ -269,7 +266,7 @@ function reasonReaders(view: JudgeBallotView): string {
 }
 
 /** A judge's own ballot for one fixture. */
-function judgeBallotOf(view: JudgeBallotView): JudgeBallot {
+export function judgeBallotOf(view: JudgeBallotView): JudgeBallot {
   const { panel } = view;
   const seat =
     panel.size === 1
@@ -297,22 +294,3 @@ function judgeBallotOf(view: JudgeBallotView): JudgeBallot {
     reasonReaders: reasonReaders(view),
   };
 }
-
-export const readBallotSettings = (
-  slug: string,
-  event: string,
-  scene: SampleScene,
-): BallotSettings | null => {
-  const view = sampleEventBallot(slug, event, scene);
-  return view === null
-    ? null
-    : ballotSettingsOf(view, varsitySwitch(scene), slug);
-};
-
-export const readJudgeBallot = (
-  room: string,
-  scene: SampleScene,
-): JudgeBallot | null => {
-  const view = sampleJudgeBallot(room, scene);
-  return view === null ? null : judgeBallotOf(view);
-};

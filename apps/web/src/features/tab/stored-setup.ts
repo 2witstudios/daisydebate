@@ -197,7 +197,7 @@ export const storedSetupOf = (
       forceNote: event.template
         ? `${event.template.organization.name} sets individual policies in its template.`
         : 'Individual policies come from the preset and inherited settings.',
-      save: { label: 'Save pairing', href: null, primary: true },
+      save: { kind: 'unavailable', label: 'Save pairing', primary: true },
     },
   };
   return tournamentSetupOf(

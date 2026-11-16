@@ -22,7 +22,7 @@ import {
   versus,
   won,
 } from './posting';
-import { readBracket } from '../results';
+import { readBracket } from './read-results';
 import { atScale, type SampleScene } from './scene';
 import { largePosting } from './large-posting';
 import { sampleStandings } from './standings';

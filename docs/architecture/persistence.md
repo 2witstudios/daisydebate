@@ -156,6 +156,15 @@ waiting for start, preparing, speaking, judging and awaiting a Tab result.
 Start and lateness remain null without their actual source; a fixture's Room
 reference is its stored Room, never a synthetic address.
 
+Judge assignment collections use one database transaction and retain the caller's
+account fence for the whole read. Each Round is projected under a read savepoint;
+rolling back to it releases that Round's parent and aggregate locks before the
+next unrelated parent chain is visited. No writes occur inside that boundary.
+Ordinary Daisy ballots require both reason and feedback at submission (feedback
+is a subject-keyed object, including an empty object); nullable written columns
+serve event definitions which omit those fields. Ordinary feedback readers map a
+stored null to the same empty object.
+
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a
 Round finalization consumes; the recorded-ending read treats a mismatch as

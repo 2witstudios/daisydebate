@@ -12,13 +12,10 @@ import type {
   PostedJudge,
   PostingView,
 } from '@daisy/protocol/lobby/posting-read';
-import { linkTo, sampleAction, type TabAction } from './action';
+import { linkTo, unavailableAction, type TabAction } from './action';
 import { shownName } from './shown-entrant';
 import type { Bracket } from './results';
 import { tabRoutes } from './routes';
-import { sampleTimelineRead } from './sample/rail';
-import { sampleAddressOf, sampleTournamentReads } from './sample/tournament';
-import type { SampleScene } from './sample/scene';
 import type { StandingsTable } from './standings';
 
 /**
@@ -242,7 +239,9 @@ export const actionTo = (
   href: string | null,
   primary = false,
 ): TabAction =>
-  href === null ? sampleAction(label, primary) : linkTo(label, href, primary);
+  href === null
+    ? unavailableAction(label, primary)
+    : linkTo(label, href, primary);
 
 // Wall-clock words. Instants are UTC and a tournament's day is read in UTC.
 const weekdays = [
@@ -425,7 +424,7 @@ const breakStanding = (
  * slots are its rounds, the break stands between the stages, and the
  * elimination rounds appear once the break is announced.
  */
-function timelineRailOf(
+export function timelineRailOf(
   lobby: TournamentLobbyView,
   addressOf: AddressOf,
 ): TimelineRail | null {
@@ -672,7 +671,7 @@ function beforePage(
             tabRoutes.entries(lobby.handle),
           true,
         )
-      : sampleAction('Enter', true),
+      : unavailableAction('Enter', true),
     terms: lobby.terms,
     entered:
       entered === null
@@ -713,7 +712,7 @@ function afterPage(
   const prelims = own.filter((row) => row.tabRound.stage === 'preliminary');
   const label = (row: DayRead) =>
     tabRoundLabel(row.tabRound, row.event.name, shared);
-  const more = sampleAction(
+  const more = unavailableAction(
     `Rounds 1 to ${Math.max(0, ...prelims.map((row) => row.tabRound.number))}`,
   );
   const out = finish.out;
@@ -758,7 +757,7 @@ function afterPage(
           {
             title: `${label(row)} · ${outcomeOf(row) ?? ''} ${judgesFor}-${judgesAgainst}`,
             detail: `v ${listed(opponentsOf(row))} · ${judgesPhrase(row.fixture?.judges ?? [])}`,
-            action: sampleAction('Read'),
+            action: unavailableAction('Read'),
           },
         ];
       }),
@@ -772,7 +771,7 @@ function afterPage(
               {
                 title: `${label(row)} v ${listed(opponentsOf(row))}`,
                 detail: `${Math.round(row.recording.durationMs / minuteMs)} minutes`,
-                action: sampleAction('Watch'),
+                action: unavailableAction('Watch'),
               },
             ],
       ),
@@ -841,8 +840,8 @@ function adultPage(
         .join(' · '),
       action:
         row.state.kind === 'live'
-          ? sampleAction('Watch', index === 0)
-          : sampleAction('Details'),
+          ? unavailableAction('Watch', index === 0)
+          : unavailableAction('Details'),
     })),
     ballots: people.flatMap((person) =>
       theirs
@@ -861,7 +860,7 @@ function adultPage(
             ]
               .filter((part) => part !== null)
               .join(' · '),
-            action: sampleAction('Read'),
+            action: unavailableAction('Read'),
           };
         }),
     ),
@@ -873,7 +872,7 @@ function adultPage(
             eyebrow: `You're judging at ${clockOf(judging.state.kind === 'posted' ? judging.state.opensAt : judging.slot.startsAt)}`,
             title: `${judging.event.name} · ${judging.fixture.room?.name ?? ''}`,
             detail: `Never a room with ${wards.join(', ')} or their club.`,
-            action: sampleAction('Open'),
+            action: unavailableAction('Open'),
           },
     manage:
       wards.length > 0
@@ -1109,7 +1108,7 @@ function postingPanel(
         action: !fixture.video
           ? null
           : roomHref === null
-            ? sampleAction('Watch')
+            ? unavailableAction('Watch')
             : linkTo('Room', roomHref),
       };
     }),
@@ -1348,7 +1347,7 @@ function roundsPage(
     note,
     noteAction:
       lobby.signedIn && !completed && !showDay && watched !== undefined
-        ? sampleAction('Watch it back')
+        ? unavailableAction('Watch it back')
         : null,
     signIn: lobby.signedIn
       ? null
@@ -1361,7 +1360,7 @@ function roundsPage(
  * before it runs, a responsible adult's entries, the rounds while it runs,
  * and what a finished tournament keeps for someone who took part.
  */
-function tournamentPageOf(
+export function tournamentPageOf(
   reads: TournamentReads,
   view: TournamentView,
   addressOf: AddressOf,
@@ -1456,23 +1455,6 @@ export function partWords(
   }
 }
 
-export const readTimelineRail = (
-  slug: string,
-  scene: SampleScene,
-): TimelineRail | null => {
-  const lobby = sampleTimelineRead(slug, scene);
-  return lobby === null ? null : timelineRailOf(lobby, sampleAddressOf);
-};
-
-export const readTournamentPage = (
-  slug: string,
-  view: TournamentView,
-  scene: SampleScene,
-): TournamentPage | null => {
-  const reads = sampleTournamentReads(slug, view, scene);
-  return reads === null ? null : tournamentPageOf(reads, view, sampleAddressOf);
-};
-
 /** A stop's standing in the words the rail shows. */
 export const standingLabel = (standing: RailStanding): string => {
   switch (standing.kind) {
@@ -1507,13 +1489,12 @@ const urgency: readonly RailStanding['kind'][] = [
  * (a finished tournament opens on its results), and on the first otherwise.
  */
 export function landingStop(rail: TimelineRail): string | null {
-  const open = rail.items.filter(
-    (item) => item.action !== null && item.action.href !== null,
-  );
+  const open = rail.items.filter((item) => item.action?.kind === 'link');
   const wanted = urgency
     .map((kind) => open.find((item) => item.standing?.kind === kind))
     .find((item) => item !== undefined);
   const last = open.at(-1);
   const rest = last?.standing?.kind === 'done' ? last : open[0];
-  return (wanted ?? rest)?.action?.href ?? null;
+  const action = (wanted ?? rest)?.action;
+  return action?.kind === 'link' ? action.href : null;
 }

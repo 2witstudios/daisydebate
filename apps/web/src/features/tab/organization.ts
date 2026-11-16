@@ -6,17 +6,9 @@ import type {
   OrganizationRole,
 } from '@daisy/protocol/lobby/organization-read';
 import type { Permission } from '@daisy/protocol/lobby';
-import { linkTo, sampleAction, type TabAction } from './action';
+import { linkTo, unavailableAction, type TabAction } from './action';
 import { hostRoutes } from './routes';
-import {
-  sampleHostHomeView,
-  sampleHostAddress,
-  sampleNow,
-  samplePeopleView,
-  sampleViewerId,
-} from './sample/organization';
 import type { RailItem, TimelineRail } from './tournament';
-import type { SampleScene } from './sample/scene';
 
 type HostTournamentRow = {
   readonly name: string;
@@ -201,11 +193,11 @@ const open = (
   primary = false,
 ): TabAction =>
   address === null
-    ? sampleAction(label, primary)
+    ? unavailableAction(label, primary)
     : linkTo(label, address, primary);
 
 /** Host home from the viewer's host-home read. */
-function hostHomeOf(
+export function hostHomeOf(
   view: HostHomeView,
   now: string,
   addressOf: HostAddress,
@@ -232,7 +224,7 @@ function hostHomeOf(
     (organization) => organization.position.kind === 'owner',
   );
   return {
-    create: sampleAction('New tournament', true),
+    create: unavailableAction('New tournament', true),
     groups: [
       ...(running.length === 0
         ? []
@@ -267,7 +259,7 @@ function hostHomeOf(
             {
               title: 'Hosting plan',
               detail: `League plan, paid by ${owned.name}. Covers the league's tournaments and the ones you host yourself.`,
-              action: sampleAction('Manage plan'),
+              action: unavailableAction('Manage plan'),
             },
           ]
         : []),
@@ -276,7 +268,7 @@ function hostHomeOf(
 }
 
 /** Host home's rail: tournaments from today on, then the leagues the viewer runs. */
-function hostRailOf(
+export function hostRailOf(
   view: HostHomeView,
   now: string,
   addressOf: HostAddress,
@@ -366,7 +358,7 @@ const mostHeld = (view: OrganizationPeopleView) => {
 };
 
 /** An organization's people page from its people read. */
-function peopleOf(
+export function peopleOf(
   view: OrganizationPeopleView,
   context: {
     readonly role: string | null;
@@ -415,15 +407,15 @@ function peopleOf(
       action: member.owner
         ? null
         : member.membership === 'invited'
-          ? sampleAction('Cancel invite')
+          ? unavailableAction('Cancel invite')
           : member.removable
-            ? sampleAction('Change')
+            ? unavailableAction('Change')
             : null,
     };
   };
   const allowed = new Set(chosen?.permissions ?? []);
   return {
-    give: sampleAction('Give someone a role', true),
+    give: unavailableAction('Give someone a role', true),
     people: view.people.map(person),
     roles: roles.map((role) => ({
       id: roleSlug(role),
@@ -448,21 +440,6 @@ function peopleOf(
     },
   };
 }
-
-export const readHostHome = (scene: SampleScene): HostHome =>
-  hostHomeOf(sampleHostHomeView(scene), sampleNow, sampleHostAddress);
-
-export const readPeople = (
-  role: string | null,
-  basePath: string,
-  scene: SampleScene,
-): People =>
-  peopleOf(samplePeopleView(scene), {
-    role,
-    basePath,
-    viewerId: sampleViewerId,
-    now: sampleNow,
-  });
 
 /** An organization's people page from its stored people read. */
 export const organizationPeoplePage = (
@@ -489,6 +466,3 @@ export const organizationRailOf = (
   footHeading: null,
   foot: [],
 });
-
-export const readHostRail = (scene: SampleScene): TimelineRail =>
-  hostRailOf(sampleHostHomeView(scene), sampleNow, sampleHostAddress);

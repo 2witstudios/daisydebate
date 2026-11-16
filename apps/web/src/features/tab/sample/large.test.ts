@@ -14,7 +14,7 @@ import {
 } from '@daisy/protocol/lobby/tab-round-read';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { breakTables, clearByWinOrPoints } from '../at-scale-tables';
-import { readDrawBoard } from '../draw';
+import { readDrawBoard } from './read-draw';
 import { standingsTableOf } from '../standings';
 import { sampleDrawView } from './draw';
 import { sampleEntryList, sampleJudgeList } from './entries';

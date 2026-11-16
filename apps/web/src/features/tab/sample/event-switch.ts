@@ -1,4 +1,4 @@
-import { linkTo, sampleAction } from '../action';
+import { linkTo, unavailableAction } from '../action';
 import { hostRoutes } from '../routes';
 import type { EventSwitch } from '../setup';
 import { AUTUMN, IMPROMPTU, reached, VARSITY } from './moment';
@@ -28,7 +28,7 @@ export function eventSwitch(
       .map(([slug, name]) =>
         slug !== 'novice-debate' && reached(scene, 'prelims')
           ? linkTo(name, hostRoutes.round(AUTUMN, slug, '3'))
-          : sampleAction(name),
+          : unavailableAction(name),
       ),
   };
 }

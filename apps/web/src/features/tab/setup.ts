@@ -7,8 +7,6 @@ import type { SettingKey } from '@daisy/protocol/setting-values';
 import { linkTo, type Choice, type TabAction } from './action';
 import { daysBefore } from './organization';
 import { resolvedEntry } from './reads/resolved-settings';
-import { sampleSetup } from './sample/setup';
-import type { SampleScene } from './sample/scene';
 import {
   lockedSetting,
   lockedWithView,
@@ -282,13 +280,3 @@ export function tournamentSetupOf(
     pairing: context.copy.pairing,
   };
 }
-
-export const readSetup = (
-  slug: string,
-  scene: SampleScene,
-): TournamentSetup | null => {
-  const sample = sampleSetup(slug, scene);
-  return sample === null
-    ? null
-    : tournamentSetupOf(sample.reads, sample.context);
-};

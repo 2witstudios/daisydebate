@@ -1,12 +1,7 @@
 import type { StandingsView } from '@daisy/protocol/lobby/standings-read';
 import type { standingsMetricSchema } from '@daisy/protocol/setting-values';
 import type { z } from 'zod';
-import { sampleAction, type TabAction } from './action';
-import {
-  sampleDivisionStandingsView,
-  sampleStandingsView,
-} from './sample/standings';
-import type { SampleScene } from './sample/scene';
+import { unavailableAction, type TabAction } from './action';
 import type { ResolvedSetting } from './settings';
 import { shownName } from './shown-entrant';
 
@@ -105,29 +100,13 @@ export const standingsTableOf = (
       official?.announceBreak === true &&
       progress.kind === 'complete' &&
       read.breakAnnouncedAt === null
-        ? sampleAction('Announce the break', true)
+        ? unavailableAction('Announce the break', true)
         : null,
     correction:
       official?.previewCorrection === true
-        ? sampleAction('See what a correction would change')
+        ? unavailableAction('See what a correction would change')
         : null,
   };
-};
-
-export const readStandings = (
-  slug: string,
-  event: string | null,
-  scene: SampleScene,
-): StandingsTable | null => {
-  const sample = sampleStandingsView(slug, event, scene);
-  if (sample === null) return null;
-  const table = standingsTableOf(sample.read, sample.tiebreaks);
-  const novice = sampleDivisionStandingsView(slug, event, 'Novice', scene);
-  if (novice === null) return table;
-  return withDivisionBreak(
-    table,
-    standingsTableOf(novice.read, novice.tiebreaks),
-  );
 };
 
 /** A separate division ranking excludes the entries already in the higher break. */

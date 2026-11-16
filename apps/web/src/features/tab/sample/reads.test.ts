@@ -1,17 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  landingStop,
-  readTimelineRail,
-  readTournamentPage,
-} from '../tournament';
-import { readTournamentsIndex } from '../tournaments-index';
+import { landingStop } from '../tournament';
+import { readTimelineRail, readTournamentPage } from './read-tournament';
+import { readTournamentsIndex } from './read-tournaments-index';
 import { sampleJudgeBallot } from './ballot';
 import { readLeagueLobby } from '../league';
 import { AUTUMN, IMPROMPTU, LEAGUE, VARSITY } from './moment';
-import { readRoom } from '../room';
+import { readRoom } from './read-room';
 import type { SampleScene } from './scene';
-import { readSetup } from '../setup';
-import { readRunningRound } from '../tab-round';
+import { readSetup } from './read-setup';
+import { readRunningRound } from './read-tab-round';
 
 setupRitewayBun();
 

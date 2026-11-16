@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { WalkLink as Link } from '../walk/walk-link';
 import type { PageFilter, StatusChoice } from '../../../features/tab/at-scale';
 import { cn } from '../../cn';
 import { SearchField } from '../../components/filter-form/filter-form';

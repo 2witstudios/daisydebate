@@ -2,6 +2,7 @@ import {
   assess,
   draw,
   type DrawInput,
+  type Assessment,
   type EventRequest,
   type Fixture,
   type FixtureOf,
@@ -148,6 +149,39 @@ const planOf = (input: DrawInput, plan: EnginePlan): Plan | null => {
     : planWith(plan, speakers);
 };
 
+/** Unchecked edits report the exact fixture that failed format validation. */
+const invalidFixtures = (
+  input: DrawInput,
+  plan: EnginePlan,
+): Assessment['invalid'] => {
+  const event = (input.call === 'slot' ? input.events : [input.event]).find(
+    (candidate) => candidate.event === plan.event,
+  );
+  const parse = !event
+    ? () => null
+    : event.format.outcome === 'winner'
+      ? twoSides
+      : event.format.of === 'sides'
+        ? fourSides
+        : speakers;
+  return [
+    ...plan.keep
+      .filter((row) => parse(row.fixture) === null)
+      .map((row) => ({
+        fact: 'fixture_kind' as const,
+        event: plan.event,
+        fixture: { kind: 'existing' as const, id: row.id },
+      })),
+    ...plan.add
+      .filter((row) => parse(row.fixture) === null)
+      .map((row) => ({
+        fact: 'fixture_kind' as const,
+        event: plan.event,
+        fixture: { kind: 'new' as const, ordinal: row.ordinal },
+      })),
+  ];
+};
+
 /** The actual merged engine, including its persisted reproducibility record and assessment. */
 export const tabEngine = {
   draw: (input) => draw(inputOf(input)),
@@ -159,14 +193,14 @@ export const tabEngine = {
       converted.filter((plan) => plan !== null),
     );
     let next = 0;
-    return converted.map((plan) =>
+    return converted.map((plan, index) =>
       plan === null
         ? {
             fixtures: [],
             totals: [],
             warnings: [],
             broken: [],
-            invalid: [{ fact: 'fixture_kind' }],
+            invalid: invalidFixtures(actual, plans[index]!),
           }
         : answers[next++]!,
     );

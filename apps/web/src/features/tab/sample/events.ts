@@ -1,5 +1,5 @@
 import type { TournamentSetupView } from '@daisy/protocol/lobby/lobby-setup-read';
-import { choice, sampleAction } from '../action';
+import { choice, unavailableAction } from '../action';
 import type { EventFormCopy, EventsCopy } from '../events';
 import { AUTUMN, LEAGUE_NAME, WINTER } from './moment';
 import { sampleId, sampleIds } from './organization';
@@ -46,8 +46,8 @@ const parliForm: EventFormCopy = {
     'Speech B',
     'A new group',
   ]),
-  settings: sampleAction('Parli settings'),
-  remove: sampleAction('Remove event'),
+  settings: unavailableAction('Parli settings'),
+  remove: unavailableAction('Remove event'),
 };
 
 const varsityForm: EventFormCopy = {
@@ -60,15 +60,18 @@ const varsityForm: EventFormCopy = {
   prelimRounds: choice('Prelim rounds', ['4', '3', '5']),
   ...breaks,
   runsWith: choice('Runs with', ['Debate', 'Speech', 'A new group']),
-  settings: sampleAction('Varsity debate settings'),
-  remove: sampleAction('Remove event'),
+  settings: unavailableAction('Varsity debate settings'),
+  remove: unavailableAction('Remove event'),
 };
 
 const shared = {
-  actions: [sampleAction('Edit times'), sampleAction('Add event', true)],
+  actions: [
+    unavailableAction('Edit times'),
+    unavailableAction('Add event', true),
+  ],
   judgePool: {
     rule: 'A judge is cleared per event and is never in two rooms in the same slot.',
-    action: sampleAction('Who is cleared for what'),
+    action: unavailableAction('Who is cleared for what'),
   },
 } as const;
 

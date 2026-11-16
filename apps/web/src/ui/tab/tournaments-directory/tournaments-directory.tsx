@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { WalkLink as Link } from '../walk/walk-link';
 import type { TournamentsIndex } from '../../../features/tab/tournaments-index';
 import { cn } from '../../cn';
 import { TabLinks } from '../../components/tab-links/tab-links';

@@ -1,5 +1,6 @@
-import Link from 'next/link';
+import { WalkLink as Link } from '../walk/walk-link';
 import type { ReactNode } from 'react';
+import { walkHref } from '../../../features/tab/walk-href';
 import { tabRoutes } from '../../../features/tab/routes';
 import type {
   IndexOption,
@@ -87,7 +88,7 @@ export function IndexFilters({ index }: { readonly index: TournamentsIndex }) {
   return (
     <div className="flex flex-col gap-3">
       <AutoSubmitForm
-        action={tabRoutes.tournaments}
+        action={walkHref(tabRoutes.tournaments)}
         role="search"
         aria-label="Filter tournaments"
         className="flex flex-wrap items-end gap-3"

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { WalkLink as Link } from '../walk/walk-link';
 import type { ReactNode } from 'react';
 import type { TabAction } from '../../../features/tab/action';
 import { cn } from '../../cn';
@@ -6,7 +6,8 @@ import {
   buttonClass,
   type ButtonVariant,
 } from '../../components/button/button-class';
-import { SampleAction } from '../../components/sample-action/sample-action';
+import { UnavailableControl } from './unavailable-control';
+import { linkTo, unavailableAction } from '../../../features/tab/action';
 
 type ActionProps = {
   readonly action: TabAction;
@@ -26,15 +27,15 @@ function Control({
   className,
 }: ActionProps & { readonly className: string; readonly lead?: ReactNode }) {
   const name = nameOf(action, about);
-  return action.href === null ? (
-    <SampleAction
+  return action.kind === 'unavailable' ? (
+    <UnavailableControl
       label={action.label}
       className={className}
       {...(name === undefined ? {} : { ariaLabel: name })}
     >
       {lead}
       {action.label}
-    </SampleAction>
+    </UnavailableControl>
   ) : (
     <Link href={action.href} className={className} aria-label={name}>
       {lead}
@@ -146,7 +147,7 @@ export function BackButton({
 }) {
   return (
     <Control
-      action={{ label, href, primary: false }}
+      action={href === null ? unavailableAction(label) : linkTo(label, href)}
       lead={<span aria-hidden="true">←</span>}
       className={cn(
         compactButtonClass('secondary', 'back'),
