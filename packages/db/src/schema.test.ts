@@ -30,10 +30,14 @@ describe('competitive schema rules', () => {
     assert({
       given: 'the users and actors tables',
       should:
-        'declare the tombstone and version CHECKs, one actor per user and a human user requirement',
+        'declare the tombstone, unused-image and version CHECKs, one actor per user and a human user requirement',
       actual: { users: rules(users).checks, actors: rules(actors) },
       expected: {
-        users: ['users_tombstone_scrubbed', 'users_version_positive'],
+        users: [
+          'users_image_unused',
+          'users_tombstone_scrubbed',
+          'users_version_positive',
+        ],
         actors: {
           checks: [
             'actors_human_has_user',
