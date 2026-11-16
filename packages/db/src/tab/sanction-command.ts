@@ -66,6 +66,7 @@ async function load(tx: TabTransaction, input: Input) {
     extraOrganizationIds: [input.organizationId],
   });
   if (!configuration) return null;
+  await scopeTransaction(tx, scope);
   const organization = await loadAuthorityContext(
     tx,
     scope,
