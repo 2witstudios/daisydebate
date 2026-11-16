@@ -7,6 +7,7 @@ OUTPUT_BYTES = 8192
 def sanitize(line, scratch):
     line = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', line[:2048])
     line = ''.join(char for char in line if char == '\t' or ord(char) >= 32)
+    line = re.sub(r'[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\'"<>]+', '<url>', line)
     if re.search(r'(?i)\b(?:authorization|cookie)\s*[:=]|\bbearer\s+[A-Za-z0-9._~+/-]+=*', line):
         return '<credential-line>'
     assignments = re.finditer(r"""(["']?)([A-Za-z_][A-Za-z0-9_.-]{0,255})\1\s*[:=](?!:)""", line)
@@ -19,7 +20,6 @@ def sanitize(line, scratch):
                 or normalized.endswith(('token', 'password', 'passwd', 'secret'))
                 or any(term in normalized for term in ('apikey', 'accesskey', 'privatekey'))):
             return '<credential-line>'
-    line = re.sub(r'[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\'"<>]+', '<url>', line)
     line = line.replace(scratch.rstrip('/') + '/source', '<source>')
     line = line.replace(scratch.rstrip('/'), '<scratch>')
     line = re.sub(r'(?<![\w>])/[^\s\'"`<>():]+', '<path>', line)
@@ -36,7 +36,7 @@ def classify_failure(text, scratch):
         ('memory-allocation', r'cannot allocate memory|out of memory|os error 12\b'),
         ('filesystem-permission', r'permission denied|read-only file system|os error (?:13|30)\b'),
         ('missing-prerequisite', r'(?:could not find|not found|no such file).{0,80}(?:protoc|cmake|pkg-config|clang)|(?:protoc|cmake|pkg-config|clang).{0,80}(?:not found|no such file)'),
-        ('network', r'failed to (?:send|download)|certificate|connection (?:refused|reset)|timed out|http.*(?:403|404|429|500|502|503)'),
+        ('network', r'failed to download|failed to send.{0,30}http|certificate|connection (?:refused|reset)|timed out|http.*(?:403|404|429|500|502|503)'),
         ('linker', r'linking with .*failed|undefined reference|linker.*(?:failed|not found)'),
         ('rust-compiler', r'error\[E[0-9]{4}\]'),
         ('build-script', r'failed to run custom build command|panicked at'),
@@ -51,7 +51,8 @@ def classify_failure(text, scratch):
     excerpt = '\n'.join(lines[index] for index in selected).encode('utf8')[:OUTPUT_BYTES].decode('utf8', errors='ignore')
     package = re.search(r'custom build command for [`\'"]+([A-Za-z0-9_-]{1,64})', cleaned)
     codes = sorted(set(re.findall(r'error\[(E[0-9]{4})\]', cleaned)))[:32]
-    return dict(category=matches[0] if matches else 'unknown', observedSignals=matches,
+    causes = [name for name in matches if name != 'build-script']
+    return dict(category=causes[0] if causes else 'unknown', observedSignals=matches,
                 buildScriptPackage=package[1] if package else None,
                 rustErrorCodes=codes, osErrorNumbers=sorted(set(map(int, re.findall(r'os error ([0-9]{1,4})\b', cleaned))))[:16],
                 excerpt=excerpt, excerptBytes=len(excerpt.encode('utf8')),

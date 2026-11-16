@@ -114,3 +114,19 @@ test('quoted and prefixed credentials never reach compiler evidence', () => {
     expected: false,
   });
 });
+
+test('build-script wrapper alone leaves the underlying failure unknown', () => {
+  const result = classify(
+    'error: failed to run custom build command for `webrtc-sys v0.3.50`\nopaque vendor exception',
+  );
+  assert({
+    given: 'a generic Cargo wrapper with no recognized underlying cause',
+    should: 'retain phase context without claiming the cause is classified',
+    actual: {
+      category: result.category,
+      package: result.buildScriptPackage,
+      retained: String(result.excerpt).includes('opaque vendor exception'),
+    },
+    expected: { category: 'unknown', package: 'webrtc-sys', retained: true },
+  });
+});
