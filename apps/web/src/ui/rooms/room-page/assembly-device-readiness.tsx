@@ -27,12 +27,11 @@ import { CameraPreview, DeviceChoice } from './device-check';
 import { RoomSyncContext } from './room-sync-context';
 
 type Props = {
-  /**
-   * Seats and the round setup summary: the right-hand column below Start. It
-   * is given the viewer's Ready control, which belongs in their own seat row.
-   */
-  readonly side: (ready: ReactNode) => ReactNode;
-  /** The Room chat, which fills the left column under any devices; null when the viewer has none. */
+  /** The roster, given the Start line that ends it. */
+  readonly main: (start: ReactNode) => ReactNode;
+  /** Room controls and the settings preview, under the viewer's own tile. */
+  readonly aside: ReactNode;
+  /** The Room chat, under the roster; null when the viewer has none. */
   readonly chat: ReactNode;
   readonly view: RoomView;
   readonly actorId: string;
@@ -59,24 +58,11 @@ function GatheringLayout({
   readonly devices: ReactNode;
 }) {
   const controls = { ...props, view, action, local };
-  const side = (
-    <div className="room-side flex min-w-0 flex-col gap-4">
-      {StartControl(controls)}
-      {props.side(ReadyControl(controls))}
-    </div>
-  );
-  if (!devices && !props.chat) return side;
+  const ready = ReadyControl(controls);
   return (
     <div className="grid room-gathering gap-6">
       <div className="room-main flex min-w-0 flex-col gap-4">
-        {devices ? (
-          <section
-            aria-label="Your devices"
-            className="flex min-w-0 flex-col gap-3"
-          >
-            {devices}
-          </section>
-        ) : null}
+        {props.main(StartControl(controls))}
         {props.chat ? (
           // The thread scrolls inside this box: it takes the column's spare
           // height and never stretches the page by its own length.
@@ -87,7 +73,18 @@ function GatheringLayout({
           </div>
         ) : null}
       </div>
-      {side}
+      <div className="room-side flex min-w-0 flex-col gap-4">
+        {devices || ready ? (
+          <section
+            aria-label="You"
+            className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-3"
+          >
+            {devices}
+            {ready}
+          </section>
+        ) : null}
+        {props.aside}
+      </div>
     </div>
   );
 }

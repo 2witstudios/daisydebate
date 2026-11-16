@@ -104,8 +104,9 @@ function CommandForm({
 }
 
 /**
- * The viewer's own Ready or Not ready, laid out as items of their seat row;
- * null for bots, spectators and unseated members.
+ * The viewer's own Ready or Not ready, full width under their tile, with
+ * what they agree to by readying above it; null for bots, spectators and
+ * unseated members. The roster shows only each seat's Ready mark.
  */
 export function ReadyControl({
   view,
@@ -120,44 +121,13 @@ export function ReadyControl({
   const own = view.participants
     .filter(isNamedSeat)
     .find((seat) => seat.actorId === actorId);
-  const isReady = ready.type === 'unready' && !local.unreadyPending;
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {isReady ? (
-          <span className="rounded-full bg-hue-teal-soft px-3 py-1 text-xs font-semibold text-hue-teal">
-            ✓ Ready
-          </span>
-        ) : null}
-        {CommandForm({
-          type: ready.type,
-          label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
-          enabled: ready.enabled,
-          version: view.version,
-          commandId: commandIds[ready.type],
-          action,
-          expectedConsentVersion: own?.consentVersion ?? null,
-          noticeVersion:
-            ready.type === 'ready'
-              ? (view.captureNotice?.version ?? null)
-              : null,
-          className: buttonClass(
-            ready.type === 'ready' ? 'primary' : 'secondary',
-          ),
-        })}
-      </div>
-      {ready.reason ? (
-        <p role="status" className="basis-full text-sm text-ink-muted">
-          {ready.reason}
-        </p>
-      ) : null}
+    <div className="flex flex-col gap-2">
       {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (
-        <div className="basis-full">
-          <ContentWaiverForm action={waiverAction} />
-        </div>
+        <ContentWaiverForm action={waiverAction} />
       ) : null}
       {ready.type === 'ready' && view.captureNotice ? (
-        <p role="note" className="basis-full text-sm text-ink-muted">
+        <p role="note" className="text-sm text-ink-muted">
           {view.captureNotice.text}
         </p>
       ) : null}
@@ -166,11 +136,28 @@ export function ReadyControl({
       ) : null}
       {ready.type === 'ready' &&
       freezePostRoundCall(view.postRoundCall, view.participants) ? (
-        <p role="note" className="basis-full text-sm font-strong">
+        <p role="note" className="text-sm font-strong">
           {postRoundCallText}
         </p>
       ) : null}
-    </>
+      {CommandForm({
+        type: ready.type,
+        label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
+        enabled: ready.enabled,
+        version: view.version,
+        commandId: commandIds[ready.type],
+        action,
+        expectedConsentVersion: own?.consentVersion ?? null,
+        noticeVersion:
+          ready.type === 'ready' ? (view.captureNotice?.version ?? null) : null,
+        className: `${buttonClass(ready.type === 'ready' ? 'primary' : 'secondary')} w-full`,
+      })}
+      {ready.reason ? (
+        <p role="status" className="text-sm text-ink-muted">
+          {ready.reason}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -189,7 +176,7 @@ function startNotice(
   return 'Everyone is here and ready.';
 }
 
-/** The Start card: what it waits on for everyone, and Start round for the host. */
+/** The roster's last line: what Start waits on for everyone, and Start round for the host. */
 export function StartControl({
   view,
   actorId,
@@ -205,32 +192,27 @@ export function StartControl({
         view.botAdmission.refusal !== null));
   const notice = startNotice(view, actorId, blocked);
   return (
-    <section
-      aria-labelledby="room-start-title"
-      className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3"
-    >
-      <h2 id="room-start-title" className="text-md font-semibold">
-        Start the round
-      </h2>
-      <p role="status" className="text-sm text-ink-muted">
-        {notice}
-      </p>
+    <div className="flex min-w-0 flex-col gap-2">
       {view.capabilities.host ? (
         <BotAdmissionNotice admission={view.botAdmission} />
       ) : null}
-      {view.capabilities.host ? (
-        CommandForm({
-          type: 'start-round',
-          label: 'Start round',
-          enabled: view.capabilities.canStart && !blocked && !admissionBlocked,
-          version: view.version,
-          commandId: commandIds['start-round'],
-          action,
-          className: `${buttonClass('primary')} w-full`,
-        })
-      ) : (
-        <p className="text-sm text-ink-muted">The host starts the round.</p>
-      )}
-    </section>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-sm text-ink-muted">
+          {notice}
+        </p>
+        {view.capabilities.host
+          ? CommandForm({
+              type: 'start-round',
+              label: 'Start round',
+              enabled:
+                view.capabilities.canStart && !blocked && !admissionBlocked,
+              version: view.version,
+              commandId: commandIds['start-round'],
+              action,
+              className: buttonClass('primary'),
+            })
+          : null}
+      </div>
+    </div>
   );
 }

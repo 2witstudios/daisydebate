@@ -24,8 +24,9 @@ export type RoomCommandIds = {
     readonly assign: string;
     readonly remove: string;
     readonly ai: string;
-    /** The seated debater's team or position (ADR 0143). */
-    readonly move: string;
+    /** The seated debater's team, and their position (ADR 0143). */
+    readonly team: string;
+    readonly position: string;
   }[];
   /** Choosing a standard, Back to the basis, and starting from a league template (FMT-3). */
   readonly format: {
@@ -57,7 +58,8 @@ export function roomCommandIds(
     assign: nextId(),
     remove: nextId(),
     ai: nextId(),
-    move: nextId(),
+    team: nextId(),
+    position: nextId(),
   }));
   const format = { choose: nextId(), reset: nextId(), template: nextId() };
   const capture = nextId();

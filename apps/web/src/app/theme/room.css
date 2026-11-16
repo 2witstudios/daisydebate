@@ -418,3 +418,27 @@ img.ProseMirror-separator {
     display: block;
   }
 }
+
+/* The roster's rows (ADR 0143): Ready, the debater, then the seat boxes and
+   the row's one action. Team and Position show when a team seats several. */
+@theme {
+  --spacing-roster-mark: 3rem;
+  --spacing-roster-box: 3.5rem;
+  --spacing-roster-side: 4.5rem;
+}
+
+@utility room-roster-teams {
+  grid-template-columns:
+    var(--spacing-roster-mark) minmax(0, 1fr) var(--spacing-roster-box)
+    var(--spacing-roster-side) var(--spacing-roster-side) auto;
+}
+
+@utility room-roster-sides {
+  grid-template-columns: var(--spacing-roster-mark) minmax(0, 1fr) var(
+      --spacing-roster-side
+    ) auto;
+}
+
+@utility room-roster-judges {
+  grid-template-columns: var(--spacing-roster-mark) minmax(0, 1fr) auto;
+}
