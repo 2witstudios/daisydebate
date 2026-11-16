@@ -77,7 +77,6 @@ test('a member creates a standing lobby Room through its Tab command', async () 
         standing!.handle !== organization!.handle,
         await store.standingLobbyAddressOfHandle(String(standing!.handle)),
         await store.standingLobbyAddressOfHandle(String(organization!.handle)),
-        await store.standingLobbyIdOfOrganization(world.made.get('league')!),
         (
           await owner`select count(*)::int n from seasons where organization_id=${world.made.get('league')!} and status='active'`
         )[0]!.n,
@@ -86,7 +85,6 @@ test('a member creates a standing lobby Room through its Tab command', async () 
         true,
         { lobbyId, organizationId: world.made.get('league')! },
         null,
-        lobbyId,
         0,
       ],
     });

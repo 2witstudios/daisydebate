@@ -248,18 +248,23 @@ export async function nativeRoomCases(
             seat: sideSeat(side),
           })
         ).view;
-      view = (
-        await f.command(world.bots['Judge A']!, view, {
-          type: 'claim-seat',
-          seat: judgeSeat(),
-        })
-      ).view;
+      const judge = await f.command(world.bots['Judge A']!, view, {
+        type: 'claim-seat',
+        seat: judgeSeat(),
+      });
+      view = judge.view;
       for (const person of [
         world.bots['Debater 1']!,
         world.bots['Debater 2']!,
         world.bots['Judge A']!,
       ])
-        view = (await f.consent(person, view, 'ready')).view;
+        view = (
+          await f.consent(
+            person,
+            await f.operations.view(person, roomId),
+            'ready',
+          )
+        ).view;
       await f.command(world.bots.Coach!, view, { type: 'start-round' });
       const [frozen] =
         await world.sql`select id,league_ladder_id,ladder_id from rounds where room_id=${roomId}`;

@@ -53,6 +53,8 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     // Current adapters select these columns. Lend their nullable interface for the
     // real Daisy journey only, then remove it before the generated migrations run.
     await sql`alter table rounds add column ballot_definition_id text,add column ballot_definition_version integer`;
+    await sql`alter table rooms add column league_ladder_id text`;
+    await sql`alter table rounds add column league_ladder_id text`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
     // no tournament hosting grant, version, issuer or inferred funding account.
@@ -110,6 +112,8 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
       sql`select (select to_jsonb(r) from rounds r where id=${roundId}) as round,(select to_jsonb(b) from ballots b where id=${ballotId}) as ballot,(select to_jsonb(f) from round_finalizations f where round_id=${roundId}) as finalization,(select to_jsonb(c) from round_commands c join round_finalizations f on f.command_id=c.command_id where f.round_id=${roundId}) as receipt,(select to_jsonb(f) from round_finalization_ballots f where ballot_id=${ballotId}) as consumed`;
     const before = await read();
     await sql`alter table rounds drop column ballot_definition_id,drop column ballot_definition_version`;
+    await sql`alter table rooms drop column league_ladder_id`;
+    await sql`alter table rounds drop column league_ladder_id`;
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;

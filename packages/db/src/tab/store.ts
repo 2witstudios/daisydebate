@@ -3,7 +3,7 @@ export type {
   CreateLobbyRoomCommand,
   LobbyRoomAssembly,
 } from './create-lobby-room';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
 import { createLeagueSeasonStore } from './league-season';
 export type { LeagueSeasonFacts } from './league-season';
@@ -319,23 +319,6 @@ export const createTabStore = (database: TabDatabase) => ({
       return row?.organizationId
         ? { lobbyId: row.lobbyId, organizationId: row.organizationId }
         : null;
-    }),
-  standingLobbyIdOfOrganization: (
-    organizationId: string,
-  ): Promise<string | null> =>
-    database.transaction(async (tx) => {
-      const [row] = await tx
-        .select({ id: lobbies.id })
-        .from(lobbies)
-        .where(
-          and(
-            eq(lobbies.kind, 'standing'),
-            eq(lobbies.ownerOrganizationId, organizationId),
-          ),
-        )
-        .orderBy(asc(lobbies.id))
-        .limit(1);
-      return row?.id ?? null;
     }),
   lobbyIdOfHandle: (handle: string): Promise<string | null> =>
     database.transaction((tx) => findLobbyByHandle(tx, handle)),
