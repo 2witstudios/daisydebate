@@ -1,3 +1,5 @@
+import { createConflictWaiverRequestStore } from './conflict-waiver-request';
+export type { LoadedConflictWaiverRequest } from './conflict-waiver-request';
 import { createConfirmationCommandStore } from './confirmation-command';
 export { createConfirmationCommandStore } from './confirmation-command';
 export type { ConfirmationOwnerEffects } from './confirmation-command';
@@ -175,6 +177,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createResultCommandStore(database),
   ...createFixtureCommandStore(database),
   ...createConfirmationCommandStore(database),
+  ...createConflictWaiverRequestStore(database),
   ...createReleaseCommandStore(database),
   ...createTournamentSponsorshipStore(database),
   ...createGuardianCommandStore(database),

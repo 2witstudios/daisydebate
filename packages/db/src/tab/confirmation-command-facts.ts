@@ -1,3 +1,4 @@
+import { readFixtureWaiverRound } from './fixture-waiver-round';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { ConfirmationCommand } from '@daisy/protocol/lobby/confirmation-command';
@@ -180,6 +181,10 @@ export async function loadConfirmationCommandFacts(
   return {
     context,
     original,
+    observedRound:
+      source.kind === 'waiver'
+        ? await readFixtureWaiverRound(tx, context)
+        : null,
     pending,
     proposer,
     proposerActorId: proposerActor.id,

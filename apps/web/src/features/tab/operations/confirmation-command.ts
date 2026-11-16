@@ -1,3 +1,4 @@
+import { conflictWaiverAuthority } from './conflict-waiver-authority';
 import {
   assessPendingProposer,
   type AuthorizationInput,
@@ -114,8 +115,8 @@ export const settlePendingCommand =
             userId: loaded.pending.proposerUserId,
             actorId: loaded.proposerActorId,
           };
-          const proposed = fixtureAuthority(competition, proposer, now);
-          const actual = fixtureAuthority(
+          const proposedFixture = fixtureAuthority(competition, proposer, now);
+          const actualFixture = fixtureAuthority(
             {
               ...competition,
               authorization: loaded.authorization,
@@ -124,7 +125,26 @@ export const settlePendingCommand =
             principal,
             now,
           );
-          if (actual.resource.kind !== 'fixture')
+          const proposed =
+            loaded.original.kind === 'waiver'
+              ? conflictWaiverAuthority(
+                  proposedFixture,
+                  loaded.original.envelope.command.capability,
+                  loaded.observedRound,
+                )
+              : proposedFixture;
+          const actual =
+            loaded.original.kind === 'waiver'
+              ? conflictWaiverAuthority(
+                  actualFixture,
+                  loaded.original.envelope.command.capability,
+                  loaded.observedRound,
+                )
+              : actualFixture;
+          if (
+            actual.resource.kind !== 'fixture' &&
+            actual.resource.kind !== 'round'
+          )
             throw createAppError('INVARIANT');
           const authority = {
             ...actual,

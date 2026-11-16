@@ -1,3 +1,4 @@
+import { readFixtureReadWaiver } from './fixture-read-waiver';
 import { fixtureSchoolIds, loadFixtureAudience } from './fixture-audience';
 import { fixtureRoomSources } from '../schema/fixture-room-sources';
 import {
@@ -131,6 +132,11 @@ const loadFixtureRoomDirection = async (
     ownerActorId: owner?.actorId ?? null,
     fixtureId: fixture.id,
     connections,
+    readWaiverId: await readFixtureReadWaiver(tx, {
+      lobbyId: fixture.lobbyId,
+      fixtureId: fixture.id,
+      userId: input.userId,
+    }),
     audience: await loadFixtureAudience(tx, {
       fixtureId: fixture.id,
       lobbyId: fixture.lobbyId,

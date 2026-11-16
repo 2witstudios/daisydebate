@@ -29,7 +29,7 @@ export const eventRoomOwner = (
       handling: eventSettingResolution(input.configuration).settings[
         'conflict.handling'
       ].value.value,
-      waiverId: null,
+      waiverId: input.readWaiverId,
     },
     viewing: {
       audiences: [
@@ -86,7 +86,7 @@ export const eventRoomDirectionDecision = (
     status: room.status,
     revision: room.version,
     participants: room.participants,
-    owner,
+    owner: { ...owner, conflict: { ...owner.conflict, waiverId: null } },
   };
   return authorize({
     principal: { kind: 'user', ...caller },
