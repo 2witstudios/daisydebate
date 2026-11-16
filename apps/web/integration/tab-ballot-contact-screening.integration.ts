@@ -1,3 +1,5 @@
+import { releaseCommand } from '../src/features/tab/operations/release-command';
+import { settingCommand } from '../src/features/tab/operations/settings';
 import { eventResultCommand } from '../src/features/tab/operations/event-result-command';
 import {
   completionEnvelope,
@@ -124,7 +126,7 @@ test('actual ballot submission screens atomically, retains originals and replays
         });
         if (captured.kind !== 'accepted')
           throw new Error(`Actual contact result: ${JSON.stringify(captured)}`);
-        const certificate = {
+        let certificate = {
           version: 1,
           commandId: createId(),
           expected: { results: 2 },
@@ -284,9 +286,42 @@ test('actual ballot submission screens atomically, retains originals and replays
           'drop trigger reject_test_certificate on certification_results',
         );
         await owner.unsafe('drop function reject_test_certificate()');
-        const certified = await complete(principal, lobbyId, certificate);
-        if (certified.kind !== 'accepted')
-          throw new Error(`Contact certificate: ${JSON.stringify(certified)}`);
+        const competingCertificate = { ...certificate, commandId: createId() };
+        const candidates = [certificate, competingCertificate];
+        const decisions = await Promise.all(
+          candidates.map((candidate) =>
+            complete(principal, lobbyId, candidate),
+          ),
+        );
+        const acceptedIndex = decisions.findIndex(
+          (decision) => decision.kind === 'accepted',
+        );
+        const certified = decisions[acceptedIndex];
+        if (!certified || certified.kind !== 'accepted')
+          throw new Error(
+            `Contact certificate race: ${JSON.stringify(decisions)}`,
+          );
+        certificate = candidates[acceptedIndex]!;
+        const [afterRace] =
+          await owner`select (select count(*)::int from certifications where event_id=${eventId}) as certificates, (select count(*)::int from action_history where command_id in (${candidates[0]!.commandId},${candidates[1]!.commandId})) as receipts`;
+        assert({
+          given:
+            'two distinct certification requests racing with the same actual result guard',
+          should:
+            'serialize on the event fence, retain one certificate and refuse the stale competitor without a receipt',
+          actual: [
+            decisions
+              .map((decision) =>
+                decision.kind === 'accepted' ? 'accepted' : decision.refusal,
+              )
+              .sort(),
+            afterRace,
+          ],
+          expected: [
+            ['accepted', 'version-conflict'],
+            { certificates: 1, receipts: 1 },
+          ],
+        });
         assert({
           given: 'clear screened text and the original retained result guard',
           should:
@@ -308,6 +343,62 @@ test('actual ballot submission screens atomically, retains originals and replays
             commandId: createId(),
           }),
           expected: { kind: 'refused', refusal: 'version-conflict' },
+        });
+        const [settingGuard] =
+          await owner`select version,entries_version,settings_version from events where id=${eventId}`;
+        const configure = settingCommand(common);
+        const manual = await configure(principal, {
+          version: 1,
+          commandId: createId(),
+          expected: {
+            event: Number(settingGuard!.version),
+            entries: Number(settingGuard!.entries_version),
+            settings: Number(settingGuard!.settings_version),
+          },
+          command: {
+            type: 'set-setting',
+            scope: { kind: 'event', id: eventId },
+            key: 'audience.reason',
+            value: {
+              responsible_adults: 'manual',
+              competitors: 'manual',
+              participants: 'manual',
+              link: 'never',
+              public: 'never',
+            },
+            hold: 'default',
+          },
+        });
+        if (manual.kind !== 'accepted')
+          throw new Error(`Manual release setting: ${JSON.stringify(manual)}`);
+        // An explicit missing-classification fault: the real producer/clear-copy oracles above have already passed.
+        await owner`delete from ballot_screenings where ballot_id=${ballotId}`;
+        const open = releaseCommand(common);
+        const openingCommandId = createId();
+        const opening = await open(principal, lobbyId, {
+          version: 1,
+          commandId: openingCommandId,
+          expected: {},
+          command: {
+            type: 'open-audience',
+            eventId,
+            tabRounds: { kind: 'all' },
+            thing: 'reason',
+            audience: 'responsible_adults',
+          },
+        });
+        const [openingWrites] =
+          await owner`select (select count(*)::int from releases where command_id=${openingCommandId}) as openings, (select count(*)::int from action_history where command_id=${openingCommandId}) as receipts`;
+        assert({
+          given:
+            'a retained event ballot whose classification is missing and an otherwise allowed manual opening',
+          should:
+            'treat the missing disposition as pending and refuse without release or receipt writes',
+          actual: [opening, openingWrites],
+          expected: [
+            { kind: 'refused', refusal: 'screening-pending' },
+            { openings: 0, receipts: 0 },
+          ],
         });
       },
     );

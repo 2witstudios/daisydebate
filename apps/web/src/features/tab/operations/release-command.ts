@@ -116,7 +116,10 @@ export const releaseCommand =
                     })),
                     whens: settings[`audience.${requested.thing}`].value,
                     releases: facts.releases,
-                    screenings: facts.screenings,
+                    screenings: facts.screenings.map((row) => ({
+                      ...row,
+                      status: row.status ?? 'pending',
+                    })),
                   },
                   requested,
                 );

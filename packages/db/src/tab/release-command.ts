@@ -102,7 +102,7 @@ const load = async (tx: TabTransaction, input: Input) => {
       .from(fixtures)
       .innerJoin(rounds, eq(rounds.roomId, fixtures.roomId))
       .innerJoin(ballots, eq(ballots.roundId, rounds.id))
-      .innerJoin(ballotScreenings, eq(ballotScreenings.ballotId, ballots.id))
+      .leftJoin(ballotScreenings, eq(ballotScreenings.ballotId, ballots.id))
       .where(
         and(eq(fixtures.eventId, eventId), eq(fixtures.lobbyId, input.lobbyId)),
       ),
