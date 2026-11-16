@@ -94,7 +94,7 @@ const fixtureFacts = (loaded: LoadedDrawCommand): StoredFixture[] =>
         }),
     };
   });
-const descriptor = (
+export const eventFormatDescriptor = (
   definition: ReturnType<typeof formatDefinitionSchema.parse>,
 ): EngineFormat => {
   if (definition.outcome.kind === 'winner' && definition.sides.length === 2)
@@ -183,7 +183,7 @@ export const drawFacts = (
     ),
     event: {
       ...event,
-      format: descriptor(definition),
+      format: eventFormatDescriptor(definition),
       sideNames: definition.sides.length
         ? definition.sides.map((side) => side.key)
         : null,

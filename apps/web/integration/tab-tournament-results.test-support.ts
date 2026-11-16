@@ -1,5 +1,4 @@
 import { isAppError } from '@daisy/errors';
-import { prepareUncapturedTournamentRecording } from './tab-tournament-recording.test-support';
 import { fixtureBallot } from './round-judging.test-support';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -7,7 +6,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
 import { isDebatingSeat, seatOrder } from '@daisy/protocol';
 import { withRoomRuntime } from './room-runtime.test-support';
-import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import { playTournamentRound } from './tab-tournament-round.test-support';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import { resultCommand } from '../src/features/tab/operations/result-command';
@@ -22,10 +20,6 @@ export async function resultsStage(world: World) {
     );
   const director = world.bots.Director!,
     lobbyId = world.made.get('tournament-lobby')!;
-  await seedHostingGrant(world.sql, director.userId, {
-    tournamentIds: [lobbyId],
-    replaceCurrent: true,
-  });
   const store = createTabStore(world.database);
   const send = resultCommand({
     store,
@@ -65,10 +59,6 @@ export async function resultsStage(world: World) {
         const roundId = started.receipt.roundRef!.id;
         execution.clock = scriptClock(
           Date.parse((await f.store.getRound(roundId))!.launchedAt),
-        );
-        const closeRecording = await prepareUncapturedTournamentRecording(
-          f,
-          roundId,
         );
         const frozen = await playTournamentRound(f, roundId, execution.clock);
         const round = (await f.store.getRound(roundId))!;
@@ -251,7 +241,6 @@ export async function resultsStage(world: World) {
             corrected.receipt.aggregate.id,
           );
         }
-        await closeRecording();
       }
     },
     {

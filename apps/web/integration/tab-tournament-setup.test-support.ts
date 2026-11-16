@@ -191,6 +191,27 @@ export const setupStage = async (world: World): Promise<void> => {
     actual: follow.kind,
     expected: 'accepted',
   });
+  const [lobbySettings] =
+    await world.sql`select settings_version from lobbies where id=${lobbyId}`;
+  const recording = await settings(as(director), {
+    version: 1,
+    commandId: createId(),
+    expected: { settings: Number(lobbySettings!.settings_version) },
+    command: {
+      type: 'set-setting',
+      scope: { kind: 'lobby', id: lobbyId },
+      key: 'recording.capture',
+      value: { value: 'off' },
+      hold: 'default',
+    },
+  });
+  assert({
+    given: 'the fast tournament configured through its actual settings command',
+    should:
+      'keep recording off independently of the separate recorded event proof',
+    actual: recording.kind,
+    expected: 'accepted',
+  });
   const view = await readTournamentSetup({
     store,
     authorize,

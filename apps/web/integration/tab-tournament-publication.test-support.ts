@@ -74,7 +74,7 @@ export const publishDrawStage = async (world: World): Promise<void> => {
     given:
       'published event Rooms reloaded with their actual fixture provenance and seated people',
     should:
-      'remain in the tournament, pin actual wording/format/private recording, preserve no-host identity and avoid invented Ready',
+      'remain in the tournament, pin actual wording/format/recording off, preserve no-host identity and avoid invented Ready',
     actual: [
       rooms.length,
       rooms.every(
@@ -85,7 +85,7 @@ export const publishDrawStage = async (world: World): Promise<void> => {
           row.topic === 'Public libraries should receive more funding.' &&
           row.format_id === 'freestyle' &&
           Number(row.format_version) === 1 &&
-          row.capture?.recordingPolicy === 'officials',
+          row.capture?.recordingPolicy === 'off',
       ),
       seats.length,
       seats.every((row) => row.readiness_command_id === null),

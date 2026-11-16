@@ -1,3 +1,5 @@
+import { createEventCompetitionStore } from './event-competition';
+export type { EventCompetitionFacts } from './event-competition';
 import { createConflictWaiverRequestStore } from './conflict-waiver-request';
 export type { LoadedConflictWaiverRequest } from './conflict-waiver-request';
 import { createConfirmationCommandStore } from './confirmation-command';
@@ -183,6 +185,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createGuardianCommandStore(database),
   ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),
+  ...createEventCompetitionStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),
   ...createSetupCommandStore(database),

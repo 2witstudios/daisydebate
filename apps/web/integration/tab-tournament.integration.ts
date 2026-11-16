@@ -1,4 +1,5 @@
 import { resultsStage } from './tab-tournament-results.test-support';
+import { standingsStage } from './tab-tournament-standings.test-support';
 import { officiatingStage } from './tab-tournament-officiating.test-support';
 import { publishDrawStage } from './tab-tournament-publication.test-support';
 import { draftDrawStage } from './tab-tournament-draw-draft.test-support';
@@ -84,7 +85,10 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'standings, break, bracket and certification',
-    run: unwired('standings'),
+    run: async (world) => {
+      await standingsStage(world);
+      await unwired('break')(world);
+    },
   },
   {
     name: 'sanction and season standings',
