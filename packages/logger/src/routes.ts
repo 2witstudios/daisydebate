@@ -278,6 +278,7 @@ const appRoutes = [
   '/host/leagues/[slug]',
   '/host/leagues/[slug]/people',
   '/host/tournaments/[slug]',
+  '/host/tournaments/[slug]/ballots',
   '/host/tournaments/[slug]/entries',
   '/host/tournaments/[slug]/events',
   '/host/tournaments/[slug]/events/[event]/ballot',
