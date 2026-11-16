@@ -3,7 +3,12 @@ import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
 import { drawCommand } from '../src/features/tab/operations/draw-command';
-import { firstDrawCompetition } from './tab-tournament-draw-draft.test-support';
+import {
+  drawHttp,
+  acceptedDrawResponse,
+} from './tab-tournament-draw-draft.test-support';
+import { drawCompetition } from '../src/features/tab/operations/draw-competition';
+import { origin } from '../src/server/member-boundary.test-support';
 import {
   as,
   deniedAsNotFound,
@@ -20,7 +25,7 @@ export const publishDrawStage = async (world: World): Promise<void> => {
     authorize,
     now: world.clock.now,
     newId: createId,
-    competition: firstDrawCompetition,
+    competition: drawCompetition,
   });
   const [slot] =
     await sql`select version from time_slots where id=${world.made.get('time-slot')!}`;
@@ -39,7 +44,18 @@ export const publishDrawStage = async (world: World): Promise<void> => {
   const nonHostDenied = await deniedAsNotFound(() =>
     send(as(world.bots.Coach!), lobbyId, envelope),
   );
-  const answer = await send(as(world.bots.Director!), lobbyId, envelope);
+  const publicationRequest = () =>
+    new Request(
+      `${origin}/api/tab/draw-command?${new URLSearchParams({ lobbyId })}`,
+      {
+        method: 'POST',
+        headers: { origin, 'content-type': 'application/json' },
+        body: JSON.stringify(envelope),
+      },
+    );
+  const answer = await acceptedDrawResponse(
+    await drawHttp(world)(publicationRequest()),
+  );
   assert({
     given:
       'the actual computed first draft with matching pinned one-judge panels',
@@ -53,7 +69,9 @@ export const publishDrawStage = async (world: World): Promise<void> => {
     actual: nonHostDenied,
     expected: true,
   });
-  const replay = await send(as(world.bots.Director!), lobbyId, envelope);
+  const replay = await acceptedDrawResponse(
+    await drawHttp(world)(publicationRequest()),
+  );
   const rooms = await sql<
     {
       host_actor_id: string | null;

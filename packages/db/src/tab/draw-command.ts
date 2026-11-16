@@ -1,3 +1,4 @@
+import { loadLobbyAuthority } from './lobby-authority';
 import { createAppError } from '@daisy/errors';
 import type {
   ActionHistoryEntry,
@@ -17,6 +18,7 @@ import {
 import { applyDrawWrites, type DrawRoomAssembly } from './draw-writes';
 import type { DrawWrite } from './draw-write';
 export type DrawCommandSession = {
+  readonly lobbyAuthority: () => ReturnType<typeof loadLobbyAuthority>;
   readonly load: () => Promise<LoadedDrawCommand | null>;
   readonly stored: (id: string) => Promise<StoredTabCommand | null>;
   readonly apply: (
@@ -34,6 +36,11 @@ export const createDrawCommandStore = (database: TabDatabase) => ({
     database.transaction(async (tx) => {
       let loaded: LoadedDrawCommand | null = null;
       return work({
+        lobbyAuthority: () =>
+          loadLobbyAuthority(tx, {
+            viewerUserId: input.senderUserId,
+            lobbyId: input.lobbyId,
+          }),
         load: async () => {
           loaded = await loadDrawCommandFacts(tx, input);
           return loaded;

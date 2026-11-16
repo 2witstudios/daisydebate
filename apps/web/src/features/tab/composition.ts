@@ -1,3 +1,4 @@
+import { createDrawCommandRoute } from './draw-command-route';
 import { readHostResults } from './reads/host-results';
 import {
   createHostResultsRoute,
@@ -110,6 +111,8 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    drawCommand: (released: TabCommandRouteDependencies['released']) =>
+      createDrawCommandRoute({ ...common, boundary, released }),
     hostResults: (released: HostResultsRouteDependencies['released']) =>
       createHostResultsRoute({
         boundary,

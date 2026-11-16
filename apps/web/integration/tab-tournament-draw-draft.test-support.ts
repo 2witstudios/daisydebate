@@ -1,3 +1,10 @@
+import { createDrawCommandRoute } from '../src/features/tab/draw-command-route';
+import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
+import { z } from 'zod';
+import { member, origin } from '../src/server/member-boundary.test-support';
+import { silentLogger } from '../src/server/test-loggers.test-support';
+import { noopErrorReporter } from '@daisy/observability';
+import { organizationCommand } from '../src/features/tab/operations/organization';
 import { drawCompetition } from '../src/features/tab/operations/draw-competition';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import type { DrawCompetition } from '../src/features/tab/operations/draw-facts';
@@ -10,6 +17,7 @@ import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-r
 import {
   as,
   deniedAsNotFound,
+  presetStaffRoleId,
 } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
@@ -32,6 +40,47 @@ export const firstDrawCompetition = (
     feederResultsComplete: true,
     breakResultIds: [],
   };
+};
+
+/** The production Draw boundary/operation, with the test's genuinely authenticated actor. */
+export const drawHttp = (world: World, released = true) =>
+  createDrawCommandRoute({
+    store: createTabStore(world.database),
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+    boundary: {
+      logger: silentLogger,
+      reporter: noopErrorReporter,
+      origin: () => origin,
+      identify: async () => ({
+        ...member,
+        principal: {
+          ...as(world.bots.Director!),
+          actorId: world.bots.Director!.actorId,
+        },
+      }),
+    },
+    released: async () => released,
+  });
+export const drawRequest = (lobbyId: string, envelope: unknown) =>
+  new Request(
+    `${origin}/api/tab/draw-command?${new URLSearchParams({ lobbyId })}`,
+    {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify(envelope),
+    },
+  );
+export const acceptedDrawResponse = async (response: Response) => {
+  if (response.status !== 200)
+    throw new Error(`Draw HTTP status ${response.status}`);
+  return z
+    .strictObject({
+      kind: z.literal('accepted'),
+      receipt: lobbyCommandReceiptSchema,
+    })
+    .parse(await response.json());
 };
 
 export const draftDrawStage = async (world: World): Promise<void> => {
@@ -97,7 +146,29 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     ],
     expected: [{ kind: 'refused', refusal: 'version-conflict' }, true, 0],
   });
-  const generated = await send(as(world.bots.Director!), lobbyId, generate);
+  const closed = await drawHttp(world, false)(drawRequest(lobbyId, generate));
+  assert({
+    given: 'the genuine generate form while Tab release is closed',
+    should: 'refuse without writing a draft',
+    actual: [
+      closed.status,
+      (await sql`select id from draws where tab_round_id=${roundId}`).length,
+    ],
+    expected: [404, 0],
+  });
+  const generationResponse = await drawHttp(world)(
+    drawRequest(lobbyId, generate),
+  );
+  const generated = await acceptedDrawResponse(generationResponse);
+  assert({
+    given: 'the real current owner at the production Draw HTTP boundary',
+    should: 'generate the genuine draft with no-store response policy',
+    actual: [
+      generationResponse.status,
+      generationResponse.headers.get('cache-control'),
+    ],
+    expected: [200, 'no-store'],
+  });
   assert({
     given: 'the real owner and accepted entries',
     should: 'persist a computed draft and replay its exact receipt',
@@ -233,14 +304,36 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     expected: { draw: 2 },
     command: { type: 'discard-draft', drawId: edited.receipt.aggregate.id },
   };
-  const discarded = await send(as(world.bots.Director!), lobbyId, discard);
+  const manage = organizationCommand({
+    store,
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  });
+  const [lobbyGuard] =
+    await sql`select version from lobbies where id=${lobbyId}`;
+  const grant = await manage(as(world.bots.Director!), {
+    version: 1,
+    commandId: createId(),
+    expected: { lobby: Number(lobbyGuard!.version) },
+    command: {
+      type: 'give-grant',
+      scope: { kind: 'lobby', lobbyId },
+      userId: world.bots.Coach!.userId,
+      roleId: presetStaffRoleId,
+      expiresAt: null,
+    },
+  });
+  if (grant.kind !== 'accepted')
+    throw new Error(`Draft replay grant: ${JSON.stringify(grant)}`);
+  const discarded = await send(as(world.bots.Coach!), lobbyId, discard);
   assert({
     given: 'an edited draft discarded and then retried after its row is gone',
     should:
       'remove only its orphan fixture and replay the original journal receipt',
     actual: [
       discarded.kind,
-      await send(as(world.bots.Director!), lobbyId, discard),
+      await send(as(world.bots.Coach!), lobbyId, discard),
       (await sql`select * from draws where tab_round_id=${roundId}`).length,
       (await sql`select * from fixtures where tab_round_id=${roundId}`).length,
     ],
@@ -255,6 +348,31 @@ export const draftDrawStage = async (world: World): Promise<void> => {
       1,
       2,
     ],
+  });
+  const [actualGrant] =
+    await sql`select id from grants where lobby_id=${lobbyId} and user_id=${world.bots.Coach!.userId} and role_id=${presetStaffRoleId} and revoked_at is null`;
+  const [revokeGuard] =
+    await sql`select version from lobbies where id=${lobbyId}`;
+  const revoked = await manage(as(world.bots.Director!), {
+    version: 1,
+    commandId: createId(),
+    expected: { lobby: Number(revokeGuard!.version) },
+    command: {
+      type: 'remove-grant',
+      scope: { kind: 'lobby', lobbyId },
+      grantId: String(actualGrant!.id),
+    },
+  });
+  if (revoked.kind !== 'accepted')
+    throw new Error(`Draft replay revocation: ${JSON.stringify(revoked)}`);
+  assert({
+    given:
+      'the actual discarded draft is gone and the original actor’s only draw grant is revoked',
+    should: 'deny receipt replay using current account and lobby authority',
+    actual: await deniedAsNotFound(() =>
+      send(as(world.bots.Coach!), lobbyId, discard),
+    ),
+    expected: true,
   });
   world.made.set('draw', drawId);
 };

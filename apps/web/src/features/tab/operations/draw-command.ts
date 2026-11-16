@@ -28,7 +28,7 @@ import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import type { TabPrincipal } from '../tab-principal';
 import { commandDigest } from './command-digest';
 import { drawFacts, type DrawCompetition } from './draw-facts';
-import { hostLobbyResource } from './host-lobby-resource';
+import { drawAuthority } from './draw-authority';
 import { tabEngine } from './tab-engine';
 import { eventRoomPins } from './event-room-pins';
 import { eventRoomAssemblies } from './event-room-assembly';
@@ -70,6 +70,20 @@ export const drawCommand =
           const loaded = await session.load();
           const now = dependencies.now();
           if (!loaded) {
+            const current = await session.lobbyAuthority();
+            // Published draws are immutable; an absent draw can only have been an unpublished draft.
+            const definition = drawCommandDefinition(command.type, 'draft');
+            if (
+              !current ||
+              !definition.gate.some(
+                (capability) =>
+                  dependencies.authorize({
+                    ...drawAuthority(current, principal, current.checkedAt),
+                    capability,
+                  }).allow,
+              )
+            )
+              throw new CommandDenied('not-found');
             const replay = commandReplay(
               await session.stored(parsed.data.commandId),
               {
@@ -116,31 +130,16 @@ export const drawCommand =
                 work({
                   stored: session.stored,
                   facts: async () => loaded,
-                  authority: (facts) => {
-                    const lobby = hostLobbyResource(
-                      facts.configuration.lobby,
-                      facts.authorization.organization,
-                      facts.ownerActorId,
-                    );
-                    if (
-                      lobby.kind !== 'lobby' ||
-                      lobby.scope.lobbyKind !== 'tournament'
-                    )
-                      throw new CommandDenied('not-found');
-                    return {
+                  authority: (facts) =>
+                    drawAuthority(
+                      {
+                        lobby: facts.configuration.lobby,
+                        authorization: facts.authorization,
+                        ownerActorId: facts.ownerActorId,
+                      },
                       principal,
-                      resource: {
-                        kind: 'draw',
-                        scope: lobby.scope,
-                        viewing: { audiences: [], releases: [] },
-                      },
-                      context: {
-                        account: facts.authorization.account,
-                        grants: facts.authorization.grants,
-                        now,
-                      },
-                    };
-                  },
+                      now,
+                    ),
                   versions: (facts) => ({
                     draw: facts.versions
                       .filter((row) => row.tabRoundId === facts.round.id)

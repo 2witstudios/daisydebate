@@ -159,6 +159,7 @@ const OPERATION_NAMES = [
   'tab.host.results',
   'tab.host.navigation',
   'tab.fixture.command',
+  'tab.draw.command',
   'tab.result.command',
   'tab.release.command',
   'tab.confirmation.command',
