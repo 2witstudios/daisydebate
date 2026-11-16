@@ -64,8 +64,8 @@ export async function readTournamentInbox(
         where n.user_id=${input.userId} and n.notification_lobby_id=${lobby.id}
         and coalesce((select enabled from notification_preferences p where p.user_id=n.user_id and p.kind=n.kind and p.channel='in_app'),true)
         and (
-          (n.kind='judge_assigned' and ${judge})
-          or (n.kind in ('judge_replaced','judge_unassigned') and ${removedJudge})
+          (n.kind='judge_assigned' and f.status='published' and ${judge})
+          or (n.kind in ('judge_replaced','judge_unassigned') and f.status='published' and ${removedJudge})
           or (n.kind='tournament_draw_changed' and (${competitor} or ${judge}) and ${released('posting')})
           or (n.kind='tournament_room_ready' and f.status='published' and ro.status='ready' and (${competitor} or ${judge}))
           or (n.kind='tournament_results_released' and f.status='published' and (${competitor} or ${judge}) and ${released('decision')})

@@ -26,7 +26,10 @@ import { createBots, scriptClock } from './tab-tournament.test-support';
 import { readNotificationItems } from '../src/features/notifications/read-notifications';
 import { withTournamentNotificationReader } from './tab-tournament-notifications.test-support';
 import { notificationsStage } from './tab-tournament-notifications.test-support';
-import { proveTournamentNotificationChanges } from './tab-notification-changes.test-support';
+import {
+  proveDraftJudgeChangesStaySilent,
+  proveTournamentNotificationChanges,
+} from './tab-notification-changes.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 for (const immediate of [false, true])
@@ -133,6 +136,20 @@ for (const immediate of [false, true])
             });
           });
         }
+        if (stage === draftDrawStage || stage === publishDrawStage) {
+          const judged =
+            await owner`select n.user_id,count(*)::int n from notifications n where n.notification_lobby_id=${world.made.get('tournament-lobby')!} and n.kind in ('judge_assigned','judge_replaced','judge_unassigned') group by n.user_id`;
+          assert({
+            given: 'judges placed on a draft draw, then the draw published',
+            should:
+              'tell no judge about the draft and each placed judge exactly once on publication',
+            actual:
+              stage === draftDrawStage
+                ? judged.length
+                : judged.length > 0 && judged.every((row) => row.n === 1),
+            expected: stage === draftDrawStage ? 0 : true,
+          });
+        }
         if (stage === publishDrawStage || stage === resultsStage) {
           const [count] =
             await owner`select count(*)::int n from notifications where notification_lobby_id=${world.made.get('tournament-lobby')!} and kind='tournament_results_released'`;
@@ -151,3 +168,46 @@ for (const immediate of [false, true])
       await scratch.drop();
     }
   }, 90_000);
+
+test('judge changes on a draft draw notify nobody', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'tabdraftnotices');
+  await scratch.create();
+  const owner = new SQL(scratch.url, { max: 4 });
+  try {
+    await scratch.migrate(() => true);
+    const bots = await createBots(owner, [
+      'Director',
+      'Staff',
+      'Coach',
+      'Judge A',
+      'Judge B',
+      'Judge C',
+      'Debater 1',
+      'Debater 2',
+      'Debater 3',
+      'Debater 4',
+    ]);
+    const world = {
+      database: committingRuntimeTestDatabase(owner),
+      sql: owner,
+      runtimeDatabaseUrl: scratch.url,
+      clock: scriptClock(Date.now() - 60 * 60_000),
+      bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
+      made: new Map<string, string>(),
+    };
+    for (const stage of [
+      organizationStage,
+      leagueAdministrationStage,
+      leagueConfigurationStage,
+      setupStage,
+      entryEnrollmentStage,
+      judgeRegistrationStage,
+      draftDrawStage,
+    ])
+      await stage(world);
+    await proveDraftJudgeChangesStaySilent(world);
+  } finally {
+    await owner.close();
+    await scratch.drop();
+  }
+}, 60_000);

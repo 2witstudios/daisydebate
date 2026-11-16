@@ -27,6 +27,8 @@ export async function notifyFixtureChanges(
     at: loaded.checkedAt,
     newId,
   };
+  // A draft draw is not yet anyone's news: publishing it tells its people.
+  if (fixture.status !== 'published') return;
   for (const write of writes) {
     if (write.table !== 'fixture_judges' || write.op === 'update') continue;
     const judgeId =
@@ -51,7 +53,6 @@ export async function notifyFixtureChanges(
     });
   }
   if (
-    fixture.status === 'published' &&
     writes.some(
       (write) => write.table === 'fixture_judges' || write.table === 'rooms',
     )

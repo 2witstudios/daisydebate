@@ -190,3 +190,57 @@ export async function proveTournamentNotificationChanges(
     });
   });
 }
+
+/** Judge changes on a draft draw tell nobody: publication is the one notice. */
+export async function proveDraftJudgeChangesStaySilent(
+  world: World,
+): Promise<void> {
+  const send = fixtureCommand({
+    store: createTabStore(world.database),
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  });
+  const lobbyId = world.made.get('tournament-lobby')!;
+  const [fixture] = await world.sql<
+    { id: string; version: number; status: string; judge: string }[]
+  >`select f.id,f.version,f.status,fj.tournament_judge_id judge from fixtures f
+    join fixture_judges fj on fj.fixture_id=f.id
+    where f.tab_round_id=${world.made.get('tab-round')!} order by f.id limit 1`;
+  if (!fixture || fixture.status === 'published')
+    throw new Error('A draft fixture with a judge is missing');
+  const removed = await send(as(world.bots.Director!), lobbyId, {
+    version: 1,
+    commandId: createId(),
+    expected: { fixture: Number(fixture.version) },
+    command: {
+      type: 'unassign-judge',
+      fixtureId: fixture.id,
+      judgeId: fixture.judge,
+    },
+  });
+  if (removed.kind !== 'accepted')
+    throw new Error(`draft unassignment refused: ${JSON.stringify(removed)}`);
+  const restored = await send(as(world.bots.Director!), lobbyId, {
+    version: 1,
+    commandId: createId(),
+    expected: { fixture: removed.receipt.resultingVersion },
+    command: {
+      type: 'assign-judge',
+      fixtureId: fixture.id,
+      judgeId: fixture.judge,
+      chair: false,
+      overrides: [],
+    },
+  });
+  if (restored.kind !== 'accepted')
+    throw new Error(`draft assignment refused: ${JSON.stringify(restored)}`);
+  const [notices] =
+    await world.sql`select count(*)::int n from notifications where notification_lobby_id=${lobbyId} and kind in ('judge_assigned','judge_replaced','judge_unassigned','tournament_draw_changed','tournament_room_ready')`;
+  assert({
+    given: 'a judge unassigned and assigned again on an unpublished draw',
+    should: 'tell nobody before the draw is published',
+    actual: notices!.n,
+    expected: 0,
+  });
+}
