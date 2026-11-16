@@ -1,3 +1,9 @@
+import { fixtureCommand } from './operations/fixture-command';
+import { resultCommand } from './operations/result-command';
+import { releaseCommand } from './operations/release-command';
+import { settlePendingCommand } from './operations/confirmation-command';
+import { requestConflictWaiver } from './operations/conflict-waiver-request';
+import { confirmationCommandEnvelopeSchema } from '@daisy/protocol/lobby/confirmation-command';
 import { readHostStandings } from './reads/host-standings';
 import {
   createHostStandingsRoute,
@@ -72,6 +78,11 @@ export function composeTabRoutes(app: App) {
   const administration = lobbyAdministrationCommand(common);
   const setup = setupCommand(common);
   const settings = settingCommand(common);
+  const fixtures = fixtureCommand(common);
+  const results = resultCommand(common);
+  const releases = releaseCommand(common);
+  const confirmations = settlePendingCommand(common);
+  const waivers = requestConflictWaiver(common);
   const entries = entryEnrollmentCommand(common);
   // Counsel has not activated minors; cleanup exits are still decided by the operation.
   const judges = judgeRegistrationCommand({
@@ -84,6 +95,36 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    fixtureCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.fixture.command',
+        address: 'lobby',
+        execute: fixtures,
+      }),
+    resultCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.result.command',
+        address: 'lobby',
+        execute: results,
+      }),
+    releaseCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.release.command',
+        address: 'lobby',
+        execute: releases,
+      }),
+    confirmationCommand: (released: TabCommandRouteDependencies['released']) =>
+      commandRoute(released, {
+        name: 'tab.confirmation.command',
+        address: 'lobby',
+        execute: (principal, lobbyId, body) => {
+          const parsed = confirmationCommandEnvelopeSchema.safeParse(body);
+          if (!parsed.success) throw createAppError('VALIDATION');
+          return parsed.data.command.type === 'request-conflict-waiver'
+            ? waivers(principal, lobbyId, body)
+            : confirmations(principal, lobbyId, body);
+        },
+      }),
     hostStandings: (released: HostStandingsRouteDependencies['released']) =>
       createHostStandingsRoute({
         boundary,
