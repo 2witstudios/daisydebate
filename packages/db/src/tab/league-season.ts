@@ -21,6 +21,7 @@ type Input = {
   readonly viewerUserId: string;
   readonly organizationId: string;
   readonly seasonId?: string;
+  readonly lobbyId?: string;
 };
 async function load(tx: TabTransaction, input: Input) {
   const scope = await fenceOrganizationRead(tx, input);
@@ -66,10 +67,12 @@ async function load(tx: TabTransaction, input: Input) {
       and(
         eq(lobbies.ownerOrganizationId, organization.id),
         eq(lobbies.kind, 'standing'),
+        ...(input.lobbyId !== undefined ? [eq(lobbies.id, input.lobbyId)] : []),
       ),
     )
     .orderBy(lobbies.id)
     .limit(1);
+  if (input.lobbyId !== undefined && !standingLobby) return null;
   const templateSettings = await tx
     .select()
     .from(settings)

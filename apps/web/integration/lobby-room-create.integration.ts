@@ -1,3 +1,4 @@
+import { selectedLobbyCases } from './league-selected-lobby.test-support';
 import { nativeRoomCases } from './lobby-room-create-cases.test-support';
 import { settingCommand } from '../src/features/tab/operations/settings';
 import { createLobbyCommandRoute } from '../src/features/tab/lobby-command-route';
@@ -220,6 +221,7 @@ test('a member creates a standing lobby Room through its Tab command', async () 
     const validated = lobbySetupCommandEnvelopeSchema.parse(body);
     if (validated.command.type !== 'create-lobby-room')
       throw new Error('create payload missing');
+    await selectedLobbyCases(world);
     await nativeRoomCases(
       world,
       validated.command,

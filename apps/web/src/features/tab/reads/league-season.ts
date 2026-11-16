@@ -176,6 +176,7 @@ export const readLeagueSeason =
     principal: TabPrincipal,
     input: {
       readonly organizationId: string;
+      readonly lobbyId?: string;
       readonly seasonId?: string;
       readonly templateId?: string;
     },
