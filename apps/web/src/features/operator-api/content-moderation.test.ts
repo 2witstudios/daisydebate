@@ -1,3 +1,4 @@
+import { PROFILE_PHOTO_RENDITION_MAX_BYTES } from '@daisy/protocol/public-profile';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorize } from '@daisy/auth/authorization';
 import type {
@@ -416,7 +417,7 @@ describe('operator profile moderation (ADR 0143)', () => {
           version: 2,
           imageWebpBase64: Buffer.from(photoBytes).toString('base64'),
         },
-        [[`profile-photos/${id}/512.webp`, 750_000]],
+        [[`profile-photos/${id}/512.webp`, PROFILE_PHOTO_RENDITION_MAX_BYTES]],
       ],
     });
   });
@@ -426,7 +427,7 @@ describe('operator profile moderation (ADR 0143)', () => {
     const missing = withStore({}, photoStore().objects);
     const oversized = withStore(
       { readOperatorProfilePhoto: livePhoto },
-      photoStore(new Uint8Array(750_001)).objects,
+      photoStore(new Uint8Array(PROFILE_PHOTO_RENDITION_MAX_BYTES + 1)).objects,
     );
     const read = () =>
       signed({ method: 'GET', path: `/operator/v1/profile-photos/${id}` });

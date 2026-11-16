@@ -26,6 +26,7 @@ import {
   type ContentReportsPage,
 } from '@daisy/protocol/content-moderation';
 import { operatorLimits } from '@daisy/protocol/operator';
+import { PROFILE_PHOTO_RENDITION_MAX_BYTES } from '@daisy/protocol/public-profile';
 import type { ProfilePhotoStatus } from '@daisy/protocol/public-profile';
 import type { z } from 'zod';
 import { photoObjectKey } from '../profile/photo/object-keys';
@@ -435,10 +436,11 @@ async function listPhotoReviews(
 }
 
 /**
- * The largest 512px rendition an operator read carries: its base64 text
- * stays within the response schema's bound (4/3 of the bytes).
+ * The largest 512px rendition an operator read carries: the stored bound, so
+ * anything intake stored an operator can read, and its base64 (4/3 of the
+ * bytes) stays within the response schema's bound.
  */
-const OPERATOR_PHOTO_MAX_BYTES = 750_000;
+const OPERATOR_PHOTO_MAX_BYTES = PROFILE_PHOTO_RENDITION_MAX_BYTES;
 
 /** A live photo's 512px rendition, for an operator to look at (ADR 0143). */
 async function readPhoto(

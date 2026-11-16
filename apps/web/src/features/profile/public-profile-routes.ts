@@ -7,6 +7,7 @@ import {
   isProfilePhotoVisible,
   ownPublicProfileSchema,
   PROFILE_PHOTO_MAX_BYTES,
+  PROFILE_PHOTO_RENDITION_MAX_BYTES,
   profilePhotoRefusals,
   profilePhotoSizeSchema,
   profilePhotoUploadResultSchema,
@@ -30,6 +31,7 @@ import {
   runEvaluatedRoute,
 } from '../../server/member-boundary';
 import { consumeOrThrow } from '../../server/rate-limit';
+import { CLIENT_ID_HASH_HEADER } from '../auth/abuse/client-ip';
 import { intakeProfilePhoto, PHOTO_UPLOAD_RULE } from './photo/intake';
 import { photoObjectKey } from './photo/object-keys';
 import { isTextWithdrawal } from './text-withdrawal';
@@ -38,8 +40,13 @@ import { isTextWithdrawal } from './text-withdrawal';
 const TEXT_RULE = { windowSeconds: 60, max: 20 } as const;
 /** Photo clears per member per minute. */
 const WITHDRAW_RULE = { windowSeconds: 60, max: 10 } as const;
-/** A stored rendition is well under this; anything larger is not ours. */
-const RENDITION_MAX_BYTES = 1_000_000;
+/**
+ * The public image route's budgets, before any database or storage read: a
+ * list page shows dozens of avatars, so one client gets plenty, and the
+ * global bound caps what anyone can cost in reads and egress.
+ */
+const IMAGE_CLIENT_RULE = { windowSeconds: 60, max: 600 } as const;
+const IMAGE_GLOBAL_RULE = { windowSeconds: 60, max: 30_000 } as const;
 /** How long a viewer may keep a published photo: the moderation delivery bound (ADR 0143). */
 const PHOTO_CACHE_SECONDS = Math.floor(
   CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000,
@@ -153,10 +160,6 @@ export function composePublicProfileRoutes(app: App) {
               : createAppError('VALIDATION');
           }
           const edit = parsed.data;
-          const current = await app.database.readOwnPublicProfile(
-            scope,
-            own(principal, 'profile.public.read'),
-          );
           return viewOf(
             await app.database.writePublicProfileText(
               scope,
@@ -166,12 +169,13 @@ export function composePublicProfileRoutes(app: App) {
                 bio: edit.bio,
                 now: app.clock.now(),
               },
-              own(
-                principal,
-                isTextWithdrawal(current, edit)
-                  ? 'profile.public.withdraw'
-                  : 'profile.public.update',
-              ),
+              (current) =>
+                own(
+                  principal,
+                  isTextWithdrawal(current, edit)
+                    ? 'profile.public.withdraw'
+                    : 'profile.public.update',
+                ),
             ),
             uploads,
           );
@@ -265,6 +269,17 @@ export function composePublicProfileRoutes(app: App) {
       if (!photoId.success || !size.success)
         return new Response(null, { status: 404 });
       try {
+        const client = request.headers.get(CLIENT_ID_HASH_HEADER) ?? 'unknown';
+        await consumeOrThrow(
+          app.limiter,
+          `profile-photo-image:client:${client}`,
+          IMAGE_CLIENT_RULE,
+        );
+        await consumeOrThrow(
+          app.limiter,
+          'profile-photo-image:global',
+          IMAGE_GLOBAL_RULE,
+        );
         const photo = await app.database.readProfilePhoto(photoId.data);
         if (!photo || !app.profilePhotoObjects)
           return new Response(null, { status: 404 });
@@ -283,7 +298,7 @@ export function composePublicProfileRoutes(app: App) {
           });
         const bytes = await app.profilePhotoObjects.read(
           photoObjectKey(photo.objectPrefix, size.data),
-          RENDITION_MAX_BYTES,
+          PROFILE_PHOTO_RENDITION_MAX_BYTES,
         );
         return new Response(bytes, {
           headers: {
@@ -295,7 +310,12 @@ export function composePublicProfileRoutes(app: App) {
             'content-disposition': 'inline',
           },
         });
-      } catch {
+      } catch (error) {
+        if (isAppError(error) && error.code === 'RATE_LIMIT')
+          return new Response(null, {
+            status: 429,
+            headers: { 'cache-control': 'no-store', 'retry-after': '60' },
+          });
         app.logger.log(
           'profile.photo.image.failed',
           {},

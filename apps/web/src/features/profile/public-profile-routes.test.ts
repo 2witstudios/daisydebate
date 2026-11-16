@@ -34,6 +34,8 @@ function appFor(world: World = {}) {
     ageBand: 'adult',
     restricted: world.restricted ?? false,
   } as AccountAuthorizationFact;
+  /** The member's text as the database holds it. */
+  const stored = { displayName: 'Ada', bio: 'Policy' };
   const empty: OwnPublicProfile = {
     profileId: null,
     displayName: null,
@@ -94,20 +96,25 @@ function appFor(world: World = {}) {
       }),
     }),
     database: {
-      readOwnPublicProfile: fenced('readOwn', () => ({
-        ...empty,
-        displayName: 'Ada',
-        bio: 'Policy',
-      })),
-      writePublicProfileText: fenced(
-        'writeText',
-        (input: { displayName: string | null; bio: string | null }) => ({
+      readOwnPublicProfile: fenced('readOwn', () => ({ ...empty, ...stored })),
+      writePublicProfileText: async (
+        scope: { actorId: string },
+        input: { displayName: string | null; bio: string | null },
+        fenceFor: (current: {
+          displayName: string | null;
+          bio: string | null;
+        }) => Fence,
+      ) => {
+        // The fence is chosen from the text as the write's transaction reads it.
+        await fenceFor(stored)({ tx: null, scope, account });
+        calls.push('writeText');
+        return {
           ...empty,
           profileId: 'p'.repeat(24),
           displayName: input.displayName,
           bio: input.bio,
-        }),
-      ),
+        };
+      },
       withdrawProfilePhotos: fenced('withdraw', () => empty),
       recordProfilePhoto: fenced('record', () => empty),
     },
@@ -169,10 +176,7 @@ test('text: a member sets it; a restricted member may only clear it', async () =
       refused: 403,
       cleared: 200,
       clearedBio: 200,
-      writes: [
-        ['readOwn', 'writeText'],
-        ['readOwn', 'readOwn', 'writeText', 'readOwn', 'writeText'],
-      ],
+      writes: [['writeText'], ['writeText', 'writeText']],
     },
   });
 });

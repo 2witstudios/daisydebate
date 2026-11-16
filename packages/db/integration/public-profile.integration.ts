@@ -16,6 +16,8 @@ const { databaseUrl } = requireTestServices(process.env);
 const unfenced = async () => {};
 const head = 'c'.repeat(64);
 const now = '2026-11-16T10:00:00.000Z';
+/** After any resolution a test makes: the database clock is today. */
+const later = '2099-01-01T00:00:00.000Z';
 
 type Context = {
   readonly f: Fixture;
@@ -114,17 +116,17 @@ test('text: write, edit, clear; the profile id lasts', async () => {
     const written = await context.profiles.writePublicProfileText(
       context.member,
       { profileId, displayName: 'Ada', bio: 'Policy debater', now },
-      unfenced,
+      () => unfenced,
     );
     const again = await context.profiles.writePublicProfileText(
       context.member,
       { profileId: createId(), displayName: 'Ada L', bio: null, now },
-      unfenced,
+      () => unfenced,
     );
     const cleared = await context.profiles.writePublicProfileText(
       context.member,
       { profileId: createId(), displayName: null, bio: null, now },
-      unfenced,
+      () => unfenced,
     );
     const [{ rows }] = await context.client`select count(*)::int as rows
       from member_profiles where actor_id=${context.member.actorId}`;
@@ -285,7 +287,7 @@ test('moderation: a text field is cleared and the report sees it gone', async ()
     const written = await context.profiles.writePublicProfileText(
       context.member,
       { profileId: createId(), displayName: 'Imposter', bio: 'Hello', now },
-      unfenced,
+      () => unfenced,
     );
     const profileId = written.profileId!;
     const reporter = await createAuthorizationSubject(context.f);
@@ -344,7 +346,7 @@ test('erasure ends every photo and the sweep owes their images', async () => {
     await context.profiles.writePublicProfileText(
       context.member,
       { profileId: createId(), displayName: 'Ada', bio: null, now },
-      unfenced,
+      () => unfenced,
     );
     const live = await record(context, 'published');
     const review = await record(context, 'in_review');
@@ -399,7 +401,7 @@ test('cards: one statement for many members, published photo only', async () => 
     await context.profiles.writePublicProfileText(
       context.member,
       { profileId: createId(), displayName: 'Ada', bio: null, now },
-      unfenced,
+      () => unfenced,
     );
     await record(context, 'in_review');
     const other = await createAuthorizationSubject(context.f);
@@ -420,12 +422,12 @@ test('cards: one statement for many members, published photo only', async () => 
   });
 });
 
-test('a repeat report of profile text reopens a resolved one', async () => {
+test('a repeat report of profile text reopens a resolved one once the text changed', async () => {
   await withProfiles(async (context) => {
     const written = await context.profiles.writePublicProfileText(
       context.member,
       { profileId: createId(), displayName: 'Fine', bio: null, now },
-      unfenced,
+      () => unfenced,
     );
     const reporter = await createAuthorizationSubject(context.f);
     const report = (reason: 'spam' | 'impersonation') =>
@@ -460,16 +462,29 @@ test('a repeat report of profile text reopens a resolved one', async () => {
       );
       const dismissed = await state();
       await report('impersonation');
+      const unchanged = await state();
+      await context.profiles.writePublicProfileText(
+        context.member,
+        {
+          profileId: createId(),
+          displayName: 'Imposter',
+          bio: null,
+          now: later,
+        },
+        () => unfenced,
+      );
+      await report('impersonation');
       const reopened = await state();
       await report('spam');
       assert({
         given:
-          'a dismissed report of a display name, a new report of it by the same reporter, then a third while open',
+          'a dismissed report of a display name, the same report again with the name unchanged, after the name changed, and once more while open',
         should:
-          'reopen the one report with the new reason, and leave an open one as it is',
-        actual: { dismissed, reopened, open: await state() },
+          'keep it dismissed while nothing changed, reopen it with the new reason once the name changed, and leave an open one as it is',
+        actual: { dismissed, unchanged, reopened, open: await state() },
         expected: {
           dismissed: [['dismissed', 'spam']],
+          unchanged: [['dismissed', 'spam']],
           reopened: [['open', 'impersonation']],
           open: [['open', 'impersonation']],
         },
@@ -477,5 +492,65 @@ test('a repeat report of profile text reopens a resolved one', async () => {
     } finally {
       await context.client`delete from content_reports where reporter_user_id = ${reporter.userId}`;
     }
+  });
+});
+
+test('the withdraw decision reads the text inside the write, after an operator removal', async () => {
+  await withProfiles(async (context) => {
+    const written = await context.profiles.writePublicProfileText(
+      context.member,
+      { profileId: createId(), displayName: 'Removed', bio: null, now },
+      () => unfenced,
+    );
+    await context.moderation.runModerationCommand(
+      command({
+        action: 'profile_text.remove',
+        profileId: written.profileId,
+        expectedVersion: 1,
+        field: 'display_name',
+        reason: 'impersonation',
+      }),
+    );
+    const seen: unknown[] = [];
+    await context.profiles.writePublicProfileText(
+      context.member,
+      { profileId: createId(), displayName: 'Removed', bio: null, now },
+      (current) => {
+        seen.push(current);
+        return unfenced;
+      },
+    );
+    assert({
+      given: 'a member resubmitting a name an operator has just removed',
+      should:
+        'choose the fence from the removed state, so resubmitting it is a new name, not a kept one',
+      actual: seen,
+      expected: [{ displayName: null, bio: null }],
+    });
+  });
+});
+
+test('two first uploads at once queue, and the later one replaces the earlier', async () => {
+  await withProfiles(async (context) => {
+    const [first, second] = await Promise.all([
+      record(context, 'published'),
+      record(context, 'published'),
+    ]);
+    const rows = (await statuses(context)) as [string, string, boolean][];
+    assert({
+      given: 'a member with no photo uploading twice at once',
+      should:
+        'record both, leaving exactly one published and the other withdrawn',
+      actual: {
+        ids: rows.map(([id]) => id).sort(),
+        live: rows.filter(([, status]) => status === 'published').length,
+        withdrawn: rows.filter(([, status]) => status === 'withdrawn').length,
+      },
+      expected: {
+        ids: [first.photoId, second.photoId].sort(),
+        live: 1,
+        withdrawn: 1,
+      },
+    });
   });
 });

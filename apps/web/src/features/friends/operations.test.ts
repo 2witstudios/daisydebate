@@ -293,9 +293,9 @@ test('readFriendList', async () => {
   });
   assert({
     given: 'the profile read',
-    should: 'ask once, for every accepted friend in list order',
-    actual: profilesAsked,
-    expected: [[them, e, c, 'g'.repeat(24)]],
+    should: 'ask once, for every accepted friend',
+    actual: profilesAsked.map((ids) => [...ids].sort()),
+    expected: [[them, e, c, 'g'.repeat(24)].sort()],
   });
   profilesAsked.length = 0;
   assert({

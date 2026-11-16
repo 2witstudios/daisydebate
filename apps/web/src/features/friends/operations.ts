@@ -143,6 +143,10 @@ export const friendsOnlineOf = (
 async function friendsWithPresence(
   principal: AuthorizationPrincipal,
   dependencies: FriendReadDependencies,
+  /** The friends' cards, read beside their presence rather than after it. */
+  cards?: (
+    actorIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, PublicProfileCard>>,
 ) {
   const { actorId, userId } = requireMemberActor(principal);
   const rows = await dependencies.list({ userId, actorId });
@@ -152,9 +156,14 @@ async function friendsWithPresence(
   const visible = accepted.filter(
     (row) => row.otherChosen !== 'appearing_offline',
   );
-  const activity = visible.length
-    ? await dependencies.presence(visible.map((row) => row.otherActorId))
-    : new Map<string, PresenceActivity | null>();
+  const [activity, profiles] = await Promise.all([
+    visible.length
+      ? dependencies.presence(visible.map((row) => row.otherActorId))
+      : new Map<string, PresenceActivity | null>(),
+    cards && accepted.length
+      ? cards(accepted.map((row) => row.otherActorId))
+      : new Map<string, PublicProfileCard>(),
+  ]);
   const friends = accepted
     .map((row) => ({
       actorId: row.otherActorId,
@@ -170,7 +179,7 @@ async function friendsWithPresence(
         statusRank[a.presence] - statusRank[b.presence] ||
         a.username.localeCompare(b.username),
     );
-  return { actorId, rows, friends };
+  return { actorId, rows, friends, profiles };
 }
 
 /** The shell badge: friends online or away, with no profile read. */
@@ -188,13 +197,11 @@ export async function readFriendList(
   principal: AuthorizationPrincipal,
   dependencies: FriendListDependencies,
 ): Promise<Omit<FriendList, 'version'>> {
-  const { actorId, rows, friends } = await friendsWithPresence(
+  const { actorId, rows, friends, profiles } = await friendsWithPresence(
     principal,
     dependencies,
+    dependencies.profiles,
   );
-  const profiles = friends.length
-    ? await dependencies.profiles(friends.map((friend) => friend.actorId))
-    : new Map<string, PublicProfileCard>();
   const pending = (incoming: boolean) =>
     rows
       .filter(

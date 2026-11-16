@@ -33,8 +33,14 @@ export const createProfilePhotoBucket = (
       await client.write(key, bytes, { type: 'image/webp' });
     },
     read: async (key, maxBytes) => {
-      const file = client.file(key);
-      const bytes = new Uint8Array(await file.arrayBuffer());
+      // A ranged read of one byte past the bound: an object larger than ours
+      // is refused without downloading it whole.
+      const bytes = new Uint8Array(
+        await client
+          .file(key)
+          .slice(0, maxBytes + 1)
+          .arrayBuffer(),
+      );
       if (bytes.byteLength > maxBytes) throw createAppError('INFRASTRUCTURE');
       return bytes;
     },
@@ -46,7 +52,9 @@ export const createProfilePhotoBucket = (
       });
       return (listed.contents ?? []).map((entry) => ({
         key: entry.key,
-        writtenAt: new Date(entry.lastModified ?? 0).toISOString(),
+        writtenAt: entry.lastModified
+          ? new Date(entry.lastModified).toISOString()
+          : null,
       }));
     },
     removePrefix: async (prefix) => {

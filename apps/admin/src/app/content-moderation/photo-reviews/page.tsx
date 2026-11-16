@@ -63,6 +63,8 @@ export default async function PhotoReviewsPage({
     }),
   );
   const waiting = read.value.items.length - shown.length;
+  // The store lists at most 100, so a full list means there may be more.
+  const atLeast = read.value.items.length >= 100 ? '+' : '';
   return (
     <>
       {nav}
@@ -125,7 +127,7 @@ export default async function PhotoReviewsPage({
       )}
       {waiting > 0 ? (
         <p className="muted">
-          {`${waiting} more waiting; decide these to see them.`}
+          {`${waiting}${atLeast} more waiting; decide these to see them.`}
         </p>
       ) : null}
     </>

@@ -55,8 +55,12 @@ export async function reconcileOrphans(
 ): Promise<{ readonly next: string | null; readonly orphans: number }> {
   const page = await objects.list(cursor, RECONCILE_PAGE);
   const cutoff = new Date(now).getTime() - ORPHAN_AFTER_MS;
+  // An object with no write time counts as fresh: it may be an upload whose
+  // row has not committed yet.
   const aged = page.filter(
-    (object) => new Date(object.writtenAt).getTime() < cutoff,
+    (object) =>
+      object.writtenAt !== null &&
+      new Date(object.writtenAt).getTime() < cutoff,
   );
   const ids = [
     ...new Set(
@@ -96,10 +100,11 @@ export async function sweepPhotoDeletions(
       await store.complete(photo.photoId);
       deleted += 1;
     } catch {
-      await store.defer(
-        photo.photoId,
-        photoDeletionRetryAt(now, photo.attempts),
-      );
+      // A failed defer leaves the row due now, still owed: the next pass
+      // tries it again. It never stops this pass short.
+      await store
+        .defer(photo.photoId, photoDeletionRetryAt(now, photo.attempts))
+        .catch(() => undefined);
       retried += 1;
     }
   }
@@ -129,7 +134,7 @@ export function startPhotoDeletions(input: {
           input.store,
           input.objects,
         );
-        if (!input.objects) return { ...swept, orphans: 0 };
+        if (!input.objects) return swept;
         const reconciled = await reconcileOrphans(
           now,
           cursor,
@@ -137,7 +142,8 @@ export function startPhotoDeletions(input: {
           input.objects,
         );
         cursor = reconciled.next;
-        return { ...swept, orphans: reconciled.orphans };
+        // Orphans deleted count as deleted in the run's log line.
+        return { ...swept, deleted: swept.deleted + reconciled.orphans };
       },
     }),
     timers: input.timers,

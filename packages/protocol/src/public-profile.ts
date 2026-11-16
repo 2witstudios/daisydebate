@@ -172,6 +172,13 @@ export const profilePhotoMimes = [
 ] as const;
 export type ProfilePhotoMime = (typeof profilePhotoMimes)[number];
 
+/**
+ * The largest stored rendition: intake refuses a photo whose 512px WebP is
+ * bigger, and the image route and the operator read take at most this, so
+ * whatever is stored an operator can read (its base64 fits the 1 MB schema).
+ */
+export const PROFILE_PHOTO_RENDITION_MAX_BYTES = 700_000;
+
 /** The upload bound, before any decode. */
 export const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 

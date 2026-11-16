@@ -133,3 +133,60 @@ test('the reconcile deletes aged objects no row names, and walks on', async () =
     },
   });
 });
+
+test('a failed defer never stops the pass', async () => {
+  const fake = fakeStore();
+  const removed: string[] = [];
+  const result = await sweepPhotoDeletions(
+    now,
+    {
+      ...fake.store,
+      defer: async () => {
+        throw new Error('database blip');
+      },
+    },
+    {
+      put: async () => undefined,
+      read: async () => new Uint8Array(),
+      removePrefix: async (prefix) => {
+        if (prefix.includes('1')) throw new Error('storage refused');
+        removed.push(prefix);
+      },
+      list: async () => [],
+    },
+  );
+  assert({
+    given: 'storage refusing the first photo and the defer of it failing too',
+    should: 'still delete the second and report the counts',
+    actual: { result, removed },
+    expected: {
+      result: { deleted: 1, retried: 1, owed: 7 },
+      removed: [photo(2).objectPrefix],
+    },
+  });
+});
+
+test('an object with no write time is never an orphan', async () => {
+  const removed: string[] = [];
+  const result = await reconcileOrphans(
+    now,
+    null,
+    { existing: async () => new Set<string>() },
+    {
+      put: async () => undefined,
+      read: async () => new Uint8Array(),
+      removePrefix: async (prefix) => {
+        removed.push(prefix);
+      },
+      list: async () => [
+        { key: `profile-photos/${'n'.repeat(24)}/512.webp`, writtenAt: null },
+      ],
+    },
+  );
+  assert({
+    given: 'a stored object storage gave no write time, with no row',
+    should: 'treat it as fresh and delete nothing',
+    actual: { result, removed },
+    expected: { result: { next: null, orphans: 0 }, removed: [] },
+  });
+});

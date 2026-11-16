@@ -13,10 +13,14 @@ const bytes = new Uint8Array([82, 73, 70, 70]);
 const appWith = (
   status: ProfilePhotoStatus | null,
   signedInActor: string | null = null,
+  limited = false,
 ) => {
   const reads: string[] = [];
   const app = {
     logger: silentLogger,
+    limiter: {
+      consume: async () => ({ allowed: !limited, retryAfterSeconds: 60 }),
+    },
     reporter: { capture: () => undefined },
     profilePhotoObjects: {
       put: async () => undefined,
@@ -184,5 +188,23 @@ test('a photo in review is its owner’s alone, and never cached', async () => {
       404,
       [],
     ],
+  });
+});
+
+test('the image route has a budget before any read', async () => {
+  const { routes, reads } = appWith('published', null, true);
+  const response = await routes.image(
+    new Request(`http://daisy.test/api/profile-photos/${photoId}/128`),
+    { photoId, size: '128' },
+  );
+  assert({
+    given: 'a client past the image budget',
+    should: 'answer 429, uncached, reading nothing',
+    actual: [
+      response.status,
+      response.headers.get('cache-control'),
+      reads.length,
+    ],
+    expected: [429, 'no-store', 0],
   });
 });

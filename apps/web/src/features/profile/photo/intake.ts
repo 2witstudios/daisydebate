@@ -4,6 +4,7 @@ import type { OwnPublicProfile } from '@daisy/db';
 import { createRefusal, isAppError } from '@daisy/errors';
 import {
   PROFILE_PHOTO_MAX_BYTES,
+  PROFILE_PHOTO_RENDITION_MAX_BYTES,
   profilePhotoMimes,
   profilePhotoSizes,
   type PhotoCheckVerdict,
@@ -21,10 +22,10 @@ import type { PhotoClassifier, ProfilePhotoObjects } from './ports';
 /** Uploads per member per hour, spent before the body is read: a few tries, not a feed. */
 export const PHOTO_UPLOAD_RULE = { windowSeconds: 3_600, max: 6 } as const;
 
-/** The decode bound: 40 megapixels, a few seconds, renditions well under a megabyte. */
+/** The decode bound: 40 megapixels, a few seconds, renditions within the stored bound. */
 export const PHOTO_DECODE_LIMITS: DecodeLimits = {
   maxPixels: 40_000_000,
-  maxBytes: 1_000_000,
+  maxBytes: PROFILE_PHOTO_RENDITION_MAX_BYTES,
   serviceMs: 10_000,
 };
 
@@ -171,11 +172,14 @@ export async function intakeProfilePhoto(
   const objectPrefix = photoObjectPrefix(photoId);
   const status = decision.kind === 'publish' ? 'published' : 'in_review';
   try {
-    for (const size of profilePhotoSizes)
-      await storage.objects.put(
-        photoObjectKey(objectPrefix, size),
-        renditionOf(renditions, size).bytes,
-      );
+    await Promise.all(
+      profilePhotoSizes.map((size) =>
+        storage.objects.put(
+          photoObjectKey(objectPrefix, size),
+          renditionOf(renditions, size).bytes,
+        ),
+      ),
+    );
     const profile = await dependencies.record(scope, {
       photoId,
       objectPrefix,

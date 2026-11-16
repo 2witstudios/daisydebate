@@ -89,11 +89,21 @@ const ownProfile = async (
  * the same rows in the same order, so a member's upload and an operator's
  * decision never wait on each other's rows in a cycle.
  */
-export const lockLivePhotos = (tx: Tx, actorId: string, alsoId?: string) =>
-  tx.execute(sql`select id from profile_photos
+export async function lockLivePhotos(
+  tx: Tx,
+  actorId: string,
+  alsoId?: string,
+) {
+  // The member's photos as a whole first: two first uploads hold no row to
+  // lock, so they queue here instead of racing the one-per-status indexes.
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${actorId}, 71043))`,
+  );
+  await tx.execute(sql`select id from profile_photos
     where actor_id = ${actorId}
       and (ended_at is null ${alsoId ? sql`or id = ${alsoId}` : sql``})
     order by id for update`);
+}
 
 /** Ends live photos: their image is owed deletion from `now`. */
 const endPhotos = (
@@ -144,22 +154,48 @@ export const publicProfileOperations = ({
       readonly bio: string | null;
       readonly now: string;
     },
-    authorize: OwnCollectionFence<Scope>,
+    /**
+     * The fence for this edit, chosen from the text as it stands in this
+     * transaction, locked: whether an edit only clears or keeps is decided
+     * against what an operator may just have removed, never a stale read.
+     */
+    fenceFor: (current: {
+      readonly displayName: string | null;
+      readonly bio: string | null;
+    }) => OwnCollectionFence<Scope>,
   ) => {
     requireOwnScope(scope);
     idSchema.parse(input.profileId);
     return instrumented(eventSink, 'writePublicProfileText', () =>
-      readOwnCollection(database, scope, authorize, async (tx) => {
-        await tx.execute(sql`insert into member_profiles
-            (actor_id, id, display_name, bio, updated_at)
-          values (${scope.actorId}, ${input.profileId}, ${input.displayName},
-            ${input.bio}, ${input.now}::timestamptz)
-          on conflict (actor_id) do update set
-            display_name = excluded.display_name, bio = excluded.bio,
-            updated_at = excluded.updated_at,
-            version = member_profiles.version + 1`);
-        return ownProfile(tx, scope.actorId);
-      }),
+      readOwnCollection(
+        database,
+        scope,
+        async (fact) => {
+          const [current] = await rowsOf<{
+            display_name: string | null;
+            bio: string | null;
+          }>(
+            fact.tx,
+            sql`select display_name, bio from member_profiles
+              where actor_id = ${scope.actorId} for update`,
+          );
+          await fenceFor({
+            displayName: current?.display_name ?? null,
+            bio: current?.bio ?? null,
+          })(fact);
+        },
+        async (tx) => {
+          await tx.execute(sql`insert into member_profiles
+              (actor_id, id, display_name, bio, updated_at)
+            values (${scope.actorId}, ${input.profileId}, ${input.displayName},
+              ${input.bio}, ${input.now}::timestamptz)
+            on conflict (actor_id) do update set
+              display_name = excluded.display_name, bio = excluded.bio,
+              updated_at = excluded.updated_at,
+              version = member_profiles.version + 1`);
+          return ownProfile(tx, scope.actorId);
+        },
+      ),
     );
   },
 

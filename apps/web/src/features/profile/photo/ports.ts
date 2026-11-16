@@ -11,12 +11,15 @@ export type ProfilePhotoObjects = {
   removePrefix(prefix: string): Promise<void>;
   /**
    * One page of stored photo objects after `after` (a key), oldest-first by
-   * key, with when each was last written: what the orphan reconcile walks.
+   * key, with when each was last written (null when storage did not say):
+   * what the orphan reconcile walks.
    */
   list(
     after: string | null,
     limit: number,
-  ): Promise<readonly { readonly key: string; readonly writtenAt: string }[]>;
+  ): Promise<
+    readonly { readonly key: string; readonly writtenAt: string | null }[]
+  >;
 };
 
 /**
