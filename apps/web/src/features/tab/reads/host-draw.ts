@@ -1,3 +1,4 @@
+import type { Assessment, FixtureRef } from '@daisy/tab-engine';
 import type { HostRoundFacts } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import { pairingRecords } from '@daisy/tab-engine';
@@ -6,7 +7,7 @@ import { drawViewSchema, type DrawView } from '@daisy/protocol/lobby/draw-read';
 import { eventDrawFacts } from '../operations/draw-facts';
 import { drawCompetitionAt } from '../operations/draw-competition';
 import { eventCompetition } from '../operations/event-competition';
-import { assessDrawVersion } from '../commands/draw';
+import { drawVersionAssessmentInput } from '../commands/draw';
 import { tabEngine } from '../operations/tab-engine';
 
 /** Retained draw inputs name the exact records; later corrections do not reseed this view. */
@@ -63,7 +64,10 @@ export function hostDrawView(
     seed,
     engineInput?.cutoff ?? 0,
   );
-  const assessment = assessDrawVersion(tabEngine, context, draw);
+  const prepared = drawVersionAssessmentInput(context, draw);
+  const assessment = prepared
+    ? tabEngine.assess(prepared.input, prepared.plans)[0]
+    : undefined;
   const draftIds = draw.fixtureIds.filter(
     (id) => context.fixtures.find((row) => row.id === id)?.status === 'draft',
   );
@@ -72,14 +76,6 @@ export function hostDrawView(
       const fixture = context.fixtures.find((row) => row.id === fixtureId);
       if (!fixture)
         throw createAppError('INVARIANT', 'Draw fixture is missing');
-      const sameFixture = (
-        ref:
-          | { readonly kind: 'new'; readonly ordinal: number }
-          | { readonly kind: 'existing'; readonly id: string },
-      ) =>
-        ref.kind === 'existing'
-          ? ref.id === fixtureId
-          : draftIds[ref.ordinal] === fixtureId;
       return {
         fixtureId,
         kind: fixture.kind,
@@ -107,17 +103,12 @@ export function hostDrawView(
             judge.person,
           chair: judge.chair,
         })),
-        findings: [
-          ...(assessment?.broken ?? [])
-            .filter((row) => sameFixture(row.fixture))
-            .map((row) => ({
-              severity: 'rule_broken' as const,
-              text: row.key,
-            })),
-          ...(assessment?.warnings ?? [])
-            .filter((row) => sameFixture(row.fixture))
-            .map((row) => ({ severity: 'note' as const, text: row.key })),
-        ],
+        findings: hostDrawFixtureFindings(
+          assessment,
+          fixture.status === 'draft'
+            ? { kind: 'new', ordinal: draftIds.indexOf(fixtureId) }
+            : { kind: 'existing', id: fixtureId },
+        ),
         reasons: [],
         alternative: null,
       };
@@ -183,4 +174,39 @@ export function hostDrawView(
       })),
     capabilities,
   });
+}
+
+export function hostDrawFixtureFindings(
+  assessment: Pick<Assessment, 'fixtures' | 'broken' | 'warnings'> | undefined,
+  ref: FixtureRef,
+): DrawView['recordGroups'][number]['fixtures'][number]['findings'] {
+  const same = (other: FixtureRef) =>
+    other.kind === ref.kind &&
+    (other.kind === 'existing' && ref.kind === 'existing'
+      ? other.id === ref.id
+      : other.kind === 'new' &&
+        ref.kind === 'new' &&
+        other.ordinal === ref.ordinal);
+  return [
+    ...(assessment?.broken ?? [])
+      .filter((row) => same(row.fixture))
+      .map((row) => ({ severity: 'rule_broken' as const, text: row.key })),
+    ...(assessment?.warnings ?? [])
+      .filter((row) => same(row.fixture))
+      .map((row) => ({ severity: 'note' as const, text: row.key })),
+    ...(assessment?.fixtures ?? [])
+      .filter((row) => same(row.fixture))
+      .flatMap((row) =>
+        row.terms
+          .filter(
+            (term) =>
+              term.force === 'preference' &&
+              term.cost.some((value) => value > 0),
+          )
+          .map((term) => ({
+            severity: 'preference_bent' as const,
+            text: term.key,
+          })),
+      ),
+  ];
 }

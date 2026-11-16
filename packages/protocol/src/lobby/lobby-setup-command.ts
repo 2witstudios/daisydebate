@@ -169,7 +169,7 @@ export type LobbyCommand = z.infer<typeof lobbyCommandSchema>;
 // ---------------------------------------------------------------------------
 // Tournament setup. Every command names its lobby and checks its version.
 
-const entryShapeSchema = z.discriminatedUnion('kind', [
+export const entryShapeSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal(entryKinds[0]) }),
   z.strictObject({
     kind: z.literal(entryKinds[1]),
@@ -178,7 +178,7 @@ const entryShapeSchema = z.discriminatedUnion('kind', [
 ]);
 
 /** An event pins a format and ballot definition, or follows a template's. */
-const eventPinSchema = z.discriminatedUnion('kind', [
+export const eventPinSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('format'),
     formatId: z.string().trim().min(1),
@@ -260,7 +260,7 @@ const updateStage = z.strictObject({
 });
 
 /** The tab round's pool, and its fixed wording where the rule is `fixed`. */
-const tabRoundResolutionSchema = z
+export const tabRoundResolutionSchema = z
   .strictObject({ poolId: idSchema, poolResolutionId: idSchema.nullable() })
   .nullable();
 

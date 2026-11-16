@@ -184,6 +184,7 @@ const appRoutes = [
   '/api/tab/host-results',
   '/api/tab/host-round',
   '/api/tab/host-draw',
+  '/api/tab/host-events',
   '/api/tab/host-navigation',
   '/api/tab/fixture-command',
   '/api/tab/draw-command',

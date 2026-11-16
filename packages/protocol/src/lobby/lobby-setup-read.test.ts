@@ -21,6 +21,7 @@ const round = {
   name: null,
   timeSlotId: id('slot'),
   resolutionPoolId: id('pool'),
+  poolResolutionId: null,
 };
 const event = {
   eventId: id('event'),

@@ -28,7 +28,10 @@ const sanctionRows = (tx: TabTransaction, lobbyId: string) =>
     .where(eq(sanctions.lobbyId, lobbyId))
     .orderBy(asc(sanctions.id));
 /** A host's addressed tournament metadata; resolution text is never selected. */
-const load = async (tx: TabTransaction, input: Input) => {
+export const loadTournamentSetupFacts = async (
+  tx: TabTransaction,
+  input: Input,
+) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
   await fenceTabAccountRead(tx, input.viewerUserId);
   const [found] = await tx
@@ -204,12 +207,14 @@ const load = async (tx: TabTransaction, input: Input) => {
   };
 };
 export type TournamentSetupFacts = NonNullable<
-  Awaited<ReturnType<typeof load>>
+  Awaited<ReturnType<typeof loadTournamentSetupFacts>>
 >;
 export const createTournamentSetupReadStore = (database: TabDatabase) => ({
   tournamentSetup: <Answer>(
     input: Input,
     work: (facts: TournamentSetupFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    database.transaction(async (tx) =>
+      work(await loadTournamentSetupFacts(tx, input)),
+    ),
 });

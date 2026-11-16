@@ -149,7 +149,7 @@ const planOf = (input: DrawInput, plan: EnginePlan): Plan | null => {
 };
 
 /** The actual merged engine, including its persisted reproducibility record and assessment. */
-export const tabEngine: TabEngine = {
+export const tabEngine = {
   draw: (input) => draw(inputOf(input)),
   assess: (input, plans) => {
     const actual = inputOf(input);
@@ -161,8 +161,14 @@ export const tabEngine: TabEngine = {
     let next = 0;
     return converted.map((plan) =>
       plan === null
-        ? { warnings: [], broken: [], invalid: [{ fact: 'fixture_kind' }] }
+        ? {
+            fixtures: [],
+            totals: [],
+            warnings: [],
+            broken: [],
+            invalid: [{ fact: 'fixture_kind' }],
+          }
         : answers[next++]!,
     );
   },
-};
+} satisfies TabEngine;

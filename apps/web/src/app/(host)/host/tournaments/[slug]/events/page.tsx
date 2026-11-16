@@ -1,3 +1,5 @@
+import { AUTUMN, WINTER } from '../../../../../../features/tab/sample/moment';
+import { StoredEvents } from './stored-events';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { readEventsSchedule } from '../../../../../../features/tab/events';
@@ -14,10 +16,21 @@ export default async function Page({
   searchParams,
 }: {
   readonly params: Promise<{ slug: string }>;
-  readonly searchParams: Promise<{ event?: string | string[] }>;
+  readonly searchParams: Promise<{
+    event?: string | string[];
+    new?: string | string[];
+  }>;
 }) {
   const { slug } = await params;
-  const { event } = await searchParams;
+  const { event, new: creating } = await searchParams;
+  if (slug !== AUTUMN && slug !== WINTER)
+    return (
+      <StoredEvents
+        handle={slug}
+        eventId={typeof event === 'string' ? event : null}
+        create={creating === 'event'}
+      />
+    );
   const scene = await requireGrant(hostRoutes.events(slug));
   const rail = readTimelineRail(slug, scene);
   const schedule = readEventsSchedule(

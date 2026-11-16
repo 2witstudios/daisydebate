@@ -345,7 +345,14 @@ export const runningRoundOf = (
     lede: [
       ...size,
       ...(read.startedAt === null
-        ? ['Waiting for start']
+        ? [
+            read.open.length > 0 &&
+            read.open.every(
+              (fixture) => fixture.state.kind === 'awaiting_result',
+            )
+              ? 'Awaiting results'
+              : 'Waiting for start',
+          ]
         : [`started ${context.wallClock(read.startedAt)}`]),
       read.progress.kind === 'running'
         ? read.progress.behindByMs === null

@@ -25,7 +25,7 @@ const organizationRef = (facts: TournamentSetupFacts, id: string) => {
     );
   return { organizationId: row.id, name: row.name };
 };
-const project = (
+export const tournamentSetupView = (
   facts: TournamentSetupFacts,
   manage: boolean,
 ): TournamentSetupView | null => {
@@ -101,6 +101,7 @@ const project = (
             name: row.name,
             timeSlotId: row.timeSlotId,
             resolutionPoolId: row.resolutionPoolId,
+            poolResolutionId: row.poolResolutionId,
           })),
         sanctions: facts.sanctions
           .filter((row) => row.eventId === event.id)
@@ -156,7 +157,7 @@ export const readTournamentSetup =
           dependencies.authorize({ principal, resource, context, capability })
             .allow;
         if (!ask('lobby.setup.manage')) return null;
-        return project(facts, ask('lobby.setup.manage'));
+        return tournamentSetupView(facts, ask('lobby.setup.manage'));
       },
     );
   };

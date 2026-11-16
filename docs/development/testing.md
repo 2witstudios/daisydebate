@@ -788,3 +788,14 @@ The replacement PNGs are the canonical Linux amd64 actuals from Browser E2E
 main `9a27c321`; the intervening merges changed Markdown only. Pixel tolerance,
 masks and all other baselines stay unchanged. Linux arm64 is a separate
 renderer: record its result explicitly and use amd64 CI for canonical parity.
+
+## Tab host Events qualification
+
+`tab-host-events.integration.ts` exercises the production host Events reader
+and lobby command route against PostgreSQL: empty setup and cancel make no
+writes; create, rename, stage, fixed resolution, Round and time-slot forms
+retain actual identities and enforce both lobby and slot guards. The area
+proof additionally distinguishes setup permission from access to wording held
+by a real unreleased Round. Neither a source identifier nor setup authority
+grants access to held wording. Native fixture qualification counts frozen
+judge slots after replacement, rather than retired participant identities.

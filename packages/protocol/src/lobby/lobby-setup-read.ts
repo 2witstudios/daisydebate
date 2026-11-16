@@ -45,6 +45,7 @@ const setupTabRoundSchema = z.strictObject({
   name: name.nullable(),
   timeSlotId: idSchema.nullable(),
   resolutionPoolId: idSchema.nullable(),
+  poolResolutionId: idSchema.nullable(),
 });
 
 /** An event as its tournament's setup shows it. */
@@ -167,3 +168,5 @@ export type TournamentSetupView = Extract<
 export const lobbySetupReadCatalogue = {
   LobbySetupView: { gate: ['lobby.setup.manage'] },
 } as const satisfies LobbyReadCatalogue<'LobbySetupView'>;
+
+export const tournamentSetupViewSchema = lobbySetupViewSchema.options[1];

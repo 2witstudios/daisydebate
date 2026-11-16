@@ -101,8 +101,15 @@ export const setupCommand =
                       now,
                     },
                   }),
-                  versions: ({ lobby }) =>
-                    lobby ? { lobby: lobby.version } : {},
+                  versions: ({ lobby, slots }) => ({
+                    ...(lobby ? { lobby: lobby.version } : {}),
+                    timeSlot:
+                      command.type === 'update-time-slot' ||
+                      command.type === 'remove-time-slot'
+                        ? slots.find((slot) => slot.id === command.timeSlotId)
+                            ?.version
+                        : undefined,
+                  }),
                   scope: ({ lobby }) => {
                     if (!lobby) throw new CommandDenied('not-found');
                     return { kind: 'lobby', lobbyId: lobby.id };

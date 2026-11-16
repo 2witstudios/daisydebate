@@ -236,6 +236,7 @@ export {
   ballotDecisionSchema,
   ballotDefinitionIdentity,
   ballotDefinitionSchema,
+  ballotDefinitionPinSchema,
   ballotDefinitionBodySchema,
   storedBallotDefinition,
   type BallotDefinitionBody,

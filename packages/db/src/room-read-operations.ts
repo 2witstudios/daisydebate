@@ -20,7 +20,7 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
@@ -44,9 +44,8 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { rooms } from './schema/rooms';
 import { roundViewFor } from './round-view-projection';
 import { formats } from './schema/formats';
-import { formatRevisions } from './schema/format-revisions';
 
-import { formatPresets } from './schema/format-presets';
+import { loadFormatCatalogue } from './format-catalogue';
 
 import {
   type Caller,
@@ -133,51 +132,7 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'listRoomCatalogSources', () =>
       database.transaction(async (tx) => {
         await requireAccount(tx, caller, authorize);
-        const rows = await tx
-          .select({
-            id: formats.id,
-            name: formats.name,
-            version: formats.currentVersion,
-            role: formats.catalogRole,
-            family: formats.family,
-            leagues: formats.leagues,
-            searchTerms: formats.searchTerms,
-            sortOrder: formats.sortOrder,
-            definition: formatRevisions.definition,
-            rulesEdition: formatRevisions.rulesEdition,
-            sourceUrl: formatRevisions.sourceUrl,
-          })
-          .from(formats)
-          .innerJoin(
-            formatRevisions,
-            and(
-              eq(formatRevisions.formatId, formats.id),
-              eq(formatRevisions.version, formats.currentVersion),
-            ),
-          )
-          .where(isNotNull(formats.catalogRole))
-          .orderBy(asc(formats.sortOrder), asc(formats.id));
-        const presets = await tx
-          .select({
-            formatId: formatPresets.formatId,
-            version: formatPresets.version,
-            formatVersion: formatPresets.formatVersion,
-            config: formatPresets.config,
-            rankedEligible: formatPresets.rankedEligible,
-          })
-          .from(formatPresets)
-          .where(isNull(formatPresets.supersededAt));
-        return rows.map(({ role, ...row }) => {
-          const preset = presets.find(
-            (p) => p.formatId === row.id && p.formatVersion === row.version,
-          );
-          if (!role || !preset)
-            throw createAppError(
-              'INVARIANT',
-              `Catalog format ${row.id} has no current preset`,
-            );
-          return { ...row, role, preset };
-        });
+        return loadFormatCatalogue(tx);
       }),
     );
   },

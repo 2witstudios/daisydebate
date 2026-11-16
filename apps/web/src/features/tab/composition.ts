@@ -1,4 +1,10 @@
 import {
+  createHostEventsRoute,
+  type HostEventsRouteDependencies,
+} from './host-events-route';
+import { readHostEvents } from './reads/host-events';
+import { createLobbyCommandRoute } from './lobby-command-route';
+import {
   createHostRoundRoute,
   createHostDrawOverviewRoute,
 } from './host-draw-route';
@@ -54,18 +60,12 @@ import {
 } from './tournament-setup-route';
 import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
-import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
 import {
   createTabCommandRoute,
   type TabCommandRouteDependencies,
   type TabCommandOperation,
 } from './command-route';
 import { organizationCommand } from './operations/organization';
-import {
-  lobbyAdministrationCommand,
-  isLobbyAdministration,
-} from './operations/lobby-administration';
-import { setupCommand } from './operations/setup';
 import { settingCommand } from './operations/settings';
 import { entryEnrollmentCommand } from './operations/entry-enrollment';
 import { judgeRegistrationCommand } from './operations/judge-registration';
@@ -97,8 +97,6 @@ export function composeTabRoutes(app: App) {
     consentNoticeVersion: null,
   });
   const organization = organizationCommand(common);
-  const administration = lobbyAdministrationCommand(common);
-  const setup = setupCommand(common);
   const settings = settingCommand(common);
   const fixtures = fixtureCommand(common);
   const results = eventResultCommand(common);
@@ -117,6 +115,12 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    hostEvents: (released: HostEventsRouteDependencies['released']) =>
+      createHostEventsRoute({
+        boundary,
+        released,
+        read: readHostEvents({ store, authorize }),
+      }),
     hostRound: (released: TabCommandRouteDependencies['released']) =>
       createHostRoundRoute({
         boundary,
@@ -232,17 +236,7 @@ export function composeTabRoutes(app: App) {
         execute: organization,
       }),
     lobbyCommand: (released: TabCommandRouteDependencies['released']) =>
-      commandRoute(released, {
-        name: 'tab.lobby.command',
-        address: 'none',
-        execute: (principal, body) => {
-          const envelope = lobbySetupCommandEnvelopeSchema.safeParse(body);
-          if (!envelope.success) throw createAppError('VALIDATION');
-          return isLobbyAdministration(envelope.data.command)
-            ? administration(principal, body)
-            : setup(principal, body);
-        },
-      }),
+      createLobbyCommandRoute({ ...common, boundary, released }),
     settingsCommand: (released: TabCommandRouteDependencies['released']) =>
       commandRoute(released, {
         name: 'tab.settings.command',

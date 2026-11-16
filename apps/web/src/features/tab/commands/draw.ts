@@ -25,6 +25,7 @@ import type {
   EngineCommitment,
   EngineDraw,
   EngineDrawInput,
+  EnginePlan,
   EngineEntry,
   EngineEventRequest,
   EngineExistingFixture,
@@ -1439,16 +1440,17 @@ export type DrawContextFacts = Omit<
   'commandId' | 'now' | 'freshIds'
 >;
 /** The same current-rule assessment serves publication and the host's read. */
-export function assessDrawVersion(
-  engine: TabEngine,
+export function drawVersionAssessmentInput(
   facts: DrawContextFacts,
   draw: DrawVersionFacts,
-) {
+):
+  | { readonly input: EngineDrawInput; readonly plans: readonly EnginePlan[] }
+  | undefined {
   if (facts.settings.kind !== 'resolved') return undefined;
   const byId = fixtureById(facts);
   const held = draw.fixtureIds.flatMap((id) => byId.get(id) ?? []);
-  return engine.assess(
-    drawInput(
+  return {
+    input: drawInput(
       facts,
       request(
         facts,
@@ -1459,7 +1461,7 @@ export function assessDrawVersion(
       true,
       seedBytes(draw.inputs.engine?.seed ?? ''),
     ),
-    [
+    plans: [
       {
         event: facts.event.id,
         keep: held
@@ -1483,5 +1485,16 @@ export function assessDrawVersion(
           .map((fixture) => fixture.id),
       },
     ],
-  )[0];
+  };
+}
+
+export function assessDrawVersion(
+  engine: TabEngine,
+  facts: DrawContextFacts,
+  draw: DrawVersionFacts,
+) {
+  const prepared = drawVersionAssessmentInput(facts, draw);
+  return prepared
+    ? engine.assess(prepared.input, prepared.plans)[0]
+    : undefined;
 }

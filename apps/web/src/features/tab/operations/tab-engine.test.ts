@@ -1,3 +1,4 @@
+import { hostDrawFixtureFindings } from '../reads/host-draw';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { EngineDrawInput, EngineFormat } from '../commands/tab-engine';
 import { engineSettings } from './engine-settings';
@@ -89,5 +90,52 @@ test('a structurally invalid typed fixture is reported without an unchecked tupl
       ])
       .flatMap((assessment) => assessment.invalid.map((fact) => fact.fact)),
     expected: ['fixture_kind'],
+  });
+});
+
+test('the host Draw retains an actual bent engine preference', () => {
+  const source = input({ outcome: 'winner', sides: 2 }, 2);
+  if (source.call !== 'windowed')
+    throw new Error('Expected windowed test input');
+  const request = {
+    ...source,
+    event: {
+      ...source.event,
+      settings: {
+        ...source.event.settings,
+        'pairing.same_school': { force: 'preference' as const },
+      },
+      entries: source.event.entries.map((entry) => ({
+        ...entry,
+        protection: [{ scope: 'school', key: 'shared-school' }],
+      })),
+    },
+  };
+  const assessment = tabEngine.assess(request, [
+    {
+      event: 'event',
+      keep: [],
+      withdraw: [],
+      add: [
+        {
+          ordinal: 0,
+          fixture: {
+            kind: 'pairing',
+            sides: ['entry-0', 'entry-1'],
+            panel: [],
+          },
+        },
+      ],
+    },
+  ])[0];
+  assert({
+    given:
+      'the actual engine assessing two entries from one school under a preference',
+    should: 'show its bent preference instead of claiming none',
+    actual: hostDrawFixtureFindings(assessment, {
+      kind: 'new',
+      ordinal: 0,
+    }).filter((finding) => finding.severity === 'preference_bent'),
+    expected: [{ severity: 'preference_bent', text: 'pairing.same_school' }],
   });
 });

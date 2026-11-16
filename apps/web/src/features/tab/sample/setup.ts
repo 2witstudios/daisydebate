@@ -122,6 +122,7 @@ export function sampleEvent(
         name: null,
         timeSlotId: slotId,
         resolutionPoolId: shape.poolId ?? null,
+        poolResolutionId: null,
       })),
       ...Array.from({ length: eliminationRounds }, (_, index) => ({
         tabRoundId: sampleId(`round${key}e${index + 1}`),
@@ -130,6 +131,7 @@ export function sampleEvent(
         name: null,
         timeSlotId: index === 0 ? breakSlot : null,
         resolutionPoolId: shape.poolId ?? null,
+        poolResolutionId: null,
       })),
     ],
     sanctions: shape.sanctions ?? [],

@@ -54,6 +54,7 @@
     "./lobby/organization-read": "./src/lobby/organization-read.ts",
     "./lobby/resolved-settings-read": "./src/lobby/resolved-settings-read.ts",
     "./lobby/template-read": "./src/lobby/template-read.ts",
+    "./lobby/host-events-read": "./src/lobby/host-events-read.ts",
     "./lobby/lobby-setup-read": "./src/lobby/lobby-setup-read.ts",
     "./lobby/season-read": "./src/lobby/season-read.ts",
     "./lobby/entry-read": "./src/lobby/entry-read.ts",

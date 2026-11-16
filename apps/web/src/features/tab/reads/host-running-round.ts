@@ -86,9 +86,10 @@ export function hostRunningRoundView(
               },
       };
     } else if (fixture.kind === 'bye') state = { kind: 'awaiting_result' };
+    else if (native && isRoundOver(native.status))
+      state = { kind: 'awaiting_result' };
     else if (!native || native.startedAt === null)
       state = { kind: 'waiting_for_start' };
-    else if (isRoundOver(native.status)) state = { kind: 'awaiting_result' };
     else if (
       isRoundRunning(native.status) &&
       native.currentStage === 'awaiting_ballot'
@@ -98,9 +99,8 @@ export function hostRunningRoundView(
         ballotsIn: loaded.submittedBallots.filter(
           (row) => row.roundId === native.id,
         ).length,
-        ballotsDue: facts.participants.filter(
-          (row) => row.roundId === native.id && row.seatKind === 'judge',
-        ).length,
+        ballotsDue: facts.judgeSlots.filter((row) => row.roundId === native.id)
+          .length,
         openForMs: null,
       };
     else {

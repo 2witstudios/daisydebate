@@ -327,6 +327,36 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
         });
         const [current] =
           await owner`select current_version,participant_id,actor_id from round_judge_slots where round_id=${roundId}`;
+        const sourceCounts = await store.hostRound(
+          {
+            viewerUserId: director.userId,
+            lobbyId,
+            eventId: world.made.get('event')!,
+            tabRoundId: world.made.get('tab-round')!,
+          },
+          async (facts) =>
+            facts
+              ? {
+                  slots: facts.judgeSlots.filter(
+                    (row) => row.roundId === roundId,
+                  ).length,
+                }
+              : null,
+        );
+        const [retainedJudgeIdentities] = await owner<
+          { n: number }[]
+        >`select count(*)::int n from round_participants where round_id=${roundId} and seat_kind='judge'`;
+        assert({
+          given:
+            'a real emptied and reassigned frozen judge slot with retained assignment identities',
+          should:
+            'give the host read one ballot obligation from the frozen slot rather than counting retired people as more seats',
+          actual: [
+            sourceCounts?.slots,
+            Number(retainedJudgeIdentities!.n) > (sourceCounts?.slots ?? 0),
+          ],
+          expected: [1, true],
+        });
         assert({
           given: 'an empty frozen slot',
           should:

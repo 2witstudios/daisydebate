@@ -6,7 +6,7 @@ import { readDatabaseTime } from '../database-clock';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { organizations } from '../schema/organizations';
-import { roundParticipants } from '../schema/round-participants';
+import { roundJudgeSlots } from '../schema/round-judge-assignments';
 import { roundSegments } from '../schema/round-segments';
 import { loadDrawContext } from './draw-command-facts';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
@@ -56,14 +56,14 @@ async function load(tx: TabTransaction, input: HostRoundInput) {
           .from(organizations)
           .where(inArray(organizations.id, schools))
       : [],
-    participants: roundIds.length
+    judgeSlots: roundIds.length
       ? await tx
           .select({
-            roundId: roundParticipants.roundId,
-            seatKind: roundParticipants.seatKind,
+            roundId: roundJudgeSlots.roundId,
+            slot: roundJudgeSlots.slot,
           })
-          .from(roundParticipants)
-          .where(inArray(roundParticipants.roundId, roundIds))
+          .from(roundJudgeSlots)
+          .where(inArray(roundJudgeSlots.roundId, roundIds))
       : [],
     segments: roundIds.length
       ? await tx
