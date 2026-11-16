@@ -280,3 +280,31 @@ and shows each school's obligation alongside its accepted, eligible judges
 cleared for the selected event. Affiliation identifies the school group; it does
 not assert who furnished a judge. These obligations are distinct from panel
 demand and carry no payment behavior.
+## Tournament inbox notifications
+
+Tournament assignments and publication use the existing Notifications inbox,
+preferences and content-free `user:inbox` signals. A notification references its
+actual fixture, lobby and applied command; it stores no result, score, wording
+or recipient snapshot. Composite foreign keys preserve tenant provenance, and
+one `(user, kind, fixture, command)` subject makes replay harmless. Direct and
+confirmed officiating share the same writer, so a pending proposal owes no
+notification until its original command is applied. Publication, Room assembly,
+panel changes, result availability and recorded audience openings write their
+notifications in the owner's transaction. Failure of any notification or signal
+rolls the command back too.
+
+Recipients come from accepted entry members and accepted fixture judges. An
+assignment or removal tells only its affected judge; a published draw change or
+ready Room tells that fixture's actual cast. Result openings tell only affected
+people in the recorded audience; an opening before any result exists owes no
+result notification until the result writer records one. Wider audiences never
+turn delivery into a tournament-wide broadcast. These kinds use in-app delivery
+and its existing per-kind switches, with no email channel.
+
+The inbox reassembles current canonical account and guardian-boundary facts
+under the ordinary Tab read fences. It also checks the current accepted fixture
+relationship, Room readiness, recorded release and saved preference. Removed
+judges receive a generic removal linked to the tournament, with no former Room
+or result access. Notification destinations are protected reads; inbox text and
+signals contain no outcome. Privacy export and erasure include these subjects,
+and the existing read-retention policy applies.

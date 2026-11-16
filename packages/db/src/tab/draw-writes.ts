@@ -1,8 +1,4 @@
-import {
-  fixtureNotificationPeople,
-  oweTournamentNotification,
-  notifyTournamentRelease,
-} from '../notifications/tournament';
+import { notifyDrawChanges } from '../notifications/tournament-draw';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { RoomAssemblyState } from '@daisy/protocol';
@@ -19,7 +15,7 @@ import type { LoadedDrawCommand } from './draw-command-facts';
 import type { DrawWrite } from './draw-write';
 
 export type DrawRoomAssembly = {
-  readonly notificationIds?: () => string;
+  readonly notificationIds: () => string;
   readonly rooms: readonly Parameters<typeof assembleRoom>[1][];
   readonly resolutionPin: {
     readonly tabRoundId: string;
@@ -225,47 +221,5 @@ export const applyDrawWrites = async (
         break;
     }
   }
-  if (assembly.notificationIds) {
-    for (const write of writes) {
-      if (
-        write.table === 'fixtures' &&
-        write.op === 'update' &&
-        ('publishedAt' in write.set || 'withdrawnAt' in write.set)
-      ) {
-        const people = await fixtureNotificationPeople(tx, write.where.id);
-        const common = {
-          fixtureId: write.where.id,
-          lobbyId: loaded.configuration.lobby.id,
-          commandId,
-          at: now,
-          newId: assembly.notificationIds,
-          people,
-        };
-        await oweTournamentNotification(tx, {
-          ...common,
-          kind: 'tournament_draw_changed',
-        });
-        if ('publishedAt' in write.set) {
-          await oweTournamentNotification(tx, {
-            ...common,
-            kind: 'judge_assigned',
-            people: people.filter((person) => person.judgeId !== null),
-          });
-          if (
-            assembly.rooms.some(
-              (room) =>
-                room.room.id ===
-                ('roomId' in write.set ? write.set.roomId : null),
-            )
-          )
-            await oweTournamentNotification(tx, {
-              ...common,
-              kind: 'tournament_room_ready',
-            });
-        }
-      }
-      if (write.table === 'releases')
-        await notifyTournamentRelease(tx, write.row, assembly.notificationIds);
-    }
-  }
+  await notifyDrawChanges(tx, loaded, writes, assembly, now, commandId);
 };

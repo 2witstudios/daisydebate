@@ -36,9 +36,9 @@ const watchKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
  * A stored notification (WATCH-12, ADR 0124). There is no text, result or
  * score column, so an outcome cannot be stored in one: a row says what kind
  * of thing happened and names exactly the subject its kind requires (a
- * Round, a Room invitation or a challenge), and the words come from the
+ * Round, a Room invitation, challenge or applied tournament fixture command), and the words come from the
  * kind when it is read. `actor_id` is who it is about: the followed
- * debater, the inviting host or the challenger. Kept 90 days after read.
+ * debater, the inviting host or the challenger; tournament notices have no about-actor. Kept 90 days after read.
  */
 export const notifications = pgTable(
   'notifications',

@@ -77,6 +77,7 @@ export async function notifyTournamentRelease(
     readonly audience: string;
     readonly commandId: string;
     readonly openedAt: string;
+    readonly fixtureId?: string;
   },
   newId: () => string,
 ) {
@@ -85,6 +86,7 @@ export async function notifyTournamentRelease(
     tx,
     sql`select f.id from fixtures f where f.tab_round_id=${release.tabRoundId}
     and f.lobby_id=${release.lobbyId} and f.status='published'
+    ${release.fixtureId ? sql`and f.id=${release.fixtureId}` : sql``}
     ${release.thing === 'decision' ? sql`and exists(select 1 from results r where r.fixture_id=f.id)` : sql``}`,
   );
   for (const fixture of fixtures) {
@@ -115,4 +117,33 @@ export async function notifyTournamentRelease(
       people: eligible,
     });
   }
+}
+
+/** A previously recorded opening starts owing delivery when its actual result becomes available. */
+export async function notifyAvailableFixtureResult(
+  tx: TabTransaction,
+  result: {
+    readonly fixtureId: string;
+    readonly lobbyId: string;
+    readonly tabRoundId: string;
+    readonly commandId: string;
+    readonly recordedAt: string;
+  },
+  newId: () => string,
+) {
+  const openings = await rowsOf<{ audience: string }>(
+    tx,
+    sql`select audience from releases where lobby_id=${result.lobbyId} and tab_round_id=${result.tabRoundId} and thing='decision'`,
+  );
+  for (const opening of openings)
+    await notifyTournamentRelease(
+      tx,
+      {
+        ...result,
+        thing: 'decision',
+        audience: opening.audience,
+        openedAt: result.recordedAt,
+      },
+      newId,
+    );
 }

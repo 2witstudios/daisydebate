@@ -45,7 +45,12 @@ export const resultCommand =
       resultId = dependencies.newId();
     try {
       return await dependencies.store.resultCommand(
-        { lobbyId, senderUserId: principal.userId, command },
+        {
+          lobbyId,
+          senderUserId: principal.userId,
+          command,
+          notificationIds: dependencies.newId,
+        },
         async (session) => {
           const loaded = await session.load();
           if (!loaded) throw new CommandDenied('not-found');

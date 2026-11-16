@@ -30,7 +30,7 @@ type Command =
     >
   | BreakCommand;
 type Input = {
-  readonly notificationIds?: () => string;
+  readonly notificationIds: () => string;
   readonly senderUserId: string;
   readonly lobbyId: string;
   readonly command: Command;
@@ -198,12 +198,11 @@ export const createCompletionCommandStore = (database: TabDatabase) => ({
                   ...write.row,
                   openedAt: new Date(write.row.openedAt),
                 });
-                if (input.notificationIds)
-                  await notifyTournamentRelease(
-                    tx,
-                    write.row,
-                    input.notificationIds,
-                  );
+                await notifyTournamentRelease(
+                  tx,
+                  write.row,
+                  input.notificationIds,
+                );
                 break;
             }
           }

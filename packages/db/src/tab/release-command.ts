@@ -23,7 +23,7 @@ import { lockEventSettingContext } from './event-setting-context';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
 type Input = {
-  readonly notificationIds?: () => string;
+  readonly notificationIds: () => string;
   readonly senderUserId: string;
   readonly lobbyId: string;
   readonly command: ReleaseCommand;
@@ -171,12 +171,11 @@ export const createReleaseCommandStore = (database: TabDatabase) => ({
                 ...write.row,
                 openedAt: new Date(write.row.openedAt),
               });
-              if (input.notificationIds)
-                await notifyTournamentRelease(
-                  tx,
-                  write.row,
-                  input.notificationIds,
-                );
+              await notifyTournamentRelease(
+                tx,
+                write.row,
+                input.notificationIds,
+              );
             } else {
               if (
                 !loaded.target ||

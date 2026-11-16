@@ -300,6 +300,7 @@ export const settlePendingCommand =
                     }
                     return session.apply(writes, history, receipt, {
                       fixture,
+                      notificationIds: dependencies.newId,
                       authorize: authorizeAt,
                     });
                   },

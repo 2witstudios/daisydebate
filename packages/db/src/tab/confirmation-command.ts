@@ -21,6 +21,7 @@ import type { ConfirmationWrite } from './confirmation-write';
 import type { TabDatabase } from './tab-transaction';
 
 export type ConfirmationOwnerEffects = {
+  readonly notificationIds: () => string;
   readonly fixture: FixtureOwnerEffects | null;
   readonly authorize: (now: string) => void;
 };
@@ -151,7 +152,12 @@ export const createConfirmationCommandStore = (
                 write.table !== 'result_speakers'
               )
                 throw createAppError('INVARIANT');
-              await applyResultWrites(tx, input.lobbyId, [write]);
+              await applyResultWrites(
+                tx,
+                input.lobbyId,
+                [write],
+                effects.notificationIds,
+              );
             }
           }
           effects.authorize((await readTime(tx)).toISOString());

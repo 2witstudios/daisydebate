@@ -1,3 +1,4 @@
+import { notifyAvailableFixtureResult } from '../notifications/tournament';
 import { createAppError } from '@daisy/errors';
 import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import { results, resultEntries, resultSpeakers } from '../schema/results';
@@ -9,6 +10,7 @@ export async function applyResultWrites(
   tx: TabTransaction,
   lobbyId: string,
   writes: readonly ResultWrite[],
+  notificationIds: () => string,
 ) {
   for (const write of writes) {
     if (write.row.lobbyId !== lobbyId)
@@ -20,6 +22,7 @@ export async function applyResultWrites(
           ...write.row,
           recordedAt: new Date(write.row.recordedAt),
         });
+        await notifyAvailableFixtureResult(tx, write.row, notificationIds);
         break;
       case 'result_entries':
         await tx.insert(resultEntries).values(write.row);

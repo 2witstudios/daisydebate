@@ -18,6 +18,7 @@ import type { TabDatabase, TabTransaction } from './tab-transaction';
 
 type Command = Extract<ResultCommand, { fixtureId: string }>;
 export type ResultCommandInput = {
+  readonly notificationIds: () => string;
   readonly senderUserId: string;
   readonly lobbyId: string;
   readonly command: Command;
@@ -109,7 +110,12 @@ export const createResultCommandStore = (database: TabDatabase) => ({
           if (!loaded)
             throw createAppError('INVARIANT', 'Result facts not loaded');
           await appendHistory(tx, history, receipt);
-          await applyResultWrites(tx, loaded.fixture.lobbyId, writes);
+          await applyResultWrites(
+            tx,
+            loaded.fixture.lobbyId,
+            writes,
+            input.notificationIds,
+          );
         },
       });
     }),
