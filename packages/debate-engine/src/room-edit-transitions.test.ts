@@ -21,6 +21,8 @@ test('claim and leave operate on the caller seat while removal targets the seat 
     eligible: true,
     seatRole: null,
     consentVersion: 0,
+    teamOpen: false,
+    positionOpen: false,
     consentCommandId: null,
   };
   const claimed = executeRoomCommand(
@@ -97,6 +99,8 @@ test('seat and configuration refusals leave the room intact', () => {
         eligible: true,
         seatRole: null,
         consentVersion: 0,
+        teamOpen: false,
+        positionOpen: false,
       },
     },
   );
@@ -124,6 +128,8 @@ test('seat and configuration refusals leave the room intact', () => {
         eligible: true,
         seatRole: null,
         consentVersion: 0,
+        teamOpen: false,
+        positionOpen: false,
       },
     },
   );
@@ -168,6 +174,8 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
     eligible: true,
     seatRole: 'debater' as const,
     consentVersion: 0,
+    teamOpen: false,
+    positionOpen: false,
   };
   const replaced = executeRoomCommand(
     room,
@@ -246,6 +254,8 @@ test("one assign moves the target and displaces the target seat's occupant", () 
         slot: 1,
         eligible: true,
         consentVersion: 0,
+        teamOpen: false,
+        positionOpen: false,
         consentCommandId: null,
       },
     ],
@@ -296,6 +306,8 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
     slot: 0,
     eligible: true,
     consentVersion: 0,
+    teamOpen: false,
+    positionOpen: false,
     consentCommandId: null,
   };
   const withJudge = {
@@ -313,6 +325,8 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
     eligible: true,
     seatRole: 'judge' as const,
     consentVersion: 0,
+    teamOpen: false,
+    positionOpen: false,
   };
   const assign = (room: typeof withJudge) =>
     executeRoomCommand(
@@ -438,6 +452,8 @@ test('seat admission refuses missing targets, bot claims and absent memberships'
       eligible: true,
       seatRole: 'judge',
       consentVersion: 0,
+      teamOpen: false,
+      positionOpen: false,
     },
   });
   const missingLeave = executeRoomCommand(
@@ -510,6 +526,8 @@ test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
         eligible: true,
         seatRole: 'debater' as const,
         consentVersion: 0,
+        teamOpen: false,
+        positionOpen: false,
         consentCommandId: null,
       },
     ],
@@ -579,6 +597,8 @@ test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
     eligible: true,
     seatRole: 'judge' as const,
     consentVersion: 0,
+    teamOpen: false,
+    positionOpen: false,
     consentCommandId: null,
   };
   const room = {

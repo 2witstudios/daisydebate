@@ -286,6 +286,17 @@ export type {
   RoomCatalogChoice,
 } from './room-contract';
 
+// Room teams and the Start round seat draw (ADR 0143).
+export {
+  roomTeams,
+  roomTeamSchema,
+  seatDrawSchema,
+  sideOfTeam,
+  teamOfPlacement,
+  teamPlacementOf,
+} from './seat-draw';
+export type { RoomTeam, SeatDraw } from './seat-draw';
+
 // Persistent messaging contracts; bounds come from the owning policy.
 export {
   createMessagingCoreSchemas,

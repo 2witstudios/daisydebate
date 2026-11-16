@@ -55,6 +55,7 @@ export const updateConfig = (
     formatId: publishDefinition ? edges.formatId : room.formatId,
     formatVersion: publishDefinition ? 1 : room.formatVersion,
     topic,
+    teamOneSide: sidesAfter(room, resolved.rules),
   };
   return acceptedRoomMutation(next, { publishDefinition });
 };
@@ -118,8 +119,20 @@ export const selectFormat = (
     rules,
     executionPlan: roomPlan,
     topic,
+    teamOneSide: sidesAfter(room, rules),
   });
 };
+/**
+ * Team 1's side under new rules: teams of different sizes keep the side
+ * their seats were declared for (ADR 0143), so their sides cannot be open.
+ */
+const sidesAfter = (
+  room: RoomAssemblyState,
+  rules: { readonly seats: RoomAssemblyState['rules']['seats'] },
+): RoomAssemblyState['teamOneSide'] =>
+  rules.seats.affirmative === rules.seats.negative
+    ? room.teamOneSide
+    : 'affirmative';
 export const updateDetails = (
   room: RoomAssemblyState,
   _actorId: string,
@@ -305,6 +318,9 @@ export const claimSeat = (
         id: existing?.id ?? edges.participantId,
         role: command.role,
         slot: command.slot,
+        // A seat taken is the team and position chosen (ADR 0143).
+        teamOpen: false,
+        positionOpen: false,
         consentCommandId: null,
       },
     ],

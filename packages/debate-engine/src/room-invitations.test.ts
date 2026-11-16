@@ -13,6 +13,7 @@ const room = {
   status: 'assembling' as const,
   participants: [],
   seatHolds: [],
+  teamOneSide: 'affirmative',
   rules: { ...base.rules, seats: { ...base.rules.seats, judge: 1 } },
 };
 const host = room.hostActorId;

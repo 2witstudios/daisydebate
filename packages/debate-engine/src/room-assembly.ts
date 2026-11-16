@@ -31,6 +31,7 @@ import {
   closeRoom,
 } from './room-consent-transitions';
 import { setCapture } from './room-capture';
+import { setSeat, setSides } from './room-seats';
 import { topicInvariantHolds } from './resolution-draw';
 type RoomCommandType = RoomCommand['type'];
 /** Who may run a Room command, whether it asks every seat to ready again, and what it does. */
@@ -61,6 +62,8 @@ const roomCommandPolicies: RoomCommandPolicies = {
   'remove-seat': { ...hostEdit, transition: leaveSeat },
   'claim-seat': { ...memberEdit, transition: claimSeat },
   'leave-seat': { ...memberEdit, transition: leaveSeat },
+  'set-seat': { ...memberEdit, transition: setSeat },
+  'set-sides': { ...memberEdit, transition: setSides },
   ready: { authority: 'member', edit: false, transition: ready },
   unready: { authority: 'member', edit: false, transition: ready },
   'start-round': { authority: 'host', edit: false, transition: startRound },
@@ -110,6 +113,7 @@ export function executeRoomCommand(
     seatsBotDebater,
     publishDefinition,
     draw,
+    seatDraw,
   } = outcome.mutation;
   if (edit) next = afterEdit(room, next);
   if (isOpenRoom(next)) next = { ...next, status: assembledStatus(next) };
@@ -128,6 +132,7 @@ export function executeRoomCommand(
       seatsBotDebater,
       publishDefinition,
       draw,
+      seatDraw,
       members: activeRoomMembers(next),
     },
   };

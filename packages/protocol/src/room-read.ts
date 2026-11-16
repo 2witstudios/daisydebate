@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { usageSourceSchema } from './billing';
-import { idSchema, debateRoleSchema } from './primitives';
+import { idSchema, debateRoleSchema, debateSideSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
 import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
@@ -19,6 +19,15 @@ const participant = z.strictObject({
   consentVersion: z.int().nonnegative(),
   role: debateRoleSchema,
   slot: z.int().nonnegative(),
+  teamOpen: z.boolean(),
+  positionOpen: z.boolean(),
+  /**
+   * The seated human's rating as this viewer may see it (ADR 0142): one
+   * whole number, provisional until it is real. Null for a bot, or hidden.
+   */
+  rating: z
+    .strictObject({ value: z.int(), provisional: z.boolean() })
+    .nullable(),
 });
 const seatState = {
   needsReady: z.boolean(),
@@ -174,6 +183,8 @@ const roomViewFields = z.strictObject({
     .nullable(),
   rules: roundRulesSchema,
   /** Free seats of each kind this viewer may not take: held for named members (ADR 0103, ADR 0124). */
+  /** Team 1's side, or null while the sides are open to the coin flip (ADR 0143). */
+  teamOneSide: debateSideSchema.nullable(),
   seatsHeldFromViewer: z.strictObject({
     debater: z.int().nonnegative(),
     judge: z.int().nonnegative(),
