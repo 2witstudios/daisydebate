@@ -488,6 +488,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "membership_periods",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "messaging_actor_states",
       "entityType": "tables",
       "schema": "public"
@@ -10236,6 +10242,58 @@
       "entityType": "columns",
       "schema": "public",
       "table": "media_vendor_mutations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "membership_periods"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "membership_periods"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "joined_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "membership_periods"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "membership_periods"
     },
     {
       "type": "text",
@@ -27839,6 +27897,55 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"ended_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "membership_periods_open_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "membership_periods"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "membership_periods_user_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "membership_periods"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "actor_id",
           "isExpression": false,
           "asc": true,
@@ -38107,6 +38214,25 @@
       "table": "media_vendor_mutations"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "memberships",
+      "columnsTo": [
+        "organization_id",
+        "user_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "membership_periods_membership_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "membership_periods"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "channel_id"
@@ -42852,6 +42978,18 @@
     },
     {
       "columns": [
+        "organization_id",
+        "user_id",
+        "joined_at"
+      ],
+      "nameExplicit": false,
+      "name": "membership_periods_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "membership_periods"
+    },
+    {
+      "columns": [
         "channel_id",
         "actor_id"
       ],
@@ -47428,6 +47566,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "media_vendor_mutations"
+    },
+    {
+      "value": "\"ended_at\" is null or \"ended_at\" >= \"joined_at\"",
+      "name": "membership_periods_time_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "membership_periods"
     },
     {
       "value": "\"notification_level\" in ('all', 'mentions', 'none')",

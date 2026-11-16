@@ -391,6 +391,46 @@ test('membership seasons admit actual league/member hosts and only eligible entr
         actual: [invitedJoin.kind, await points()],
         expected: ['accepted', settled],
       });
+      // A person's membership row is reopened on a rejoin; their earlier
+      // period must still count for the event they hosted in it.
+      const hostLeft = await organizations(as(memberHost), {
+        version: 1,
+        commandId: createId(),
+        expected: {},
+        command: {
+          type: 'end-membership',
+          organizationId: leagueId,
+          userId: memberHost.userId,
+        },
+      });
+      const hostEndedAt = dayAfter(
+        await startOf('Active member hosted certified'),
+      );
+      await sql`select set_config('daisy.organization_scope', ${leagueId}, true), set_config('daisy.lobby_scope', '', true)`;
+      await sql`update membership_periods set ended_at=${hostEndedAt} where organization_id=${leagueId} and user_id=${memberHost.userId}`;
+      const [guard] =
+        await sql`select version from organizations where id=${leagueId}`;
+      const reinvited = await organizations(as(director), {
+        version: 1,
+        commandId: createId(),
+        expected: { organization: Number(guard!.version) },
+        command: {
+          type: 'invite-member',
+          organizationId: leagueId,
+          userId: memberHost.userId,
+        },
+      });
+      await sql`select set_config('daisy.organization_scope', ${leagueId}, true), set_config('daisy.lobby_scope', '', true)`;
+      const periods =
+        await sql`select ended_at is not null as ended from membership_periods where organization_id=${leagueId} and user_id=${memberHost.userId}`;
+      assert({
+        given:
+          'a member host who left after hosting a counted event and was invited back',
+        should:
+          'keep their earlier period, so the event they hosted still counts',
+        actual: [hostLeft.kind, reinvited.kind, periods, await points()],
+        expected: ['accepted', 'accepted', [{ ended: true }], settled],
+      });
     },
   });
 }, 60000);

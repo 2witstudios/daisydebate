@@ -91,6 +91,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     organization('organizations', { keyColumn: 'id', openRead: true }),
     organization('league_schools', { counterpart: 'school_id' }),
     organization('memberships', { subject: 'user' }),
+    organization('membership_periods', { subject: 'user' }),
     organization('roles', { openRead: true }),
     organization('role_permissions', { openRead: true }),
     either('grants', { subject: 'user' }),

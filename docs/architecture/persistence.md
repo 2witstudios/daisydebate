@@ -327,12 +327,24 @@ or result access. Notification destinations are protected reads; inbox text and
 signals contain no outcome. Privacy export and erasure include these subjects,
 and the existing read-retention policy applies.
 
+### Membership periods
+
+A person's `memberships` row is reopened when they rejoin, so its times
+describe only the latest period. `membership_periods` keeps every period an
+account was an active member (organization, account, joined and ended
+instants). A trigger on `memberships` writes it: a period opens when a
+membership becomes active and closes when it ends, so no writer can skip one.
+The runtime never deletes a period. League seasons count a person's membership
+as it stood when each event ran.
+
 ### League member schools
 
 `league_schools` is the explicit relation between a league and a school.
 `organization_id` is the league's isolation key; composite foreign keys prove
 that its two organizations have kinds `league` and `school`. It grants no
-person permissions and is never inferred from a person's membership.
+person permissions and is never inferred from a person's membership. Each
+period is its own row: a re-invitation after an end opens a new one, and the
+member school reads its own periods under its own scope.
 
 The league controller invites through `invite-league-school`; only a school
 controller can activate that invitation through `accept-league-school`. Both

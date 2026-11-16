@@ -261,7 +261,10 @@ not contact details, and remains scoped to its tournament after erasure.
 The league-to-school relation records organization ids, controller account
 ids and assent/ending instants under the existing organization/action-history
 purpose. Erasing a controller does not end either organization's independent
-membership or erase its audit trail. Tournament notification subjects use the
+membership or erase its audit trail. Membership periods (organization id, account id,
+joined and ended instants) record each time a person was an active member,
+under the same organization-membership purpose; they follow their membership
+row, are exported with it and kept as competitive record after erasure. Tournament notification subjects use the
 existing notification purpose, export, account erasure and read-retention
 rules; they add fixture/lobby/command references, never outcome text.
 

@@ -194,3 +194,53 @@ CREATE INDEX "league_schools_invited_by_idx" ON "league_schools" ("invited_by_us
 CREATE INDEX "league_schools_joined_by_idx" ON "league_schools" ("joined_by_user_id");
 --> statement-breakpoint
 CREATE INDEX "league_schools_ended_by_idx" ON "league_schools" ("ended_by_user_id");
+--> statement-breakpoint
+-- Each period a person was an active member: the one memberships row is
+-- reopened on a rejoin, so a trigger keeps every period as its own row.
+CREATE TABLE "membership_periods" (
+	"organization_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"joined_at" timestamp with time zone NOT NULL,
+	"ended_at" timestamp with time zone,
+	CONSTRAINT "membership_periods_pkey" PRIMARY KEY("organization_id","user_id","joined_at")
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX "membership_periods_open_unique" ON "membership_periods" ("organization_id","user_id") WHERE "ended_at" is null;
+--> statement-breakpoint
+CREATE INDEX "membership_periods_user_idx" ON "membership_periods" ("user_id");
+--> statement-breakpoint
+ALTER TABLE "membership_periods" ADD CONSTRAINT "membership_periods_membership_fk" FOREIGN KEY ("organization_id","user_id") REFERENCES "memberships"("organization_id","user_id") ON DELETE CASCADE NOT VALID;
+--> statement-breakpoint
+ALTER TABLE "membership_periods" ADD CONSTRAINT "membership_periods_time_check" CHECK ("ended_at" is null or "ended_at" >= "joined_at") NOT VALID;
+--> statement-breakpoint
+INSERT INTO "membership_periods" ("organization_id","user_id","joined_at","ended_at")
+SELECT "organization_id","user_id","joined_at",CASE WHEN "status" = 'ended' THEN greatest("ended_at","joined_at") ELSE NULL END
+FROM "memberships" WHERE "joined_at" IS NOT NULL AND "status" IN ('active','ended');
+--> statement-breakpoint
+ALTER TABLE "membership_periods" VALIDATE CONSTRAINT "membership_periods_membership_fk";
+--> statement-breakpoint
+ALTER TABLE "membership_periods" VALIDATE CONSTRAINT "membership_periods_time_check";
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_membership_period() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF NEW.status = 'active' AND NEW.joined_at IS NOT NULL
+   AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'active' OR OLD.joined_at IS DISTINCT FROM NEW.joined_at) THEN
+  INSERT INTO membership_periods (organization_id, user_id, joined_at)
+  VALUES (NEW.organization_id, NEW.user_id, NEW.joined_at)
+  ON CONFLICT DO NOTHING;
+ ELSIF TG_OP = 'UPDATE' AND OLD.status = 'active' AND NEW.status IS DISTINCT FROM 'active' THEN
+  UPDATE membership_periods SET ended_at = greatest(coalesce(NEW.ended_at, now()), joined_at)
+  WHERE organization_id = NEW.organization_id AND user_id = NEW.user_id AND ended_at IS NULL;
+ END IF;
+ RETURN NULL;
+END $$;
+--> statement-breakpoint
+CREATE TRIGGER memberships_period AFTER INSERT OR UPDATE ON memberships FOR EACH ROW EXECUTE FUNCTION public.daisy_membership_period();
+--> statement-breakpoint
+REVOKE DELETE ON membership_periods FROM daisy_web;
+--> statement-breakpoint
+ALTER TABLE "membership_periods" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY "membership_periods_scope" ON "membership_periods" FOR ALL USING (organization_id = daisy_organization_scope()) WITH CHECK (organization_id = daisy_organization_scope());
+--> statement-breakpoint
+CREATE POLICY "membership_periods_subject" ON "membership_periods" FOR SELECT USING (user_id = daisy_subject_scope());

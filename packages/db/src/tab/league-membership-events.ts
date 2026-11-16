@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm';
-import { memberships } from '../schema/organizations';
+import { membershipPeriods } from '../schema/membership-periods';
 import { leagueSchools } from '../schema/league-schools';
 import { lobbies } from '../schema/lobbies';
 import { events, timeSlots } from '../schema/events';
@@ -28,20 +28,16 @@ export async function loadLeagueMembershipEvents(
   // Membership counts as it stood when the event ran: every period that
   // began, kept with its end, so a school that left keeps its past points and
   // one that joined later gains none from before it joined.
+  // A person's own membership row is reopened on a rejoin; every period is
+  // kept in membership_periods.
   const members = await tx
     .select({
-      userId: memberships.userId,
-      joinedAt: memberships.joinedAt,
-      endedAt: memberships.endedAt,
+      userId: membershipPeriods.userId,
+      joinedAt: membershipPeriods.joinedAt,
+      endedAt: membershipPeriods.endedAt,
     })
-    .from(memberships)
-    .where(
-      and(
-        eq(memberships.organizationId, input.organizationId),
-        inArray(memberships.status, ['active', 'ended']),
-        isNotNull(memberships.joinedAt),
-      ),
-    )
+    .from(membershipPeriods)
+    .where(eq(membershipPeriods.organizationId, input.organizationId))
     .for('share');
   const schools = await tx
     .select({

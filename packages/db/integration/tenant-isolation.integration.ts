@@ -77,6 +77,7 @@ test(
               'tournament_capture_admissions',
               'fixture_room_sources',
               'league_schools',
+              'membership_periods',
               'tournament_rating_snapshots',
             ].includes(table.table),
         )
