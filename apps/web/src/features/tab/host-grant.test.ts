@@ -120,9 +120,34 @@ const storedPages = hostPages.filter((file) => {
     !source.includes('requireGrant(')
   );
 });
-const samplePages = hostPages.filter((file) => !storedPages.includes(file));
+const storedLeaguePages = hostPages.filter((file) =>
+  readFileSync(join(app, file), 'utf8').includes('await requestLeaguePage('),
+);
+const samplePages = hostPages.filter(
+  (file) => !storedPages.includes(file) && !storedLeaguePages.includes(file),
+);
 
 describe('the host area', () => {
+  test('stored league pages require an evaluated host read', () => {
+    assert({
+      given: 'the league host page outside the sample-cookie frame',
+      should:
+        'refuse absent reads and require actual host authority before rendering',
+      actual: storedLeaguePages.map((file) => {
+        const source = readFileSync(join(app, file), 'utf8');
+        const read = source.indexOf('await requestLeaguePage(');
+        const render = source.indexOf('<HostLeague');
+        const guarded = source.slice(read, render);
+        return [
+          file,
+          guarded.includes('if (!read) notFound();'),
+          guarded.includes('if (!read.season.canHost)') &&
+            guarded.includes('notFound();'),
+        ];
+      }),
+      expected: [['(host)/host/leagues/[slug]/page.tsx', true, true]],
+    });
+  });
   test('stored host pages keep their own release and evaluated area read boundaries', () => {
     assert({
       given: 'stored host pages outside the sample-cookie frame',
@@ -163,7 +188,7 @@ describe('the host area', () => {
     assert({
       given: 'each sample page under /host, opened by a competitor',
       should: 'send them to the participant page for that page’s own address',
-      actual: [samplePages.length >= 15, sent],
+      actual: [samplePages.length >= 14, sent],
       expected: [
         true,
         samplePages.map((file) => [
