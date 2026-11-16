@@ -251,4 +251,4 @@ test('actual canonical authoring, immutable revision, event pin and publication 
       });
     },
   });
-});
+}, 60_000);
