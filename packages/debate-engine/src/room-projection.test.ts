@@ -185,7 +185,11 @@ describe('projectRoom format (FMT-1)', () => {
     ...base,
     definition,
     formatId: 'freestyle',
-    catalogFormat: { name: 'Freestyle', role: 'standard' as const, leagues: [] },
+    catalogFormat: {
+      name: 'Freestyle',
+      role: 'standard' as const,
+      leagues: [],
+    },
     basis: {
       formatId: 'freestyle',
       presetVersion: 3,

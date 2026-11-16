@@ -186,8 +186,7 @@ export function readRoomDraft(
     }),
   );
   const method = decoded.resolutionMethod;
-  if (!['strike', 'custom'].includes(method ?? ''))
-    return invalid;
+  if (!['strike', 'custom'].includes(method ?? '')) return invalid;
   const poi = decoded.questionStyle === 'poi';
   if (!poi && decoded.questionStyle !== 'cross-examination') return invalid;
   const parsedConfig = roomConfigSchema.safeParse({

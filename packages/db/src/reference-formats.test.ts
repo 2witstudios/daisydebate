@@ -146,9 +146,7 @@ const migrated = async () => {
   // ADR 0142 deleted the Policy and Value standards outright.
   const deletedFormats = new Set(
     [
-      ...sql.matchAll(
-        /DELETE FROM public\.formats WHERE id IN \(([^)]*)\)/g,
-      ),
+      ...sql.matchAll(/DELETE FROM public\.formats WHERE id IN \(([^)]*)\)/g),
     ].flatMap(([, ids]) =>
       [...(ids ?? '').matchAll(/'([a-z0-9-]+)'/g)].map(([, id]) => id!),
     ),

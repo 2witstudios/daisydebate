@@ -80,8 +80,7 @@ export const memberCardOperations = ({
 }) => ({
   readMemberCards: (actorIds: readonly string[], clock: SpectatorClock) =>
     instrumented(eventSink, 'readMemberCards', async () => {
-      if (actorIds.length === 0)
-        return { ratings: [], records: [] };
+      if (actorIds.length === 0) return { ratings: [], records: [] };
       const ids = sql`array[${sql.join(
         actorIds.map((id) => sql`${id}`),
         sql`, `,

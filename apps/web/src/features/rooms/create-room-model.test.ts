@@ -87,12 +87,7 @@ describe('the create-room model', () => {
       actual: [kept.values.title, kept.values.format, kept.values.intent],
       expected: ['Kept', 'freestyle', ''],
     });
-    const fresh = initialRoomModel(
-      freestyle,
-      catalog,
-      {},
-      true,
-    );
+    const fresh = initialRoomModel(freestyle, catalog, {}, true);
     assert({
       given: 'a ranked-eligible standard with no kept values',
       should: 'open ranked',

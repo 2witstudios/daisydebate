@@ -180,7 +180,8 @@ test('native standard switching never carries a checked Ranked flag into the rep
   };
   const read = readRoomDraft(fields, [unequalTemplate, freestyleChoice]);
   assert({
-    given: 'a checked Ranked flag posted while switching a template to the standard',
+    given:
+      'a checked Ranked flag posted while switching a template to the standard',
     should:
       'restore the standard while leaving Ranked off, as the enhanced editor does',
     actual: read.ok && [

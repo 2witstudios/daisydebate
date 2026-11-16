@@ -9,7 +9,6 @@ import {
 
 setupRitewayBun();
 
-
 describe('create-room draft', () => {
   test('standards and template identity', () => {
     const standard = createRoomDraft(freestyleChoice);
@@ -37,7 +36,11 @@ describe('create-room draft', () => {
   });
 
   test('editing a ranked draft', () => {
-    const original = setDraftRanked(createRoomDraft(freestyleChoice), true, true);
+    const original = setDraftRanked(
+      createRoomDraft(freestyleChoice),
+      true,
+      true,
+    );
     const edited = editRoomDraft(original, {
       config: { ...original.config, preRoundPrep: { enabled: false } },
     });

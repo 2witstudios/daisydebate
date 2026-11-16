@@ -125,7 +125,10 @@ test('a native format choice posts its catalog tuple as select-format (FMT-3)', 
   });
   const forged = new FormData();
   for (const [key, value] of form) forged.set(key, value);
-  forged.set('format', JSON.stringify({ formatId: 'freestyle', type: 'close' }));
+  forged.set(
+    'format',
+    JSON.stringify({ formatId: 'freestyle', type: 'close' }),
+  );
   const refused = await submitAssembly(
     async () => {
       throw new Error('must not send');

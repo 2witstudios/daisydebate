@@ -30,11 +30,7 @@ describe('decideRoomResolution', () => {
         decideRoomResolution({ ...input, standard: false }),
         decideRoomResolution({ ...input, standard: false, strikes: true }).ok,
       ],
-      expected: [
-        false,
-        { ok: true, topic: 'A host resolution' },
-        false,
-      ],
+      expected: [false, { ok: true, topic: 'A host resolution' }, false],
     });
   });
   test('a strike without strike rules', () => {

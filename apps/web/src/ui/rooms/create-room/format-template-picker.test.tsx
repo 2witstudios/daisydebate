@@ -146,10 +146,7 @@ test('a new room starts on Value, with standards before league rules (FMT-3)', (
   });
   const html = renderToStaticMarkup(
     <FormatTemplatePicker
-      choices={[
-        unequalTemplate,
-        standard('freestyle', 'Freestyle', 3),
-      ]}
+      choices={[unequalTemplate, standard('freestyle', 'Freestyle', 3)]}
     />,
   );
   const selected = html.match(/<option[^>]*selected=""[^>]*>/)?.[0];

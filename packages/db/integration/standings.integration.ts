@@ -116,8 +116,7 @@ describe('standings reads (RATE-1.4.1)', () => {
               a.seasonId.localeCompare(b.seasonId) || value(b) - value(a),
           );
         assert({
-          given:
-            'ratings in two asked seasons and a third season',
+          given: 'ratings in two asked seasons and a third season',
           should:
             'return exactly the ranked rows of that format in the two asked seasons, a closed account by name and marked closed',
           actual: bySeasonThenRating(read.ratings, (row) => row.rating).map(
