@@ -127,15 +127,10 @@ export const eventFormatDescriptor = (
 };
 
 /** Maps fenced persisted facts to the merged decider and actual engine vocabulary. */
-export const drawFacts = (
+export const eventDrawFacts = (
   loaded: LoadedDrawCommand,
   competition: DrawCompetition,
-  input: {
-    readonly commandId: string;
-    readonly now: string;
-    readonly newId: () => string;
-  },
-): DrawFacts => {
+): Omit<DrawFacts, 'commandId' | 'now' | 'freshIds'> => {
   const { configuration, round, stage, slot } = loaded;
   const { event } = configuration;
   const eligible = eligibleTournamentActors(loaded.accounts);
@@ -183,17 +178,6 @@ export const drawFacts = (
   );
   const values = engineSettings(chain, rows, format);
   return {
-    commandId: input.commandId,
-    now: input.now,
-    freshIds: Array.from(
-      {
-        length:
-          loaded.entries.filter((entry) => entry.eventId === event.id).length +
-          releasesAtOnce.length +
-          2,
-      },
-      input.newId,
-    ),
     event: {
       ...event,
       format: eventFormatDescriptor(definition),
@@ -338,5 +322,33 @@ export const drawFacts = (
     breakResultIds: competition.breakResultIds,
     slotElsewhere: elsewhere.flatMap(drawFixturePeople),
     releasesAtOnce,
+  };
+};
+
+export const drawFacts = (
+  loaded: LoadedDrawCommand,
+  competition: DrawCompetition,
+  input: {
+    readonly commandId: string;
+    readonly now: string;
+    readonly newId: () => string;
+  },
+): DrawFacts => {
+  const facts = eventDrawFacts(loaded, competition);
+  return {
+    ...facts,
+    commandId: input.commandId,
+    now: input.now,
+    freshIds: Array.from(
+      {
+        length:
+          loaded.entries.filter(
+            (entry) => entry.eventId === loaded.configuration.event.id,
+          ).length +
+          facts.releasesAtOnce.length +
+          2,
+      },
+      input.newId,
+    ),
   };
 };

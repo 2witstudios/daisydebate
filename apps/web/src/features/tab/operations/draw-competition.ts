@@ -13,9 +13,9 @@ const frozenStageSchema = z.looseObject({
 });
 
 /** A new draw reads current retained facts; subsequent elimination rounds keep the first published stage input. */
-export function drawCompetition(
+export function drawCompetitionAt(
   facts: LoadedDrawCommand,
-  command: DrawCommand,
+  addressedDrawId: string | null,
 ): DrawCompetition {
   const stage = facts.stage;
   if (!stage)
@@ -45,16 +45,7 @@ export function drawCompetition(
       feederResultsComplete: true,
       breakResultIds: [],
     };
-  const addressed =
-    command.type === 'generate-draw'
-      ? null
-      : facts.versions.find(
-          (draw) =>
-            draw.id ===
-            (command.type === 'edit-draw'
-              ? command.basedOnDrawId
-              : command.drawId),
-        );
+  const addressed = facts.versions.find((draw) => draw.id === addressedDrawId);
   const published =
     addressed ??
     facts.versions
@@ -111,4 +102,18 @@ export function drawCompetition(
     feederResultsComplete: current.complete,
     breakResultIds: current.resultIds,
   };
+}
+
+export function drawCompetition(
+  facts: LoadedDrawCommand,
+  command: DrawCommand,
+): DrawCompetition {
+  return drawCompetitionAt(
+    facts,
+    command.type === 'generate-draw'
+      ? null
+      : command.type === 'edit-draw'
+        ? command.basedOnDrawId
+        : command.drawId,
+  );
 }

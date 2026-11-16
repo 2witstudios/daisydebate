@@ -1,3 +1,4 @@
+import { readHostRound } from '../src/features/tab/reads/host-round';
 import { createDrawCommandRoute } from '../src/features/tab/draw-command-route';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { z } from 'zod';
@@ -189,6 +190,53 @@ export const draftDrawStage = async (world: World): Promise<void> => {
   if (generated.kind !== 'accepted')
     throw new Error(`draw refused: ${JSON.stringify(generated)}`);
   const drawId = generated.receipt.aggregate.id;
+  const readRound = readHostRound({ store, authorize });
+  const draftRead = await readRound(as(world.bots.Director!), {
+    lobbyId,
+    eventId,
+    tabRoundId: roundId,
+  });
+  const expectedFixtures = await sql<
+    { fixture_id: string }[]
+  >`select fixture_id from draw_fixtures where draw_id=${drawId} order by fixture_id`;
+  assert({
+    given: 'the actual generated draft and its retained source guards',
+    should:
+      'read every stored fixture under the Draw area and conceal a foreign-lobby target',
+    actual: [
+      draftRead?.kind,
+      draftRead?.guards,
+      draftRead?.kind === 'draft'
+        ? draftRead.draw.recordGroups
+            .flatMap((group) =>
+              group.fixtures.map((fixture) => fixture.fixtureId),
+            )
+            .sort()
+        : null,
+      await readRound(as(world.bots.Director!), {
+        lobbyId: world.made.get('standing-lobby')!,
+        eventId,
+        tabRoundId: roundId,
+      }),
+    ],
+    expected: [
+      'draft',
+      {
+        draw: 1,
+        entries: Number(event!.entries_version),
+        settings: Number(event!.settings_version),
+        results: 1,
+        timeSlot: Number(
+          (
+            await sql`select version from time_slots where id=${world.made.get('time-slot')!}`
+          )[0]!.version,
+        ),
+      },
+      expectedFixtures.map((fixture) => fixture.fixture_id),
+      null,
+    ],
+  });
+
   const [stored] =
     await sql`select method, status, inputs->'engine'->>'seed' as seed, inputs->'engine'->'engine'->>'engine' as engine from draws where id=${drawId}`;
   const placed =

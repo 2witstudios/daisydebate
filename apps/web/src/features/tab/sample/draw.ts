@@ -124,7 +124,7 @@ const oneWin: readonly DrawViewFixture[] = [
 
 const recordGroups: DrawView['recordGroups'] = [
   {
-    wins: 3,
+    record: { label: 'Wins', value: { n: 3, d: 1 } },
     fixtures: [
       plain('jensen-amari', 'Jensen v Amari', 'L. Malik'),
       plain('haddad-castillo', 'Haddad v Castillo', 'P. Nguyen'),
@@ -134,7 +134,7 @@ const recordGroups: DrawView['recordGroups'] = [
     ],
   },
   {
-    wins: 2,
+    record: { label: 'Wins', value: { n: 2, d: 1 } },
     fixtures: [
       plain('brooks-petrov', 'Brooks v Petrov', 'E. Fontaine'),
       doyleSato,
@@ -144,7 +144,7 @@ const recordGroups: DrawView['recordGroups'] = [
       ]),
     ],
   },
-  { wins: 1, fixtures: [...oneWin] },
+  { record: { label: 'Wins', value: { n: 1, d: 1 } }, fixtures: [...oneWin] },
 ];
 
 /** The fixtures' address slugs, which the sample's routes name them by. */

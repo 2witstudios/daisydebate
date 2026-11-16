@@ -146,6 +146,16 @@ their existing exclusive aggregate default. The view comes from the canonical
 resolver, including source names and enforced locks, inside that transaction;
 the HTTP release gate runs before query parsing and returns no-store answers.
 
+The host Draw read uses the addressed draw context with shared account, actual
+setting-parent, slot, fixture, Room and Round fences; commands use the same
+context with exclusive aggregate locks. Reads construct no commands or IDs.
+Record groups consume the pairing engine's exact records and labels from the
+draw's retained result IDs and frozen bye policy, preserving rational values
+and the existing engine coordinates. Native Round and segment rows distinguish
+waiting for start, preparing, speaking, judging and awaiting a Tab result.
+Start and lateness remain null without their actual source; a fixture's Room
+reference is its stored Room, never a synthetic address.
+
 Submitted ballots cannot be updated or directly deleted by the runtime role.
 A database trigger pins a canonical SHA-256 content digest for every ballot a
 Round finalization consumes; the recorded-ending read treats a mismatch as

@@ -95,7 +95,9 @@ export function largeDrawView(ordinary: DrawView): {
   readonly read: DrawView;
   readonly slugs: ReadonlyMap<string, string>;
 } {
-  const known = ordinary.recordGroups.filter((group) => group.wins >= 2);
+  const known = ordinary.recordGroups.filter(
+    (group) => group.record.value.n / group.record.value.d >= 2,
+  );
   const used = new Set(
     known.flatMap((group) =>
       group.fixtures.flatMap((one) => one.entries.map((entry) => entry.name)),
@@ -108,7 +110,10 @@ export function largeDrawView(ordinary: DrawView): {
   const slugs = new Map<string, string>();
   let judge = 30;
   const recordGroups = groupSizes.map(([wins, size]) => {
-    const kept = known.find((group) => group.wins === wins)?.fixtures ?? [];
+    const kept =
+      known.find(
+        (group) => group.record.value.n / group.record.value.d === wins,
+      )?.fixtures ?? [];
     const made = Array.from({ length: size - kept.length }, (_, place) => {
       const title = `${next()} v ${next()}`;
       const id = sampleId(`fixturelarge${wins}n${place}x`);
@@ -122,7 +127,10 @@ export function largeDrawView(ordinary: DrawView): {
         finding === undefined ? [] : [finding],
       );
     });
-    return { wins, fixtures: [...kept, ...made] };
+    return {
+      record: { label: 'Wins', value: { n: wins, d: 1 } },
+      fixtures: [...kept, ...made],
+    };
   });
   return {
     read: {

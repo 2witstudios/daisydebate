@@ -21,6 +21,7 @@ import { roundParticipants } from '../schema/round-participants';
 import { rooms } from '../schema/rooms';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
+import { fenceTabAccountsRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
 import { loadTabCounterpart } from './boundary';
@@ -92,9 +93,15 @@ const namedRound = async (tx: TabTransaction, input: DrawCommandInput) => {
  * changes and the slot fences cross-event seating. No unrelated lobby or
  * privileged reverse-dependency enumeration is involved.
  */
-export const loadDrawCommandFacts = async (
+export const loadDrawContext = async (
   tx: TabTransaction,
-  input: DrawCommandInput,
+  input: {
+    readonly senderUserId: string;
+    readonly lobbyId: string;
+    readonly tabRoundId: string;
+    readonly strength: 'share' | 'update';
+    readonly withPublicationResolution: boolean;
+  },
 ) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   const [found] = await tx
@@ -107,9 +114,19 @@ export const loadDrawCommandFacts = async (
     organizationId: found?.ownerOrganizationId ?? undefined,
   };
   await scopeTransaction(tx, scope);
-  const firstRound = await namedRound(tx, input);
+  const [firstRound] = await tx
+    .select()
+    .from(tabRounds)
+    .where(
+      and(
+        eq(tabRounds.id, input.tabRoundId),
+        eq(tabRounds.lobbyId, input.lobbyId),
+      ),
+    );
   const firstPeople = await namedPeople(tx, input.lobbyId);
-  await lockTabCommandAccounts(tx, [
+  await (
+    input.strength === 'share' ? fenceTabAccountsRead : lockTabCommandAccounts
+  )(tx, [
     input.senderUserId,
     ...firstPeople.flatMap((person) => (person.userId ? [person.userId] : [])),
   ]);
@@ -118,6 +135,7 @@ export const loadDrawCommandFacts = async (
     lobbyId: input.lobbyId,
     eventId: firstRound.eventId,
     subjectUserId: input.senderUserId,
+    strength: input.strength,
   });
   if (!configuration) return null;
   const currentPeople = await namedPeople(tx, input.lobbyId);
@@ -147,7 +165,7 @@ export const loadDrawCommandFacts = async (
         eq(tabRounds.lobbyId, input.lobbyId),
       ),
     )
-    .for('update');
+    .for(input.strength);
   if (!round) return null;
   const [stage] = await tx
     .select()
@@ -170,7 +188,7 @@ export const loadDrawCommandFacts = async (
             eq(timeSlots.lobbyId, input.lobbyId),
           ),
         )
-        .for('update')
+        .for(input.strength)
     : [];
   const versions = await tx
     .select()
@@ -182,13 +200,13 @@ export const loadDrawCommandFacts = async (
       ),
     )
     .orderBy(asc(draws.id))
-    .for('update');
+    .for(input.strength);
   const currentFixtures = await tx
     .select()
     .from(fixtures)
     .where(eq(fixtures.lobbyId, input.lobbyId))
     .orderBy(asc(fixtures.id))
-    .for('update');
+    .for(input.strength);
   const roomIds = currentFixtures.flatMap((fixture) =>
     fixture.roomId ? [fixture.roomId] : [],
   );
@@ -198,7 +216,7 @@ export const loadDrawCommandFacts = async (
         .from(rooms)
         .where(inArray(rooms.id, roomIds))
         .orderBy(asc(rooms.id))
-        .for('update')
+        .for(input.strength)
     : [];
   const [owner] = configuration.lobby.ownerUserId
     ? await tx
@@ -220,10 +238,9 @@ export const loadDrawCommandFacts = async (
     authorization,
     ownerActorId: owner?.id ?? null,
     round,
-    publicationResolution:
-      input.command.type === 'publish-draw'
-        ? await loadDrawResolutionPool(tx, configuration, round)
-        : null,
+    publicationResolution: input.withPublicationResolution
+      ? await loadDrawResolutionPool(tx, configuration, round)
+      : null,
     stage: stage ?? null,
     slot: slot ?? null,
     accounts,
@@ -318,9 +335,14 @@ export const loadDrawCommandFacts = async (
             id: rounds.id,
             roomId: rounds.roomId,
             status: rounds.status,
+            startedAt: rounds.startedAt,
+            currentStage: rounds.currentStage,
+            rulesSnapshot: rounds.rulesSnapshot,
           })
           .from(rounds)
           .where(inArray(rounds.roomId, roomIds))
+          .orderBy(asc(rounds.id))
+          .for(input.strength)
       : [],
     submittedBallots: roomIds.length
       ? await tx
@@ -337,6 +359,24 @@ export const loadDrawCommandFacts = async (
           .where(inArray(rounds.roomId, roomIds))
       : [],
   };
+};
+export const loadDrawCommandFacts = async (
+  tx: TabTransaction,
+  input: DrawCommandInput,
+) => {
+  await scopeTransaction(tx, {
+    subjectUserId: input.senderUserId,
+    lobbyId: input.lobbyId,
+  });
+  const round = await namedRound(tx, input);
+  return round
+    ? loadDrawContext(tx, {
+        ...input,
+        tabRoundId: round.id,
+        strength: 'update',
+        withPublicationResolution: input.command.type === 'publish-draw',
+      })
+    : null;
 };
 export type LoadedDrawCommand = NonNullable<
   Awaited<ReturnType<typeof loadDrawCommandFacts>>

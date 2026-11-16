@@ -17,7 +17,6 @@ import {
 const name = z.string().trim().min(1).max(200);
 /** Words the tab engine wrote; a projection shows them as they are. */
 const engineText = z.string().trim().min(1).max(2000);
-const count = z.int().min(0);
 const instant = z.iso.datetime();
 
 /** How much a finding weighs: a broken rule is never relaxed. */
@@ -68,9 +67,12 @@ const drawFixture = z.strictObject({
   alternative: drawAlternative.nullable(),
 });
 
-/** The fixtures of entries on the same record, most wins first. */
+/** The engine pairing record, with its exact value and format-specific label. */
 const recordGroup = z.strictObject({
-  wins: count,
+  record: z.strictObject({
+    label: name,
+    value: z.strictObject({ n: z.int(), d: z.int().positive() }),
+  }),
   fixtures: z.array(drawFixture),
 });
 

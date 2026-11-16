@@ -44,3 +44,5 @@ export type {
   Judge,
   FixtureRef,
 } from './shapes/draw';
+
+export { pairingRecords } from './draw/pairing-records';

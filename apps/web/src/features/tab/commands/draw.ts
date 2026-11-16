@@ -398,7 +398,7 @@ const sameSet = (a: readonly string[], b: readonly string[]) => {
   );
 };
 
-const fixtureById = (facts: DrawFacts) =>
+const fixtureById = (facts: DrawContextFacts) =>
   new Map(facts.fixtures.map((fixture) => [fixture.id, fixture]));
 
 const entriesOf = (fixture: EngineFixture): readonly string[] => {
@@ -454,7 +454,7 @@ const fixtureFor = (
       : { kind: 'pairing', sides: entries, panel };
 
 const request = (
-  facts: DrawFacts,
+  facts: DrawContextFacts,
   settings: EngineResolvedSettings,
   cutoff: number,
   existing: readonly EngineExistingFixture[],
@@ -475,7 +475,7 @@ const seedBytes = (hex: string): Uint8Array =>
   Uint8Array.from(hex.match(/../g) ?? [], (pair) => Number.parseInt(pair, 16));
 
 const drawInput = (
-  facts: DrawFacts,
+  facts: DrawContextFacts,
   event: EngineEventRequest,
   seated: boolean,
   seed: Uint8Array,
@@ -495,7 +495,7 @@ const drawInput = (
 };
 
 /** The live fixtures go in as fixed when they cannot be re-paired, movable otherwise. */
-const liveExisting = (facts: DrawFacts): EngineExistingFixture[] =>
+const liveExisting = (facts: DrawContextFacts): EngineExistingFixture[] =>
   facts.fixtures
     .filter((fixture) => fixture.status === 'published')
     .map((fixture) => ({
@@ -1218,43 +1218,7 @@ const publishDraw = (
   const booked = doubleBooked(held, new Set(facts.slotElsewhere));
   if (booked.judges) return refuse('judge-double-booked');
   if (booked.entries) return refuse('slot-clash');
-  const assessment = engine.assess(
-    drawInput(
-      facts,
-      request(
-        facts,
-        facts.settings.values,
-        draw.inputs.engine?.cutoff ?? 0,
-        liveExisting(facts),
-      ),
-      true,
-      seedBytes(draw.inputs.engine?.seed ?? ''),
-    ),
-    [
-      {
-        event: facts.event.id,
-        keep: held
-          .filter((fixture) => fixture.status === 'published')
-          .map((fixture) => ({
-            id: fixture.id,
-            fixture: engineFixtureOf(fixture),
-          })),
-        add: held
-          .filter((fixture) => fixture.status === 'draft')
-          .map((fixture, ordinal) => ({
-            ordinal,
-            fixture: engineFixtureOf(fixture),
-          })),
-        withdraw: facts.fixtures
-          .filter(
-            (fixture) =>
-              fixture.status === 'published' &&
-              !draw.fixtureIds.includes(fixture.id),
-          )
-          .map((fixture) => fixture.id),
-      },
-    ],
-  )[0];
+  const assessment = assessDrawVersion(engine, facts, draw);
   if (!assessment || assessment.invalid.length)
     return refuse('draw-unresolved');
   const panelSize =
@@ -1469,3 +1433,55 @@ export const decideDraw =
         return discardDraft(facts, command);
     }
   };
+
+export type DrawContextFacts = Omit<
+  DrawFacts,
+  'commandId' | 'now' | 'freshIds'
+>;
+/** The same current-rule assessment serves publication and the host's read. */
+export function assessDrawVersion(
+  engine: TabEngine,
+  facts: DrawContextFacts,
+  draw: DrawVersionFacts,
+) {
+  if (facts.settings.kind !== 'resolved') return undefined;
+  const byId = fixtureById(facts);
+  const held = draw.fixtureIds.flatMap((id) => byId.get(id) ?? []);
+  return engine.assess(
+    drawInput(
+      facts,
+      request(
+        facts,
+        facts.settings.values,
+        draw.inputs.engine?.cutoff ?? 0,
+        liveExisting(facts),
+      ),
+      true,
+      seedBytes(draw.inputs.engine?.seed ?? ''),
+    ),
+    [
+      {
+        event: facts.event.id,
+        keep: held
+          .filter((fixture) => fixture.status === 'published')
+          .map((fixture) => ({
+            id: fixture.id,
+            fixture: engineFixtureOf(fixture),
+          })),
+        add: held
+          .filter((fixture) => fixture.status === 'draft')
+          .map((fixture, ordinal) => ({
+            ordinal,
+            fixture: engineFixtureOf(fixture),
+          })),
+        withdraw: facts.fixtures
+          .filter(
+            (fixture) =>
+              fixture.status === 'published' &&
+              !draw.fixtureIds.includes(fixture.id),
+          )
+          .map((fixture) => fixture.id),
+      },
+    ],
+  )[0];
+}

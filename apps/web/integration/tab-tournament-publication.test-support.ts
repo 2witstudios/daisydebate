@@ -1,3 +1,4 @@
+import { readHostRound } from '../src/features/tab/reads/host-round';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
@@ -85,6 +86,35 @@ export const publishDrawStage = async (world: World): Promise<void> => {
       fixture_id: string;
     }[]
   >`select r.id,r.host_actor_id,r.lobby_id,r.lobby_kind,r.topic,r.format_id,r.format_version,r.capture,f.id fixture_id from rooms r join fixtures f on f.room_id=r.id where f.tab_round_id=${world.made.get('tab-round')!} order by r.id`;
+  const publishedRead = await readHostRound({ store, authorize })(
+    as(world.bots.Director!),
+    {
+      lobbyId,
+      eventId: world.made.get('event')!,
+      tabRoundId: world.made.get('tab-round')!,
+    },
+  );
+  assert({
+    given: 'the genuine published Rooms before native Ready or Start',
+    should:
+      'show their actual Room links and waiting state without inventing a started timestamp or speech',
+    actual: [
+      publishedRead?.kind,
+      publishedRead?.kind === 'published'
+        ? publishedRead.round.startedAt
+        : 'not-published',
+      publishedRead?.kind === 'published'
+        ? publishedRead.round.open
+            .map((fixture) => [fixture.state.kind, fixture.room?.roomId])
+            .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+        : null,
+    ],
+    expected: [
+      'published',
+      null,
+      rooms.map((room) => ['waiting_for_start', room.id]),
+    ],
+  });
   const seats = await sql<
     { readiness_command_id: string | null }[]
   >`select p.actor_id,p.readiness_command_id,a.room_id from room_participants p join active_seats a on a.actor_id=p.actor_id and a.room_id=p.room_id where p.room_id in (select room_id from fixtures where tab_round_id=${world.made.get('tab-round')!})`;

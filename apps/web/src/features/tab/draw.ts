@@ -76,7 +76,10 @@ const listedGroups = 2;
 
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
-const recordOf = (wins: number) => plural(wins, 'win', 'wins');
+const recordOf = (record: DrawView['recordGroups'][number]['record']) => {
+  const { n, d } = record.value;
+  return `${d === 1 ? n : `${n}/${d}`} ${record.label === 'Wins' && n === d ? 'win' : record.label.toLowerCase()}`;
+};
 const capitalized = (word: string) =>
   `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`;
 const options = (first: string, rest: readonly string[]) =>
@@ -139,7 +142,7 @@ const restOf = (groups: DrawView['recordGroups']): string | null => {
   const byes = fixtures.filter((fixture) => fixture.kind === 'bye');
   const others = fixtures.length - byes.length;
   return [
-    groups.map((group) => recordOf(group.wins)).join(', '),
+    groups.map((group) => recordOf(group.record)).join(', '),
     ...(others === 0 ? [] : [plural(others, 'more fixture', 'more fixtures')]),
     ...(byes.length === 0
       ? []
@@ -188,7 +191,7 @@ const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
       ? read.recordGroups
       : read.recordGroups.slice(0, listedGroups)
     ).map((group) => ({
-      record: recordOf(group.wins),
+      record: recordOf(group.record),
       fixtures: group.fixtures.map(fixtureOf),
     })),
     rest:

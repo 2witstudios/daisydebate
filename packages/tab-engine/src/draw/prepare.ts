@@ -1,10 +1,9 @@
 import { compareBytes, shuffleWith } from '@daisy/seeded-random';
 import type { FormatDescriptor, Id, StageHistory } from '../shapes/competition';
 import type { EventRequest } from '../shapes/draw';
-import type { Metric } from '../shapes/settings';
 import { standings } from '../standings';
+import { pairingRecords } from './pairing-records';
 import { effectiveResults } from '../standings/effective-results';
-import { gcd } from '../standings/rational';
 import { eventFacts, type EventFacts, type FactsOrder } from './facts';
 import { eventStream } from './placement';
 
@@ -30,37 +29,10 @@ export type Prepared = {
   readonly results: readonly Id[];
 };
 
-const recordMetric = (format: FormatDescriptor): Metric | null =>
-  format.outcome === 'winner'
-    ? 'wins'
-    : 'sides' in format
-      ? 'team_points'
-      : null;
-
-/** Each entry's record at a cutoff, scaled to integers so equal records are equal. */
+/** Integer coordinates used by pairing; the public record keeps its exact fraction. */
 const recordsAt = (request: EventRequest, seed: Uint8Array, cutoff: number) => {
-  const metric = recordMetric(request.format);
-  const ids = request.entries.map((e) => e.id);
-  if (metric === null || cutoff <= 0) return new Map(ids.map((id) => [id, 0]));
-  const table = standings({
-    ...(request as Extract<EventRequest, { format: FormatDescriptor }>),
-    settings: {
-      ...request.settings,
-      'standings.tiebreaks': {
-        metrics: [metric],
-        minimumGames: null,
-        terminal: 'shared',
-      },
-    },
-    cutoff,
-    division: null,
-    seed,
-  } as Parameters<typeof standings>[0]);
-  const values = table.rows.map(
-    (row) => [row.entry, row.values[0]!.value[0]!] as const,
-  );
-  const scale = values.reduce((l, [, v]) => (l * v.d) / gcd(l, v.d), 1);
-  return new Map(values.map(([entry, v]) => [entry, (v.n * scale) / v.d]));
+  const records = pairingRecords(request, seed, cutoff);
+  return new Map(records.entries.map((row) => [row.entry, row.scaled]));
 };
 
 /** Rating highest first, then lower deviation, unrated last, then a seeded lot. */

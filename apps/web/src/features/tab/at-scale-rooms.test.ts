@@ -30,7 +30,7 @@ describe('the draw at scale', () => {
         scaled?.lookFirst.at(-1)?.findings[0]?.severity,
         scaled?.groups.map(
           (group) =>
-            `${group.wins}: ${group.fixtures.length} + ${group.listedAbove} of ${group.total}`,
+            `${group.record.value.n / group.record.value.d}: ${group.fixtures.length} + ${group.listedAbove} of ${group.total}`,
         ),
       ],
       expected: [

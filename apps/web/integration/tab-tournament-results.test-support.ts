@@ -1,3 +1,4 @@
+import { readHostRound } from '../src/features/tab/reads/host-round';
 import { isAppError } from '@daisy/errors';
 import { fixtureBallot } from './round-judging.test-support';
 import { authorize } from '@daisy/auth/authorization';
@@ -86,6 +87,25 @@ export async function resultsStage(world: World) {
           roundId,
           submission,
         );
+        const waiting = await readHostRound({ store, authorize })(
+          as(director),
+          {
+            lobbyId,
+            eventId: world.made.get('event')!,
+            tabRoundId: world.made.get('tab-round')!,
+          },
+        );
+        const awaiting =
+          waiting?.kind === 'published'
+            ? waiting.round.open.find((row) => row.fixtureId === fixture.id)
+            : null;
+        assert({
+          given:
+            'an actual completed native Round with a submitted ballot before Tab records its result',
+          should: 'show awaiting-result with the actual Room link',
+          actual: [awaiting?.state.kind, awaiting?.room?.roomId],
+          expected: ['awaiting_result', fixture.room_id],
+        });
         const recorded = await send(as(director), lobbyId, {
           version: 1,
           commandId: createId(),

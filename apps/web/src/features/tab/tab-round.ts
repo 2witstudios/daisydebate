@@ -176,7 +176,9 @@ const resultLine = (
         judgesOf(fixture.judges),
         winner === undefined || loser === undefined
           ? 'decided'
-          : `${name(winner.entryId)} won ${winner.points ?? ''} to ${loser.points ?? ''}`,
+          : winner.points === null || loser.points === null
+            ? `${name(winner.entryId)} won`
+            : `${name(winner.entryId)} won ${winner.points} to ${loser.points}`,
         ...(result.corrected ? ['corrected'] : []),
       ].join(' · ');
     }
@@ -192,6 +194,23 @@ const roundRoom = (
   const openRoom = sampleAction('Open room');
   const { state } = fixture;
   switch (state.kind) {
+    case 'waiting_for_start':
+    case 'awaiting_result':
+    case 'preparing':
+      return attentionRoom(
+        title,
+        [
+          roomOf(fixture),
+          state.kind === 'waiting_for_start'
+            ? 'Waiting for start'
+            : state.kind === 'awaiting_result'
+              ? 'Awaiting result'
+              : 'Preparing',
+        ].join(' · '),
+        fixture.room
+          ? linkTo('Open room', `/rooms/${fixture.room.roomId}`)
+          : openRoom,
+      );
     case 'ballot_overdue': {
       const spoken =
         state.speechesGiven === fixture.entries.length
@@ -237,10 +256,16 @@ const roundRoom = (
           roomOf(fixture),
           judgesOf(fixture.judges),
           ...(state.ballotsDue === 1
-            ? [`ballot open ${minutes(state.openForMs)}`]
+            ? [
+                state.openForMs === null
+                  ? 'Awaiting ballot'
+                  : `ballot open ${minutes(state.openForMs)}`,
+              ]
             : [
                 `${state.ballotsIn} of ${state.ballotsDue} ballots in`,
-                `open ${minutes(state.openForMs)}`,
+                ...(state.openForMs === null
+                  ? []
+                  : [`open ${minutes(state.openForMs)}`]),
               ]),
         ].join(' · '),
         openRoom,
@@ -257,6 +282,10 @@ const roundRoom = (
 const attentionOf = (fixture: TabRoundFixture): RoomAttention => {
   if (fixture.judges.length === 0 && fixture.kind !== 'bye') return 'waiting';
   switch (fixture.state.kind) {
+    case 'waiting_for_start':
+    case 'awaiting_result':
+    case 'preparing':
+      return 'waiting';
     case 'ballot_overdue':
     case 'confirmation_requested':
       return 'needs_you';
@@ -310,9 +339,13 @@ const runningRoundOf = (
     title: tabRound.name ?? `Round ${tabRound.number}`,
     lede: [
       ...size,
-      `started ${context.wallClock(read.startedAt)}`,
+      ...(read.startedAt === null
+        ? ['Waiting for start']
+        : [`started ${context.wallClock(read.startedAt)}`]),
       read.progress.kind === 'running'
-        ? lateness(read.progress.behindByMs)
+        ? read.progress.behindByMs === null
+          ? ''
+          : lateness(read.progress.behindByMs)
         : 'every ballot is in',
     ].join(' · '),
     participantView: linkTo(

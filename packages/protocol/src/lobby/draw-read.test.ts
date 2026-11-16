@@ -75,8 +75,8 @@ const drawView = {
   sides: ['affirmative', 'negative'],
   resultsThroughRound: 3,
   recordGroups: [
-    { wins: 2, fixtures: [fixture] },
-    { wins: 1, fixtures: [bye] },
+    { record: { label: 'Wins', value: { n: 2, d: 1 } }, fixtures: [fixture] },
+    { record: { label: 'Wins', value: { n: 1, d: 1 } }, fixtures: [bye] },
   ],
   spareJudges: [{ tournamentJudgeId: id('judgeshah'), name: 'A. Shah' }],
   capabilities: { edit: true, publish: false },
@@ -152,7 +152,7 @@ describe('the draw reads', () => {
           ...drawView,
           recordGroups: [
             {
-              wins: 2,
+              record: { label: 'Wins', value: { n: 2, d: 1 } },
               fixtures: [
                 { ...fixture, findings: [{ severity: 'relaxed', text: 'x' }] },
               ],
@@ -161,7 +161,12 @@ describe('the draw reads', () => {
         },
         {
           ...drawView,
-          recordGroups: [{ wins: 2, fixtures: [{ ...fixture, entries: [] }] }],
+          recordGroups: [
+            {
+              record: { label: 'Wins', value: { n: 2, d: 1 } },
+              fixtures: [{ ...fixture, entries: [] }],
+            },
+          ],
         },
         {
           ...drawView,

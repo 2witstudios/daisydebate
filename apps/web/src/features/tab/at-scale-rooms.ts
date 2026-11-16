@@ -25,6 +25,10 @@ export const roomStatusLabels: Readonly<Record<RoomStatus, string>> = {
 export function roomStatusOf(fixture: TabRoundFixture): RoomStatus {
   if (fixture.judges.length === 0 && fixture.kind !== 'bye') return 'waiting';
   switch (fixture.state.kind) {
+    case 'waiting_for_start':
+    case 'awaiting_result':
+    case 'preparing':
+      return 'waiting';
     case 'speaking':
     case 'confirmation_requested':
       return 'live';
@@ -79,7 +83,7 @@ const findingWeight: Readonly<Record<DrawFindingSeverity, number>> = {
 export function drawAtScale(read: DrawView): {
   readonly lookFirst: readonly DrawViewFixture[];
   readonly groups: readonly {
-    readonly wins: number;
+    readonly record: DrawView['recordGroups'][number]['record'];
     readonly fixtures: readonly DrawViewFixture[];
     /** The group's fixtures listed under Look first instead. */
     readonly listedAbove: number;
@@ -104,7 +108,7 @@ export function drawAtScale(read: DrawView): {
         (fixture) => fixture.findings.length === 0,
       );
       return {
-        wins: group.wins,
+        record: group.record,
         fixtures: plain,
         listedAbove: group.fixtures.length - plain.length,
         total: group.fixtures.length,
