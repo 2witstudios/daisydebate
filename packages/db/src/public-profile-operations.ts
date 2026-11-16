@@ -89,11 +89,7 @@ const ownProfile = async (
  * the same rows in the same order, so a member's upload and an operator's
  * decision never wait on each other's rows in a cycle.
  */
-export async function lockLivePhotos(
-  tx: Tx,
-  actorId: string,
-  alsoId?: string,
-) {
+export async function lockLivePhotos(tx: Tx, actorId: string, alsoId?: string) {
   // The member's photos as a whole first: two first uploads hold no row to
   // lock, so they queue here instead of racing the one-per-status indexes.
   await tx.execute(
