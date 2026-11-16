@@ -43,7 +43,7 @@ const opposite = (side: DebateSide): DebateSide =>
   side === 'affirmative' ? 'negative' : 'affirmative';
 
 /** The side a team argues as the view stands: `?` while it is open. */
-export const sideMarkOf = (
+const sideMarkOf = (
   view: Pick<RoomView, 'teamOneSide'>,
   team: RoomTeam,
 ): SideMark =>

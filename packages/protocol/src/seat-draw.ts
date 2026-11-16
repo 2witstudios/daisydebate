@@ -7,8 +7,7 @@ import { debateSideSchema, idSchema, type DebateSide } from './primitives';
  * in the `negative` ones until Start round, when the Room's side rule decides
  * which side each team argues. A Round's role is always the side.
  */
-export const roomTeams = [1, 2] as const;
-export type RoomTeam = (typeof roomTeams)[number];
+export type RoomTeam = 1 | 2;
 export const roomTeamSchema = z.union([z.literal(1), z.literal(2)]);
 
 /** The seats a team sits in before Start round. */

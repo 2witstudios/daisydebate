@@ -61,7 +61,6 @@ export {
   releaseRestrictedMember,
 } from './room-assembly';
 export { castSeatsBotDebater } from './ai-round-cast';
-export { resolveSeats, sidesSwappable, teamOf } from './room-seats';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
 /** Pure transitions the privacy erasure applies under its own authority. */
 export { closeRoom } from './room-consent-transitions';

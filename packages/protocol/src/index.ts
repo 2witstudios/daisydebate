@@ -288,7 +288,6 @@ export type {
 
 // Room teams and the Start round seat draw (ADR 0143).
 export {
-  roomTeams,
   roomTeamSchema,
   seatDrawSchema,
   sideOfTeam,

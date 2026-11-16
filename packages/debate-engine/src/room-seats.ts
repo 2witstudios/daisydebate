@@ -5,10 +5,9 @@ import type {
   RoomConsent,
   RoomMutationOutcome,
   RoomRefusal,
-  RoomTeam,
   SeatDraw,
 } from '@daisy/protocol';
-import { teamOfPlacement, teamPlacementOf } from '@daisy/protocol';
+import { teamPlacementOf } from '@daisy/protocol';
 import {
   canonicalJson,
   canonicalOrder,
@@ -40,7 +39,7 @@ const isDebater = (p: Participant): p is Participant & { role: DebateSide } =>
   p.role !== 'judge';
 
 /** Both teams the same size: the only Rooms whose sides may swap or flip. */
-export const sidesSwappable = (room: Pick<RoomAssemblyState, 'rules'>) =>
+const sidesSwappable = (room: Pick<RoomAssemblyState, 'rules'>) =>
   room.rules.seats.affirmative === room.rules.seats.negative;
 
 /** Whether `actorId` may change this debater's row: themselves, or the host. */
@@ -258,7 +257,3 @@ export function resolveSeats(
     },
   };
 }
-
-/** The team a debater's Room seat belongs to. */
-export const teamOf = (p: { readonly role: DebateSide }): RoomTeam =>
-  teamOfPlacement(p.role);
