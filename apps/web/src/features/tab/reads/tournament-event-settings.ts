@@ -116,7 +116,9 @@ export const readTournamentEventSettings =
               reads: 'event',
               ...(input.area === 'results'
                 ? { family: 'standings' as const }
-                : {}),
+                : input.area === 'entries'
+                  ? { family: 'entry' as const }
+                  : {}),
             },
             ask('lobby.setup.manage'),
           );
