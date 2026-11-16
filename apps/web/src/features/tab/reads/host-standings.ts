@@ -178,7 +178,7 @@ export const readHostStandings =
         );
         const ask = (capability: AuthorizationInput['capability']) =>
           dependencies.authorize({ ...authority, capability }).allow;
-        if (!ask('lobby.host.read')) return null;
+        if (!ask('lobby.host.results.read')) return null;
         return hostStandingsView(facts, {
           announceBreak: ask('tournament.results.release'),
           previewCorrection: ask('tournament.results.enter'),

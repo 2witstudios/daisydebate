@@ -135,9 +135,9 @@ describe('lobby setup read', async () => {
     });
     assert({
       given: 'the catalogue',
-      should: 'gate setup on lobby.host.read',
+      should: 'gate setup on lobby.setup.manage',
       actual: lobbySetupReadCatalogue.LobbySetupView.gate,
-      expected: ['lobby.host.read'],
+      expected: ['lobby.setup.manage'],
     });
   });
 });

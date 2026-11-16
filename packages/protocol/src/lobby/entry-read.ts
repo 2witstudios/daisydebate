@@ -239,8 +239,8 @@ export const schoolEntriesViewSchema = z.strictObject({
 export type SchoolEntriesView = z.infer<typeof schoolEntriesViewSchema>;
 
 export const entryReadCatalogue = {
-  EntryListView: { gate: ['lobby.host.read'] },
-  JudgeListView: { gate: ['lobby.host.read'] },
+  EntryListView: { gate: ['lobby.host.entries.read'] },
+  JudgeListView: { gate: ['lobby.host.entries.read'] },
   SchoolEntriesView: {
     gate: ['school.roster.manage', 'school.ballots.read', 'guardian.link.read'],
   },

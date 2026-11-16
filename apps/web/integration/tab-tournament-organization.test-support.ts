@@ -166,8 +166,8 @@ const staffActsAsStaff = async (
     hostRead,
   );
   expect(
-    (await people(as(cast.staff), organizationId)) !== null,
-    'Staff reads the people',
+    (await people(as(cast.staff), organizationId)) === null,
+    'Staff shell access does not expose the people area without role-management permission',
   );
   expect(
     (await people(as(cast.coach), organizationId)) === null,

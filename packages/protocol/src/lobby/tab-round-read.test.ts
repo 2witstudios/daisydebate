@@ -259,13 +259,16 @@ describe('the time slot read', () => {
   test('every tab round read answers under the host read gate', () => {
     assert({
       given: 'the tab round read catalogue',
-      should: 'name lobby.host.read, a real capability, for each read',
+      should: 'name lobby.host.draw.read, a real capability, for each read',
       actual: Object.values(tabRoundReadCatalogue).map((read) =>
         read.gate.map((gate) =>
           parseOutcome(authorizationCapabilitySchema, gate),
         ),
       ),
-      expected: [[{ data: 'lobby.host.read' }], [{ data: 'lobby.host.read' }]],
+      expected: [
+        [{ data: 'lobby.host.draw.read' }],
+        [{ data: 'lobby.host.draw.read' }],
+      ],
     });
   });
 });

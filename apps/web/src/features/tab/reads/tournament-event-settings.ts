@@ -55,7 +55,11 @@ export const readTournamentEventSettings =
   (dependencies: Dependencies) =>
   async (
     principal: TabPrincipal,
-    input: { readonly lobbyId: string; readonly eventId: string },
+    input: {
+      readonly lobbyId: string;
+      readonly eventId: string;
+      readonly area?: 'setup' | 'results';
+    },
   ): Promise<TournamentEventSettingsView | null> => {
     if (
       !idSchema.safeParse(input.lobbyId).success ||
@@ -85,7 +89,14 @@ export const readTournamentEventSettings =
           const ask = (capability: AuthorizationInput['capability']) =>
             dependencies.authorize({ principal, resource, context, capability })
               .allow;
-          if (!ask('lobby.host.read')) return null;
+          if (
+            !ask(
+              input.area === 'results'
+                ? 'lobby.host.results.read'
+                : 'lobby.setup.manage',
+            )
+          )
+            return null;
           const resolved = resolvedSettingsViewOf(
             {
               at: { kind: 'event', id: event.id },
@@ -101,6 +112,9 @@ export const readTournamentEventSettings =
               format: presetSettingDefaults(facts.configuration.preset.config),
               scopeName: (scope) => scopeName(facts, scope),
               reads: 'event',
+              ...(input.area === 'results'
+                ? { family: 'standings' as const }
+                : {}),
             },
             ask('lobby.setup.manage'),
           );

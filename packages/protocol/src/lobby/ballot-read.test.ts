@@ -216,11 +216,11 @@ describe('ballotReadCatalogue', async () => {
     assert({
       given: 'the ballot reads',
       should:
-        'gate the definition on lobby.host.read and ballots on ballot.read',
+        'gate the definition on lobby.setup.manage and ballots on ballot.read',
       actual: ballotReadCatalogue,
       expected: {
-        EventBallotView: { gate: ['lobby.host.read'] },
-        EventBallotAuthoringView: { gate: ['lobby.host.read'] },
+        EventBallotView: { gate: ['lobby.setup.manage'] },
+        EventBallotAuthoringView: { gate: ['lobby.setup.manage'] },
         JudgeBallotView: { gate: ['ballot.read'] },
         BallotView: { gate: ['ballot.read'] },
       },

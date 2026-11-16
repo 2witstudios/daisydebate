@@ -13,7 +13,13 @@ import { standingsViewSchema } from '@daisy/protocol/lobby/standings-read';
 import { hostStandingsPath } from '../../../../../../features/tab/host-standings-route';
 import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
 import { GET as standingsGET } from '../../../../../api/tab/host-standings/route';
-import { readStoredSetup } from '../setup/stored-setup';
+import { readStoredHostNavigation } from '../../../read-navigation';
+import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
+import { linkTo } from '../../../../../../features/tab/action';
+import { settingLineOf } from '../../../../../../features/tab/settings';
+import { tournamentEventSettingsViewSchema } from '@daisy/protocol/lobby/resolved-settings-read';
+import { tournamentEventSettingsPath } from '../../../../../../features/tab/tournament-event-settings-route';
+import { GET as settingsGET } from '../../../../../api/tab/tournament-event-settings/route';
 
 export const metadata: Metadata = { title: 'Standings' };
 
@@ -28,26 +34,51 @@ export default async function Page({
   if (slug !== AUTUMN && slug !== WINTER) {
     await requireTabRelease();
     const { event } = await searchParams;
-    const stored = await readStoredSetup(
-      slug,
-      typeof event === 'string' ? event : null,
-    );
-    if (!stored || stored.kind !== 'configured') notFound();
+    const navigation = await readStoredHostNavigation('lobby', slug);
+    if (!navigation) notFound();
+    const selected =
+      typeof event === 'string'
+        ? navigation.events.find((one) => one.eventId === event)
+        : navigation.events[0];
+    if (!selected) notFound();
     const read = await readOwnRoute(
       standingsGET,
-      hostStandingsPath(stored.view.lobbyId, stored.event.eventId),
+      hostStandingsPath(navigation.id, selected.eventId),
       standingsViewSchema,
     );
     if (!read) notFound();
-    const tiebreaks = stored.setup.settings.find((setting) =>
-      setting.keys.includes('standings.tiebreaks'),
+    const settings = await readOwnRoute(
+      settingsGET,
+      tournamentEventSettingsPath(navigation.id, selected.eventId, 'results'),
+      tournamentEventSettingsViewSchema,
     );
-    if (!tiebreaks) notFound();
+    const resolved = settings?.settings.find(
+      (setting) => setting.key === 'standings.tiebreaks',
+    );
+    if (!resolved) notFound();
+    const tiebreaks = settingLineOf(resolved, {
+      keys: ['standings.tiebreaks'],
+      label: 'Tiebreaks',
+      value: read.tiebreaks
+        .map((metric) => metric.replaceAll('_', ' '))
+        .join(' → '),
+    });
     const table = standingsTableOf(read, tiebreaks);
     return (
       <HostStandings
-        rail={stored.rail}
-        event={stored.setup.event}
+        rail={hostNavigationRail(navigation)}
+        event={{
+          current: selected.name,
+          position: `${navigation.events.indexOf(selected) + 1} of ${navigation.events.length}`,
+          others: navigation.events
+            .filter((one) => one.eventId !== selected.eventId)
+            .map((one) =>
+              linkTo(
+                one.name,
+                `${hostRoutes.standings(slug)}?event=${one.eventId}`,
+              ),
+            ),
+        }}
         table={{ ...table, announce: null, correction: null }}
       />
     );

@@ -111,7 +111,7 @@ export const resolutionViewSchema = z.strictObject({
 });
 
 export const resolutionReadCatalogue = {
-  ResolutionPoolView: { gate: ['lobby.host.read'] },
+  ResolutionPoolView: { gate: ['lobby.setup.manage'] },
   ResolutionView: { gate: ['resolution.read'] },
 } as const satisfies LobbyReadCatalogue<
   'ResolutionPoolView' | 'ResolutionView'

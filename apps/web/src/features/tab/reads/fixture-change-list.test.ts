@@ -122,7 +122,7 @@ test('the read is gated on reading the posting', async () => {
         ?.seen,
       (
         await readFixtureChangeList(
-          authorizeWith(['posting.read', 'lobby.host.read']),
+          authorizeWith(['posting.read', 'lobby.host.draw.read']),
           load,
         )
       )?.seen,

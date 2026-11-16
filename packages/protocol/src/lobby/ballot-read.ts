@@ -176,8 +176,8 @@ export const ballotViewSchema = z.discriminatedUnion('viewer', [
 ]);
 
 export const ballotReadCatalogue = {
-  EventBallotView: { gate: ['lobby.host.read'] },
-  EventBallotAuthoringView: { gate: ['lobby.host.read'] },
+  EventBallotView: { gate: ['lobby.setup.manage'] },
+  EventBallotAuthoringView: { gate: ['lobby.setup.manage'] },
   JudgeBallotView: { gate: ['ballot.read'] },
   BallotView: { gate: ['ballot.read'] },
 } as const satisfies LobbyReadCatalogue<

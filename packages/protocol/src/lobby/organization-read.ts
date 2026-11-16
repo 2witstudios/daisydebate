@@ -210,7 +210,7 @@ export type OrganizationPeopleView = z.infer<
 export const organizationReadCatalogue = {
   HostHomeView: { gate: 'signed-in' },
   OrganizationView: { gate: ['organization.read'] },
-  OrganizationPeopleView: { gate: ['organization.host.read'] },
+  OrganizationPeopleView: { gate: ['lobby.host.people.read'] },
 } as const satisfies LobbyReadCatalogue<
   'HostHomeView' | 'OrganizationView' | 'OrganizationPeopleView'
 >;

@@ -287,11 +287,11 @@ describe('entryReadCatalogue', async () => {
     assert({
       given: 'the entry reads',
       should:
-        'gate host reads on lobby.host.read and own entries on roster, ballots or guardianship',
+        'gate host reads on lobby.host.entries.read and own entries on roster, ballots or guardianship',
       actual: entryReadCatalogue,
       expected: {
-        EntryListView: { gate: ['lobby.host.read'] },
-        JudgeListView: { gate: ['lobby.host.read'] },
+        EntryListView: { gate: ['lobby.host.entries.read'] },
+        JudgeListView: { gate: ['lobby.host.entries.read'] },
         SchoolEntriesView: {
           gate: [
             'school.roster.manage',

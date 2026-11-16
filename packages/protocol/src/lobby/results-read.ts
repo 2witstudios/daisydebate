@@ -106,5 +106,5 @@ export type ResultsCorrection = z.infer<typeof correction>;
 export type AudienceOpenings = z.infer<typeof audienceOpenings>;
 
 export const resultsReadCatalogue = {
-  EventResultsView: { gate: ['lobby.host.read'] },
+  EventResultsView: { gate: ['lobby.host.results.read'] },
 } as const satisfies LobbyReadCatalogue<'EventResultsView'>;

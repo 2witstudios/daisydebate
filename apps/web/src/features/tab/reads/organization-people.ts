@@ -112,7 +112,7 @@ export type OrganizationPeopleDependencies = {
   readonly now: () => string;
 };
 
-/** The gated read: a viewer `organization.host.read` does not allow is answered null. */
+/** The gated read: a viewer `lobby.host.people.read` does not allow is answered null. */
 export const readOrganizationPeople =
   (dependencies: OrganizationPeopleDependencies) =>
   (

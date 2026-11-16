@@ -147,8 +147,8 @@ export const supersededInputListSchema = z
   );
 
 export const drawReadCatalogue = {
-  DrawView: { gate: ['lobby.host.read'] },
-  SupersededInputList: { gate: ['lobby.host.read'] },
+  DrawView: { gate: ['lobby.host.draw.read'] },
+  SupersededInputList: { gate: ['lobby.host.draw.read'] },
 } as const satisfies LobbyReadCatalogue<'DrawView' | 'SupersededInputList'>;
 
 /** Search and paging are applied before the screen receives its read. */

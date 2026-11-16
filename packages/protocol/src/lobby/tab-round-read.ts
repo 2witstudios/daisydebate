@@ -237,8 +237,8 @@ export type TimeSlotHostView = z.infer<typeof timeSlotHostViewSchema>;
 export type TimeSlotConcern = z.infer<typeof slotConcern>;
 
 export const tabRoundReadCatalogue = {
-  TabRoundHostView: { gate: ['lobby.host.read'] },
-  TimeSlotHostView: { gate: ['lobby.host.read'] },
+  TabRoundHostView: { gate: ['lobby.host.draw.read'] },
+  TimeSlotHostView: { gate: ['lobby.host.draw.read'] },
 } as const satisfies LobbyReadCatalogue<
   'TabRoundHostView' | 'TimeSlotHostView'
 >;

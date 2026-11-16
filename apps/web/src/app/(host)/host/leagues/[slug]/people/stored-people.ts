@@ -1,8 +1,5 @@
 import { organizationPeopleViewSchema } from '@daisy/protocol/lobby/organization-read';
-import {
-  organizationPeoplePage,
-  organizationRailOf,
-} from '../../../../../../features/tab/organization';
+import { organizationPeoplePage } from '../../../../../../features/tab/organization';
 import { organizationPeoplePath } from '../../../../../../features/tab/organization-people-route';
 import {
   requestIdentity,
@@ -10,6 +7,8 @@ import {
 } from '../../../../../../lib/request-session';
 import { GET as readOrganizationPeopleRoute } from '../../../../../api/tab/organization-people/route';
 import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readStoredHostNavigation } from '../../../read-navigation';
+import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 
 /**
  * A stored league's people page for this viewer, through the route a script
@@ -23,6 +22,8 @@ export async function readStoredPeople(
 ) {
   const identity = await requestIdentity();
   if (identity.state !== 'member') return null;
+  const navigation = await readStoredHostNavigation('organization', handle);
+  if (!navigation) return null;
   const view = await readOwnRoute(
     readOrganizationPeopleRoute,
     organizationPeoplePath(handle),
@@ -31,7 +32,7 @@ export async function readStoredPeople(
   if (view === null) return null;
   return {
     view,
-    rail: organizationRailOf(view),
+    rail: hostNavigationRail(navigation),
     people: organizationPeoplePage(view, {
       role,
       basePath,

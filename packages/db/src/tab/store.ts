@@ -1,3 +1,5 @@
+import { createHostNavigationStore } from './host-navigation';
+export type { HostNavigationFacts } from './host-navigation';
 import { createEventCompetitionStore } from './event-competition';
 export type { EventCompetitionFacts } from './event-competition';
 import { createConflictWaiverRequestStore } from './conflict-waiver-request';
@@ -186,6 +188,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),
   ...createEventCompetitionStore(database),
+  ...createHostNavigationStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),
   ...createSetupCommandStore(database),

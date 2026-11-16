@@ -123,11 +123,11 @@ describe('the event results read', () => {
   test('the event results read answers under the host read gate', () => {
     assert({
       given: 'the results read catalogue',
-      should: 'name lobby.host.read, a real capability',
+      should: 'name lobby.host.results.read, a real capability',
       actual: resultsReadCatalogue.EventResultsView.gate.map((gate) =>
         parseOutcome(authorizationCapabilitySchema, gate),
       ),
-      expected: [{ data: 'lobby.host.read' }],
+      expected: [{ data: 'lobby.host.results.read' }],
     });
   });
 });

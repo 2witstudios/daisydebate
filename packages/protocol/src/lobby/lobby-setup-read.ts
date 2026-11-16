@@ -165,5 +165,5 @@ export type TournamentSetupView = Extract<
 >;
 
 export const lobbySetupReadCatalogue = {
-  LobbySetupView: { gate: ['lobby.host.read'] },
+  LobbySetupView: { gate: ['lobby.setup.manage'] },
 } as const satisfies LobbyReadCatalogue<'LobbySetupView'>;

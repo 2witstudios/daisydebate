@@ -11,18 +11,27 @@ import {
   type MemberBoundary,
 } from '../../server/member-boundary';
 import type { TabPrincipal } from './tab-principal';
-const querySchema = z.strictObject({ lobbyId: idSchema, eventId: idSchema });
+const querySchema = z.strictObject({
+  lobbyId: idSchema,
+  eventId: idSchema,
+  area: z.enum(['setup', 'results']).default('setup'),
+});
 export const tournamentEventSettingsPath = (
   lobbyId: string,
   eventId: string,
+  area: 'setup' | 'results' = 'setup',
 ): string =>
-  `/api/tab/tournament-event-settings?${new URLSearchParams({ lobbyId, eventId })}`;
+  `/api/tab/tournament-event-settings?${new URLSearchParams({ lobbyId, eventId, ...(area === 'results' ? { area } : {}) })}`;
 export type TournamentEventSettingsRouteDependencies = {
   readonly boundary: MemberBoundary;
   readonly released: (userId: string) => Promise<boolean>;
   readonly read: (
     principal: TabPrincipal,
-    input: { readonly lobbyId: string; readonly eventId: string },
+    input: {
+      readonly lobbyId: string;
+      readonly eventId: string;
+      readonly area?: 'setup' | 'results';
+    },
   ) => Promise<TournamentEventSettingsView | null>;
 };
 /** The host's resolved event settings, behind the same closed release as its commands. */

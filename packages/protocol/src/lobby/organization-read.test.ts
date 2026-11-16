@@ -200,12 +200,12 @@ describe('organization reads', async () => {
     assert({
       given: 'the catalogue',
       should:
-        'gate home on a signed-in viewer, the profile on organization.read, people on organization.host.read',
+        'gate home on a signed-in viewer, the profile on organization.read, people on lobby.host.people.read',
       actual: organizationReadCatalogue,
       expected: {
         HostHomeView: { gate: 'signed-in' },
         OrganizationView: { gate: ['organization.read'] },
-        OrganizationPeopleView: { gate: ['organization.host.read'] },
+        OrganizationPeopleView: { gate: ['lobby.host.people.read'] },
       },
     });
   });

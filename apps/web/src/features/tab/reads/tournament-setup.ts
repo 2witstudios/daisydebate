@@ -155,7 +155,7 @@ export const readTournamentSetup =
         const ask = (capability: AuthorizationInput['capability']) =>
           dependencies.authorize({ principal, resource, context, capability })
             .allow;
-        if (!ask('lobby.host.read')) return null;
+        if (!ask('lobby.setup.manage')) return null;
         return project(facts, ask('lobby.setup.manage'));
       },
     );

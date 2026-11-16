@@ -263,7 +263,6 @@ export function assessPendingProposer(
   return { kind: 'eligible', authority: assessed.authority };
 }
 
-
 /** Authorized host areas, using the same facts and boundary as each area's read. */
 export function authorizedHostAreas(
   input: Omit<AuthorizationInput, 'capability'> & {

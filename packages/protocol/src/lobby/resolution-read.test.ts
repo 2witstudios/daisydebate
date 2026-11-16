@@ -168,10 +168,11 @@ describe('resolutionReadCatalogue', async () => {
   test('gates', () => {
     assert({
       given: 'the resolution reads',
-      should: 'gate the pool on lobby.host.read and a round on resolution.read',
+      should:
+        'gate the pool on lobby.setup.manage and a round on resolution.read',
       actual: resolutionReadCatalogue,
       expected: {
-        ResolutionPoolView: { gate: ['lobby.host.read'] },
+        ResolutionPoolView: { gate: ['lobby.setup.manage'] },
         ResolutionView: { gate: ['resolution.read'] },
       },
     });

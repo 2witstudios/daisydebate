@@ -1,3 +1,8 @@
+import { readHostNavigation } from './reads/host-navigation';
+import {
+  createHostNavigationRoute,
+  type HostNavigationRouteDependencies,
+} from './host-navigation-route';
 import { fixtureCommand } from './operations/fixture-command';
 import { resultCommand } from './operations/result-command';
 import { releaseCommand } from './operations/release-command';
@@ -95,6 +100,14 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    hostNavigation: (released: HostNavigationRouteDependencies['released']) =>
+      createHostNavigationRoute({
+        boundary,
+        released,
+        organizationIdOfHandle: store.organizationIdOfHandle,
+        lobbyIdOfHandle: store.lobbyIdOfHandle,
+        read: readHostNavigation({ store, authorize, now }),
+      }),
     fixtureCommand: (released: TabCommandRouteDependencies['released']) =>
       commandRoute(released, {
         name: 'tab.fixture.command',
