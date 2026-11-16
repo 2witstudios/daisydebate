@@ -1,5 +1,9 @@
 # 0125: Coherency judging: staged AI judging and rubric speaker-10@2
 
+Decision 1 and DEC-243 are amended for event-configured ballot definitions by
+[ADR 0134](0134-formats-beyond-two-sides.md). Ordinary winner Rooms retain
+`speaker-10@2`; events may pin another typed, versioned definition.
+
 Status: accepted (owner, 2026-11-12; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/pjlpci06x82fydh414mlpwyh)).
 Revises the speaker rubric DEC-243 and DEC-116 keep as Daisy's one rubric.
 Answers the judging area's open decision "rubric revisions from beta data".

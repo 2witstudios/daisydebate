@@ -60,8 +60,10 @@ for (const elected of [true, false])
         'sample unhealthy and stop renewal/sampling before releasing election',
       actual: { evidence, events, probes: state.probes },
       expected: {
-        evidence: elected ? [{ publicProbeHealthy: false }] : [],
-        probes: elected ? 1 : 0,
+        evidence: elected
+          ? [{ publicProbeHealthy: false }, { publicProbeHealthy: false }]
+          : [],
+        probes: elected ? 2 : 0,
         events: ['interval:1000', 'renew', 'clear', 'close'],
       },
     });

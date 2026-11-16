@@ -1,5 +1,8 @@
 # 0033: Presence and adjudication
 
+Attendance outside two-sided winner formats is amended by
+[ADR 0134](0134-formats-beyond-two-sides.md).
+
 Current Round adaptation: [ADR 0058](0058-one-round-model.md) supersedes the
 historical fixed timetable and snapshot participant authority below.
 [ADR 0067](0067-playable-round-policy-and-acceptance.md) preserves the fairness,

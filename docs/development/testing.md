@@ -160,6 +160,13 @@ a failure or an empty test selection.
 A retry-pass or a single green run is not this gate; all three outcomes are
 retained as artifacts.
 
+The manual Browser E2E job reserves 75 minutes for setup, all three complete
+passes and artifact retention (ISSUE-1429). Run 43728553417 measured full passes
+of 18 and 20 minutes, then reached test 458 of 573 in pass three without an
+assertion failure before its aggregate supervisor deadline. Individual test
+budgets, zero retries and complete inventory remain the qualification contract;
+the single-run push job keeps its 20-minute limit and native cohorts keep theirs.
+
 ### Multi-instance load and outage proof (AUTH-6.7)
 
 Cross-instance correctness (shared sessions, passkey challenges, one-time
@@ -751,3 +758,33 @@ known descendant or downstream success. This is fault-controlled execution at
 the actual maintainer entry; it does not prove every unmodified script command
 or an arbitrary session-escaping script is safe. The unmodified normal cold
 trace remains separate evidence.
+
+### Messaging refusal completion (ISSUE-1426)
+
+Controlled recovery reads retain the actual authorized Flight bytes. A passive
+witness on the application's existing reader proves EOF and a SHA-256 digest
+and byte count equal to that response, correlated by its HTTP request ID.
+It neither clones the stream nor initiates a read, and returns the original
+fetch/read promises. The witness retains at most four responses and 1 MiB of
+chunks per response; exceeding a bound fails completion. Payloads and digests
+remain inside the proof; attachments contain only comparisons and counts.
+
+This is distinct from network termination: Chromium can report `ERR_ABORTED`
+after the decoder consumed EOF. In Playwright 1.63, the client resolves
+`Response.finished()` only from `requestFinished`, so awaiting it after
+`requestFailed` hangs. Run 43724810814 recorded that exact combination on the
+third refusal. An abort alone never proves success. Completion additionally
+requires the actual advice's committed refusal identity (or the independently
+witnessed newer action render), no rejected/cancelled/aborted consumer, three
+sequential reads with maximum pending one, stopped recovery and the unchanged
+10-second deadline. Corrupt, truncated and wrong-identity byte controls fail.
+
+The November 15 visual recovery changes only four attributed frames. The
+November 4 snapshots predate notification preferences by kind and channel
+(ADR 0124, commits `8082cb82b`/`c61b9eb72`), analytics navigation relocation
+(`e6847afc6`) and rail divider/order corrections (`f46d6ad80`/`6369d6ddb`).
+The replacement PNGs are the canonical Linux amd64 actuals from Browser E2E
+43723616371, artifact 14165633456. Its runtime source and generated CSS match
+main `9a27c321`; the intervening merges changed Markdown only. Pixel tolerance,
+masks and all other baselines stay unchanged. Linux arm64 is a separate
+renderer: record its result explicitly and use amd64 CI for canonical parity.

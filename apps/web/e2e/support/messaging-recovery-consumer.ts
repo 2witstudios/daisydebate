@@ -12,7 +12,12 @@ export function observeRecoveryConsumer(
     readerCancelled: false,
     bodyCancelled: false,
     lockReleased: false,
+    byteLength: 0,
+    bodyDigest: null as string | null,
+    byteLimitExceeded: false,
+    digestFailed: false,
   };
+  const chunks: Uint8Array[] = [];
   const body = response.body;
   if (body === null) return state;
   const getReader = body.getReader.bind(body);
@@ -38,7 +43,36 @@ export function observeRecoveryConsumer(
         (answer) => {
           if (answer.done) {
             state.eof = true;
+            if (!state.byteLimitExceeded) {
+              const bytes = new Uint8Array(state.byteLength);
+              let offset = 0;
+              for (const chunk of chunks) {
+                bytes.set(chunk, offset);
+                offset += chunk.byteLength;
+              }
+              void crypto.subtle.digest('SHA-256', bytes).then(
+                (digest) => {
+                  state.bodyDigest = Array.from(
+                    new Uint8Array(digest),
+                    (byte) => byte.toString(16).padStart(2, '0'),
+                  ).join('');
+                  changed();
+                },
+                () => {
+                  state.digestFailed = true;
+                  changed();
+                },
+              );
+            }
             changed();
+          } else {
+            state.byteLength += answer.value.byteLength;
+            if (state.byteLength <= 1_048_576)
+              chunks.push(answer.value.slice());
+            else {
+              state.byteLimitExceeded = true;
+              chunks.length = 0;
+            }
           }
         },
         () => {
@@ -73,10 +107,23 @@ export async function watchRecoveryConsumer(
 ) {
   const pathname =
     target.kind === 'shell-home' ? '/' : `/messages/${target.channelId}`;
-  const observations = new Map<string, Record<string, boolean>>();
+  const observations = new Map<
+    string,
+    ReturnType<typeof observeRecoveryConsumer> & {
+      signalSupplied: boolean;
+      signalAborted: boolean;
+    }
+  >();
+  const expected = new Map<string, { digest: string; byteLength: number }>();
   await page.exposeFunction(
     '__messagingRecoveryConsumer',
-    (id: string, value: Record<string, boolean>) => {
+    (
+      id: string,
+      value: ReturnType<typeof observeRecoveryConsumer> & {
+        signalSupplied: boolean;
+        signalAborted: boolean;
+      },
+    ) => {
       const fields = [
         'readerOpened',
         'eof',
@@ -86,26 +133,71 @@ export async function watchRecoveryConsumer(
         'lockReleased',
         'signalSupplied',
         'signalAborted',
+        'byteLimitExceeded',
+        'digestFailed',
       ] as const;
       if (
         typeof id !== 'string' ||
+        !Number.isSafeInteger(value.byteLength) ||
+        value.byteLength < 0 ||
+        !(
+          value.bodyDigest === null || /^[a-f0-9]{64}$/.test(value.bodyDigest)
+        ) ||
         fields.some((field) => typeof value[field] !== 'boolean')
       )
         return;
       if (!observations.has(id) && observations.size >= 4) return;
-      observations.set(
-        id,
-        Object.fromEntries(fields.map((field) => [field, value[field]!])),
-      );
+      observations.set(id, {
+        readerOpened: value.readerOpened,
+        eof: value.eof,
+        readRejected: value.readRejected,
+        readerCancelled: value.readerCancelled,
+        bodyCancelled: value.bodyCancelled,
+        lockReleased: value.lockReleased,
+        byteLength: value.byteLength,
+        bodyDigest: value.bodyDigest,
+        byteLimitExceeded: value.byteLimitExceeded,
+        digestFailed: value.digestFailed,
+        signalSupplied: value.signalSupplied,
+        signalAborted: value.signalAborted,
+      });
     },
   );
   await page.addInitScript({
     content: `(${installRecoveryConsumer.toString()})(${JSON.stringify(pathname)}, ${observeRecoveryConsumer.toString()});`,
   });
-  return (response: PageResponse) => {
-    const value = observations.get(response.headers()['x-request-id'] ?? '');
-    return { sameHttpCorrelation: value !== undefined, ...(value ?? {}) };
-  };
+  return Object.assign(
+    (response: PageResponse) => {
+      const id = response.headers()['x-request-id'] ?? '';
+      const value = observations.get(id);
+      const { bodyDigest, ...safe } = value ?? {};
+      const actual = expected.get(id);
+      return {
+        sameHttpCorrelation: value !== undefined,
+        ...safe,
+        bytesMatch:
+          actual !== undefined &&
+          bodyDigest === actual.digest &&
+          value?.byteLength === actual.byteLength,
+      };
+    },
+    {
+      expectBody: async (id: string, body: Uint8Array) => {
+        if (!expected.has(id) && expected.size >= 4)
+          throw new Error('Controlled response evidence limit exceeded');
+        const digest = await crypto.subtle.digest(
+          'SHA-256',
+          Uint8Array.from(body),
+        );
+        expected.set(id, {
+          digest: Array.from(new Uint8Array(digest), (byte) =>
+            byte.toString(16).padStart(2, '0'),
+          ).join(''),
+          byteLength: body.byteLength,
+        });
+      },
+    },
+  );
 }
 
 function installRecoveryConsumer(

@@ -353,10 +353,15 @@ export function testRoundFloorLive() {
             ),
           ).length,
       );
-      const activeRead = await host.request.get(`/api/rounds/${roundId}`);
-      expect(roundViewSchema.parse(await activeRead.json()).status).toBe(
-        'active',
-      );
+      // Media grants follow the time-derived prep boundary; durable status
+      // follows the maintenance tick. Witness both before testing continuity.
+      await expect
+        .poll(async () => {
+          const activeRead = await host.request.get(`/api/rounds/${roundId}`);
+          expect(activeRead.ok()).toBe(true);
+          return roundViewSchema.parse(await activeRead.json()).status;
+        })
+        .toBe('active');
       const liveAdmissionCount = mediaAdmissions();
       const second = 'Floor message alongside the live camera';
       await composer(host).fill(second);

@@ -1,5 +1,8 @@
 # 0058: one Round model
 
+Outcomes, panels and §6's one ballot contract are amended by
+[ADR 0134](0134-formats-beyond-two-sides.md).
+
 Status: accepted (owner request, 2026-10-06). `crossExModes[]` is retired by
 [ADR 0096](0096-cross-examination-open-microphones.md). Supersedes parts of
 [ADR 0029](0029-competitive-schema-foundation.md),

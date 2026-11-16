@@ -1,5 +1,8 @@
 # 0049: Room, debate and turn
 
+The four-team placement exclusion is superseded by
+[ADR 0134](0134-formats-beyond-two-sides.md).
+
 Current authority: [ADR 0058](0058-one-round-model.md) replaces the historical
 Debate/Turn representation below. [ADR 0067](0067-playable-round-policy-and-acceptance.md)
 supersedes section 4's same-Room reopening: a started Room retains its unique

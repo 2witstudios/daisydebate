@@ -1,5 +1,8 @@
 # 0029: Competitive schema foundation
 
+The role vocabulary is superseded by
+[ADR 0134](0134-formats-beyond-two-sides.md).
+
 Status: accepted. Decision 2's scrub clause is superseded by
 [ADR 0087](0087-compliance-from-obligations.md): a closed account keeps its
 username, reserved, on the competitive record. Amends [ADR 0007](0007-postgresql-source-of-truth.md)

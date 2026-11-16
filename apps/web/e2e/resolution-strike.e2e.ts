@@ -275,6 +275,8 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     });
 
     const page = await openPage(host.context, 'Freestyle strike host');
+    // A short desktop must scroll the entire draw, including its confirmation.
+    await page.setViewportSize({ width: 1280, height: 600 });
     await page.goto(`/rooms/${view.id}`);
     await readyUp(page);
 
@@ -284,11 +286,18 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     const myTurn = page.getByRole('heading', { name: yourTurn });
     await expect(myTurn).toBeVisible({ timeout: 20_000 });
     await page.getByRole('radio', { disabled: false }).first().check();
-    await page.getByRole('button', { name: 'Strike this resolution' }).click();
+    const chooseStrike = page.getByRole('button', {
+      name: 'Strike this resolution',
+    });
+    await chooseStrike.click({ trial: true, timeout: 5000 });
+    await chooseStrike.click();
     await expect(
       page.getByText(/^Strike ‘.+’\? You can’t undo a strike\.$/),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Strike it' }).click();
+    const confirmStrike = page.getByRole('button', { name: 'Strike it' });
+    // The following media section must not cover a growing strike panel.
+    await confirmStrike.click({ trial: true, timeout: 5000 });
+    await confirmStrike.click();
     await expect(page.getByText('You struck this')).toBeVisible();
 
     // The second human turn runs out: Daisy strikes, and the last one left is revealed.
