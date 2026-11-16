@@ -1,5 +1,6 @@
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   tenantIsolationProblems,
@@ -75,7 +76,7 @@ export const startupSchemaProblems = ({
 
 /** The migration SQL and latest generated snapshot shipped in this image. */
 export const readImageSchema = async (): Promise<ImageSchema> => {
-  const folder = fileURLToPath(new URL('../migrations/', import.meta.url));
+  const folder = join(dirname(fileURLToPath(import.meta.url)), '../migrations');
   const migrations = readMigrationFiles({ migrationsFolder: folder });
   const last = migrations.at(-1);
   if (!last) throw new Error('Image migrations are missing');
