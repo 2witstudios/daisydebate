@@ -32,7 +32,7 @@ test(
         await sql`select to_jsonb(r) as row from rounds r where id=${roundId}`;
       await scratch.migrate(() => true);
       const [after] =
-        await sql`select to_jsonb(r)-'ballot_definition_id'-'ballot_definition_version' as row from rounds r where id=${roundId}`;
+        await sql`select to_jsonb(r)-'ballot_definition_id'-'ballot_definition_version'-'league_ladder_id' as row from rounds r where id=${roundId}`;
       const id = createId();
       await sql.unsafe('begin');
       await fixture.insert('ballot_definitions', {
@@ -68,6 +68,18 @@ test(
       const storedRound = await fixture.round({ judging: stored });
       const [pin] =
         await sql`select ballot_definition_id,ballot_definition_version from rounds where id=${storedRound}`;
+      assert({
+        given:
+          'the migrated historical Daisy Round and the new stored-ballot Round',
+        should:
+          'leave league rating selection null for both without fabricating provenance',
+        actual: Array.from(
+          await sql`select id,league_ladder_id from rounds where id=any(${sql.array([roundId, storedRound], 'text')}::text[]) order by id`,
+        ),
+        expected: [roundId, storedRound]
+          .sort()
+          .map((id) => ({ id, league_ladder_id: null })),
+      });
       const constraint = async (judging: unknown) => {
         try {
           await fixture.round({ judging });

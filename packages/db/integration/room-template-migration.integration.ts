@@ -38,11 +38,20 @@ test(
         await client`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
       await scratch.migrate(() => true);
       const after =
-        await client`select to_jsonb(r)-'standing_template_id' as room from rooms r where id=${roomId}`;
+        await client`select to_jsonb(r)-'standing_template_id'-'league_ladder_id' as room from rooms r where id=${roomId}`;
       const offersAfter =
         await client`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
       const [pin] =
         await client`select template_id,standing_template_id from rooms where id=${roomId}`;
+      assert({
+        given: 'a populated standing Room predating league rating selection',
+        should:
+          'initialize the new marker to null without changing historical ratedness',
+        actual: Array.from(
+          await client`select league_ladder_id from rooms where id=${roomId}`,
+        ),
+        expected: [{ league_ladder_id: null }],
+      });
       assert({
         given:
           'a populated standing Room with its actual offered template before DEC403',
