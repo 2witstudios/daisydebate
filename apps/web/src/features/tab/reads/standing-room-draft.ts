@@ -1,3 +1,7 @@
+import {
+  standingRoomSettings,
+  standingRoomConfig,
+} from '../operations/standing-room-settings';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -45,11 +49,12 @@ export const readStandingRoomDraft =
   (dependencies: Dependencies) =>
   async (
     principal: TabPrincipal,
-    input: { readonly lobbyId: string; readonly templateId: string },
+    input: { readonly lobbyId: string; readonly templateId?: string },
   ): Promise<CreateRoomReads | null> => {
     if (
       !idSchema.safeParse(input.lobbyId).success ||
-      !idSchema.safeParse(input.templateId).success
+      (input.templateId !== undefined &&
+        !idSchema.safeParse(input.templateId).success)
     )
       return null;
     return dependencies.store.standingRoomDraft(
@@ -69,7 +74,10 @@ export const readStandingRoomDraft =
         const offered = facts.graph.templates.filter(
           (row) => offeredIds.has(row.id) && row.retiredAt === null,
         );
-        const template = offered.find((row) => row.id === input.templateId);
+        const template =
+          input.templateId === undefined
+            ? offered[0]
+            : offered.find((row) => row.id === input.templateId);
         if (!template) return null;
         const chain = roomChain({
           organizationId: facts.lobby.ownerOrganizationId,
@@ -118,7 +126,46 @@ export const readStandingRoomDraft =
           dependencies.authorize({ ...authority, capability }).allow;
         if (!ask('lobby.read') || !ask('lobby.room.create')) return null;
         const names = (scope: SettingScope) => scopeName(facts, scope);
+        const creation = standingRoomSettings(facts, template.id);
+        if (!creation?.preset || !creation.definition) return null;
+        const selectedLadder =
+          creation.settings['standings.rating_ladder'].value.ladderId;
         return {
+          creation: {
+            selection: {
+              kind: 'catalog',
+              formatId: template.formatId,
+              formatVersion: template.formatVersion,
+              presetVersion: creation.preset.version,
+              competitionType: 'casual',
+            },
+            config: standingRoomConfig(
+              creation.preset.config,
+              creation,
+              facts.resolutions,
+            ),
+            resolutionChoicePolicy: {
+              method: creation.settings['resolution.rule'].value.method,
+              ownText:
+                creation.settings['resolution.own_text'].value.value ===
+                'allowed',
+              choices: facts.resolutions.map((row) => ({
+                id: row.id,
+                text: row.text,
+              })),
+            },
+            rating:
+              selectedLadder && facts.ladder?.id === selectedLadder
+                ? creation.definition.outcome.kind === 'winner' &&
+                  creation.definition.sides.length === 2
+                  ? { kind: 'rated', ladderId: selectedLadder }
+                  : { kind: 'unsupported' }
+                : { kind: 'unrated' },
+            visibility: {
+              value: creation.settings['room.visibility'].value.value,
+              locked: creation.settings['room.visibility'].hold === 'enforced',
+            },
+          },
           lobby: { name: facts.lobby.name, handle: facts.lobby.handle },
           draft: resolvedSettingsViewOf(
             {

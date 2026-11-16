@@ -62,6 +62,10 @@ type LobbyRoomFacts = {
   readonly ownFormat: SettingValues['room.own_format']['value'];
   readonly ownText: SettingValues['resolution.own_text']['value'];
   /** The `room.visibility` value where it is enforced; null where it is not. */
+  readonly poolResolutions?: readonly {
+    readonly id: string;
+    readonly text: string;
+  }[];
   readonly enforcedVisibility: SettingValues['room.visibility']['value'] | null;
 };
 
@@ -496,7 +500,22 @@ const createLobbyRoom = (
     room.enforcedVisibility !== command.room.visibility
   )
     return refuse('setting-enforced');
-  if (command.room.resolution.kind === 'custom' && room.ownText === 'off')
+  if (
+    command.poolResolutionId &&
+    (command.room.resolution.kind !== 'custom' ||
+      !room.poolResolutions?.some(
+        (row) =>
+          row.id === command.poolResolutionId &&
+          command.room.resolution.kind === 'custom' &&
+          row.text === command.room.resolution.text,
+      ))
+  )
+    return refuse('pool-resolution-required');
+  if (
+    command.room.resolution.kind === 'custom' &&
+    !command.poolResolutionId &&
+    room.ownText === 'off'
+  )
     return refuse('pool-resolution-required');
   // The receipt names the Room it made, at its first version.
   return accepted({ kind: 'room', id: facts.newId }, 1, [

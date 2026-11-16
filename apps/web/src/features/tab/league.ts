@@ -1,3 +1,4 @@
+import type { StandingRoomCreation } from './standing-room-creation';
 import type { Choice, TabAction } from './action';
 import type { OrganizationView } from '@daisy/protocol/lobby/organization-read';
 import type { ResolvedSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
@@ -781,6 +782,7 @@ export type CreateRoomCopy = {
 
 /** What the form is drawn from: the lobby, the Room draft's view, the offered templates. */
 export type CreateRoomReads = {
+  readonly creation?: StandingRoomCreation;
   readonly lobby: { readonly name: string; readonly handle: string };
   readonly draft: ResolvedSettingsView;
   /**

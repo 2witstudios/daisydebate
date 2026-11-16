@@ -1,3 +1,10 @@
+import { createLobbyRoomStore } from './create-lobby-room';
+export type {
+  CreateLobbyRoomCommand,
+  LobbyRoomAssembly,
+} from './create-lobby-room';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import { lobbies } from '../schema/lobbies';
 import { createLeagueSeasonStore } from './league-season';
 export type { LeagueSeasonFacts } from './league-season';
 import { createLeagueRatingStore } from './league-rating-inputs';
@@ -232,6 +239,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createJudgeRegistrationStore(database),
   ...createEntryEnrollmentStore(database),
   ...createStandingRoomDraftStore(database),
+  ...createLobbyRoomStore(database),
   ...createTournamentSetupReadStore(database),
   ...createTournamentEventSettingReadStore(database),
   ...createEventBallotReadStore(database),
@@ -290,6 +298,44 @@ export const createTabStore = (database: TabDatabase) => ({
     database.transaction(async (tx) => {
       const scope = await fenceOrganizationRead(tx, input);
       return work(await loadOrganizationPeople(tx, input, scope));
+    }),
+  standingLobbyAddressOfHandle: (
+    handle: string,
+  ): Promise<{ lobbyId: string; organizationId: string } | null> =>
+    database.transaction(async (tx) => {
+      const [row] = await tx
+        .select({
+          lobbyId: lobbies.id,
+          organizationId: lobbies.ownerOrganizationId,
+        })
+        .from(lobbies)
+        .where(
+          and(
+            eq(lobbies.kind, 'standing'),
+            eq(sql`lower(${lobbies.handle})`, handle.toLowerCase()),
+          ),
+        )
+        .limit(1);
+      return row?.organizationId
+        ? { lobbyId: row.lobbyId, organizationId: row.organizationId }
+        : null;
+    }),
+  standingLobbyIdOfOrganization: (
+    organizationId: string,
+  ): Promise<string | null> =>
+    database.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ id: lobbies.id })
+        .from(lobbies)
+        .where(
+          and(
+            eq(lobbies.kind, 'standing'),
+            eq(lobbies.ownerOrganizationId, organizationId),
+          ),
+        )
+        .orderBy(asc(lobbies.id))
+        .limit(1);
+      return row?.id ?? null;
     }),
   lobbyIdOfHandle: (handle: string): Promise<string | null> =>
     database.transaction((tx) => findLobbyByHandle(tx, handle)),

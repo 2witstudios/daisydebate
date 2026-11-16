@@ -1,3 +1,4 @@
+import { roomConfigSchema } from '../room';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import {
@@ -152,6 +153,10 @@ const createLobbyRoom = z.strictObject({
   lobbyId: idSchema,
   templateId: idSchema.nullable(),
   room: roomCreateSchema,
+  /** Exact displayed Room settings, validated against the actual offered pin and chain. */
+  config: roomConfigSchema.optional(),
+  /** A named league/lobby pool wording, never inferred from matching custom text. */
+  poolResolutionId: idSchema.optional(),
 });
 
 const lobbyCommandSchema = z.discriminatedUnion('type', [
@@ -392,6 +397,7 @@ export const lobbySetupRefusals = [
   'template-required',
   'template-format-mismatch',
   'pool-resolution-required',
+  'rating-format-unsupported',
   'format-unavailable',
   'template-unavailable',
   'enforced-conflict',
@@ -495,6 +501,7 @@ export const lobbySetupCommandCatalogue = {
       'template-required',
       'template-format-mismatch',
       'pool-resolution-required',
+      'rating-format-unsupported',
     ],
     history: 'entry',
   },
