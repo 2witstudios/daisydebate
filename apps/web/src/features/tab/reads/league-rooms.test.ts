@@ -59,6 +59,7 @@ test('own standing Room projection retains actual roles and native links', () =>
     { kind: 'user', userId: 'user', actorId: 'judge' },
     (() => ({ allow: true })) as never,
   );
+  const action = view?.panel.groups[0]?.rooms[0]?.action;
   assert({
     given: 'the viewer actually seated as judge in a live standing-lobby Room',
     should:
@@ -66,7 +67,7 @@ test('own standing Room projection retains actual roles and native links', () =>
     actual: [
       view?.panel.groups[0]?.heading,
       view?.panel.groups[0]?.rooms[0]?.detail,
-      view?.panel.groups[0]?.rooms[0]?.action.href,
+      action?.kind === 'link' ? action.href : null,
       JSON.stringify(view).includes('rulesSnapshot'),
     ],
     expected: [
