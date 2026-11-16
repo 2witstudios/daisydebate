@@ -150,17 +150,34 @@ export function projectLeagueSeason(
             .map((event) => event.competition.configuration.lobby.id),
         ).size,
         awaitingCertification: [
-          ...new Map(
-            events
+          ...new Map([
+            ...events
               .filter((event) => event.certifiedAt === null)
-              .map((event) => [
-                event.competition.configuration.lobby.id,
-                {
-                  lobbyId: event.competition.configuration.lobby.id,
-                  name: event.competition.configuration.lobby.name,
-                },
-              ]),
-          ).values(),
+              .map(
+                (event) =>
+                  [
+                    event.competition.configuration.lobby.id,
+                    {
+                      lobbyId: event.competition.configuration.lobby.id,
+                      name: event.competition.configuration.lobby.name,
+                    },
+                  ] as const,
+              ),
+            // A membership-counted event awaiting certification is known
+            // only to the calendar: its results are not read until then.
+            ...facts.automaticCalendar
+              .filter(
+                (row) =>
+                  row.templateId === template.id && row.certifiedAt === null,
+              )
+              .map(
+                (row) =>
+                  [
+                    row.lobby.id,
+                    { lobbyId: row.lobby.id, name: row.lobby.name },
+                  ] as const,
+              ),
+          ]).values(),
         ],
         rows,
       },

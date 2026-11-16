@@ -92,7 +92,7 @@ export async function loadLeagueMembershipEvents(
     .from(templates)
     .where(eq(templates.organizationId, input.organizationId));
   const seriesIds = series.map((row) => row.id);
-  if (seriesIds.length === 0) return [];
+  if (seriesIds.length === 0) return { events: [], calendar: [] };
   const hosted = await tx
     .select()
     .from(lobbies)
@@ -109,6 +109,8 @@ export async function loadLeagueMembershipEvents(
     )
     .orderBy(asc(lobbies.id));
   const received = [];
+  // Every admitted event, certified or awaiting it, for the season calendar.
+  const calendar = [];
   for (const lobby of hosted) {
     await scopeTransaction(tx, {
       subjectUserId: input.viewerUserId,
@@ -130,7 +132,11 @@ export async function loadLeagueMembershipEvents(
     )
       continue;
     const following = await tx
-      .select({ id: events.id, templateId: events.templateId })
+      .select({
+        id: events.id,
+        name: events.name,
+        templateId: events.templateId,
+      })
       .from(events)
       .where(
         and(
@@ -143,7 +149,10 @@ export async function loadLeagueMembershipEvents(
     // results are never read or held here.
     const certified = following.length
       ? await tx
-          .select({ eventId: certifications.eventId })
+          .select({
+            eventId: certifications.eventId,
+            certifiedAt: certifications.certifiedAt,
+          })
           .from(certifications)
           .where(
             and(
@@ -157,6 +166,18 @@ export async function loadLeagueMembershipEvents(
       : [];
     const certifiedEvents = new Set(certified.map((row) => row.eventId));
     for (const event of following) {
+      calendar.push({
+        lobby,
+        event,
+        templateId: event.templateId!,
+        startsAt: at,
+        certifiedAt:
+          certified
+            .filter((row) => row.eventId === event.id)
+            .map((row) => row.certifiedAt.toISOString())
+            .sort()
+            .at(-1) ?? null,
+      });
       if (!certifiedEvents.has(event.id)) continue;
       const competition = await loadEventCompetition(tx, {
         viewerUserId: input.viewerUserId,
@@ -205,5 +226,5 @@ export async function loadLeagueMembershipEvents(
     }
   }
   await scopeTransaction(tx, scope);
-  return received;
+  return { events: received, calendar };
 }

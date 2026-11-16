@@ -337,6 +337,60 @@ test('membership seasons admit actual league/member hosts and only eligible entr
         actual: await points(),
         expected: { ...expected, [`bot-${direct.userId}`]: 4 },
       });
+      // Membership is counted as it stood when each event ran. Test events
+      // start after database time, so periods are placed relative to them.
+      const startOf = async (name: string) => {
+        const [lobby] =
+          await sql`select id from lobbies where name=${name} and kind='tournament'`;
+        await sql`select set_config('daisy.organization_scope', '', true), set_config('daisy.lobby_scope', ${lobby!.id}, true)`;
+        const [slot] =
+          await sql`select min(starts_at) at from time_slots where lobby_id=${lobby!.id}`;
+        return slot!.at as Date;
+      };
+      const dayAfter = (at: Date) => new Date(at.getTime() + 86_400_000);
+      const settled = { ...expected, [`bot-${direct.userId}`]: 4 };
+      const activeEnd = await schoolCommands(as(schoolController), {
+        version: 1,
+        commandId: createId(),
+        expected: { membership: 2 },
+        command: {
+          type: 'end-league-school',
+          leagueId,
+          schoolId: activeSchool.id,
+          side: 'school',
+        },
+      });
+      const activeEndedAt = dayAfter(
+        await startOf('Active member hosted certified'),
+      );
+      await sql`select set_config('daisy.organization_scope', ${leagueId}, true), set_config('daisy.lobby_scope', '', true)`;
+      await sql`update league_schools set ended_at=${activeEndedAt} where organization_id=${leagueId} and school_id=${activeSchool.id}`;
+      assert({
+        given:
+          'a member school that ended its membership after its certified event',
+        should: 'keep the points its entrant earned while it was a member',
+        actual: [activeEnd.kind, await points()],
+        expected: ['accepted', settled],
+      });
+      const invitedJoin = await schoolCommands(as(schoolController), {
+        version: 1,
+        commandId: createId(),
+        expected: { membership: 1 },
+        command: {
+          type: 'accept-league-school',
+          leagueId,
+          schoolId: invitedSchool.id,
+        },
+      });
+      const invitedJoinedAt = dayAfter(await startOf('Invited school winner'));
+      await sql`select set_config('daisy.organization_scope', ${leagueId}, true), set_config('daisy.lobby_scope', '', true)`;
+      await sql`update league_schools set joined_at=${invitedJoinedAt} where organization_id=${leagueId} and school_id=${invitedSchool.id}`;
+      assert({
+        given: 'a school whose membership began after its entrant’s event',
+        should: 'gain no points from before it joined',
+        actual: [invitedJoin.kind, await points()],
+        expected: ['accepted', settled],
+      });
     },
   });
 }, 60000);

@@ -82,25 +82,19 @@ async function load(tx: TabTransaction, input: Input) {
         eq(settings.scopeKind, 'template'),
       ),
     );
-  const automaticEvents =
+  const automatic =
     rule.counting === 'membership'
       ? await loadLeagueMembershipEvents(tx, {
           ...input,
           startsAt: season.startsAt,
           endsAt: season.endsAt,
         })
-      : [];
+      : { events: [], calendar: [] };
   const events =
     rule.counting === 'membership'
-      ? automaticEvents
+      ? automatic.events
       : await loadLeagueEvents(tx, { ...input, seasonId: season.id });
-  const automaticCalendar = automaticEvents.map((row) => ({
-    lobby: row.competition.configuration.lobby,
-    event: row.competition.configuration.event,
-    templateId: row.templateId,
-    startsAt: row.startsAt,
-    certifiedAt: row.certifiedAt,
-  }));
+  const automaticCalendar = automatic.calendar;
   const approvals = await tx
     .select()
     .from(sanctions)

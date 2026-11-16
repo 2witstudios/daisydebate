@@ -179,25 +179,35 @@ test('league schools require independent league and school assent and audited ei
       );
       const cancelled = await operation(
         as(schoolController),
-        envelope('end-league-school', { membership: 4 }, 'school'),
+        envelope('end-league-school', { membership: 1 }, 'school'),
       );
-      const [final] =
-        await sql`select status,version,joined_at,ended_by_user_id from league_schools where organization_id=${leagueId} and school_id=${schoolId}`;
+      const periods =
+        await sql`select status,version,joined_by_user_id,joined_at is not null as joined,ended_by_user_id from league_schools where organization_id=${leagueId} and school_id=${schoolId} order by invited_at,id`;
       assert({
         given:
           'a fresh league invitation to a previously ended school, then school-side refusal',
         should:
-          'require fresh assent and let the school explicitly end the pending relation',
-        actual: [reinvite.kind, cancelled.kind, final],
+          'open a new period needing fresh assent, keep the ended period as it was, and let the school end the pending one',
+        actual: [reinvite.kind, cancelled.kind, periods],
         expected: [
           'accepted',
           'accepted',
-          {
-            status: 'ended',
-            version: 5,
-            joined_at: null,
-            ended_by_user_id: schoolController.userId,
-          },
+          [
+            {
+              status: 'ended',
+              version: 3,
+              joined_by_user_id: schoolController.userId,
+              joined: true,
+              ended_by_user_id: leagueController.userId,
+            },
+            {
+              status: 'ended',
+              version: 2,
+              joined_by_user_id: null,
+              joined: false,
+              ended_by_user_id: schoolController.userId,
+            },
+          ],
         ],
       });
       const [currentLeague] =
@@ -220,17 +230,55 @@ test('league schools require independent league and school assent and audited ei
       });
       const rows =
         await sql`select type,actor_user_id,aggregate_kind,aggregate_id from action_history where organization_id=${leagueId} and type in ('invite-league-school','accept-league-school','end-league-school') order by applied_at,command_id`;
-      const [relation] =
-        await sql`select id from league_schools where organization_id=${leagueId} and school_id=${schoolId}`;
+      const relations =
+        await sql`select id from league_schools where organization_id=${leagueId} and school_id=${schoolId} order by invited_at,id`;
       assert({
-        given: 'the relation journal',
-        should: 'identify the exact school relation on every transition',
-        actual: rows.every(
+        given: 'the relation journal across two membership periods',
+        should: 'identify the exact period each transition changed',
+        actual: rows.map(
           (row: { aggregate_kind: string; aggregate_id: string }) =>
             row.aggregate_kind === 'league_school' &&
-            row.aggregate_id === relation!.id,
+            relations.findIndex(
+              (relation: { id: string }) => relation.id === row.aggregate_id,
+            ),
         ),
-        expected: true,
+        expected: [0, 0, 0, 1, 1],
+      });
+      await sql`select set_config('daisy.organization_scope', ${schoolId}, true), set_config('daisy.lobby_scope', '', true)`;
+      const schoolSees =
+        await sql`select organization_id,status from league_schools order by invited_at,id`;
+      assert({
+        given: 'a transaction scoped to the member school',
+        should: 'read its own membership periods in the league',
+        actual: schoolSees.map(
+          (row: { organization_id: string; status: string }) => [
+            row.organization_id === leagueId,
+            row.status,
+          ],
+        ),
+        expected: [
+          [true, 'ended'],
+          [true, 'ended'],
+        ],
+      });
+      let schoolWrote = true;
+      try {
+        await sql`savepoint school_write`;
+        await sql`update league_schools set version=version+1 where school_id=${schoolId}`;
+        schoolWrote =
+          (
+            await sql`select count(*)::int n from league_schools where school_id=${schoolId} and version > 3`
+          )[0]!.n > 0;
+        await sql`rollback to savepoint school_write`;
+      } catch {
+        schoolWrote = false;
+        await sql`rollback to savepoint school_write`;
+      }
+      assert({
+        given: 'the member school scope attempting a write',
+        should: 'never change the league-owned relation',
+        actual: schoolWrote,
+        expected: false,
       });
       assert({
         given: 'five accepted transitions plus replay, stale and denied calls',
