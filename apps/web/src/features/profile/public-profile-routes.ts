@@ -17,7 +17,6 @@ import {
   type ProfilePhotoStatus,
 } from '@daisy/protocol/public-profile';
 import type { Identity } from '@daisy/auth';
-import type { RefusalReason } from '@daisy/protocol';
 import {
   CONTENT_MODERATION_DELIVERY_BOUND_MS,
   idSchema,
@@ -25,22 +24,15 @@ import {
 import { requireMemberActor } from '../access/actor';
 import { squareWebpRenditions } from '../image-intake/square-renditions';
 import type { App } from '../../server/app';
+import { readBytes, readJson } from '../../server/http';
 import {
-  handleOperation,
-  readBytes,
-  readJson,
-  refusalResponse,
-  requireSameOrigin,
-  requireSignedIn,
-} from '../../server/http';
-import {
-  evaluatedIdentity,
   memberHttpBoundary,
   runEvaluatedRoute,
 } from '../../server/member-boundary';
 import { consumeOrThrow } from '../../server/rate-limit';
 import { intakeProfilePhoto, PHOTO_UPLOAD_RULE } from './photo/intake';
 import { photoObjectKey } from './photo/object-keys';
+import { isTextWithdrawal } from './text-withdrawal';
 
 /** Text edits per member per minute. */
 const TEXT_RULE = { windowSeconds: 60, max: 20 } as const;
@@ -114,36 +106,6 @@ export function composePublicProfileRoutes(app: App) {
       : null;
   const uploads = storage ? 'available' : 'unavailable';
 
-  /**
-   * A same-origin member route whose refusals answer their closed word: any
-   * signed-in account the evaluator decides for reaches `work`, whose own
-   * fences then allow what its participant access allows (ADR 0075).
-   */
-  const gatedOwnRoute = (
-    request: Request,
-    name: 'profile.public.write' | 'profile.photo.upload',
-    refusals: readonly RefusalReason[],
-    work: (principal: AuthorizationPrincipal) => Promise<unknown>,
-  ) =>
-    handleOperation(
-      app.logger,
-      request,
-      name,
-      async (requestId) => {
-        requireSameOrigin(request, boundary.origin());
-        const identity = requireSignedIn(await boundary.identify(request));
-        if (!evaluatedIdentity(identity)) throw createAppError('AUTHORIZATION');
-        try {
-          return Response.json(await work(identity.principal));
-        } catch (error) {
-          const refused = refusalResponse(error, requestId, refusals);
-          if (refused) return refused;
-          throw error;
-        }
-      },
-      app.reporter,
-    );
-
   return {
     read: (request: Request) =>
       runEvaluatedRoute(boundary, request, {
@@ -164,15 +126,17 @@ export function composePublicProfileRoutes(app: App) {
       }),
 
     /**
-     * Clearing both fields is a withdrawal, which a restricted member keeps.
+     * Clearing or keeping each field is a withdrawal, which a restricted
+     * member keeps; setting or changing text needs participant access.
      * A refused edit answers its closed word (too long, or an `@` handle).
      */
     write: (request: Request) =>
-      gatedOwnRoute(
-        request,
-        'profile.public.write',
-        profileTextRefusals,
-        async (principal) => {
+      runEvaluatedRoute(boundary, request, {
+        name: 'profile.public.write',
+        readOnly: false,
+        refusals: profileTextRefusals,
+        readInput: async () => null,
+        operation: async (_input, principal) => {
           const scope = requireMemberActor(principal);
           await consumeOrThrow(
             app.limiter,
@@ -189,7 +153,10 @@ export function composePublicProfileRoutes(app: App) {
               : createAppError('VALIDATION');
           }
           const edit = parsed.data;
-          const clearing = edit.displayName === null && edit.bio === null;
+          const current = await app.database.readOwnPublicProfile(
+            scope,
+            own(principal, 'profile.public.read'),
+          );
           return viewOf(
             await app.database.writePublicProfileText(
               scope,
@@ -201,13 +168,15 @@ export function composePublicProfileRoutes(app: App) {
               },
               own(
                 principal,
-                clearing ? 'profile.public.withdraw' : 'profile.public.update',
+                isTextWithdrawal(current, edit)
+                  ? 'profile.public.withdraw'
+                  : 'profile.public.update',
               ),
             ),
             uploads,
           );
         },
-      ),
+      }),
 
     /**
      * The photo is the request body, its type the Content-Type. The budget,
@@ -215,11 +184,12 @@ export function composePublicProfileRoutes(app: App) {
      * all settled before a byte is read; a refusal answers its closed word.
      */
     uploadPhoto: (request: Request) =>
-      gatedOwnRoute(
-        request,
-        'profile.photo.upload',
-        profilePhotoRefusals,
-        async (principal) => {
+      runEvaluatedRoute(boundary, request, {
+        name: 'profile.photo.upload',
+        readOnly: false,
+        refusals: profilePhotoRefusals,
+        readInput: async () => null,
+        operation: async (_input, principal) => {
           const scope = requireMemberActor(principal);
           const fence = own(principal, 'profile.public.update');
           await consumeOrThrow(
@@ -256,7 +226,7 @@ export function composePublicProfileRoutes(app: App) {
             profile: viewOf(result.profile, uploads),
           });
         },
-      ),
+      }),
 
     withdrawPhoto: (request: Request) =>
       runEvaluatedRoute(boundary, request, {

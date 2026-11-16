@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { photoDeletionRetryAt, sweepPhotoDeletions } from './deletion-sweep';
+import {
+  photoDeletionRetryAt,
+  reconcileOrphans,
+  sweepPhotoDeletions,
+} from './deletion-sweep';
 setupRitewayBun();
 
 const now = '2026-11-16T00:00:00.000Z';
@@ -24,6 +28,7 @@ const fakeStore = () => {
         deferred.push([id, at]);
       },
       owed: async () => 7,
+      existing: async () => new Set<string>(),
     },
   };
 };
@@ -38,6 +43,7 @@ test('the sweep deletes images before rows and defers failures', async () => {
       if (prefix.includes('1')) throw new Error('storage refused');
       removed.push(prefix);
     },
+    list: async () => [],
   });
   assert({
     given: 'two due photos, the first refused by storage',
@@ -87,5 +93,43 @@ test('backoff doubles from a minute to at most an hour', () => {
       '2026-11-16T00:04:00.000Z',
       '2026-11-16T01:00:00.000Z',
     ],
+  });
+});
+
+test('the reconcile deletes aged objects no row names, and walks on', async () => {
+  const orphan = 'o'.repeat(24);
+  const kept = 'k'.repeat(24);
+  const fresh = 'f'.repeat(24);
+  const old = '2026-11-15T22:00:00.000Z';
+  const removed: string[] = [];
+  const page = [
+    { key: `profile-photos/${kept}/128.webp`, writtenAt: old },
+    { key: `profile-photos/${orphan}/128.webp`, writtenAt: old },
+    { key: `profile-photos/${orphan}/512.webp`, writtenAt: old },
+    { key: `profile-photos/${fresh}/512.webp`, writtenAt: now },
+  ];
+  const result = await reconcileOrphans(
+    now,
+    null,
+    { existing: async (ids) => new Set(ids.filter((id) => id === kept)) },
+    {
+      put: async () => undefined,
+      read: async () => new Uint8Array(),
+      removePrefix: async (prefix) => {
+        removed.push(prefix);
+      },
+      list: async () => page,
+    },
+  );
+  assert({
+    given:
+      'an aged photo with a row, an aged orphan, and an orphan written a moment ago',
+    should:
+      'delete only the aged orphan once, and restart the walk after a short page',
+    actual: { result, removed },
+    expected: {
+      result: { next: null, orphans: 1 },
+      removed: [`profile-photos/${orphan}`],
+    },
   });
 });

@@ -38,6 +38,17 @@ export const createProfilePhotoBucket = (
       if (bytes.byteLength > maxBytes) throw createAppError('INFRASTRUCTURE');
       return bytes;
     },
+    list: async (after, limit) => {
+      const listed = await client.list({
+        prefix: 'profile-photos/',
+        maxKeys: limit,
+        ...(after ? { startAfter: after } : {}),
+      });
+      return (listed.contents ?? []).map((entry) => ({
+        key: entry.key,
+        writtenAt: new Date(entry.lastModified ?? 0).toISOString(),
+      }));
+    },
     removePrefix: async (prefix) => {
       const listed = await client.list({
         prefix: `${prefix}/`,

@@ -49,7 +49,10 @@ const friendReads = (
 const composeFriendList = (app: App) => (principal: AuthorizationPrincipal) =>
   readFriendList(principal, {
     ...friendReads(app, principal),
-    profiles: (actorIds) => app.database.readPublicProfileCards(actorIds),
+    // Names and photos decorate the list; without them it shows usernames
+    // and initials, never an error (the failed read is logged by the store).
+    profiles: (actorIds) =>
+      app.database.readPublicProfileCards(actorIds).catch(() => new Map()),
   });
 
 /** The operations' ports for the principal: limiter, lookup and fenced store. */

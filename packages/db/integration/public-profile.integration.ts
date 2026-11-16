@@ -419,3 +419,63 @@ test('cards: one statement for many members, published photo only', async () => 
     });
   });
 });
+
+test('a repeat report of profile text reopens a resolved one', async () => {
+  await withProfiles(async (context) => {
+    const written = await context.profiles.writePublicProfileText(
+      context.member,
+      { profileId: createId(), displayName: 'Fine', bio: null, now },
+      unfenced,
+    );
+    const reporter = await createAuthorizationSubject(context.f);
+    const report = (reason: 'spam' | 'impersonation') =>
+      context.moderation.fileReport({
+        id: createId(),
+        reporterUserId: reporter.userId,
+        reporterActorId: reporter.actorId,
+        report: {
+          targetKind: 'profile_display_name',
+          targetId: written.profileId!,
+          reason,
+        },
+      });
+    const state = async () =>
+      (
+        await context.client`select status, reason from content_reports
+          where reporter_user_id = ${reporter.userId}`
+      ).map((row: { status: string; reason: string }) => [
+        row.status,
+        row.reason,
+      ]);
+    try {
+      await report('spam');
+      const [{ id }] = await context.client`select id from content_reports
+        where reporter_user_id = ${reporter.userId}`;
+      await context.moderation.runModerationCommand(
+        command({
+          action: 'content_report.resolve',
+          reportId: id,
+          outcome: 'dismissed',
+        }),
+      );
+      const dismissed = await state();
+      await report('impersonation');
+      const reopened = await state();
+      await report('spam');
+      assert({
+        given:
+          'a dismissed report of a display name, a new report of it by the same reporter, then a third while open',
+        should:
+          'reopen the one report with the new reason, and leave an open one as it is',
+        actual: { dismissed, reopened, open: await state() },
+        expected: {
+          dismissed: [['dismissed', 'spam']],
+          reopened: [['open', 'impersonation']],
+          open: [['open', 'impersonation']],
+        },
+      });
+    } finally {
+      await context.client`delete from content_reports where reporter_user_id = ${reporter.userId}`;
+    }
+  });
+});

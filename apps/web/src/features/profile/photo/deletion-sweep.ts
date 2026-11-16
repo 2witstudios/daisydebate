@@ -26,7 +26,54 @@ export type PhotoDeletionStore = {
   readonly complete: (photoId: string) => Promise<void>;
   readonly defer: (photoId: string, retryAt: string) => Promise<void>;
   readonly owed: () => Promise<number>;
+  readonly existing: (
+    photoIds: readonly string[],
+  ) => Promise<ReadonlySet<string>>;
 };
+
+/** Objects one reconcile pass reads; the walk resumes where it stopped. */
+const RECONCILE_PAGE = 100;
+/** An object this old with no row is an orphan, not an upload in flight. */
+const ORPHAN_AFTER_MS = 3_600_000;
+
+/** The photo id a stored key names, `profile-photos/<id>/<size>.webp`. */
+const photoIdOfKey = (key: string): string | null =>
+  /^profile-photos\/([a-z0-9]{24})\//u.exec(key)?.[1] ?? null;
+
+/**
+ * One reconcile step (ADR 0143): an upload whose row was never written and
+ * whose cleanup also failed leaves objects no sweep would reach. Walk one page
+ * of stored objects after `cursor`, and delete the prefix of every photo older
+ * than an hour that no row names. Answers where the next step resumes; null
+ * starts the walk again from the beginning.
+ */
+export async function reconcileOrphans(
+  now: string,
+  cursor: string | null,
+  store: Pick<PhotoDeletionStore, 'existing'>,
+  objects: ProfilePhotoObjects,
+): Promise<{ readonly next: string | null; readonly orphans: number }> {
+  const page = await objects.list(cursor, RECONCILE_PAGE);
+  const cutoff = new Date(now).getTime() - ORPHAN_AFTER_MS;
+  const aged = page.filter(
+    (object) => new Date(object.writtenAt).getTime() < cutoff,
+  );
+  const ids = [
+    ...new Set(
+      aged
+        .map((object) => photoIdOfKey(object.key))
+        .filter((id) => id !== null),
+    ),
+  ];
+  const existing = await store.existing(ids);
+  const orphans = ids.filter((id) => !existing.has(id));
+  for (const photoId of orphans)
+    await objects.removePrefix(`profile-photos/${photoId}`);
+  return {
+    next: page.length < RECONCILE_PAGE ? null : (page.at(-1)?.key ?? null),
+    orphans: orphans.length,
+  };
+}
 
 /**
  * One pass: every due terminal photo's image is deleted, then its row. A
@@ -59,7 +106,10 @@ export async function sweepPhotoDeletions(
   return { deleted, retried, owed: await store.owed() };
 }
 
-/** The scheduled sweep (ADR 0143): rejected, removed, withdrawn and erased photos. */
+/**
+ * The scheduled sweep (ADR 0143): rejected, removed, withdrawn and erased
+ * photos, then one step of the orphan reconcile.
+ */
 export function startPhotoDeletions(input: {
   readonly store: PhotoDeletionStore;
   readonly objects: ProfilePhotoObjects | null;
@@ -67,12 +117,28 @@ export function startPhotoDeletions(input: {
   readonly logger: Logger;
   readonly timers: WorkerTimers;
 }) {
+  let cursor: string | null = null;
   return startRunSchedule({
     work: createScheduledWorker({
       name: 'profile_photo_deletions',
       clock: input.clock,
       logger: input.logger,
-      pass: (now) => sweepPhotoDeletions(now, input.store, input.objects),
+      pass: async (now) => {
+        const swept = await sweepPhotoDeletions(
+          now,
+          input.store,
+          input.objects,
+        );
+        if (!input.objects) return { ...swept, orphans: 0 };
+        const reconciled = await reconcileOrphans(
+          now,
+          cursor,
+          input.store,
+          input.objects,
+        );
+        cursor = reconciled.next;
+        return { ...swept, orphans: reconciled.orphans };
+      },
     }),
     timers: input.timers,
     intervalMs: SWEEP_INTERVAL_MS,

@@ -18,6 +18,7 @@ export type PhotoUploadOutcome =
   | { readonly kind: 'accepted'; readonly status: 'published' | 'in_review' }
   | { readonly kind: 'refused'; readonly refusal: ProfilePhotoRefusal }
   | { readonly kind: 'rate-limited' }
+  | { readonly kind: 'not-allowed' }
   | { readonly kind: 'unavailable' };
 
 /** What clearing the photo came to. */
@@ -53,6 +54,8 @@ export function photoUploadNotice(outcome: PhotoUploadOutcome): string {
       return photoRefusalCopy[outcome.refusal];
     case 'rate-limited':
       return tooManyUploads;
+    case 'not-allowed':
+      return 'Your account can’t add a photo right now. You can still remove one.';
     case 'unavailable':
       return 'Could not upload the photo. Try again.';
   }
@@ -121,6 +124,7 @@ export async function uploadProfilePhoto(
         : { kind: 'unavailable' };
     }
     if (response.status === 429) return { kind: 'rate-limited' };
+    if (response.status === 403) return { kind: 'not-allowed' };
     const refusal = await refusalOf(response);
     return isRefusal(refusal)
       ? { kind: 'refused', refusal }

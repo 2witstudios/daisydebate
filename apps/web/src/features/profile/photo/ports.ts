@@ -9,6 +9,14 @@ export type ProfilePhotoObjects = {
   read(key: string, maxBytes: number): Promise<Uint8Array<ArrayBuffer>>;
   /** Deletes every object under the prefix; deleting nothing succeeds. */
   removePrefix(prefix: string): Promise<void>;
+  /**
+   * One page of stored photo objects after `after` (a key), oldest-first by
+   * key, with when each was last written: what the orphan reconcile walks.
+   */
+  list(
+    after: string | null,
+    limit: number,
+  ): Promise<readonly { readonly key: string; readonly writtenAt: string }[]>;
 };
 
 /**

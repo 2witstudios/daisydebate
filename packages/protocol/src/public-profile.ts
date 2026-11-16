@@ -13,12 +13,14 @@ const RAW_TEXT_MAX = 1_000;
 
 /**
  * Characters that change how text renders without being text: C0/C1 controls,
- * bidirectional embeddings, overrides and isolates, zero-width joiners and
- * spaces, and the byte-order mark. They let a name look like another, so they go.
+ * bidirectional embeddings, overrides and isolates (and the Arabic letter
+ * mark), zero-width joiners and spaces, the soft hyphen, the Mongolian vowel
+ * separator, Hangul fillers, the blank Braille pattern and the byte-order
+ * mark. They let a name look like another, or like nothing, so they go.
  */
 const invisible =
   // eslint-disable-next-line no-control-regex -- the control range is the point
-  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/gu;
+  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u00AD\u061C\u115F\u1160\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\u2800\u3164\uFEFF\uFFA0]/gu;
 
 /** NFC, invisible characters removed, whitespace collapsed to one space, trimmed. */
 export const normalizeDisplayName = (raw: string): string =>
@@ -44,7 +46,7 @@ const codePoints = (text: string): number => [...text].length;
 
 /**
  * Why an edit of the public text is refused, each one thing to tell the
- * member. A display name may not hold an `@` (or its fullwidth form): it
+ * member. A display name may not hold an `@` (or a form that folds to it): it
  * would read as somebody's username, the one identity that matters.
  */
 export const profileTextRefusals = [
@@ -54,7 +56,11 @@ export const profileTextRefusals = [
 ] as const;
 export type ProfileTextRefusal = (typeof profileTextRefusals)[number];
 
-const handleMarks = /[@\uFF20]/u;
+/**
+ * Tested on the compatibility form: NFKC folds every `@` look-alike that
+ * Unicode marks as one (fullwidth ＠, small ﹫) to `@`.
+ */
+const handleMark = /@/u;
 
 /** The normalized text's refusal, or null when it may be saved. */
 export function profileTextRefusal(text: {
@@ -63,7 +69,8 @@ export function profileTextRefusal(text: {
 }): ProfileTextRefusal | null {
   if (codePoints(text.displayName) > DISPLAY_NAME_MAX)
     return 'display-name-too-long';
-  if (handleMarks.test(text.displayName)) return 'display-name-handle';
+  if (handleMark.test(text.displayName.normalize('NFKC')))
+    return 'display-name-handle';
   if (codePoints(text.bio) > BIO_MAX) return 'bio-too-long';
   return null;
 }

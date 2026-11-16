@@ -187,6 +187,35 @@ describe('readProfile', () => {
     });
   });
 
+  test('a failed public read still shows the record', async () => {
+    const { store } = storeFor(true);
+    const failing: ProfileStore = {
+      ...store,
+      readPublicProfile: async () => {
+        throw new Error('pool exhausted');
+      },
+    };
+    const profile = await readProfile(
+      { store: failing, limiter },
+      {
+        identity: visitor,
+        username: 'debater-a',
+        query: {},
+        now: '2026-11-02T00:00:00.000Z',
+      },
+    );
+    assert({
+      given: 'a live member whose display name, bio and photo cannot be read',
+      should:
+        'show the username and record with nothing public, not fail the page',
+      actual: [profile?.username, profile?.shown],
+      expected: [
+        'debater-a',
+        { profileId: null, displayName: null, bio: null, photoId: null },
+      ],
+    });
+  });
+
   test('the owner, paging back', async () => {
     const { profile, reads } = await profileFor(
       member(owner),

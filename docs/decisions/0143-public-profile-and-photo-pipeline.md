@@ -50,7 +50,11 @@ pipeline, and no username change for now.
    published photo stays while its replacement is in review. A terminal row
    is the obligation to delete its image: the `profile_photo_deletions`
    worker deletes the renditions, then the row, retrying with backoff, so an
-   ended photo's image never outlives a storage outage unrecorded.
+   ended photo's image never outlives a storage outage unrecorded. Each pass
+   also walks one page of stored objects and deletes any older than an hour
+   that no row names: an upload whose row was never written and whose cleanup
+   failed. Member writes and operator commands lock a member's live photos in
+   id order, so they never deadlock.
 5. **Photos are served through the application.** The bucket is private.
    `GET /api/profile-photos/:photoId/:size` streams a published photo with
    `max-age=60` and an ETag, inside the moderation delivery bound, and an
@@ -58,7 +62,9 @@ pipeline, and no username change for now.
    and no signed URL, so a removal or erasure takes effect within a minute.
 6. **Reports and removals use the one moderation queue.** A photo, a display
    name and a bio are content report targets with the safety reasons
-   (impersonation included); anyone may report someone else's. Operators, in
+   (impersonation included); anyone may report someone else's. A text report
+   names the profile, whose id lasts across edits, so a repeat report by the
+   same reporter reopens their resolved one with its new reason. Operators, in
    the admin app over the signed operator API (ADR 0079), approve or reject a
    photo in review and remove a published photo or one text field, each with
    its closed reason in the admin audit chain. Repeat abuse uses the existing

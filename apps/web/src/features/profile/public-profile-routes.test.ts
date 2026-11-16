@@ -73,6 +73,7 @@ function appFor(world: World = {}) {
           put: async () => undefined,
           read: async () => new Uint8Array(),
           removePrefix: async () => undefined,
+          list: async () => [],
         }
       : null,
     imageScanner: world.storage ? { scan: async () => 'clean' as const } : null,
@@ -93,7 +94,11 @@ function appFor(world: World = {}) {
       }),
     }),
     database: {
-      readOwnPublicProfile: fenced('readOwn', () => empty),
+      readOwnPublicProfile: fenced('readOwn', () => ({
+        ...empty,
+        displayName: 'Ada',
+        bio: 'Policy',
+      })),
       writePublicProfileText: fenced(
         'writeText',
         (input: { displayName: string | null; bio: string | null }) => ({
@@ -144,24 +149,30 @@ test('text: a member sets it; a restricted member may only clear it', async () =
   const member = appFor();
   const set = await member.routes.write(edit('Ada', 'Policy'));
   const restricted = appFor({ restricted: true });
-  const refused = await restricted.routes.write(edit('Ada'));
+  const refused = await restricted.routes.write(edit('Ada L'));
   const cleared = await restricted.routes.write(edit('', ''));
+  const clearedBio = await restricted.routes.write(edit('Ada', ''));
   assert({
     given:
       'an admitted member setting text, and a restricted one setting then clearing',
     should:
-      'save the first, refuse setting under restriction, and allow the clear (ADR 0075)',
+      'save the first, refuse a new name under restriction, and allow clearing both or only the bio (ADR 0075)',
     actual: {
       set: set.status,
       refused: refused.status,
       cleared: cleared.status,
+      clearedBio: clearedBio.status,
       writes: [member.calls, restricted.calls],
     },
     expected: {
       set: 200,
       refused: 403,
       cleared: 200,
-      writes: [['writeText'], ['writeText']],
+      clearedBio: 200,
+      writes: [
+        ['readOwn', 'writeText'],
+        ['readOwn', 'readOwn', 'writeText', 'readOwn', 'writeText'],
+      ],
     },
   });
 });

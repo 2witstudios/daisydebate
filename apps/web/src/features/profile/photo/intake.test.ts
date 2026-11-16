@@ -39,6 +39,7 @@ function harness(
         removePrefix: async (prefix) => {
           removed.push(prefix);
         },
+        list: async () => [],
       },
       scanner: {
         scan: async () => {

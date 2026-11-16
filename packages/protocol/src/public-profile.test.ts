@@ -35,6 +35,19 @@ describe('public profile text', () => {
     });
   });
 
+  test('fillers that render blank are removed', () => {
+    assert({
+      given:
+        'Hangul fillers, a blank Braille pattern, a soft hyphen and an Arabic letter mark',
+      should: 'remove them, so a name of only fillers is empty',
+      actual: [
+        normalizeDisplayName('\u3164\u115F\u1160\uFFA0\u2800'),
+        normalizeDisplayName('A\u00ADda\u061C'),
+      ],
+      expected: ['', 'Ada'],
+    });
+  });
+
   test('bio normalization', () => {
     assert({
       given: 'a bio with CRLF, padded lines and four blank lines',
@@ -81,11 +94,13 @@ describe('public profile text', () => {
         refusalOf('a'.repeat(DISPLAY_NAME_MAX + 1)),
         refusalOf('@alice'),
         refusalOf('Alice ＠ Daisy'),
+        refusalOf('﹫alice'),
         refusalOf('Alice', 'b'.repeat(BIO_MAX + 1)),
         refusalOf('Alice', 'Email me at a@b.c'),
       ],
       expected: [
         'display-name-too-long',
+        'display-name-handle',
         'display-name-handle',
         'display-name-handle',
         'bio-too-long',

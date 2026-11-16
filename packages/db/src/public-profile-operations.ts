@@ -84,6 +84,17 @@ const ownProfile = async (
   };
 };
 
+/**
+ * Locks the member's live photos in id order. The operator's commands take
+ * the same rows in the same order, so a member's upload and an operator's
+ * decision never wait on each other's rows in a cycle.
+ */
+export const lockLivePhotos = (tx: Tx, actorId: string, alsoId?: string) =>
+  tx.execute(sql`select id from profile_photos
+    where actor_id = ${actorId}
+      and (ended_at is null ${alsoId ? sql`or id = ${alsoId}` : sql``})
+    order by id for update`);
+
 /** Ends live photos: their image is owed deletion from `now`. */
 const endPhotos = (
   tx: Tx,
@@ -172,6 +183,7 @@ export const publicProfileOperations = ({
     idSchema.parse(input.photoId);
     return instrumented(eventSink, 'recordProfilePhoto', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
+        await lockLivePhotos(tx, scope.actorId);
         const replaced =
           input.status === 'published'
             ? sql`status in ('published', 'in_review')`
@@ -201,6 +213,7 @@ export const publicProfileOperations = ({
     requireOwnScope(scope);
     return instrumented(eventSink, 'withdrawProfilePhotos', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
+        await lockLivePhotos(tx, scope.actorId);
         await endPhotos(
           tx,
           sql`actor_id = ${scope.actorId}`,
@@ -348,6 +361,24 @@ export const publicProfileOperations = ({
       await database.execute(sql`update profile_photos
         set delete_attempts = delete_attempts + 1, delete_after = ${retryAt}::timestamptz
         where id = ${photoId} and ended_at is not null`);
+    }),
+
+  /** Which of these photo ids still have a row: the reconcile's orphan test. */
+  existingPhotoIds: (photoIds: readonly string[]) =>
+    instrumented(eventSink, 'existingPhotoIds', async () => {
+      const ids = [...new Set(photoIds)].filter(
+        (id) => idSchema.safeParse(id).success,
+      );
+      if (ids.length === 0) return new Set<string>();
+      if (ids.length > 500) throw createAppError('VALIDATION');
+      const found = await rowsOf<{ id: string }>(
+        database,
+        sql`select id from profile_photos where id in (${sql.join(
+          ids.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+      );
+      return new Set(found.map((row) => row.id));
     }),
 
   /** How many image deletions are owed, due or not: the sweep's backlog. */

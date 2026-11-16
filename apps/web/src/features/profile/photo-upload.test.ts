@@ -144,6 +144,22 @@ describe('uploadProfilePhoto', () => {
     });
   });
 
+  test('a restricted account is told it cannot add a photo', async () => {
+    const outcome = await uploadProfilePhoto(
+      answering(new Response(null, { status: 403 })).fetch,
+      png,
+    );
+    assert({
+      given: 'an upload refused 403 (no participant access)',
+      should: 'say the account cannot add one, not to try again',
+      actual: [outcome, photoUploadNotice(outcome)],
+      expected: [
+        { kind: 'not-allowed' },
+        'Your account can’t add a photo right now. You can still remove one.',
+      ],
+    });
+  });
+
   test('an upload rate limit names its hour, not a minute', () => {
     assert({
       given: 'a rate-limited upload (6 an hour)',

@@ -169,7 +169,11 @@ export async function readProfile(
   if (read === null) return null;
   const shown = read.member.closed
     ? nothingShown
-    : await store.readPublicProfile(read.member.actorId);
+    : // The public text and photo decorate the page; without them it shows
+      // the username and record, never an error (the store logs the failure).
+      await store
+        .readPublicProfile(read.member.actorId)
+        .catch(() => nothingShown);
   return {
     version: 1,
     username: read.member.username,

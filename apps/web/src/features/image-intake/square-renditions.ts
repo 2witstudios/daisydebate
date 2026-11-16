@@ -15,8 +15,8 @@ export type SquareRendition = {
 };
 
 /**
- * Decodes once under the limits, upright and centre-cropped square, and
- * encodes each size as WebP with no input metadata (sharp drops it unless
+ * Decodes once under the limits, upright, centre-cropped square and shrunk to
+ * the largest size, then encodes each size as WebP with no input metadata (sharp drops it unless
  * asked to keep it). Anything undecodable answers VALIDATION.
  */
 export async function squareWebpRenditions(
@@ -40,9 +40,13 @@ export async function squareWebpRenditions(
       animated: false,
     });
     requireImageMetadata(await source.metadata(), mime, limits.maxPixels);
+    // Crop and shrink once to the largest size, so the raw pixels held are
+    // at most 2048² × 4, never the full upload’s; smaller sizes derive from it.
+    const largest = Math.max(...sizes);
     const upright = await source
       .timeout({ seconds: timeoutSeconds(limits.serviceMs) })
       .rotate()
+      .resize(largest, largest, { fit: 'cover', position: 'centre' })
       .raw()
       .toBuffer({ resolveWithObject: true });
     const renditions: SquareRendition[] = [];

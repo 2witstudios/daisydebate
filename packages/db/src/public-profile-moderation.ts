@@ -11,6 +11,7 @@ import {
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rowsOf } from './raw-rows';
+import { lockLivePhotos } from './public-profile-operations';
 
 /**
  * Moderation of public profiles (ADR 0143): what a report of a photo, a
@@ -36,14 +37,14 @@ type PhotoRow = {
   username: string;
 };
 
-const photoRow = async (tx: Tx, photoId: string, lock: boolean) => {
+const photoRow = async (tx: Tx, photoId: string) => {
   const [row] = await rowsOf<PhotoRow>(
     tx,
     sql`select p.status, p.version, p.actor_id, u.username
       from profile_photos p
       join actors a on a.id = p.actor_id
       join users u on u.id = a.user_id
-      where p.id = ${photoId} ${lock ? sql`for update of p` : sql``}`,
+      where p.id = ${photoId}`,
   );
   return row ?? null;
 };
@@ -61,7 +62,11 @@ async function movePhoto(
     readonly now: Date;
   },
 ): Promise<Outcome> {
-  const row = await photoRow(tx, input.photoId, true);
+  const owner = await photoRow(tx, input.photoId);
+  if (!owner) return null;
+  // The member's own writes lock these rows in the same id order.
+  await lockLivePhotos(tx, owner.actor_id, input.photoId);
+  const row = await photoRow(tx, input.photoId);
   if (!row) return null;
   const next = profilePhotoTransition(row.status, input.event);
   if (next.kind === 'unchanged') return 'unchanged';
@@ -89,7 +94,7 @@ export const publicProfileModeration = {
     tx: Tx,
     input: { readonly photoId: string; readonly reporterActorId: string },
   ): Promise<ProfileReportFacts> => {
-    const row = await photoRow(tx, input.photoId, false);
+    const row = await photoRow(tx, input.photoId);
     return row && row.status === 'published'
       ? {
           kind: 'profile',
@@ -126,7 +131,7 @@ export const publicProfileModeration = {
     tx: Tx,
     photoId: string,
   ): Promise<ContentModerationSubject | null> => {
-    const row = await photoRow(tx, photoId, false);
+    const row = await photoRow(tx, photoId);
     return row
       ? {
           kind: 'profile_photo',

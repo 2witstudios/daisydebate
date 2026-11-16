@@ -25,6 +25,7 @@ const appWith = (
         return new Uint8Array(bytes);
       },
       removePrefix: async () => undefined,
+      list: async () => [],
     },
     imageScanner: null,
     profilePhotoClassifier: null,
