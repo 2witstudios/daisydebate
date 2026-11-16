@@ -299,29 +299,31 @@ async function insertFrozenBallot(
     })
     .returning();
   if (!stored) throw createAppError('INVARIANT');
-  const result = ballotTextScreeningSchema.parse(
-    input.screenWritten(
-      {
-        ...(stored.reason === null ? {} : { reason: stored.reason }),
-        ...(stored.feedback === null ? {} : { feedback: stored.feedback }),
-      },
-      context.screening.policy,
-    ),
-  );
-  const screenedAt = new Date(await sampleRoundExecutionTime(tx));
-  await tx.insert(ballotScreenings).values({
-    ballotId: stored.id,
-    lobbyId: context.screening.lobbyId,
-    ruleSetVersion: result.ruleSetVersion,
-    status: result.status,
-    releasedText:
-      result.releasedText === null
-        ? null
-        : jsonObjectSchema.parse(result.releasedText),
-    screenedAt,
-    createdAt: screenedAt,
-    updatedAt: screenedAt,
-  });
+  if (context.screening) {
+    const result = ballotTextScreeningSchema.parse(
+      input.screenWritten(
+        {
+          ...(stored.reason === null ? {} : { reason: stored.reason }),
+          ...(stored.feedback === null ? {} : { feedback: stored.feedback }),
+        },
+        context.screening.policy,
+      ),
+    );
+    const screenedAt = new Date(await sampleRoundExecutionTime(tx));
+    await tx.insert(ballotScreenings).values({
+      ballotId: stored.id,
+      lobbyId: context.screening.lobbyId,
+      ruleSetVersion: result.ruleSetVersion,
+      status: result.status,
+      releasedText:
+        result.releasedText === null
+          ? null
+          : jsonObjectSchema.parse(result.releasedText),
+      screenedAt,
+      createdAt: screenedAt,
+      updatedAt: screenedAt,
+    });
+  }
   return stored;
 }
 export const roundBallotOperations = ({

@@ -1,11 +1,6 @@
-import { lockStandingRoomSettingContext } from './tab/standing-room-setting-context';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import {
-  eventChain,
-  roomChain,
-  resolveSetting,
-} from '@daisy/protocol/setting-resolution';
+import { eventChain, resolveSetting } from '@daisy/protocol/setting-resolution';
 import { settingRowSchema, type SettingRow } from '@daisy/protocol/settings';
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import { rounds } from './schema/rounds';
@@ -13,7 +8,10 @@ import { rooms } from './schema/rooms';
 import { scopeTransaction } from './tenant-scope';
 import { fixtures } from './schema/fixtures';
 import { fixtureRoomSources } from './schema/fixture-room-sources';
-import { lockEventSettingContext } from './tab/event-setting-context';
+import {
+  lockEventSettingContext,
+  type EventSettingContext,
+} from './tab/event-setting-context';
 import type { RoundWriteTransaction } from './round-write-authority';
 
 /** Read after account fences and before the Round lock, matching event writers' parent order. */
@@ -24,49 +22,15 @@ export async function lockRoundBallotScreening(
   const [room] = await tx
     .select({
       id: rooms.id,
-      templateId: rooms.templateId,
-      config: rooms.config,
       lobbyId: rooms.lobbyId,
       lobbyKind: rooms.lobbyKind,
     })
     .from(rounds)
     .innerJoin(rooms, eq(rooms.id, rounds.roomId))
     .where(eq(rounds.id, roundId));
-  if (!room) throw createAppError('NOT_FOUND');
+  // Ordinary Rooms, including pre-Tab Round fixtures, keep their original path.
+  if (!room || room.lobbyKind !== 'tournament') return null;
   await scopeTransaction(tx, { lobbyId: room.lobbyId });
-  if (room.lobbyKind === 'standing') {
-    const context = await lockStandingRoomSettingContext(tx, room);
-    if (!context.lobby.ownerOrganizationId) throw createAppError('INVARIANT');
-    const rows = screeningRows(context.rows);
-    const config = room.config;
-    return {
-      lobbyId: room.lobbyId,
-      policy: resolveSetting(
-        'ballot.screening',
-        roomChain({
-          organizationId: context.lobby.ownerOrganizationId,
-          templateId: room.templateId,
-          lobbyId: room.lobbyId,
-        }),
-        rows,
-        {
-          'room.timing': {
-            preRoundPrepMs: config.preRoundPrep.enabled
-              ? config.preRoundPrep.durationMs
-              : 0,
-            inRoundPrepMsPerSide: config.inRoundPrep.enabled
-              ? config.inRoundPrep.budgetMsPerSide
-              : 0,
-            countdownMs: config.speechTiming.countdownMs,
-          },
-          'room.floor': {
-            interruptions: config.interruptions,
-            yielding: config.yielding,
-          },
-        },
-      ).value.value,
-    };
-  }
   const [source] = await tx
     .select({
       lobbyId: fixtures.lobbyId,
@@ -126,7 +90,7 @@ export async function lockRoundBallotScreening(
 }
 
 function screeningRows(
-  rows: Awaited<ReturnType<typeof lockStandingRoomSettingContext>>['rows'],
+  rows: EventSettingContext['rows'],
 ): SettingRow<'ballot.screening'>[] {
   return rows
     .filter((row) => row.key === 'ballot.screening')

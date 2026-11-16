@@ -15,7 +15,8 @@ const { databaseUrl: url } = requireTestServices(process.env);
 const ballot: Ballot = {
   rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
-  reason: 'The affirmative answered the decisive argument.',
+  reason:
+    'The affirmative answered the decisive argument. Contact judge@example.org.',
   feedback: {},
   scores: {
     affirmative: Object.fromEntries(ballotCategories.map((k) => [k, 4])),
@@ -35,6 +36,7 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
     const store = roundBallotOperations({
       database: drizzle({ client: f.sql }),
     });
+    let screeningCalls = 0;
     const input = {
       roundId,
       principal: { kind: 'human' as const, actorId: judge.actorId },
@@ -48,7 +50,10 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
       },
       payloadDigest: 'a'.repeat(64),
       nextBallotId: createId,
-      screenWritten: screenBallotContacts,
+      screenWritten: (...args: Parameters<typeof screenBallotContacts>) => {
+        screeningCalls++;
+        return screenBallotContacts(...args);
+      },
       authorize: () => {},
       attendanceSettled,
       buildProjection: () => null,
@@ -81,6 +86,19 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
     );
     const receipt = await store.executeRoundBallot(input);
     f.track('ballots', receipt.ballotId);
+    const [stored] =
+      await f.sql`select reason from ballots where id=${receipt.ballotId}`;
+    assert({
+      given: 'an ordinary Room ballot with contact text under PG4662',
+      should:
+        'retain ordinary submission unchanged without calling screening or writing its row',
+      actual: [
+        screeningCalls,
+        await f.count('ballot_screenings', 'ballot_id', receipt.ballotId),
+        stored!.reason,
+      ],
+      expected: [0, 0, ballot.reason],
+    });
     assert({
       given: 'the actual freeze and an assigned judge',
       should: 'pin the immutable witness and exactly replay its stored receipt',
