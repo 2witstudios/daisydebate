@@ -124,7 +124,6 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
       );
       if (row.n > 0) held[table_name] = row.n;
     }
-    console.log(`template rows: ${JSON.stringify(held)}`);
     const copied = new Set([
       'round_participants',
       'round_commands',
@@ -276,8 +275,8 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
         [...values].sort((a, b) => a - b),
         0.5,
       ).toFixed(1);
-    console.log(
-      `league ladder scale: ${games} games, ${first?.entrants} entrants, seed ${seedMs.toFixed(0)} ms; read median ${median.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms over ${runs} warm runs (${sorted.map((ms) => ms.toFixed(0)).join(', ')}); load median ${middle(loads)} ms, fold median ${middle(folds)} ms`,
+    process.stdout.write(
+      `league ladder scale: ${games} games, ${first?.entrants} entrants, seed ${seedMs.toFixed(0)} ms; read median ${median.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms over ${runs} warm runs (${sorted.map((ms) => ms.toFixed(0)).join(', ')}); load median ${middle(loads)} ms, fold median ${middle(folds)} ms\n`,
     );
     assert({
       given:
