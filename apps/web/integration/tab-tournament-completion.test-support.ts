@@ -1,3 +1,4 @@
+import { readHostResults } from '../src/features/tab/reads/host-results';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
@@ -257,6 +258,34 @@ export async function completionStage(world: World) {
   world.made.set('tab-round', String(final!.id));
   await resultsStage(world);
   world.made.set('tab-round', originalRound);
+  const readResults = readHostResults(common);
+  const ready = await readResults(principal, { lobbyId, eventId });
+  assert({
+    given: 'the genuine completed preliminaries and final before certification',
+    should:
+      'read the current actual result set and exact guard through the Results area',
+    actual: [
+      ready?.results.certification.kind,
+      ready?.results.resultsVersion,
+      ready?.stages
+        .flatMap((bracket) =>
+          bracket.tabRounds.flatMap((round) =>
+            round.fixtures.flatMap((fixture) =>
+              fixture.state.kind === 'decided' ? [fixture.state.resultId] : [],
+            ),
+          ),
+        )
+        .sort(),
+    ],
+    expected: [
+      'ready',
+      await version(),
+      [...world.made.entries()]
+        .filter(([key]) => key.startsWith('result:'))
+        .map(([, id]) => id)
+        .sort(),
+    ],
+  });
   const certificate = {
     version: 1,
     commandId: createId(),
@@ -285,6 +314,31 @@ export async function completionStage(world: World) {
         .sort(),
       certificate.expected.results + 1,
       certificate.expected.results + 1,
+    ],
+  });
+  const afterCertificate = await readResults(principal, { lobbyId, eventId });
+  const [storedCertificate] =
+    await sql`select certified_at from certifications where command_id=${certificate.commandId}`;
+  assert({
+    given: 'the actual accepted certificate and advanced event guard',
+    should:
+      'read the stored certification time and refuse cross-event or unauthorized reads',
+    actual: [
+      afterCertificate?.results.certification,
+      afterCertificate?.results.resultsVersion,
+      await readResults(as(world.bots['Judge A']!), { lobbyId, eventId }),
+      await readResults(principal, { lobbyId, eventId: createId() }),
+    ],
+    expected: [
+      {
+        kind: 'certified',
+        certifiedAt: new Date(
+          storedCertificate!.certified_at as string,
+        ).toISOString(),
+      },
+      await version(),
+      null,
+      null,
     ],
   });
   assert({

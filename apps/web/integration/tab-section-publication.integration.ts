@@ -1,3 +1,4 @@
+import { readHostResults } from '../src/features/tab/reads/host-results';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createTabStore } from '@daisy/db/tab';
@@ -224,6 +225,33 @@ for (const size of [5, 6, 7])
               : ['refused', 'draw-unresolved', 0, 0],
         });
         if (size === 6) {
+          const resultsRead = await readHostResults(common)(director, {
+            lobbyId,
+            eventId,
+          });
+          const actualEntries = await sql<
+            { entry_id: string }[]
+          >`select entry_id from fixture_entries where fixture_id=${String(fixture!.id)} order by position`;
+          const shownFixture = resultsRead?.stages
+            .flatMap((stage) =>
+              stage.tabRounds.flatMap((round) => round.fixtures),
+            )
+            .find((one) => one.fixtureId === String(fixture!.id));
+          assert({
+            given: 'the actual published unchanged six-speaker section',
+            should:
+              'read all six stored entry positions with no fabricated two-side result or seeds',
+            actual: [
+              shownFixture?.entries.map((entry) => entry.entryId),
+              shownFixture?.entries.map((entry) => entry.seed),
+              shownFixture?.state.kind,
+            ],
+            expected: [
+              actualEntries.map((entry) => entry.entry_id),
+              Array.from({ length: 6 }, () => null),
+              'scheduled',
+            ],
+          });
           const seats = await sql<
             {
               seat_kind: string;

@@ -434,6 +434,43 @@ const screenedThings: ReadonlySet<ReleaseRow['thing']> = new Set([
 const narrowerThan = (audience: ReleaseAudience): readonly ReleaseAudience[] =>
   releaseAudiences.slice(0, releaseAudiences.indexOf(audience));
 
+export const assessAudienceOpening = (
+  facts: Pick<OpenAudienceFacts, 'whens' | 'releases' | 'screenings'>,
+  command: Pick<Release<'open-audience'>, 'thing' | 'audience'>,
+  targetIds: readonly string[],
+):
+  | { readonly kind: 'ready'; readonly tabRoundIds: readonly string[] }
+  | { readonly kind: 'refused'; readonly refusal: ReleaseRefusal } => {
+  if (targetIds.length === 0) return refuse('not-found');
+  if (facts.whens[command.audience] !== 'manual') return refuse('not-manual');
+  const isOpen = (tabRoundId: string, audience: ReleaseAudience) =>
+    facts.releases.some(
+      (release) =>
+        release.tabRoundId === tabRoundId &&
+        release.thing === command.thing &&
+        release.audience === audience,
+    );
+  const toOpen = targetIds.filter((id) => !isOpen(id, command.audience));
+  if (toOpen.length === 0) return refuse('already-open');
+  if (
+    toOpen.some((roundId) =>
+      narrowerThan(command.audience).some(
+        (audience) => !isOpen(roundId, audience),
+      ),
+    )
+  )
+    return refuse('audience-order');
+  if (
+    screenedThings.has(command.thing) &&
+    facts.screenings.some(
+      (screening) =>
+        screeningOpen(screening) && toOpen.includes(screening.tabRoundId),
+    )
+  )
+    return refuse('screening-pending');
+  return { kind: 'ready', tabRoundIds: toOpen };
+};
+
 export const decideOpenAudience = (
   facts: OpenAudienceFacts,
   command: Release<'open-audience'>,
@@ -447,34 +484,15 @@ export const decideOpenAudience = (
             command.tabRounds.kind === 'one' &&
             round.id === command.tabRounds.tabRoundId,
         );
-  if (targets.length === 0) return refuse('not-found');
-  if (facts.whens[command.audience] !== 'manual') return refuse('not-manual');
-  const isOpen = (tabRoundId: string, audience: ReleaseAudience) =>
-    facts.releases.some(
-      (release) =>
-        release.tabRoundId === tabRoundId &&
-        release.thing === command.thing &&
-        release.audience === audience,
-    );
-  const toOpen = targets.filter((round) => !isOpen(round.id, command.audience));
-  if (toOpen.length === 0) return refuse('already-open');
-  if (
-    toOpen.some((round) =>
-      narrowerThan(command.audience).some(
-        (audience) => !isOpen(round.id, audience),
-      ),
-    )
-  )
-    return refuse('audience-order');
-  if (
-    screenedThings.has(command.thing) &&
-    facts.screenings.some(
-      (screening) =>
-        screeningOpen(screening) &&
-        toOpen.some((round) => round.id === screening.tabRoundId),
-    )
-  )
-    return refuse('screening-pending');
+  const assessment = assessAudienceOpening(
+    facts,
+    command,
+    targets.map((round) => round.id),
+  );
+  if (assessment.kind === 'refused') return assessment;
+  const toOpen = targets.filter((round) =>
+    assessment.tabRoundIds.includes(round.id),
+  );
   return {
     kind: 'accepted',
     aggregate: { kind: 'release', id: facts.event.id },

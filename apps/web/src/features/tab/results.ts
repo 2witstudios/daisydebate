@@ -13,25 +13,28 @@ import { countWord, type WallClock } from './tab-round';
 import { shownName } from './shown-entrant';
 
 export type BracketSide = {
-  readonly seed: number;
+  readonly entryId: string;
+  readonly seed: number | null;
   readonly name: string;
+  readonly outcome: {
+    readonly won: boolean | null;
+    readonly rank: number | null;
+    readonly ballotsWon: number | null;
+  } | null;
 };
-
-type BracketTie = {
-  readonly top: BracketSide;
-  readonly bottom: BracketSide;
-  /** Ballots each side won, once the fixture has a result. The panel is odd,
-   * so the side with more ballots won. */
-  readonly result: { readonly top: number; readonly bottom: number } | null;
+type BracketFixture = {
+  readonly fixtureId: string;
+  readonly entries: readonly BracketSide[];
   readonly room: string | null;
   readonly watch: TabAction | null;
 };
 
 export type BracketStage = {
+  readonly id: string;
   readonly name: string;
   readonly state: 'done' | 'live' | 'upcoming';
   readonly time: string | null;
-  readonly ties: readonly BracketTie[];
+  readonly fixtures: readonly BracketFixture[];
   /** What an empty stage waits on. */
   readonly note: string | null;
 };
@@ -41,6 +44,8 @@ export type Bracket = { readonly stages: readonly BracketStage[] };
 
 /** One audience of a ballot part, and whether it has opened. */
 type AudienceOpening = {
+  readonly id: string;
+  readonly status: 'open' | 'openable';
   readonly audience: string;
   readonly detail: string;
   /** Null once a release records the opening. */
@@ -48,6 +53,7 @@ type AudienceOpening = {
 };
 
 type CertifyCheck = {
+  readonly id: string;
   readonly kind: 'held_ballots' | 'correction' | 'sanction';
   readonly title: string;
   readonly detail: string;
@@ -83,49 +89,43 @@ const stageStates = {
 } as const;
 
 /** The elimination tree: a projection of `BracketView`. */
-const bracketOf = (read: BracketView, wallClock: WallClock): Bracket => ({
+export const bracketOf = (
+  read: BracketView,
+  wallClock: WallClock,
+): Bracket => ({
   stages: read.tabRounds.map((tabRound) => {
     const feeder = read.tabRounds.find(
       (candidate) => candidate.name === tabRound.waitsOn?.feederTabRoundName,
     );
     const { waitsOn } = tabRound;
-    const feeders = feeder?.ties.length ?? 0;
+    const feeders = feeder?.fixtures.length ?? 0;
     return {
+      id: tabRound.tabRoundId,
       name: tabRound.name,
       state: stageStates[tabRound.status],
       time:
         tabRound.status === 'scheduled' && tabRound.startsAt !== null
           ? wallClock(tabRound.startsAt)
           : null,
-      ties: tabRound.ties.map((tie): BracketTie => {
-        const top = { seed: tie.top.seed, name: shownName(tie.top.shown) };
-        const bottom = {
-          seed: tie.bottom.seed,
-          name: shownName(tie.bottom.shown),
-        };
-        const { state } = tie;
-        switch (state.kind) {
-          case 'decided':
-            return {
-              top,
-              bottom,
-              result: { top: state.topBallots, bottom: state.bottomBallots },
-              room: null,
-              watch: null,
-            };
-          case 'live':
-            return {
-              top,
-              bottom,
-              result: null,
-              room: state.room.name,
-              watch: state.watchable ? sampleAction('Watch') : null,
-            };
-          case 'scheduled':
-          case 'withheld':
-            return { top, bottom, result: null, room: null, watch: null };
-        }
-      }),
+      fixtures: tabRound.fixtures.map((fixture): BracketFixture => ({
+        fixtureId: fixture.fixtureId,
+        entries: fixture.entries.map((entry) => ({
+          entryId: entry.entryId,
+          seed: entry.seed,
+          name: shownName(entry.shown),
+          outcome:
+            fixture.state.kind === 'decided'
+              ? (fixture.state.outcomes.find(
+                  (one) => one.entryId === entry.entryId,
+                ) ?? null)
+              : null,
+        })),
+        room: fixture.state.kind === 'live' ? fixture.state.room.name : null,
+        watch:
+          fixture.state.kind === 'live' && fixture.state.watchable
+            ? sampleAction('Watch')
+            : null,
+      })),
       note:
         waitsOn === null
           ? null
@@ -226,7 +226,9 @@ const openingOf = (
               )} opened ${openedWhen[latest.cause]}.`;
   const label = audienceLabels[row.audience];
   return {
-    audience: label,
+    id: `${row.tabRoundId}:${row.audience}`,
+    status: openable.length > 0 ? 'openable' : 'open',
+    audience: `${row.tabRoundName} · ${label}`,
     detail,
     open:
       openable.length > 0 && read.capabilities.release
@@ -278,6 +280,14 @@ const certificationOf = (
           ),
         )} still ${certification.running.length === 1 ? 'runs' : 'run'}.`,
       };
+    case 'waiting':
+      return {
+        kind: 'blocked',
+        reason:
+          certification.reason === 'screening-pending'
+            ? 'Written feedback is still being screened or held. Review the ballots before certifying.'
+            : 'Every published fixture needs a result first.',
+      };
     case 'ready':
       return read.capabilities.certify
         ? { kind: 'ready', certify: sampleAction('Certify the event', true) }
@@ -290,31 +300,44 @@ const certificationOf = (
 };
 
 /** An event's results for its host: a projection of `EventResultsView`. */
-const eventResultsOf = (
+export const eventResultsOf = (
   read: EventResultsView,
   context: { readonly bracket: Bracket; readonly wallClock: WallClock },
 ): EventResults => {
-  const { sanction, corrections, wallClock } = { ...read, ...context };
+  const { sanctions, corrections, wallClock } = { ...read, ...context };
   const certified = read.certification.kind === 'certified';
   const holds = read.ballotAccess === 'unreleased' ? read.screeningHolds : null;
   return {
     lede:
-      certified && sanction !== null && sanction.sentAt !== null
-        ? `${sanction.organizationName} has the results.`
+      certified &&
+      sanctions.length > 0 &&
+      sanctions.every((sanction) => sanction.sentAt !== null)
+        ? `${listed(sanctions.map((sanction) => sanction.organizationName))} have the results.`
         : certified
           ? 'The event is certified.'
           : read.prelimsCertifiedAt === null
-            ? 'Prelims are still running.'
+            ? read.certification.kind === 'ready'
+              ? 'Current published results are ready to certify.'
+              : read.certification.kind === 'waiting' &&
+                  read.certification.reason === 'screening-pending'
+                ? 'Written feedback needs review before certification.'
+                : 'Results are still being recorded.'
             : `Prelims certified at ${wallClock(read.prelimsCertifiedAt)}. Elimination rounds are still running.`,
     certification: certificationOf(read, wallClock),
     bracket: context.bracket,
-    audiencesHeading: 'Who can see prelim ballots',
+    audiencesHeading: 'Who can see ballots',
     audiences: [
-      {
-        audience: 'Tab staff',
-        detail: 'Everything, as ballots arrive',
-        open: null,
-      },
+      ...(read.ballotAccess === 'unreleased'
+        ? [
+            {
+              id: 'tab-staff',
+              status: 'open' as const,
+              audience: 'Tab staff',
+              detail: 'Everything, as ballots arrive',
+              open: null,
+            },
+          ]
+        : []),
       ...read.audiences.map((row) => openingOf(read, row)),
     ],
     checks: [
@@ -322,6 +345,7 @@ const eventResultsOf = (
         ? []
         : [
             {
+              id: 'held-ballots',
               kind: 'held_ballots' as const,
               title: `${holds.count} ${holds.count === 1 ? 'ballot' : 'ballots'} held by screening`,
               detail: holds.summary ?? '',
@@ -332,25 +356,23 @@ const eventResultsOf = (
         ? []
         : [
             {
+              id: 'corrections',
               kind: 'correction' as const,
               title: `${corrections.length} ${corrections.length === 1 ? 'correction' : 'corrections'} since certifying prelims`,
               detail: corrections.map(correctionLine).join(' '),
               action: null,
             },
           ]),
-      ...(sanction === null
-        ? []
-        : [
-            {
-              kind: 'sanction' as const,
-              title: `${sanction.organizationName} receives results`,
-              detail:
-                sanction.sentAt === null
-                  ? 'Sent when you certify the event.'
-                  : 'Sent when you certified the event.',
-              action: null,
-            },
-          ]),
+      ...sanctions.map((sanction, index) => ({
+        id: `sanction-${index}`,
+        kind: 'sanction' as const,
+        title: `${sanction.organizationName} receives results`,
+        detail:
+          sanction.sentAt === null
+            ? 'Receives certified results when you certify the event.'
+            : 'Receives these certified results.',
+        action: null,
+      })),
     ],
   };
 };

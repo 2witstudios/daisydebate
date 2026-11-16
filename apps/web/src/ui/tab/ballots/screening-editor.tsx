@@ -22,7 +22,7 @@ export function ScreeningEditor({
     <CompletionCommandForm
       action={action}
       label="Resolve written feedback screening"
-      submitLabel="Publish reviewed text"
+      submitLabel="Approve reviewed text"
     >
       <p className="text-sm text-ink-muted">
         Publish the submitted text as it stands, or edit the audience copy

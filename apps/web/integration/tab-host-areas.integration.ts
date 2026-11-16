@@ -1,3 +1,8 @@
+import { readHostResults } from '../src/features/tab/reads/host-results';
+import {
+  createHostResultsRoute,
+  hostResultsPath,
+} from '../src/features/tab/host-results-route';
 import {
   createHostBallotsRoute,
   hostBallotsPath,
@@ -57,6 +62,7 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
     const command = organizationCommand(dependencies);
     const navigation = readHostNavigation(dependencies);
     const standings = readHostStandings(dependencies);
+    const hostResults = readHostResults(dependencies);
     const setup = readTournamentSetup(dependencies);
     const settings = readTournamentEventSettings(dependencies);
     const ballot = readEventBallot(dependencies);
@@ -142,6 +148,51 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
               index === 0
                 ? null
                 : ['standings.tiebreaks', 'standings.rating_ladder'],
+            ],
+          });
+          const resultsRoute = (released: boolean) =>
+            createHostResultsRoute({
+              boundary: {
+                logger: silentLogger,
+                reporter: noopErrorReporter,
+                origin: () => origin,
+                identify: async () => ({
+                  ...member,
+                  principal: { ...as(person), actorId: person.actorId },
+                }),
+              },
+              released: async () => released,
+              read: hostResults,
+            });
+          const resultsRequest = () =>
+            new Request(`${origin}${hostResultsPath(lobbyId, eventId)}`, {
+              headers: { origin },
+            });
+          const responseResults = await resultsRoute(true)(resultsRequest());
+          const resultBody = await responseResults.json();
+          assert({
+            given: `the actual ${permission} role at the Results HTTP boundary`,
+            should:
+              'require its own derived area and the closed release without exposing private screening words',
+            actual: [
+              responseResults.status,
+              (await resultsRoute(false)(resultsRequest())).status,
+              responseResults.status === 200
+                ? responseResults.headers.get('cache-control')
+                : null,
+              responseResults.status === 200
+                ? resultBody.results.ballotAccess
+                : null,
+              responseResults.status === 200
+                ? 'screeningHolds' in resultBody.results
+                : false,
+            ],
+            expected: [
+              index === 0 ? 404 : 200,
+              404,
+              index === 0 ? null : 'no-store',
+              index === 0 ? null : 'released',
+              false,
             ],
           });
           const listed = await hostBallots(as(person), { lobbyId, eventId });
@@ -237,11 +288,12 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
               await navigation(as(person), { kind: 'lobby', id: lobbyId }),
               await standings(as(person), { lobbyId, eventId }),
               await hostBallots(as(person), { lobbyId, eventId }),
+              await hostResults(as(person), { lobbyId, eventId }),
               (
                 await owner`select revoked_at is not null ended from grants where id=${grant!.id}`
               )[0]!.ended,
             ],
-            expected: ['accepted', null, null, null, true],
+            expected: ['accepted', null, null, null, null, true],
           });
           assert({
             given: 'that actual role after canonical revocation',

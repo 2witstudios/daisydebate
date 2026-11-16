@@ -1,3 +1,4 @@
+import { resultEntryOutcomeSchema } from './result-command';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { standingsMetricSchema } from '../settings/setting-values';
@@ -97,15 +98,15 @@ export type StandingsView = z.infer<typeof standingsViewSchema>;
 
 const side = z.strictObject({
   entryId: idSchema,
-  seed: position,
+  seed: position.nullable(),
   shown: shownEntrantSchema,
 });
 const roomRef = z.strictObject({ roomId: idSchema, name });
 
 const decided = z.strictObject({
   kind: z.literal('decided'),
-  topBallots: count,
-  bottomBallots: count,
+  resultId: idSchema,
+  outcomes: z.array(resultEntryOutcomeSchema).min(1),
 });
 const live = z.strictObject({
   kind: z.literal('live'),
@@ -117,15 +118,57 @@ const scheduled = z.strictObject({ kind: z.literal('scheduled') });
 /** Decided, but the decision is not released to the viewer's audiences. */
 const withheld = z.strictObject({ kind: z.literal('withheld') });
 
-const tieShape = { fixtureId: idSchema, top: side, bottom: side };
-const officialTie = z.strictObject({
-  ...tieShape,
-  state: z.discriminatedUnion('kind', [decided, live, scheduled]),
-});
-const audienceTie = z.strictObject({
-  ...tieShape,
-  state: z.discriminatedUnion('kind', [decided, live, scheduled, withheld]),
-});
+const awaiting = z.strictObject({ kind: z.literal('awaiting_result') });
+
+const tieShape = { fixtureId: idSchema, entries: z.array(side).min(1) };
+const matchingFixtureOutcomes = (
+  fixture: {
+    readonly entries: readonly { readonly entryId: string }[];
+    readonly state: {
+      readonly kind: string;
+      readonly outcomes?: readonly { readonly entryId: string }[];
+    };
+  },
+  context: z.RefinementCtx,
+) => {
+  const entries = fixture.entries.map((entry) => entry.entryId);
+  if (new Set(entries).size !== entries.length)
+    context.addIssue({
+      code: 'custom',
+      message: 'Fixture entries are distinct.',
+      path: ['entries'],
+    });
+  if (fixture.state.kind !== 'decided') return;
+  const outcomes = fixture.state.outcomes?.map((entry) => entry.entryId) ?? [];
+  if (
+    outcomes.length !== entries.length ||
+    new Set(outcomes).size !== outcomes.length ||
+    entries.some((id) => !outcomes.includes(id))
+  )
+    context.addIssue({
+      code: 'custom',
+      message: 'A result retains exactly the fixture entries.',
+      path: ['state', 'outcomes'],
+    });
+};
+const officialTie = z
+  .strictObject({
+    ...tieShape,
+    state: z.discriminatedUnion('kind', [decided, live, scheduled, awaiting]),
+  })
+  .superRefine(matchingFixtureOutcomes);
+const audienceTie = z
+  .strictObject({
+    ...tieShape,
+    state: z.discriminatedUnion('kind', [
+      decided,
+      live,
+      scheduled,
+      awaiting,
+      withheld,
+    ]),
+  })
+  .superRefine(matchingFixtureOutcomes);
 
 const tabRoundShape = {
   tabRoundId: idSchema,
@@ -146,6 +189,7 @@ const bracketShape = {
   lobbyId: idSchema,
   eventId: idSchema,
   stageId: idSchema,
+  kind: z.enum(['preliminary', 'elimination']),
   division: name.nullable(),
 };
 
@@ -154,14 +198,14 @@ export const bracketViewSchema = z.discriminatedUnion('visibility', [
     ...bracketShape,
     visibility: z.literal('official'),
     tabRounds: z.array(
-      z.strictObject({ ...tabRoundShape, ties: z.array(officialTie) }),
+      z.strictObject({ ...tabRoundShape, fixtures: z.array(officialTie) }),
     ),
   }),
   z.strictObject({
     ...bracketShape,
     visibility: z.literal('audience'),
     tabRounds: z.array(
-      z.strictObject({ ...tabRoundShape, ties: z.array(audienceTie) }),
+      z.strictObject({ ...tabRoundShape, fixtures: z.array(audienceTie) }),
     ),
   }),
 ]);

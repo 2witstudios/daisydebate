@@ -1,4 +1,5 @@
 'use server';
+import { POST as releasePOST } from '../../../../api/tab/release-command/route';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import {
@@ -36,8 +37,12 @@ export async function eventCompletionAction(
   const incoming = new Headers(await headers());
   let state;
   try {
-    const response = await inProcessFetch(POST, incoming)(
-      `/api/tab/result-command?${new URLSearchParams({ lobbyId: context.lobbyId })}`,
+    const opening = context.target.type === 'open-audience';
+    const response = await inProcessFetch(
+      opening ? releasePOST : POST,
+      incoming,
+    )(
+      `/api/tab/${opening ? 'release-command' : 'result-command'}?${new URLSearchParams({ lobbyId: context.lobbyId })}`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

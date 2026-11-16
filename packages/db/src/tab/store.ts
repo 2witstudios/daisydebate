@@ -1,3 +1,6 @@
+import { createHostResultsStore } from './host-results';
+export type { HostResultsFacts } from './host-results';
+export type { EventCompletionFacts } from './event-completion';
 import { createHostBallotsStore } from './host-ballots';
 export type { HostBallotsFacts } from './host-ballots';
 import { createCompletionCommandStore } from './completion-command';
@@ -198,6 +201,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createCompletionCommandStore(database),
   ...createHostNavigationStore(database),
   ...createHostBallotsStore(database),
+  ...createHostResultsStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),
   ...createSetupCommandStore(database),

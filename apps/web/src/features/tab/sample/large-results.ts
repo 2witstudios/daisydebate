@@ -12,7 +12,7 @@ type OfficialRound = Extract<
   BracketView,
   { visibility: 'official' }
 >['tabRounds'][number];
-type Tie = OfficialRound['ties'][number];
+type Tie = OfficialRound['fixtures'][number];
 
 export const LARGE_BRACKET = 64;
 
@@ -51,8 +51,7 @@ const side = (seed: number) => {
 
 const tieOf = (top: number, bottom: number, state: Tie['state']): Tie => ({
   fixtureId: sampleId(`fixturelargeelim${top}v${bottom}x`),
-  top: side(top),
-  bottom: side(bottom),
+  entries: [side(top), side(bottom)],
   state,
 });
 
@@ -83,10 +82,25 @@ export function largeBracketRounds(
             status === 'complete'
               ? tieOf(top, bottom, {
                   kind: 'decided',
-                  topBallots:
-                    winnerOf(top, bottom, index) === top ? 3 - (room % 2) : 1,
-                  bottomBallots:
-                    winnerOf(top, bottom, index) === top ? room % 2 : 2,
+                  resultId: sampleId(`resultlargeelim${top}v${bottom}x`),
+                  outcomes: [
+                    {
+                      entryId: side(top).entryId,
+                      won: winnerOf(top, bottom, index) === top,
+                      rank: null,
+                      ballotsWon:
+                        winnerOf(top, bottom, index) === top
+                          ? 3 - (room % 2)
+                          : 1,
+                    },
+                    {
+                      entryId: side(bottom).entryId,
+                      won: winnerOf(top, bottom, index) === bottom,
+                      rank: null,
+                      ballotsWon:
+                        winnerOf(top, bottom, index) === top ? room % 2 : 2,
+                    },
+                  ],
                 })
               : tieOf(top, bottom, {
                   kind: 'live',
@@ -104,7 +118,7 @@ export function largeBracketRounds(
       name,
       status,
       startsAt: sampleInstant(starts[index] ?? '16:30'),
-      ties,
+      fixtures: ties,
       waitsOn:
         status === 'scheduled' && feeder !== undefined
           ? { feederTabRoundName: feeder, ballotsNeeded: 2, panelSize: 3 }
@@ -120,7 +134,7 @@ export function largeBracketView(
 ): BracketView {
   const tabRounds = [...largeBracketRounds(finished)].map((round) => ({
     ...round,
-    ties: [...round.ties],
+    fixtures: [...round.fixtures],
   }));
   return ordinary.visibility === 'official'
     ? { ...ordinary, tabRounds }

@@ -1,3 +1,4 @@
+import { readHostResults } from '../src/features/tab/reads/host-results';
 import { releaseCommand } from '../src/features/tab/operations/release-command';
 import { settingCommand } from '../src/features/tab/operations/settings';
 import { eventResultCommand } from '../src/features/tab/operations/event-result-command';
@@ -114,7 +115,7 @@ test('actual ballot submission screens atomically, retains originals and replays
           record = eventResultCommand(common),
           principal = as(world.bots.Director!);
         const [fixture] =
-          await owner`select f.id,f.version from fixtures f join rounds r on r.room_id=f.room_id where r.id=${roundId}`;
+          await owner`select f.id,f.version,f.tab_round_id from fixtures f join rounds r on r.room_id=f.room_id where r.id=${roundId}`;
         const captured = await record(principal, lobbyId, {
           version: 1,
           commandId: createId(),
@@ -181,20 +182,21 @@ test('actual ballot submission screens atomically, retains originals and replays
           },
           form,
         );
+        const boundary = {
+          logger: silentLogger,
+          reporter: noopErrorReporter,
+          origin: () => origin,
+          identify: async () => ({
+            ...member,
+            principal: {
+              ...principal,
+              actorId: world.bots.Director!.actorId,
+            },
+          }),
+        };
         const submit = (released: boolean) =>
           createTabCommandRoute({
-            boundary: {
-              logger: silentLogger,
-              reporter: noopErrorReporter,
-              origin: () => origin,
-              identify: async () => ({
-                ...member,
-                principal: {
-                  ...principal,
-                  actorId: world.bots.Director!.actorId,
-                },
-              }),
-            },
+            boundary,
             released: async () => released,
             name: 'tab.result.command',
             address: 'lobby',
@@ -312,7 +314,7 @@ test('actual ballot submission screens atomically, retains originals and replays
           actual: [
             decisions
               .map((decision) =>
-                decision.kind === 'accepted' ? 'accepted' : decision.refusal,
+                decision.kind === 'refused' ? decision.refusal : decision.kind,
               )
               .sort(),
             afterRace,
@@ -371,6 +373,81 @@ test('actual ballot submission screens atomically, retains originals and replays
         });
         if (manual.kind !== 'accepted')
           throw new Error(`Manual release setting: ${JSON.stringify(manual)}`);
+        const beforeOpening = await readHostResults(common)(principal, {
+          lobbyId,
+          eventId,
+        });
+        const roundIdForOpening = String(fixture!.tab_round_id);
+        const offered = beforeOpening?.results.audiences.find(
+          (row) =>
+            row.tabRoundId === roundIdForOpening &&
+            row.audience === 'responsible_adults',
+        );
+        const openingBody = completionEnvelope(
+          {
+            commandId: createId(),
+            lobbyId,
+            eventId,
+            handle: 'actual-tournament',
+            target: {
+              type: 'open-audience',
+              tabRoundId: roundIdForOpening,
+              thing: 'reason',
+              audience: 'responsible_adults',
+            },
+          },
+          new FormData(),
+        );
+        const releaseRoute = createTabCommandRoute({
+          boundary,
+          released: async () => true,
+          name: 'tab.release.command',
+          address: 'lobby',
+          execute: releaseCommand(common),
+        });
+        const releaseResponse = await releaseRoute(
+          new Request(
+            `${origin}/api/tab/release-command?${new URLSearchParams({ lobbyId })}`,
+            {
+              method: 'POST',
+              headers: { origin, 'content-type': 'application/json' },
+              body: JSON.stringify(openingBody),
+            },
+          ),
+        );
+        const releaseAnswer = completionAnswer(
+          new FormData(),
+          await releaseResponse.json(),
+        );
+        const [actualOpening] =
+          await owner`select r.tab_round_id,r.thing,r.audience,r.cause,h.actor_user_id from releases r join action_history h on h.command_id=r.command_id where r.command_id=${openingBody.commandId}`;
+        assert({
+          given:
+            'the actual clear written copy offered by the Results read and its bound manual-opening form',
+          should:
+            'open the rendered round and part for that audience through the real HTTP owner, retaining the acting human',
+          actual: [
+            offered?.openings.find((opening) => opening.part === 'reason')
+              ?.state.kind,
+            releaseResponse.status,
+            releaseResponse.headers.get('cache-control'),
+            releaseAnswer.kind,
+            actualOpening,
+          ],
+          expected: [
+            'openable',
+            200,
+            'no-store',
+            'accepted',
+            {
+              tab_round_id: roundIdForOpening,
+              thing: 'reason',
+              audience: 'responsible_adults',
+              cause: 'manual',
+              actor_user_id: principal.userId,
+            },
+          ],
+        });
         // An explicit missing-classification fault: the real producer/clear-copy oracles above have already passed.
         await owner`delete from ballot_screenings where ballot_id=${ballotId}`;
         const open = releaseCommand(common);
@@ -384,7 +461,7 @@ test('actual ballot submission screens atomically, retains originals and replays
             eventId,
             tabRounds: { kind: 'all' },
             thing: 'reason',
-            audience: 'responsible_adults',
+            audience: 'competitors',
           },
         });
         const [openingWrites] =

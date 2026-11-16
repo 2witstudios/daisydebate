@@ -69,6 +69,16 @@ are read under the counterpart’s own subject scope. Guardian-dependent entry
 additions remain closed while their audit/provenance decisions and counsel
 release are unresolved. Room assembly is a separate operation.
 
+The host Results read and completion commands consume the same retained event
+sources under the event/lobby fence. Readiness and manual-opening eligibility
+share the pure command predicates; reads never mint probe commands or
+certificates. The result guard is one plus the retained event result and
+certification row counts. Stage reads preserve every published fixture's
+actual ordered entry list and result-owned outcome, using the first published
+stage snapshot for elimination seeds. Openings remain per tab round, part and
+audience, and sanctions remain a list. This read exposes no private ballot
+words, screening holds or video authority; those remain with their own readers.
+
 Entry requests address the actual lobby and event and read only that event's
 setting chain. Shared locks on its real parent definitions let unrelated
 consumers proceed while a parent writer waits; a changed parent reference after

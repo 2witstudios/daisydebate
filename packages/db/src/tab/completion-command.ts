@@ -1,5 +1,5 @@
 import { fixtureRoomSources } from '../schema/fixture-room-sources';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { ResultCommand } from '@daisy/protocol/lobby/result-command';
 import type { BreakCommand } from '@daisy/protocol/lobby/break-command';
@@ -8,7 +8,6 @@ import type {
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
 import type { BallotWrittenRecord } from '@daisy/protocol';
-import { readDatabaseTime } from '../database-clock';
 import { jsonObjectSchema } from '../schema/columns';
 import { results } from '../schema/results';
 import { certifications, certificationResults } from '../schema/certifications';
@@ -19,7 +18,7 @@ import { rounds } from '../schema/rounds';
 import { fixtures } from '../schema/fixtures';
 import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
-import { loadEventCompetition } from './event-competition';
+import { loadEventCompletion } from './event-completion';
 import { storedCommand, appendHistory } from './command-record';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -81,47 +80,12 @@ async function load(tx: TabTransaction, input: Input) {
       ? input.command.eventId
       : (result?.eventId ?? screened?.eventId);
   if (!eventId) return null;
-  const competition = await loadEventCompetition(tx, {
+  return loadEventCompletion(tx, {
     viewerUserId: input.senderUserId,
     lobbyId: input.lobbyId,
     eventId,
     strength: 'update',
   });
-  if (!competition) return null;
-  const currentRounds = await tx
-    .select({ roundId: rounds.id, tabRoundId: fixtures.tabRoundId })
-    .from(fixtures)
-    .innerJoin(rounds, eq(rounds.roomId, fixtures.roomId))
-    .where(
-      and(eq(fixtures.eventId, eventId), eq(fixtures.lobbyId, input.lobbyId)),
-    );
-  const sourceRounds = [
-    ...new Set([
-      ...currentRounds.map((row) => row.roundId),
-      ...competition.results.flatMap((row) =>
-        row.roundId ? [row.roundId] : [],
-      ),
-    ]),
-  ];
-  const submitted = sourceRounds.length
-    ? await tx
-        .select({ ballot: ballots, screening: ballotScreenings })
-        .from(ballots)
-        .leftJoin(ballotScreenings, eq(ballotScreenings.ballotId, ballots.id))
-        .where(inArray(ballots.roundId, sourceRounds))
-    : [];
-  return {
-    competition,
-    currentRounds,
-    submitted,
-    releases: await tx
-      .select()
-      .from(releases)
-      .where(
-        and(eq(releases.eventId, eventId), eq(releases.lobbyId, input.lobbyId)),
-      ),
-    checkedAt: (await readDatabaseTime(tx)).toISOString(),
-  };
 }
 export type LoadedCompletionCommand = NonNullable<
   Awaited<ReturnType<typeof load>>

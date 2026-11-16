@@ -181,6 +181,7 @@ const appRoutes = [
   '/api/tab/tournament-event-settings',
   '/api/tab/host-standings',
   '/api/tab/host-ballots',
+  '/api/tab/host-results',
   '/api/tab/host-navigation',
   '/api/tab/fixture-command',
   '/api/tab/result-command',

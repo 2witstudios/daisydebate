@@ -1,3 +1,4 @@
+import { bracketViewSchema } from './standings-read';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import type { LobbyReadCatalogue } from './read';
@@ -37,6 +38,8 @@ const opening = z.strictObject({
 });
 
 const audienceOpenings = z.strictObject({
+  tabRoundId: idSchema,
+  tabRoundName: name,
   audience: z.enum(audiences),
   /** The parts this audience has, or may now be given; a part it never gets is left out. */
   openings: z.array(opening).min(1),
@@ -47,6 +50,10 @@ const certification = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('blocked'),
     running: z.array(z.strictObject({ tabRoundId: idSchema, name })).min(1),
+  }),
+  z.strictObject({
+    kind: z.literal('waiting'),
+    reason: z.enum(['results-incomplete', 'screening-pending']),
   }),
   z.strictObject({ kind: z.literal('ready') }),
   z.strictObject({ kind: z.literal('certified'), certifiedAt: instant }),
@@ -64,7 +71,7 @@ const correction = z.strictObject({
     entries: z.array(z.strictObject({ entryId: idSchema, name })).min(1),
   }),
   /** What the correction changed. */
-  changed: z.enum(['winner', 'points', 'ranks']),
+  changed: z.enum(['winner', 'points', 'ranks', 'record']),
   recordedBy: personRef,
   confirmedBy: personRef.extend({ viewer: z.boolean() }).nullable(),
   recordedAt: instant,
@@ -76,15 +83,16 @@ const correction = z.strictObject({
 const eventResultsShape = {
   lobbyId: idSchema,
   eventId: idSchema,
+  resultsVersion: z.int().positive(),
   prelimsCertifiedAt: instant.nullable(),
   certification,
   audiences: z.array(audienceOpenings),
   /** Corrections recorded since prelims were certified. */
   corrections: z.array(correction),
   /** The league whose sanction receives the certified results, and when it did. */
-  sanction: z
-    .strictObject({ organizationName: name, sentAt: instant.nullable() })
-    .nullable(),
+  sanctions: z.array(
+    z.strictObject({ organizationName: name, sentAt: instant.nullable() }),
+  ),
   capabilities: z.strictObject({ release: z.boolean(), certify: z.boolean() }),
 };
 
@@ -108,3 +116,10 @@ export type AudienceOpenings = z.infer<typeof audienceOpenings>;
 export const resultsReadCatalogue = {
   EventResultsView: { gate: ['lobby.host.results.read'] },
 } as const satisfies LobbyReadCatalogue<'EventResultsView'>;
+
+/** The Results area composes its event summary with each actual elimination stage. */
+export const hostResultsViewSchema = z.strictObject({
+  results: eventResultsViewSchema,
+  stages: z.array(bracketViewSchema),
+});
+export type HostResultsView = z.infer<typeof hostResultsViewSchema>;

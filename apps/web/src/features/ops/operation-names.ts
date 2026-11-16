@@ -156,6 +156,7 @@ const OPERATION_NAMES = [
   'tab.tournament.event.settings',
   'tab.host.standings',
   'tab.host.ballots',
+  'tab.host.results',
   'tab.host.navigation',
   'tab.fixture.command',
   'tab.result.command',

@@ -1,3 +1,5 @@
+import { releaseAudiences } from '@daisy/protocol/release-audience';
+import { releaseCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { breakCommandEnvelopeSchema } from '@daisy/protocol/lobby/break-command';
@@ -24,6 +26,12 @@ export const completionContextSchema = z.strictObject({
     .max(64),
   target: z.discriminatedUnion('type', [
     z.strictObject({
+      type: z.literal('open-audience'),
+      thing: z.enum(['decision', 'scores', 'reason', 'feedback']),
+      audience: z.enum(releaseAudiences),
+      tabRoundId: idSchema,
+    }),
+    z.strictObject({
       type: z.literal('announce-break'),
       resultsVersion: z.int().positive(),
     }),
@@ -46,6 +54,19 @@ export type CompletionFormState = Idle | Refused | Unacknowledged | Moved;
 export function completionEnvelope(value: CompletionContext, form: FormData) {
   const context = completionContextSchema.parse(value),
     target = context.target;
+  if (target.type === 'open-audience')
+    return releaseCommandEnvelopeSchema.parse({
+      version: 1,
+      commandId: context.commandId,
+      expected: {},
+      command: {
+        type: target.type,
+        eventId: context.eventId,
+        thing: target.thing,
+        audience: target.audience,
+        tabRounds: { kind: 'one', tabRoundId: target.tabRoundId },
+      },
+    });
   if (target.type === 'announce-break')
     return breakCommandEnvelopeSchema.parse({
       version: 1,

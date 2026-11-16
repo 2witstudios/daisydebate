@@ -74,3 +74,46 @@ test('completion forms preserve their rendered source guard and review target', 
     },
   });
 });
+
+test('a manual opening form retains the actual round, part and audience', () => {
+  const base = {
+    commandId: createId(),
+    lobbyId: createId(),
+    eventId: createId(),
+    handle: 'actual-event',
+  };
+  const tabRoundId = createId();
+  const form = new FormData();
+  form.set('tabRoundId', createId());
+  form.set('thing', 'video');
+  form.set('audience', 'public');
+  assert({
+    given: 'a manual reason release form with substituted addressing',
+    should:
+      'open only the rendered part for the rendered audience and round with the same replay id',
+    actual: completionEnvelope(
+      {
+        ...base,
+        target: {
+          type: 'open-audience',
+          thing: 'reason',
+          audience: 'competitors',
+          tabRoundId,
+        },
+      },
+      form,
+    ),
+    expected: {
+      version: 1,
+      commandId: base.commandId,
+      expected: {},
+      command: {
+        type: 'open-audience',
+        eventId: base.eventId,
+        thing: 'reason',
+        audience: 'competitors',
+        tabRounds: { kind: 'one', tabRoundId },
+      },
+    },
+  });
+});

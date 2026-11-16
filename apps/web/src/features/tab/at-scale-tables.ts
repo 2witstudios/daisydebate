@@ -121,22 +121,46 @@ export function bracketFromLive<Round extends BracketRound>(
   if (options.showEarlier || earlier.length === 0)
     return { earlier: [], shown: rounds, summary: null };
   const decided = earlier.flatMap((round) =>
-    round.ties.flatMap((tie) =>
-      tie.state.kind === 'decided'
-        ? [
-            tie.state.topBallots > tie.state.bottomBallots
-              ? ([tie.top.seed, tie.bottom.seed] as const)
-              : ([tie.bottom.seed, tie.top.seed] as const),
-          ]
-        : [],
-    ),
+    round.fixtures.filter((fixture) => fixture.state.kind === 'decided'),
   );
-  const upsets = decided.filter(([winner, loser]) => winner > loser);
-  const biggest = upsets.reduce<readonly [number, number] | null>(
-    (wide, upset) =>
-      wide === null || upset[0] - upset[1] > wide[0] - wide[1] ? upset : wide,
-    null,
-  );
+  const comparisons = decided.map((fixture) => {
+    if (fixture.state.kind !== 'decided') return [];
+    const outcomes = fixture.state.outcomes;
+    return fixture.entries.flatMap((winner) =>
+      fixture.entries.flatMap(
+        (loser): readonly (readonly [number, number])[] => {
+          if (
+            winner.seed === null ||
+            loser.seed === null ||
+            winner.entryId === loser.entryId
+          )
+            return [];
+          const first = outcomes.find(
+            (outcome) => outcome.entryId === winner.entryId,
+          );
+          const second = outcomes.find(
+            (outcome) => outcome.entryId === loser.entryId,
+          );
+          const ahead =
+            (first?.won === true && second?.won === false) ||
+            (first?.rank != null &&
+              second?.rank != null &&
+              first.rank < second.rank);
+          return ahead && winner.seed > loser.seed
+            ? [[winner.seed, loser.seed]]
+            : [];
+        },
+      ),
+    );
+  });
+  const upsets = comparisons.filter((pairs) => pairs.length > 0);
+  const biggest = comparisons
+    .flat()
+    .reduce<readonly [number, number] | null>(
+      (wide, upset) =>
+        wide === null || upset[0] - upset[1] > wide[0] - wide[1] ? upset : wide,
+      null,
+    );
   return {
     earlier,
     shown: rounds.slice(from),

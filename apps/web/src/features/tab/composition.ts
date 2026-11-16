@@ -1,3 +1,8 @@
+import { readHostResults } from './reads/host-results';
+import {
+  createHostResultsRoute,
+  type HostResultsRouteDependencies,
+} from './host-results-route';
 import { readHostBallots } from './reads/host-ballots';
 import {
   createHostBallotsRoute,
@@ -105,6 +110,12 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    hostResults: (released: HostResultsRouteDependencies['released']) =>
+      createHostResultsRoute({
+        boundary,
+        released,
+        read: readHostResults({ store, authorize }),
+      }),
     hostBallots: (released: HostBallotsRouteDependencies['released']) =>
       createHostBallotsRoute({
         boundary,

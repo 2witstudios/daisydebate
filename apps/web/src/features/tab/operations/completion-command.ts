@@ -1,3 +1,5 @@
+import { completionCertification } from './completion-certification';
+import { completionScreenings } from './completion-screenings';
 import { eventResultsVersion } from './event-results-version';
 import { z } from 'zod';
 import type {
@@ -13,7 +15,6 @@ import {
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import { idSchema, ballotWrittenRecordSchema } from '@daisy/protocol';
-import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import {
   resultCommandEnvelopeSchema,
   resultCommandCatalogue,
@@ -41,28 +42,6 @@ const noFixtureConflict = (): never => {
     'Event completion is not a fixture command',
   );
 };
-
-function screenings(loaded: LoadedCompletionCommand) {
-  return loaded.submitted.map(({ ballot, screening }) => {
-    const tabRoundId =
-      loaded.competition.results.find(
-        (result) => result.roundId === ballot.roundId,
-      )?.tabRoundId ??
-      loaded.currentRounds.find((round) => round.roundId === ballot.roundId)
-        ?.tabRoundId;
-    if (!tabRoundId)
-      throw createAppError(
-        'INVARIANT',
-        'A submitted ballot lost its actual fixture source',
-      );
-    return {
-      ballotId: ballot.id,
-      roundId: ballot.roundId,
-      tabRoundId,
-      status: screening?.status ?? ('pending' as const),
-    };
-  });
-}
 
 /** One event fence owns announcement, exact-source certification and recorded openings. */
 export const completionCommand =
@@ -134,7 +113,7 @@ export const completionCommand =
                     const openings = competitionReleases({
                       competition: loaded.competition,
                       openings: loaded.releases,
-                      screenings: screenings(loaded).map((row) =>
+                      screenings: completionScreenings(loaded).map((row) =>
                         clear.has(row.ballotId)
                           ? { ...row, status: 'clear' as const }
                           : row,
@@ -200,7 +179,7 @@ export const completionCommand =
                 const found = facts.submitted.find(
                     (row) => row.ballot.id === requested.ballotId,
                   ),
-                  screening = screenings(facts).find(
+                  screening = completionScreenings(facts).find(
                     (row) => row.ballotId === requested.ballotId,
                   );
                 if (!found || !screening)
@@ -229,20 +208,7 @@ export const completionCommand =
                   mintedCertificationId: dependencies.newId(),
                   event: { id: competition.configuration.event.id, lobbyId },
                   resultsVersion: eventResultsVersion(facts.competition),
-                  publishedFixtureIds: competition.fixtures
-                    .filter((fixture) => fixture.status === 'published')
-                    .map((fixture) => fixture.id),
-                  results: competition.results.map((row) => ({
-                    ...row,
-                    recordedAt: row.recordedAt.toISOString(),
-                    competitionRecord: resultCompetitionRecordSchema.parse(
-                      row.competitionRecord,
-                    ),
-                  })),
-                  certifiedResultIds: competition.certified.map(
-                    (row) => row.resultId,
-                  ),
-                  screenings: screenings(facts),
+                  ...completionCertification(facts),
                 },
                 requested,
               );
