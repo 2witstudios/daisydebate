@@ -17,6 +17,8 @@ import {
   readyUp,
   reread,
   turnOffPreRoundPrep,
+  ldTemplate,
+  setResolution,
   submitCreateRoom,
 } from './room-launch-flow';
 import { readBallotRound } from './human-ballot-round';
@@ -283,7 +285,9 @@ export async function proveThreeBrowserRound(browser: Browser) {
     let room = await createFromPlay(
       aff!,
       `ROOM-6.2 ${createId().slice(0, 8)}`,
-      'value',
+      'custom',
+      setResolution,
+      ldTemplate,
     );
     room = await skipPreRoundPrep(aff!, room);
     room = await assemble(players, room);
@@ -340,7 +344,10 @@ export async function proveThreeBrowserRound(browser: Browser) {
     let next = await submitCreateRoom(
       host,
       `ROOM-6.2 next ${createId().slice(0, 8)}`,
-      'value',
+      'custom',
+      false,
+      setResolution,
+      ldTemplate,
     );
     expect(next.id).not.toBe(room.id);
     expect([next.participants.length, next.readiness.readyActorIds]).toEqual([
