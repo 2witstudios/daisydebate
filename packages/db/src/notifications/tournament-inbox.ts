@@ -47,7 +47,7 @@ export async function readTournamentInbox(
       const removedJudge = sql`exists(select 1 from tournament_judges j join actors a on a.id=j.actor_id
         where j.lobby_id=f.lobby_id and j.status='accepted' and a.user_id=n.user_id) and not ${judge}`;
       const adult = sql`exists(select 1 from fixture_entries fe join entries e on e.id=fe.entry_id
-        join entry_members em on em.entry_id=e.id join actors a on a.id=em.actor_id
+        join entry_members em on em.entry_id=e.id and em.entry_status='accepted' join actors a on a.id=em.actor_id
         where fe.fixture_id=f.id and e.status='accepted' and e.responsible_kind='self' and a.user_id=n.user_id)`;
       const released = (
         thing: string,

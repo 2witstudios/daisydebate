@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { organizations } from '../schema/organizations';
@@ -101,7 +101,8 @@ async function load(tx: TabTransaction, input: Input) {
   const eventRows = await tx
     .select()
     .from(events)
-    .where(eq(events.lobbyId, input.lobbyId));
+    .where(eq(events.lobbyId, input.lobbyId))
+    .orderBy(asc(events.id));
   const eventId = input.eventId ?? eventRows[0]?.id;
   const configuration = eventId
     ? await lockEventSettingContext(tx, {

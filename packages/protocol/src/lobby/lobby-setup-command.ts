@@ -153,8 +153,11 @@ const createLobbyRoom = z.strictObject({
   lobbyId: idSchema,
   templateId: idSchema.nullable(),
   room: roomCreateSchema,
-  /** Exact displayed Room settings, validated against the actual offered pin and chain. */
-  config: roomConfigSchema.optional(),
+  /**
+   * Exact displayed Room settings, validated against the actual offered pin
+   * and chain; required, so a stale form is always refused, never re-applied.
+   */
+  config: roomConfigSchema,
   /** A named league/lobby pool wording, never inferred from matching custom text. */
   poolResolutionId: idSchema.optional(),
 });

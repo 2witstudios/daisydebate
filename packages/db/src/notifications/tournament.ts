@@ -98,7 +98,7 @@ export async function notifyTournamentRelease(
             tx,
             sql`select a.user_id as "userId", a.id as "actorId"
           from fixture_entries fe join entries e on e.id=fe.entry_id and e.status='accepted'
-          join entry_members em on em.entry_id=e.id join actors a on a.id=em.actor_id
+          join entry_members em on em.entry_id=e.id and em.entry_status='accepted' join actors a on a.id=em.actor_id
           where fe.fixture_id=${fixture.id} and e.responsible_kind='self'`,
           )
         : release.audience === 'competitors'

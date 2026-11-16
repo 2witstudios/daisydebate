@@ -215,7 +215,7 @@ export const createLobbyRoom =
             resolved,
             loaded.resolutions,
           );
-          const config = command.config ?? expectedConfig;
+          const config = command.config;
           const rule = resolved.settings['resolution.rule'].value;
           const pool = command.poolResolutionId
             ? loaded.resolutions.find(

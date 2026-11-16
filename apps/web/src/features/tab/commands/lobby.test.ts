@@ -1,3 +1,4 @@
+import { plainRoomConfig } from '@daisy/protocol/testing';
 import type { LobbyCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { decideLobby, type LobbyFact, type LobbyFacts } from './lobby';
@@ -592,6 +593,7 @@ describe('create-lobby-room', () => {
     lobbyId: id('l'),
     templateId: id('p'),
     room,
+    config: plainRoomConfig,
   } as const;
   const ownFormat = { ...withTemplate, templateId: null } as const;
   const roomFacts = facts().room;
