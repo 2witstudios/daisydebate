@@ -26,7 +26,7 @@ test('lobby grant discovery follows current authority', async () => {
       return target;
     },
     userIdOfActor: async (actor) => {
-      calls.push(`user:${actor}`);
+      calls.push(`binding:${actor}`);
       return 'r'.repeat(24);
     },
   });
@@ -41,7 +41,7 @@ test('lobby grant discovery follows current authority', async () => {
       [
         `read:${principal.userId}:${lobbyId}`,
         `discover:${principal.actorId}:new_official`,
-        `user:${target}`,
+        `binding:${target}`,
       ],
     ],
   });
