@@ -1,3 +1,4 @@
+import { scopeReservedTransaction } from './tenant-scope';
 import type { ReservedSQL, SQL } from 'bun';
 import { createAppError, isAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -138,10 +139,7 @@ class TransactionAttempt {
           this.checkLifetime();
           // Tenant addressing is adapter-owned. Arbitrary callback configuration
           // still passes through the unchanged rejecting statement guard.
-          const writer = this.work!;
-          await writer`select set_config('daisy.organization_scope', ${scope.organizationId ?? ''}, true),
-          set_config('daisy.lobby_scope', ${scope.lobbyId ?? ''}, true),
-          set_config('daisy.subject_scope', ${scope.subjectUserId ?? ''}, true)`;
+          await scopeReservedTransaction(this.work!, scope);
           this.checkLifetime();
         },
       ),

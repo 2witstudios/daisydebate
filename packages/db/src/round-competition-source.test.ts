@@ -32,6 +32,8 @@ const cast = [
   [id('c'), id('d'), 'side', 'negative', 0],
   [id('j'), id('k'), 'judge', null, 0],
 ];
+const recordedAt = new Date('2026-11-15T09:00:00.000Z');
+const lineage = [[0, 1, id('j'), id('k'), 'initial', null, recordedAt]];
 const ballot = [
   id('m'),
   id('j'),
@@ -49,7 +51,7 @@ const ballot = [
 ];
 const input = { roundId: id('r'), roomId: id('q') };
 test('Round publishes exact consumed competition values without loading private words', async () => {
-  const { client, queries } = fakeSql([[frame], cast, [ballot]]);
+  const { client, queries } = fakeSql([[frame], lineage, cast, [ballot]]);
   const actual = await readRoundCompetitionSource(drizzle({ client }), input);
   assert({
     given: 'a completed judged Round and its exact consumed witness',
@@ -75,6 +77,21 @@ test('Round publishes exact consumed competition values without loading private 
           finalization: { commandId: id('f'), resultingVersion: 21 },
           rules,
           judging,
+          judgeAssignments: [
+            {
+              slot: 0,
+              versions: [
+                {
+                  version: 1,
+                  participantId: id('j'),
+                  actorId: id('k'),
+                  source: 'initial',
+                  commandId: null,
+                  recordedAt: recordedAt.toISOString(),
+                },
+              ],
+            },
+          ],
         },
         cast: [
           {
@@ -128,6 +145,7 @@ test('a non-judged ending exports no invented panel', async () => {
 test('changed consumed content fails before any result can use it', async () => {
   const { client } = fakeSql([
     [frame],
+    lineage,
     cast,
     [ballot.map((value, index) => (index === 12 ? false : value))],
   ]);
