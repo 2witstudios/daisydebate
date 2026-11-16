@@ -1,8 +1,13 @@
-import { notificationChoicePairs, notificationKinds } from '@daisy/protocol';
+import {
+  notificationChoicePairs,
+  notificationKinds,
+  tournamentNotificationKinds,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  foreignKey,
   index,
   pgTable,
   primaryKey,
@@ -20,6 +25,9 @@ import { actors } from './actors';
 import { challenges } from './challenges';
 import { roomInvitations } from './room-invitations';
 import { rounds } from './rounds';
+import { fixtures } from './fixtures';
+import { lobbies } from './lobbies';
+import { actionHistory } from './grants';
 import { users } from './users';
 
 const watchKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
@@ -53,10 +61,40 @@ export const notifications = pgTable(
     actorId: text('actor_id').references(() => actors.id, {
       onDelete: 'cascade',
     }),
+    fixtureId: text('fixture_id').references(() => fixtures.id, {
+      onDelete: 'cascade',
+    }),
+    notificationLobbyId: text('notification_lobby_id').references(
+      () => lobbies.id,
+      { onDelete: 'cascade' },
+    ),
+    tabCommandId: text('tab_command_id').references(
+      () => actionHistory.commandId,
+      { onDelete: 'cascade' },
+    ),
     readAt: timestampColumn('read_at'),
     createdAt: createdAtColumn(),
   },
   (table) => [
+    foreignKey({
+      name: 'notifications_fixture_lobby_fk',
+      columns: [table.fixtureId, table.notificationLobbyId],
+      foreignColumns: [fixtures.id, fixtures.lobbyId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'notifications_command_lobby_fk',
+      columns: [table.tabCommandId, table.notificationLobbyId],
+      foreignColumns: [actionHistory.commandId, actionHistory.lobbyId],
+    }).onDelete('cascade'),
+    uniqueIndex('notifications_fixture_command_once').on(
+      table.userId,
+      table.kind,
+      table.fixtureId,
+      table.tabCommandId,
+    ),
+    index('notifications_fixture_idx').on(table.fixtureId),
+    index('notifications_lobby_idx').on(table.notificationLobbyId),
+    index('notifications_tab_command_idx').on(table.tabCommandId),
     uniqueIndex('notifications_round_once')
       .on(table.userId, table.kind, table.roundId)
       .where(sql`${table.roundId} is not null`),
@@ -77,11 +115,13 @@ export const notifications = pgTable(
       'notifications_subject_check',
       sql`(${table.kind} in (${watchKinds})) = (${table.roundId} is not null)
         and (${table.kind} = 'room_invitation') = (${table.roomInvitationId} is not null)
-        and (${table.kind} = 'challenge_received') = (${table.challengeId} is not null)`,
+        and (${table.kind} = 'challenge_received') = (${table.challengeId} is not null)
+        and (${table.kind} in (${sql.raw(tournamentNotificationKinds.map((kind) => `'${kind}'`).join(', '))})) = (${table.fixtureId} is not null and ${table.notificationLobbyId} is not null and ${table.tabCommandId} is not null)
+        and ((${table.fixtureId} is null and ${table.notificationLobbyId} is null and ${table.tabCommandId} is null) or (${table.fixtureId} is not null and ${table.notificationLobbyId} is not null and ${table.tabCommandId} is not null))`,
     ),
     check(
       'notifications_actor_check',
-      sql`(${table.kind} = 'recording_ready') = (${table.actorId} is null)`,
+      sql`(${table.kind} in ('recording_ready', ${sql.raw(tournamentNotificationKinds.map((kind) => `'${kind}'`).join(', '))})) = (${table.actorId} is null)`,
     ),
   ],
 );

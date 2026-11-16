@@ -14,6 +14,12 @@ test('choicesFromForm', () => {
     should: 'turn those on and every other channel off',
     actual: choicesFromForm(form),
     expected: {
+      judge_assigned: { in_app: false },
+      judge_replaced: { in_app: false },
+      judge_unassigned: { in_app: false },
+      tournament_draw_changed: { in_app: false },
+      tournament_room_ready: { in_app: false },
+      tournament_results_released: { in_app: false },
       followed_debater_live: { in_app: true },
       recording_ready: { in_app: false },
       room_invitation: { in_app: true, email: false },

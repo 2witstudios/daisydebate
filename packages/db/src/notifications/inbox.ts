@@ -1,3 +1,9 @@
+import { createAppError } from '@daisy/errors';
+import {
+  readTournamentInbox,
+  type TournamentInboxRow,
+  type TournamentInboxAccess,
+} from './tournament-inbox';
 import {
   buildUserInboxTopic,
   type CompetitionType,
@@ -82,6 +88,7 @@ export type InboxRow = {
   readonly readAt: string | null;
   readonly createdAt: string;
 } & (
+  | TournamentInboxRow
   | {
       readonly kind: 'followed_debater_live';
       readonly roundId: string;
@@ -118,6 +125,16 @@ type FlatRow = {
 const inboxRow = (row: FlatRow): InboxRow => {
   const base = { id: row.id, readAt: row.readAt, createdAt: row.createdAt };
   switch (row.kind) {
+    case 'judge_assigned':
+    case 'judge_replaced':
+    case 'judge_unassigned':
+    case 'tournament_draw_changed':
+    case 'tournament_room_ready':
+    case 'tournament_results_released':
+      throw createAppError(
+        'INVARIANT',
+        'Tournament subjects use their fenced reader',
+      );
     case 'followed_debater_live':
       return {
         ...base,
@@ -165,6 +182,7 @@ export const notificationInboxOperations = ({
    */
   readNotifications(input: {
     readonly userId: string;
+    readonly canReadTournament?: TournamentInboxAccess;
     readonly unreadOnly: boolean;
     readonly limit: number;
     readonly now: string;
@@ -200,7 +218,24 @@ export const notificationInboxOperations = ({
         database,
         sql`select count(*) as unread ${from} and n.read_at is null`,
       );
-      return { rows: rows.map(inboxRow), unread: Number(count?.unread ?? 0) };
+      const tournamentRows = await readTournamentInbox(database, input);
+      return {
+        rows: [
+          ...rows.map(inboxRow),
+          ...tournamentRows.filter(
+            (row) => !input.unreadOnly || row.readAt === null,
+          ),
+        ]
+          .sort(
+            (a, b) =>
+              b.createdAt.localeCompare(a.createdAt) ||
+              b.id.localeCompare(a.id),
+          )
+          .slice(0, input.limit),
+        unread:
+          Number(count?.unread ?? 0) +
+          tournamentRows.filter((row) => row.readAt === null).length,
+      };
     });
   },
   /** Marks one, or every, of this account's own; another's id changes nothing. */

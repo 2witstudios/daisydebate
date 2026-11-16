@@ -65,7 +65,12 @@ export const completionCommand =
           : resultCommandCatalogue[command.type];
     try {
       return await dependencies.store.completionCommand(
-        { senderUserId: principal.userId, lobbyId, command },
+        {
+          senderUserId: principal.userId,
+          lobbyId,
+          command,
+          notificationIds: dependencies.newId,
+        },
         async (session) => {
           const loaded = await session.load();
           if (!loaded) throw new CommandDenied('not-found');

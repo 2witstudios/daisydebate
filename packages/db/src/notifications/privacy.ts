@@ -25,7 +25,7 @@ export const notificationPrivacyAdopter: PrivacyAdopter = {
     notifications: exportRows(
       await rowsOf<Record<string, unknown>>(
         tx,
-        sql`select kind,round_id,room_invitation_id,challenge_id,read_at,created_at
+        sql`select kind,round_id,room_invitation_id,challenge_id,fixture_id,notification_lobby_id,tab_command_id,read_at,created_at
           from notifications where user_id=${subject.userId} order by created_at,id`,
       ),
     ),

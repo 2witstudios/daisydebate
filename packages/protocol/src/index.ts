@@ -750,6 +750,8 @@ export {
   notificationChoicePairs,
   notificationChoicesSchema,
   notificationKinds,
+  tournamentNotificationKinds,
+  type TournamentNotificationKind,
   notificationPreferencesSchema,
   notificationsReadSchema,
   type EmailedNotificationKind,

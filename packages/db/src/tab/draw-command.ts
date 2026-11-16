@@ -60,6 +60,7 @@ export const createDrawCommandStore = (database: TabDatabase) => ({
             writes,
             assembly,
             history.appliedAt,
+            history.commandId,
           );
         },
       });

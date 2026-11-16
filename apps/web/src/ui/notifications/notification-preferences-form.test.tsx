@@ -25,6 +25,12 @@ test('NotificationPreferencesForm', () => {
       'name every switch by its kind and channel, so each reads alone and is found by its kind',
     actual: names,
     expected: [
+      'I am assigned to judge | In Daisy',
+      'My judging assignment is replaced | In Daisy',
+      'I am unassigned from judging | In Daisy',
+      'My tournament draw changes | In Daisy',
+      'My tournament Room is ready | In Daisy',
+      'My tournament results are released | In Daisy',
       'A debater I follow is on air | In Daisy',
       'A recording is ready to watch | In Daisy',
       'A host invites me to a room | In Daisy',
@@ -37,6 +43,6 @@ test('NotificationPreferencesForm', () => {
     given: 'challenge email turned off',
     should: 'leave only that switch unchecked',
     actual: (html.match(/checked=""/g) ?? []).length,
-    expected: 5,
+    expected: 11,
   });
 });

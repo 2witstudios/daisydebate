@@ -12,9 +12,15 @@ test('notification kinds', () => {
   assert({
     given: 'the accepted kinds (WATCH-12, ADR 0124)',
     should:
-      'name Watch’s two released events, a Room invitation and a received challenge',
+      'name released Watch events, invitations, challenges and tournament changes',
     actual: notificationKinds,
     expected: [
+      'judge_assigned',
+      'judge_replaced',
+      'judge_unassigned',
+      'tournament_draw_changed',
+      'tournament_room_ready',
+      'tournament_results_released',
       'followed_debater_live',
       'recording_ready',
       'room_invitation',
@@ -31,6 +37,12 @@ test('choice pairs', () => {
       ({ kind, channel }) => `${kind}.${channel}`,
     ),
     expected: [
+      'judge_assigned.in_app',
+      'judge_replaced.in_app',
+      'judge_unassigned.in_app',
+      'tournament_draw_changed.in_app',
+      'tournament_room_ready.in_app',
+      'tournament_results_released.in_app',
       'followed_debater_live.in_app',
       'recording_ready.in_app',
       'room_invitation.in_app',

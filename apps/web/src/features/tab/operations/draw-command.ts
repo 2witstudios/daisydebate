@@ -181,6 +181,7 @@ export const drawCommand =
                             dependencies.newId,
                           )
                         : { rooms: [], resolutionPin: null }),
+                      notificationIds: dependencies.newId,
                       closeRoom,
                       activeRoomMembers,
                     }),

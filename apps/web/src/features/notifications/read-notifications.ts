@@ -1,3 +1,5 @@
+import { participantAccess, insideBoundary } from '@daisy/auth/authorization';
+import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
 import type { Database } from '@daisy/db';
 import type { NotificationItem } from './notifications';
 import { notificationWords } from './notification-words';
@@ -18,6 +20,20 @@ export const readNotificationItems = async (
 }> => {
   const { rows, unread } = await store.readNotifications({
     userId: input.userId,
+    canReadTournament: (facts) => {
+      const account = facts.authorization.account;
+      if (!account?.member || account.erased || !participantAccess(account))
+        return false;
+      const resource = hostLobbyResource(
+        facts.lobby,
+        facts.authorization.organization,
+        facts.ownerActorId,
+      );
+      return (
+        resource.kind === 'lobby' &&
+        insideBoundary(account.boundary, resource.scope)
+      );
+    },
     unreadOnly: input.unreadOnly,
     limit: PAGE,
     now: input.now,
