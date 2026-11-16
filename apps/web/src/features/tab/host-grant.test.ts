@@ -168,6 +168,13 @@ describe('the host area', () => {
           true,
         ],
         [
+          '(host)/host/tournaments/[slug]/people/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
           '(host)/host/tournaments/[slug]/results/page.tsx',
           true,
           true,

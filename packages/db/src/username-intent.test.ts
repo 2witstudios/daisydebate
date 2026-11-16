@@ -45,3 +45,32 @@ test('malformed username intent is rejected before database I/O', async () => {
     expected: 0,
   });
 });
+
+test('discovered actor resolution selects only the active human user binding', async () => {
+  const actorId = 'a'.repeat(24);
+  const userId = 'u'.repeat(24);
+  const { database, queries } = createTestDatabase([[[userId]], []]);
+  assert({
+    given: 'a discovered actor with a current account and an absent actor',
+    should: 'resolve only the internal user binding or null',
+    actual: [
+      await database.getActiveHumanUserIdByActorId(actorId),
+      await database.getActiveHumanUserIdByActorId('b'.repeat(24)),
+    ],
+    expected: [userId, null],
+  });
+  const query = queries[0]!;
+  assert({
+    given: 'the internal actor-to-user lookup',
+    should:
+      'select only its user binding while rechecking the verified active human account',
+    actual: [
+      query.params,
+      query.query.startsWith('select "actors"."user_id"'),
+      query.query.includes('"deleted_at" is null'),
+      query.query.includes('"email_verified" ='),
+      query.query.includes('"kind" ='),
+    ],
+    expected: [[actorId, 'human', true, 1], true, true, true, true],
+  });
+});

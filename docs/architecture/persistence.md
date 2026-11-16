@@ -108,6 +108,14 @@ commands: its named link must belong to that subject, and a new link's ward must
 match it. Actor-based lookup and an implicit organization or privileged global
 relationship locator are unnecessary.
 
+Lobby People is a separate exact-lobby grant read. It lists the actual personal
+or organization owner and the recipients of live grants at that lobby, with no
+organization-membership prerequisite or roster inference. Its current lobby
+guard, roles and per-role give/remove capabilities are projected while canonical
+viewer-account, actual organization and lobby shared fences remain held.
+The `lobby.host.people.read` evaluator gate and existing lobby-scoped grant
+commands own its authority; no invitation or membership is fabricated.
+
 Organization people are authorized and projected inside the store's transaction,
 under shared canonical viewer-account, organization and actual owned-lobby fences.
 Each lobby is visited under its own tenant scope before its shared lock is taken.

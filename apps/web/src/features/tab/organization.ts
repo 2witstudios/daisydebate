@@ -1,11 +1,15 @@
+import type { People, PersonRow } from './people';
+import {
+  peopleRoleOf,
+  peopleRoleSlug as roleSlug,
+  peopleRoleSelection,
+} from './people-role';
 import type {
   HostHomeView,
   HostLobby,
   OrganizationPeopleView,
   OrganizationPerson,
-  OrganizationRole,
 } from '@daisy/protocol/lobby/organization-read';
-import type { Permission } from '@daisy/protocol/lobby';
 import { linkTo, unavailableAction, type TabAction } from './action';
 import { hostRoutes } from './routes';
 import type { RailItem, TimelineRail } from './tournament';
@@ -29,39 +33,6 @@ export type HostHome = {
     readonly detail: string;
     readonly action: TabAction;
   }[];
-};
-
-/** A member with the grants they hold, or the owner's fixed position. */
-type PersonRow = {
-  readonly id: string;
-  readonly name: string;
-  readonly detail: string;
-  /** A conflict the evaluator has recorded for this person. */
-  readonly conflict: string | null;
-  readonly owner: boolean;
-  readonly action: TabAction | null;
-};
-
-/** One of Daisy's preset roles: a named set of permissions. */
-type PresetRole = {
-  readonly id: string;
-  readonly name: string;
-  readonly href: string;
-  readonly selected: boolean;
-};
-
-export type People = {
-  readonly give: TabAction;
-  readonly people: readonly PersonRow[];
-  readonly roles: readonly PresetRole[];
-  readonly role: {
-    readonly name: string;
-    readonly permissions: readonly {
-      readonly label: string;
-      readonly allowed: boolean;
-    }[];
-    readonly conflictRule: string;
-  };
 };
 
 const months = [
@@ -317,45 +288,11 @@ export function hostRailOf(
   };
 }
 
-/** The permissions the people page lists, in its order, as it words them. */
-const permissionWords: readonly (readonly [Permission, string])[] = [
-  ['tournament.draw.edit', 'Change a draft draw'],
-  [
-    'tournament.rooms.officiate',
-    'Run rooms: reseat, replace a judge, restart, forfeit',
-  ],
-  ['tournament.results.enter', 'Enter and correct results'],
-  ['tournament.ballots.read_unreleased', 'See ballots before release'],
-  ['tournament.entries.manage', 'Manage entries and judges'],
-  ['lobby.announce', 'Message participants'],
-  ['tournament.draw.publish', 'Publish a draw'],
-  ['tournament.results.release', 'Release and certify results'],
-  ['tournament.resolutions.read_unreleased', 'See resolutions before release'],
-  ['lobby.setup.manage', 'Change tournament setup'],
-  ['organization.roles.manage', 'Manage roles and people'],
-  ['organization.manage', 'Manage the league'],
-];
-
 const handlingWords = {
   denied: 'they are refused',
   second_confirms: 'a second person confirms',
   flagged: 'it goes ahead, flagged',
 } as const;
-
-/** A role's place in a page address: its name, lowercased and hyphenated. */
-const roleSlug = (role: OrganizationRole) =>
-  role.name.trim().toLowerCase().replaceAll(/\s+/g, '-');
-
-/** The role held by the most grants, the highest of those that tie. */
-const mostHeld = (view: OrganizationPeopleView) => {
-  const held = (role: OrganizationRole) =>
-    view.people
-      .flatMap((person) => person.grants)
-      .filter((grant) => grant.roleId === role.roleId).length;
-  return [...view.roles].sort(
-    (a, b) => held(b) - held(a) || a.rank - b.rank,
-  )[0];
-};
 
 /** An organization's people page from its people read. */
 export function peopleOf(
@@ -367,11 +304,11 @@ export function peopleOf(
     readonly now: string;
   },
 ): People {
-  const roles = view.roles
-    .filter((role) => role.preset)
-    .sort((a, b) => a.rank - b.rank);
-  const chosen =
-    roles.find((role) => roleSlug(role) === context.role) ?? mostHeld(view);
+  const { roles, chosen } = peopleRoleSelection(
+    view.roles,
+    view.people.flatMap((person) => person.grants.map((grant) => grant.roleId)),
+    context.role,
+  );
   const roleName = (roleId: string) =>
     view.roles.find((role) => role.roleId === roleId)?.name ?? '';
   const person = (member: OrganizationPerson): PersonRow => {
@@ -413,7 +350,6 @@ export function peopleOf(
             : null,
     };
   };
-  const allowed = new Set(chosen?.permissions ?? []);
   return {
     give: unavailableAction('Give someone a role', true),
     people: view.people.map(person),
@@ -423,13 +359,9 @@ export function peopleOf(
       href: `${context.basePath}?role=${roleSlug(role)}`,
       selected: role.roleId === chosen?.roleId,
     })),
-    role: {
-      name: chosen?.name ?? '',
-      permissions: permissionWords.map(([permission, label]) => ({
-        label,
-        allowed: allowed.has(permission),
-      })),
-      conflictRule: [
+    role: peopleRoleOf(
+      chosen ?? null,
+      [
         "Whatever a role allows, anyone connected to a room is handled by that tournament's setting.",
         view.conflictHandling === null
           ? null
@@ -437,7 +369,7 @@ export function peopleOf(
       ]
         .filter((part): part is string => part !== null)
         .join(' '),
-    },
+    ),
   };
 }
 

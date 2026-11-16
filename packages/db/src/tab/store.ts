@@ -1,3 +1,6 @@
+import { createLobbyPeopleStore } from './lobby-people';
+export type { LobbyPeopleFacts } from './lobby-people';
+export { roleAuthorityOf } from './authority-facts';
 import { createHostRosterStore } from './host-roster';
 export type { HostRosterFacts } from './host-roster';
 import { createHostEventsStore } from './host-events';
@@ -206,6 +209,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createEventCompetitionStore(database),
   ...createCompletionCommandStore(database),
   ...createHostNavigationStore(database),
+  ...createLobbyPeopleStore(database),
   ...createHostBallotsStore(database),
   ...createHostResultsStore(database),
   ...createHostRoundStore(database),

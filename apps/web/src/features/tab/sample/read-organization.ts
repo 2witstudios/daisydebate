@@ -1,3 +1,4 @@
+import type { People } from '../people';
 import {
   sampleHostHomeView,
   sampleHostAddress,
@@ -9,7 +10,6 @@ import type { TimelineRail } from '../tournament';
 import type { SampleScene } from './scene';
 import {
   type HostHome,
-  type People,
   hostHomeOf,
   hostRailOf,
   peopleOf,

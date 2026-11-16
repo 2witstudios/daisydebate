@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { organizationCommandEnvelopeSchema } from '@daisy/protocol/lobby/organization-command';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
+import { peopleCommandResult } from './people-command-result';
 import { singleFormField } from '../../server/form-field';
 import {
   field,
@@ -138,53 +138,13 @@ export const peopleCommandEnvelope = (
     command,
   });
 };
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-  z.object({
-    kind: z.literal('pending'),
-    pendingCommandId: z.string(),
-    expiresAt: z.string(),
-  }),
-]);
-const refusalWords: Readonly<Record<string, string>> = {
-  'version-conflict': 'People changed. Reload this page before trying again.',
-  'already-granted': 'That person already holds this role here.',
-  'not-a-member': 'Choose an active member of this organization.',
-  'expiry-passed': 'Choose an expiry in the future.',
-  'role-not-below': 'Choose a role below your own.',
-  'permission-not-held':
-    'You cannot give a role with permissions you do not hold.',
-  'scope-not-covered': 'You cannot give that role at this scope.',
-  'age-band': 'This role is not available for that member.',
-  'grant-ended': 'That role has already ended. Reload this page.',
-  'command-conflict':
-    'This action conflicts with an earlier request. Reload this page.',
-};
 export const peopleCommandAnswered = (
   context: PeopleCommandContext,
   values: PeopleCommandValues,
   body: unknown,
 ): PeopleCommandState => {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return peopleCommandUnacknowledged(values);
-  if (parsed.data.kind === 'accepted')
-    return {
-      kind: 'changed',
-      notice:
-        context.intent === 'give'
-          ? 'Role given.'
-          : context.intent === 'cancel'
-            ? 'Invitation cancelled.'
-            : 'Role ended.',
-    };
-  return peopleCommandRefused(
-    values,
-    parsed.data.kind === 'refused'
-      ? (refusalWords[parsed.data.refusal] ??
-          'This change could not be made. Reload this page.')
-      : 'This change is waiting for confirmation.',
-  );
+  const answer = peopleCommandResult(context.intent, body);
+  return answer.kind === 'changed' ? answer : { ...answer, values };
 };
 export const peopleCommandFields = (state: PeopleCommandState) => {
   switch (state.kind) {

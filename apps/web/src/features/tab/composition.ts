@@ -1,3 +1,8 @@
+import {
+  createLobbyPeopleRoute,
+  type LobbyPeopleRouteDependencies,
+} from './lobby-people-route';
+import { readLobbyPeople } from './reads/lobby-people';
 import { createHostRosterRoute } from './host-roster-route';
 import { readHostRoster } from './reads/host-roster';
 import {
@@ -262,6 +267,12 @@ export function composeTabRoutes(app: App) {
         name: 'tab.judges.command',
         address: 'lobby',
         execute: judges,
+      }),
+    lobbyPeople: (released: LobbyPeopleRouteDependencies['released']) =>
+      createLobbyPeopleRoute({
+        boundary,
+        released,
+        read: readLobbyPeople({ store, authorize, now }),
       }),
     organizationPeople: (
       released: OrganizationPeopleRouteDependencies['released'],
