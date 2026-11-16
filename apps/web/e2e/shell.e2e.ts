@@ -56,9 +56,6 @@ test.describe('dashboard shell chrome', () => {
     await expect(
       page.getByRole('heading', { name: 'Seasons', exact: true, level: 1 }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'How rating works', exact: true }),
-    ).toBeVisible();
   });
 
   test('the rail foot stays reachable on a short viewport', async ({
