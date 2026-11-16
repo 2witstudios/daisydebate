@@ -9,7 +9,10 @@ import { requireAccess } from '../../../../../../../../lib/access';
 import { SampleActionNotice } from '../../../../../../../../ui/components/sample-action/sample-action-notice';
 import { LiveSection } from '../../../../../../../../ui/tab/live-section/live-section';
 
-export const metadata: Metadata = { title: 'Speech section' };
+export const metadata: Metadata = {
+  title: 'Speech section',
+  robots: { index: false, follow: false },
+};
 
 export default async function Page({
   params,
