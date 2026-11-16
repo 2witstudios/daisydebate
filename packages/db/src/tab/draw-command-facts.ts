@@ -1,3 +1,4 @@
+import { namedTournamentPeople } from './tournament-people';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import { actors } from '../schema/actors';
@@ -36,32 +37,6 @@ export type DrawCommandInput = {
 /** The potential cast changed while the command acquired its canonical account fences. */
 export class DrawPeopleChanged extends Error {}
 
-const namedPeople = async (tx: TabTransaction, lobbyId: string) => {
-  const members = await tx
-    .select({ actorId: entryMembers.actorId })
-    .from(entryMembers)
-    .innerJoin(entries, eq(entries.id, entryMembers.entryId))
-    .where(and(eq(entries.lobbyId, lobbyId), eq(entries.status, 'accepted')));
-  const judges = await tx
-    .select({ actorId: tournamentJudges.actorId })
-    .from(tournamentJudges)
-    .where(
-      and(
-        eq(tournamentJudges.lobbyId, lobbyId),
-        eq(tournamentJudges.status, 'accepted'),
-      ),
-    );
-  const ids = [
-    ...new Set([...members, ...judges].map((row) => row.actorId)),
-  ].sort();
-  return ids.length
-    ? tx
-        .select({ actorId: actors.id, userId: actors.userId })
-        .from(actors)
-        .where(inArray(actors.id, ids))
-        .orderBy(asc(actors.id))
-    : [];
-};
 const namedRound = async (tx: TabTransaction, input: DrawCommandInput) => {
   if (input.command.type === 'generate-draw') {
     const [round] = await tx
@@ -123,7 +98,7 @@ export const loadDrawContext = async (
         eq(tabRounds.lobbyId, input.lobbyId),
       ),
     );
-  const firstPeople = await namedPeople(tx, input.lobbyId);
+  const firstPeople = await namedTournamentPeople(tx, input.lobbyId);
   await (
     input.strength === 'share' ? fenceTabAccountsRead : lockTabCommandAccounts
   )(tx, [
@@ -138,7 +113,7 @@ export const loadDrawContext = async (
     strength: input.strength,
   });
   if (!configuration) return null;
-  const currentPeople = await namedPeople(tx, input.lobbyId);
+  const currentPeople = await namedTournamentPeople(tx, input.lobbyId);
   if (
     currentPeople.some(
       (person) =>

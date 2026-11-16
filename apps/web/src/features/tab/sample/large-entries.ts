@@ -113,9 +113,15 @@ export function largeEntryGroups(
         kind: 'school',
         organizationId: sampleId(`org${school}`),
         name: school,
-        adultName: personName(400 + k),
       },
       entryCount: entries.length,
+      makers: [
+        {
+          userId: sampleId(`maker${personName(400 + k)}`),
+          name: personName(400 + k),
+        },
+      ],
+      unknownMakers: 0,
       judgesOwed: owed,
       judgesNamed: owed - (largeShortSchools.get(school) ?? 0),
       entries,
@@ -139,9 +145,17 @@ export function largeEntryGroups(
       responsible: {
         kind: 'guardian',
         name: `${surname} family`,
-        adultName: `${initials[k % initials.length] ?? 'A'}. ${surname}`,
       },
       entryCount: entries.length,
+      makers: [
+        {
+          userId: sampleId(
+            `maker${`${initials[k % initials.length] ?? 'A'}. ${surname}`}`,
+          ),
+          name: `${initials[k % initials.length] ?? 'A'}. ${surname}`,
+        },
+      ],
+      unknownMakers: 0,
       judgesOwed: 1,
       judgesNamed: 1,
       entries,
@@ -157,6 +171,8 @@ export function largeEntryGroups(
     {
       responsible: { kind: 'self' },
       entryCount: alone.length,
+      makers: [],
+      unknownMakers: 0,
       judgesOwed: 0,
       judgesNamed: 0,
       entries: alone,
@@ -282,13 +298,13 @@ export function largeJudgeList(
     },
     need: before
       ? {
-          ...ordinary.need,
+          ...ordinary.need!,
           timeSlotId: timeSlots[0]!.id,
           judgesNeeded: 120,
           judgesCounted: judges.length,
         }
       : {
-          ...ordinary.need,
+          ...ordinary.need!,
           tabRoundName: 'Round 6',
           timeSlotId: timeSlots.at(-1)!.id,
           judgesNeeded: 120,

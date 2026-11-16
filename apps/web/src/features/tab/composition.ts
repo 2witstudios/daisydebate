@@ -1,3 +1,5 @@
+import { createHostRosterRoute } from './host-roster-route';
+import { readHostRoster } from './reads/host-roster';
 import {
   createHostEventsRoute,
   type HostEventsRouteDependencies,
@@ -115,6 +117,12 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    hostRoster: (released: HostEventsRouteDependencies['released']) =>
+      createHostRosterRoute({
+        boundary,
+        released,
+        read: readHostRoster({ store, authorize }),
+      }),
     hostEvents: (released: HostEventsRouteDependencies['released']) =>
       createHostEventsRoute({
         boundary,

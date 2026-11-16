@@ -19,7 +19,7 @@ export function EntriesTabs({
       tabs={[
         {
           id: 'debaters',
-          label: 'Debaters',
+          label: 'Entries',
           href: entriesHref,
           selected: selected === 'debaters',
           count: counts.debaters,

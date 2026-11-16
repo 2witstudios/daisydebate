@@ -1,3 +1,4 @@
+import { proveRosterArea } from './tab-roster-area.test-support';
 import { proveEventsArea } from './tab-events-area.test-support';
 import { proveDrawArea } from './tab-host-draw-area.test-support';
 import { readHostRound } from '../src/features/tab/reads/host-round';
@@ -317,6 +318,11 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
       },
     );
     await proveEventsArea({
+      ...world,
+      sql: owner,
+      database: committingRuntimeTestDatabase(owner),
+    });
+    await proveRosterArea({
       ...world,
       sql: owner,
       database: committingRuntimeTestDatabase(owner),

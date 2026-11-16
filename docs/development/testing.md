@@ -799,3 +799,10 @@ proof additionally distinguishes setup permission from access to wording held
 by a real unreleased Round. Neither a source identifier nor setup authority
 grants access to held wording. Native fixture qualification counts frozen
 judge slots after replacement, rather than retired participant identities.
+
+The host-area integration also reads real Entries and Judges through their
+own derived capability. It compares immutable entry makers and roster counts
+with persisted sources, excludes a genuine pending judge invitation, refuses
+a foreign event and rechecks canonical revocation. The live lists show
+obligations as unconfigured; school affiliation never proves that a school
+furnished a judge. Panel demand and lateness without a producer stay absent.

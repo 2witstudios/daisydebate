@@ -1,3 +1,5 @@
+import { AUTUMN, WINTER } from '../../../../../../features/tab/sample/moment';
+import { StoredRoster } from '../entries/stored-roster';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { readHostJudges } from '../../../../../../features/tab/entries';
@@ -10,10 +12,20 @@ export const metadata: Metadata = { title: 'Judges' };
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   readonly params: Promise<{ slug: string }>;
+  readonly searchParams: Promise<{ event?: string }>;
 }) {
   const { slug } = await params;
+  if (slug !== AUTUMN && slug !== WINTER)
+    return (
+      <StoredRoster
+        handle={slug}
+        kind="judges"
+        eventId={(await searchParams).event}
+      />
+    );
   const scene = await requireGrant(hostRoutes.judges(slug));
   const rail = readTimelineRail(slug, scene);
   const judges = readHostJudges(slug, scene);

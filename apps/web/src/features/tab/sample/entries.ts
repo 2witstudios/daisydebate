@@ -93,9 +93,10 @@ function ordinaryEntryList(before: boolean): EntryListView {
           kind: 'school',
           organizationId: ridgeview,
           name: 'Ridgeview',
-          adultName: 'A. Doyle',
         },
         entryCount: 9,
+        makers: [{ userId: sampleId(`maker${'A. Doyle'}`), name: 'A. Doyle' }],
+        unknownMakers: 0,
         judgesOwed: 3,
         judgesNamed: 3,
         entries: [
@@ -113,9 +114,12 @@ function ordinaryEntryList(before: boolean): EntryListView {
         responsible: {
           kind: 'guardian',
           name: 'Okafor family',
-          adultName: 'N. Okafor',
         },
         entryCount: 2,
+        makers: [
+          { userId: sampleId(`maker${'N. Okafor'}`), name: 'N. Okafor' },
+        ],
+        unknownMakers: 0,
         judgesOwed: 1,
         judgesNamed: 1,
         entries: [
@@ -134,9 +138,12 @@ function ordinaryEntryList(before: boolean): EntryListView {
           kind: 'school',
           organizationId: hartwell,
           name: 'Hartwell',
-          adultName: 'P. Lindqvist',
         },
         entryCount: 7,
+        makers: [
+          { userId: sampleId(`maker${'P. Lindqvist'}`), name: 'P. Lindqvist' },
+        ],
+        unknownMakers: 0,
         judgesOwed: 3,
         judgesNamed: 2,
         entries: [entry('R. Jensen', { rating: 1712 })],
@@ -144,6 +151,8 @@ function ordinaryEntryList(before: boolean): EntryListView {
       {
         responsible: { kind: 'self' },
         entryCount: 3,
+        makers: [],
+        unknownMakers: 0,
         judgesOwed: 0,
         judgesNamed: 0,
         entries: [entry('T. Ellis')],

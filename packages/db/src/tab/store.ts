@@ -1,3 +1,5 @@
+import { createHostRosterStore } from './host-roster';
+export type { HostRosterFacts } from './host-roster';
 import { createHostEventsStore } from './host-events';
 export type { HostEventsFacts } from './host-events';
 import { createHostRoundStore } from './host-round';
@@ -208,6 +210,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createHostResultsStore(database),
   ...createHostRoundStore(database),
   ...createHostEventsStore(database),
+  ...createHostRosterStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),
   ...createSetupCommandStore(database),

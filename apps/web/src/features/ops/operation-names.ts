@@ -160,6 +160,7 @@ const OPERATION_NAMES = [
   'tab.host.round',
   'tab.host.draw',
   'tab.host.events',
+  'tab.host.roster',
   'tab.host.navigation',
   'tab.fixture.command',
   'tab.draw.command',

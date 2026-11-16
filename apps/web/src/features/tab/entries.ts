@@ -94,12 +94,12 @@ type JudgeGroup = {
 
 export type HostJudges = {
   readonly lede: string;
-  readonly add: TabAction;
+  readonly add: TabAction | null;
   readonly tabs: EntriesTabs;
   readonly slots: readonly {
     readonly id: string;
     readonly label: string;
-    readonly needed: number;
+    readonly needed: number | null;
     readonly free: number;
     readonly placed: number;
   }[];
@@ -156,7 +156,7 @@ function entryFacts(view: EntryListView, entry: ListedEntry): string {
   }
   const standing = entry.events.some((event) => event.id === view.eventId)
     ? entry.rating === null
-      ? 'unrated'
+      ? 'rating not shown'
       : `rating ${entry.rating}`
     : `${entry.events.map((event) => event.name).join(', ')} only`;
   if (entry.minor === null) return standing;
@@ -164,20 +164,23 @@ function entryFacts(view: EntryListView, entry: ListedEntry): string {
     entry.minor.managedBy === null
       ? ''
       : `, account managed by ${entry.minor.managedBy}`;
-  return `${standing} · age ${entry.minor.age}${managed}`;
+  return `${standing} · ${entry.minor.age === null ? 'minor' : `age ${entry.minor.age}`}${managed}`;
 }
 
 const owing = (owed: number, named: number): string =>
   `owes ${plural(owed, 'judge')}, has ${named}`;
 
 /** A host's entries screen, from the read their gate allowed. */
-function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
+export function hostEntriesOf(
+  view: EntryListView,
+  event: EventSwitch,
+): HostEntries {
   const { accepted, pending, withdrawn, judges, rooms, judgesNeeded } =
     view.counts;
   const manage = view.capabilities.manageEntries;
   return {
     event,
-    lede: `${accepted} debaters accepted${pending > 0 ? `, ${pending} still to answer` : ''}. ${judges} judges; ${rooms} rooms need ${judgesNeeded}.`,
+    lede: `${accepted} entries accepted${pending > 0 ? `, ${pending} still to answer` : ''}. ${judges} accepted eligible judges; ${judgesNeeded === null ? 'panel demand is not shown' : `${rooms} rooms need ${judgesNeeded}`}.`,
     actions: manage
       ? [
           ...(pending > 0 ? [sampleAction(`Remind the ${pending}`)] : []),
@@ -194,15 +197,12 @@ function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
         name,
         kind: responsible.kind,
         enteredBy:
-          responsible.kind === 'self'
-            ? null
-            : `${responsible.kind === 'school' ? 'coach' : 'parent'} ${responsible.adultName}`,
-        summary: `${group.entryCount} debaters · ${
-          group.judgesOwed === 0
-            ? 'no judges owed'
-            : owing(group.judgesOwed, group.judgesNamed)
-        }`,
-        short: group.judgesNamed < group.judgesOwed,
+          group.makers.length || group.unknownMakers
+            ? `Entered by ${group.makers.map((maker) => maker.name).join(', ')}${group.unknownMakers ? `${group.makers.length ? '; ' : ''}${group.unknownMakers} unknown makers` : ''}`
+            : null,
+        summary: `${group.entryCount} entries · ${group.judgesOwed === null ? 'judge obligations unconfigured' : group.judgesOwed === 0 ? 'no judges owed' : owing(group.judgesOwed, group.judgesNamed)}`,
+        short:
+          group.judgesOwed !== null && group.judgesNamed < group.judgesOwed,
         entries: group.entries.map((entry) => ({
           name: entry.name,
           facts: entryFacts(view, entry),
@@ -220,20 +220,35 @@ function hostEntriesOf(view: EntryListView, event: EventSwitch): HostEntries {
 
 const slotLabels: Readonly<
   Record<Exclude<JudgeSlot['state'], 'judging'>, string>
-> = { judged: 'judged', away: 'away', free: 'free', in_draft: 'in draft' };
+> = {
+  judged: 'judged',
+  away: 'away',
+  free: 'free',
+  in_draft: 'in draft',
+  waiting_for_start: 'waiting for start',
+  awaiting_result: 'awaiting result',
+};
 
 const slotOf = (slot: JudgeSlot): TournamentJudgeRow['slots'][number] =>
   slot.state === 'judging'
     ? slot.late
       ? { state: 'late', label: `${slot.place} · late` }
       : { state: 'room', label: slot.place }
-    : { state: slot.state, label: slotLabels[slot.state] };
+    : {
+        state:
+          slot.state === 'waiting_for_start' || slot.state === 'awaiting_result'
+            ? 'room'
+            : slot.state,
+        label: slotLabels[slot.state],
+      };
 
 /** A host's judges screen, from the read their gate allowed. */
-function hostJudgesOf(view: JudgeListView): HostJudges {
+export function hostJudgesOf(view: JudgeListView): HostJudges {
   const { need } = view;
   const short = view.groups.flatMap((group) =>
-    group.responsible.kind === 'school' && group.judgesNamed < group.judgesOwed
+    group.responsible.kind === 'school' &&
+    group.judgesOwed !== null &&
+    group.judgesNamed < group.judgesOwed
       ? [
           ` ${group.responsible.name} still owes ${inWords(group.judgesOwed - group.judgesNamed)}.`,
         ]
@@ -247,12 +262,15 @@ function hostJudgesOf(view: JudgeListView): HostJudges {
           .map((event) => event.label ?? event.name)
           .join(', ');
   return {
-    lede: `${need.tabRoundName} needs ${need.judgesNeeded} judges in ${need.eventName} and ${need.judgesCounted} ${
-      need.counting === 'named' ? 'have been named' : 'are free then'
-    }.${short.join('')}`,
+    lede:
+      need === null
+        ? `${view.counts.judges} accepted eligible judges. Judge obligations unconfigured.`
+        : `${need.tabRoundName} needs ${need.judgesNeeded} judges in ${need.eventName} and ${need.judgesCounted} ${
+            need.counting === 'named' ? 'have been named' : 'are free then'
+          }.${short.join('')}`,
     add: sampleAction('Add a judge', true),
     tabs: view.counts,
-    defaultSlotId: view.need.timeSlotId ?? view.timeSlots.at(-1)?.id ?? null,
+    defaultSlotId: view.need?.timeSlotId ?? view.timeSlots.at(-1)?.id ?? null,
     slots: view.timeSlots.map((slot, index) => ({
       id: slot.id,
       label: slot.name,
@@ -277,11 +295,14 @@ function hostJudgesOf(view: JudgeListView): HostJudges {
             ? 'Not from a school'
             : responsible.name,
         summary:
-          responsible.kind === 'unaffiliated'
-            ? 'no one owes them'
-            : owing(group.judgesOwed, group.judgesNamed),
+          group.judgesOwed === null
+            ? `${group.judgesNamed} accepted eligible judges · obligations unconfigured`
+            : responsible.kind === 'unaffiliated'
+              ? 'no one owes them'
+              : owing(group.judgesOwed, group.judgesNamed),
         remind:
           school !== null &&
+          group.judgesOwed !== null &&
           group.judgesNamed < group.judgesOwed &&
           view.capabilities.manageJudges
             ? sampleAction('Remind the coach')
@@ -292,7 +313,7 @@ function hostJudgesOf(view: JudgeListView): HostJudges {
             // The sample's wording; no stored datum gives a judge's pronoun.
             ...judge.strikes.map((strike) =>
               strike.source === 'entry'
-                ? `${strike.entryName}, who struck him`
+                ? `${strike.entryName}, who struck this judge`
                 : strike.entryName,
             ),
           ];
