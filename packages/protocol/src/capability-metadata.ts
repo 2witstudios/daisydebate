@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import {
+  authorizationCapabilitySchema,
   permissionSchema,
   type AuthorizationCapability,
+  type Permission,
 } from './authorization';
 
 /** Every kind of resource a capability may be asked of. */
@@ -66,6 +68,8 @@ export type OrganizationKind = z.infer<typeof organizationKindSchema>;
 export type CapabilityReach = 'lobby' | 'person' | null;
 
 export type CapabilityMetadata = {
+  /** Area reads derive from any listed permission; [] means owner-only. Null is not an area read. */
+  readonly hostAreaPermissions: readonly Permission[] | null;
   /** The resource kinds the capability may be asked of. */
   readonly resourceKinds: readonly AuthorizationResourceKind[];
   /** The one lobby kind it means something in; null for either or none. */
@@ -97,6 +101,7 @@ const on = (
   organizationKind: null,
   read: false,
   conflictSensitive: false,
+  hostAreaPermissions: null,
   ...flags,
 });
 const read = { read: true } as const;
@@ -237,6 +242,43 @@ const rows: Record<AuthorizationCapability, Row> = {
   'lobby.create': on(['lobby_collection'], null),
   'lobby.read': on(['lobby'], 'lobby', read),
   'lobby.host.read': on(['lobby'], 'lobby', read),
+  'lobby.host.draw.read': on(
+    ['lobby', 'tab_round', 'draw', 'fixture'],
+    'lobby',
+    {
+      ...tournamentRead,
+      hostAreaPermissions: [
+        'tournament.draw.edit',
+        'tournament.draw.publish',
+        'tournament.rooms.officiate',
+      ],
+    },
+  ),
+  'lobby.host.entries.read': on(['lobby', 'entry', 'judge'], 'lobby', {
+    ...tournamentRead,
+    hostAreaPermissions: ['tournament.entries.manage'],
+  }),
+  'lobby.host.ballots.read': on(['lobby', 'fixture', 'ballot'], 'lobby', {
+    ...tournamentRead,
+    ...conflicted,
+    hostAreaPermissions: ['tournament.ballots.read_unreleased'],
+  }),
+  'lobby.host.results.read': on(['lobby', 'tab_round', 'fixture'], 'lobby', {
+    ...tournamentRead,
+    hostAreaPermissions: [
+      'tournament.results.enter',
+      'tournament.results.release',
+    ],
+  }),
+  // Officials-only recordings belong to the people officiating event Rooms.
+  'lobby.host.recordings.read': on(['lobby'], 'lobby', {
+    ...tournamentRead,
+    hostAreaPermissions: ['tournament.rooms.officiate'],
+  }),
+  'lobby.host.people.read': on(['organization', 'lobby'], 'lobby', {
+    ...read,
+    hostAreaPermissions: ['organization.roles.manage'],
+  }),
   'lobby.room.create': on(['lobby'], 'lobby', { lobbyKind: 'standing' }),
   'template.read': on(['template'], null, read),
   'entry.submit': on(['entry'], null, tournament),
@@ -265,3 +307,11 @@ export const capabilityMetadata = Object.fromEntries(
     { ...row, grantable: grantable.includes(capability) },
   ]),
 ) as Record<AuthorizationCapability, CapabilityMetadata>;
+
+/** The host rail asks the evaluator for these reads, never for role names. */
+export const hostAreaCapabilities =
+  authorizationCapabilitySchema.options.filter(
+    (capability) =>
+      capabilityMetadata[capability].hostAreaPermissions !== null ||
+      capability === 'action_history.read',
+  );

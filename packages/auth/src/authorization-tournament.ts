@@ -8,7 +8,7 @@ import {
 import {
   holdingDecision,
   holds,
-  hostAuthority,
+  hostAreaAuthority,
   type Holder,
 } from './authorization-holding';
 import {
@@ -120,14 +120,16 @@ export function pendingCommandDecision(
     : deny('conflict', held.conflict);
 }
 
-/** A sanction is read by the host readers of the league and of the event's lobby. */
+/** A sanction concerns league management and the event lobby's setup. */
 export function sanctionDecision(
   holder: Holder,
   resource: Of<'sanction'>,
 ): AuthorizationDecision {
   return under(
-    hostAuthority(holder, organization(resource.league)) ??
-      hostAuthority(holder, lobby(resource.scope)),
+    hostAreaAuthority(holder, organization(resource.league), [
+      'organization.manage',
+    ]) ??
+      hostAreaAuthority(holder, lobby(resource.scope), ['lobby.setup.manage']),
   );
 }
 
