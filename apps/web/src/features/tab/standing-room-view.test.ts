@@ -14,6 +14,7 @@ test('standing Room availability uses actual pool and rating eligibility', () =>
     },
     config: plainRoomConfig,
     visibility: { value: 'public', locked: false },
+    recording: { value: 'off', locked: false },
     rating: { kind: 'unrated' },
     resolutionChoicePolicy: { method: 'fixed', ownText: false, choices: [] },
   };

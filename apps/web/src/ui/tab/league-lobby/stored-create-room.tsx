@@ -159,6 +159,34 @@ export function StoredCreateRoom({
               </select>
             )}
           </label>
+          <label className={labelClass}>
+            Recording
+            {view.creation.recording.locked ? (
+              <>
+                <input
+                  type="hidden"
+                  name="recording"
+                  value={view.creation.recording.value}
+                />
+                <span>
+                  {view.creation.recording.value === 'on'
+                    ? 'On · officials'
+                    : 'Off'}{' '}
+                  · locked
+                </span>
+              </>
+            ) : (
+              <select
+                name="recording"
+                className={controlClass}
+                defaultValue={fields.values['recording']}
+                key={`recording-${fields.values['recording']}`}
+              >
+                <option value="off">Off</option>
+                <option value="on">On · officials</option>
+              </select>
+            )}
+          </label>
           {policy.method === 'fixed' ? (
             <>
               <label className={labelClass}>

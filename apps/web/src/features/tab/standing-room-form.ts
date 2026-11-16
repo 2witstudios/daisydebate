@@ -25,6 +25,7 @@ export const standingRoomContextSchema = z.strictObject({
   selection: standingRoomSelectionSchema,
   config: roomConfigSchema,
   visibility: standingRoomCreationSchema.shape.visibility,
+  recording: standingRoomCreationSchema.shape.recording,
   resolutionChoicePolicy: z.strictObject({
     method: z.enum(['fixed', 'draw', 'strike']),
     ownText: z.boolean(),
@@ -46,6 +47,7 @@ export const standingRoomContext = (input: {
     selection: input.creation.selection,
     config: input.creation.config,
     visibility: input.creation.visibility,
+    recording: input.creation.recording,
     resolutionChoicePolicy: {
       method: input.creation.resolutionChoicePolicy.method,
       ownText: input.creation.resolutionChoicePolicy.ownText,
@@ -57,6 +59,7 @@ export const initialStandingRoom = (
   idle({
     title: '',
     visibility: creation.visibility.value,
+    recording: creation.recording.value,
     resolution:
       creation.resolutionChoicePolicy.method === 'fixed'
         ? (creation.resolutionChoicePolicy.choices[0]?.id ?? 'custom')
@@ -78,6 +81,11 @@ export function standingRoomEnvelope(
   const visibility = singleFormField(form, 'visibility');
   if (context.visibility.locked && visibility !== context.visibility.value)
     throw createAppError('VALIDATION', 'Visibility is locked');
+  const recording = z
+    .enum(['on', 'off'])
+    .parse(singleFormField(form, 'recording'));
+  if (context.recording.locked && recording !== context.recording.value)
+    throw createAppError('VALIDATION', 'Recording is locked');
   const chosen = singleFormField(form, 'resolution');
   const topic = singleFormField(form, 'topic') ?? '';
   if (
@@ -104,6 +112,7 @@ export function standingRoomEnvelope(
         commandId: context.commandId,
         title,
         visibility,
+        recordingPolicy: recording === 'on' ? 'officials' : 'off',
         resolution:
           context.resolutionChoicePolicy.method === 'fixed'
             ? { kind: 'custom', text: topic }

@@ -42,9 +42,7 @@ export async function standingRoomCreateAction(
         ? standingRoomUnavailable(form)
         : refused(
             form,
-            response.status === 409
-              ? 'The league settings changed. Reload this form before creating the room.'
-              : 'This room cannot be created. Reload to check your access and settings.',
+            'This room cannot be created. Check your access, eligibility and league settings before retrying.',
           );
     answer = standingRoomAnswer(form, await response.json());
   } catch {
