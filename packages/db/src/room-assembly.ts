@@ -1,3 +1,5 @@
+import { publicLobbyId } from './daisy-reference';
+import { leagueRoomSelection } from './league-room-selection';
 import { eq, inArray } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
@@ -78,8 +80,22 @@ export const assembleRoom = async (
     readonly judgeAdmission?: CasualJudgeAdmission | undefined;
   },
 ): Promise<RoomAssemblyState | null> => {
+  if (
+    input.room.competitionType === 'ranked' &&
+    input.lobby.id !== publicLobbyId
+  )
+    throw createRefusal('CONFLICT', 'illegal-config');
   await tx.insert(rooms).values({
     ...newRoomValues(input.room),
+    leagueLadderId:
+      input.lobby.kind === 'standing' && input.room.competitionType === 'casual'
+        ? await leagueRoomSelection(tx, {
+            lobbyId: input.lobby.id,
+            templateId: input.templateId,
+            config: input.room.config,
+            subjectUserId: input.caller.userId,
+          })
+        : null,
     lobbyId: input.lobby.id,
     lobbyKind: input.lobby.kind,
     templateId: input.templateId,

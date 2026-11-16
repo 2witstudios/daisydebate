@@ -46,3 +46,5 @@ export type {
 } from './shapes/draw';
 
 export { pairingRecords } from './draw/pairing-records';
+
+export type { LadderGame, LadderInput } from './shapes/folds';

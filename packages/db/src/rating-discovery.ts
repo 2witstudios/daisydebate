@@ -1,3 +1,4 @@
+import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -54,7 +55,7 @@ const readCandidates = async (
       ${recordedEnding} as ending,
       ${attendanceLedgerColumns}
     from rounds r ${recordedEndingJoins}
-    where ${selection}`)) as unknown as FactsRow[];
+    where ${selection} and (r.room_id is null or exists(select 1 from rooms rating_room join lobbies rating_lobby on rating_lobby.id=rating_room.lobby_id where rating_room.id=r.room_id and rating_lobby.owner_organization_id=${daisyOrganizationId}))`)) as unknown as FactsRow[];
   return rows.map(
     ({
       roundId,

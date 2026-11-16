@@ -122,7 +122,12 @@ export const persistRoomMutation = async (
     // With nothing to run first, the Round starts at this click.
     const opens = next.roundRef.status === 'opening';
     if (!opens && next.topic === null) throw createAppError('INVARIANT');
+    const [source] = await tx
+      .select({ leagueLadderId: rooms.leagueLadderId })
+      .from(rooms)
+      .where(eq(rooms.id, next.id));
     await tx.insert(rounds).values({
+      leagueLadderId: source?.leagueLadderId ?? null,
       id: roundId,
       roomId: next.id,
       createdByActorId: next.hostActorId,

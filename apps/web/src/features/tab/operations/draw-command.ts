@@ -1,3 +1,5 @@
+import { freezeTournamentRatings } from '../../ratings/tournament-snapshot';
+import { eventSettingResolution } from './event-setting-resolution';
 import { eventResultsVersion } from './event-results-version';
 import type {
   AuthorizationDecision,
@@ -106,6 +108,41 @@ export const drawCommand =
               return { kind: 'refused', refusal: 'command-conflict' };
             throw new CommandDenied('not-found');
           }
+          if (
+            command.type === 'generate-draw' &&
+            loaded.ratingSnapshot === null
+          ) {
+            const definition = drawCommandDefinition(command.type, 'draft');
+            const authority = drawAuthority(
+              {
+                lobby: loaded.configuration.lobby,
+                authorization: loaded.authorization,
+                ownerActorId: loaded.ownerActorId,
+              },
+              principal,
+              now,
+            );
+            if (
+              !definition.gate.some(
+                (capability) =>
+                  dependencies.authorize({ ...authority, capability }).allow,
+              )
+            )
+              throw new CommandDenied('not-found');
+            const ids = loaded.ratingConfigurations.flatMap((configuration) => {
+              const id =
+                eventSettingResolution(configuration).settings[
+                  'standings.rating_ladder'
+                ].value.ladderId;
+              return id ? [id] : [];
+            });
+            const inputs = await session.ratingInputs(ids);
+            loaded.ratingSnapshot = freezeTournamentRatings(
+              loaded.ratingConfigurations,
+              inputs,
+              now,
+            );
+          }
           const target =
             command.type === 'generate-draw'
               ? null
@@ -163,6 +200,10 @@ export const drawCommand =
                   holdForConfirmation: neverHeld,
                   apply: (writes, history, receipt) =>
                     session.apply(writes, history, receipt, {
+                      ...(command.type === 'generate-draw' &&
+                      loaded.ratingSnapshot
+                        ? { ratingSnapshot: loaded.ratingSnapshot }
+                        : {}),
                       ...(command.type === 'publish-draw'
                         ? eventRoomAssemblies(
                             loaded,

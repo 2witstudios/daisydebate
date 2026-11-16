@@ -1,3 +1,4 @@
+import { tournamentEntryRatings } from '../../ratings/tournament-entry-ratings';
 import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
@@ -35,7 +36,14 @@ export function drawCompetitionAt(
       fixtures,
       results: history.results.filter((result) => earlier.has(result.fixture)),
     },
-    ratings: null,
+    ratings: tournamentEntryRatings(
+      facts.ratingSnapshot,
+      facts.configuration.event.id,
+      facts.entries.filter(
+        (row) => row.eventId === facts.configuration.event.id,
+      ),
+      facts.members,
+    ),
   };
   if (stage.kind === 'preliminary')
     return {

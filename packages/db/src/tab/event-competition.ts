@@ -1,3 +1,4 @@
+import { tournamentRatingSnapshots } from '../schema/tournament-rating-snapshots';
 import { and, asc, eq } from 'drizzle-orm';
 import { entries, entryMembers } from '../schema/entries';
 import { stages, tabRounds } from '../schema/events';
@@ -24,7 +25,12 @@ export async function loadEventCompetition(
   const context = await loadTournamentEventSettingFacts(tx, input);
   if (!context) return null;
   const eventId = context.configuration.event.id;
+  const [tournament] = await tx
+    .select({ ratingSnapshot: tournamentRatingSnapshots.snapshot })
+    .from(tournamentRatingSnapshots)
+    .where(eq(tournamentRatingSnapshots.lobbyId, input.lobbyId));
   return {
+    ratingSnapshot: tournament?.ratingSnapshot ?? null,
     ...context,
     entries: await tx
       .select()

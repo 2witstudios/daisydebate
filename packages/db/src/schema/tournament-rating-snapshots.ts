@@ -13,7 +13,5 @@ export const tournamentRatingSnapshots = pgTable(
     snapshot: jsonbColumn('snapshot', tournamentRatingSnapshotSchema).notNull(),
     createdAt: createdAtColumn(),
   },
-  (table) => [
-    jsonbIsObject('tournament_rating_snapshots', table.snapshot),
-  ],
+  (table) => [jsonbIsObject('tournament_rating_snapshots', table.snapshot)],
 );

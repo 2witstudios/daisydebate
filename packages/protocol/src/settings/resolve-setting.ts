@@ -1,3 +1,4 @@
+export { presetSettingDefaults } from './preset-setting-defaults';
 import {
   settingsCatalogue,
   type SettingHold,

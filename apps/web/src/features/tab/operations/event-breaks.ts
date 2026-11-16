@@ -44,7 +44,7 @@ export function eventBreaks(
       !facts.results.some((other) => other.supersedesResultId === row.id),
   );
   const complete =
-    rounds.length > 0 &&
+    (preliminary.length === 0 || rounds.length > 0) &&
     rounds.every((round) => {
       const fixtures = facts.fixtures.filter(
         (fixture) =>

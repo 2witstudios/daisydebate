@@ -1,5 +1,7 @@
 import { createLeagueSeasonStore } from './league-season';
 export type { LeagueSeasonFacts } from './league-season';
+import { createLeagueRatingStore } from './league-rating-inputs';
+export type { LeagueRatingInputs } from './league-rating-inputs';
 import { createHostRosterStore } from './host-roster';
 import { createSanctionCommandStore } from './sanction-command';
 export type { SanctionCommandFacts } from './sanction-command';
@@ -216,6 +218,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createHostResultsStore(database),
   ...createHostRoundStore(database),
   ...createHostEventsStore(database),
+  ...createLeagueRatingStore(database),
   ...createHostRosterStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),

@@ -1,3 +1,5 @@
+import { loadLeagueRatingInputs } from './league-rating-inputs';
+import { scopeTransaction } from '../tenant-scope';
 import { loadLobbyAuthority } from './lobby-authority';
 import { createAppError } from '@daisy/errors';
 import type {
@@ -19,6 +21,11 @@ import { applyDrawWrites, type DrawRoomAssembly } from './draw-writes';
 import type { DrawWrite } from './draw-write';
 export type DrawCommandSession = {
   readonly lobbyAuthority: () => ReturnType<typeof loadLobbyAuthority>;
+  readonly ratingInputs: (
+    ladderIds: readonly string[],
+  ) => Promise<
+    readonly NonNullable<Awaited<ReturnType<typeof loadLeagueRatingInputs>>>[]
+  >;
   readonly load: () => Promise<LoadedDrawCommand | null>;
   readonly stored: (id: string) => Promise<StoredTabCommand | null>;
   readonly apply: (
@@ -44,6 +51,35 @@ export const createDrawCommandStore = (database: TabDatabase) => ({
         load: async () => {
           loaded = await loadDrawCommandFacts(tx, input);
           return loaded;
+        },
+        ratingInputs: async (ladderIds) => {
+          const inputs = [];
+          for (const ladderId of [...new Set(ladderIds)].sort()) {
+            const found = await loadLeagueRatingInputs(tx, {
+              viewerUserId: input.senderUserId,
+              ladderId,
+              allowedOrganizationIds:
+                loaded?.ratingConfigurations.flatMap((configuration) =>
+                  [
+                    configuration.template?.organizationId,
+                    configuration.lobby.ownerOrganizationId,
+                  ].filter((id): id is string => typeof id === 'string'),
+                ) ?? [],
+            });
+            if (
+              found &&
+              loaded?.ratingConfigurations.some(
+                (configuration) =>
+                  configuration.template?.organizationId ===
+                    found.ladder.organizationId ||
+                  configuration.lobby.ownerOrganizationId ===
+                    found.ladder.organizationId,
+              )
+            )
+              inputs.push(found);
+          }
+          if (loaded) await scopeTransaction(tx, loaded.configuration.scope);
+          return inputs;
         },
         stored: (id) => storedCommand(tx, id),
         apply: async (writes, history, receipt, assembly) => {

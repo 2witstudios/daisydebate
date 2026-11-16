@@ -118,6 +118,9 @@ export function hostStandingsView(
         values
           .find((one) => one.metric === metric)!
           .value.reduce((sum, fraction) => sum + fraction.n / fraction.d, 0);
+      const rating = input.ratings?.entries.find(
+        (one) => one.entry === entry.id,
+      );
       return {
         seed: i + 1,
         entry: { entryId: entry.id, shown: { kind: 'name', name: entry.name } },
@@ -125,7 +128,7 @@ export function hostStandingsView(
         wins: value('wins'),
         opponentWins: value('opponent_wins'),
         points: value('total_points') * scale,
-        rating: null,
+        rating: rating?.status === 'rated' ? rating.rating : null,
         explanation: row.separatedBy ?? 'First in the standings',
         decidesBreak: firstBreak?.bracket.seeds.length === i + 1,
       };

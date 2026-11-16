@@ -1,4 +1,6 @@
 import { notifyDrawChanges } from '../notifications/tournament-draw';
+import type { TournamentRatingSnapshot } from '@daisy/protocol/lobby/rating-snapshot';
+import { tournamentRatingSnapshots } from '../schema/tournament-rating-snapshots';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { RoomAssemblyState } from '@daisy/protocol';
@@ -16,6 +18,7 @@ import type { DrawWrite } from './draw-write';
 
 export type DrawRoomAssembly = {
   readonly notificationIds: () => string;
+  readonly ratingSnapshot?: TournamentRatingSnapshot;
   readonly rooms: readonly Parameters<typeof assembleRoom>[1][];
   readonly resolutionPin: {
     readonly tabRoundId: string;
@@ -40,6 +43,16 @@ export const applyDrawWrites = async (
   now: string,
   commandId: string,
 ): Promise<void> => {
+  if (assembly.ratingSnapshot) {
+    await tx
+      .insert(tournamentRatingSnapshots)
+      .values({
+        lobbyId: loaded.configuration.lobby.id,
+        snapshot: assembly.ratingSnapshot,
+        createdAt: new Date(now),
+      })
+      .onConflictDoNothing({ target: tournamentRatingSnapshots.lobbyId });
+  }
   const pin = assembly.resolutionPin;
   if (pin) {
     if (
