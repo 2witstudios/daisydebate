@@ -66,15 +66,25 @@ export async function notifyFixtureChanges(
       tx,
       sql`select r.status from fixtures f join rooms r on r.id=f.room_id where f.id=${fixture.id}`,
     );
-    if (
-      room?.status === 'ready' &&
-      (loaded.roomState?.status !== 'ready' ||
-        writes.some((write) => write.table === 'rooms'))
-    )
+    if (room?.status === 'ready') {
+      const newJudges = writes.flatMap((write) =>
+        write.table === 'fixture_judges' && write.op === 'insert'
+          ? [write.row.tournamentJudgeId]
+          : [],
+      );
+      const newlyReady =
+        loaded.roomState?.status !== 'ready' ||
+        writes.some((write) => write.table === 'rooms');
       await oweTournamentNotification(tx, {
         ...common,
-        people,
+        people: newlyReady
+          ? people
+          : people.filter(
+              (person) =>
+                person.judgeId !== null && newJudges.includes(person.judgeId),
+            ),
         kind: 'tournament_room_ready',
       });
+    }
   }
 }

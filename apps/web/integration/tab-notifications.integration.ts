@@ -23,6 +23,8 @@ import { resultsStage } from './tab-tournament-results.test-support';
 import { standingsStage } from './tab-tournament-standings.test-support';
 import { completionStage } from './tab-tournament-completion.test-support';
 import { createBots, scriptClock } from './tab-tournament.test-support';
+import { readNotificationItems } from '../src/features/notifications/read-notifications';
+import { withTournamentNotificationReader } from './tab-tournament-notifications.test-support';
 import { notificationsStage } from './tab-tournament-notifications.test-support';
 import { proveTournamentNotificationChanges } from './tab-notification-changes.test-support';
 setupRitewayBun();
@@ -106,6 +108,30 @@ for (const immediate of [false, true])
             throw new Error(
               `Immediate release configuration refused: ${JSON.stringify(configured)}`,
             );
+        }
+        if (stage === officiatingStage) {
+          await withTournamentNotificationReader(world, async (store) => {
+            const actual = await readNotificationItems(store, {
+              userId: world.bots['Judge C']!.userId,
+              unreadOnly: false,
+              now: new Date().toISOString(),
+            });
+            assert({
+              given:
+                'the real incoming replacement judge after second-person confirmation',
+              should:
+                'receive their assignment and the currently ready Room without borrowing the outgoing judge notice',
+              actual: [
+                actual.items.some(
+                  (item) => item.text === 'You have been assigned to judge.',
+                ),
+                actual.items.some(
+                  (item) => item.text === 'Your tournament Room is ready.',
+                ),
+              ],
+              expected: [true, true],
+            });
+          });
         }
         if (stage === publishDrawStage || stage === resultsStage) {
           const [count] =
