@@ -23,6 +23,7 @@
       "ballotDeadlineAt": "2026-10-06T09:00:01.000Z",
       "ballots": [],
       "completeness": "complete",
+      "emptyJudgeSlots": [],
       "held": {
         "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
         "lastAttendanceDecisionAt": null,
@@ -43,6 +44,7 @@
       "ballotDeadlineAt": null,
       "ballots": [],
       "completeness": "complete",
+      "emptyJudgeSlots": [],
       "held": {
         "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
         "lastAttendanceDecisionAt": null,
@@ -85,6 +87,7 @@
       "ballotDeadlineAt": null,
       "ballots": [],
       "completeness": "complete",
+      "emptyJudgeSlots": [],
       "held": {
         "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
         "lastAttendanceDecisionAt": null,
@@ -126,6 +129,7 @@
       "ballotDeadlineAt": null,
       "ballots": [],
       "completeness": "complete",
+      "emptyJudgeSlots": [],
       "held": {
         "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
         "lastAttendanceDecisionAt": null,
@@ -173,6 +177,7 @@
       "ballotDeadlineAt": null,
       "ballots": [],
       "completeness": "complete",
+      "emptyJudgeSlots": [],
       "held": {
         "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
         "lastAttendanceDecisionAt": null,
@@ -220,6 +225,7 @@
       "ballotDeadlineAt": null,
       "ballots": [],
       "completeness": "complete",
+      "emptyJudgeSlots": [],
       "held": {
         "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
         "lastAttendanceDecisionAt": null,
@@ -267,6 +273,7 @@
       "ballotDeadlineAt": null,
       "ballots": [],
       "completeness": "complete",
+      "emptyJudgeSlots": [],
       "held": {
         "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
         "lastAttendanceDecisionAt": null,

@@ -53,7 +53,7 @@ describe('the Tab release', () => {
     const pages = groups.flatMap((group) =>
       [...new Glob(`${group}/**/page.tsx`).scanSync(app)].filter(
         (page) =>
-          !/requestSampleScene\(|requireGrant\(/.test(
+          !/requestSampleScene\(|requireGrant\(|await requireTabRelease\(\)/.test(
             readFileSync(join(app, page), 'utf8'),
           ),
       ),
@@ -62,7 +62,7 @@ describe('the Tab release', () => {
       given:
         'a layout that is not run again when someone moves between its pages',
       should:
-        'have every page read its scene, and the scene read refuse first while the release is closed',
+        'have every page recheck the release directly or through its scene, whose reader refuses first while closed',
       actual: [
         /Promise<SampleScene> \{\n\s+await requireTabRelease\(\);/.test(
           sceneRead,
