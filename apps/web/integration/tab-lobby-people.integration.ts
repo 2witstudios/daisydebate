@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { withRolledBackDatabase } from '@daisy/db/testing';
+import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { hostNavigationRail } from '../src/features/tab/host-navigation';
 import { resolveLobbyGrantTarget } from '../src/features/tab/lobby-grant-target';
@@ -110,7 +111,6 @@ test('the personal lobby People HTTP read binds exact grants, current guards and
         as(delegate),
         {
           lobbyId,
-          expectedVersion: viewed.version,
           username: ` BOT-${staff.userId.toUpperCase()} `,
         },
         targets,
@@ -129,10 +129,12 @@ test('the personal lobby People HTTP read binds exact grants, current guards and
         ],
       });
       if (!targetUserId) throw new Error('Actual username target unavailable');
+      const grantCommandId = createId();
       const assigned = await send(
         delegate,
         grant(lobbyId, targetUserId, 'Staff'),
         viewed.version,
+        grantCommandId,
       );
       const refreshed = await people(delegate);
       const assignedPerson = refreshed.people.find(
@@ -152,20 +154,55 @@ test('the personal lobby People HTTP read binds exact grants, current guards and
         ],
         expected: ['accepted', viewed.version + 1, 1, true, 0],
       });
-      const staleLookup = await resolveLobbyGrantTarget(
+      const retryTarget = await resolveLobbyGrantTarget(
         as(delegate),
         {
           lobbyId,
-          expectedVersion: viewed.version,
+          username: `bot-${staff.userId}`,
+        },
+        targets,
+      );
+      if (!retryTarget)
+        throw new Error('Current username retry target unavailable');
+      const replayed = await send(
+        delegate,
+        grant(lobbyId, retryTarget, 'Staff'),
+        viewed.version,
+        grantCommandId,
+      );
+      const afterReplay = await people(delegate);
+      assert({
+        given: 'a lost response after giving a role moved the lobby guard',
+        should:
+          'resolve the username again and replay the identical command without another grant or version',
+        actual: [
+          replayed.answer,
+          afterReplay.version,
+          afterReplay.people.find((one) => one.userId === staff.userId)?.grants
+            .length,
+        ],
+        expected: [
+          {
+            ...assigned.answer,
+            receipt: { ...assigned.answer.receipt, replayed: true },
+          },
+          refreshed.version,
+          1,
+        ],
+      });
+      const deniedLookup = await resolveLobbyGrantTarget(
+        as(delegate),
+        {
+          lobbyId: otherId,
           username: `bot-${outsider.userId}`,
         },
         targets,
       );
       assert({
-        given: 'a stale People guard naming another actual account',
-        should: 'refuse before spending any further username budget',
-        actual: [staleLookup, discoverySpends.length],
-        expected: [null, 3],
+        given: 'a role manager probing a recipient in an unauthorized lobby',
+        should: 'refuse before spending any more username discovery budget',
+        actual: [deniedLookup, discoverySpends.length],
+        expected: [null, 6],
       });
       const stale = await send(
         delegate,
@@ -285,17 +322,15 @@ test('the personal lobby People HTTP read binds exact grants, current guards and
         as(delegate),
         {
           lobbyId,
-          expectedVersion: afterRemoval.version + 1,
           username: `bot-${outsider.userId}`,
         },
         targets,
       );
       assert({
-        given:
-          'a formerly authorized delegate with a refreshed guard after revocation',
+        given: 'a formerly authorized delegate after revocation',
         should: 'never probe another username after losing authority',
         actual: [revokedLookup, discoverySpends.length],
-        expected: [null, 3],
+        expected: [null, 6],
       });
       const revokedWrite = await send(
         delegate,

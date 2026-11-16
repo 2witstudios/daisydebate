@@ -27,11 +27,11 @@ export const lobbyPeoplePage = (
       name: person.userId === context.viewerId ? 'You' : person.name,
       owner: person.owner,
       detail: person.owner
-        ? `Owner of ${view.name} · can’t be removed by anyone else`
+        ? 'Owner · can’t be removed here'
         : person.grants
             .map(
               (grant) =>
-                `${view.roles.find((role) => role.roleId === grant.roleId)?.name ?? 'Role'} · this tournament only${grant.expiresAt === null ? '' : ` · ends ${grant.expiresAt.slice(0, 10)} UTC`}`,
+                `${view.roles.find((role) => role.roleId === grant.roleId)?.name ?? 'Role'} · ${view.name} only${grant.expiresAt === null ? '' : ` · ends ${grant.expiresAt.slice(0, 10)} UTC`}`,
             )
             .join(' · '),
       conflict: null,

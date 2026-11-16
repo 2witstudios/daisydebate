@@ -9,10 +9,11 @@ const principal: TabPrincipal = {
   actorId: 'a'.repeat(24),
 };
 const lobbyId = 'l'.repeat(24);
+// A caller may retain the writer's original guard beside the lookup fields.
 const input = { lobbyId, expectedVersion: 3, username: ' New_Official ' };
 const people = { lobbyId, version: 3, capabilities: { give: true } };
 
-test('lobby grant discovery follows current authority and the expected lobby version', async () => {
+test('lobby grant discovery follows current authority', async () => {
   const calls: string[] = [];
   const target = 't'.repeat(24);
   const userId = await resolveLobbyGrantTarget(principal, input, {
@@ -46,14 +47,10 @@ test('lobby grant discovery follows current authority and the expected lobby ver
   });
 });
 
-test('refused and stale people reads never probe a username', async () => {
+test('refused people reads never probe a username', async () => {
   const attempts = [];
   let probes = 0;
-  for (const read of [
-    null,
-    { ...people, version: 4 },
-    { ...people, capabilities: { give: false } },
-  ]) {
+  for (const read of [null, { ...people, capabilities: { give: false } }]) {
     attempts.push(
       await resolveLobbyGrantTarget(principal, input, {
         readPeople: async () => read,
@@ -66,11 +63,11 @@ test('refused and stale people reads never probe a username', async () => {
     );
   }
   assert({
-    given: 'missing access, a moved lobby guard, or no give capability',
+    given: 'missing access or no give capability',
     should:
       'refuse every request before discovery spends a unit or probes an account',
     actual: [attempts, probes],
-    expected: [[null, null, null], 0],
+    expected: [[null, null], 0],
   });
 });
 
@@ -104,5 +101,30 @@ test('invalid usernames and unknown or retired accounts cannot become grant targ
       'return no internal grant target without probing invalid input or looking up an absent actor',
     actual: [outcomes, discovered, bindings],
     expected: [[null, null, null], ['absent', 'retired'], 1],
+  });
+});
+
+test('username resolution remains available after a successful grant moves the lobby version', async () => {
+  let version = 3;
+  let probes = 0;
+  const target = 'r'.repeat(24);
+  const dependencies = {
+    readPeople: async () => ({ ...people, version }),
+    discover: async () => {
+      probes += 1;
+      return 't'.repeat(24);
+    },
+    userIdOfActor: async () => target,
+  };
+  const first = await resolveLobbyGrantTarget(principal, input, dependencies);
+  version = 4;
+  const retry = await resolveLobbyGrantTarget(principal, input, dependencies);
+  assert({
+    given:
+      'the same authorized People scope after a successful grant increments its version',
+    should:
+      'resolve the same username so the unchanged command can reach its durable replay receipt',
+    actual: [first, retry, probes],
+    expected: [target, target, 2],
   });
 });

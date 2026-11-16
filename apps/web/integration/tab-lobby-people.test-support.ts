@@ -117,6 +117,7 @@ export async function lobbyPeopleFrame(
     bot: Bot,
     target: OrganizationCommand,
     version: number,
+    commandId = createId(),
   ) => {
     const response = await createTabCommandRoute({
       boundary: boundary(bot),
@@ -130,7 +131,7 @@ export async function lobbyPeopleFrame(
         headers: { origin, 'content-type': 'application/json' },
         body: JSON.stringify({
           version: 1,
-          commandId: createId(),
+          commandId,
           expected: { lobby: version },
           command: target,
         }),

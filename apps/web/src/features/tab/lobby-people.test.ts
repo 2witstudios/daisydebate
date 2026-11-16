@@ -57,12 +57,8 @@ test('lobby People presents grants without inventing organization memberships', 
     ],
     expected: [
       [
-        [
-          'Owner',
-          true,
-          'Owner of Autumn Open · can’t be removed by anyone else',
-        ],
-        ['You', false, 'Staff · this tournament only'],
+        ['Owner', true, 'Owner · can’t be removed here'],
+        ['You', false, 'Staff · Autumn Open only'],
       ],
       `/host/tournaments/autumn-open/people?role=${id('r')}`,
       'Staff',

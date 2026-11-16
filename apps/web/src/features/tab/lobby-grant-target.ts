@@ -5,11 +5,10 @@ import type { TabPrincipal } from './tab-principal';
 
 export type LobbyGrantTargetInput = {
   readonly lobbyId: string;
-  readonly expectedVersion: number;
   readonly username: string;
 };
 
-type PeopleAccess = Pick<LobbyPeopleView, 'lobbyId' | 'version'> & {
+type PeopleAccess = Pick<LobbyPeopleView, 'lobbyId'> & {
   readonly capabilities: Pick<LobbyPeopleView['capabilities'], 'give'>;
 };
 
@@ -22,24 +21,18 @@ export type LobbyGrantTargetDependencies = {
   readonly userIdOfActor: (actorId: string) => Promise<string | null>;
 };
 
-/** Resolve a grant recipient only after current lobby authority and guard hold. */
+/** Resolve a grant recipient only after current lobby authority holds. */
 export async function resolveLobbyGrantTarget(
   principal: TabPrincipal,
   input: LobbyGrantTargetInput,
   dependencies: LobbyGrantTargetDependencies,
 ): Promise<string | null> {
-  if (
-    principal.actorId === null ||
-    !idSchema.safeParse(input.lobbyId).success ||
-    !Number.isSafeInteger(input.expectedVersion) ||
-    input.expectedVersion < 1
-  )
+  if (principal.actorId === null || !idSchema.safeParse(input.lobbyId).success)
     return null;
   const people = await dependencies.readPeople(principal, input.lobbyId);
   if (
     people === null ||
     people.lobbyId !== input.lobbyId ||
-    people.version !== input.expectedVersion ||
     !people.capabilities.give
   )
     return null;

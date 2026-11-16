@@ -37,7 +37,6 @@ export async function lobbyPeopleCommandAction(
       intent.kind === 'give'
         ? await requestLobbyGrantTarget({
             lobbyId: context.lobbyId,
-            expectedVersion: context.lobbyVersion,
             username: intent.username,
           })
         : null;
