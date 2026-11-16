@@ -38,6 +38,9 @@ export const photoRefusalCopy: Readonly<Record<ProfilePhotoRefusal, string>> = {
 };
 
 const tooMany = 'Too many changes at once. Try again in a minute.';
+/** Uploads are limited per hour, not per minute (PHOTO_UPLOAD_RULE). */
+const tooManyUploads =
+  'You’ve uploaded several photos recently. Try again in an hour.';
 
 /** What the photo control says after an upload. */
 export function photoUploadNotice(outcome: PhotoUploadOutcome): string {
@@ -49,7 +52,7 @@ export function photoUploadNotice(outcome: PhotoUploadOutcome): string {
     case 'refused':
       return photoRefusalCopy[outcome.refusal];
     case 'rate-limited':
-      return tooMany;
+      return tooManyUploads;
     case 'unavailable':
       return 'Could not upload the photo. Try again.';
   }

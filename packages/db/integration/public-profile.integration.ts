@@ -108,7 +108,7 @@ const command = (change: object) => ({
   change: change as never,
 });
 
-test('text: write, normalize at the edge, clear to no row', async () => {
+test('text: write, edit, clear; the profile id lasts', async () => {
   await withProfiles(async (context) => {
     const profileId = createId();
     const written = await context.profiles.writePublicProfileText(
@@ -141,8 +141,8 @@ test('text: write, normalize at the edge, clear to no row', async () => {
       expected: {
         written: [profileId, 'Ada', 'Policy debater'],
         again: [profileId, 'Ada L', null],
-        cleared: [null, null, null],
-        rows: 0,
+        cleared: [profileId, null, null],
+        rows: 1,
       },
     });
     assert({

@@ -8,12 +8,29 @@ import {
 setupRitewayBun();
 
 describe('profileTextRefusalOf', () => {
-  test('each refused status', () => {
+  test('each refusal word and status', () => {
     assert({
-      given: 'a refused value, a rate limit, a restriction and an outage',
-      should: 'name each refusal',
-      actual: [400, 429, 403, 503].map(profileTextRefusalOf),
-      expected: ['too-long', 'rate-limited', 'not-allowed', 'unavailable'],
+      given:
+        'the three text words, an unknown word, a rate limit, a restriction and an outage',
+      should: 'name each word, and each status by what it means',
+      actual: [
+        { status: 400, refusal: 'display-name-too-long' },
+        { status: 400, refusal: 'display-name-handle' },
+        { status: 400, refusal: 'bio-too-long' },
+        { status: 400, refusal: 'cursed' },
+        { status: 429, refusal: undefined },
+        { status: 403, refusal: undefined },
+        { status: 503, refusal: undefined },
+      ].map(profileTextRefusalOf),
+      expected: [
+        'display-name-too-long',
+        'display-name-handle',
+        'bio-too-long',
+        'unavailable',
+        'rate-limited',
+        'not-allowed',
+        'unavailable',
+      ],
     });
   });
 });
@@ -26,11 +43,11 @@ describe('profileTextRefused', () => {
     assert({
       given: 'a refused save',
       should: 'keep what was typed beside the refusal',
-      actual: profileTextRefused(form, 'too-long'),
+      actual: profileTextRefused(form, 'display-name-handle'),
       expected: {
         kind: 'refused',
         values: { displayName: 'Ada', bio: 'Long bio' },
-        error: 'A display name is at most 40 characters and a bio at most 160.',
+        error: 'A display name can’t contain @: it would look like a username.',
       },
     });
   });

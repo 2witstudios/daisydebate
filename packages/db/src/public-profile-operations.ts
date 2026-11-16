@@ -120,8 +120,10 @@ export const publicProfileOperations = ({
   },
 
   /**
-   * Writes the member's display name and bio. Clearing both deletes the row:
-   * no row means nothing set. `profileId` names a new row only.
+   * Writes the member's display name and bio. A cleared field is null; the
+   * row and its id stay for the account's life, so a report naming the
+   * profile still finds it after its text is cleared and set again (erasure
+   * deletes it). `profileId` names a new row only.
    */
   writePublicProfileText: (
     scope: Scope,
@@ -137,19 +139,14 @@ export const publicProfileOperations = ({
     idSchema.parse(input.profileId);
     return instrumented(eventSink, 'writePublicProfileText', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
-        if (input.displayName === null && input.bio === null)
-          await tx.execute(
-            sql`delete from member_profiles where actor_id = ${scope.actorId}`,
-          );
-        else
-          await tx.execute(sql`insert into member_profiles
-              (actor_id, id, display_name, bio, updated_at)
-            values (${scope.actorId}, ${input.profileId}, ${input.displayName},
-              ${input.bio}, ${input.now}::timestamptz)
-            on conflict (actor_id) do update set
-              display_name = excluded.display_name, bio = excluded.bio,
-              updated_at = excluded.updated_at,
-              version = member_profiles.version + 1`);
+        await tx.execute(sql`insert into member_profiles
+            (actor_id, id, display_name, bio, updated_at)
+          values (${scope.actorId}, ${input.profileId}, ${input.displayName},
+            ${input.bio}, ${input.now}::timestamptz)
+          on conflict (actor_id) do update set
+            display_name = excluded.display_name, bio = excluded.bio,
+            updated_at = excluded.updated_at,
+            version = member_profiles.version + 1`);
         return ownProfile(tx, scope.actorId);
       }),
     );

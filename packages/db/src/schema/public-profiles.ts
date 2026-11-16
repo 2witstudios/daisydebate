@@ -25,8 +25,9 @@ import { actors } from './actors';
 
 /**
  * A member's public text (ADR 0143): a display name and a bio, both optional,
- * both public. No row shows neither. The username and the competitive record
- * are not here; erasure deletes the row.
+ * both public; a cleared field is null and the row keeps its id for the
+ * account's life, so reports of it still resolve. The username and the
+ * competitive record are not here; erasure deletes the row.
  */
 export const memberProfiles = pgTable(
   'member_profiles',

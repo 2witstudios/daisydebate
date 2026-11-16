@@ -87,7 +87,7 @@ describe('auditedIntent on a profile', () => {
     assert({
       given: 'a photo rejection, a photo removal and a bio removal',
       should:
-        'record the closed outcome and field, and never the removal reason',
+        'record the closed outcome, and each removal with its closed reason (and field)',
       actual: [
         auditedIntent({
           action: 'profile_photo.review',
@@ -111,8 +111,8 @@ describe('auditedIntent on a profile', () => {
       ],
       expected: [
         `profile_photo.review:${targetId}:reject`,
-        `profile_photo.remove:${targetId}`,
-        `profile_text.remove:${targetId}:bio`,
+        `profile_photo.remove:${targetId}:impersonation`,
+        `profile_text.remove:${targetId}:bio:policy_violation`,
       ],
     });
   });

@@ -144,6 +144,16 @@ describe('uploadProfilePhoto', () => {
     });
   });
 
+  test('an upload rate limit names its hour, not a minute', () => {
+    assert({
+      given: 'a rate-limited upload (6 an hour)',
+      should: 'tell the member to wait an hour',
+      actual: photoUploadNotice({ kind: 'rate-limited' }),
+      expected:
+        'You’ve uploaded several photos recently. Try again in an hour.',
+    });
+  });
+
   test('a file the browser refuses', async () => {
     const { fetch, calls } = answering(new Response(null));
     const outcome = await uploadProfilePhoto(

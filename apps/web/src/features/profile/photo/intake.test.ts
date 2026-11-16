@@ -25,14 +25,10 @@ function harness(
   const stored: string[] = [];
   const removed: string[] = [];
   const recorded: unknown[] = [];
-  const limited: string[] = [];
   const verdict = overrides.verdict ?? 'allow';
   const dependencies: PhotoIntakeDependencies = {
     clock: { now: () => '2026-11-16T00:00:00.000Z' },
     ids: { next: () => photoId },
-    limit: async (actorId) => {
-      limited.push(actorId);
-    },
     storage: {
       objects: {
         put: async (key) => {
@@ -74,7 +70,7 @@ function harness(
     },
     ...overrides,
   };
-  return { dependencies, stored, removed, recorded, limited };
+  return { dependencies, stored, removed, recorded };
 }
 
 test('an allowed photo is stored and published', async () => {
@@ -86,14 +82,12 @@ test('an allowed photo is stored and published', async () => {
       'spend the budget, store both renditions under the photo prefix and publish it',
     actual: {
       status: result.status,
-      limited: run.limited,
       stored: run.stored,
       recorded: run.recorded,
       removed: run.removed,
     },
     expected: {
       status: 'published',
-      limited: [principal.actorId],
       stored: [
         `profile-photos/${photoId}/512.webp`,
         `profile-photos/${photoId}/128.webp`,

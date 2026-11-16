@@ -42,30 +42,72 @@ export const normalizeBio = (raw: string): string =>
 /** Length a person sees: code points, not UTF-16 units. */
 const codePoints = (text: string): number => [...text].length;
 
+/**
+ * Why an edit of the public text is refused, each one thing to tell the
+ * member. A display name may not hold an `@` (or its fullwidth form): it
+ * would read as somebody's username, the one identity that matters.
+ */
+export const profileTextRefusals = [
+  'display-name-too-long',
+  'display-name-handle',
+  'bio-too-long',
+] as const;
+export type ProfileTextRefusal = (typeof profileTextRefusals)[number];
+
+const handleMarks = /[@\uFF20]/u;
+
+/** The normalized text's refusal, or null when it may be saved. */
+export function profileTextRefusal(text: {
+  readonly displayName: string;
+  readonly bio: string;
+}): ProfileTextRefusal | null {
+  if (codePoints(text.displayName) > DISPLAY_NAME_MAX)
+    return 'display-name-too-long';
+  if (handleMarks.test(text.displayName)) return 'display-name-handle';
+  if (codePoints(text.bio) > BIO_MAX) return 'bio-too-long';
+  return null;
+}
+
+const rawText = z.string().max(RAW_TEXT_MAX);
+
 /** An empty answer clears the field: null is "not set". */
-const optionalText = (normalize: (raw: string) => string, max: number) =>
-  z
-    .string()
-    .max(RAW_TEXT_MAX)
-    .transform(normalize)
-    .refine((text) => codePoints(text) <= max, {
-      message: `At most ${max} characters.`,
-    })
-    .transform((text) => (text === '' ? null : text));
+const orNull = (text: string) => (text === '' ? null : text);
 
-export const displayNameSchema = optionalText(
-  normalizeDisplayName,
-  DISPLAY_NAME_MAX,
-);
-export const bioSchema = optionalText(normalizeBio, BIO_MAX);
-
-/** The member's own edit of their public text. */
-export const publicProfileEditSchema = z.strictObject({
-  version: z.literal(1),
-  displayName: displayNameSchema,
-  bio: bioSchema,
-});
+/**
+ * The member's own edit of their public text: normalized, then refused with
+ * its closed word as the issue message, so a route can answer that word.
+ */
+export const publicProfileEditSchema = z
+  .strictObject({
+    version: z.literal(1),
+    displayName: rawText,
+    bio: rawText,
+  })
+  .transform((edit) => ({
+    version: edit.version,
+    displayName: normalizeDisplayName(edit.displayName),
+    bio: normalizeBio(edit.bio),
+  }))
+  .superRefine((edit, context) => {
+    const refusal = profileTextRefusal(edit);
+    if (refusal) context.addIssue({ code: 'custom', message: refusal });
+  })
+  .transform((edit) => ({
+    version: edit.version,
+    displayName: orNull(edit.displayName),
+    bio: orNull(edit.bio),
+  }));
 export type PublicProfileEdit = z.infer<typeof publicProfileEditSchema>;
+
+/** The closed word a refused edit's issues name, if any. */
+export const profileTextRefusalOfIssues = (
+  issues: readonly { readonly message: string }[],
+): ProfileTextRefusal | null =>
+  issues
+    .map(({ message }) => message)
+    .find((message): message is ProfileTextRefusal =>
+      (profileTextRefusals as readonly string[]).includes(message),
+    ) ?? null;
 
 /**
  * A profile photo's lifecycle. A photo is stored only once it is scanned,

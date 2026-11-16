@@ -27,9 +27,15 @@ pipeline, and no username change for now.
    standings, Rooms, chat and every judge surface keep `@username`, so hidden
    judges stay hidden and nothing competitive is renamed. Display names are
    normalized at the boundary (NFC, invisible and bidirectional controls
-   removed, whitespace collapsed), so one cannot render as another.
+   removed, whitespace collapsed), so one cannot render as another, and may
+   not hold `@` or `＠`, so none reads as a username. A refused edit answers a
+   closed word (`display-name-too-long`, `display-name-handle`, `bio-too-long`).
+   The profile row and its id last for the account's life; a cleared field is
+   null, so a report of the text still finds it after a clear.
 3. **A photo is stored only once it is checked.** The member posts the image
-   as the request body (JavaScript is required, ADR 0114). The intake bounds
+   as the request body (JavaScript is required, ADR 0114). The budget, the
+   deployment's storage and the member's right to add a photo are settled
+   before the body is read. The intake bounds
    it at 5 MB and JPEG, PNG or WebP; clamd scans it; sharp decodes it under a
    pixel bound, turns it upright, drops all metadata and encodes 512 px and
    128 px square WebP renditions; then the automated check reads the 512 px
@@ -55,7 +61,8 @@ pipeline, and no username change for now.
    (impersonation included); anyone may report someone else's. Operators, in
    the admin app over the signed operator API (ADR 0079), approve or reject a
    photo in review and remove a published photo or one text field, each with
-   an audited reason. Repeat abuse uses the existing restrictions.
+   its closed reason in the admin audit chain. Repeat abuse uses the existing
+   restrictions.
 7. **Withdrawal survives restriction.** `profile.public.read` and
    `profile.public.withdraw` (clearing the text or the photo) are withdrawals
    under ADR 0075; adding or changing content needs participant access.

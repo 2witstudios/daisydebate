@@ -87,20 +87,34 @@ const paths: Readonly<Record<ContentModerationAction, (id: string) => string>> =
   };
 
 /** The closed value an intent records beyond its target, if any. */
-const auditedValue = (request: ContentModerationRequest): string | null =>
-  request.action === 'recording.legal_remove'
-    ? request.reason
-    : request.action === 'profile_photo.review'
-      ? request.outcome
-      : request.action === 'profile_text.remove'
-        ? request.field
-        : null;
+function auditedValue(request: ContentModerationRequest): string | null {
+  switch (request.action) {
+    case 'recording.legal_remove':
+    case 'profile_photo.remove':
+      return request.reason;
+    case 'profile_photo.review':
+      return request.outcome;
+    case 'profile_text.remove':
+      return `${request.field}:${request.reason}`;
+    case 'content_report.resolve':
+    case 'broadcast.stop':
+    case 'broadcast.chat_slow_mode.update':
+    case 'recording.takedown':
+    case 'recording.restore':
+    case 'recording.remove':
+    case 'recording.rebuild':
+    case 'chat_message.remove':
+    case 'account.audience_ban.update':
+      return null;
+  }
+}
 
 /**
  * What the audit chain records before a command is signed: the action and its target
  * id, closed, naming no person's content. A legal removal outruns every hold, so its
  * closed legal ground is on the record too. A photo review records which way it
- * went, and a text removal which field it cleared: one target, two different acts.
+ * went. A profile removal records its closed reason (ADR 0143), and a text removal
+ * also which field it cleared: one target, two different acts.
  */
 export const auditedIntent = (request: ContentModerationRequest): string => {
   const value = auditedValue(request);

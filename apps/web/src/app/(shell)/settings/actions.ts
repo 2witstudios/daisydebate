@@ -40,7 +40,17 @@ export async function savePublicProfileAction(
       }),
     });
     if (!response.ok)
-      return profileTextRefused(form, profileTextRefusalOf(response.status));
+      return profileTextRefused(
+        form,
+        profileTextRefusalOf({
+          status: response.status,
+          refusal: (
+            (await response.json().catch(() => null)) as {
+              readonly refusal?: unknown;
+            } | null
+          )?.refusal,
+        }),
+      );
   } catch {
     return profileTextUnavailable(form);
   }

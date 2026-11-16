@@ -18,7 +18,7 @@ import { checkDecision } from './check-decision';
 import { photoObjectKey, photoObjectPrefix } from './object-keys';
 import type { PhotoClassifier, ProfilePhotoObjects } from './ports';
 
-/** Uploads per member per hour: a few tries at a good photo, not a feed. */
+/** Uploads per member per hour, spent before the body is read: a few tries, not a feed. */
 export const PHOTO_UPLOAD_RULE = { windowSeconds: 3_600, max: 6 } as const;
 
 /** The decode bound: 40 megapixels, a few seconds, renditions well under a megabyte. */
@@ -37,7 +37,6 @@ export type PhotoUpload = {
 export type PhotoIntakeDependencies = {
   readonly clock: Clock;
   readonly ids: IdGenerator;
-  readonly limit: (actorId: string) => Promise<void>;
   /** Null when the deployment has no bucket or no scanner: uploads refuse. */
   readonly storage: {
     readonly objects: ProfilePhotoObjects;
@@ -154,8 +153,8 @@ export async function intakeProfilePhoto(
   readonly status: 'published' | 'in_review';
   readonly profile: OwnPublicProfile;
 }> {
+  // The route has spent the budget and authorized before reading the body.
   const scope = requireMemberActor(principal);
-  await dependencies.limit(scope.actorId);
   const { storage } = dependencies;
   if (!storage) throw refuse('INFRASTRUCTURE', 'photo-unavailable');
   const mime = requireAcceptable(upload);

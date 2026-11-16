@@ -10,18 +10,23 @@ import {
   profilePhotoRefusals,
   profilePhotoSizeSchema,
   profilePhotoUploadResultSchema,
+  profileTextRefusalOfIssues,
+  profileTextRefusals,
   publicProfileEditSchema,
   type OwnPublicProfileView,
   type ProfilePhotoStatus,
 } from '@daisy/protocol/public-profile';
 import type { Identity } from '@daisy/auth';
-import { idSchema } from '@daisy/protocol';
+import type { RefusalReason } from '@daisy/protocol';
+import {
+  CONTENT_MODERATION_DELIVERY_BOUND_MS,
+  idSchema,
+} from '@daisy/protocol';
 import { requireMemberActor } from '../access/actor';
 import { squareWebpRenditions } from '../image-intake/square-renditions';
 import type { App } from '../../server/app';
 import {
   handleOperation,
-  parseValidated,
   readBytes,
   readJson,
   refusalResponse,
@@ -43,8 +48,10 @@ const TEXT_RULE = { windowSeconds: 60, max: 20 } as const;
 const WITHDRAW_RULE = { windowSeconds: 60, max: 10 } as const;
 /** A stored rendition is well under this; anything larger is not ours. */
 const RENDITION_MAX_BYTES = 1_000_000;
-/** How long a viewer may keep a published photo before asking again (ADR 0143). */
-const PHOTO_CACHE_SECONDS = 60;
+/** How long a viewer may keep a published photo: the moderation delivery bound (ADR 0143). */
+const PHOTO_CACHE_SECONDS = Math.floor(
+  CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000,
+);
 
 type Capability =
   'profile.public.read' | 'profile.public.update' | 'profile.public.withdraw';
@@ -107,6 +114,36 @@ export function composePublicProfileRoutes(app: App) {
       : null;
   const uploads = storage ? 'available' : 'unavailable';
 
+  /**
+   * A same-origin member route whose refusals answer their closed word: any
+   * signed-in account the evaluator decides for reaches `work`, whose own
+   * fences then allow what its participant access allows (ADR 0075).
+   */
+  const gatedOwnRoute = (
+    request: Request,
+    name: 'profile.public.write' | 'profile.photo.upload',
+    refusals: readonly RefusalReason[],
+    work: (principal: AuthorizationPrincipal) => Promise<unknown>,
+  ) =>
+    handleOperation(
+      app.logger,
+      request,
+      name,
+      async (requestId) => {
+        requireSameOrigin(request, boundary.origin());
+        const identity = requireSignedIn(await boundary.identify(request));
+        if (!evaluatedIdentity(identity)) throw createAppError('AUTHORIZATION');
+        try {
+          return Response.json(await work(identity.principal));
+        } catch (error) {
+          const refused = refusalResponse(error, requestId, refusals);
+          if (refused) return refused;
+          throw error;
+        }
+      },
+      app.reporter,
+    );
+
   return {
     read: (request: Request) =>
       runEvaluatedRoute(boundary, request, {
@@ -126,20 +163,32 @@ export function composePublicProfileRoutes(app: App) {
         headers: { 'cache-control': 'no-store' },
       }),
 
-    /** Clearing both fields is a withdrawal, which a restricted member keeps. */
+    /**
+     * Clearing both fields is a withdrawal, which a restricted member keeps.
+     * A refused edit answers its closed word (too long, or an `@` handle).
+     */
     write: (request: Request) =>
-      runEvaluatedRoute(boundary, request, {
-        name: 'profile.public.write',
-        readOnly: false,
-        readInput: () => readJson(request, 4096),
-        operation: async (input, principal) => {
+      gatedOwnRoute(
+        request,
+        'profile.public.write',
+        profileTextRefusals,
+        async (principal) => {
           const scope = requireMemberActor(principal);
           await consumeOrThrow(
             app.limiter,
             `public-profile:${scope.actorId}`,
             TEXT_RULE,
           );
-          const edit = parseValidated(publicProfileEditSchema, input);
+          const parsed = publicProfileEditSchema.safeParse(
+            await readJson(request, 4096),
+          );
+          if (!parsed.success) {
+            const refusal = profileTextRefusalOfIssues(parsed.error.issues);
+            throw refusal
+              ? createRefusal('VALIDATION', refusal)
+              : createAppError('VALIDATION');
+          }
+          const edit = parsed.data;
           const clearing = edit.displayName === null && edit.bio === null;
           return viewOf(
             await app.database.writePublicProfileText(
@@ -158,70 +207,55 @@ export function composePublicProfileRoutes(app: App) {
             uploads,
           );
         },
-      }),
+      ),
 
     /**
-     * The photo is the request body, its type the Content-Type. A refusal
-     * answers with its closed word, so the member is told what to fix.
+     * The photo is the request body, its type the Content-Type. The budget,
+     * the deployment's storage and the member's right to add a photo are
+     * all settled before a byte is read; a refusal answers its closed word.
      */
     uploadPhoto: (request: Request) =>
-      handleOperation(
-        app.logger,
+      gatedOwnRoute(
         request,
         'profile.photo.upload',
-        async (requestId) => {
-          requireSameOrigin(request, boundary.origin());
-          const identity = requireSignedIn(await boundary.identify(request));
-          if (!evaluatedIdentity(identity))
-            throw createAppError('AUTHORIZATION');
-          const { principal } = identity;
+        profilePhotoRefusals,
+        async (principal) => {
+          const scope = requireMemberActor(principal);
           const fence = own(principal, 'profile.public.update');
-          try {
-            const bytes = await readBytes(
-              request,
-              PROFILE_PHOTO_MAX_BYTES,
-            ).catch((error: unknown) => {
+          await consumeOrThrow(
+            app.limiter,
+            `profile-photo:${scope.actorId}`,
+            PHOTO_UPLOAD_RULE,
+          );
+          if (!storage)
+            throw createRefusal('INFRASTRUCTURE', 'photo-unavailable');
+          await app.database.readOwnPublicProfile(scope, fence);
+          const bytes = await readBytes(request, PROFILE_PHOTO_MAX_BYTES).catch(
+            (error: unknown) => {
               throw isAppError(error) && error.code === 'PAYLOAD_TOO_LARGE'
                 ? createRefusal('PAYLOAD_TOO_LARGE', 'photo-too-large')
                 : error;
-            });
-            const result = await intakeProfilePhoto(
-              principal,
-              { mime: mimeOf(request), bytes },
-              {
-                clock: app.clock,
-                ids: app.ids,
-                limit: (actorId) =>
-                  consumeOrThrow(
-                    app.limiter,
-                    `profile-photo:${actorId}`,
-                    PHOTO_UPLOAD_RULE,
-                  ),
-                storage,
-                classifier: app.profilePhotoClassifier,
-                renditions: squareWebpRenditions,
-                record: (scope, input) =>
-                  app.database.recordProfilePhoto(scope, input, fence),
-              },
-            );
-            return Response.json(
-              profilePhotoUploadResultSchema.parse({
-                version: 1,
-                status: result.status,
-                profile: viewOf(result.profile, uploads),
-              }),
-            );
-          } catch (error) {
-            const refused = refusalResponse(
-              error,
-              requestId,
-              profilePhotoRefusals,
-            );
-            if (refused) return refused;
-            throw error;
-          }
+            },
+          );
+          const result = await intakeProfilePhoto(
+            principal,
+            { mime: mimeOf(request), bytes },
+            {
+              clock: app.clock,
+              ids: app.ids,
+              storage,
+              classifier: app.profilePhotoClassifier,
+              renditions: squareWebpRenditions,
+              record: (member, input) =>
+                app.database.recordProfilePhoto(member, input, fence),
+            },
+          );
+          return profilePhotoUploadResultSchema.parse({
+            version: 1,
+            status: result.status,
+            profile: viewOf(result.profile, uploads),
+          });
         },
-        app.reporter,
       ),
 
     withdrawPhoto: (request: Request) =>

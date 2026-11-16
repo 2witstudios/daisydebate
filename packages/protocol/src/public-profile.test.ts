@@ -9,6 +9,7 @@ import {
   profilePhotoSizeSchema,
   profilePhotoTransition,
   profilePhotoStatuses,
+  profileTextRefusalOfIssues,
   publicProfileEditSchema,
 } from './public-profile';
 
@@ -65,6 +66,31 @@ describe('public profile text', () => {
         edit('', 'b'.repeat(BIO_MAX + 1)).success,
       ],
       expected: [false, false],
+    });
+    const refusalOf = (displayName: string, bio = '') => {
+      const parsed = edit(displayName, bio);
+      return parsed.success
+        ? null
+        : profileTextRefusalOfIssues(parsed.error.issues);
+    };
+    assert({
+      given:
+        'a name too long, a name with an @ or a fullwidth ＠, a bio too long, and a fine edit',
+      should: 'name each refusal by its closed word',
+      actual: [
+        refusalOf('a'.repeat(DISPLAY_NAME_MAX + 1)),
+        refusalOf('@alice'),
+        refusalOf('Alice ＠ Daisy'),
+        refusalOf('Alice', 'b'.repeat(BIO_MAX + 1)),
+        refusalOf('Alice', 'Email me at a@b.c'),
+      ],
+      expected: [
+        'display-name-too-long',
+        'display-name-handle',
+        'display-name-handle',
+        'bio-too-long',
+        null,
+      ],
     });
     assert({
       given: 'an unknown field',

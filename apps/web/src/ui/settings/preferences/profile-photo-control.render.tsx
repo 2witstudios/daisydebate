@@ -72,7 +72,7 @@ export function renderProfilePhotoControl({
           <label
             className={cn(
               buttonClass('secondary'),
-              'cursor-pointer has-disabled:cursor-not-allowed has-disabled:opacity-60',
+              'cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink has-disabled:cursor-not-allowed has-disabled:opacity-60',
             )}
           >
             {activity === 'uploading' ? 'Uploading…' : 'Upload photo'}

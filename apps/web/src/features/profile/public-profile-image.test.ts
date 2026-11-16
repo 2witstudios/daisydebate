@@ -10,7 +10,10 @@ const photoId = 'p'.repeat(24);
 const bytes = new Uint8Array([82, 73, 70, 70]);
 
 /** Just enough app for the image route: one photo, one store, no session. */
-const appWith = (status: ProfilePhotoStatus | null) => {
+const appWith = (
+  status: ProfilePhotoStatus | null,
+  signedInActor: string | null = null,
+) => {
   const reads: string[] = [];
   const app = {
     logger: silentLogger,
@@ -27,11 +30,26 @@ const appWith = (status: ProfilePhotoStatus | null) => {
     profilePhotoClassifier: null,
     auth: () => ({
       config: { PUBLIC_APP_URL: 'http://daisy.test' },
-      readSession: async () => null,
+      readSession: async () =>
+        signedInActor === null
+          ? null
+          : {
+              user: {
+                id: 'u'.repeat(24),
+                emailVerified: true,
+                username: 'ada',
+              },
+              session: { expiresAt: '2100-01-01T00:00:00.000Z' },
+            },
       clock: { now: () => '2026-11-16T00:00:00.000Z' },
       logger: silentLogger,
-      getActorByUserId: async () => null,
-      getParticipationByUserId: async () => null,
+      getActorByUserId: async (userId: string) =>
+        signedInActor === null ? null : { id: signedInActor, userId },
+      getParticipationByUserId: async () => ({
+        betaState: 'approved',
+        ageBand: 'adult',
+        restricted: false,
+      }),
     }),
     database: {
       readProfilePhoto: async (id: string) =>
@@ -53,8 +71,9 @@ const get = (
   status: ProfilePhotoStatus | null,
   params: { photoId: string; size: string },
   headers: HeadersInit = {},
+  signedInActor: string | null = null,
 ) => {
-  const { routes, reads } = appWith(status);
+  const { routes, reads } = appWith(status, signedInActor);
   return routes
     .image(
       new Request(
@@ -129,6 +148,40 @@ test('nothing else is served to a visitor', async () => {
       [null, '512', 404, 0],
       ['published', '256', 404, 0],
       ['published', '512', 404, 0],
+    ],
+  });
+});
+
+test('a photo in review is its owner’s alone, and never cached', async () => {
+  const session = { cookie: 'better-auth.session_token=signed' };
+  const owner = await get(
+    'in_review',
+    { photoId, size: '512' },
+    session,
+    'a'.repeat(24),
+  );
+  const other = await get(
+    'in_review',
+    { photoId, size: '512' },
+    session,
+    'b'.repeat(24),
+  );
+  assert({
+    given: 'the owner and another member reading a photo in review',
+    should: 'serve the owner uncached and answer the other not found',
+    actual: [
+      owner.response.status,
+      owner.response.headers.get('cache-control'),
+      owner.reads,
+      other.response.status,
+      other.reads,
+    ],
+    expected: [
+      200,
+      'private, no-store',
+      [`profile-photos/${photoId}/512.webp`],
+      404,
+      [],
     ],
   });
 });
