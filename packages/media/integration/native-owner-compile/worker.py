@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -43,13 +44,18 @@ try:
     toolchain = {}
     for tool in ('cargo', 'rustc', 'clang++'):
         toolchain[tool] = subprocess.check_output([tool, '--version'], text=True).splitlines()[0]
-    stage('cargo-build', rustPin=actual, nodePin=NODE_PIN, toolchain=toolchain,
+    prerequisite_tools = {name: shutil.which(name) is not None for name in ('protoc', 'cmake', 'clang++', 'pkg-config', 'make')}
+    try:
+        glib = subprocess.run(['pkg-config', '--exists', 'glib-2.0'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2).returncode == 0
+    except Exception:
+        glib = None
+    stage('cargo-build', prerequisiteTools=prerequisite_tools, glibPkgConfig=glib, rustPin=actual, nodePin=NODE_PIN, toolchain=toolchain,
           profile='release', target='x86_64-unknown-linux-gnu', jobs=2,
           qualification='stock pinned Node FFI baseline; native owner not implemented')
     command(['cargo', 'build', '--locked', '--release', '--jobs', '2',
              '--target', 'x86_64-unknown-linux-gnu', '-p', 'rtc-node-ffi-bindings'], source)
-    stage('complete', rustPin=actual, nodePin=NODE_PIN, toolchain=toolchain,
+    stage('complete', prerequisiteTools=prerequisite_tools, glibPkgConfig=glib, rustPin=actual, nodePin=NODE_PIN, toolchain=toolchain,
           profile='release', jobs=2, qualification='compile only; no runtime execution')
 except Exception:
-    # The supervisor retains the last admitted stage and fixed error codes only.
+    # The supervisor retains the stage and bounded redacted compiler-failure evidence.
     sys.exit(1)

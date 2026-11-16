@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 from policy import GIB, LIMITS, refusal
+from diagnostics import classify_failure, INPUT_BYTES
 
 HERE = Path(__file__).resolve().parent
 CANCELLED = False
@@ -367,20 +368,34 @@ def main():
             value = raw_status.get('toolchain', {}).get(tool, '')
             match = re.search(r'\b([0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9._]+)?)', value) if isinstance(value, str) else None
             versions[tool] = match[1] if match else None
-        status = dict(stage=worker_stage, rustPin='7187f6a42ca6382b73c631b75a9d560253f5b90f',
+        prerequisites = raw_status.get('prerequisiteTools', {})
+        prerequisites = prerequisites if isinstance(prerequisites, dict) else {}
+        observed_tools = {tool: prerequisites.get(tool) if isinstance(prerequisites.get(tool), bool) else None for tool in ('protoc', 'cmake', 'clang++', 'pkg-config', 'make')}
+        status = dict(stage=worker_stage, prerequisiteTools=observed_tools, glibPkgConfig=raw_status.get('glibPkgConfig') if isinstance(raw_status.get('glibPkgConfig'), bool) else None, rustPin='7187f6a42ca6382b73c631b75a9d560253f5b90f',
                       nodePin='31d9d7e306e6c70c2eb748efde5afbded95a170e',
                       toolchainVersions=versions, profile='release', target='x86_64-unknown-linux-gnu',
                       jobs=2, qualification='stock pinned Node FFI baseline; no native owner implementation or runtime qualification')
         # Whitelisted worker facts contain no compiler output, environment, or raw exceptions.
         log = mount / 'build/build.log'
         log_bytes = log.stat().st_size if log.exists() else 0
-        with log.open('rb') as stream:
-            stream.seek(max(0, log_bytes - 1024 ** 2))
-            tail = stream.read(1024 ** 2).decode('utf8', errors='replace')
-        codes = sorted(set(re.findall(r'error\[(E[0-9]{4})\]', tail)))
-        emit('result', worker=status, logBytes=log_bytes, rustErrorCodes=codes,
-             linkerFailureObserved=bool(re.search(r'linking with|undefined reference', tail)),
-             **result)
+        raw_tail = b''
+        full_digest = None
+        if log.exists():
+            with log.open('rb') as stream:
+                if log_bytes <= 16 * 1024 ** 2:
+                    digest = hashlib.sha256()
+                    for chunk in iter(lambda: stream.read(65536), b''):
+                        digest.update(chunk)
+                    full_digest = digest.hexdigest()
+                stream.seek(max(0, log_bytes - INPUT_BYTES))
+                raw_tail = stream.read(INPUT_BYTES)
+        diagnostic = classify_failure(raw_tail.decode('utf8', errors='replace'), str(mount / 'build'))
+        diagnostic.update(logTailSha256=hashlib.sha256(raw_tail).hexdigest(),
+                          rawLogSha256=full_digest, logTruncated=log_bytes > len(raw_tail))
+        emit('result', worker=status, logBytes=log_bytes,
+             rustErrorCodes=diagnostic['rustErrorCodes'],
+             linkerFailureObserved='linker' in diagnostic['observedSignals'],
+             diagnostic=diagnostic, **result)
         exit_code = 0 if result['reason'] is None and result['exitCode'] == 0 and result['serviceResult'] == 'success' and status['stage'] == 'complete' else 1
     except Exception as error:
         emit('refused', failedStage=stage, category=refusal_code(error))
