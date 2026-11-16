@@ -17,4 +17,6 @@ UPDATE public.results result SET competition_record=jsonb_set(result.competition
  FROM public.round_finalization_judge_assignments frozen WHERE frozen.round_id=result.round_id
 )) WHERE result.kind='decided';
 --> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;
+--> statement-breakpoint
 ALTER TABLE public.results ENABLE TRIGGER results_append_only;
