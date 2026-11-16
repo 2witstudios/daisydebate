@@ -1,4 +1,5 @@
 import { createHostRosterRoute } from './host-roster-route';
+import { createSanctionCommandRoute } from './sanction-command-route';
 import { readHostRoster } from './reads/host-roster';
 import {
   createHostEventsRoute,
@@ -117,6 +118,7 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    sanctionCommand: (released: TabCommandRouteDependencies['released']) => createSanctionCommandRoute({...common,boundary,released}),
     hostRoster: (released: HostEventsRouteDependencies['released']) =>
       createHostRosterRoute({
         boundary,

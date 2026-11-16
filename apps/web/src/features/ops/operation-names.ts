@@ -172,6 +172,7 @@ const OPERATION_NAMES = [
   'tab.guardian.command',
   'tab.family.history',
   'tab.lobby.command',
+  'tab.sanction.command',
   'tab.settings.command',
   'tab.entries.command',
   'tab.judges.command',
