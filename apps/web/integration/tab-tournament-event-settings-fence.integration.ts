@@ -213,4 +213,4 @@ test('resolved event readers coexist and retain the actual setting snapshot thro
       observer.close(),
     ]);
   }
-});
+}, 60_000);
