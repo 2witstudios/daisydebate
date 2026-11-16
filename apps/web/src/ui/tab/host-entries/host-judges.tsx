@@ -70,7 +70,9 @@ export function HostJudges({
       <PageHeader
         title="Entries"
         lede={judges.lede}
-        actions={<ActionButton action={judges.add} />}
+        actions={
+          judges.add === null ? null : <ActionButton action={judges.add} />
+        }
       />
       <EntriesTabs
         counts={judges.tabs}
@@ -125,7 +127,7 @@ export function HostJudges({
                     <th scope="row" className={cell}>
                       {slot.label}
                     </th>
-                    <td className={cell}>{slot.needed}</td>
+                    <td className={cell}>{slot.needed ?? 'Not shown'}</td>
                     <td className={cell}>{slot.free}</td>
                     <td className={cell}>{slot.placed}</td>
                   </tr>

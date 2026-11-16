@@ -1,3 +1,4 @@
+import { rejectedBy } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withEvidencePayload } from './necessary-evidence-payload.test-support';
@@ -10,7 +11,15 @@ test('original speaker attribution is frozen before custody and never follows a 
       await f.sql`select p.id,p.actor_id,a.kind,p.side,p.slot from round_participants p join actors a on a.id=p.actor_id where p.id=${body.roundParticipantId}`;
     await store.adoptCaptureEvidence({ body, sealed, claim });
     const successor = await f.actor(await f.user());
-    await f.sql`update round_participants set actor_id=${successor} where id=${body.roundParticipantId}`;
+    assert({
+      given: 'a rewrite of an original frozen participant identity',
+      should: 'refuse the successor before changing any provenance',
+      actual: await rejectedBy(
+        () =>
+          f.sql`update round_participants set actor_id=${successor} where id=${body.roundParticipantId}`,
+      ),
+      expected: 'round_participants_identity_immutable',
+    });
     const restored = await store.readCaptureEvidencePayload({ body });
     const [row] =
       await f.sql`select to_jsonb(e)->'original_speaker' as speaker from necessary_evidence e where id=${body.evidenceId}`;
@@ -22,7 +31,7 @@ test('original speaker attribution is frozen before custody and never follows a 
     };
     assert({
       given:
-        'an original admitted speaker and later changed current actor for that same seat',
+        'an original admitted speaker and a refused later actor rewrite for that same seat',
       should:
         'retain and return only the frozen original identity for attribution/export, never infer the successor',
       actual: {

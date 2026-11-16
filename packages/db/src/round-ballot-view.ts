@@ -1,6 +1,14 @@
 import {
+  eventBallotForAudience,
+  type RoundBallotAccess,
+  type BallotScreeningRead,
+} from './round-ballot-audience';
+import {
   isJudgeSeat,
   storedBallotSchemaFor,
+  ballotSchemaFor,
+  ballotDefinitionIdentity,
+  type BallotDefinitionSource,
   type Ballot,
   type BallotDefinition,
   type BallotSubjects,
@@ -21,8 +29,6 @@ export const ballotOfRow = (
   row: BallotRow,
   definition: BallotDefinition,
 ): Ballot => {
-  if (row.rubricVersion === null)
-    throw createAppError('INVARIANT', 'A host ballot has no Daisy definition');
   const spellsDecision =
     definition.decision.kind === 'winner' &&
     (definition.decision.tie || definition.decision.doubleLoss);
@@ -35,8 +41,9 @@ export const ballotOfRow = (
           winner: row.winner,
         }),
     ...(row.scores ? { scores: row.scores } : {}),
-    reason: row.reason,
-    feedback: row.feedback ?? {},
+    ...(row.reason === null ? {} : { reason: row.reason }),
+    ...(definition.written.feedback ? { feedback: row.feedback ?? {} } : {}),
+    ...(row.speakerRanks ? { speakerRanks: row.speakerRanks } : {}),
     ...(row.citations ? { citations: row.citations } : {}),
   } as Ballot;
 };
@@ -45,11 +52,32 @@ export const ballotOfRow = (
 const ballotBody = (
   row: BallotRow,
   definition: BallotDefinition,
+  source: BallotDefinitionSource,
   subjects: BallotSubjects,
-): Ballot =>
-  storedBallotSchemaFor(definition, subjects).parse(
+): Ballot => {
+  if (source.kind === 'stored') {
+    if (
+      row.ballotDefinitionId !== source.id ||
+      row.ballotDefinitionVersion !== source.version ||
+      row.rubricVersion !== ballotDefinitionIdentity(definition)
+    )
+      throw createAppError(
+        'INVARIANT',
+        'Stored ballot differs from its frozen source',
+      );
+    return ballotSchemaFor(definition, subjects).parse(
+      ballotOfRow(row, definition),
+    ) as Ballot;
+  }
+  if (row.ballotDefinitionId !== null || row.ballotDefinitionVersion !== null)
+    throw createAppError(
+      'INVARIANT',
+      'Daisy ballot has a foreign stored source',
+    );
+  return storedBallotSchemaFor(definition, subjects).parse(
     ballotOfRow(row, definition),
   ) as Ballot;
+};
 
 /** Only a human judge seated in this Round reads its own ballot and the frozen input. */
 export const ownJudgeSeat = <
@@ -73,8 +101,8 @@ export const ownJudgeSeat = <
 const feedbackFor = (
   feedback: Ballot['feedback'],
   subject: string | undefined,
-): Ballot['feedback'] => {
-  const text = subject ? feedback[subject] : undefined;
+): NonNullable<Ballot['feedback']> => {
+  const text = subject ? feedback?.[subject] : undefined;
   return subject && text ? { [subject]: text } : {};
 };
 
@@ -86,6 +114,13 @@ const feedbackFor = (
  * (ADR 0071).
  */
 export function ballotReadView(input: {
+  readonly audience:
+    | { readonly kind: 'ordinary' }
+    | {
+        readonly kind: 'event';
+        readonly access: RoundBallotAccess;
+        readonly screenings: ReadonlyMap<string, BallotScreeningRead>;
+      };
   readonly status: string;
   readonly ownSeatId: string | undefined;
   /** The subject the reader's feedback is written under (`feedbackSubjectOf`). */
@@ -93,6 +128,7 @@ export function ballotReadView(input: {
   readonly aiJudgeSeatIds: ReadonlySet<string>;
   /** The Round's frozen ballot definition and who its ballots are about. */
   readonly definition: BallotDefinition | null;
+  readonly source: BallotDefinitionSource | null;
   readonly subjects: BallotSubjects;
   readonly rows: readonly BallotRow[];
   readonly frozen: FrozenRoundTranscript | null;
@@ -100,9 +136,9 @@ export function ballotReadView(input: {
   const own = input.rows.find((b) => b.judgeParticipantId === input.ownSeatId);
   const { frozen } = input;
   const body = (row: BallotRow) => {
-    if (!input.definition)
+    if (!input.definition || !input.source)
       throw createAppError('INVARIANT', 'A ballot on a Round judged by nobody');
-    return ballotBody(row, input.definition, input.subjects);
+    return ballotBody(row, input.definition, input.source, input.subjects);
   };
   return {
     own: input.ownSeatId
@@ -122,15 +158,47 @@ export function ballotReadView(input: {
         }
       : null,
     ballots:
-      input.status === 'completed'
-        ? input.rows.map((row) => {
-            const ballot = body(row);
+      input.status === 'completed' ||
+      (input.audience.kind === 'event' && input.audience.access.unreleased)
+        ? input.rows.flatMap((row) => {
+            const original = body(row);
+            const ballot =
+              input.audience.kind === 'ordinary'
+                ? original
+                : eventBallotForAudience(
+                    original,
+                    input.audience.access,
+                    input.audience.screenings.get(row.id) ?? null,
+                  );
+            if (Object.keys(ballot).length === 1) return [];
             const own = feedbackFor(ballot.feedback, input.viewerSubject);
             return {
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)
                 : ('human' as const),
-              ballot: { ...ballot, feedback: own },
+              ...(input.audience.kind === 'event' &&
+              input.audience.access.unreleased
+                ? {
+                    review: {
+                      ballotId: row.id,
+                      screening:
+                        input.audience.screenings.get(row.id)?.status ??
+                        'pending',
+                    },
+                  }
+                : {}),
+              ballot: {
+                ...ballot,
+                ...(ballot.feedback !== undefined
+                  ? {
+                      feedback:
+                        input.audience.kind === 'event' &&
+                        input.audience.access.unreleased
+                          ? ballot.feedback
+                          : own,
+                    }
+                  : {}),
+              },
               reportableFeedbackId: Object.keys(own).length > 0 ? row.id : null,
             };
           })

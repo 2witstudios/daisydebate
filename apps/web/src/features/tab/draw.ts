@@ -76,7 +76,10 @@ const listedGroups = 2;
 
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
-const recordOf = (wins: number) => plural(wins, 'win', 'wins');
+const recordOf = (record: DrawView['recordGroups'][number]['record']) => {
+  const { n, d } = record.value;
+  return `${d === 1 ? n : `${n}/${d}`} ${record.label === 'Wins' && n === d ? 'win' : record.label.toLowerCase()}`;
+};
 const capitalized = (word: string) =>
   `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`;
 const options = (first: string, rest: readonly string[]) =>
@@ -139,7 +142,7 @@ const restOf = (groups: DrawView['recordGroups']): string | null => {
   const byes = fixtures.filter((fixture) => fixture.kind === 'bye');
   const others = fixtures.length - byes.length;
   return [
-    groups.map((group) => recordOf(group.wins)).join(', '),
+    groups.map((group) => recordOf(group.record)).join(', '),
     ...(others === 0 ? [] : [plural(others, 'more fixture', 'more fixtures')]),
     ...(byes.length === 0
       ? []
@@ -150,7 +153,10 @@ const restOf = (groups: DrawView['recordGroups']): string | null => {
 };
 
 /** The draft draw board: a projection of the host's `DrawView`. */
-const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
+export const drawBoardOf = (
+  read: DrawView,
+  context: DrawBoardContext,
+): DrawBoard => {
   const fixtures = read.recordGroups.flatMap((group) => group.fixtures);
   const findings = fixtures.flatMap((fixture) => fixture.findings);
   const counted = (severity: DrawFindingSeverity) =>
@@ -178,7 +184,7 @@ const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
     version: read.draw.version,
     basis:
       read.resultsThroughRound === null
-        ? 'from the seeding'
+        ? 'before any results'
         : `from results through round ${read.resultsThroughRound}`,
     rulesBroken: counted('rule_broken'),
     preferencesBent: counted('preference_bent'),
@@ -188,7 +194,7 @@ const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
       ? read.recordGroups
       : read.recordGroups.slice(0, listedGroups)
     ).map((group) => ({
-      record: recordOf(group.wins),
+      record: recordOf(group.record),
       fixtures: group.fixtures.map(fixtureOf),
     })),
     rest:

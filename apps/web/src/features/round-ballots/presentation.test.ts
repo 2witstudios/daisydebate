@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundBallotRead, RoundBallotReceipt } from '@daisy/protocol';
 import {
@@ -17,6 +18,7 @@ setupRitewayBun();
 
 const open: RoundBallotRead = {
   judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
     ballot: daisyWinnerBallot,
     panel: panelRuleFor(daisyWinnerBallot),
   },

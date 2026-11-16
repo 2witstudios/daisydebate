@@ -1,3 +1,4 @@
+import type { RoundTimeSource } from './round-execution-time';
 import { requireCurrentWeb } from './web-service-authority';
 import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
 import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
@@ -22,7 +23,10 @@ import { rounds } from './schema/rounds';
 
 type DueInput = LockedRoundTickInput & { readonly instanceId: string };
 /** Internal service authority, one canonical clock and the existing bounded pool. */
-export function roundMaintenanceOperations(run: BoundedTransaction) {
+export function roundMaintenanceOperations(
+  run: BoundedTransaction,
+  roundTime?: RoundTimeSource,
+) {
   const withRound = <T>(
     input: DueInput,
     work: (
@@ -102,13 +106,13 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
       });
     },
     tickDueRound: (input: DueInput) =>
-      withRound(input, (tx) => executeLockedRoundTick(tx, input)),
+      withRound(input, (tx) => executeLockedRoundTick(tx, input, roundTime)),
     finalizeDueRoundTranscript: (
       input: DueInput &
         Pick<FreezeRequest, 'planJudging' | 'botGrantUnused' | 'captureRule'>,
     ) =>
       withRound(input, (tx, assertCurrent) =>
-        finalizeLockedRoundTranscript(tx, input, assertCurrent),
+        finalizeLockedRoundTranscript(tx, input, assertCurrent, roundTime),
       ),
   };
 }

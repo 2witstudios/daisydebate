@@ -1,12 +1,8 @@
+import { judgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import {
-  rejected,
-  rejectedBy,
-  seatColumnsOf,
-  withFixture,
-} from './constraint-helpers';
+import { rejectedBy, seatColumnsOf, withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 
@@ -23,7 +19,7 @@ const constraintOf = (attempt: () => Promise<unknown>) => rejectedBy(attempt);
  */
 test('round_participants is the authoritative seat record', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const [first, second, third] = [createId(), createId(), createId()];
     await fixture.insert(
       'round_participants',
@@ -147,7 +143,7 @@ test('round_participants is the authoritative seat record', async () => {
  */
 test('a judge seat with a submitted ballot is RESTRICTed from deletion', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const freezeRevision = await fixture.freeze(roundId);
     const seat = await fixture.seat(roundId, 'judge');
     await fixture.insert(
@@ -197,20 +193,35 @@ test('a judge seat with a submitted ballot is RESTRICTed from deletion', async (
     const seatDelete = await constraintOf(
       () => fixture.sql`delete from round_participants where id = ${seat.id}`,
     );
-    const roundDelete = await rejected(
+    const retainedSeat = await fixture.count(
+      'round_participants',
+      'id',
+      seat.id,
+    );
+    const retainedBallot = await fixture.count('ballots', 'round_id', roundId);
+    const roundDelete = await constraintOf(
       () => fixture.sql`delete from rounds where id = ${roundId}`,
     );
     assert({
       given: 'a judge seat holding a submitted ballot',
       should:
-        'refuse deleting the seat directly and refuse the round delete that would cascade into it',
+        'preserve the submitted identity on direct refusal and erase both rows only through the owning Round',
       actual: {
         seatDelete,
-        roundDelete: roundDelete !== null,
+        retainedSeat,
+        retainedBallot,
+        roundDelete,
+        afterErasure: [
+          await fixture.count('round_participants', 'id', seat.id),
+          await fixture.count('ballots', 'round_id', roundId),
+        ],
       },
       expected: {
-        seatDelete: 'ballots_judge_seat_fk',
-        roundDelete: true,
+        seatDelete: 'round_participants_identity_immutable',
+        retainedSeat: 1,
+        retainedBallot: 1,
+        roundDelete: null,
+        afterErasure: [0, 0],
       },
     });
   });

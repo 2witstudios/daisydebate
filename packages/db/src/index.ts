@@ -1,3 +1,6 @@
+import type { RoundTimeSource } from './round-execution-time';
+export type { RoundTimeSource } from './round-execution-time';
+export type { RoundRoomAuthority } from './round-room-authority';
 import { TranscriptionRecovery } from './transcription-recovery/transcription-recovery';
 import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
 import { roundFloorModeration } from './messaging/round-floor-moderation';
@@ -9,6 +12,7 @@ import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
+import { createTabStore } from './tab/store';
 import {
   challengeReadOperations,
   createChallengeStore,
@@ -185,8 +189,11 @@ export function createDatabase({
   judging,
   botPublication,
   roundAnalysis,
+  roundTime,
 }: {
   url: string;
+  /** Trusted Round persistence time resource; absent in production composition. */
+  roundTime?: RoundTimeSource;
   /** The process's lane reservations; web unless a caller asks for another. */
   profile?: WorkloadProfile;
   /** No implicit bot capacity or quota: absence truthfully refuses bot-debater admission. */
@@ -238,8 +245,8 @@ export function createDatabase({
     ...usageRecoveryOperations(controlTransaction),
     ...billingOperations({ run: controlTransaction, nextId: nextActorId }),
     ...botAdmissionOperations,
-    ...roundMaintenanceOperations(competitiveTransaction),
-    ...roundPanelCompletionOperations(competitiveTransaction),
+    ...roundMaintenanceOperations(competitiveTransaction, roundTime),
+    ...roundPanelCompletionOperations(competitiveTransaction, roundTime),
     ...roundWorkerEntrypoints({
       run: competitiveTransaction,
       nextId: nextActorId,
@@ -269,6 +276,7 @@ export function createDatabase({
       }),
     ),
     ...attendanceEntrypoints({
+      roundTime,
       run: competitiveTransaction,
       nextId: nextActorId,
     }),
@@ -368,6 +376,8 @@ export function createDatabase({
     }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),
+    /** Daisy Tab's commands and reads, each in one transaction fenced to its tenant. */
+    tabCommands: createTabStore(database),
     ...friendshipReadOperations({ database: social, eventSink }),
     ...presenceSettingOperations({ database: social, eventSink }),
     ...peopleListOperations({ database: social, eventSink }),
@@ -432,8 +442,8 @@ export function createDatabase({
       ),
     }),
     ...roundOperations({ database, eventSink }),
-    ...roundCommandOperations({ database, eventSink }),
-    ...roundBallotOperations({ database, eventSink }),
+    ...roundCommandOperations({ database, eventSink, roundTime }),
+    ...roundBallotOperations({ database, eventSink, roundTime }),
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
@@ -500,3 +510,5 @@ export function createDatabase({
   });
 }
 export type Database = ReturnType<typeof createDatabase>;
+
+export type { RoundBallotAccess } from './round-ballot-audience';

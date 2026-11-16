@@ -56,6 +56,7 @@ const withinMediaWindow = (input: MediaGrantInput) => {
     Number.isFinite(finalEnd) &&
     Date.parse(input.now) >= finalEnd &&
     !mediaWindowClosed({
+      sourceVoided: false,
       status: input.position.status,
       now: input.now,
       finalSegmentEndedAt: input.finalSegmentEndedAt,

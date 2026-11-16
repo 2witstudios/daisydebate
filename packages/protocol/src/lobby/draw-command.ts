@@ -50,7 +50,7 @@ export type DrawEdit = z.infer<typeof drawEditSchema>;
  * A rule the host chose to break for this one draw. The reason is a string
  * that must be given; a blank one is refused `reason-required`.
  */
-const drawOverrideSchema = z.strictObject({
+export const drawOverrideSchema = z.strictObject({
   key: forceKeySchema,
   reason: z.string().max(500),
 });
@@ -154,6 +154,8 @@ export const drawCommandCatalogue = {
     refusals: [
       'stale-draft',
       'inputs-changed',
+      'draw-unresolved',
+      'judges-insufficient',
       'rule-broken',
       'reason-required',
       'fixture-started',

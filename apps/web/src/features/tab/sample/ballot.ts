@@ -16,40 +16,99 @@ const sampleId = (name: string): string =>
     .slice(0, 24);
 
 const varsity: BallotDefinition = {
-  version: 2,
-  points: { min: 20, max: 30, step: 0.5, lowPointWin: false },
-  ranks: false,
-  criteria: [],
-  outcomes: { winner: true, doubleLoss: true },
+  key: 'sample-varsity',
+  revision: 2,
+  decision: {
+    kind: 'winner',
+    lowPointWin: false,
+    tie: false,
+    doubleLoss: true,
+  },
+  points: {
+    per: 'side',
+    scale: { min: 20, max: 30, step: 0.5 },
+    default: 27,
+    weights: null,
+    criteria: { kind: 'holistic' },
+  },
+  speakerRanks: false,
   written: {
-    reason: 'required',
-    feedback: 'optional',
-    privateNote: 'optional',
+    reason: { required: true, max: 5000 },
+    feedback: { required: false, max: 5000 },
   },
 };
-
 const elimination: BallotDefinition = {
   ...varsity,
-  outcomes: { winner: true, doubleLoss: false },
-  written: { reason: 'required', feedback: 'off', privateNote: 'optional' },
+  key: 'sample-elimination',
+  decision: {
+    kind: 'winner',
+    lowPointWin: false,
+    tie: false,
+    doubleLoss: false,
+  },
+  written: { reason: { required: true, max: 5000 }, feedback: null },
 };
-
 const speech: BallotDefinition = {
-  version: 1,
+  key: 'sample-speech',
+  revision: 1,
+  decision: { kind: 'ranking', of: 'speakers', ties: false },
   points: null,
-  ranks: true,
-  criteria: [],
-  outcomes: { winner: false, doubleLoss: false },
-  written: { reason: 'off', feedback: 'required', privateNote: 'optional' },
+  speakerRanks: false,
+  written: { reason: null, feedback: { required: true, max: 5000 } },
 };
-
+const sampleCategories = [
+  {
+    id: 'argument',
+    name: 'Argument',
+    rewards: 'A supported case that answers the motion.',
+    anchors: [
+      'Claims lack support.',
+      'A coherent case has relevant support.',
+      'A complete case weighs the competing arguments.',
+    ],
+  },
+  {
+    id: 'evidence',
+    name: 'Evidence',
+    rewards: 'Relevant evidence connected to the claim.',
+    anchors: [
+      'Evidence is absent or irrelevant.',
+      'Relevant evidence supports the case.',
+      'Evidence is evaluated and compared.',
+    ],
+  },
+  {
+    id: 'delivery',
+    name: 'Delivery',
+    rewards: 'Clear communication that makes the case understandable.',
+    anchors: [
+      'Delivery obscures the argument.',
+      'The case can be followed.',
+      'Delivery clarifies the central comparison.',
+    ],
+  },
+];
 const fourSides: BallotDefinition = {
-  version: 1,
-  points: { min: 50, max: 100, step: 1, lowPointWin: true },
-  ranks: true,
-  criteria: ['Argument', 'Evidence', 'Delivery'],
-  outcomes: { winner: false, doubleLoss: false },
-  written: { reason: 'required', feedback: 'optional', privateNote: 'off' },
+  key: 'sample-four-sides',
+  revision: 1,
+  decision: { kind: 'ranking', of: 'sides', ties: false },
+  points: {
+    per: 'side',
+    scale: { min: 50, max: 100, step: 1 },
+    default: 75,
+    weights: null,
+    criteria: {
+      kind: 'grid',
+      groups: [
+        { id: 'overall', name: 'Overall', categories: sampleCategories },
+      ],
+    },
+  },
+  speakerRanks: false,
+  written: {
+    reason: { required: true, max: 5000 },
+    feedback: { required: false, max: 5000 },
+  },
 };
 
 export function sampleEventBallot(
@@ -163,8 +222,8 @@ const ballots: Readonly<Record<string, JudgeBallotView>> = {
       winner: null,
       points: Object.fromEntries(
         (['og', 'oo', 'cg', 'co'] as const).flatMap((team, index) =>
-          fourSides.criteria.map((criterion) => [
-            `${team}:${criterion}`,
+          sampleCategories.map((criterion) => [
+            `${team}:${criterion.id}`,
             76 - index * 2,
           ]),
         ),

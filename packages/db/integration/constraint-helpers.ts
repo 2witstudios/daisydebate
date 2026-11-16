@@ -1,3 +1,4 @@
+import { causeChainMember } from '../src/capacity-refusal';
 import { SQL } from 'bun';
 import {
   foundationDefinition,
@@ -42,10 +43,13 @@ export const rejectedBy = async (
     await attempt();
     return null;
   } catch (error) {
-    const { errno, constraint } = error as PostgresFailure;
-    if (typeof errno === 'string' && errno.startsWith('23'))
-      return typeof constraint === 'string' ? constraint : errno;
-    throw error;
+    const failure = causeChainMember((candidate) => {
+      const { errno } = candidate as PostgresFailure;
+      return typeof errno === 'string' && errno.startsWith('23');
+    }, error);
+    if (!failure) throw error;
+    const { errno, constraint } = failure as PostgresFailure;
+    return typeof constraint === 'string' ? constraint : String(errno);
   }
 };
 
@@ -72,9 +76,11 @@ type Row = Readonly<Record<string, unknown>>;
 
 /** Cleanup order: children before parents; RESTRICT edges never fire. */
 const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
-  ['ballots', 'id'],
   ['rating_changes', 'id'],
   ['ratings', 'actor_id'],
+  // Immutable competitive children erase only with their actual owning Round.
+  ['rounds', 'id'],
+  ['ballots', 'id'],
   // Agent runs and utterances hang off the seats and the live segments.
   ['agent_runs', 'id'],
   ['utterances', 'id'],
@@ -82,7 +88,6 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['round_segments', 'id'],
   ['round_participants', 'id'],
   ['usage_reservations', 'id'],
-  ['rounds', 'id'],
   ['room_participants', 'id'],
   ['rooms', 'id'],
   ['documents', 'id'],
@@ -108,9 +113,11 @@ const daisyKeys: Record<string, Row> = {
  * deleted in `finally`, so a failing assertion leaves no rows behind.
  */
 export class Fixture {
-  readonly tracked = new Map<string, string[]>();
   private daisyKeyed: Promise<Set<string>> | undefined;
-  constructor(readonly sql: SQL) {}
+  constructor(
+    readonly sql: SQL,
+    readonly tracked = new Map<string, string[]>(),
+  ) {}
 
   /**
    * A fixture Room or season that names no owner is Daisy's, as Daisy's own
@@ -188,11 +195,11 @@ export class Fixture {
    * first: `formats_current_revision_fk` is DEFERRABLE, but each statement
    * here autocommits, so the target row has to exist before the pointer.
    */
-  async format() {
+  async format(definition = foundationDefinition) {
     const id = `fmt-${createId()}`;
     await this.insert(
       'format_revisions',
-      { format_id: id, version: 1, definition: foundationDefinition },
+      { format_id: id, version: 1, definition },
       'format_id',
     );
     await this.insert('formats', {
@@ -309,7 +316,7 @@ export class Fixture {
    * An unstarted round carrying resolved rules; `overrides` set or null out
    * the lifecycle, ladder and provenance columns the CHECKs tie together.
    */
-  async round(overrides: Row = {}) {
+  async round(overrides: Row = {}, { rules = validRules } = {}) {
     const id = createId();
     const columns = await this.present('rounds', [
       'outcome',
@@ -322,30 +329,73 @@ export class Fixture {
       created_by_actor_id: null,
       resolution: 'A resolution',
       competition_type: 'casual',
-      format_id: await this.format(),
+      format_id:
+        typeof overrides.format_id === 'string'
+          ? overrides.format_id
+          : await this.format(),
       format_version: 1,
       preset_version: null,
-      rules_snapshot: validRules,
+      rules_snapshot: rules,
       status: await this.unstartedStatus(),
       current_stage: null,
       // TAB-6 dropped the column's two-sided default; a predecessor keeps its own.
       ...((await this.checkpointHasDefault())
         ? {}
-        : { runtime_state: emptyRuntimeCheckpointFor(validRules) }),
+        : { runtime_state: emptyRuntimeCheckpointFor(rules) }),
       // A proof may lend the TAB-6 columns to a predecessor beside its own.
       ...(columns.has('outcome') ? { outcome: null } : {}),
       ...(columns.has('winning_side')
         ? { winning_side: null, ranking: null }
         : {}),
-      ...(columns.has('judging')
-        ? { judging: frozenJudgingFor(validRules) }
-        : {}),
+      ...(columns.has('judging') ? { judging: frozenJudgingFor(rules) } : {}),
       ladder_id: null,
       started_at: null,
       completed_at: null,
       ...overrides,
     });
     return id;
+  }
+
+  /** Construct a fixture's complete initial cast before it starts or completes. */
+  async roundWithCast(
+    overrides: Row,
+    cast: readonly {
+      readonly seat: string;
+      readonly actorId?: string;
+      readonly slot?: number;
+    }[],
+    options: { readonly rules?: typeof validRules } = {},
+  ) {
+    return this.sql.begin(async (tx) => {
+      const fixture = new Fixture(tx as SQL, this.tracked);
+      const lifecycle = new Set([
+        'status',
+        'current_stage',
+        'started_at',
+        'completed_at',
+        'winning_side',
+        'ranking',
+        'outcome',
+      ]);
+      const initial = Object.fromEntries(
+        Object.entries(overrides).filter(([key]) => !lifecycle.has(key)),
+      );
+      const id = await fixture.round(initial, options);
+      const seats = [];
+      for (const person of cast)
+        seats.push(
+          await fixture.seat(id, person.seat, person.slot ?? 0, person.actorId),
+        );
+      const changes = Object.entries(overrides).filter(([key]) =>
+        lifecycle.has(key),
+      );
+      if (changes.length)
+        await tx.unsafe(
+          `update rounds set ${changes.map(([key], index) => `${key}=$${index + 2}`).join(',')} where id=$1`,
+          [id, ...changes.map(([, value]) => value)],
+        );
+      return { id, seats };
+    });
   }
 
   /**
@@ -400,16 +450,6 @@ export class Fixture {
   }
 
   async purge() {
-    // Predecessor-schema migration proofs deliberately lack these forward tables.
-    const [provenance] = await this
-      .sql`select to_regclass('public.round_finalizations') is not null as present`;
-    if (provenance?.present)
-      for (const roundId of this.tracked.get('rounds') ?? []) {
-        await this
-          .sql`delete from round_finalization_ballots where round_id=${roundId}`;
-        await this
-          .sql`delete from round_finalizations where round_id=${roundId}`;
-      }
     // Erasure routing intentionally survives account deletion. Remove only this fixture's requests.
     const [evidencePrivacy] = await this
       .sql`select to_regclass('public.necessary_evidence_erasure_requests') is not null as present`;

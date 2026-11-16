@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { withEvidenceIngress } from './necessary-evidence-ingress.test-support';
+import { withRecognitionIngress as withEvidenceIngress } from './necessary-evidence-ingress.test-support';
 import { readyRecognition } from './transcription-recovery.test-support';
 import { createNecessaryEvidenceIngress } from '../src/features/media-capture/necessary-evidence-ingress';
 import { createTranscriptionAttempt } from '../src/features/transcription-recovery/attempt';

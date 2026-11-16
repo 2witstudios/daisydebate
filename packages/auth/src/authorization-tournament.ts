@@ -155,5 +155,7 @@ export function audienceRead(
         thing,
         resource.viewing,
         conflictOf(resource),
+        null,
+        resource.kind === 'ballot' ? 'ballots' : 'results',
       );
 }

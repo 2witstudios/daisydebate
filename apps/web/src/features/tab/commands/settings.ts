@@ -1,3 +1,4 @@
+import { storedBallotDefinition, type BallotDefinition } from '@daisy/protocol';
 import type {
   SettingCommand,
   SettingRefusal,
@@ -106,6 +107,8 @@ export type TemplateRow = {
   readonly version: number;
   /** The values its pinned format gives the keys that default to it. */
   readonly format: FormatSettingDefaults;
+  readonly ballotCompatible: boolean;
+  readonly ballotDefinition: BallotDefinition | null;
 };
 
 /** An `events` row, with what its commands read. */
@@ -154,6 +157,8 @@ export type SettingFacts = {
     readonly organizationId: string | null;
     readonly lobbyId: string | null;
   } | null;
+  /** Exact canonical pin binding, including an unpinned Daisy definition. */
+  readonly ballotCompatible: boolean;
 };
 
 type ScopeColumns = {
@@ -171,6 +176,29 @@ type Pins = {
 };
 
 type SettingWrite =
+  | {
+      readonly table: 'ballot_definitions';
+      readonly op: 'insert';
+      readonly row: {
+        readonly id: string;
+        readonly lobbyId: string;
+        readonly name: string;
+        readonly currentVersion: number;
+      };
+    }
+  | {
+      readonly table: 'ballot_definition_versions';
+      readonly op: 'insert';
+      readonly row: {
+        readonly ballotDefinitionId: string;
+        readonly version: number;
+        readonly lobbyId: string;
+        readonly definition: BallotDefinition;
+        readonly copiedFromBallotDefinitionId: string;
+        readonly copiedFromBallotDefinitionVersion: number;
+      };
+    }
+
   /** The row's id is minted where the write is applied. */
   | {
       readonly table: 'settings';
@@ -498,6 +526,7 @@ function createTemplate(
       !ownable(facts.ballotDefinition.organizationId))
   )
     return refuse('illegal-definition');
+  if (!facts.ballotCompatible) return refuse('illegal-definition');
   // Made with no settings; its pins never change afterwards.
   return accepted({ kind: 'template', id: facts.newId }, 1, [
     {
@@ -540,7 +569,11 @@ function offerTemplate(
   template: TemplateRow | null,
 ): Decision {
   if (lobby.kind !== 'standing') return refuse('lobby-not-standing');
-  if (template === null || template.retiredAt !== null)
+  if (
+    template === null ||
+    template.retiredAt !== null ||
+    !template.ballotCompatible
+  )
     return refuse('template-unavailable');
   if (facts.offer && facts.offer.withdrawnAt === null)
     return refuse('already-offered');
@@ -680,6 +713,62 @@ const eventUpdate = (
   },
 });
 
+/** A detached event owns real immutable content; it never inherits a foreign catalogue permission. */
+const copyTemplateBallot = (
+  facts: SettingFacts,
+  event: EventFact,
+  template: TemplateRow,
+): { readonly pins: Pins; readonly writes: readonly SettingWrite[] } | null => {
+  const pins = pinsOf(template);
+  if (
+    template.ballotDefinitionId === null &&
+    template.ballotDefinitionVersion === null
+  )
+    return { pins, writes: [] };
+  if (
+    template.ballotDefinitionId === null ||
+    template.ballotDefinitionVersion === null ||
+    !template.ballotDefinition ||
+    template.ballotDefinition.revision !== template.ballotDefinitionVersion
+  )
+    return null;
+  return {
+    pins: {
+      ...pins,
+      ballotDefinitionId: facts.newId,
+      ballotDefinitionVersion: 1,
+    },
+    writes: [
+      {
+        table: 'ballot_definitions',
+        op: 'insert',
+        row: {
+          id: facts.newId,
+          lobbyId: event.lobbyId,
+          name: `${template.name} ballot`.slice(0, 200),
+          currentVersion: 1,
+        },
+      },
+      {
+        table: 'ballot_definition_versions',
+        op: 'insert',
+        row: {
+          ballotDefinitionId: facts.newId,
+          version: 1,
+          lobbyId: event.lobbyId,
+          copiedFromBallotDefinitionId: template.ballotDefinitionId,
+          copiedFromBallotDefinitionVersion: template.ballotDefinitionVersion,
+          definition: storedBallotDefinition(
+            facts.newId,
+            1,
+            template.ballotDefinition,
+          ),
+        },
+      },
+    ],
+  };
+};
+
 function copyTemplate(
   facts: SettingFacts,
   event: EventFact,
@@ -688,8 +777,14 @@ function copyTemplate(
   if (event.entryCount > 0) return refuse('entries-exist');
   // A following event keeps its template's pins; it stops following first.
   if (event.templateId !== null) return refuse('already-following');
-  if (template === null || template.retiredAt !== null)
+  if (
+    template === null ||
+    template.retiredAt !== null ||
+    !template.ballotCompatible
+  )
     return refuse('template-unavailable');
+  const ballot = copyTemplateBallot(facts, event, template);
+  if (!ballot) return refuse('illegal-definition');
   // No link is kept: the template's own values become the event's.
   const own = facts.rows.filter((row) =>
     sameScope(row.scope, { kind: 'template', id: template.id }),
@@ -698,7 +793,7 @@ function copyTemplate(
   return accepted(
     { kind: 'event', id: event.id },
     event.version + 1,
-    [...copied.writes, eventUpdate(event, pinsOf(template))],
+    [...copied.writes, ...ballot.writes, eventUpdate(event, ballot.pins)],
     copied.findings,
   );
 }
@@ -710,7 +805,11 @@ function followTemplate(
 ): Decision {
   if (event.entryCount > 0) return refuse('entries-exist');
   if (event.templateId !== null) return refuse('already-following');
-  if (template === null || template.retiredAt !== null)
+  if (
+    template === null ||
+    template.retiredAt !== null ||
+    !template.ballotCompatible
+  )
     return refuse('template-unavailable');
   if (anyEnforcedConflict(chainOf(event, template), facts.rows))
     return refuse('enforced-conflict');
@@ -723,6 +822,14 @@ function followTemplate(
 function stopFollowing(facts: SettingFacts, event: EventFact): Decision {
   if (event.templateId === null || event.templateOrganizationId === null)
     return refuse('not-following');
+  if (
+    !facts.template ||
+    facts.template.id !== event.templateId ||
+    !facts.template.ballotCompatible
+  )
+    return refuse('template-unavailable');
+  const ballot = copyTemplateBallot(facts, event, facts.template);
+  if (!ballot) return refuse('illegal-definition');
   const before = eventChain({
     template: {
       id: event.templateId,
@@ -751,7 +858,14 @@ function stopFollowing(facts: SettingFacts, event: EventFact): Decision {
   return accepted(
     { kind: 'event', id: event.id },
     event.version + 1,
-    [...kept.writes, eventUpdate(event, { templateId: null })],
+    [
+      ...kept.writes,
+      ...ballot.writes,
+      eventUpdate(event, {
+        ...(facts.template.ballotDefinitionId === null ? {} : ballot.pins),
+        templateId: null,
+      }),
+    ],
     kept.findings,
   );
 }

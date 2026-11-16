@@ -71,12 +71,19 @@ function commandFence(
   room: RoomAssemblyState,
   actorId: string,
   command: RoomCommand,
+  direction: Edges['direction'],
 ): RoomRefusal | null {
   if (command.expectedVersion !== room.version) return 'version-conflict';
   if (!isOpenRoomStatus(room.status)) return 'room-closed';
   if (
     roomCommandPolicies[command.type].authority === 'host' &&
-    room.hostActorId !== actorId
+    room.hostActorId !== actorId &&
+    !(
+      room.hostActorId === null &&
+      direction?.roomId === room.id &&
+      direction.actorId === actorId &&
+      direction.command === command.type
+    )
   )
     return 'host-required';
   return null;
@@ -99,7 +106,7 @@ export function executeRoomCommand(
   const { edit, transition } = roomCommandPolicies[
     command.type
   ] as RoomCommandPolicy<RoomCommandType>;
-  const fenced = commandFence(room, actorId, command);
+  const fenced = commandFence(room, actorId, command, edges.direction);
   if (fenced) return refuse(fenced);
   const outcome = transition(room, actorId, command, consent, edges);
   if (!outcome.ok) return outcome;
@@ -223,3 +230,18 @@ export const releaseRestrictedMember = (
       }
     : closeRoom(freed);
 };
+
+/** An ordinary owner changed one judge; open Rooms ask every seat to consent again. */
+export const afterRoomJudgeChange = (
+  room: RoomAssemblyState,
+): RoomAssemblyState =>
+  isOpenRoom(room)
+    ? {
+        ...room,
+        status: assembledStatus(room),
+        participants: room.participants.map((person) => ({
+          ...person,
+          consentCommandId: null,
+        })),
+      }
+    : room;

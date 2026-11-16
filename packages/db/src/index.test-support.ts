@@ -119,6 +119,8 @@ export const roundRow = (record: {
   record.outcome,
   null,
   record.judging ?? null,
+  null, // generated stored-ballot identity (Daisy/unjudged fixture)
+  null, // generated stored-ballot version
   record.ladderId,
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),

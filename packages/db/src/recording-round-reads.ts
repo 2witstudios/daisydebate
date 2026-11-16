@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
 import { and, asc, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -62,7 +63,12 @@ export const recordingRoundReadOperations = ({
             slot: roundParticipants.slot,
           })
           .from(roundParticipants)
-          .where(eq(roundParticipants.roundId, roundId))
+          .where(
+            and(
+              eq(roundParticipants.roundId, roundId),
+              currentRoundParticipant(roundParticipants.id),
+            ),
+          )
           .orderBy(...seatRowOrder(roundParticipants))
       ).map(({ id, actorId, ...seat }) => ({
         id,

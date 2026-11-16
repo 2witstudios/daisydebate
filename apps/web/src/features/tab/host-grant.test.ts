@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mock } from 'bun:test';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { participantPathOf } from './routes';
+import { LEAGUE } from './sample/moment';
 import type { SampleScene } from './sample/scene';
 
 setupRitewayBun();
@@ -28,14 +30,22 @@ const sample: Readonly<Record<string, string>> = {
   slot: '1200',
 };
 
-/** `(host)/host/tournaments/[slug]/setup/page.tsx` → its address for the sample. */
-const addressOf = (file: string): string =>
-  `/${file
+/**
+ * `(host)/host/tournaments/[slug]/setup/page.tsx` → its address for the
+ * sample. A league page is the sample league's: any other league address is
+ * a stored organization, which answers a viewer it denies as not found.
+ */
+const sampleFor = (file: string): Readonly<Record<string, string>> =>
+  file.includes('/leagues/') ? { ...sample, slug: LEAGUE } : sample;
+const addressOf = (file: string): string => {
+  const values = sampleFor(file);
+  return `/${file
     .replace(/\/?page\.tsx$/, '')
     .split('/')
     .filter((segment) => !/^\(.*\)$/.test(segment))
-    .map((segment) => sample[segment.replace(/^\[(.*)\]$/, '$1')] ?? segment)
+    .map((segment) => values[segment.replace(/^\[(.*)\]$/, '$1')] ?? segment)
     .join('/')}`;
+};
 
 type Page = (props: {
   params: Promise<Record<string, string>>;
@@ -81,7 +91,7 @@ async function redirectOf(file: string): Promise<string | null> {
   try {
     const page = (await loaders[file]?.()) as { default: Page };
     await page.default({
-      params: Promise.resolve(sample),
+      params: Promise.resolve(sampleFor(file)),
       searchParams: Promise.resolve({}),
     });
     return null;
@@ -99,20 +109,64 @@ async function redirectOf(file: string): Promise<string | null> {
 }
 
 const hostPages = [...new Glob('(host)/**/page.tsx').scanSync(app)].sort();
+// Stored pages consume evaluated HTTP reads; this cookie-based sample frame
+// supplies no real member session. Real narrow-role/refusal/revocation checks
+// live in tab-host-areas.integration.ts. Keep their page bindings exhaustive.
+const storedPages = hostPages.filter((file) => {
+  const source = readFileSync(join(app, file), 'utf8');
+  return (
+    source.includes('readStoredHostNavigation(') &&
+    source.includes('readOwnRoute(') &&
+    !source.includes('requireGrant(')
+  );
+});
+const samplePages = hostPages.filter((file) => !storedPages.includes(file));
 
 describe('the host area', () => {
-  test('every host page turns away a viewer without a grant', async () => {
+  test('stored host pages keep their own release and evaluated area read boundaries', () => {
+    assert({
+      given: 'stored host pages outside the sample-cookie frame',
+      should:
+        'refuse before rendering without navigation or their actual area read, with no missing inventory entry',
+      actual: storedPages.map((file) => {
+        const source = readFileSync(join(app, file), 'utf8'),
+          release = source.indexOf('await requireTabRelease()'),
+          navigation = source.indexOf('await readStoredHostNavigation('),
+          read = source.indexOf('await readOwnRoute(');
+        return [
+          file,
+          release >= 0 && release < navigation && navigation < read,
+          source
+            .slice(navigation, read)
+            .includes('if (!navigation) notFound();'),
+          source.slice(read).includes('if (!index) notFound();'),
+          source.includes('api/tab/host-ballots/route'),
+        ];
+      }),
+      expected: [
+        [
+          '(host)/host/tournaments/[slug]/ballots/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+      ],
+    });
+  });
+
+  test('every sample host page redirects a viewer without a grant', async () => {
     viewer = { viewer: 'competitor', moment: 'elims', scale: 'normal' };
     const sent: Array<readonly [string, string | null]> = [];
-    for (const file of hostPages)
+    for (const file of samplePages)
       sent.push([addressOf(file), await redirectOf(file)]);
     assert({
-      given: 'each page under /host, opened by a competitor',
+      given: 'each sample page under /host, opened by a competitor',
       should: 'send them to the participant page for that page’s own address',
-      actual: [hostPages.length >= 15, sent],
+      actual: [samplePages.length >= 15, sent],
       expected: [
         true,
-        hostPages.map((file) => [
+        samplePages.map((file) => [
           addressOf(file),
           participantPathOf(addressOf(file)),
         ]),
@@ -123,7 +177,7 @@ describe('the host area', () => {
   test('a viewer with a grant stays in the host area', async () => {
     viewer = { viewer: 'host', moment: 'elims', scale: 'normal' };
     const sent: Array<string | null> = [];
-    for (const file of hostPages) sent.push(await redirectOf(file));
+    for (const file of samplePages) sent.push(await redirectOf(file));
     assert({
       given: 'each page under /host, opened by the host',
       should:

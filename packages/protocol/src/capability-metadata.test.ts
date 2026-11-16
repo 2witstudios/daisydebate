@@ -117,6 +117,7 @@ describe('capability metadata', () => {
       },
       expected: {
         lobby: [
+          'tournament.sponsorship.consent',
           'round.read',
           'round.observe.undelayed',
           'room.create',

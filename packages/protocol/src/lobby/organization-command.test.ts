@@ -3,6 +3,7 @@ import { authorizationCapabilitySchema } from '../authorization';
 import { parseEach, parsedUnchanged } from '../parse-outcome.test-support';
 import {
   organizationCommandCatalogue,
+  organizationCommandDefinition,
   organizationCommandEnvelopeSchema,
   organizationCommandSchema,
   organizationRefusals,
@@ -33,21 +34,23 @@ const valid = [
   { type: 'end-membership', organizationId, userId: id('member') },
   {
     type: 'give-grant',
-    organizationId,
     userId: id('member'),
     roleId: id('role'),
-    scope: { kind: 'organization' },
+    scope: { kind: 'organization', organizationId: organizationId },
     expiresAt: null,
   },
   {
     type: 'give-grant',
-    organizationId,
     userId: id('member'),
     roleId: id('role'),
     scope: { kind: 'lobby', lobbyId: id('lobby') },
     expiresAt: '2026-12-01T00:00:00.000Z',
   },
-  { type: 'remove-grant', organizationId, grantId: id('grant') },
+  {
+    type: 'remove-grant',
+    grantId: id('grant'),
+    scope: { kind: 'organization', organizationId: organizationId },
+  },
   { type: 'transfer-ownership', organizationId, userId: id('member') },
 ] as const;
 
@@ -110,7 +113,10 @@ describe('organizationCommandSchema', () => {
       should: 'reject the key',
       actual: parseEach(organizationCommandSchema, [
         { ...invite, roleId: id('role') },
-        { ...give, scope: { kind: 'organization', lobbyId: id('lobby') } },
+        {
+          ...give,
+          scope: { kind: 'organization', organizationId, lobbyId: id('lobby') },
+        },
       ]),
       expected: [{ issues: ['(root)'] }, { issues: ['scope'] }],
     });
@@ -149,6 +155,42 @@ describe('organizationCommandSchema', () => {
 });
 
 describe('organizationCommandCatalogue', () => {
+  test('grant commands guard the addressed aggregate', () => {
+    const requested = [
+      {
+        type: 'give-grant',
+        scope: { kind: 'organization', organizationId },
+        userId: id('member'),
+        roleId: id('role'),
+        expiresAt: null,
+      },
+      {
+        type: 'give-grant',
+        scope: { kind: 'lobby', lobbyId: id('lobby') },
+        userId: id('member'),
+        roleId: id('role'),
+        expiresAt: null,
+      },
+      {
+        type: 'remove-grant',
+        scope: { kind: 'lobby', lobbyId: id('lobby') },
+        grantId: id('grant'),
+      },
+    ] as const;
+    assert({
+      given: 'organization and personal-lobby grant commands',
+      should: 'require each target guard and journal its actual aggregate',
+      actual: requested.map((command) => {
+        const definition = organizationCommandDefinition(command);
+        return [definition.aggregate, definition.versions];
+      }),
+      expected: [
+        ['organization', ['organization']],
+        ['lobby', ['lobby']],
+        ['lobby', ['lobby']],
+      ],
+    });
+  });
   test('its contract', () => {
     const definitions = Object.values(organizationCommandCatalogue);
 
@@ -207,5 +249,24 @@ describe('organizationCommandCatalogue', () => {
       ),
       expected: [],
     });
+  });
+});
+
+test('pending membership cancellation retains its displayed membership guard', () => {
+  const envelope = {
+    version: 1,
+    commandId: id('cancel'),
+    expected: { membership: 3 },
+    command: {
+      type: 'cancel-membership-invitation',
+      organizationId,
+      userId: id('member'),
+    },
+  };
+  assert({
+    given: 'a manager cancelling the invitation version displayed to them',
+    should: 'accept the named cancellation and preserve its membership guard',
+    actual: organizationCommandEnvelopeSchema.safeParse(envelope).success,
+    expected: true,
   });
 });

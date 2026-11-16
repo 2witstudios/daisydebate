@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { DrawBoard as Read } from '../../../features/tab/draw';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { PageHeader } from '../../components/page-header/page-header';
@@ -29,10 +30,15 @@ export function DrawBoard({
   rail,
   current,
   draw,
+  storedControls,
 }: {
   readonly rail: TimelineRail;
   readonly current: string;
   readonly draw: Read;
+  readonly storedControls?: {
+    readonly actions: ReactNode;
+    readonly seats: ReactNode;
+  };
 }) {
   const chosen = draw.selected;
   return (
@@ -58,14 +64,16 @@ export function DrawBoard({
                 </section>
                 <section className="flex flex-col gap-2">
                   <h3 className={eyebrowClass}>Seats</h3>
-                  {chosen.seats.map((seat) => (
-                    <ChoiceField
-                      key={seat.label}
-                      id={`seat-${seat.label.toLowerCase()}`}
-                      choice={seat}
-                      layout="beside"
-                    />
-                  ))}
+                  {storedControls
+                    ? storedControls.seats
+                    : chosen.seats.map((seat) => (
+                        <ChoiceField
+                          key={seat.label}
+                          id={`seat-${seat.label.toLowerCase()}`}
+                          choice={seat}
+                          layout="beside"
+                        />
+                      ))}
                 </section>
                 {chosen.alternative === null ? null : (
                   <section className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
@@ -91,8 +99,14 @@ export function DrawBoard({
         lede={draftSummary(draw)}
         actions={
           <>
-            <ActionButton action={draw.again} />
-            <ActionButton action={draw.publish} />
+            {storedControls ? (
+              storedControls.actions
+            ) : (
+              <>
+                <ActionButton action={draw.again} />
+                <ActionButton action={draw.publish} />
+              </>
+            )}
           </>
         }
       />
@@ -133,7 +147,7 @@ export function DrawBoard({
           })),
         ]}
       />
-      {draw.back === null ? null : (
+      {storedControls || draw.back === null ? null : (
         <div className="flex items-center gap-3 text-sm text-ink-muted">
           <p>Draft {draw.version}.</p>
           <ActionButton size="small" action={draw.back} />

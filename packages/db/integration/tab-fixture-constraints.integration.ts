@@ -532,7 +532,10 @@ test('a tab round has one live fixture per entry and per judge, results only on 
         id: createId(),
         fixture_id: fixtureId,
         kind: 'administrative',
-        administrative_reason: 'ruling',
+        administrative_reason: 'bye',
+        competition_record: (
+          await sql`select competition_record from results where id=${ids.byeResult}`
+        )[0]!.competition_record,
         command_id: commandId,
         recorded_at: at(100),
         ...rest,

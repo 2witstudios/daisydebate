@@ -1,3 +1,9 @@
+import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
+import {
+  daisyWinnerBallot,
+  storedBallotDefinition,
+  type BallotDefinitionBody,
+} from '@daisy/protocol';
 import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -122,8 +128,24 @@ const base: SetupFacts = {
       version: 1,
     },
   ],
-  formats: [{ formatId: 'value', formatVersion: 1 }],
-  ballotDefinitions: [{ id: id('ballot'), lobbyId, currentVersion: 2 }],
+  formats: [
+    { formatId: 'value', formatVersion: 1, definition: oneOnOneFormatFixture },
+  ],
+  ballotDefinitions: [
+    {
+      id: id('ballot'),
+      lobbyId,
+      currentVersion: 2,
+      versions: [1, 2].map((version) => ({
+        version,
+        definition: storedBallotDefinition(
+          id('ballot'),
+          version,
+          daisyWinnerBallot,
+        ),
+      })),
+    },
+  ],
   templates: [
     {
       id: id('tmpl'),
@@ -133,6 +155,7 @@ const base: SetupFacts = {
       ballotDefinitionVersion: 1,
       retiredAt: null,
       conflictsWithChain: false,
+      ballotCompatible: true,
     },
   ],
   resolutionPools: [
@@ -287,6 +310,42 @@ describe('events', () => {
           bump,
         ],
       ],
+    });
+  });
+  test('event pins require the exact compatible immutable ballot version', () => {
+    assert({
+      given:
+        'a current pointer without its immutable version, an incompatible outcome, and a rejected template binding',
+      should: 'refuse before producing any setup writes',
+      actual: [
+        decided(
+          facts({
+            ballotDefinitions: [
+              { ...base.ballotDefinitions[0]!, versions: [] },
+            ],
+          }),
+          add,
+        ),
+        decided(
+          facts({
+            formats: [
+              {
+                ...base.formats[0]!,
+                definition: {
+                  ...oneOnOneFormatFixture,
+                  outcome: { kind: 'none' },
+                },
+              },
+            ],
+          }),
+          add,
+        ),
+        decided(
+          facts({ templates: [{ ...template!, ballotCompatible: false }] }),
+          follow,
+        ),
+      ],
+      expected: ['not-found', 'not-found', 'template-unavailable'],
     });
   });
   test('names each add-event refusal', () => {
@@ -870,13 +929,26 @@ describe('place-tab-round', () => {
 });
 
 describe('define-ballot', () => {
-  const settings = {
-    points: { min: 20, max: 30, step: 1, lowPointWin: false },
-    ranks: false,
-    criteria: [] as string[],
-    outcomes: { winner: true, doubleLoss: false },
-    written: { reason: 'required', feedback: 'optional', privateNote: 'off' },
-  } as const;
+  const settings: BallotDefinitionBody = {
+    decision: {
+      kind: 'winner',
+      lowPointWin: false,
+      tie: false,
+      doubleLoss: false,
+    },
+    points: {
+      per: 'side',
+      scale: { min: 20, max: 30, step: 1 },
+      default: 27,
+      criteria: { kind: 'holistic' },
+      weights: null,
+    },
+    speakerRanks: false,
+    written: {
+      reason: { required: true, max: 600 },
+      feedback: { required: false, max: 280 },
+    },
+  };
   const define = (
     ballotDefinition: Of<'define-ballot'>['ballotDefinition'],
   ): Of<'define-ballot'> => ({
@@ -916,7 +988,11 @@ describe('define-ballot', () => {
               ballotDefinitionId: id('new'),
               version: 1,
               lobbyId,
-              definition: settings,
+              definition: {
+                key: `ballot-${id('new')}`,
+                revision: 1,
+                ...settings,
+              },
             },
           },
           bump,
@@ -929,7 +1005,11 @@ describe('define-ballot', () => {
               ballotDefinitionId: id('ballot'),
               version: 3,
               lobbyId,
-              definition: settings,
+              definition: {
+                key: `ballot-${id('ballot')}`,
+                revision: 3,
+                ...settings,
+              },
             },
           },
           {
@@ -947,9 +1027,7 @@ describe('define-ballot', () => {
       should: 'refuse it as not found',
       actual: decided(
         facts({
-          ballotDefinitions: [
-            { id: id('ballot'), lobbyId: null, currentVersion: 2 },
-          ],
+          ballotDefinitions: [{ ...base.ballotDefinitions[0]!, lobbyId: null }],
         }),
         define({ kind: 'revision', ballotDefinitionId: id('ballot') }),
       ),
@@ -959,6 +1037,30 @@ describe('define-ballot', () => {
 });
 
 describe('resolutions', () => {
+  test('standing lobbies maintain their resolution pools', () => {
+    const standing = facts({
+      lobby: { id: lobbyId, kind: 'standing', closedAt: null, version: 5 },
+    });
+    assert({
+      given: 'an open standing lobby with its own resolution pool',
+      should: 'add and retire resolutions without enabling tournament setup',
+      actual: [
+        decideSetup(standing, {
+          type: 'add-resolution',
+          lobbyId,
+          pool: { kind: 'existing', poolId: id('pool') },
+          text: 'Resolved: a test.',
+        }).kind,
+        decideSetup(standing, {
+          type: 'retire-resolution',
+          lobbyId,
+          poolResolutionId: id('spare'),
+        }).kind,
+      ],
+      expected: ['accepted', 'accepted'],
+    });
+  });
+
   const add: Of<'add-resolution'> = {
     type: 'add-resolution',
     lobbyId,

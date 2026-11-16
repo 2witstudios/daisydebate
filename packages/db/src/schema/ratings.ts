@@ -163,7 +163,10 @@ export const ratingChanges = pgTable(
     foreignKey({
       name: 'rating_changes_participant_fk',
       columns: [table.roundId, table.actorId],
-      foreignColumns: [roundParticipants.roundId, roundParticipants.actorId],
+      foreignColumns: [
+        roundParticipants.roundId,
+        roundParticipants.ratingActorId,
+      ],
     }).onDelete('restrict'),
     /** The change is posted to the round's own format, never another. */
     foreignKey({

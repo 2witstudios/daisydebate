@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { daisyWinnerBallot, type JudgingPanelFacts } from '@daisy/protocol';
 import type { attendanceSettled } from './attendance-order';
@@ -15,10 +16,12 @@ const frozen = (
   overrides: Partial<JudgingPanelFacts> = {},
 ): JudgingPanelFacts => ({
   judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
     ballot: daisyWinnerBallot,
     panel: { decision: 'majority', quorum: 1 },
   },
   completeness: 'complete',
+  emptyJudgeSlots: [],
   humanJudgeSeatIds: [],
   aiJudgeSeatIds: [],
   ballotDeadlineAt: null,

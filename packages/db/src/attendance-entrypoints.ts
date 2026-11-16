@@ -1,3 +1,4 @@
+import type { RoundTimeSource } from './round-execution-time';
 import { attendanceTimingPolicy } from '@daisy/protocol';
 import {
   createAttendanceOperations,
@@ -15,13 +16,21 @@ import type { BoundedTransaction } from './bounded-transaction';
 export function attendanceEntrypoints(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
+  readonly roundTime?: RoundTimeSource | undefined;
 }) {
   const transaction: AttendanceTransaction = (work, attempt) => {
-    const lifecycle = attempt ? checkInAttemptLifecycle(attempt) : undefined;
+    const lifecycle = attempt
+      ? checkInAttemptLifecycle(attempt, input.roundTime)
+      : undefined;
     return input.run(
       (tx, _signal, metadata) => {
         lifecycle?.requireRound();
-        return work(tx, metadata);
+        return work(
+          tx,
+          lifecycle
+            ? { ...metadata, receivedAt: lifecycle.receiptTime() }
+            : metadata,
+        );
       },
       {
         executionMs: attendanceTimingPolicy.transactionSliceMs,
@@ -32,10 +41,14 @@ export function attendanceEntrypoints(input: {
   return {
     ...createAttendanceOperations({
       transaction,
+      roundTime: input.roundTime,
       nextAttemptId: input.nextId,
       verifyWorker: verifyBotWorkerPrincipalLocked,
     }),
-    evaluateRoundAttendance: createAttendanceEvaluator(transaction),
+    evaluateRoundAttendance: createAttendanceEvaluator(
+      transaction,
+      input.roundTime,
+    ),
     reconcileRoundCheckInAttempts: (limit: number) =>
       transaction((tx) => reconcileCheckInAttempts(tx, limit)),
   };

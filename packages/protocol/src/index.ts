@@ -1,3 +1,4 @@
+export { mediaBindingRevoked } from './media-binding-authority';
 export {
   privateSpanChanges,
   publicClips,
@@ -235,6 +236,10 @@ export {
   ballotDecisionSchema,
   ballotDefinitionIdentity,
   ballotDefinitionSchema,
+  ballotDefinitionPinSchema,
+  ballotDefinitionBodySchema,
+  storedBallotDefinition,
+  type BallotDefinitionBody,
   daisyBallotDefinitionIds,
   daisyBallotDefinitions,
   daisyBallotFor,
@@ -242,6 +247,12 @@ export {
   panelRuleFor,
   panelRuleSchema,
   roundJudgingSchema,
+  ballotDefinitionSourceSchema,
+  daisyBallotSource,
+  freezeBallotJudging,
+  type BallotJudgingSelection,
+  type BallotJudgingFreeze,
+  type BallotDefinitionSource,
 } from './ballot-definition';
 export type {
   BallotDefinition,
@@ -252,6 +263,12 @@ export type {
 } from './ballot-definition';
 export {
   ballotRecordSchema,
+  ballotWrittenRecordSchema,
+  type BallotWrittenRecord,
+  ballotTextScreeningSchema,
+  type BallotTextScreening,
+  ballotCompetitionRecordSchema,
+  ballotCompetitionSchemaFor,
   ballotSchemaFor,
   ballotScoresRecordSchema,
   ballotSubjectsFor,
@@ -261,7 +278,7 @@ export {
   pointsTotal,
   storedBallotSchemaFor,
 } from './ballot-schema';
-export type { Ballot } from './ballot-schema';
+export type { Ballot, BallotCompetition } from './ballot-schema';
 export { caseMapSchema } from './case-map';
 export type { CaseMap } from './case-map';
 export type { BallotCategory, BallotRubricVersion } from './ballot';
@@ -505,8 +522,23 @@ export type {
   RoundBallotRead,
   RoundJudgeAssignment,
 } from './round-ballot-read';
-export { entitlementKinds, entitlementSources } from './entitlements';
-export type { EntitlementGrant } from './entitlements';
+export {
+  entitlementKinds,
+  entitlementSources,
+  accountEntitlementKinds,
+  entitlementGrantSchema,
+} from './entitlements';
+export {
+  tournamentHostingCoverageSchema,
+  tournamentHostingIssuerSchema,
+  tournamentHostingVersionSchema,
+  tournamentHostingGrantSchema,
+} from './tournament-hosting';
+export type {
+  TournamentHostingGrant,
+  TournamentHostingVersion,
+} from './tournament-hosting';
+export type { EntitlementGrant, PremiumEntitlementKind } from './entitlements';
 export {
   roundAnalysisLimits,
   roundAnalysisReportSchema,
@@ -884,3 +916,46 @@ export {
   remainingAnalysisCalls,
 } from './round-analysis-lifecycle';
 export type { AnalysisWorkEvent } from './round-analysis-lifecycle';
+
+export {
+  scoreScaleFor,
+  sumScoreValues,
+  isScoreOnScale,
+  scoreUnitFor,
+  scoreUnits,
+  scoreUnitSchema,
+  commonScoreUnit,
+  convertScoreUnits,
+  scoreLatticeValues,
+  scoreLatticeSize,
+  scoreValueAt,
+  type ScoreUnit,
+} from './score-unit';
+
+export {
+  roundCompetitionSourceSchema,
+  roundCompetitionFreezeSchema,
+  type RoundCompetitionSource,
+} from './round-competition-source';
+export { formatRevisionPinSchema } from './format-reference';
+
+export { aiBallotAdmissionRefusal } from './ai-ballot-admission';
+
+export { tournamentSponsorshipVersionSchema } from './tournament-sponsorship';
+export type {
+  TournamentSponsorshipVersion,
+  TournamentSponsorshipChange,
+} from './tournament-sponsorship';
+
+export {
+  tournamentCaptureAdmissionSchema,
+  tournamentCaptureExecutionBudgetMs,
+} from './tournament-capture-admission';
+export type {
+  TournamentCaptureAdmission,
+  TournamentOfficialAuthority,
+} from './tournament-capture-admission';
+export {
+  roundJudgeAssignmentReceiptSchema,
+  type RoundJudgeAssignmentReceipt,
+} from './round-judge-assignment';

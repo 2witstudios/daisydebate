@@ -56,6 +56,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'include the Room receipt and frozen config alongside every known JSON contract',
       actual: jsonb.map(({ name }) => name).sort(),
       expected: [
+        'account_hosting_versions.coverage',
+        'account_hosting_versions.subscription_evidence',
         'action_history.result',
         'agent_runs.configuration_snapshot',
         'ballot_definition_versions.definition',
@@ -64,6 +66,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.feedback',
         'ballots.ranking',
         'ballots.scores',
+        'ballots.speaker_ranks',
         'billing_customers.synchronization',
         'billing_payment_observations.source',
         'billing_payment_observations.state',
@@ -86,6 +89,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'recording_processing_jobs.state',
         'recordings.eligibility',
         'recordings.lifecycle',
+        'results.competition_record',
         'room_commands.result',
         'rooms.capture',
         'rooms.config',
@@ -109,6 +113,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rounds.runtime_state',
         'season_standing_rules.rule',
         'settings.value',
+        'tournament_capture_admissions.admission',
+        'tournament_sponsorship_versions.authority',
         'usage_reservations.source',
         'usage_reservations.state',
       ],
@@ -127,6 +133,7 @@ describe('jsonb columns (ISSUE-24)', () => {
           name === 'ballot_screenings.released_text' ||
           name === 'ballots.feedback' ||
           name === 'ballots.ranking' ||
+          name === 'ballots.speaker_ranks' ||
           name === 'ballots.scores' ||
           name === 'rounds.ranking' ||
           name === 'rounds.judging' ||

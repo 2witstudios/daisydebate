@@ -3,7 +3,7 @@ import { atFinalJudgingStage } from '../src/testing-judging';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { withJudgingJob } from './round-judging.test-support';
-import { createBotSeat } from './bot-seat.test-support';
+import { existingBotJudgeSeat } from './bot-seat.test-support';
 import { sql } from 'drizzle-orm';
 import { judgingJobEndReason } from '@daisy/debate-engine';
 import type { BoundedTransaction } from '../src/bounded-transaction';
@@ -201,67 +201,73 @@ for (const outcome of ['provider_refused', 'timeout'] as const) {
 }
 
 test('casual judge allowance waits for every frozen AI judge before terminal settlement', async () => {
-  await withJudgingJob(async ({ fixture: f, roundId, target, jobs, run }) => {
-    const next = await createBotSeat(f, roundId, 'judge', 1);
-    const first = await jobs.claim(target);
-    await jobs.beginModelCall(first.scope, first.token, 'final');
-    await jobs.recordAttemptFailure(first.scope, first.token, {
-      diagnostic: {
-        category: 'provider_refused',
-        finish: 'none',
-        issueCount: 0,
-        issues: [],
-      },
-      final: true,
-    });
-    const [waiting] =
-      await f.sql`select state from usage_reservations where round_id=${roundId}`;
-    assert({
-      given:
-        'one blocked refused judge and another frozen AI judge without its job yet',
-      should:
-        'retain the counted allowance until the complete aggregate is terminal',
-      actual: waiting.state.kind,
-      expected: 'dispatched',
-    });
-    await f.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at)
+  await withJudgingJob(
+    async ({ fixture: f, roundId, target, jobs, run }) => {
+      const next = await existingBotJudgeSeat(f, roundId, 1);
+      const first = await jobs.claim(target);
+      await jobs.beginModelCall(first.scope, first.token, 'final');
+      await jobs.recordAttemptFailure(first.scope, first.token, {
+        diagnostic: {
+          category: 'provider_refused',
+          finish: 'none',
+          issueCount: 0,
+          issues: [],
+        },
+        final: true,
+      });
+      const [waiting] =
+        await f.sql`select state from usage_reservations where round_id=${roundId}`;
+      assert({
+        given:
+          'one blocked refused judge and another frozen AI judge without its job yet',
+        should:
+          'retain the counted allowance until the complete aggregate is terminal',
+        actual: waiting.state.kind,
+        expected: 'dispatched',
+      });
+      await f.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at)
       values(${roundId},${next.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
-    await atFinalJudgingStage(f.sql, {
-      roundId: roundId,
-      judgeParticipantId: next.id,
-    });
-    const second = await jobs.claim({ roundId, judgeParticipantId: next.id });
-    await jobs.beginModelCall(second.scope, second.token, 'final');
-    await jobs.recordAttemptFailure(second.scope, second.token, {
-      diagnostic: {
-        category: 'timeout',
-        finish: 'none',
-        issueCount: 0,
-        issues: [],
-      },
-      final: false,
-    });
-    const [stillPending] =
-      await f.sql`select state from usage_reservations where round_id=${roundId}`;
-    assert({
-      given:
-        'both frozen judges have ended attempts but their blocked/retry obligations remain open',
-      should:
-        'keep the shared debit dispatched until the Round actually closes',
-      actual: stillPending,
-      expected: waiting,
-    });
-    await abandonAndSettle(run, roundId);
-    const [settled] =
-      await f.sql`select state from usage_reservations where round_id=${roundId}`;
-    assert({
-      given:
-        'the Round actually closes with one refused and one uncertain provider attempt',
-      should: 'retain unknown exposure and the original count without relief',
-      actual: settled.state,
-      expected: { ...waiting.state, kind: 'unknown' },
-    });
-  });
+      await atFinalJudgingStage(f.sql, {
+        roundId: roundId,
+        judgeParticipantId: next.id,
+      });
+      const second = await jobs.claim({ roundId, judgeParticipantId: next.id });
+      await jobs.beginModelCall(second.scope, second.token, 'final');
+      await jobs.recordAttemptFailure(second.scope, second.token, {
+        diagnostic: {
+          category: 'timeout',
+          finish: 'none',
+          issueCount: 0,
+          issues: [],
+        },
+        final: false,
+      });
+      const [stillPending] =
+        await f.sql`select state from usage_reservations where round_id=${roundId}`;
+      assert({
+        given:
+          'both frozen judges have ended attempts but their blocked/retry obligations remain open',
+        should:
+          'keep the shared debit dispatched until the Round actually closes',
+        actual: stillPending,
+        expected: waiting,
+      });
+      await abandonAndSettle(run, roundId);
+      const [settled] =
+        await f.sql`select state from usage_reservations where round_id=${roundId}`;
+      assert({
+        given:
+          'the Round actually closes with one refused and one uncertain provider attempt',
+        should: 'retain unknown exposure and the original count without relief',
+        actual: settled.state,
+        expected: { ...waiting.state, kind: 'unknown' },
+      });
+    },
+    'complete',
+    undefined,
+    'final',
+    2,
+  );
 });
 
 test('ranked AI judge dispatch remains free with no Premium grant or usage reservation', async () => {

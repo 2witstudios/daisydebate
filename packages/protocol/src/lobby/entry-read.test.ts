@@ -39,9 +39,10 @@ const entryList = {
         kind: 'school',
         organizationId: id('school'),
         name: 'Ridgeview',
-        adultName: 'A. Doyle',
       },
       entryCount: 9,
+      makers: [{ userId: id('makerdoyle'), name: 'A. Doyle' }],
+      unknownMakers: 0,
       judgesOwed: 3,
       judgesNamed: 3,
       entries: [
@@ -59,9 +60,10 @@ const entryList = {
       responsible: {
         kind: 'guardian',
         name: 'Okafor family',
-        adultName: 'N. Okafor',
       },
       entryCount: 1,
+      makers: [{ userId: id('makerokafor'), name: 'N. Okafor' }],
+      unknownMakers: 0,
       judgesOwed: 1,
       judgesNamed: 1,
       entries: [
@@ -75,6 +77,8 @@ const entryList = {
     {
       responsible: { kind: 'self' },
       entryCount: 1,
+      makers: [],
+      unknownMakers: 0,
       judgesOwed: 0,
       judgesNamed: 0,
       entries: [],
@@ -287,11 +291,11 @@ describe('entryReadCatalogue', async () => {
     assert({
       given: 'the entry reads',
       should:
-        'gate host reads on lobby.host.read and own entries on roster, ballots or guardianship',
+        'gate host reads on lobby.host.entries.read and own entries on roster, ballots or guardianship',
       actual: entryReadCatalogue,
       expected: {
-        EntryListView: { gate: ['lobby.host.read'] },
-        JudgeListView: { gate: ['lobby.host.read'] },
+        EntryListView: { gate: ['lobby.host.entries.read'] },
+        JudgeListView: { gate: ['lobby.host.entries.read'] },
         SchoolEntriesView: {
           gate: [
             'school.roster.manage',

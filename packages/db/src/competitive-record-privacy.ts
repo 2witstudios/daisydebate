@@ -52,6 +52,26 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
       tx.execute(sql`select id, round_id, actor_id, seat_kind, side, slot
         from round_participants where actor_id = ${subject.actorId} order by id`),
     ),
+
+    round_judge_slots: await rows(
+      tx.execute(sql`select round_id,slot,current_version,participant_id,actor_id
+        from round_judge_slots where actor_id=${subject.actorId} order by round_id,slot`),
+    ),
+    round_judge_assignments: await rows(
+      tx.execute(sql`select round_id,slot,version,previous_version,participant_id,actor_id,source,command_id,
+        ${iso('recorded_at', 'recorded_at')} from round_judge_assignments
+        where actor_id=${subject.actorId} order by round_id,slot,version`),
+    ),
+    round_finalization_judge_assignments: await rows(
+      tx.execute(sql`select a.round_id,a.slot,a.assignment_version,a.participant_id
+        from round_finalization_judge_assignments a join round_participants p on p.id=a.participant_id
+        where p.actor_id=${subject.actorId} order by a.round_id,a.slot`),
+    ),
+    round_source_voids: await rows(
+      tx.execute(sql`select v.round_id,v.command_id,${iso('v.recorded_at', 'recorded_at')}
+        from round_source_voids v where exists(select 1 from round_participants p
+          where p.round_id=v.round_id and p.actor_id=${subject.actorId}) order by v.round_id`),
+    ),
     rounds: await rows(
       tx.execute(sql`select r.id, r.room_id, r.visibility, r.resolution,
           r.competition_type, r.status, r.winning_side, r.ranking, r.ladder_id,

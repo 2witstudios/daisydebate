@@ -55,10 +55,14 @@ export async function seedHistoricalJudge(f: Fixture, mode: JudgeCase) {
       ...validRules,
       seats: { ...validRules.seats, judges: 1 },
     },
-    status: terminal ? 'abandoned' : 'active',
-    current_stage: terminal ? null : 'live',
-    started_at: new Date(originalAdmission),
-    completed_at: terminal ? new Date(originalDispatch) : null,
+    ...(mode === 'existing'
+      ? {}
+      : {
+          status: terminal ? 'abandoned' : 'active',
+          current_stage: terminal ? null : 'live',
+          started_at: new Date(originalAdmission),
+          completed_at: terminal ? new Date(originalDispatch) : null,
+        }),
   });
   try {
     const actorId = await admissionSponsor(f, [roundId]);
@@ -66,6 +70,8 @@ export async function seedHistoricalJudge(f: Fixture, mode: JudgeCase) {
       mode === 'human'
         ? await f.seat(roundId, 'judge')
         : await createBotSeat(f, roundId, 'judge');
+    if (mode === 'existing')
+      await f.sql`update rounds set status='active',current_stage='live',started_at=${new Date(originalAdmission)} where id=${roundId}`;
     if (mode === 'erased')
       await f.sql`update users set deleted_at=clock_timestamp() where id=(select user_id from actors where id=${actorId})`;
     if (mode === 'ranked')

@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { SQL } from 'bun';
 import { createHash } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -26,8 +27,8 @@ export const refusal = async (work: () => Promise<unknown>) => {
     throw error;
   }
 };
-export const prepared = async (f: Fixture) => {
-  const roundId = await f.round();
+export const prepared = async (f: Fixture, judged = false) => {
+  const roundId = judged ? await judgedRound(f) : await f.round();
   const actorId = await f.participant(roundId, 'affirmative');
   const [user] = await f.sql`select user_id from actors where id=${actorId}`;
   await f.sql`update users set email_verified=true where id=${String(user.user_id)}`;

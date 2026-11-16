@@ -1,3 +1,9 @@
+import {
+  fixtureCompetition,
+  fixtureAdministrativeContext,
+  fixtureAwards,
+  fixtureReplacement,
+} from './fixture-competition.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type {
   ReleaseCommand,
@@ -6,6 +12,7 @@ import type {
 import type { ResultRow } from './fixture';
 import {
   decideCertification,
+  assessEventCertification,
   decideFixtureResult,
   decideOpenAudience,
   decideReleaseResolution,
@@ -22,6 +29,7 @@ const id = (letter: string) => letter.repeat(24);
 const fixtureId = id('f');
 const now = '2026-11-14T10:00:00.000Z';
 const original: ResultRow = {
+  competitionRecord: fixtureCompetition(),
   id: id('q'),
   kind: 'decided',
   administrativeReason: null,
@@ -44,9 +52,21 @@ const published: FixtureResultFacts = {
     roomId: id('o'),
     version: 2,
   },
+  completedCompetition: fixtureCompetition(),
+  administrativeContext: fixtureAdministrativeContext(),
   entries: [
-    { entryId: id('a'), side: 'affirmative', schoolOrganizationId: null },
-    { entryId: id('b'), side: 'negative', schoolOrganizationId: null },
+    {
+      position: 0,
+      entryId: id('a'),
+      side: 'affirmative',
+      schoolOrganizationId: null,
+    },
+    {
+      position: 1,
+      entryId: id('b'),
+      side: 'negative',
+      schoolOrganizationId: null,
+    },
   ],
   members: [],
   panel: [],
@@ -68,14 +88,14 @@ const administrative: Extract<
   fixtureId,
   administrativeReason: 'ruling',
   reason: 'Evidence violation',
-  entries: outcome,
+  awards: fixtureAwards,
 };
 const correct: Extract<ResultCommand, { type: 'correct-result' }> = {
   type: 'correct-result',
   fixtureId,
   supersedesResultId: id('q'),
   reason: 'Ballot entered against the wrong side',
-  entries: outcome,
+  replacement: fixtureReplacement(),
 };
 
 const refusalOf = (decision: { kind: string; refusal?: string }) =>
@@ -121,7 +141,7 @@ test('an administrative result', () => {
       refusalOf(
         decideFixtureResult(published, {
           ...administrative,
-          entries: [outcome[0]!],
+          awards: { ...fixtureAwards, entries: [fixtureAwards.entries[0]!] },
         }),
       ),
       refusalOf(
@@ -154,6 +174,21 @@ test('a correction is a new result naming the one it supersedes', () => {
             tabRoundId: id('t'),
             fixtureId,
             kind: 'decided',
+            competitionRecord: {
+              ...fixtureCompetition(),
+              panel: fixtureCompetition().panel.map((row, index) => ({
+                ...row,
+                ballot:
+                  row.ballot.kind === 'submitted'
+                    ? {
+                        ...row.ballot,
+                        contribution:
+                          fixtureReplacement().contributions[index]!
+                            .contribution,
+                      }
+                    : row.ballot,
+              })),
+            },
             administrativeReason: null,
             roundId: id('d'),
             supersedesResultId: id('q'),
@@ -338,7 +373,11 @@ test('a screening hold is settled without rewriting the ballot', () => {
         : { kind, text: { reason: 'The [redacted] case' } },
   });
   const decision = decideScreeningHold(
-    { now, screening: { ...screening, status: 'held' } },
+    {
+      now,
+      originalWritten: { reason: 'Original retained reason' },
+      screening: { ...screening, status: 'held' },
+    },
     resolve('redacted'),
   );
   assert({
@@ -358,6 +397,24 @@ test('a screening hold is settled without rewriting the ballot', () => {
       },
     ],
   });
+  const original = decideScreeningHold(
+    {
+      now,
+      originalWritten: { reason: 'Original retained reason' },
+      screening: { ...screening, status: 'held' },
+    },
+    resolve('original'),
+  );
+  assert({
+    given: 'a held ballot explicitly approved with its original text',
+    should:
+      'persist an explicit copy instead of a null sentinel that invites a read fallback',
+    actual:
+      original.kind === 'accepted'
+        ? original.writes[0]?.set.releasedText
+        : original,
+    expected: { reason: 'Original retained reason' },
+  });
   assert({
     given: 'a screening that is not held',
     should:
@@ -365,13 +422,21 @@ test('a screening hold is settled without rewriting the ballot', () => {
     actual: [
       refusalOf(
         decideScreeningHold(
-          { now, screening: { ...screening, status: 'clear' } },
+          {
+            now,
+            originalWritten: { reason: 'Original retained reason' },
+            screening: { ...screening, status: 'clear' },
+          },
           resolve('original'),
         ),
       ),
       refusalOf(
         decideScreeningHold(
-          { now, screening: { ...screening, status: 'pending' } },
+          {
+            now,
+            originalWritten: { reason: 'Original retained reason' },
+            screening: { ...screening, status: 'pending' },
+          },
           resolve('original'),
         ),
       ),
@@ -557,6 +622,49 @@ test('releasing a resolution', () => {
       'not-manual',
       'resolution-unset',
       'resolution-unset',
+    ],
+  });
+});
+
+test('event certification assessment needs actual current results', () => {
+  const facts = {
+    publishedFixtureIds: [fixtureId],
+    results: [{ ...original, fixtureId }],
+    certifiedResultIds: [] as string[],
+    screenings: [],
+  };
+  assert({
+    given:
+      'empty, unfinished, ready, held and already certified current sources',
+    should:
+      'share a truthful readiness assessment without minting a command or certificate',
+    actual: [
+      assessEventCertification({
+        ...facts,
+        publishedFixtureIds: [],
+        results: [],
+      }),
+      assessEventCertification({ ...facts, results: [] }),
+      assessEventCertification(facts),
+      assessEventCertification({
+        ...facts,
+        screenings: [
+          {
+            ballotId: id('b'),
+            roundId: original.roundId!,
+            tabRoundId: id('t'),
+            status: 'pending',
+          },
+        ],
+      }),
+      assessEventCertification({ ...facts, certifiedResultIds: [original.id] }),
+    ],
+    expected: [
+      { kind: 'results-incomplete' },
+      { kind: 'results-incomplete' },
+      { kind: 'ready', resultIds: [original.id] },
+      { kind: 'screening-pending' },
+      { kind: 'already-certified', resultIds: [original.id] },
     ],
   });
 });

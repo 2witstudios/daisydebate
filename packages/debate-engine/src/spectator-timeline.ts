@@ -70,7 +70,7 @@ export type SpectatorTimelineRead = {
     readonly scores: NonNullable<
       SpectatorTimeline['result']
     >['ballots'][number]['scores'];
-    readonly reason: string;
+    readonly reason: string | null;
   }[];
   readonly ratings: readonly {
     readonly side: string;

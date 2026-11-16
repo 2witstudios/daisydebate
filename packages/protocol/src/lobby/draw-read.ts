@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { tabRoundHostViewSchema } from './tab-round-read';
 import { idSchema } from '../primitives';
 import type { LobbyReadCatalogue } from './read';
 import {
@@ -17,7 +18,6 @@ import {
 const name = z.string().trim().min(1).max(200);
 /** Words the tab engine wrote; a projection shows them as they are. */
 const engineText = z.string().trim().min(1).max(2000);
-const count = z.int().min(0);
 const instant = z.iso.datetime();
 
 /** How much a finding weighs: a broken rule is never relaxed. */
@@ -68,9 +68,12 @@ const drawFixture = z.strictObject({
   alternative: drawAlternative.nullable(),
 });
 
-/** The fixtures of entries on the same record, most wins first. */
+/** The engine pairing record, with its exact value and format-specific label. */
 const recordGroup = z.strictObject({
-  wins: count,
+  record: z.strictObject({
+    label: name,
+    value: z.strictObject({ n: z.int(), d: z.int().positive() }),
+  }),
   fixtures: z.array(drawFixture),
 });
 
@@ -147,8 +150,8 @@ export const supersededInputListSchema = z
   );
 
 export const drawReadCatalogue = {
-  DrawView: { gate: ['lobby.host.read'] },
-  SupersededInputList: { gate: ['lobby.host.read'] },
+  DrawView: { gate: ['lobby.host.draw.read'] },
+  SupersededInputList: { gate: ['lobby.host.draw.read'] },
 } as const satisfies LobbyReadCatalogue<'DrawView' | 'SupersededInputList'>;
 
 /** Search and paging are applied before the screen receives its read. */
@@ -158,3 +161,95 @@ export const drawQuerySchema = z.strictObject({
   pageSize: z.int().min(1).max(500).default(100),
 });
 export type DrawQuery = z.infer<typeof drawQuerySchema>;
+
+/** Current command guards sampled with the addressed draw's retained sources. */
+export const hostDrawGuardsSchema = z.strictObject({
+  draw: z.int().positive().nullable(),
+  entries: z.int().positive(),
+  settings: z.int().positive(),
+  results: z.int().positive(),
+  timeSlot: z.int().positive().nullable(),
+});
+const hostRoundAddress = {
+  lobbyId: idSchema,
+  eventId: idSchema,
+  tabRound: z.strictObject({
+    tabRoundId: idSchema,
+    number: z.int().positive(),
+    name: name.nullable(),
+  }),
+  guards: hostDrawGuardsSchema,
+  capabilities: z.strictObject({ generate: z.boolean() }),
+};
+export const hostRoundViewSchema = z
+  .discriminatedUnion('kind', [
+    z.strictObject({ ...hostRoundAddress, kind: z.literal('undrawn') }),
+    z.strictObject({
+      ...hostRoundAddress,
+      kind: z.literal('draft'),
+      draw: drawViewSchema,
+    }),
+    z.strictObject({
+      ...hostRoundAddress,
+      kind: z.literal('published'),
+      round: tabRoundHostViewSchema,
+    }),
+  ])
+  .superRefine((view, ctx) => {
+    if ((view.kind === 'undrawn') !== (view.guards.draw === null))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['guards', 'draw'],
+        message: 'An absent draw has no version guard.',
+      });
+    if (view.kind === 'undrawn') return;
+    const child = view.kind === 'draft' ? view.draw : view.round;
+    const childRound = child.tabRound;
+    if (
+      child.lobbyId !== view.lobbyId ||
+      child.eventId !== view.eventId ||
+      childRound.tabRoundId !== view.tabRound.tabRoundId ||
+      childRound.number !== view.tabRound.number
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: [view.kind === 'draft' ? 'draw' : 'round'],
+        message: 'The read retains its addressed tournament event and round.',
+      });
+    if (view.kind === 'draft' && view.guards.draw !== view.draw.draw.version)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['guards', 'draw'],
+        message: 'The displayed draft has its actual version guard.',
+      });
+  });
+export type HostRoundView = z.infer<typeof hostRoundViewSchema>;
+export const hostDrawOverviewSchema = z.strictObject({
+  lobbyId: idSchema,
+  events: z.array(
+    z.strictObject({
+      eventId: idSchema,
+      name,
+      rounds: z.array(
+        z.strictObject({
+          tabRoundId: idSchema,
+          number: z.int().positive(),
+          name: name.nullable(),
+          draw: z
+            .strictObject({
+              drawId: idSchema,
+              version: z.int().positive(),
+              status: z.enum(drawStatuses),
+            })
+            .nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+export type HostDrawOverview = z.infer<typeof hostDrawOverviewSchema>;
+
+export const hostDrawReadCatalogue = {
+  HostRoundView: { gate: ['lobby.host.draw.read'] },
+  HostDrawOverview: { gate: ['lobby.host.draw.read'] },
+} as const satisfies LobbyReadCatalogue<'HostRoundView' | 'HostDrawOverview'>;

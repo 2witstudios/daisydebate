@@ -147,6 +147,8 @@ const organizationPersonSchema = z.strictObject({
   name,
   owner: z.boolean(),
   membership: z.enum(membershipStatuses),
+  /** The exact membership lifecycle displayed for invitation cancellation. */
+  membershipVersion: z.int().positive(),
   grants: z.array(personGrantSchema),
   conflicts: z.array(personConflictSchema),
   /** Rule 5: whether the viewer may end this person's grants. Never the owner. */
@@ -171,6 +173,16 @@ export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
 export const organizationPeopleViewSchema = z
   .strictObject({
     organizationId: idSchema,
+    /** The actual organization guard shown with the editable people snapshot. */
+    version: z.int().positive(),
+    lobbies: z.array(
+      z.strictObject({
+        lobbyId: idSchema,
+        name,
+        closed: z.boolean(),
+        version: z.int().positive(),
+      }),
+    ),
     name,
     people: z.array(organizationPersonSchema),
     roles: z.array(organizationRoleSchema),
@@ -181,7 +193,10 @@ export const organizationPeopleViewSchema = z
         value: z.enum(conflictHandlings),
       })
       .nullable(),
-    capabilities: z.strictObject({ give: z.boolean() }),
+    capabilities: z.strictObject({
+      give: z.boolean(),
+      cancelInvitation: z.boolean(),
+    }),
   })
   .refine(
     (view) =>
@@ -195,7 +210,7 @@ export type OrganizationPeopleView = z.infer<
 export const organizationReadCatalogue = {
   HostHomeView: { gate: 'signed-in' },
   OrganizationView: { gate: ['organization.read'] },
-  OrganizationPeopleView: { gate: ['organization.host.read'] },
+  OrganizationPeopleView: { gate: ['lobby.host.people.read'] },
 } as const satisfies LobbyReadCatalogue<
   'HostHomeView' | 'OrganizationView' | 'OrganizationPeopleView'
 >;

@@ -1,3 +1,5 @@
+import { ballotPlanFor } from '../../../features/judge/ballot-plan';
+import { sampleBallotRound } from '../../../features/judge/ballot-plan.test-support';
 import { ballotCategories } from '@daisy/protocol';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
@@ -102,5 +104,43 @@ describe('BallotFields', () => {
       ],
       expected: [false, 20, false, false],
     });
+  });
+});
+
+test('a custom ballot renders its actual speaker ranks, canonical scale and off collection policy', () => {
+  const definition = {
+    ...sampleBallotPlan.definition,
+    key: 'custom-render',
+    revision: 1,
+    points: {
+      ...sampleBallotPlan.definition.points!,
+      criteria: { kind: 'holistic' as const },
+      scale: { min: 0.25, max: 0.56, step: 0.1 },
+      default: 0.35,
+    },
+    speakerRanks: true,
+    written: { reason: null, feedback: null },
+  };
+  const plan = ballotPlanFor(sampleBallotRound, definition);
+  const html = renderToString(
+    h(BallotFields, { plan, values: {}, error: undefined, pending: false }),
+  );
+  assert({
+    given:
+      'the actual canonical custom definition and two real sample competitors',
+    should:
+      'render both speaker places, offset scale and explicit default, without forbidden written or private-note controls',
+    actual: [
+      html.includes('name="speaker-place-1"'),
+      html.includes('name="speaker-place-2"'),
+      html.includes('min="0.25"'),
+      html.includes('max="0.56"'),
+      html.includes('step="0.1"'),
+      html.includes('value="0.35"'),
+      html.includes('name="reason"'),
+      html.includes('name="feedback-'),
+      html.includes('name="privateNote"'),
+    ],
+    expected: [true, true, true, true, true, true, false, false, false],
   });
 });

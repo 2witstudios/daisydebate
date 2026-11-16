@@ -1,3 +1,7 @@
+import {
+  ballotDefinitionSchema,
+  ballotDefinitionSourceSchema,
+} from '../ballot-definition';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { releaseAudienceSchema } from '../release-audience';
@@ -13,34 +17,8 @@ import type { LobbyReadCatalogue } from './read';
  */
 
 const nameSchema = z.string().trim().min(1).max(200);
-const writtenRuleSchema = z.enum(['required', 'optional', 'off']);
 const writtenTextSchema = z.string().max(5000);
 
-/** The typed settings of one immutable ballot definition version. */
-const ballotDefinitionSchema = z.strictObject({
-  version: z.int().min(1),
-  points: z
-    .strictObject({
-      min: z.number(),
-      max: z.number(),
-      step: z.number().positive(),
-      lowPointWin: z.boolean(),
-    })
-    .refine((points) => points.min < points.max, {
-      message: 'the scale runs upward',
-      path: ['max'],
-    })
-    .nullable(),
-  ranks: z.boolean(),
-  criteria: z.array(nameSchema),
-  outcomes: z.strictObject({ winner: z.boolean(), doubleLoss: z.boolean() }),
-  written: z.strictObject({
-    reason: writtenRuleSchema,
-    feedback: writtenRuleSchema,
-    /** Never required: a judge may have nothing to tell tab. */
-    privateNote: writtenRuleSchema.exclude(['required']),
-  }),
-});
 export type BallotDefinitionValue = z.infer<typeof ballotDefinitionSchema>;
 
 /** An event's ballot definition and its screening, for its host. */
@@ -66,6 +44,59 @@ export const eventBallotViewSchema = z.strictObject({
   capabilities: z.strictObject({ setScreening: z.boolean() }),
 });
 export type EventBallotView = z.infer<typeof eventBallotViewSchema>;
+
+/** Actual host authoring, immutable version selection and release policy guards. */
+export const eventBallotAuthoringViewSchema = z.strictObject({
+  lobbyId: idSchema,
+  eventId: idSchema,
+  name: nameSchema,
+  label: z.string().nullable(),
+  versions: z.strictObject({
+    lobby: z.int().positive(),
+    event: z.int().positive(),
+    settings: z.int().positive(),
+  }),
+  definition: z
+    .strictObject({
+      source: ballotDefinitionSourceSchema,
+      ballot: ballotDefinitionSchema,
+    })
+    .nullable(),
+  sourceName: nameSchema.nullable(),
+  followsTemplate: z.boolean(),
+  entriesExist: z.boolean(),
+  segments: z.array(
+    z.strictObject({
+      key: z.string(),
+      label: z.string(),
+      individual: z.boolean(),
+    }),
+  ),
+  screening: z.enum(['hold', 'off']),
+  definitions: z.array(
+    z.strictObject({
+      id: idSchema,
+      name: nameSchema,
+      owned: z.boolean(),
+      currentVersion: z.int().positive(),
+      versions: z.array(
+        z.strictObject({
+          version: z.int().positive(),
+          definition: ballotDefinitionSchema,
+          compatible: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+  capabilities: z.strictObject({
+    publish: z.boolean(),
+    pin: z.boolean(),
+    setScreening: z.boolean(),
+  }),
+});
+export type EventBallotAuthoringView = z.infer<
+  typeof eventBallotAuthoringViewSchema
+>;
 
 /** Who a judge scores, keyed as the ballot keys its scores. */
 const ballotSubjectSchema = z.strictObject({
@@ -145,9 +176,13 @@ export const ballotViewSchema = z.discriminatedUnion('viewer', [
 ]);
 
 export const ballotReadCatalogue = {
-  EventBallotView: { gate: ['lobby.host.read'] },
+  EventBallotView: { gate: ['lobby.setup.manage'] },
+  EventBallotAuthoringView: { gate: ['lobby.setup.manage'] },
   JudgeBallotView: { gate: ['ballot.read'] },
   BallotView: { gate: ['ballot.read'] },
 } as const satisfies LobbyReadCatalogue<
-  'EventBallotView' | 'JudgeBallotView' | 'BallotView'
+  | 'EventBallotView'
+  | 'EventBallotAuthoringView'
+  | 'JudgeBallotView'
+  | 'BallotView'
 >;

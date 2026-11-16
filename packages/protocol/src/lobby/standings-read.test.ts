@@ -43,6 +43,7 @@ const shape = {
 const official = {
   ...shape,
   visibility: 'official',
+  resultsVersion: 1,
   rows: [{ ...row, points: 114.5 }],
   capabilities: { announceBreak: true, previewCorrection: true },
 };
@@ -64,8 +65,7 @@ const side = (seed: number, name: string) => ({
 });
 const tie = (state: unknown) => ({
   fixtureId: id('fixture'),
-  top: side(1, 'jensen'),
-  bottom: side(8, 'sato'),
+  entries: [side(1, 'jensen'), side(8, 'sato')],
   state,
 });
 const tabRound = (ties: readonly unknown[]) => ({
@@ -73,16 +73,24 @@ const tabRound = (ties: readonly unknown[]) => ({
   name: 'Quarterfinals',
   status: 'complete',
   startsAt: null,
-  ties,
+  fixtures: ties,
   waitsOn: null,
 });
 const bracketShape = {
   lobbyId: id('lobby'),
   eventId: id('event'),
   stageId: id('stage'),
+  kind: 'elimination',
   division: null,
 };
-const decided = { kind: 'decided', topBallots: 3, bottomBallots: 0 };
+const decided = {
+  kind: 'decided',
+  resultId: id('result'),
+  outcomes: [
+    { entryId: id('entryjensen'), won: true, rank: null, ballotsWon: 3 },
+    { entryId: id('entrysato'), won: false, rank: null, ballotsWon: 0 },
+  ],
+};
 const live = {
   kind: 'live',
   room: { roomId: id('room'), name: 'Room 1' },
@@ -153,7 +161,7 @@ describe('the bracket read', () => {
       ]),
       expected: [
         ...parsedUnchanged([audience, host]),
-        { issues: ['tabRounds.0.ties.0.state.kind'] },
+        { issues: ['tabRounds.0.fixtures.0.state.kind'] },
       ],
     });
   });
@@ -222,5 +230,69 @@ describe('standingsQuerySchema', () => {
       ]).map((outcome) => 'data' in outcome),
       expected: [true, true, false, false],
     });
+  });
+});
+
+test('a bracket fixture retains every actual entry and outcome', () => {
+  const entries = Array.from({ length: 4 }, (_, i) =>
+    side(i + 1, `speaker${i}`),
+  );
+  const fixture = {
+    fixtureId: id('section'),
+    entries,
+    state: {
+      kind: 'decided',
+      resultId: id('result'),
+      outcomes: entries.map((entry, i) => ({
+        entryId: entry.entryId,
+        won: null,
+        rank: i + 1,
+        ballotsWon: null,
+      })),
+    },
+  };
+  const read = {
+    ...bracketShape,
+    visibility: 'official',
+    tabRounds: [{ ...tabRound([]), fixtures: [fixture] }],
+  };
+  assert({
+    given: 'a genuine four-entry section rather than a two-side pairing',
+    should: 'retain all positions and actual ranks in the bracket contract',
+    actual: parseOutcome(bracketViewSchema, read),
+    expected: { data: read },
+  });
+});
+
+test('a decided fixture cannot omit or substitute an entry outcome', () => {
+  const fixture = tie(decided);
+  const read = (one: unknown) => ({
+    ...bracketShape,
+    visibility: 'official',
+    tabRounds: [tabRound([one])],
+  });
+  assert({
+    given:
+      'a duplicated fixture entry or a decided result with a missing or foreign entry',
+    should:
+      'refuse mismatched published positions instead of dropping an entry',
+    actual: [
+      { ...fixture, entries: [fixture.entries[0], fixture.entries[0]] },
+      {
+        ...fixture,
+        state: { ...decided, outcomes: decided.outcomes.slice(0, 1) },
+      },
+      {
+        ...fixture,
+        state: {
+          ...decided,
+          outcomes: [
+            decided.outcomes[0],
+            { ...decided.outcomes[1], entryId: id('foreign') },
+          ],
+        },
+      },
+    ].map((fixture) => bracketViewSchema.safeParse(read(fixture)).success),
+    expected: [false, false, false],
   });
 });

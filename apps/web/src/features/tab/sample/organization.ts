@@ -207,12 +207,15 @@ export function samplePeopleView(_scene: SampleScene): OrganizationPeopleView {
     name,
     owner: false,
     membership,
+    membershipVersion: 1,
     grants,
     conflicts: [],
     removable: membership === 'active',
   });
   return {
     organizationId: sampleIds.league,
+    version: 1,
+    lobbies: [],
     name: LEAGUE_NAME,
     people: [
       {
@@ -220,6 +223,7 @@ export function samplePeopleView(_scene: SampleScene): OrganizationPeopleView {
         name: 'Jordan Hale',
         owner: true,
         membership: 'active',
+        membershipVersion: 1,
         grants: [],
         conflicts: [],
         removable: false,
@@ -257,6 +261,6 @@ export function samplePeopleView(_scene: SampleScene): OrganizationPeopleView {
       name: 'Autumn Open',
       value: 'second_confirms',
     },
-    capabilities: { give: true },
+    capabilities: { give: true, cancelInvitation: true },
   };
 }

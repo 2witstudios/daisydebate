@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import { ballotWrittenRecordSchema } from '../ballot-schema';
+import { administrativeAwardsSchema } from './result-record';
+import { resultCompetitionReplacementSchema } from './result-record-correction';
 import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
 import {
   administrativeResultReasons,
@@ -18,22 +21,13 @@ import {
 const typedReason = z.string().max(2000);
 
 /** One entry's outcome in a result, as the `result_entries` row holds it. */
-const resultEntryOutcomeSchema = z.strictObject({
+export const resultEntryOutcomeSchema = z.strictObject({
   entryId: idSchema,
   won: z.boolean().nullable(),
   rank: z.int().positive().nullable(),
   ballotsWon: z.int().nonnegative().nullable(),
 });
 export type ResultEntryOutcome = z.infer<typeof resultEntryOutcomeSchema>;
-
-const outcomeSchema = z
-  .array(resultEntryOutcomeSchema)
-  .min(1)
-  .refine(
-    (entries) =>
-      new Set(entries.map((entry) => entry.entryId)).size === entries.length,
-    'Each entry has one outcome.',
-  );
 
 /** Forfeit is recorded by officiating (`record-forfeit`), not here. */
 const enteredAdministrativeReasons = administrativeResultReasons.filter(
@@ -45,7 +39,11 @@ const recordAdministrativeResultCommandSchema = z.strictObject({
   fixtureId: idSchema,
   administrativeReason: z.enum(enteredAdministrativeReasons),
   reason: typedReason,
-  entries: outcomeSchema,
+  awards: administrativeAwardsSchema,
+});
+const recordDecidedResultCommandSchema = z.strictObject({
+  type: z.literal('record-decided-result'),
+  fixtureId: idSchema,
 });
 
 const correctResultCommandSchema = z.strictObject({
@@ -53,7 +51,7 @@ const correctResultCommandSchema = z.strictObject({
   fixtureId: idSchema,
   supersedesResultId: idSchema,
   reason: typedReason,
-  entries: outcomeSchema,
+  replacement: resultCompetitionReplacementSchema,
 });
 
 const certifyResultCommandSchema = z.strictObject({
@@ -77,12 +75,13 @@ const resolveScreeningHoldCommandSchema = z.strictObject({
     z.strictObject({ kind: z.literal('original') }),
     z.strictObject({
       kind: z.literal('redacted'),
-      text: z.record(z.string().min(1), z.string().max(20_000)),
+      text: ballotWrittenRecordSchema,
     }),
   ]),
 });
 
 export const resultCommandSchema = z.discriminatedUnion('type', [
+  recordDecidedResultCommandSchema,
   recordAdministrativeResultCommandSchema,
   correctResultCommandSchema,
   certifyResultCommandSchema,
@@ -98,6 +97,7 @@ export const resultCommandRefusals = [
   'fixture-unpublished',
   'result-exists',
   'outcome-mismatch',
+  'submission-provenance-unavailable',
   'reason-required',
   'result-not-in-fixture',
   'already-superseded',
@@ -109,6 +109,19 @@ export const resultCommandRefusals = [
 export type ResultCommandRefusal = (typeof resultCommandRefusals)[number];
 
 export const resultCommandCatalogue = {
+  'record-decided-result': {
+    aggregate: 'result',
+    gate: ['tournament.results.enter'],
+    versions: ['fixture'],
+    refusals: [
+      'fixture-withdrawn',
+      'fixture-unpublished',
+      'result-exists',
+      'submission-provenance-unavailable',
+      'outcome-mismatch',
+    ],
+    history: 'entry',
+  },
   'record-administrative-result': {
     aggregate: 'result',
     gate: ['tournament.results.enter'],
@@ -131,6 +144,7 @@ export const resultCommandCatalogue = {
       'result-not-in-fixture',
       'already-superseded',
       'outcome-mismatch',
+      'submission-provenance-unavailable',
       'reason-required',
     ],
     history: 'entry',
@@ -185,6 +199,8 @@ export const releaseCommandSchema = z.discriminatedUnion('type', [
   releaseResolutionCommandSchema,
 ]);
 export type ReleaseCommand = z.infer<typeof releaseCommandSchema>;
+export const releaseCommandEnvelopeSchema =
+  lobbyCommandEnvelope(releaseCommandSchema);
 
 export const releaseCommandRefusals = [
   'not-manual',

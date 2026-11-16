@@ -54,13 +54,20 @@
     "./lobby/organization-read": "./src/lobby/organization-read.ts",
     "./lobby/resolved-settings-read": "./src/lobby/resolved-settings-read.ts",
     "./lobby/template-read": "./src/lobby/template-read.ts",
+    "./lobby/host-events-read": "./src/lobby/host-events-read.ts",
     "./lobby/lobby-setup-read": "./src/lobby/lobby-setup-read.ts",
     "./lobby/season-read": "./src/lobby/season-read.ts",
     "./lobby/entry-read": "./src/lobby/entry-read.ts",
     "./lobby/guardian-read": "./src/lobby/guardian-read.ts",
     "./lobby/resolution-read": "./src/lobby/resolution-read.ts",
     "./lobby/ballot-read": "./src/lobby/ballot-read.ts",
-    "./lobby/fixture-change-read": "./src/lobby/fixture-change-read.ts"
+    "./lobby/fixture-change-read": "./src/lobby/fixture-change-read.ts",
+    "./lobby/result-record": "./src/lobby/result-record.ts",
+    "./lobby/result-record-correction": "./src/lobby/result-record-correction.ts",
+    "./lobby/sponsorship-command": "./src/lobby/sponsorship-command.ts",
+    "./lobby/host-navigation-read": "./src/lobby/host-navigation-read.ts",
+    "./lobby/break-command": "./src/lobby/break-command.ts",
+    "./lobby/host-ballots-read": "./src/lobby/host-ballots-read.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

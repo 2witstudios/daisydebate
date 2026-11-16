@@ -81,7 +81,7 @@ export const audienceSnapshotReads = ({
         database,
         sql`select p.seat_kind,r.competition_type,r.status,b.debaters_read_chat
           from rounds r
-          left join round_participants p on p.round_id=r.id and p.actor_id=${input.actorId}
+          left join round_participants p on p.round_id=r.id and p.actor_id=${input.actorId} and public.daisy_round_participant_is_current(p.id)
           left join broadcasts b on b.round_id=r.id
           where r.id=${input.roundId}
             and (p.id is not null or r.created_by_actor_id=${input.actorId})

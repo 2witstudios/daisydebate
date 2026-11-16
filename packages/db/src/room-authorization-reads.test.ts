@@ -1,3 +1,4 @@
+import { publicLobbyId } from './daisy-reference';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { foundationDefinition } from './reference-formats';
 import {
@@ -33,10 +34,26 @@ test('Room assembly read hydrates its pinned definition and current host label',
         rulesSnapshot: room.rules,
       }),
     ],
+    [
+      roomRow({
+        id: room.id,
+        hostActorId: caller.actorId,
+        title: room.title,
+        topic: room.topic,
+        formatId: room.formatId,
+        config: room.config,
+        capture: null,
+        postRoundCall: false,
+        executionPlan: room.executionPlan,
+        rulesSnapshot: room.rules,
+      }),
+    ],
     [[foundationDefinition]],
     [], // the Room has no claimed participants yet
     [[caller.actorId, 'human', 'current-host', null, true, null]],
     [], // no new Round exists
+    [], // no seat holds
+    [{ now: new Date('2026-10-09T00:00:00.000Z') }], // post-fence read authority instant
   ]);
 
   const state = await database.readRoomAssembly(
@@ -186,6 +203,8 @@ test('Round read returns only the stored receipt and current participant identit
   const account = accountRow();
   const { database } = createTestDatabase([
     [account],
+    [[room.id]], // immutable Round Room locator, before parent or Round locks
+    [[room.id, publicLobbyId, 'standing', caller.actorId]],
     [
       roundRow({
         id: 'c3a1d5f7h9j2k4m6n8p1r3t5',
@@ -222,6 +241,9 @@ test('Round read returns only the stored receipt and current participant identit
       ],
     ],
     [[caller.actorId, 'human', 'current-host', null, true, null]],
+    [], // no transcript freeze
+    [], // no played segments
+    [{ now: new Date('2026-10-09T00:00:00.000Z') }], // post-source authority instant
   ]);
 
   const view = await database.readLaunchedRound(
@@ -240,6 +262,7 @@ test('Round read returns only the stored receipt and current participant identit
       topic: null,
     }),
     () => null,
+    () => false,
   );
 
   assert({

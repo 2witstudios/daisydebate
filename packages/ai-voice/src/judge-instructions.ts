@@ -1,5 +1,9 @@
+import { createInvariantError } from '@daisy/errors';
 import {
   ballotDefinitionIdentity,
+  scoreLatticeValues,
+  scoreLatticeSize,
+  scoreValueAt,
   type BallotDefinition,
   type Side,
 } from '@daisy/protocol';
@@ -27,25 +31,34 @@ const listed = (items: readonly string[]) =>
 const everySide = (sides: readonly Side[]) =>
   sides.length === 2 ? 'both sides' : 'every side';
 
-/** Every value a scale admits, low to high. */
-const scaleValues = ({ min, max, step }: BallotPoints['scale']): number[] =>
-  Array.from(
-    { length: Math.floor((max - min) / step + 1e-9) + 1 },
-    (_, index) => Number((min + index * step).toFixed(6)),
-  );
-
 /** `1 to 5`, or `1 to 5 in steps of 0.5` off a whole-number step of one. */
 const rangeText = (scale: BallotPoints['scale']) =>
   `${scale.min} to ${scale.max}${scale.step === 1 ? '' : ` in steps of ${scale.step}`}`;
 
 /** Where each of a criterion's anchors sits on the scale, spread evenly and on a step. */
 const anchorPoints = (scale: BallotPoints['scale'], count: number) => {
-  const values = scaleValues(scale);
-  return Array.from({ length: count }, (_, index) =>
-    count === 1
-      ? scale.max
-      : values[Math.round((index * (values.length - 1)) / (count - 1))]!,
-  );
+  const size = scoreLatticeSize(scale);
+  if (size === null)
+    throw createInvariantError(
+      'ai-judge-score-scale',
+      'The score lattice has no safe indexed representation',
+    );
+  return Array.from({ length: count }, (_, index) => {
+    const offset =
+      count === 1
+        ? size - 1
+        : Number(
+            (2n * BigInt(index) * BigInt(size - 1) + BigInt(count - 1)) /
+              (2n * BigInt(count - 1)),
+          );
+    const value = scoreValueAt(scale, offset);
+    if (value === null)
+      throw createInvariantError(
+        'ai-judge-score-scale',
+        'The score anchor is not representable',
+      );
+    return value;
+  });
 };
 
 /** The scores between the anchors, said once: `(2 and 4 sit between them)`. */
@@ -59,9 +72,9 @@ const betweenText = (points: BallotPoints): string => {
   const [count] = counts;
   if (counts.size !== 1 || count === undefined) return '';
   const anchored = new Set(anchorPoints(points.scale, count));
-  const between = scaleValues(points.scale).filter(
-    (value) => !anchored.has(value),
-  );
+  const values = scoreLatticeValues(points.scale);
+  if (!values) return ' (the scores between two anchors sit between them)';
+  const between = values.filter((value) => !anchored.has(value));
   if (between.length === 0) return '';
   return between.length <= 3
     ? ` (${listed(between.map(String))} sit between them)`
@@ -141,12 +154,19 @@ const ballotExample = (
     `"rubricVersion": ${quoted(ballotDefinitionIdentity(definition))}`,
     decisionExample(definition.decision, keys),
     ...(definition.points ? [scoresExample(definition.points, keys)] : []),
-    '"reason": "two or three sentences explaining the decision"',
-    `"feedback": {${sides
-      .map(
-        (side) => `${quoted(side.key)}: "two sentences for the ${prose(side)}"`,
-      )
-      .join(', ')}}`,
+    ...(definition.written.reason
+      ? ['"reason": "two or three sentences explaining the decision"']
+      : []),
+    ...(definition.written.feedback
+      ? [
+          `"feedback": {${sides
+            .map(
+              (side) =>
+                `${quoted(side.key)}: "two sentences for the ${prose(side)}"`,
+            )
+            .join(', ')}}`,
+        ]
+      : []),
   ].join(', ')}}`;
 };
 
@@ -203,8 +223,22 @@ export const ballotInstructions = (
     [
       ...scoreRule(definition.points),
       ...decisionRules(definition.decision),
-      `${sides.length === 2 ? 'Both sides get' : 'Every side gets'} feedback on what to do differently next time.`,
+      ...(feedback
+        ? [
+            `${sides.length === 2 ? 'Both sides get' : 'Every side gets'} feedback on what to do differently next time.`,
+          ]
+        : ['Feedback is off: do not include a feedback field.']),
     ].join(' '),
-    `The reason is at most ${reason.max} characters. Each side's feedback is at most ${feedback.max} characters. An answer over either limit is rejected.`,
+    reason && feedback
+      ? `The reason is at most ${reason.max} characters. Each side's feedback is at most ${feedback.max} characters. An answer over either limit is rejected.`
+      : [
+          reason
+            ? `The reason is at most ${reason.max} characters.`
+            : 'Reason is off: do not include a reason field.',
+          feedback
+            ? `Each side's feedback is at most ${feedback.max} characters.`
+            : 'Feedback is off: do not include a feedback field.',
+          'An answer over an enabled limit is rejected.',
+        ].join(' '),
   ].join('\n\n');
 };

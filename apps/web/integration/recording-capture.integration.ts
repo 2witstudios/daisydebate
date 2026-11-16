@@ -1,3 +1,4 @@
+import { credentialHash } from '../src/features/stage-capture/stage-access';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
 import { requireTestServices } from '@daisy/config';
 import { createRecordingWorkerStore } from '@daisy/db/recording-worker';
@@ -67,6 +68,9 @@ const setup = async (f: Harness, capture: { readonly broadcast: boolean }) => {
       .recordingCaptures,
     port,
     egress: {
+      readStageAttempt: async () => {
+        throw new Error('Unexpected recovery in ordinary fixture');
+      },
       start: async ({ holdPrefix }) => {
         started += 1;
         const id = `EG_${started}`;
@@ -98,7 +102,7 @@ const setup = async (f: Harness, capture: { readonly broadcast: boolean }) => {
         round.rules.segments.length - 1,
       ),
     now: () => nowMs,
-    newCredential: () => ({ secret: 's', hash: 'digest' }),
+    newCredential: () => ({ secret: 's', hash: credentialHash('s') }),
     stageUrl: (id, credential) =>
       `https://app.test/stage/${id}?c=${credential}`,
     report: (event) => events.push(`report ${event}`),
@@ -306,6 +310,7 @@ test('a casual Recording with no Broadcast runs and stops its own Egress', async
         expected: 1,
       });
       h.egressState.set('EG_1', { kind: 'failed', id: 'EG_1' });
+      await pass(); // Persist the confirmed physical settlement before another dispatch.
       await pass();
       await pass();
       const restarted = await lifecycleOf(h.store, roundId);

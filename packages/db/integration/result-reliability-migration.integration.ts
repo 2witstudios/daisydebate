@@ -1,3 +1,5 @@
+import { judgedRound } from './judged-round.test-support';
+import { loanRoundAssignmentInterface } from '../src/testing-round-assignment-interface';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
@@ -33,12 +35,24 @@ test(
         // columns it backfills them from.
         await f.sql`alter table rounds add column winning_side text, add column ranking jsonb, add column judging jsonb`;
         await f.sql`alter table round_participants add column seat_kind text, add column side text`;
+        await f.sql`alter table rounds add column ballot_definition_id text, add column ballot_definition_version integer`;
+        await f.sql`alter table ballots add column speaker_ranks jsonb`;
+        // Today's canonical grant decoder sees an empty future source interface;
+        // no hosting grant or issuer is fabricated in this populated predecessor.
+        await f.sql`alter table account_entitlement_grants add column hosting_version_id text, add column revoked_at timestamptz`;
+        await f.sql`create table account_hosting_versions (
+          id text,user_id text,source text,version integer,starts_at timestamptz,expires_at timestamptz,
+          issuer_service_id text,issuer_operator_ref text,decision_reference text,
+          subscription_id text,subscription_observed_at timestamptz,subscription_evidence jsonb,coverage jsonb)`;
+        const removeAssignmentInterface = await loanRoundAssignmentInterface(
+          f.sql,
+        );
         const run = createBoundedTransaction({
           lane: testLane(f.sql, 4),
           now: performance.now,
         });
-        const queuedId = await f.round(),
-          failedId = await f.round();
+        const queuedId = await judgedRound(f),
+          failedId = await judgedRound(f);
         // Seeded on the schema before ADR 0125's stage columns: no stage records.
         await seedJudgingIntent(
           f,
@@ -68,7 +82,12 @@ test(
             await f.sql`select round_id,revision,frontier,completeness from round_transcript_freezes order by round_id`;
           await f.sql`alter table rounds drop column post_round_call`;
           await f.sql`alter table rounds drop column winning_side, drop column ranking, drop column judging`;
+          await removeAssignmentInterface();
           await f.sql`alter table round_participants drop column seat_kind, drop column side`;
+          await f.sql`alter table rounds drop column ballot_definition_id, drop column ballot_definition_version`;
+          await f.sql`alter table ballots drop column speaker_ranks`;
+          await f.sql`drop table account_hosting_versions`;
+          await f.sql`alter table account_entitlement_grants drop column hosting_version_id, drop column revoked_at`;
           await scratch.migrate(() => true);
           const after =
             await f.sql`select round_id,judge_participant_id,freeze_revision,status,attempts,generation_deadline_at,pending_ballot,pending_ballot_agent_run_id,pending_ballot_epoch,pending_ballot_received_at,terminal_reason from round_judging_jobs order by round_id,judge_participant_id`;

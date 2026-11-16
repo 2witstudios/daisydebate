@@ -74,6 +74,8 @@ export type JudgingPanelFacts = {
   /** What the Round is judged on, frozen at Start round (TAB-6.11); null when nothing is. */
   readonly judging: RoundJudging;
   readonly completeness: 'complete' | 'incomplete';
+  /** Original judge slots whose current assignment is empty; they never reduce the frozen panel. */
+  readonly emptyJudgeSlots: readonly number[];
   readonly humanJudgeSeatIds: readonly string[];
   readonly aiJudgeSeatIds: readonly string[];
   readonly ballotDeadlineAt: string | null;

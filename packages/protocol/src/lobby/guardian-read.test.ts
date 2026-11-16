@@ -149,6 +149,7 @@ describe('guardian reads', async () => {
         ['guardian.link.read'],
         ['guardian.link.read'],
         ['guardian.link.read'],
+        ['guardian.link.read'],
       ],
     });
   });

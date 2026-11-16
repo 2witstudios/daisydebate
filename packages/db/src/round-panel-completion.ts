@@ -24,7 +24,10 @@ import { readJudgingPanelFacts } from './judging-panel-read';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { requireCurrentWeb } from './web-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
-import { sampleRoundExecutionTime } from './round-execution-time';
+import {
+  sampleRoundExecutionTime,
+  type RoundTimeSource,
+} from './round-execution-time';
 import {
   insertCommandRow,
   lockedRoundVersion,
@@ -106,16 +109,17 @@ async function replay(
 async function readCompletionFacts(
   tx: BoundedTransactionContext,
   input: Request,
+  roundTime?: RoundTimeSource,
 ) {
   await requireCurrentWeb(tx, input.instanceId, true);
-  await executeLockedRoundTick(tx, input);
+  await executeLockedRoundTick(tx, input, roundTime);
   const round = await hydrateRoundRows(tx, input.roundId);
   const freeze = await readTranscriptFreeze(tx, input.roundId);
   const [durable] =
     await tx.execute(sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
     from rounds where id=${input.roundId}`);
-  const now = await sampleRoundExecutionTime(tx);
+  const now = await sampleRoundExecutionTime(tx, roundTime);
   requirePanelRound(round);
   const { freeze: frozen } = requirePanelFacts({
     freezeRevision: input.freezeRevision,
@@ -146,7 +150,11 @@ async function readCompletionFacts(
   };
 }
 
-async function complete(tx: BoundedTransactionContext, input: Request) {
+async function complete(
+  tx: BoundedTransactionContext,
+  input: Request,
+  roundTime?: RoundTimeSource,
+) {
   await requireCurrentWeb(tx, input.instanceId);
   const digest = panelDigest(input);
   await tx.execute(
@@ -166,6 +174,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   const { round, freeze, now, panel, ballotIds } = await readCompletionFacts(
     tx,
     input,
+    roundTime,
   );
   const completion = input.buildCompletion({ round, now, panel, ballotIds });
   requireCompletionProjection(completion);
@@ -249,12 +258,15 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   return { receipt, ended, platformEnded };
 }
 
-export function roundPanelCompletionOperations(run: BoundedTransaction) {
+export function roundPanelCompletionOperations(
+  run: BoundedTransaction,
+  roundTime?: RoundTimeSource,
+) {
   return {
     async completePanelRound(input: Request): Promise<RoundPanelReceipt> {
       requirePanelRequest(input);
       const { receipt, ended, platformEnded } = await run((tx) =>
-        complete(tx, input),
+        complete(tx, input, roundTime),
       );
       if (platformEnded) input.platformEnded?.();
       // After commit, and even with no judging worker running. A job still open

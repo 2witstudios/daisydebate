@@ -93,7 +93,7 @@ export const spectatorTimelineSchema = z.strictObject({
           /** Null for a ballot that named no winning side. */
           winner: sideKeySchema.nullable(),
           scores: ballotScoresRecordSchema,
-          reason: z.string(),
+          reason: z.string().nullable(),
         }),
       ),
       ratings: z.array(

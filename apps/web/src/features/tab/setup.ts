@@ -4,7 +4,7 @@ import type {
 } from '@daisy/protocol/lobby/lobby-setup-read';
 import type { ResolvedSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
 import type { SettingKey } from '@daisy/protocol/setting-values';
-import { linkTo, sampleAction, type Choice, type TabAction } from './action';
+import { linkTo, type Choice, type TabAction } from './action';
 import { daysBefore } from './organization';
 import { resolvedEntry } from './reads/resolved-settings';
 import { sampleSetup } from './sample/setup';
@@ -74,6 +74,7 @@ type SetupLineCopy =
   | {
       readonly subject: 'sanction';
       readonly label: string;
+      readonly request?: (organizationId: string) => TabAction | null;
     };
 
 /** The words the setup screen uses, beyond what its reads carry. */
@@ -95,7 +96,11 @@ export type TournamentSetupContext = {
 };
 
 /** Resolutions an event's prelims need from its pool: one per round, or a draw's worth. */
-function resolutionsNeeded(event: SetupEvent, settings: ResolvedSettingsView) {
+function resolutionsNeeded(
+  event: SetupEvent,
+  settings: ResolvedSettingsView,
+  poolId: string | null,
+) {
   const rule = resolvedEntry(settings, 'resolution.rule')?.value as
     { readonly method: string; readonly drawSize?: number } | undefined;
   const preliminary = new Set(
@@ -103,8 +108,9 @@ function resolutionsNeeded(event: SetupEvent, settings: ResolvedSettingsView) {
       .filter((stage) => stage.kind === 'preliminary')
       .map((stage) => stage.stageId),
   );
-  const rounds = event.tabRounds.filter((round) =>
-    preliminary.has(round.stageId),
+  const rounds = event.tabRounds.filter(
+    (round) =>
+      preliminary.has(round.stageId) && round.resolutionPoolId === poolId,
   );
   return rounds.length * (rule?.method === 'strike' ? (rule.drawSize ?? 1) : 1);
 }
@@ -152,45 +158,78 @@ function resolutionsLine(
 ): readonly SettingLine[] {
   const entry = resolvedEntry(reads.settings, 'resolution.rule');
   if (entry === null) return [];
-  const poolId = event.tabRounds.find(
-    (round) => round.resolutionPoolId !== null,
-  )?.resolutionPoolId;
-  const pool = reads.setup.resolutionPools.find(
-    (candidate) => candidate.resolutionPoolId === poolId,
+  const preliminary = new Set(
+    event.stages
+      .filter((stage) => stage.kind === 'preliminary')
+      .map((stage) => stage.stageId),
   );
-  const needed = resolutionsNeeded(event, reads.settings);
-  const short = pool !== undefined && pool.size < needed;
-  return [
-    settingLineOf(entry, {
-      ...copy,
-      edit: linkTo(short ? 'Add resolutions' : 'Change', copy.resolutions),
-      attention: short ? `the pool has ${pool.size}, needs ${needed}` : null,
-    }),
+  const poolIds = [
+    ...new Set(
+      event.tabRounds
+        .filter((round) => preliminary.has(round.stageId))
+        .map((round) => round.resolutionPoolId),
+    ),
   ];
+  return poolIds.map((poolId) => {
+    const pool = reads.setup.resolutionPools.find(
+      (candidate) => candidate.resolutionPoolId === poolId,
+    );
+    const needed = resolutionsNeeded(event, reads.settings, poolId);
+    const short = !pool || pool.size < needed;
+    return {
+      ...settingLineOf(entry, {
+        ...copy,
+        value: pool ? `${copy.value} · ${pool.name}` : copy.value,
+        edit: linkTo(short ? 'Add resolutions' : 'Change', copy.resolutions),
+        attention: !pool
+          ? 'No resolution pool assigned'
+          : short
+            ? `the pool has ${pool.size}, needs ${needed}`
+            : null,
+      }),
+      id: poolId ?? 'unassigned',
+    };
+  });
 }
 
-/** The league the event asks to count for, and how long its request has waited. */
-function sanctionLine(
+const sanctionAttention = (
+  sanction: SetupEvent['sanctions'][number],
+  now: string,
+): string | null => {
+  switch (sanction.status) {
+    case 'requested':
+      return `sanction requested ${agoWords(daysBefore(sanction.requestedAt, now))}, not yet answered`;
+    case 'approved':
+      return null;
+    case 'declined':
+      return 'Does not count · sanction declined';
+    case 'withdrawn':
+      return 'Does not count · sanction withdrawn';
+  }
+};
+/** Every league the event asks to count for, with its own request age and action. */
+export function sanctionLines(
   copy: SettingCopy<'sanction'>,
   event: SetupEvent,
   lobby: LineSource,
   now: string,
 ): readonly SettingLine[] {
-  const sanction = event.sanction;
-  if (sanction === null) return [];
-  const waiting = sanction.status === 'requested';
-  return [
-    {
+  return event.sanctions.map((sanction) => {
+    const waiting = sanction.status === 'requested';
+    return {
+      id: sanction.organization.organizationId,
       keys: ['sanction'],
       label: copy.label,
       value: sanction.organization.name,
       source: lobby,
-      control: openSetting(waiting ? sampleAction('View request') : null),
-      attention: waiting
-        ? `sanction requested ${agoWords(daysBefore(sanction.requestedAt, now))}, not yet answered`
-        : null,
-    },
-  ];
+      control: openSetting(
+        waiting
+          ? (copy.request?.(sanction.organization.organizationId) ?? null)
+          : null,
+      ),
+      attention: sanctionAttention(sanction, now),
+    };
+  });
 }
 
 /**
@@ -198,7 +237,7 @@ function sanctionLine(
  * asked at the event, its template's pins, its stages, its resolution pool
  * and its sanction, from the tournament's setup read.
  */
-function tournamentSetupOf(
+export function tournamentSetupOf(
   reads: TournamentSetupReads,
   context: TournamentSetupContext,
 ): TournamentSetup | null {
@@ -230,7 +269,7 @@ function tournamentSetupOf(
       case 'resolutions':
         return resolutionsLine(copy, reads, event);
       case 'sanction':
-        return sanctionLine(copy, event, lobby, context.now);
+        return sanctionLines(copy, event, lobby, context.now);
     }
   };
   return {

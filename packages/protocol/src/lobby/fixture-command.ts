@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import { administrativeAwardsSchema } from './result-record';
 import { judgingForceKeys } from '../settings/force';
 import {
   lobbyCommandEnvelope,
@@ -16,7 +17,7 @@ import {
 /** A reason a person typed: blank is allowed here and refused by the rule that needs one. */
 const typedReason = z.string().max(2000);
 
-/** A broken `judging.*` rule kept anyway, named with the reason. */
+/** A preference or warning deliberately overridden, named with its reason; hard rules never relax. */
 const judgingOverrideSchema = z.strictObject({
   key: z.enum(judgingForceKeys),
   reason: typedReason,
@@ -70,6 +71,7 @@ const recordForfeitCommandSchema = z.strictObject({
   fixtureId: idSchema,
   entryId: idSchema,
   reason: typedReason,
+  awards: administrativeAwardsSchema,
 });
 
 export const fixtureCommandSchema = z.discriminatedUnion('type', [
@@ -99,6 +101,7 @@ export const fixtureCommandRefusals = [
   'ballot-submitted',
   'round-not-started',
   'entry-not-in-fixture',
+  'outcome-mismatch',
 ] as const;
 export type FixtureCommandRefusal = (typeof fixtureCommandRefusals)[number];
 
@@ -177,6 +180,7 @@ export const fixtureCommandCatalogue = {
       'fixture-bye',
       'result-exists',
       'entry-not-in-fixture',
+      'outcome-mismatch',
       'reason-required',
     ],
     history: 'entry',
@@ -198,8 +202,9 @@ const judgeCommands = new Set<FixtureCommand['type']>([
 export const fixtureCommandDefinition = (
   type: FixtureCommand['type'],
   status: 'draft' | 'published' | 'withdrawn',
-): LobbyCommandDefinition => {
-  const definition: LobbyCommandDefinition = fixtureCommandCatalogue[type];
+): LobbyCommandDefinition<FixtureCommandRefusal> => {
+  const definition: LobbyCommandDefinition<FixtureCommandRefusal> =
+    fixtureCommandCatalogue[type];
   if (!judgeCommands.has(type)) return definition;
   return {
     ...definition,

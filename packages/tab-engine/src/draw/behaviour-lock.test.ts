@@ -274,11 +274,14 @@ const folds: Record<string, LockEntry> = {
               event: 'ev',
               sanctioned: true,
               entries: field,
-              results: played.results.map((result, i) => ({
-                result,
-                fixture: pairings.find((p) => p.id === result.fixture)!.fixture,
-                playedAt: `2026-11-01T0${i}:00:00.000Z`,
-              })),
+              results: played.results
+                .filter((result) => result.kind === 'decided')
+                .map((result, i) => ({
+                  result,
+                  fixture: pairings.find((p) => p.id === result.fixture)!
+                    .fixture,
+                  playedAt: `2026-11-01T0${i}:00:00.000Z`,
+                })),
             },
           ],
         }),
@@ -295,100 +298,100 @@ const folds: Record<string, LockEntry> = {
 const locked: Record<string, LockEntry> = {
   'two-sided first round': {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'pairing-two-sided@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'b3cf0bf34410021d86e76600159fdc8acac8e8f1ba92cb2ba101c6eff7ce9c17',
+    digest: '09e4325433306f49a5379e7eb1bc46cd25eef6314ea17394e6b107f26773824e',
   },
   'two-sided powered round': {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'pairing-two-sided@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'a6e44fc2710af9328fd10c66b3b8af1f697b50e8ec9c442bfbb2e8ca52175b29',
+    digest: '718c8f0f0becceb90df82353c28d2c9e38b40e9f9ce4df97bdb0e04c8cf52b2b',
   },
   'round robin': {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'schedule-round-robin@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: '3c46b831f16925f19fa7aa9d7c8bdabf679a22ec1489e0dd6ec69f69504171e2',
+    digest: '653bbc26be72a2b76feb1f293d88bf0c39ec2863ad1a745baccdee9741c7773b',
   },
   'four sides': {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'pairing-four-side@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'caed3b9f832f76e00dbf32d0ad42cd5230bf2b571be478db66d35e53bd28367f',
+    digest: 'a4f824e484bc5776596836e27d5d0a88ab9ce45903bf75bae10457147c651a2e',
   },
   sections: {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'sections@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'f01b07bca549420f5c07ab1c7eb07dd1861dcd7c5bf0326601b3285b4288aaf5',
+    digest: 'bdb308c29cd482e3e41386ed67f3b95e1d79e51222b221148b42cd3dbbf70d31',
   },
   elimination: {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'bracket-progression@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: '68188a7848af3060bf6663001e08d3b9b045d42a8aec5555b7c9bda6c37dbd1c',
+    digest: 'd02310f8023f8f7ae3624af300edf340d7739b0580cf0ffd7d1f36725eeb5520',
   },
   'prematched second round': {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'pairing-two-sided@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: '5148cdacd1a367dfef82660c355c1241a13b38624a38710d573d4d8cfa85c989',
+    digest: 'cd7fa547a528bcae9a1f14371bce740b8753d15a113ed283de94de48bd5bb367',
   },
   'four sides second round': {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'pairing-four-side@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: '15338e15e7cf3799c1cf0d6809a5997babaf63812210052d855d6a86fd0308a8',
+    digest: 'ce3f212fe7eacd4b39799840c4acadd24fd2b730a300fe3344b4e2d7093053e9',
   },
   'sections second round': {
     versions: {
-      engine: 'tab-engine@1',
+      engine: 'tab-engine@2',
       method: 'sections@1',
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'ee80ff60e8b5157509027c1eadaff02c9a02889eeb1ffb800ff1b1020b01faf5',
+    digest: '8fa734bd48d83fae380ebdc8aa3f3c2e97b15de238bf4583f39c5aead2014f75',
   },
   'assess of a hand plan': {
     versions: { assess: 'assess@1' },
     digest: 'fa2fe043c9cd9c84cdbd5b14660596d9e7b9732dd2000d74bab8a33cc4789d3b',
   },
   standings: {
-    versions: { standings: 'standings@1' },
-    digest: '7497a4086e98680a468a13b6b2aea4cc4641c2ce72bf363a6d05d01c16c923a6',
+    versions: { standings: 'standings@2' },
+    digest: '39b277b98b754581cd3990385f2fe31fca9fb9806d2de7548e096dcab54cccbd',
   },
   breaks: {
     versions: { breaks: 'breaks@1' },
     digest: 'd4b357fa099a84deb92a1295d0d3a9936cd9f52b043d4f8a63794a2bc6e03c1b',
   },
   'season standings': {
-    versions: { season: 'season-standings@1' },
-    digest: 'b5aa31ba386d9f3c24c8940edc5a0eaf7b3d0eae2d36e21c132b458ef2f87769',
+    versions: { season: 'season-standings@2' },
+    digest: 'f0b46afd4ad0b6aefa5ed45e43b98f6cbe969dd145a7e0e571e7077cffde8254',
   },
   'ladder input': {
     versions: { ladder: 'ladder-input@1' },

@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assertRejects } from '@daisy/errors/testing';
 import { daisyWinnerBallot, sideSeat, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -198,6 +199,7 @@ describe('round runtime command refusals and seat order', () => {
     const completed = spent.completePanel({
       now: at(1_000),
       judging: {
+        source: daisyBallotSource(daisyWinnerBallot),
         ballot: daisyWinnerBallot,
         panel: { decision: 'majority', quorum: 1 },
       },

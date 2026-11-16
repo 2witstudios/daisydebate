@@ -66,12 +66,15 @@ const owner = {
   name: 'Jordan Hale',
   owner: true,
   membership: 'active',
+  membershipVersion: 1,
   grants: [],
   conflicts: [],
   removable: false,
 } as const;
 const people = {
   organizationId: id('league'),
+  version: 3,
+  lobbies: [],
   name: 'Southeast League',
   people: [
     owner,
@@ -112,7 +115,7 @@ const people = {
     name: 'Autumn Open',
     value: 'second_confirms',
   },
-  capabilities: { give: true },
+  capabilities: { give: true, cancelInvitation: true },
 };
 
 describe('organization reads', async () => {
@@ -197,12 +200,12 @@ describe('organization reads', async () => {
     assert({
       given: 'the catalogue',
       should:
-        'gate home on a signed-in viewer, the profile on organization.read, people on organization.host.read',
+        'gate home on a signed-in viewer, the profile on organization.read, people on lobby.host.people.read',
       actual: organizationReadCatalogue,
       expected: {
         HostHomeView: { gate: 'signed-in' },
         OrganizationView: { gate: ['organization.read'] },
-        OrganizationPeopleView: { gate: ['organization.host.read'] },
+        OrganizationPeopleView: { gate: ['lobby.host.people.read'] },
       },
     });
   });

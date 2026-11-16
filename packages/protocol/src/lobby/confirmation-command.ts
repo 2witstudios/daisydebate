@@ -1,3 +1,7 @@
+export {
+  confirmationDeadline,
+  TAB_CONFIRMATION_VALIDITY_MS,
+} from './confirmation-deadline';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';

@@ -235,6 +235,7 @@ test('a debater who inherits a Room never learns the hidden judge, in the Room o
       () => true,
       readRoundOpening,
       roundWaitingOn,
+      () => false,
     );
     const judgeRound = await f.store.readLaunchedRound(
       roundId,
@@ -242,6 +243,7 @@ test('a debater who inherits a Room never learns the hidden judge, in the Room o
       () => true,
       readRoundOpening,
       roundWaitingOn,
+      () => false,
     );
     const [frozen] =
       await f.sql`select host_inherited,created_by_actor_id from rounds where id=${roundId}`;

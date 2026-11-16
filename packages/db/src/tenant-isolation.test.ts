@@ -24,9 +24,18 @@ const fenced = (entry: TenantTable): TenantTableFacts => ({
     ...(entry.key === 'person'
       ? []
       : [
-          { name: 'organization_id', notNull: entry.key !== 'either' },
-          { name: 'lobby_id', notNull: entry.key !== 'either' },
+          {
+            name: 'organization_id',
+            notNull: entry.key !== 'either' && entry.key !== 'history',
+          },
+          {
+            name: 'lobby_id',
+            notNull: entry.key !== 'either' && entry.key !== 'history',
+          },
         ]),
+    ...(entry.key === 'history'
+      ? [{ name: 'subject_person_user_id', notNull: false }]
+      : []),
   ],
   policies: tenantPolicies(entry).map((policy) => ({
     name: policy.name,
@@ -39,7 +48,11 @@ const fenced = (entry: TenantTable): TenantTableFacts => ({
   checks:
     entry.key === 'either'
       ? ['CHECK ((num_nonnulls(organization_id, lobby_id) = 1))']
-      : [],
+      : entry.key === 'history'
+        ? [
+            'CHECK ((num_nonnulls(organization_id, lobby_id, subject_person_user_id) = 1))',
+          ]
+        : [],
   references: [],
   openGrantees: [],
 });
@@ -296,5 +309,41 @@ describe('refuseUnisolatedTenantTables', () => {
         'started',
       ],
     });
+  });
+});
+
+test('the Round source boundary is explicit and never exempts another referencing table', () => {
+  const round = { ...plain('rounds'), references: ['templates'] };
+  assert({
+    given: 'a Round source FK and an unrelated new referencing table',
+    should:
+      'require each own named boundary and keep reporting an unclassified reader',
+    actual: [
+      tenantIsolationProblems([...catalog(small), round], small),
+      tenantIsolationProblems(
+        [
+          ...catalog(small),
+          round,
+          { ...plain('unclassified_reader'), references: ['templates'] },
+        ],
+        {
+          ...small,
+          exempt: [
+            ...small.exempt,
+            {
+              table: 'rounds',
+              reason:
+                'Explicit Round evaluator boundary proved in actual private-source integration',
+            },
+          ],
+        },
+      ),
+    ],
+    expected: [
+      ['rounds references templates but is neither tenant-owned nor exempt'],
+      [
+        'unclassified_reader references templates but is neither tenant-owned nor exempt',
+      ],
+    ],
   });
 });

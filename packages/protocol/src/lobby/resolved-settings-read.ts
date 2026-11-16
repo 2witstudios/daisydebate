@@ -151,6 +151,15 @@ export const resolvedSettingsViewSchema = z
   );
 export type ResolvedSettingsView = z.infer<typeof resolvedSettingsViewSchema>;
 
+/** The host editor's guard comes from the same fenced snapshot as its values. */
+export const tournamentEventSettingsViewSchema =
+  resolvedSettingsViewSchema.safeExtend({
+    settingsVersion: z.int().positive(),
+  });
+export type TournamentEventSettingsView = z.infer<
+  typeof tournamentEventSettingsViewSchema
+>;
+
 /** The read capability of what is asked about. */
 export const resolvedSettingsGateOf = (
   at: SettingsAt,

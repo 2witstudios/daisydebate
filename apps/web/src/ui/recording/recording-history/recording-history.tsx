@@ -112,7 +112,7 @@ function Result({ result }: { result: NonNullable<History['result']> }) {
             {`${ballot.title}: ${ballot.winner}`}
           </span>
           <span className="text-ink-muted">{ballot.scores}</span>
-          <p className="text-ink">{ballot.reason}</p>
+          {ballot.reason ? <p className="text-ink">{ballot.reason}</p> : null}
         </div>
       ))}
     </section>

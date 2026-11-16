@@ -1,3 +1,5 @@
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
@@ -43,6 +45,7 @@ type Env = {
   readonly audienceRound: (
     visibility?: 'public' | 'unlisted' | 'private',
     overrides?: Record<string, unknown>,
+    cast?: readonly { readonly seat: string; readonly actorId: string }[],
   ) => Promise<string>;
 };
 
@@ -55,17 +58,36 @@ const withEnv = async (run: (env: Env) => Promise<void>) => {
       const audienceRound: Env['audienceRound'] = async (
         visibility = 'public',
         overrides = {},
+        cast = [],
       ) => {
-        const format = await f.format();
-        const room = await f.room(await f.actor(), format, { visibility });
-        const id = await f.round({
-          room_id: room,
-          room_config_snapshot: validConfig,
+        const judged = cast.some((person) => person.seat === 'judge');
+        const compiled = resolveRoomConfiguration(
+          oneOnOneDefinition,
+          oneOnOneSettings,
+        );
+        if (!compiled.ok)
+          throw new Error('Actual judged source did not compile');
+        const rules = judged ? compiled.rules : validRules;
+        const format = judged ? 'one-on-one' : await f.format();
+        const room = await f.room(await f.actor(), format, {
           visibility,
-          format_id: format,
-          rules_snapshot: validRules,
-          ...overrides,
+          format_version: judged ? 2 : 1,
+          config: judged ? oneOnOneSettings : validConfig,
+          rules_snapshot: rules,
         });
+        const { id } = await f.roundWithCast(
+          {
+            room_id: room,
+            room_config_snapshot: validConfig,
+            visibility,
+            format_id: format,
+            format_version: judged ? 2 : 1,
+            rules_snapshot: rules,
+            ...overrides,
+          },
+          cast,
+          { rules },
+        );
         rounds.push(id);
         return id;
       };
@@ -227,12 +249,17 @@ test('the live room is told apart in the post transaction: a seat of any role an
     const judge = await member(env.f);
     const host = await member(env.f);
     const viewer = await member(env.f);
-    const roundId = await env.audienceRound('public', {
-      created_by_actor_id: host.actorId,
-    });
+    const roundId = await env.audienceRound(
+      'public',
+      {
+        created_by_actor_id: host.actorId,
+      },
+      [
+        { seat: 'affirmative', actorId: debater.actorId },
+        { seat: 'judge', actorId: judge.actorId },
+      ],
+    );
     await broadcast(env.client, roundId);
-    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
-    await env.f.participant(roundId, 'judge', 0, judge.actorId);
     const seenBy = async (account: typeof viewer) => {
       let seen: { inLiveRoom: boolean } | undefined;
       await env.chat.postSpectatorChatMessage(
@@ -581,7 +608,8 @@ test('a seat taken and given up changes nothing about a DM between the two debat
   await withEnv(async (env) => {
     const dm = await openDm(databaseUrl);
     const { channelId, subject, survivor } = dm;
-    const roundId = await env.audienceRound();
+    let roundId = await env.audienceRound();
+    const spectatorRoundId = roundId;
     try {
       await broadcast(env.client, roundId);
       const facts = async () => [
@@ -606,10 +634,12 @@ test('a seat taken and given up changes nothing about a DM between the two debat
         seconds: 0,
       });
       const spectating = await facts();
-      await env.f.participant(roundId, 'affirmative', 0, subject.actorId);
-      await env.f.participant(roundId, 'negative', 0, survivor.actorId);
+      roundId = await env.audienceRound('public', {}, [
+        { seat: 'affirmative', actorId: subject.actorId },
+        { seat: 'negative', actorId: survivor.actorId },
+      ]);
       const seated = await facts();
-      await env.client`delete from round_participants where round_id=${roundId}`;
+      await env.client`delete from rounds where id=${roundId}`;
       const unseated = await facts();
       assert({
         given: 'two people with a DM who watch, take seats, then lose them',
@@ -631,7 +661,7 @@ test('a seat taken and given up changes nothing about a DM between the two debat
       });
     } finally {
       // Its author goes with the DM fixture, so the crowd's line goes first.
-      await env.client`delete from messaging_channels where round_id=${roundId}`;
+      await env.client`delete from messaging_channels where round_id in (${roundId},${spectatorRoundId})`;
       await dm.close();
     }
   });
@@ -822,8 +852,9 @@ test('a follower is told only once a speech has been released', async () => {
       username: `u-${debater.userId}`,
       state: 'following',
     });
-    const roundId = await env.audienceRound();
-    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    const roundId = await env.audienceRound('public', {}, [
+      { seat: 'affirmative', actorId: debater.actorId },
+    ]);
     await broadcast(env.client, roundId, { released: at(10) });
     await sweep(env, 11);
     const beforeSpeech = await rowsFor(env, fan.userId);
@@ -847,8 +878,9 @@ test('"on air" reads only while the Broadcast is open', async () => {
       username: `u-${debater.userId}`,
       state: 'following',
     });
-    const roundId = await env.audienceRound();
-    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    const roundId = await env.audienceRound('public', {}, [
+      { seat: 'affirmative', actorId: debater.actorId },
+    ]);
     await firstSpeech(env.client, roundId);
     await broadcast(env.client, roundId, { released: at(10) });
     await sweep(env, 11);
@@ -1041,12 +1073,14 @@ test('a follower hears nothing before release, once after it, and only of a publ
         followed_debater_live: { in_app: false },
       },
     });
-    const roundId = await env.audienceRound();
-    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    const roundId = await env.audienceRound('public', {}, [
+      { seat: 'affirmative', actorId: debater.actorId },
+    ]);
     await firstSpeech(env.client, roundId);
     await broadcast(env.client, roundId);
-    const unlisted = await env.audienceRound('unlisted');
-    await env.f.participant(unlisted, 'affirmative', 0, debater.actorId);
+    const unlisted = await env.audienceRound('unlisted', {}, [
+      { seat: 'affirmative', actorId: debater.actorId },
+    ]);
     await firstSpeech(env.client, unlisted);
     await broadcast(env.client, unlisted, { released: at(1) });
     await sweep(env, 5);
@@ -1110,8 +1144,9 @@ test('recording_ready waits for a complete Broadcast, and a takedown takes the n
       username: `u-${debater.userId}`,
       state: 'following',
     });
-    const roundId = await env.audienceRound('public');
-    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    const roundId = await env.audienceRound('public', {}, [
+      { seat: 'affirmative', actorId: debater.actorId },
+    ]);
     await broadcast(env.client, roundId, { released: at(1) });
     await env.client`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
       values (${createId()},${roundId},'casual',${{ kind: 'casual_opted_in', hostActorId: debater.actorId }},'ready',${{ status: 'ready' }})`;
@@ -1153,8 +1188,9 @@ test('reading is per account, and a read notification leaves 90 days later', asy
       username: `u-${debater.userId}`,
       state: 'following',
     });
-    const roundId = await env.audienceRound();
-    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    const roundId = await env.audienceRound('public', {}, [
+      { seat: 'affirmative', actorId: debater.actorId },
+    ]);
     await firstSpeech(env.client, roundId);
     await broadcast(env.client, roundId, { released: at(1) });
     await sweep(env, 5);
@@ -1246,18 +1282,21 @@ test('stored preferences read back as saved', async () => {
 
 test('a seat reads as what its Round is, and no seat reads as none', async () => {
   await withEnv(async (env) => {
-    const roundId = await env.audienceRound('public', {
-      competition_type: 'ranked',
-      format_id: 'freestyle',
-      preset_version: 1,
-      ladder_id: 'freestyle',
-      status: 'completed',
-      winning_side: 'affirmative',
-      started_at: at(0),
-      completed_at: at(1),
-    });
     const debater = await member(env.f);
-    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    const roundId = await env.audienceRound(
+      'public',
+      {
+        competition_type: 'ranked',
+        format_id: 'freestyle',
+        preset_version: 1,
+        ladder_id: 'freestyle',
+        status: 'completed',
+        winning_side: 'affirmative',
+        started_at: at(0),
+        completed_at: at(1),
+      },
+      [{ seat: 'affirmative', actorId: debater.actorId }],
+    );
     await env.client`insert into broadcasts (id,round_id,feed_key,release_policy,debaters_read_chat)
       values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},true)`;
     assert({

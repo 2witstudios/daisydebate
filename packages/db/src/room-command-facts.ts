@@ -33,12 +33,17 @@ import { rounds } from './schema/rounds';
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
 
-export type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+export type Tx = Pick<
+  BunSQLDatabase,
+  'select' | 'insert' | 'update' | 'delete' | 'execute'
+>;
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Account = ReturnType<typeof authorizationAccountFact>;
 export type AuthorizeRoom = (
   state: RoomAssemblyState,
   account: Account,
+  direction?: import('./tab/room-direction').RoomDirectionInput | null,
+  now?: string,
 ) => boolean;
 export const lockedAccount = async (
   tx: Tx,

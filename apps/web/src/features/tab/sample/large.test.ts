@@ -93,7 +93,7 @@ describe('the large sample tournament', () => {
         slotRooms: slot?.read.events.reduce((sum, e) => sum + e.roomCount, 0),
         draw: [fixtures.length, unique(fixtures.map((f) => f.fixtureId))],
         standings: [standings?.read.rows.length, novice?.read.rows.length],
-        bracket: bracket?.read.tabRounds[0]?.ties.length,
+        bracket: bracket?.read.tabRounds[0]?.fixtures.length,
         schools: schools?.length,
         entries: [
           entries?.groups.every((g) => g.entries.length === g.entryCount),

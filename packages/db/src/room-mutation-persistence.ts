@@ -3,10 +3,12 @@ import { eq } from 'drizzle-orm';
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
   emptyRuntimeCheckpointFor,
+  aiBallotAdmissionRefusal,
+  isJudgeSeat,
   freezePostRoundCall,
   freezeRoomConfig,
 } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
+import { createRefusal, createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
@@ -15,7 +17,7 @@ import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { holdActiveRoomMembers } from './room-membership-persistence';
-import { frozenJudgingFor } from './round-judging-freeze';
+import { freezeRoomBallot } from './room-ballot-freeze';
 import { columnsOfSeat } from './seat-columns';
 
 import {
@@ -62,6 +64,21 @@ export const persistRoomMutation = async (
   acceptedCommand: boolean,
 ) => {
   const next = mutation.state;
+  const judging = mutation.freeze
+    ? await freezeRoomBallot(tx, next.id, next.rules)
+    : null;
+  if (
+    judging &&
+    next.participants.some((p) => p.kind === 'bot' && isJudgeSeat(p.seat))
+  ) {
+    const refusal = aiBallotAdmissionRefusal(
+      judging.ballot,
+      next.rules,
+      next.participants,
+    );
+    if (refusal)
+      throw createRefusal('CONFLICT', 'ballot-definition-unavailable');
+  }
   if (mutation.publishDefinition)
     await publishDefinition(
       tx,
@@ -122,7 +139,7 @@ export const persistRoomMutation = async (
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
-      judging: frozenJudgingFor(next.rules),
+      judging,
       runtimeState: emptyRuntimeCheckpointFor(next.rules),
       status: opens ? 'opening' : 'active',
       ...(opens

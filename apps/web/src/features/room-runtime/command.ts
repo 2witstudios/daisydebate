@@ -1,3 +1,4 @@
+import { eventCaptureAdmission } from '../tab/tournament-capture-admission';
 import type { Store, Caller } from './operations';
 import { aiServesSeat } from './ai-seat';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
@@ -56,7 +57,21 @@ export function roomCommandOperation({
   ): Promise<RoomCommandResponse> {
     // One id for the Round a Start round launches: the engine names it and the store inserts it.
     const roundId = ids.next();
+    const captureAdmissionId =
+      command.type === 'start-round' ? ids.next() : null;
     const receipt = await store.executeRoomCommand({
+      captureAdmission: (state, direction, now) =>
+        captureAdmissionId
+          ? eventCaptureAdmission({
+              caller,
+              room: state,
+              direction,
+              now,
+              admissionId: captureAdmissionId,
+              roundId,
+              commandId: command.commandId,
+            })
+          : null,
       caller,
       roomId,
       actorId: caller.actorId,
@@ -93,10 +108,24 @@ export function roomCommandOperation({
             }
           : null;
       },
-      authorizeRead: (state, account) =>
-        can(caller, 'room.read', account, state),
-      prepare: async (raw, preparedAt, account) => {
-        if (!can(caller, capabilityOf(command), account, raw))
+      authorizeRead: (state, account, direction, now) =>
+        can(caller, 'room.read', account, state, direction, now),
+      authorizeCommand: (state, account, direction, now) =>
+        (state.hostActorId !== null ||
+          capabilityOf(command) !== 'room.manage' ||
+          command.type === 'start-round') &&
+        can(caller, capabilityOf(command), account, state, direction, now),
+      prepare: async (raw, preparedAt, account, direction) => {
+        if (
+          !can(
+            caller,
+            capabilityOf(command),
+            account,
+            raw,
+            direction,
+            preparedAt,
+          )
+        )
           throw createAppError('AUTHORIZATION');
         const prepared = eligible(raw);
         const consent = await consentOf(prepared, preparedAt);
@@ -144,8 +173,9 @@ export function roomCommandOperation({
           grants,
           contentWaiver,
           maySeatCasualAiJudge,
+          direction,
         ) => {
-          if (!can(caller, capabilityOf(command), account, raw))
+          if (!can(caller, capabilityOf(command), account, raw, direction, now))
             throw createAppError('AUTHORIZATION');
           const state = eligible(raw);
           const seat =
@@ -159,6 +189,27 @@ export function roomCommandOperation({
             currentRoomConsent(consent, now),
             {
               now,
+              direction:
+                direction && command.type === 'start-round'
+                  ? {
+                      roomId,
+                      actorId: caller.actorId,
+                      command: 'start-round',
+                      captureAdmitted:
+                        (state.capture?.recordingPolicy === 'off' &&
+                          state.capture.broadcast === null) ||
+                        (captureAdmissionId !== null &&
+                          eventCaptureAdmission({
+                            caller,
+                            room: state,
+                            direction,
+                            now,
+                            admissionId: captureAdmissionId,
+                            roundId,
+                            commandId: command.commandId,
+                          }) !== null),
+                    }
+                  : null,
               participantId: ids.next(),
               roundId: command.type === 'start-round' ? roundId : null,
               formatId: ids.next(),

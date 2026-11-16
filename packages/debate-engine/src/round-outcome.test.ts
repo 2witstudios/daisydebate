@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
@@ -9,6 +10,7 @@ import {
 import { deriveRoundOutcome } from './round-outcome';
 setupRitewayBun();
 const judging = {
+  source: daisyBallotSource(daisyWinnerBallot),
   ballot: daisyWinnerBallot,
   panel: { decision: 'majority', quorum: 1 },
 } as const;
@@ -84,6 +86,7 @@ test("a rank-sum panel sums each subject's places, and equal sums share a place"
       'order the teams by their summed places, sharing a place on equal sums',
     actual: deriveRoundOutcome(
       {
+        source: daisyBallotSource(daisyBallotDefinitions['rank-sides@1']),
         ballot: daisyBallotDefinitions['rank-sides@1'],
         panel: { decision: 'rank_sum', quorum: 1 },
       },
@@ -105,6 +108,7 @@ test("a rank-sum panel sums each subject's places, and equal sums share a place"
     should: 'put both teams in one shared place',
     actual: deriveRoundOutcome(
       {
+        source: daisyBallotSource(daisyBallotDefinitions['rank-sides@1']),
         ballot: daisyBallotDefinitions['rank-sides@1'],
         panel: { decision: 'rank_sum', quorum: 1 },
       },

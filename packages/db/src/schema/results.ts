@@ -1,3 +1,4 @@
+import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import {
   administrativeResultReasons,
   resultKinds,
@@ -17,7 +18,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
-import { oneOf, timestampColumn } from './columns';
+import { jsonbColumn, jsonbIsObject, oneOf, timestampColumn } from './columns';
 import { fixtureEntries, fixtures } from './fixtures';
 import { actionHistory } from './grants';
 import { rounds } from './rounds';
@@ -32,7 +33,7 @@ import { constantText } from './tenant-keys';
  * live fixture, and the same key means a fixture with a result cannot be
  * withdrawn. Append-only: the runtime role holds no UPDATE or DELETE and a
  * trigger refuses both. `round_id` is the only path from the tab record to
- * a Round; standings read `result_entries` and `result_speakers`, never it.
+ * a Round; standings read the canonical result-owned competition record, never Round. Entry and speaker rows are atomic deterministic projections.
  */
 export const results = pgTable(
   'results',
@@ -43,6 +44,10 @@ export const results = pgTable(
     tabRoundId: text('tab_round_id').notNull(),
     fixtureId: text('fixture_id').notNull(),
     fixtureStatus: constantText('fixture_status', 'published'),
+    competitionRecord: jsonbColumn(
+      'competition_record',
+      resultCompetitionRecordSchema,
+    ).notNull(),
     kind: text('kind').$type<(typeof resultKinds)[number]>().notNull(),
     administrativeReason: text('administrative_reason').$type<
       (typeof administrativeResultReasons)[number]
@@ -56,6 +61,7 @@ export const results = pgTable(
     recordedAt: timestampColumn('recorded_at').notNull(),
   },
   (table) => [
+    jsonbIsObject('results', table.competitionRecord),
     unique('results_id_fixture_unique').on(
       table.id,
       table.fixtureId,

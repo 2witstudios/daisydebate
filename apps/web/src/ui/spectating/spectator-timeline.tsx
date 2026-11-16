@@ -70,7 +70,7 @@ export function SpectatorFacts({
                     : sideName(timeline.sides, ballot.winner)}
                 </p>
                 <p>Scores: {scoresLine(timeline.sides, ballot)}</p>
-                <p>{ballot.reason}</p>
+                {ballot.reason ? <p>{ballot.reason}</p> : null}
               </li>
             ))}
           </ol>

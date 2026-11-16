@@ -11,8 +11,8 @@ type OfficialRound = Extract<
   BracketView,
   { visibility: 'official' }
 >['tabRounds'][number];
-type Tie = OfficialRound['ties'][number];
-type Side = Tie['top'];
+type Tie = OfficialRound['fixtures'][number];
+type Side = Tie['entries'][number];
 
 const side = (seed: number, name: string): Side => ({
   entryId: sampleId(`entry${name}`),
@@ -28,15 +28,30 @@ const decided = (
   bottomBallots: number,
 ): Tie => ({
   fixtureId: sampleId(`fixture${top.entryId}${bottom.entryId}`),
-  top,
-  bottom,
-  state: { kind: 'decided', topBallots, bottomBallots },
+  entries: [top, bottom],
+  state: {
+    kind: 'decided',
+    resultId: sampleId(`result${top.entryId}${bottom.entryId}`),
+    outcomes: [
+      {
+        entryId: top.entryId,
+        won: topBallots > bottomBallots,
+        rank: null,
+        ballotsWon: topBallots,
+      },
+      {
+        entryId: bottom.entryId,
+        won: bottomBallots > topBallots,
+        rank: null,
+        ballotsWon: bottomBallots,
+      },
+    ],
+  },
 });
 
 const live = (top: Side, bottom: Side, room: string): Tie => ({
   fixtureId: sampleId(`fixture${top.entryId}${bottom.entryId}`),
-  top,
-  bottom,
+  entries: [top, bottom],
   state: {
     kind: 'live',
     room: { roomId: sampleId(`room${room}`), name: room },
@@ -54,7 +69,7 @@ const tabRound = (
   name,
   status,
   startsAt: more.startsAt ?? null,
-  ties: [...ties],
+  fixtures: [...ties],
   waitsOn: more.waitsOn ?? null,
 });
 
@@ -100,6 +115,7 @@ export function sampleBracketView(
     lobbyId: sampleId('autumnopen'),
     eventId: sampleId('eventvarsity'),
     stageId: sampleId('stagevarsityelims'),
+    kind: 'elimination' as const,
     division: null,
   };
   const read: BracketView =
@@ -140,6 +156,7 @@ export function sampleEventResultsView(
     read: {
       lobbyId: sampleId('autumnopen'),
       eventId: sampleId('eventvarsity'),
+      resultsVersion: 1,
       prelimsCertifiedAt: sampleInstant('16:52'),
       certification: finished
         ? { kind: 'certified', certifiedAt: sampleInstant('19:40') }
@@ -154,12 +171,16 @@ export function sampleEventResultsView(
           },
       audiences: [
         {
+          tabRoundId: sampleId('prelimround'),
+          tabRoundName: 'Preliminaries',
           audience: 'responsible_adults',
           openings: (['decision', 'scores', 'reason', 'feedback'] as const).map(
             (part) => ({ part, state: opened('round_close', '15:10') }),
           ),
         },
         {
+          tabRoundId: sampleId('prelimround'),
+          tabRoundName: 'Preliminaries',
           audience: 'competitors',
           openings: [
             { part: 'decision', state: opened('round_close', '15:10') },
@@ -172,6 +193,8 @@ export function sampleEventResultsView(
           ],
         },
         {
+          tabRoundId: sampleId('prelimround'),
+          tabRoundName: 'Preliminaries',
           audience: 'public',
           openings: [{ part: 'decision', state: opened('break', '17:05') }],
         },
@@ -201,10 +224,12 @@ export function sampleEventResultsView(
           ],
         },
       ],
-      sanction: {
-        organizationName: LEAGUE_NAME,
-        sentAt: finished ? sampleInstant('19:40') : null,
-      },
+      sanctions: [
+        {
+          organizationName: LEAGUE_NAME,
+          sentAt: finished ? sampleInstant('19:40') : null,
+        },
+      ],
       capabilities: { release: true, certify: true },
       ballotAccess: 'unreleased',
       screeningHolds: {

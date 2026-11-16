@@ -41,6 +41,7 @@ export type HostHome = {
 
 /** A member with the grants they hold, or the owner's fixed position. */
 type PersonRow = {
+  readonly id: string;
   readonly name: string;
   readonly detail: string;
   /** A conflict the evaluator has recorded for this person. */
@@ -397,6 +398,7 @@ function peopleOf(
       ]),
     );
     return {
+      id: member.userId,
       name: member.userId === context.viewerId ? 'You' : member.name,
       detail: member.owner
         ? `Owner of ${view.name} · can't be removed by anyone else`
@@ -461,6 +463,32 @@ export const readPeople = (
     viewerId: sampleViewerId,
     now: sampleNow,
   });
+
+/** An organization's people page from its stored people read. */
+export const organizationPeoplePage = (
+  view: OrganizationPeopleView,
+  context: {
+    readonly role: string | null;
+    readonly basePath: string;
+    readonly viewerId: string;
+    readonly now: string;
+  },
+): People => peopleOf(view, context);
+
+/**
+ * The rail beside a stored organization's people page: the organization by
+ * name. Its lobbies join it once the league read is wired.
+ */
+export const organizationRailOf = (
+  view: OrganizationPeopleView,
+): TimelineRail => ({
+  title: view.name,
+  subtitle: null,
+  heading: null,
+  items: [],
+  footHeading: null,
+  foot: [],
+});
 
 export const readHostRail = (scene: SampleScene): TimelineRail =>
   hostRailOf(sampleHostHomeView(scene), sampleNow, sampleHostAddress);

@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { afterAll } from 'bun:test';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -583,7 +584,7 @@ test(
 
 test('the new seat, outcome, ballot and capture CHECKs refuse what the shapes cannot say', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const seatRow = (columns: Record<string, unknown>) => ({
       id: createId(),
       round_id: roundId,
@@ -594,7 +595,7 @@ test('the new seat, outcome, ballot and capture CHECKs refuse what the shapes ca
     await fixture.freeze(roundId);
     assert({
       given:
-        'a side seat without its side, a judge seat with one, a side spelled outside the key pattern, a Round with both a winner and a ranking, places that are not groups, and a Daisy ballot with no definition',
+        'a side seat without its side, a judge seat with one, a side spelled outside the key pattern, a Round with both a winner and a ranking, places that are not groups, and a ballot with neither a Daisy identity nor a stored definition',
       should: 'refuse each with its named CHECK',
       actual: [
         await fixture.rejectedBy(
@@ -637,7 +638,7 @@ test('the new seat, outcome, ballot and capture CHECKs refuse what the shapes ca
           judge_participant_id: judge,
           round_id: roundId,
           freeze_revision: 1,
-          rubric_version: null,
+          rubric_version: 'missing-definition@1',
           winner: 'affirmative',
           scores: { affirmative: scored(3), negative: scored(3) },
           reason: 'A reason.',

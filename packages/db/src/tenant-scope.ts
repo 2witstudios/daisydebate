@@ -1,3 +1,5 @@
+import type { ReservedSQL } from 'bun';
+import { scopeBoundedTransaction } from './transaction-context';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 
@@ -25,6 +27,7 @@ export const scopeTransaction = async (
   transaction: ScopedExecutor,
   scope: TenantScope,
 ): Promise<void> => {
+  if (await scopeBoundedTransaction(transaction, scope)) return;
   await transaction.execute(sql`select
     set_config('daisy.organization_scope', ${scope.organizationId ?? ''}, true),
     set_config('daisy.lobby_scope', ${scope.lobbyId ?? ''}, true),
@@ -49,3 +52,13 @@ export const withScope = <T>(
     await scopeTransaction(transaction, scope);
     return run(transaction);
   });
+
+/** The bounded adapter owns the raw connection; scope vocabulary stays here. */
+export async function scopeReservedTransaction(
+  writer: ReservedSQL,
+  scope: TenantScope,
+): Promise<void> {
+  await writer`select set_config('daisy.organization_scope', ${scope.organizationId ?? ''}, true),
+    set_config('daisy.lobby_scope', ${scope.lobbyId ?? ''}, true),
+    set_config('daisy.subject_scope', ${scope.subjectUserId ?? ''}, true)`;
+}

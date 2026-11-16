@@ -137,6 +137,9 @@ export const requestMemberDrive = (identity: Identity) => {
   };
 };
 
+/** This process clock's instant, for a render that words time. */
+export const requestNow = (): string => processApp().clock.now();
+
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;

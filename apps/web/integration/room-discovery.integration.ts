@@ -1,3 +1,4 @@
+import { buildRoundTopic } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -48,6 +49,11 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     let view = await f.assemble({ title });
     view = (await f.command(f.host, view, { type: 'start-round' })).view;
     const roundId = view.roundRef!.id;
+    const abandonedCast = await f.freshCast();
+    const abandonedRoom = await f.assemble({ title }, abandonedCast);
+    const abandonedLaunch = await f.command(abandonedCast.host, abandonedRoom, {
+      type: 'start-round',
+    });
     const consentReads = f.consentReads();
     f.unavailable(true);
     const list = (who = f.outsider) =>
@@ -64,7 +70,7 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     const frozenSeat = await list(f.guest);
     await f.sql`update rounds set status='completed',current_stage=null,winning_side='affirmative',completed_at=statement_timestamp() where id=${roundId}`;
     const completed = await list(f.host);
-    await f.sql`update rounds set status='abandoned',current_stage=null,winning_side=null where id=${roundId}`;
+    await f.sql`update rounds set status='abandoned',current_stage=null,winning_side=null,completed_at=statement_timestamp() where id=${abandonedLaunch.view.roundRef!.id}`;
     const abandoned = await list(f.host);
     assert({
       given:
@@ -161,12 +167,12 @@ test('selected Room locks recheck visibility, participant and status races with 
 test('selected Round locks recheck frozen visibility and terminal status races', async () => {
   await withRoomRuntime(async (f) => {
     // An outsider never selects a live Round, so only a member can be mid-read.
-    for (const change of ['status', 'seat'] as const) {
+    for (const change of ['status', 'erasure'] as const) {
       const title = createId();
       const cast = await f.freshCast();
       let view = await f.assemble({ title }, cast);
       view = (await f.command(cast.host, view, { type: 'start-round' })).view;
-      if (change === 'seat')
+      if (change === 'erasure')
         await f.sql`update rounds set visibility='private' where id=${view.roundRef!.id}`;
       await withHeld(async (holder, pid) => {
         await holder`select id from rounds where id=${view.roundRef!.id} for update`;
@@ -175,9 +181,10 @@ test('selected Round locks recheck frozen visibility and terminal status races',
           pageSize: 1,
         });
         await blocked(f.sql, pid);
-        if (change === 'seat')
-          await holder`delete from round_participants where round_id=${view.roundRef!.id} and actor_id=${cast.guest.actorId}`;
-        else
+        if (change === 'erasure') {
+          await holder`delete from rounds where id=${view.roundRef!.id}`;
+          await holder`delete from outbox where topic=${buildRoundTopic(view.roundRef!.id)}`;
+        } else
           await holder`update rounds set status='abandoned',current_stage=null,completed_at=statement_timestamp() where id=${view.roundRef!.id}`;
         await holder.unsafe('COMMIT');
         assert({

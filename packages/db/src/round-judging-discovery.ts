@@ -37,11 +37,11 @@ export async function discoverRoundJudgingJobs(
       from round_judging_jobs j
       join turns t on t.round_id=j.round_id
       cross join sampled s
-      where ((j.status in ('queued','recovering') and (j.retry_at is null or j.retry_at<=s.now))
+      where public.daisy_round_participant_is_current(j.judge_participant_id) and ((j.status in ('queued','recovering') and (j.retry_at is null or j.retry_at<=s.now))
           or (j.status='leased' and j.lease_expires_at<=s.now))
         and not exists (
           select 1 from round_judging_jobs active
-          where active.round_id=j.round_id and active.status='leased'
+          where active.round_id=j.round_id and public.daisy_round_participant_is_current(active.judge_participant_id) and active.status='leased'
             and active.lease_expires_at>s.now
         )
     )

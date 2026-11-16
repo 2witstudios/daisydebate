@@ -1,3 +1,7 @@
+import {
+  sampleRoundExecutionTime,
+  type RoundTimeSource,
+} from './round-execution-time';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -15,7 +19,10 @@ type CheckInAttemptMetadata = {
   readonly writer: { readonly pid: number; readonly backendStart: string };
 };
 /** Scoped DML only: the resource adapter owns the control transaction and its commit. */
-export function checkInAttemptLifecycle(attempt: CheckInAttempt) {
+export function checkInAttemptLifecycle(
+  attempt: CheckInAttempt,
+  roundTime?: RoundTimeSource,
+) {
   if (
     ![attempt.attemptId, attempt.commandId, attempt.roundId].every(
       (id) => idSchema.safeParse(id).success,
@@ -25,7 +32,12 @@ export function checkInAttemptLifecycle(attempt: CheckInAttempt) {
   )
     throw createAppError('VALIDATION');
   let opening: 'unopened' | 'present' | 'absent' = 'unopened';
+  let receivedAt: string | null = null;
   return {
+    receiptTime: () => {
+      if (receivedAt === null) throw createAppError('INVARIANT');
+      return receivedAt;
+    },
     /** Called only after the adapter confirms the opening control COMMIT. */
     requireRound(): void {
       if (opening === 'unopened') throw createAppError('INVARIANT');
@@ -35,12 +47,17 @@ export function checkInAttemptLifecycle(attempt: CheckInAttempt) {
       control: AttendanceTransactionContext,
       metadata: CheckInAttemptMetadata,
     ): Promise<void> {
+      // Production retains the first writer-identity timestamp. An explicitly
+      // injected proof resource supplies that same ingress instant in controlled UTC.
+      receivedAt = roundTime
+        ? await sampleRoundExecutionTime(control, roundTime)
+        : metadata.receivedAt;
       // Lock the parent through control COMMIT so concurrent erasure cannot
       // turn this existence decision into an INSERT foreign-key failure.
       const rows = await control.execute(sql`with parent as (
         select id from rounds where id=${attempt.roundId} for key share
       ) insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,service_id,received_at,backend_pid,backend_started_at,state)
-    select ${attempt.attemptId},${attempt.commandId},parent.id,${attempt.payloadDigest},${attempt.actorId},${attempt.serviceId},${metadata.receivedAt}::timestamptz,${metadata.writer.pid},${metadata.writer.backendStart}::timestamptz,'pending' from parent returning attempt_id`);
+    select ${attempt.attemptId},${attempt.commandId},parent.id,${attempt.payloadDigest},${attempt.actorId},${attempt.serviceId},${receivedAt}::timestamptz,${metadata.writer.pid},${metadata.writer.backendStart}::timestamptz,'pending' from parent returning attempt_id`);
       opening = rows.length === 1 ? 'present' : 'absent';
     },
     async close(
@@ -60,8 +77,11 @@ export function checkInAttemptLifecycle(attempt: CheckInAttempt) {
      and backend_pid=${metadata.writer.pid} and backend_started_at=${metadata.writer.backendStart}::timestamptz for update`,
       )) as unknown as { state: string }[];
       if (outcome === 'aborted' && held?.state === 'aborted') return;
+      const resolvedAt = roundTime
+        ? sql`${await sampleRoundExecutionTime(control, roundTime)}::timestamptz`
+        : sql`statement_timestamp()`;
       const rows =
-        await control.execute(sql`update round_check_in_attempts a set state=${outcome},resolved_at=statement_timestamp()
+        await control.execute(sql`update round_check_in_attempts a set state=${outcome},resolved_at=${resolvedAt}
     where a.attempt_id=${attempt.attemptId} and a.state='pending' and a.backend_pid=${metadata.writer.pid}
      and a.backend_started_at=${metadata.writer.backendStart}::timestamptz
      and (${outcome}='aborted' or exists(select 1 from round_commands c where c.command_id=a.command_id and c.round_id=a.round_id

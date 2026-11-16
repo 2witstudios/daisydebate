@@ -52,7 +52,7 @@ const roundAiJudge = (round: Claim['round']): AiJudge => {
       'INVARIANT',
       'A Round judged by nobody has no AI judge',
     );
-  return aiJudgeFor(round.judging.ballot, round.rules);
+  return aiJudgeFor(round.judging.ballot, round.rules, round.participants);
 };
 /** What one attempt left to do. */
 type AttemptOutcome = 'ballot_held' | 'concluded';

@@ -156,12 +156,16 @@ describe('standings properties', () => {
       const late = played.flatMap((p) =>
         p.fixture.tabRound > cutoff && p.result !== null ? [p.result] : [],
       );
-      const corrections: ResultOf<TwoSides>[] = late.map((r) => ({
-        ...r,
-        id: `${r.id}-fix`,
-        supersedes: r.id,
-        outcome: { ...r.outcome, winner: null },
-      }));
+      const corrections: ResultOf<TwoSides>[] = late.map((r) =>
+        r.kind === 'decided'
+          ? {
+              ...r,
+              id: `${r.id}-fix`,
+              supersedes: r.id,
+              outcome: { ...r.outcome, winner: null },
+            }
+          : { ...r, id: `${r.id}-fix`, supersedes: r.id },
+      );
       const corrected = {
         ...input,
         history: {
@@ -192,16 +196,19 @@ describe('standings properties', () => {
         r: ResultOf<TwoSides>,
         id: string,
         supersedes: string | null,
-      ): ResultOf<TwoSides> => ({
-        ...r,
-        id,
-        supersedes,
-        outcome: {
-          ...r.outcome,
-          winner: null,
-          ballots: r.outcome.ballots.map((b) => ({ ...b, winner: null })),
-        },
-      });
+      ): ResultOf<TwoSides> =>
+        r.kind === 'decided'
+          ? {
+              ...r,
+              id,
+              supersedes,
+              outcome: {
+                ...r.outcome,
+                winner: null,
+                ballots: r.outcome.ballots.map((b) => ({ ...b, winner: null })),
+              },
+            }
+          : { ...r, id, supersedes };
       const first = flip(target, `${target.id}-c1`, target.id);
       const second: ResultOf<TwoSides> = {
         ...target,

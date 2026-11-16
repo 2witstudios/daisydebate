@@ -1,3 +1,4 @@
+import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,31 +19,43 @@ import {
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
 
 type RoomFixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
-async function prepare(f: RoomFixture, maxOutstandingIntents: number) {
+async function prepare(
+  f: RoomFixture,
+  maxOutstandingIntents: number,
+  lifecycle: 'active' | 'completed' = 'completed',
+) {
   const assembled = await f.assemble();
   const launched = await f.command(f.host, assembled, { type: 'start-round' });
   const roundId = launched.view.roundRef!.id;
+  const original = await f.store.getRound(roundId);
+  if (!original) throw new Error('Actual launched evidence Round missing');
   const [clock] = await f.sql`select clock_timestamp() as now`;
   const end = new Date(clock!.now.getTime() - 1000),
-    start = new Date(end.getTime() - 1000);
+    start = new Date(
+      end.getTime() -
+        original.rules.segments.reduce((ms, rule) => ms + rule.durationMs, 0),
+    );
   // Historical local crypto/storage fixture, not a played/heard-media journey.
-  await f.sql`update rounds set status='completed',current_stage=null,winning_side='affirmative',started_at=${start},completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)},attendance_resolution_cutoff_at=${new Date(end.getTime() + 3600000)},version=greatest(version,2) where id=${roundId}`;
+  await f.sql`update rounds set status=${lifecycle},current_stage=${lifecycle === 'active' ? 'awaiting_ballot' : null},winning_side=${lifecycle === 'completed' ? 'affirmative' : null},started_at=${start},completed_at=${lifecycle === 'completed' ? end : null},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)},attendance_resolution_cutoff_at=${new Date(end.getTime() + 3600000)},version=greatest(version,2) where id=${roundId}`;
   const [seat] =
     await f.sql`select id from round_participants where round_id=${roundId} and seat_kind='side' and side='affirmative'`;
   const segmentId = createId(),
     sessionId = createId(),
     workerId = createId(),
     intervalId = createId();
-  await f.sql`insert into round_segments(id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms) values(${segmentId},${roundId},0,'speech','AC',${start},${end},1000)`;
-  await f.sql`insert into round_speaking_intervals(id,round_id,segment_id,round_participant_id,started_at,ended_at,started_version,ended_version) values(${intervalId},${roundId},${segmentId},${seat!.id},${start},${end},1,2)`;
+  let offset = start.getTime();
+  for (const [sequence, rule] of original.rules.segments.entries()) {
+    const began = new Date(offset);
+    offset += rule.durationMs;
+    await f.sql`insert into round_segments(id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms) values(${sequence === 0 ? segmentId : createId()},${roundId},${sequence},${rule.type},${rule.key},${began},${new Date(offset)},${rule.durationMs})`;
+  }
+  await f.sql`insert into round_speaking_intervals(id,round_id,segment_id,round_participant_id,started_at,ended_at,started_version,ended_version) values(${intervalId},${roundId},${segmentId},${seat!.id},${start},${new Date(start.getTime() + original.rules.segments[0]!.durationMs)},1,2)`;
   await f.sql`insert into media_sessions(id,round_id,room_name) values(${sessionId},${roundId},${createId()})`;
   const capture = f.store.createMediaCaptureOperations({
     sttLagMs: CAPTURE_STT_LAG_MS,
     captureRule,
     nextId: createId,
-    buildProjection: () => {
-      throw new Error('Historical evidence fixture cannot invent live play');
-    },
+    buildProjection: roundTickProjection(createId),
     evidence: {
       leaseMs: 1000,
       nextToken: () => randomBytes(32).toString('base64url'),
@@ -128,10 +141,17 @@ async function dispose(prepared: EvidenceIngressFixture) {
 }
 export const withEvidenceIngress = (
   work: (f: EvidenceIngressFixture) => Promise<void>,
-  options: { readonly maxOutstandingIntents?: number } = {},
+  options: {
+    readonly maxOutstandingIntents?: number;
+    readonly lifecycle?: 'active' | 'completed';
+  } = {},
 ) =>
   withRoomRuntime(async (f) => {
-    const prepared = await prepare(f, options.maxOutstandingIntents ?? 128);
+    const prepared = await prepare(
+      f,
+      options.maxOutstandingIntents ?? 128,
+      options.lifecycle,
+    );
     try {
       await work(prepared);
     } finally {
@@ -141,6 +161,7 @@ export const withEvidenceIngress = (
 /** Many independent Rounds share one owning runtime; cohort size never multiplies pools. */
 export const withEvidenceIngressCohort = (
   work: (create: () => Promise<EvidenceIngressFixture>) => Promise<void>,
+  lifecycle: 'active' | 'completed' = 'completed',
 ) =>
   withRoomRuntime(async (f) => {
     const prepared: EvidenceIngressFixture[] = [];
@@ -154,6 +175,7 @@ export const withEvidenceIngressCohort = (
             assemble: (overrides) => f.assemble(overrides, cast),
           },
           128,
+          lifecycle,
         );
         prepared.push(member);
         return member;
@@ -162,3 +184,12 @@ export const withEvidenceIngressCohort = (
       for (const member of prepared.slice().reverse()) await dispose(member);
     }
   });
+
+/** Recovery begins on an unresolved original Round; terminal results are never reopened. */
+export const withRecognitionIngress: typeof withEvidenceIngress = (
+  work,
+  options = {},
+) => withEvidenceIngress(work, { ...options, lifecycle: 'active' });
+export const withRecognitionIngressCohort = (
+  work: Parameters<typeof withEvidenceIngressCohort>[0],
+) => withEvidenceIngressCohort(work, 'active');

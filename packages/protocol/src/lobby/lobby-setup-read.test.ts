@@ -21,6 +21,7 @@ const round = {
   name: null,
   timeSlotId: id('slot'),
   resolutionPoolId: id('pool'),
+  poolResolutionId: null,
 };
 const event = {
   eventId: id('event'),
@@ -28,7 +29,7 @@ const event = {
   label: 'VD',
   entryKind: 'person',
   format: {
-    formatId: id('format'),
+    formatId: 'freestyle',
     formatVersion: 1,
     name: 'League one-on-one',
   },
@@ -49,11 +50,13 @@ const event = {
     },
   ],
   tabRounds: [round],
-  sanction: {
-    organization: league,
-    status: 'requested',
-    requestedAt: '2026-11-12T16:00:00.000Z',
-  },
+  sanctions: [
+    {
+      organization: league,
+      status: 'requested',
+      requestedAt: '2026-11-12T16:00:00.000Z',
+    },
+  ],
 } as const;
 const tournament = {
   kind: 'tournament',
@@ -85,7 +88,7 @@ const standing = {
     {
       templateId: id('template'),
       name: 'Varsity',
-      format: { formatId: id('format'), name: 'One-on-one' },
+      format: { formatId: 'freestyle', name: 'One-on-one' },
     },
   ],
   seasons: [{ seasonId: id('season'), name: '2026 to 27 season' }],
@@ -133,9 +136,9 @@ describe('lobby setup read', async () => {
     });
     assert({
       given: 'the catalogue',
-      should: 'gate setup on lobby.host.read',
+      should: 'gate setup on lobby.setup.manage',
       actual: lobbySetupReadCatalogue.LobbySetupView.gate,
-      expected: ['lobby.host.read'],
+      expected: ['lobby.setup.manage'],
     });
   });
 });

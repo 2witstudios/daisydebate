@@ -142,3 +142,22 @@ describe('the lobby command envelope (TAB-5.8)', async () => {
     });
   });
 });
+
+test('settled proposal replay retains its persisted status and deadline', () => {
+  const outcome = {
+    kind: 'settled' as const,
+    pendingCommandId: id('p'),
+    status: 'withdrawn' as const,
+    expiresAt: '2026-11-16T00:05:00.000Z',
+  };
+  assert({
+    given: 'a withdrawn held proposal whose original command id arrives again',
+    should:
+      'return its actual closed state instead of reopening or extending the hold',
+    actual: commandReplay(
+      { actorUserId: id('u'), payloadDigest: 'a'.repeat(64), outcome },
+      { actorUserId: id('u'), payloadDigest: 'a'.repeat(64) },
+    ),
+    expected: outcome,
+  });
+});

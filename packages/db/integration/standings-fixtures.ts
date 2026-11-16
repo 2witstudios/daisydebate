@@ -36,30 +36,32 @@ export const completed = async (
     outcome: string;
   },
 ) => {
-  const id = createId();
   // A ranked round is constructed from a sanctioned preset, so it pins one.
 
-  await fixture.insert('rounds', {
-    id,
-    room_id: null,
-    created_by_actor_id: null,
-    resolution: 'A resolution',
-    competition_type: 'ranked',
-    format_id: input.formatId,
-    format_version: 1,
-    preset_version: 1,
-    rules_snapshot: validRules,
-    status: 'completed',
-    current_stage: null,
-    winning_side: input.outcome,
-    runtime_state: emptyRuntimeCheckpointFor(validRules),
-    judging: frozenJudgingFor(validRules),
-    ladder_id: input.formatId,
-    started_at: at(5, 11),
-    completed_at: at(5),
-  });
-  await fixture.participant(id, 'affirmative', 0, input.affirmative);
-  await fixture.participant(id, 'negative', 0, input.negative);
+  const { id } = await fixture.roundWithCast(
+    {
+      room_id: null,
+      created_by_actor_id: null,
+      resolution: 'A resolution',
+      competition_type: 'ranked',
+      format_id: input.formatId,
+      format_version: 1,
+      preset_version: 1,
+      rules_snapshot: validRules,
+      status: 'completed',
+      current_stage: null,
+      winning_side: input.outcome,
+      runtime_state: emptyRuntimeCheckpointFor(validRules),
+      judging: frozenJudgingFor(validRules),
+      ladder_id: input.formatId,
+      started_at: at(5, 11),
+      completed_at: at(5),
+    },
+    [
+      { seat: 'affirmative', actorId: input.affirmative },
+      { seat: 'negative', actorId: input.negative },
+    ],
+  );
   return id;
 };
 

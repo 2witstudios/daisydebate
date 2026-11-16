@@ -12,15 +12,25 @@ setupRitewayBun();
 const id = (word: string) => word.padEnd(24, '0');
 
 const definition = {
-  version: 2,
-  points: { min: 20, max: 30, step: 0.5, lowPointWin: false },
-  ranks: false,
-  criteria: [],
-  outcomes: { winner: true, doubleLoss: true },
+  key: 'sample-varsity',
+  revision: 2,
+  decision: {
+    kind: 'winner',
+    lowPointWin: false,
+    tie: false,
+    doubleLoss: true,
+  },
+  points: {
+    per: 'side',
+    scale: { min: 20, max: 30, step: 0.5 },
+    default: 27,
+    weights: null,
+    criteria: { kind: 'holistic' },
+  },
+  speakerRanks: false,
   written: {
-    reason: 'required',
-    feedback: 'optional',
-    privateNote: 'optional',
+    reason: { required: true, max: 5000 },
+    feedback: { required: false, max: 5000 },
   },
 };
 
@@ -70,7 +80,7 @@ describe('EventBallotView', async () => {
     });
   });
 
-  test('a private note is never required', () => {
+  test('private note collection remains unavailable', () => {
     assert({
       given: 'a definition requiring a private note',
       should: 'refuse it',
@@ -81,7 +91,7 @@ describe('EventBallotView', async () => {
           written: { ...definition.written, privateNote: 'required' },
         },
       }),
-      expected: { issues: ['definition.written.privateNote'] },
+      expected: { issues: ['definition.written'] },
     });
   });
 
@@ -93,10 +103,13 @@ describe('EventBallotView', async () => {
         ...eventBallot,
         definition: {
           ...definition,
-          points: { ...definition.points, min: 30, max: 20 },
+          points: {
+            ...definition.points,
+            scale: { ...definition.points.scale, min: 30, max: 20 },
+          },
         },
       }),
-      expected: { issues: ['definition.points.max'] },
+      expected: { issues: ['definition.points.scale'] },
     });
   });
 });
@@ -203,10 +216,11 @@ describe('ballotReadCatalogue', async () => {
     assert({
       given: 'the ballot reads',
       should:
-        'gate the definition on lobby.host.read and ballots on ballot.read',
+        'gate the definition on lobby.setup.manage and ballots on ballot.read',
       actual: ballotReadCatalogue,
       expected: {
-        EventBallotView: { gate: ['lobby.host.read'] },
+        EventBallotView: { gate: ['lobby.setup.manage'] },
+        EventBallotAuthoringView: { gate: ['lobby.setup.manage'] },
         JudgeBallotView: { gate: ['ballot.read'] },
         BallotView: { gate: ['ballot.read'] },
       },

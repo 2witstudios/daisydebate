@@ -23,6 +23,8 @@ export type RoundRuntime = {
   }) => RoundProjection;
   /** Internal durable attendance decision; never a public command. */
   readonly adjudicate: (input: RoundAdjudication) => RoundProjection;
+  /** Internal owner stop of a live Round; a historical ending is immutable. */
+  readonly stop: (now: string) => RoundProjection;
   /** Internal completion after durable freeze/attendance verification; does not advance time. */
   readonly completePanel: (input: RoundPanelCompletion) => RoundProjection;
   /** The opening ended at `at`: the Round starts there and catches up to `now`. */

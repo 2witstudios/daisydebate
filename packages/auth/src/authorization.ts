@@ -1,3 +1,5 @@
+export { tournamentHostingGrantFor } from './tournament-hosting-entitlement';
+export { currentEntitlementGrants } from './entitlement-validity';
 export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
 export { canManageBilling, canPurchasePremium } from './billing-policy';
 export { admitAllowance, canUseAiAllowance } from './allowance';
@@ -17,7 +19,8 @@ import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
 import { roomAllowed, roundAllowed } from './authorization-room';
 import { boundaryAdmits } from './authorization-boundary';
-import { withConflict } from './authorization-conflict';
+import { withConflict, conflictOf } from './authorization-conflict';
+import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
 import { eventRoomDecision, isEventRoom } from './authorization-event-room';
 import { holderOf } from './authorization-holding';
 import { isLobbyResource, lobbyDecision } from './authorization-lobby';
@@ -233,6 +236,31 @@ export function authorize(input: AuthorizationInput): AuthorizationDecision {
   // Every answer about a fixture's resource carries the conflict, a deny
   // made before the member's own rule included.
   return withConflict(capability, resource, askedDecision(input));
+}
+/** Assessment is not an execution grant; the confirmation owner must also authorize the actual nonconflicted second person. */
+export type PendingProposerAssessment =
+  | {
+      readonly kind: 'eligible';
+      readonly authority: Extract<
+        AuthorizationDecision,
+        { allow: true }
+      >['authority'];
+    }
+  | { readonly kind: 'refused' };
+export function assessPendingProposer(
+  input: AuthorizationInput,
+): PendingProposerAssessment {
+  if (
+    !authorizationCapabilitySchema.safeParse(input.capability).success ||
+    !validResourceKind(input.capability, input.resource) ||
+    !capabilityMetadata[input.capability].conflictSensitive ||
+    !['fixture', 'ballot', 'room', 'round'].includes(input.resource.kind)
+  )
+    return { kind: 'refused' };
+  const assessed = askedDecision(input);
+  if (!assessed.allow || conflictOf(input.resource)?.handling === 'denied')
+    return { kind: 'refused' };
+  return { kind: 'eligible', authority: assessed.authority };
 }
 
 /** Authorized host areas, using the same facts and boundary as each area's read. */

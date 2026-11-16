@@ -1,0 +1,115 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { systemId } from '@daisy/clock';
+import { roundBallotReadSchema } from '@daisy/protocol';
+import { hostBallotsViewSchema } from '@daisy/protocol/lobby/host-ballots-read';
+import { HostBallots } from '../../../../../../ui/tab/ballots/host-ballots';
+import { ScreeningEditor } from '../../../../../../ui/tab/ballots/screening-editor';
+import { hostRoutes } from '../../../../../../features/tab/routes';
+import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
+import { hostBallotsPath } from '../../../../../../features/tab/host-ballots-route';
+import { linkTo } from '../../../../../../features/tab/action';
+import { requireTabRelease } from '../../../../../../features/tab/release';
+import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
+import { readStoredHostNavigation } from '../../../read-navigation';
+import { GET as indexGET } from '../../../../../api/tab/host-ballots/route';
+import { GET as ballotGET } from '../../../../../api/rounds/[roundId]/ballots/route';
+import { eventCompletionAction } from '../completion-actions';
+
+export const metadata: Metadata = { title: 'Ballots' };
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  readonly params: Promise<{ slug: string }>;
+  readonly searchParams: Promise<{
+    event?: string | string[];
+    round?: string | string[];
+  }>;
+}) {
+  await requireTabRelease();
+  const { slug } = await params,
+    query = await searchParams;
+  const navigation = await readStoredHostNavigation('lobby', slug);
+  if (!navigation) notFound();
+  const event =
+    typeof query.event === 'string'
+      ? navigation.events.find((one) => one.eventId === query.event)
+      : navigation.events[0];
+  if (!event) notFound();
+  const index = await readOwnRoute(
+    indexGET,
+    hostBallotsPath(navigation.id, event.eventId),
+    hostBallotsViewSchema,
+  );
+  if (!index) notFound();
+  const selected =
+    typeof query.round === 'string'
+      ? index.rounds.find((one) => one.roundId === query.round)
+      : index.rounds[0];
+  if (typeof query.round === 'string' && !selected) notFound();
+  const view = selected
+    ? await readOwnRoute(
+        ballotGET,
+        `/api/rounds/${selected.roundId}/ballots`,
+        roundBallotReadSchema,
+      )
+    : null;
+  const path = (eventId: string, roundId?: string) =>
+    `${hostRoutes.ballots(slug)}?${new URLSearchParams({ event: eventId, ...(roundId ? { round: roundId } : {}) })}`;
+  return (
+    <HostBallots
+      rail={hostNavigationRail(navigation)}
+      event={{
+        current: event.name,
+        position: `${navigation.events.indexOf(event) + 1} of ${navigation.events.length}`,
+        others: navigation.events
+          .filter((one) => one.eventId !== event.eventId)
+          .map((one) => linkTo(one.name, path(one.eventId))),
+      }}
+      rounds={index.rounds.map((one, position) => ({
+        id: one.roundId,
+        action: linkTo(
+          `${one.roomTitle} · Ballot group ${position + 1}`,
+          path(event.eventId, one.roundId),
+          selected?.roundId === one.roundId,
+        ),
+      }))}
+      view={view}
+      review={(i) => {
+        const entry = view?.ballots[i];
+        if (
+          !selected ||
+          !index.canResolve ||
+          entry?.review?.screening !== 'held'
+        )
+          return null;
+        const written = {
+          ...(entry.ballot.reason === undefined
+            ? {}
+            : { reason: entry.ballot.reason }),
+          ...(entry.ballot.feedback === undefined
+            ? {}
+            : { feedback: entry.ballot.feedback }),
+        };
+        return (
+          <ScreeningEditor
+            written={written}
+            action={eventCompletionAction.bind(null, {
+              commandId: systemId.next(),
+              lobbyId: index.lobbyId,
+              eventId: index.eventId,
+              handle: slug,
+              target: {
+                type: 'resolve-screening-hold',
+                ballotId: entry.review.ballotId,
+                roundId: selected.roundId,
+                feedbackKeys: Object.keys(written.feedback ?? {}),
+              },
+            })}
+          />
+        );
+      }}
+    />
+  );
+}

@@ -429,6 +429,10 @@ function hostLeagueOf(
   };
 }
 
+/** Whether a league address is the sample walk's league. */
+export const isSampleLeague = (slug: string): boolean =>
+  slug === sampleLeagueView.handle;
+
 export const readLeagueRail = (
   slug: string,
   scene: SampleScene,

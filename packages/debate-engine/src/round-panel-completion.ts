@@ -74,6 +74,7 @@ export function judgingPanelOf(
   facts: JudgingPanelFacts,
   nowMs: number,
 ): JudgingPanel | null {
+  if (facts.emptyJudgeSlots.length > 0) return null;
   const [firstHuman, ...otherHumans] = facts.humanJudgeSeatIds;
   if (firstHuman !== undefined && facts.ballotDeadlineAt === null) return null;
   return {

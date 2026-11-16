@@ -120,10 +120,28 @@ export const wardEntryRequestViewSchema = z.strictObject({
 });
 export type WardEntryRequestView = z.infer<typeof wardEntryRequestViewSchema>;
 
+/** Minimal attributed actions for one protected person, never an organization history. */
+export const familyHistoryViewSchema = z.strictObject({
+  subjectUserId: idSchema,
+  entries: z.array(
+    z.strictObject({
+      commandId: idSchema,
+      type: z.string().min(1),
+      actorUserId: idSchema.nullable(),
+      appliedAt: z.iso.datetime(),
+    }),
+  ),
+});
+export type FamilyHistoryView = z.infer<typeof familyHistoryViewSchema>;
+
 export const guardianReadCatalogue = {
   GuardianView: { gate: ['guardian.link.read'] },
   WardAccountView: { gate: ['guardian.link.read'] },
   WardEntryRequestView: { gate: ['guardian.link.read'] },
+  FamilyHistoryView: { gate: ['guardian.link.read'] },
 } as const satisfies LobbyReadCatalogue<
-  'GuardianView' | 'WardAccountView' | 'WardEntryRequestView'
+  | 'GuardianView'
+  | 'WardAccountView'
+  | 'WardEntryRequestView'
+  | 'FamilyHistoryView'
 >;

@@ -53,10 +53,12 @@ export const withBoundedRound = async (
     roundId: string,
     client: SQL,
   ) => Promise<void>,
+  makeRound: (fixture: Fixture) => Promise<string> = (fixture) =>
+    fixture.round(),
 ) =>
   withFixture(process.env.TEST_DATABASE_URL!, (fixture) =>
     withPool(async (client) => {
-      const roundId = await fixture.round();
+      const roundId = await makeRound(fixture);
       await work(
         fixture,
         createBoundedTransaction({

@@ -1,3 +1,4 @@
+import type { BallotWrittenRecord } from '@daisy/protocol';
 import type { ReleaseAudience } from '@daisy/protocol/release-audience';
 import { releaseAudiences } from '@daisy/protocol/release-audience';
 import type {
@@ -10,19 +11,19 @@ import type {
   ReleaseCommandRefusal,
   ResultCommand,
   ResultCommandRefusal,
-  ResultEntryOutcome,
 } from '@daisy/protocol/lobby/result-command';
 import type { SettingValues } from '@daisy/protocol/setting-values';
-import {
-  fixtureStateOf,
-  resultEntryWrite,
-  resultRowWrite,
-  type FixtureRecord,
-  type ResultEntryWrite,
-  type ResultRow,
-  type ResultRowWrite,
-} from './fixture';
+import { fixtureStateOf, type FixtureRecord, type ResultRow } from './fixture';
 import { refuse, type CommandDecision } from './run-command';
+import {
+  resultCompetitionRecordSchema,
+  type ResultCompetitionRecord,
+} from '@daisy/protocol/lobby/result-record';
+import { replaceResultCompetitionRecord } from '@daisy/protocol/lobby/result-record-correction';
+import {
+  resultCompetitionWrites,
+  type CompetitionWrite,
+} from './result-competition-writes';
 
 /**
  * Ballot, result and release commands (TAB-5.12). A result command writes
@@ -45,18 +46,8 @@ export type FixtureResultFacts = FixtureRecord & {
   readonly now: string;
   readonly mintedResultId: string;
 };
-export type FixtureResultWrite = ResultRowWrite | ResultEntryWrite;
+export type FixtureResultWrite = CompetitionWrite;
 type FixtureResultRefusal = ResultCommandRefusal | 'not-found';
-
-/** The outcome names each of the fixture's entries exactly once. */
-const outcomeFits = (
-  facts: FixtureResultFacts,
-  entries: readonly ResultEntryOutcome[],
-) =>
-  entries.length === facts.entries.length &&
-  facts.entries.every((entry) =>
-    entries.some((outcome) => outcome.entryId === entry.entryId),
-  );
 
 const supersededIds = (results: readonly ResultRow[]): ReadonlySet<string> =>
   new Set(
@@ -67,73 +58,94 @@ const supersededIds = (results: readonly ResultRow[]): ReadonlySet<string> =>
 
 const recorded = (
   facts: FixtureResultFacts,
-  result: Parameters<typeof resultRowWrite>[2],
-  entries: readonly ResultEntryOutcome[],
+  record: ResultCompetitionRecord,
+  supersedes: string | null,
+  reason: string | null,
 ): CommandDecision<FixtureResultRefusal, FixtureResultWrite> => {
   const id = facts.mintedResultId;
-  return {
-    kind: 'accepted',
-    aggregate: { kind: 'result', id },
-    resultingVersion: 1,
-    writes: [
-      resultRowWrite(
-        facts,
-        { id, commandId: facts.commandId, now: facts.now },
-        result,
-      ),
-      ...entries.map((entry) => resultEntryWrite(facts, id, entry)),
-    ],
-    findings: [],
-    fixtureChanges: [],
-  };
+  const answer = resultCompetitionWrites(
+    facts,
+    { id, commandId: facts.commandId, now: facts.now, supersedes, reason },
+    record,
+  );
+  return answer.kind === 'refused'
+    ? refuse(answer.refusal)
+    : {
+        kind: 'accepted',
+        aggregate: { kind: 'result', id },
+        resultingVersion: 1,
+        writes: answer.writes,
+        findings: [],
+        fixtureChanges: [],
+      };
 };
 
 export const decideFixtureResult = (
   facts: FixtureResultFacts,
-  command: Command<'record-administrative-result' | 'correct-result'>,
+  command: Command<
+    'record-decided-result' | 'record-administrative-result' | 'correct-result'
+  >,
 ): CommandDecision<FixtureResultRefusal, FixtureResultWrite> => {
   if (command.fixtureId !== facts.fixture.id) return refuse('not-found');
   const state = fixtureStateOf(facts);
   if (state === 'withdrawn') return refuse('fixture-withdrawn');
   switch (command.type) {
-    case 'record-administrative-result':
+    case 'record-decided-result': {
+      if (state === 'draft') return refuse('fixture-unpublished');
+      if (state === 'has_result') return refuse('result-exists');
+      if (
+        !facts.completedCompetition ||
+        facts.completedCompetition.source.roundId !== facts.round?.id
+      )
+        return refuse('submission-provenance-unavailable');
+      return recorded(facts, facts.completedCompetition, null, null);
+    }
+    case 'record-administrative-result': {
       if (state === 'draft') return refuse('fixture-unpublished');
       if (state === 'has_result') return refuse('result-exists');
       if (isBlank(command.reason)) return refuse('reason-required');
-      if (!outcomeFits(facts, command.entries))
-        return refuse('outcome-mismatch');
-      return recorded(
-        facts,
-        {
-          kind: 'administrative',
-          administrativeReason: command.administrativeReason,
-          roundId: facts.round?.id ?? null,
-          supersedesResultId: null,
-          correctionReason: null,
-        },
-        command.entries,
-      );
+      const parsed = resultCompetitionRecordSchema.safeParse({
+        ...facts.administrativeContext,
+        version: 1,
+        kind: 'administrative',
+        reason: command.administrativeReason,
+        awards: command.awards,
+      });
+      return parsed.success
+        ? recorded(facts, parsed.data, null, null)
+        : refuse('outcome-mismatch');
+    }
     case 'correct-result': {
       const superseded = facts.results.find(
         (result) => result.id === command.supersedesResultId,
       );
-      if (superseded === undefined) return refuse('result-not-in-fixture');
+      if (!superseded) return refuse('result-not-in-fixture');
       if (supersededIds(facts.results).has(superseded.id))
         return refuse('already-superseded');
       if (isBlank(command.reason)) return refuse('reason-required');
-      if (!outcomeFits(facts, command.entries))
-        return refuse('outcome-mismatch');
-      return recorded(
-        facts,
-        {
-          kind: superseded.kind,
-          administrativeReason: superseded.administrativeReason,
-          roundId: superseded.roundId,
-          supersedesResultId: superseded.id,
-          correctionReason: command.reason,
-        },
-        command.entries,
+      // Only the retained predecessor chain can restore original submission provenance.
+      let cursor: ResultRow | undefined = superseded;
+      let original:
+        Extract<ResultCompetitionRecord, { kind: 'decided' }> | undefined;
+      const visited = new Set<string>();
+      while (cursor && !visited.has(cursor.id)) {
+        visited.add(cursor.id);
+        if (cursor.competitionRecord.kind === 'decided')
+          original = cursor.competitionRecord;
+        const parentId: string | null = cursor.supersedesResultId;
+        cursor =
+          parentId === null
+            ? undefined
+            : facts.results.find((row) => row.id === parentId);
+      }
+      const answer = replaceResultCompetitionRecord(
+        superseded.competitionRecord,
+        command.replacement,
+        original,
       );
+      return answer.kind === 'refused'
+        ? refuse(answer.refusal)
+        : recorded(facts, answer.record, superseded.id, command.reason);
     }
   }
 };
@@ -201,7 +213,7 @@ const certified = (
   return {
     kind: 'accepted',
     aggregate,
-    resultingVersion: facts.resultsVersion,
+    resultingVersion: facts.resultsVersion + 1,
     writes: [
       {
         table: 'certifications',
@@ -234,12 +246,46 @@ const certified = (
   };
 };
 
+/** Readiness of the retained current result set, shared by reads and commands. */
+export const assessEventCertification = (
+  facts: Pick<
+    CertificationFacts,
+    'publishedFixtureIds' | 'results' | 'certifiedResultIds' | 'screenings'
+  >,
+):
+  | { readonly kind: 'results-incomplete' | 'screening-pending' }
+  | {
+      readonly kind: 'ready' | 'already-certified';
+      readonly resultIds: readonly string[];
+    } => {
+  const superseded = supersededIds(facts.results);
+  const current = facts.results.filter((result) => !superseded.has(result.id));
+  if (
+    current.length === 0 ||
+    facts.publishedFixtureIds.some(
+      (fixtureId) => !current.some((result) => result.fixtureId === fixtureId),
+    )
+  )
+    return { kind: 'results-incomplete' };
+  const resultIds = current.map((result) => result.id);
+  if (current.every((result) => facts.certifiedResultIds.includes(result.id)))
+    return { kind: 'already-certified', resultIds };
+  if (
+    facts.screenings.some(
+      (screening) =>
+        screeningOpen(screening) &&
+        current.some((result) => result.roundId === screening.roundId),
+    )
+  )
+    return { kind: 'screening-pending' };
+  return { kind: 'ready', resultIds };
+};
+
 export const decideCertification = (
   facts: CertificationFacts,
   command: Command<'certify-result' | 'certify-event'>,
 ): CommandDecision<CertificationRefusal, CertificationWrite> => {
   const superseded = supersededIds(facts.results);
-  const current = facts.results.filter((result) => !superseded.has(result.id));
   const certifiedIds = new Set(facts.certifiedResultIds);
   const screeningPending = (results: readonly ResultRow[]) =>
     facts.screenings.some(
@@ -260,21 +306,13 @@ export const decideCertification = (
     }
     case 'certify-event': {
       if (command.eventId !== facts.event.id) return refuse('not-found');
-      if (
-        facts.publishedFixtureIds.some(
-          (fixtureId) =>
-            !current.some((result) => result.fixtureId === fixtureId),
-        )
-      )
-        return refuse('results-incomplete');
-      if (current.every((result) => certifiedIds.has(result.id)))
-        return refuse('already-certified');
-      if (screeningPending(current)) return refuse('screening-pending');
+      const assessment = assessEventCertification(facts);
+      if (assessment.kind !== 'ready') return refuse(assessment.kind);
       return certified(
         facts,
         'event',
         { kind: 'event', id: facts.event.id },
-        current.map((result) => result.id),
+        assessment.resultIds,
       );
     }
   }
@@ -283,6 +321,8 @@ export const decideCertification = (
 // ---- Screening holds -------------------------------------------------------
 
 export type ScreeningHoldFacts = {
+  /** Exact retained written fields loaded with the addressed ballot, never client supplied. */
+  readonly originalWritten: BallotWrittenRecord;
   readonly screening: ScreeningRow;
   readonly now: string;
 };
@@ -290,10 +330,10 @@ export type ScreeningHoldWrite = {
   readonly table: 'ballot_screenings';
   readonly op: 'update';
   readonly ballotId: string;
-  /** `releasedText` null releases the ballot's own text. */
+  /** Always an explicit approved copy, including an original-text release. */
   readonly set: {
     readonly status: 'clear';
-    readonly releasedText: Readonly<Record<string, string>> | null;
+    readonly releasedText: BallotWrittenRecord;
     readonly updatedAt: string;
   };
 };
@@ -323,7 +363,7 @@ export const decideScreeningHold = (
               releasedText:
                 command.release.kind === 'redacted'
                   ? command.release.text
-                  : null,
+                  : facts.originalWritten,
               updatedAt: facts.now,
             },
           },
@@ -394,6 +434,43 @@ const screenedThings: ReadonlySet<ReleaseRow['thing']> = new Set([
 const narrowerThan = (audience: ReleaseAudience): readonly ReleaseAudience[] =>
   releaseAudiences.slice(0, releaseAudiences.indexOf(audience));
 
+export const assessAudienceOpening = (
+  facts: Pick<OpenAudienceFacts, 'whens' | 'releases' | 'screenings'>,
+  command: Pick<Release<'open-audience'>, 'thing' | 'audience'>,
+  targetIds: readonly string[],
+):
+  | { readonly kind: 'ready'; readonly tabRoundIds: readonly string[] }
+  | { readonly kind: 'refused'; readonly refusal: ReleaseRefusal } => {
+  if (targetIds.length === 0) return refuse('not-found');
+  if (facts.whens[command.audience] !== 'manual') return refuse('not-manual');
+  const isOpen = (tabRoundId: string, audience: ReleaseAudience) =>
+    facts.releases.some(
+      (release) =>
+        release.tabRoundId === tabRoundId &&
+        release.thing === command.thing &&
+        release.audience === audience,
+    );
+  const toOpen = targetIds.filter((id) => !isOpen(id, command.audience));
+  if (toOpen.length === 0) return refuse('already-open');
+  if (
+    toOpen.some((roundId) =>
+      narrowerThan(command.audience).some(
+        (audience) => !isOpen(roundId, audience),
+      ),
+    )
+  )
+    return refuse('audience-order');
+  if (
+    screenedThings.has(command.thing) &&
+    facts.screenings.some(
+      (screening) =>
+        screeningOpen(screening) && toOpen.includes(screening.tabRoundId),
+    )
+  )
+    return refuse('screening-pending');
+  return { kind: 'ready', tabRoundIds: toOpen };
+};
+
 export const decideOpenAudience = (
   facts: OpenAudienceFacts,
   command: Release<'open-audience'>,
@@ -407,34 +484,15 @@ export const decideOpenAudience = (
             command.tabRounds.kind === 'one' &&
             round.id === command.tabRounds.tabRoundId,
         );
-  if (targets.length === 0) return refuse('not-found');
-  if (facts.whens[command.audience] !== 'manual') return refuse('not-manual');
-  const isOpen = (tabRoundId: string, audience: ReleaseAudience) =>
-    facts.releases.some(
-      (release) =>
-        release.tabRoundId === tabRoundId &&
-        release.thing === command.thing &&
-        release.audience === audience,
-    );
-  const toOpen = targets.filter((round) => !isOpen(round.id, command.audience));
-  if (toOpen.length === 0) return refuse('already-open');
-  if (
-    toOpen.some((round) =>
-      narrowerThan(command.audience).some(
-        (audience) => !isOpen(round.id, audience),
-      ),
-    )
-  )
-    return refuse('audience-order');
-  if (
-    screenedThings.has(command.thing) &&
-    facts.screenings.some(
-      (screening) =>
-        screeningOpen(screening) &&
-        toOpen.some((round) => round.id === screening.tabRoundId),
-    )
-  )
-    return refuse('screening-pending');
+  const assessment = assessAudienceOpening(
+    facts,
+    command,
+    targets.map((round) => round.id),
+  );
+  if (assessment.kind === 'refused') return assessment;
+  const toOpen = targets.filter((round) =>
+    assessment.tabRoundIds.includes(round.id),
+  );
   return {
     kind: 'accepted',
     aggregate: { kind: 'release', id: facts.event.id },

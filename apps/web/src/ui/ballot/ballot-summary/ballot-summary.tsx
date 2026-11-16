@@ -38,7 +38,7 @@ export function BallotSummary({
   readonly feedbackTitle?: string;
 }) {
   const feedback = plan.decided.flatMap((subject) => {
-    const text = ballot.feedback[subject.key];
+    const text = ballot.feedback?.[subject.key];
     return text === undefined ? [] : [{ subject, text }];
   });
   return (
@@ -50,7 +50,9 @@ export function BallotSummary({
         <h3 className={ballotHeadingClass}>{title}</h3>
         <p className="text-sm text-ink-muted">{ballotVerdict(plan, ballot)}</p>
       </div>
-      <p className="text-base text-ink">{ballot.reason}</p>
+      {ballot.reason ? (
+        <p className="text-base text-ink">{ballot.reason}</p>
+      ) : null}
       {feedback.length > 0 ? (
         <div className="flex flex-col gap-3">
           <h4 className={ballotEyebrowClass}>{feedbackTitle}</h4>

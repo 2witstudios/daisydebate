@@ -1,3 +1,4 @@
+import type { TenantScope } from './tenant-scope';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 
 export type BoundedTransactionContext = Pick<
@@ -8,6 +9,22 @@ export type BoundedTransactionContext = Pick<
 // Identity stays internal to the adapter; callers cannot forge a bounded context
 // by supplying a structurally similar execute method.
 const boundedContexts = new WeakSet<object>();
+const tenantScopeOwners = new WeakMap<
+  object,
+  (scope: TenantScope) => Promise<void>
+>();
+
+/** Only the adapter may register a tenant scope owner for its opaque live context. */
+export async function scopeBoundedTransaction(
+  context: object,
+  scope: TenantScope,
+): Promise<boolean> {
+  const owner = tenantScopeOwners.get(context);
+  if (!owner) return false;
+  await owner(scope);
+  return true;
+}
+
 export const isBoundedTransactionContext = (value: object): boolean =>
   boundedContexts.has(value);
 
@@ -16,6 +33,7 @@ export function transactionContext(
   database: BunSQLDatabase,
   check: () => void,
   refuse: (message: string) => never,
+  scopeTenant?: (scope: TenantScope) => Promise<void>,
 ): BoundedTransactionContext {
   const methods: BoundedTransactionContext = {
     select: database.select.bind(database),
@@ -33,5 +51,6 @@ export function transactionContext(
     },
   });
   boundedContexts.add(context);
+  if (scopeTenant) tenantScopeOwners.set(context, scopeTenant);
   return context;
 }

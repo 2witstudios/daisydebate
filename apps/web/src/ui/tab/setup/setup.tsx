@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react';
+import type { TabAction } from '../../../features/tab/action';
+import { ActionButton } from '../action-control/action-control';
 import type {
   PairingPolicy,
   TournamentSetup,
@@ -31,17 +34,38 @@ export const forceLabel = (policy: PairingPolicy): string => {
  * The pairing panel picks a preset; how strict each policy is comes with the
  * preset and is shown, not edited.
  */
-export function Setup({
-  rail,
-  setup,
-  panel,
-  submit,
-}: {
-  readonly rail: TimelineRail;
-  readonly setup: TournamentSetup;
-  readonly panel: 'pairing' | null;
-  readonly submit: SampleSubmit;
-}) {
+type SetupProps = { readonly rail: TimelineRail } & (
+  | {
+      readonly empty: { readonly addEvent: TabAction | null };
+      readonly setup?: never;
+      readonly panel?: never;
+      readonly submit?: never;
+    }
+  | ({
+      readonly empty?: never;
+      readonly setup: TournamentSetup;
+      readonly panel: 'pairing' | null;
+    } & (
+      | { readonly submit: SampleSubmit; readonly pairingForm?: never }
+      | { readonly pairingForm: ReactNode; readonly submit?: never }
+    ))
+);
+export function Setup(props: SetupProps) {
+  if (props.empty !== undefined)
+    return (
+      <HostShell rail={props.rail} current="setup">
+        <PageHeader title="Setup" lede={props.rail.title} />
+        <ListCard>
+          <section className="flex flex-col items-start gap-3 p-4">
+            <p>No events yet.</p>
+            {props.empty.addEvent === null ? null : (
+              <ActionButton action={props.empty.addEvent} />
+            )}
+          </section>
+        </ListCard>
+      </HostShell>
+    );
+  const { rail, setup, panel } = props;
   const pairing = setup.pairing;
   return (
     <HostShell
@@ -51,43 +75,23 @@ export function Setup({
         ? {}
         : {
             asideLabel: 'Pairing',
-            aside: (
-              <SampleForm
-                action={submit(pairing.save.label)}
-                label="Pairing"
-                className="flex flex-col gap-4"
-              >
-                <h2 className="font-display text-xl font-bold">Pairing</h2>
-                <ChoiceField id="pairing-preset" choice={pairing.preset} />
-                <section
-                  aria-label={`What ${pairing.preset.value} does`}
-                  className="flex flex-col gap-2"
+            aside:
+              props.pairingForm !== undefined ? (
+                props.pairingForm
+              ) : (
+                <SampleForm
+                  action={props.submit!(pairing.save.label)}
+                  label="Pairing"
+                  className="flex flex-col gap-4"
                 >
-                  <h3 className={eyebrowClass}>{pairing.preset.value}</h3>
-                  <p className="text-sm">{pairing.summary}</p>
-                  <dl className="flex flex-col gap-2">
-                    {pairing.policies.map((policy) => (
-                      <div
-                        key={policy.key}
-                        className="flex justify-between gap-3 text-sm"
-                      >
-                        <dt>{policy.label}</dt>
-                        <dd className="font-strong">{forceLabel(policy)}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-                <p className="text-sm text-ink-muted">
-                  A rule is never broken by the draw. If the rules can&rsquo;t
-                  all hold, you&rsquo;re told which ones clash. Preferences give
-                  way in order. Warnings are only reported.
-                </p>
-                <p className="text-sm text-ink-muted">{pairing.forceNote}</p>
-                <Button type="submit" className="self-start">
-                  {pairing.save.label}
-                </Button>
-              </SampleForm>
-            ),
+                  <h2 className="font-display text-xl font-bold">Pairing</h2>
+                  <ChoiceField id="pairing-preset" choice={pairing.preset} />
+                  <PairingPolicies pairing={pairing} />
+                  <Button type="submit" className="self-start">
+                    {pairing.save.label}
+                  </Button>
+                </SampleForm>
+              ),
           })}
     >
       <EventSwitcher event={setup.event} />
@@ -96,7 +100,7 @@ export function Setup({
         <ul>
           {setup.settings.map((setting) => (
             <SettingRow
-              key={setting.label}
+              key={setting.id ?? setting.keys.join('|')}
               setting={setting}
               selected={
                 panel === 'pairing' && setting.keys.includes('pairing.preset')
@@ -106,5 +110,40 @@ export function Setup({
         </ul>
       </ListCard>
     </HostShell>
+  );
+}
+
+export function PairingPolicies({
+  pairing,
+}: {
+  readonly pairing: TournamentSetup['pairing'];
+}) {
+  return (
+    <>
+      <section
+        aria-label={`What ${pairing.preset.value} does`}
+        className="flex flex-col gap-2"
+      >
+        <h3 className={eyebrowClass}>{pairing.preset.value}</h3>
+        <p className="text-sm">{pairing.summary}</p>
+        <dl className="flex flex-col gap-2">
+          {pairing.policies.map((policy) => (
+            <div
+              key={policy.key}
+              className="flex justify-between gap-3 text-sm"
+            >
+              <dt>{policy.label}</dt>
+              <dd className="font-strong">{forceLabel(policy)}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <p className="text-sm text-ink-muted">
+        A rule is never broken by the draw. If the rules can&rsquo;t all hold,
+        you&rsquo;re told which ones clash. Preferences give way in order.
+        Warnings are only reported.
+      </p>
+      <p className="text-sm text-ink-muted">{pairing.forceNote}</p>
+    </>
   );
 }

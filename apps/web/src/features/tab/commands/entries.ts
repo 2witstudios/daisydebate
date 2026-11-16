@@ -60,8 +60,8 @@ export type EntryRowFacts = {
   /** The guardian of the entry's guardian link, when it is a guardian's entry. */
   readonly guardianUserId: string | null;
   /**
-   * The account that submitted the entry, from its `submit-entry` history
-   * entry. Naming a guardian's link does not make the guardian its maker:
+   * The immutable authenticated account that submitted the entry, or an
+   * explicitly unknown maker. Naming a guardian's link does not make it the maker:
    * only the guardian's own submission is not awaited (TAB-5.23).
    */
   readonly submittedByUserId: string | null;
@@ -138,6 +138,7 @@ type EntryRow = {
   readonly lobbyId: string;
   readonly eventId: string;
   readonly name: string;
+  readonly submittedByUserId: string;
   readonly status: EntryStatus;
   readonly division: string | null;
   readonly responsibleKind: ResponsibleKind;
@@ -300,6 +301,8 @@ const submitEntry = (
   facts: EntryFacts,
   command: Extract<EntryCommand, { type: 'submit-entry' }>,
 ): EntryDecision => {
+  const submittedByUserId = facts.sender.userId;
+  if (submittedByUserId === null) return refuse('not-found');
   if (command.eventId !== facts.event.id) return refuse('not-found');
   const members = command.memberActorIds.map((actorId) =>
     facts.people.find((person) => person.actorId === actorId),
@@ -345,6 +348,7 @@ const submitEntry = (
         lobbyId: facts.event.lobbyId,
         eventId: facts.event.id,
         name: command.name,
+        submittedByUserId,
         status,
         division,
         responsibleKind: command.responsible.kind,

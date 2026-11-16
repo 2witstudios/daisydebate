@@ -1,3 +1,5 @@
+import { eventRoomAuthority } from '../tab/event-room-direction';
+import type { RoomDirectionInput } from '@daisy/db/tab';
 import {
   authorize,
   type AccountAuthorizationFact,
@@ -24,13 +26,17 @@ export const can = (
   capability: AuthorizationCapability,
   account: AccountAuthorizationFact | null,
   state?: RoomFactSource,
+  direction?: RoomDirectionInput | null,
+  now?: string,
 ) =>
-  authorize({
-    principal: { kind: 'user', ...caller },
-    capability,
-    context: { account },
-    resource: state ? roomFact(state) : { kind: 'room_collection' },
-  }).allow;
+  state && direction && now
+    ? eventRoomAuthority(caller, capability, state, direction, now)
+    : authorize({
+        principal: { kind: 'user', ...caller },
+        capability,
+        context: { account },
+        resource: state ? roomFact(state) : { kind: 'room_collection' },
+      }).allow;
 export const capabilityOf = (command: RoomCommand): AuthorizationCapability =>
   command.type === 'claim-seat'
     ? 'room.join'

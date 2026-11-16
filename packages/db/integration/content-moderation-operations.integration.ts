@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -28,12 +29,13 @@ const withOps = async (
     client: SQL,
     roundId: string,
   ) => Promise<void>,
+  judged = false,
 ) => {
   const client = new SQL(databaseUrl, { max: 4 });
   const ids: string[] = [];
   try {
     await withFixture(databaseUrl, async (f) => {
-      const roundId = await f.round();
+      const roundId = judged ? await judgedRound(f) : await f.round();
       ids.push(roundId);
       try {
         await run(
@@ -860,7 +862,7 @@ test('only the debater who received feedback can report it, and the operator rea
       await client`delete from content_reports where target_id=${ballotId}`;
       await client`delete from ballots where id=${ballotId}`;
     }
-  });
+  }, true);
 });
 
 test('a ranked speaker can report the feedback written under their own participant id', async () => {
@@ -870,6 +872,7 @@ test('a ranked speaker can report the feedback written under their own participa
     const third = await f.seat(roundId, 'speaker', 2);
     const judge = await f.seat(roundId, 'judge');
     const judging = {
+      source: { kind: 'daisy', key: 'rank-speakers', revision: 1 },
       ballot: daisyBallotDefinitions['rank-speakers@1'],
       panel: { decision: 'rank_sum', quorum: 1 },
     };
@@ -934,5 +937,5 @@ test('a ranked speaker can report the feedback written under their own participa
       await client`delete from content_reports where target_id=${ballotId}`;
       await client`delete from ballots where id=${ballotId}`;
     }
-  });
+  }, true);
 });

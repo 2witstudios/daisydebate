@@ -38,6 +38,18 @@ const valid = {
   },
   'record-forfeit': {
     type: 'record-forfeit',
+    awards: {
+      kind: 'winner',
+      entries: [
+        {
+          entryId: id('e'),
+          won: false,
+          ballotCredits: 0,
+          rankCredits: [],
+          points: { kind: 'none' },
+        },
+      ],
+    },
     fixtureId,
     entryId: id('e'),
     reason: 'No show',
@@ -137,6 +149,18 @@ test('fixture commands', () => {
     should: 'reject it',
     actual: parseOutcome(fixtureCommandSchema, {
       type: 'record-forfeit',
+      awards: {
+        kind: 'winner',
+        entries: [
+          {
+            entryId: id('e'),
+            won: false,
+            ballotCredits: 0,
+            rankCredits: [],
+            points: { kind: 'none' },
+          },
+        ],
+      },
       fixtureId,
       reason: 'No show',
     }).issues,

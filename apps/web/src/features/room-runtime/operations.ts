@@ -155,7 +155,8 @@ export function createRoomRuntimeOperations({
     const facts = await store.readRoomAssemblyFacts(
       roomId,
       caller,
-      (state, account) => can(caller, 'room.read', account, state),
+      (state, account, direction, now) =>
+        can(caller, 'room.read', account, state, direction, now),
       readRoundOpeningTopic,
     );
     const state = eligible(facts.state);
@@ -474,7 +475,8 @@ export function createRoomRuntimeOperations({
       const source = await store.readRoomAssembly(
         sourceRoomId,
         caller,
-        (state, account) => can(caller, 'room.read', account, state),
+        (state, account, direction, now) =>
+          can(caller, 'room.read', account, state, direction, now),
         readRoundOpeningTopic,
       );
       if (source.hostActorId !== caller.actorId)

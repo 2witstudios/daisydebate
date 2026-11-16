@@ -1,6 +1,11 @@
+import {
+  freezeBallotJudging,
+  storedBallotDefinition,
+  type BallotDefinition,
+  type FormatDefinition,
+} from '@daisy/protocol';
 import type { SharedLobbyRefusal } from '@daisy/protocol/lobby/command';
 import type {
-  BallotDefinitionSettings,
   LobbySetupRefusal,
   TournamentSetupCommand,
 } from '@daisy/protocol/lobby/lobby-setup-command';
@@ -72,6 +77,10 @@ type BallotDefinitionFact = {
   readonly id: string;
   readonly lobbyId: string | null;
   readonly currentVersion: number;
+  readonly versions: readonly {
+    readonly version: number;
+    readonly definition: BallotDefinition;
+  }[];
 };
 
 /** A template the lobby may follow; `conflictsWithChain` is its enforced keys against the chain. */
@@ -83,6 +92,7 @@ type TemplateFact = {
   readonly ballotDefinitionVersion: number | null;
   readonly retiredAt: string | null;
   readonly conflictsWithChain: boolean;
+  readonly ballotCompatible: boolean;
 };
 
 /** A resolution pool the lobby may draw from, with its resolutions. */
@@ -113,6 +123,7 @@ export type SetupFacts = {
   readonly formats: readonly {
     readonly formatId: string;
     readonly formatVersion: number;
+    readonly definition: FormatDefinition;
   }[];
   readonly ballotDefinitions: readonly BallotDefinitionFact[];
   readonly templates: readonly TemplateFact[];
@@ -214,7 +225,7 @@ type SetupWrite =
         readonly ballotDefinitionId: string;
         readonly version: number;
         readonly lobbyId: string;
-        readonly definition: BallotDefinitionSettings;
+        readonly definition: BallotDefinition;
       }
     >
   | Insert<
@@ -276,12 +287,28 @@ const stageStarted = (facts: SetupFacts, stageId: string): boolean =>
 const ballotDefinitionPinnable = (
   facts: SetupFacts,
   pin: { readonly id: string; readonly version: number } | null,
-): boolean =>
-  pin === null ||
-  facts.ballotDefinitions.some(
-    (definition) =>
-      definition.id === pin.id && pin.version <= definition.currentVersion,
+  formatId: string,
+  formatVersion: number,
+): boolean => {
+  const format = facts.formats.find(
+    (candidate) =>
+      candidate.formatId === formatId &&
+      candidate.formatVersion === formatVersion,
   );
+  if (!format) return false;
+  if (pin === null)
+    return freezeBallotJudging(format.definition, null).kind === 'frozen';
+  const ballot = facts.ballotDefinitions
+    .find((candidate) => candidate.id === pin.id)
+    ?.versions.find((candidate) => candidate.version === pin.version);
+  return (
+    ballot !== undefined &&
+    freezeBallotJudging(format.definition, {
+      source: { kind: 'stored', ...pin },
+      ballot: ballot.definition,
+    }).kind === 'frozen'
+  );
+};
 
 /** The pool a tab round draws from, checked: usable, holding a live wording where one is named. */
 const resolutionRefusal = (
@@ -335,7 +362,14 @@ const addEvent = (
         format.formatVersion === pin.formatVersion,
     );
     if (!available) return 'format-unavailable';
-    if (!ballotDefinitionPinnable(facts, pin.ballotDefinition))
+    if (
+      !ballotDefinitionPinnable(
+        facts,
+        pin.ballotDefinition,
+        pin.formatId,
+        pin.formatVersion,
+      )
+    )
       return 'not-found';
     pinned = {
       formatId: pin.formatId,
@@ -351,6 +385,7 @@ const addEvent = (
     if (template === undefined || template.retiredAt !== null)
       return 'template-unavailable';
     if (template.conflictsWithChain) return 'enforced-conflict';
+    if (!template.ballotCompatible) return 'template-unavailable';
     pinned = {
       formatId: template.formatId,
       formatVersion: template.formatVersion,
@@ -398,7 +433,15 @@ const updateEvent = (
   if (ballotChanges) {
     if (event.templateId !== null) return 'template-pinned';
     if (event.entryCount > 0) return 'entries-exist';
-    if (!ballotDefinitionPinnable(facts, ballot)) return 'not-found';
+    if (
+      !ballotDefinitionPinnable(
+        facts,
+        ballot,
+        event.formatId,
+        event.formatVersion,
+      )
+    )
+      return 'not-found';
   }
   return writes(lobby, [
     {
@@ -795,7 +838,7 @@ const defineBallot = (
           ballotDefinitionId: id,
           version: 1,
           lobbyId: lobby.id,
-          definition: command.settings,
+          definition: storedBallotDefinition(id, 1, command.settings),
         },
       },
     ]);
@@ -815,7 +858,7 @@ const defineBallot = (
         ballotDefinitionId: owned.id,
         version,
         lobbyId: lobby.id,
-        definition: command.settings,
+        definition: storedBallotDefinition(owned.id, version, command.settings),
       },
     },
     {
@@ -921,7 +964,7 @@ const decideOn = (
   }
 };
 
-/** Decides one setup command on an open tournament lobby. */
+/** Tournament setup and resolution pools on an open lobby. */
 export const decideSetup = (
   facts: SetupFacts,
   command: TournamentSetupCommand,
@@ -929,7 +972,12 @@ export const decideSetup = (
   const { lobby } = facts;
   if (lobby === null) return refuse('not-found');
   if (lobby.closedAt !== null) return refuse('lobby-closed');
-  if (lobby.kind !== 'tournament') return refuse('lobby-not-tournament');
+  if (
+    lobby.kind !== 'tournament' &&
+    command.type !== 'add-resolution' &&
+    command.type !== 'retire-resolution'
+  )
+    return refuse('lobby-not-tournament');
   const outcome = decideOn(
     facts,
     { id: lobby.id, version: lobby.version + 1 },

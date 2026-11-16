@@ -62,6 +62,8 @@ export const roundFinalizations = pgTable(
 export const roundFinalizationBallots = pgTable(
   'round_finalization_ballots',
   {
+    /** Canonical SHA-256 of the exact submitted content consumed by this ending. */
+    ballotDigest: text('ballot_digest').notNull(),
     ballotId: text('ballot_id')
       .primaryKey()
       .references(() => ballots.id, { onDelete: 'no action' }),
@@ -69,6 +71,10 @@ export const roundFinalizationBallots = pgTable(
     freezeRevision: integer('freeze_revision').notNull(),
   },
   (table) => [
+    check(
+      'round_finalization_ballots_digest_check',
+      sql`${table.ballotDigest} ~ '^[a-f0-9]{64}$'`,
+    ),
     index('round_finalization_ballots_round_idx').on(
       table.roundId,
       table.freezeRevision,

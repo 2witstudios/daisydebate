@@ -176,7 +176,9 @@ const resultLine = (
         judgesOf(fixture.judges),
         winner === undefined || loser === undefined
           ? 'decided'
-          : `${name(winner.entryId)} won ${winner.points ?? ''} to ${loser.points ?? ''}`,
+          : winner.points === null || loser.points === null
+            ? `${name(winner.entryId)} won`
+            : `${name(winner.entryId)} won ${winner.points} to ${loser.points}`,
         ...(result.corrected ? ['corrected'] : []),
       ].join(' · ');
     }
@@ -192,6 +194,23 @@ const roundRoom = (
   const openRoom = sampleAction('Open room');
   const { state } = fixture;
   switch (state.kind) {
+    case 'waiting_for_start':
+    case 'awaiting_result':
+    case 'preparing':
+      return attentionRoom(
+        title,
+        [
+          roomOf(fixture),
+          state.kind === 'waiting_for_start'
+            ? 'Waiting for start'
+            : state.kind === 'awaiting_result'
+              ? 'Awaiting result'
+              : 'Preparing',
+        ].join(' · '),
+        fixture.room
+          ? linkTo('Open room', `/rooms/${fixture.room.roomId}`)
+          : openRoom,
+      );
     case 'ballot_overdue': {
       const spoken =
         state.speechesGiven === fixture.entries.length
@@ -237,10 +256,16 @@ const roundRoom = (
           roomOf(fixture),
           judgesOf(fixture.judges),
           ...(state.ballotsDue === 1
-            ? [`ballot open ${minutes(state.openForMs)}`]
+            ? [
+                state.openForMs === null
+                  ? 'Awaiting ballot'
+                  : `ballot open ${minutes(state.openForMs)}`,
+              ]
             : [
                 `${state.ballotsIn} of ${state.ballotsDue} ballots in`,
-                `open ${minutes(state.openForMs)}`,
+                ...(state.openForMs === null
+                  ? []
+                  : [`open ${minutes(state.openForMs)}`]),
               ]),
         ].join(' · '),
         openRoom,
@@ -257,6 +282,10 @@ const roundRoom = (
 const attentionOf = (fixture: TabRoundFixture): RoomAttention => {
   if (fixture.judges.length === 0 && fixture.kind !== 'bye') return 'waiting';
   switch (fixture.state.kind) {
+    case 'waiting_for_start':
+    case 'awaiting_result':
+    case 'preparing':
+      return 'waiting';
     case 'ballot_overdue':
     case 'confirmation_requested':
       return 'needs_you';
@@ -271,6 +300,8 @@ const attentionOf = (fixture: TabRoundFixture): RoomAttention => {
 
 /** What the running round needs beside the read: the event picker and its addresses. */
 export type RunningRoundContext = {
+  readonly fixtureAction?: (fixture: TabRoundFixture) => TabAction;
+  readonly overviewAction?: TabAction;
   readonly event: EventSwitch;
   readonly address: {
     readonly posting: string;
@@ -282,7 +313,7 @@ export type RunningRoundContext = {
 };
 
 /** The host's running round: a projection of `TabRoundHostView`. */
-const runningRoundOf = (
+export const runningRoundOf = (
   read: TabRoundHostView,
   context: RunningRoundContext,
 ): RunningRound => {
@@ -291,6 +322,9 @@ const runningRoundOf = (
       .filter((fixture) => attentionOf(fixture) === attention)
       .map((fixture) => ({
         ...roundRoom(read, fixture),
+        ...(context.fixtureAction
+          ? { action: context.fixtureAction(fixture) }
+          : {}),
         status: roomStatusOf(fixture),
         words: fixtureWords(fixture),
       }));
@@ -310,17 +344,30 @@ const runningRoundOf = (
     title: tabRound.name ?? `Round ${tabRound.number}`,
     lede: [
       ...size,
-      `started ${context.wallClock(read.startedAt)}`,
+      ...(read.startedAt === null
+        ? [
+            read.open.length > 0 &&
+            read.open.every(
+              (fixture) => fixture.state.kind === 'awaiting_result',
+            )
+              ? 'Awaiting results'
+              : 'Waiting for start',
+          ]
+        : [`started ${context.wallClock(read.startedAt)}`]),
       read.progress.kind === 'running'
-        ? lateness(read.progress.behindByMs)
+        ? read.progress.behindByMs === null
+          ? ''
+          : lateness(read.progress.behindByMs)
         : 'every ballot is in',
     ].join(' · '),
-    participantView: linkTo(
-      'View as participant',
-      read.postedToParticipants
-        ? context.address.posting
-        : context.address.tournament,
-    ),
+    participantView:
+      context.overviewAction ??
+      linkTo(
+        'View as participant',
+        read.postedToParticipants
+          ? context.address.posting
+          : context.address.tournament,
+      ),
     next:
       next === null
         ? null
@@ -342,6 +389,9 @@ const runningRoundOf = (
         count: finished.total,
         rooms: finished.recent.map((fixture) => ({
           ...roundRoom(read, fixture),
+          ...(context.fixtureAction
+            ? { action: context.fixtureAction(fixture) }
+            : {}),
           status: 'finished',
           words: fixtureWords(fixture),
         })),

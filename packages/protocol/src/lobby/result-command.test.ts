@@ -13,28 +13,51 @@ import {
 setupRitewayBun();
 
 const id = (letter: string) => letter.repeat(24);
-const entries = [
+const oldOutcomes = [
   { entryId: id('a'), won: true, rank: null, ballotsWon: 2 },
   { entryId: id('b'), won: false, rank: null, ballotsWon: 1 },
 ];
 
+const awards = {
+  kind: 'winner' as const,
+  entries: oldOutcomes.map((row) => ({
+    entryId: row.entryId,
+    won: row.won,
+    ballotCredits: row.ballotsWon,
+    rankCredits: [],
+    points: { kind: 'none' as const },
+  })),
+};
+const replacement = {
+  kind: 'administrative' as const,
+  reason: 'ruling' as const,
+  awards,
+};
 const validResults = {
+  'record-decided-result': {
+    type: 'record-decided-result',
+    fixtureId: id('f'),
+  },
   'record-administrative-result': {
     type: 'record-administrative-result',
     fixtureId: id('f'),
     administrativeReason: 'double_loss',
     reason: 'Both teams late',
-    entries: [
-      { entryId: id('a'), won: false, rank: null, ballotsWon: null },
-      { entryId: id('b'), won: false, rank: null, ballotsWon: null },
-    ],
+    awards: {
+      ...awards,
+      entries: awards.entries.map((row) => ({
+        ...row,
+        won: false,
+        ballotCredits: 0,
+      })),
+    },
   },
   'correct-result': {
     type: 'correct-result',
     fixtureId: id('f'),
     supersedesResultId: id('r'),
     reason: 'Ballot entered against the wrong side',
-    entries,
+    replacement,
   },
   'certify-result': { type: 'certify-result', resultId: id('r') },
   'certify-event': { type: 'certify-event', eventId: id('v') },
@@ -104,12 +127,16 @@ test('result commands', () => {
 
   assert({
     given: 'a correction with no outcome',
-    should: 'reject the entries',
+    should: 'reject the replacement',
     actual: parseOutcome(resultCommandSchema, {
       ...validResults['correct-result'],
-      entries: [],
+      replacement: {
+        kind: 'administrative',
+        reason: 'ruling',
+        awards: { kind: 'winner', entries: [] },
+      },
     }).issues,
-    expected: ['entries'],
+    expected: ['replacement.awards.entries'],
   });
 
   assert({
@@ -117,9 +144,13 @@ test('result commands', () => {
     should: 'reject the entries',
     actual: parseOutcome(resultCommandSchema, {
       ...validResults['correct-result'],
-      entries: [entries[0], entries[0]],
+      replacement: {
+        kind: 'administrative',
+        reason: 'ruling',
+        awards: { ...awards, entries: [awards.entries[0], awards.entries[0]] },
+      },
     }).issues,
-    expected: ['entries'],
+    expected: ['replacement.awards.entries'],
   });
 
   assert({
@@ -127,9 +158,24 @@ test('result commands', () => {
     should: 'reject the rank',
     actual: parseOutcome(resultCommandSchema, {
       ...validResults['correct-result'],
-      entries: [{ ...entries[0], rank: 0 }],
+      replacement: {
+        kind: 'administrative',
+        reason: 'ruling',
+        awards: {
+          kind: 'ranking',
+          entries: [
+            {
+              entryId: id('a'),
+              rank: 0,
+              ballotCredits: 1,
+              rankCredits: [],
+              points: { kind: 'none' },
+            },
+          ],
+        },
+      },
     }).issues,
-    expected: ['entries.0.rank'],
+    expected: ['replacement.awards.entries.0.rank'],
   });
 
   assert({
@@ -139,7 +185,7 @@ test('result commands', () => {
       type: 'correct-result',
       fixtureId: id('f'),
       reason: 'x',
-      entries,
+      replacement,
     }).issues,
     expected: ['supersedesResultId'],
   });

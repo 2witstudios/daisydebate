@@ -51,5 +51,5 @@ export const readFixtureChangeList = (
     authorize,
     fixtureChangeReadCatalogue.FixtureChangeList,
     load,
-    (facts, ask) => fixtureChangeListOf(facts, ask('lobby.host.read')),
+    (facts, ask) => fixtureChangeListOf(facts, ask('lobby.host.draw.read')),
   );

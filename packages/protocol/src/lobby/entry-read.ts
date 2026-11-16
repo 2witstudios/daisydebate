@@ -26,13 +26,11 @@ const responsibleGroupSchema = z.discriminatedUnion('kind', [
     kind: z.literal('school'),
     organizationId: idSchema,
     name: nameSchema,
-    adultName: nameSchema,
   }),
   z.strictObject({
     kind: z.literal('guardian'),
     /** The family's name, as the guardian gave it. */
     name: nameSchema,
-    adultName: nameSchema,
   }),
   z.strictObject({ kind: z.literal('self') }),
 ]);
@@ -59,7 +57,10 @@ const listedEntrySchema = z.strictObject({
 const entryGroupSchema = z.strictObject({
   responsible: responsibleGroupSchema,
   entryCount: countSchema,
-  judgesOwed: countSchema,
+  makers: z.array(z.strictObject({ userId: idSchema, name: nameSchema })),
+  unknownMakers: countSchema,
+  /** Null means the obligation policy is unconfigured. */
+  judgesOwed: countSchema.nullable(),
   judgesNamed: countSchema,
   /** The first entries of the group; `entryCount` counts them all. */
   entries: z.array(listedEntrySchema),
@@ -69,7 +70,7 @@ const entryGroupSchema = z.strictObject({
 export const entryListViewSchema = z.strictObject({
   lobbyId: idSchema,
   /** The event the host is looking at. */
-  eventId: idSchema,
+  eventId: idSchema.nullable(),
   /** When the read was made; relative times are counted from it. */
   asOf: z.iso.datetime(),
   counts: z.strictObject({
@@ -78,7 +79,7 @@ export const entryListViewSchema = z.strictObject({
     pending: countSchema,
     judges: countSchema,
     rooms: countSchema,
-    judgesNeeded: countSchema,
+    judgesNeeded: countSchema.nullable(),
   }),
   groups: z.array(entryGroupSchema),
   groupsNotShown: countSchema,
@@ -93,11 +94,13 @@ const judgeSlotSchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('away') }),
   z.strictObject({ state: z.literal('free') }),
   z.strictObject({ state: z.literal('in_draft') }),
+  z.strictObject({ state: z.literal('waiting_for_start') }),
+  z.strictObject({ state: z.literal('awaiting_result') }),
   /** Judging now: a Room's name, or another event's name. */
   z.strictObject({
     state: z.literal('judging'),
     place: nameSchema,
-    late: z.boolean(),
+    late: z.boolean().nullable(),
   }),
 ]);
 export type JudgeSlot = z.infer<typeof judgeSlotSchema>;
@@ -134,7 +137,8 @@ const judgeGroupSchema = z.strictObject({
     z.strictObject({ kind: z.literal('guardian'), name: nameSchema }),
     z.strictObject({ kind: z.literal('unaffiliated') }),
   ]),
-  judgesOwed: countSchema,
+  /** Null means the obligation policy is unconfigured. */
+  judgesOwed: countSchema.nullable(),
   judgesNamed: countSchema,
   judges: z.array(listedJudgeSchema),
 });
@@ -143,24 +147,26 @@ const judgeGroupSchema = z.strictObject({
 export const judgeListViewSchema = z
   .strictObject({
     lobbyId: idSchema,
-    events: z.array(entryEventSchema).min(1),
+    events: z.array(entryEventSchema),
     timeSlots: z.array(
       z.strictObject({
         id: idSchema,
         name: nameSchema,
-        judgesNeeded: countSchema,
+        judgesNeeded: countSchema.nullable(),
       }),
     ),
     counts: z.strictObject({ debaters: countSchema, judges: countSchema }),
     /** The next tab round's need: judges named so far, or free in its slot. */
-    need: z.strictObject({
-      tabRoundName: nameSchema,
-      timeSlotId: idSchema.nullable(),
-      eventName: nameSchema,
-      judgesNeeded: countSchema,
-      judgesCounted: countSchema,
-      counting: z.enum(['named', 'free']),
-    }),
+    need: z
+      .strictObject({
+        tabRoundName: nameSchema,
+        timeSlotId: idSchema.nullable(),
+        eventName: nameSchema,
+        judgesNeeded: countSchema.nullable(),
+        judgesCounted: countSchema,
+        counting: z.enum(['named', 'free']),
+      })
+      .nullable(),
     groups: z.array(judgeGroupSchema),
     /** Judges of one more school not yet shown. */
     notShown: z
@@ -179,8 +185,9 @@ export const judgeListViewSchema = z
   )
   .refine(
     (view) =>
+      view.need === null ||
       view.need.timeSlotId === null ||
-      view.timeSlots.some((slot) => slot.id === view.need.timeSlotId),
+      view.timeSlots.some((slot) => slot.id === view.need?.timeSlotId),
     {
       message: 'the needed slot belongs to this read',
       path: ['need', 'timeSlotId'],
@@ -239,8 +246,8 @@ export const schoolEntriesViewSchema = z.strictObject({
 export type SchoolEntriesView = z.infer<typeof schoolEntriesViewSchema>;
 
 export const entryReadCatalogue = {
-  EntryListView: { gate: ['lobby.host.read'] },
-  JudgeListView: { gate: ['lobby.host.read'] },
+  EntryListView: { gate: ['lobby.host.entries.read'] },
+  JudgeListView: { gate: ['lobby.host.entries.read'] },
   SchoolEntriesView: {
     gate: ['school.roster.manage', 'school.ballots.read', 'guardian.link.read'],
   },
@@ -275,3 +282,9 @@ export const judgeListQuerySchema = z.strictObject({
 });
 export type EntryListQuery = z.infer<typeof entryListQuerySchema>;
 export type JudgeListQuery = z.infer<typeof judgeListQuerySchema>;
+
+export const hostRosterViewSchema = z.strictObject({
+  entries: entryListViewSchema,
+  judges: judgeListViewSchema,
+});
+export type HostRosterView = z.infer<typeof hostRosterViewSchema>;

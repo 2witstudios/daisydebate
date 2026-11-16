@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { mediaGrants } from '@daisy/debate-engine';
 import { roundControlsAt } from '@daisy/debate-engine/position';
 import {
@@ -24,6 +25,7 @@ const panelCompletion = (state: ScriptState, winner: SideKey, now: string) => {
   return {
     now,
     judging: {
+      source: daisyBallotSource(daisyWinnerBallot),
       ballot: daisyWinnerBallot,
       panel: { decision: 'majority' as const, quorum: 1 },
     },

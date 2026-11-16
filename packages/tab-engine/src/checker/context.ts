@@ -111,23 +111,9 @@ export const costContext = (
     entries: new Map(request.entries.map((e) => [e.id, e])),
     past: pastOf(fixtures, request.tabRound),
     records: weighsPullUp(request)
-      ? recordsBefore(
-          sides,
-          fixtures,
-          reading,
-          request.settings,
-          cutoff,
-          request.tabRound,
-        )
+      ? recordsBefore(sides, fixtures, reading, cutoff, request.tabRound)
       : null,
-    pulled: pullUpCounts(
-      sides,
-      fixtures,
-      reading,
-      request.settings,
-      cutoff,
-      request.tabRound,
-    ),
+    pulled: pullUpCounts(sides, fixtures, reading, cutoff, request.tabRound),
     judges,
     leastLoad:
       input.judges === null || input.judges.length === 0

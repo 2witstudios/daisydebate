@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { enqueuePrivacyJob } from './enqueue-job';
@@ -11,6 +10,7 @@ import type {
   PrivacyAdopter,
   PrivacyExport,
   PrivacySubject,
+  PrivacyDatabase,
 } from './contracts';
 import {
   planPrivacyErasure,
@@ -29,7 +29,6 @@ export type PrivacyVerificationBinding =
       readonly jsonTypes: readonly string[];
       readonly subjectPath: readonly string[];
     };
-type PrivacyDatabase = Pick<BunSQLDatabase, 'transaction'>;
 
 async function lockSubject(
   tx: AuthorizationTransaction,

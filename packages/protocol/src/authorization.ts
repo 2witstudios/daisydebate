@@ -25,6 +25,8 @@ export const permissionSchema = z.enum(permissions);
 export type Permission = z.infer<typeof permissionSchema>;
 /** Closed vocabulary: every capability the evaluator answers. */
 const authorizationCapabilities = [
+  'tournament.sponsorship.consent',
+  'tournament.sponsorship.withdraw',
   'social.block',
   'social.friend.request',
   'social.friend.end',

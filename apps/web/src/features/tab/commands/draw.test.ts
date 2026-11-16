@@ -1,3 +1,4 @@
+import { engineSettings } from '../operations/engine-settings';
 import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -31,6 +32,11 @@ const [a, b, c, d] = ['ea', 'eb', 'ec', 'ed'].map(id) as [
 ];
 const member = (entry: string) => `${entry.slice(0, 2)}member`.padEnd(24, '0');
 
+const resolvedSettings = engineSettings([], [], {
+  'room.timing': { preRoundPrepMs: 0, inRoundPrepMsPerSide: 0, countdownMs: 0 },
+  'room.floor': { interruptions: null, yielding: null },
+});
+
 const noFindings: EngineAssessment = { warnings: [], broken: [], invalid: [] };
 
 const fixture = (
@@ -55,6 +61,8 @@ const fixture = (
 });
 
 const inputs = {
+  stage: { kind: 'preliminary' as const },
+  breakResultIds: [],
   engine: null,
   settingsDigest: 'digest-1',
   broken: [],
@@ -116,7 +124,7 @@ const facts = (overrides: Partial<DrawFacts> = {}): DrawFacts => ({
   },
   versions: [published1, draft2],
   fixtures,
-  settings: { kind: 'resolved', values: {}, digest: 'digest-1' },
+  settings: { kind: 'resolved', values: resolvedSettings, digest: 'digest-1' },
   engine: {
     entries: [],
     history: { fixtures: [], results: [] },
@@ -125,6 +133,8 @@ const facts = (overrides: Partial<DrawFacts> = {}): DrawFacts => ({
     commitments: [],
   },
   breakChoicesPending: false,
+  feederResultsComplete: true,
+  breakResultIds: [],
   slotElsewhere: [],
   releasesAtOnce: [],
   ...overrides,
@@ -834,12 +844,54 @@ describe('edit-draw, restoring content', () => {
 });
 
 describe('publish-draw', () => {
+  const publishingEngine: TabEngine = {
+    ...unused,
+    assess: (_input, plans) => plans.map(() => noFindings),
+  };
+  const publicationFacts = (overrides: Partial<DrawFacts> = {}): DrawFacts => {
+    const base = facts(overrides);
+    const complete = base.fixtures.map((fixture) => ({
+      ...fixture,
+      judges: fixture.judges.length
+        ? fixture.judges
+        : [
+            {
+              tournamentJudgeId: id(`${fixture.id.slice(0, 2)}judge`),
+              person: id(`${fixture.id.slice(0, 2)}judgeperson`),
+              chair: true,
+            },
+          ],
+    }));
+    return {
+      ...base,
+      fixtures: complete,
+      engine: {
+        ...base.engine,
+        judges: complete.flatMap((fixture) =>
+          fixture.judges.map((judge) => ({
+            id: judge.tournamentJudgeId,
+            person: judge.person,
+            protection: [],
+            events: null,
+            conflicts: [],
+            strikes: [],
+            judged: [],
+            tabRoundsJudged: 0,
+            outstandingBallots: 0,
+            chair: true,
+            available: true,
+          })),
+        ),
+      },
+    };
+  };
+
   test('publishing a first version withdraws nothing and adds each fixture', () => {
     const first = version('draw1', 1, [id('f3'), id('f4')], {
       status: 'draft',
     });
-    const decision = decideDraw(unused)(
-      facts({ versions: [first], fixtures: fixtures.slice(2) }),
+    const decision = decideDraw(publishingEngine)(
+      publicationFacts({ versions: [first], fixtures: fixtures.slice(2) }),
       publish({ drawId: id('draw1') }),
     );
     assert({
@@ -879,15 +931,18 @@ describe('publish-draw', () => {
       given: 'one fresh id for two Rooms',
       should: 'refuse fresh-ids-short',
       actual: refusalOf(
-        decideDraw(unused)(facts({ freshIds: [id('fresh0')] }), publish()),
+        decideDraw(publishingEngine)(
+          publicationFacts({ freshIds: [id('fresh0')] }),
+          publish(),
+        ),
       ),
       expected: 'fresh-ids-short',
     });
   });
 
   test('withdraws what it leaves out, publishes the new fixtures and answers exactly the changes', () => {
-    const decision = decideDraw(unused)(
-      facts({
+    const decision = decideDraw(publishingEngine)(
+      publicationFacts({
         releasesAtOnce: [{ thing: 'posting', audience: 'participants' }],
       }),
       publish(),
@@ -924,10 +979,10 @@ describe('publish-draw', () => {
           'time_slots.update',
         ],
         changes: [
-          ['added', id('f3'), [member(a), member(c)]],
-          ['added', id('f4'), [member(b), member(d)]],
-          ['withdrawn', id('f1'), [member(a), member(b)]],
-          ['withdrawn', id('f2'), [member(c), member(d)]],
+          ['added', id('f3'), [member(a), member(c), id('f3judgeperson')]],
+          ['added', id('f4'), [member(b), member(d), id('f4judgeperson')]],
+          ['withdrawn', id('f1'), [member(a), member(b), id('f1judgeperson')]],
+          ['withdrawn', id('f2'), [member(c), member(d), id('f2judgeperson')]],
         ],
       },
     });
@@ -942,7 +997,10 @@ describe('publish-draw', () => {
       given: 'a draft holding exactly the published fixtures',
       should: 'refuse draw-unchanged',
       actual: refusalOf(
-        decideDraw(unused)(facts({ versions: [published1, same] }), publish()),
+        decideDraw(publishingEngine)(
+          publicationFacts({ versions: [published1, same] }),
+          publish(),
+        ),
       ),
       expected: 'draw-unchanged',
     });
@@ -953,8 +1011,8 @@ describe('publish-draw', () => {
       state: 'round_live' | 'ballot_in' | 'has_result' | 'open',
     ) =>
       refusalOf(
-        decideDraw(unused)(
-          facts({
+        decideDraw(publishingEngine)(
+          publicationFacts({
             fixtures: [fixture('f1', [a, b], { state }), ...fixtures.slice(1)],
           }),
           publish(),
@@ -976,13 +1034,13 @@ describe('publish-draw', () => {
   });
 
   test('a rule override without a reason is refused', () => {
-    const breaking = facts({
+    const breaking = publicationFacts({
       versions: [
         published1,
         { ...draft2, inputs: { ...inputs, broken: ['pairing.rematch'] } },
       ],
     });
-    const decision = decideDraw(unused)(
+    const decision = decideDraw(publishingEngine)(
       breaking,
       publish({
         overrides: [{ key: 'pairing.rematch', reason: 'Two schools only' }],
@@ -997,9 +1055,9 @@ describe('publish-draw', () => {
       should:
         'refuse rule-broken and reason-required, then record the override on the draw',
       actual: [
-        refusalOf(decideDraw(unused)(breaking, publish())),
+        refusalOf(decideDraw(publishingEngine)(breaking, publish())),
         refusalOf(
-          decideDraw(unused)(
+          decideDraw(publishingEngine)(
             breaking,
             publish({ overrides: [{ key: 'pairing.rematch', reason: '  ' }] }),
           ),
@@ -1016,7 +1074,9 @@ describe('publish-draw', () => {
 
   test('each other rule refuses by name', () => {
     const run = (overrides: Partial<DrawFacts>, command = publish()) =>
-      refusalOf(decideDraw(unused)(facts(overrides), command));
+      refusalOf(
+        decideDraw(publishingEngine)(publicationFacts(overrides), command),
+      );
     const judged = (name: string, entries: readonly string[]) =>
       fixture(name, entries, {
         status: 'draft',
@@ -1037,8 +1097,14 @@ describe('publish-draw', () => {
       actual: [
         run({}, publish({ drawId: id('draw1') })),
         run({ versions: [published1, { ...draft2, basedOnDrawId: null }] }),
-        run({ tabRound: { ...facts().tabRound, timeSlot: null } }),
-        run({ settings: { kind: 'resolved', values: {}, digest: 'digest-2' } }),
+        run({ tabRound: { ...publicationFacts().tabRound, timeSlot: null } }),
+        run({
+          settings: {
+            kind: 'resolved',
+            values: resolvedSettings,
+            digest: 'digest-2',
+          },
+        }),
         run({
           fixtures: [
             ...fixtures.slice(0, 2),

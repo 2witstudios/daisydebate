@@ -1,4 +1,5 @@
-import { eq } from 'drizzle-orm';
+import { currentRoundParticipant } from './round-current-participant';
+import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { idSchema, type SeatKind } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
@@ -85,7 +86,13 @@ export function roomAuthorizationRead({
             slot: roundParticipants.slot,
           })
           .from(rounds)
-          .leftJoin(roundParticipants, eq(roundParticipants.roundId, rounds.id))
+          .leftJoin(
+            roundParticipants,
+            and(
+              eq(roundParticipants.roundId, rounds.id),
+              currentRoundParticipant(roundParticipants.id),
+            ),
+          )
           .where(eq(rounds.id, roundId));
         const round = rows[0];
         // Older standalone rows have no persisted audience. They cannot be

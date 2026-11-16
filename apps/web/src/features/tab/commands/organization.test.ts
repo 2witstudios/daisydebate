@@ -1,5 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
+import {
+  organizationCommandSchema,
+  type OrganizationCommand,
+} from '@daisy/protocol/lobby/organization-command';
 import {
   decideOrganization,
   type GrantFact,
@@ -36,7 +39,6 @@ const grant = (
   lobbyId: null,
   expiresAt: null,
   revokedAt: null,
-  scopeOrganizationId: organizationId,
   ...overrides,
 });
 const facts = (
@@ -60,7 +62,14 @@ const facts = (
   ],
   grants: [grant({ id: 'admin-grant', userId: 'admin', role: director })],
   role: tabStaff,
-  lobbyOwnerOrganizationId: organizationId,
+  lobby: {
+    id: 'cup',
+    kind: 'tournament',
+    ownerOrganizationId: organizationId,
+    ownerUserId: null,
+    ownerActorId: null,
+    version: 1,
+  },
   personAgeBand: 'adult',
   staffMinimumBand: 'adult',
   ...overrides,
@@ -82,10 +91,9 @@ const orgBump = {
 
 const give = {
   type: 'give-grant',
-  organizationId,
   userId: 'member',
   roleId: 'tab',
-  scope: { kind: 'organization' },
+  scope: { kind: 'organization', organizationId: organizationId },
   expiresAt: null,
 } as const satisfies OrganizationCommand;
 
@@ -406,10 +414,15 @@ describe('decideOrganization', () => {
           }),
           give,
         ),
-        refusalOf(facts({ lobbyOwnerOrganizationId: 'elsewhere' }), {
-          ...give,
-          scope: { kind: 'lobby', lobbyId: 'cup' },
-        }),
+        refusalOf(
+          facts({
+            lobby: { ...facts().lobby!, ownerOrganizationId: 'elsewhere' },
+          }),
+          {
+            ...give,
+            scope: { kind: 'lobby', lobbyId: 'cup' },
+          },
+        ),
         refusalOf(facts({ grants: [] }), give),
         refusalOf(
           facts({
@@ -457,7 +470,7 @@ describe('decideOrganization', () => {
       expected: [
         'role-unavailable',
         'role-unavailable',
-        'scope-not-covered',
+        'not-found',
         'scope-not-covered',
         'scope-not-covered',
         'permission-not-held',
@@ -493,8 +506,8 @@ describe('decideOrganization', () => {
   test('removing a grant', () => {
     const remove = {
       type: 'remove-grant',
-      organizationId,
       grantId: 'member-grant',
+      scope: { kind: 'organization', organizationId: organizationId },
     } as const;
     const withGrant = (target: Partial<GrantFact>) =>
       facts({
@@ -530,7 +543,12 @@ describe('decideOrganization', () => {
       actual: [
         refusalOf(withGrant({ revokedAt: now }), remove),
         refusalOf(withGrant({ role: director }), remove),
-        refusalOf(withGrant({ scopeOrganizationId: 'elsewhere' }), remove),
+        refusalOf(
+          withGrant({
+            organizationId: 'elsewhere',
+          }),
+          remove,
+        ),
       ],
       expected: ['grant-ended', 'outranked', 'not-found'],
     });
@@ -554,5 +572,82 @@ describe('decideOrganization', () => {
         'not-a-member',
       ],
     });
+  });
+
+  test('transferring ownership to a minor or an unknown age', () => {
+    const transfer = {
+      type: 'transfer-ownership',
+      organizationId,
+      userId: 'member',
+    } as const;
+    assert({
+      given: 'an active member whose age is a minor band or unverified',
+      should: 'refuse ownership without writing any change',
+      actual: (['under-13', '13-15', '16-17', null] as const).map(
+        (personAgeBand) => writesOf(facts({ personAgeBand }), transfer),
+      ),
+      expected: ['age-band', 'age-band', 'age-band', 'age-band'],
+    });
+  });
+});
+
+test('a manager cancels only a pending membership invitation', () => {
+  const command = organizationCommandSchema.parse({
+    type: 'cancel-membership-invitation',
+    organizationId: 'l'.repeat(24),
+    userId: 'm'.repeat(24),
+  });
+  const pending = facts({
+    organization: { ...facts().organization!, id: 'l'.repeat(24) },
+    memberships: [
+      {
+        organizationId: 'l'.repeat(24),
+        userId: 'm'.repeat(24),
+        status: 'invited',
+        version: 3,
+      },
+    ],
+  });
+  const decision = decideOrganization(pending, command);
+  assert({
+    given: 'a pending invitation and its manager after the command gate',
+    should: 'end that invitation and bump its version, with no grant writes',
+    actual: decision.kind === 'accepted' ? decision.writes : decision,
+    expected: [
+      {
+        table: 'organizations',
+        op: 'update',
+        id: 'l'.repeat(24),
+        set: { version: 5 },
+      },
+      {
+        table: 'memberships',
+        op: 'update',
+        key: { organizationId: 'l'.repeat(24), userId: 'm'.repeat(24) },
+        set: { status: 'ended', endedAt: now, version: 4 },
+      },
+    ],
+  });
+  assert({
+    given: 'an active, declined, ended or absent membership',
+    should: 'refuse invitation cancellation without ending active membership',
+    actual: (['active', 'declined', 'ended', null] as const).map((status) =>
+      refusalOf(
+        {
+          ...pending,
+          memberships:
+            status === null
+              ? []
+              : pending.memberships.map((row) => ({ ...row, status })),
+        },
+        command,
+      ),
+    ),
+    expected: [
+      'invitation-closed',
+      'invitation-closed',
+      'invitation-closed',
+      'invitation-closed',
+    ],
   });
 });

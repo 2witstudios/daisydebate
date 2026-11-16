@@ -20,6 +20,10 @@ export const forfeitRecorded = sql`(
  */
 export const recordedEnding = sql`case
   when z.round_id is null or z.resulting_version > r.version then 'unrecorded'
+  when exists(select 1 from round_finalization_ballots m
+    left join ballots b on b.id=m.ballot_id
+    where m.round_id=z.round_id
+      and m.ballot_digest is distinct from daisy_ballot_content_digest(b)) then 'unrecorded'
   when ${forfeitRecorded} then 'forfeit'
   when not exists(select 1 from round_finalization_ballots m
     join ballots b on b.id=m.ballot_id and b.round_id=z.round_id and b.freeze_revision=z.freeze_revision

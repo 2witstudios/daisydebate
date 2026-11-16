@@ -1,3 +1,4 @@
+export { loanRoundAssignmentInterface } from './testing-round-assignment-interface';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -125,6 +126,7 @@ export {
 } from './messaging/browser-fixture';
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
+export { withRolledBackDatabase } from './testing-rolled-back';
 export {
   admitParticipants,
   approveBetaAccess,
@@ -165,3 +167,10 @@ export async function readSpectatorHorizon(
     await client.close();
   }
 }
+
+export { scratchDatabase } from './testing-scratch';
+export {
+  withRuntimeTestTransaction,
+  committingRuntimeTestDatabase,
+  type SavepointTestDatabase,
+} from './testing-transaction';

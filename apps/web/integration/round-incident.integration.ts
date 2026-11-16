@@ -200,6 +200,7 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
             () => true,
             readRoundOpening,
             roundWaitingOn,
+            () => false,
           )
         )?.platformEnding,
       },

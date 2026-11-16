@@ -14,7 +14,7 @@ import {
   referencePresets,
 } from '../src/reference-formats';
 import { catalogFormats } from '../src/catalog-formats';
-import { Fixture } from './constraint-helpers';
+import { Fixture, rejectedBy } from './constraint-helpers';
 import {
   ddlTimeoutMs,
   scratchDatabase,
@@ -25,14 +25,15 @@ const { databaseUrl } = integrationSuite();
 const scratch = scratchDatabase(databaseUrl, 'stagingrehearsal');
 afterAll(() => scratch.drop());
 
-// The exact delta from main at db76b101c to parent 51f3d4861. All other
-// folders are retained, including main migrations newer than the Tab folders.
+// Every feature-only folder, including the wiring migration. The initial
+// database runs all main folders, including main history newer than Tab.
 const parentFolders = new Set([
   '20261114051015_tab_schema',
   '20261114051016_tab_schema_checks_validated',
   '20261114151541_tab_seats',
   '20261114152055_tab_seats_checks_validated',
   '20261114172122_tab_casual_templates',
+  '20261116031500_tab_wiring',
 ]);
 
 const oldRules = ({
@@ -59,15 +60,29 @@ const oldRules = ({
 });
 
 /** Exact row snapshots, not counts: catches changed IDs, text, timing and references. */
-const snapshot = async (sql: SQL, tables: readonly string[]) =>
+const snapshot = async (
+  sql: SQL,
+  tables: readonly string[],
+  columns: Readonly<Record<string, readonly string[]>>,
+) =>
   Object.fromEntries(
     await Promise.all(
       tables.map(async (table) => [
         table,
         (
-          await sql.unsafe(
-            `select coalesce(jsonb_agg(row order by row::text), '[]'::jsonb) as rows from (select to_jsonb(t) as row from ${table} t) s`,
-          )
+          await (async () => {
+            const current: string[] = (
+              await sql`select column_name from information_schema.columns where table_schema='public' and table_name=${table}`
+            ).map((r: { column_name: string }) => r.column_name);
+            const added = current.filter(
+              (name) => !columns[table]!.includes(name),
+            );
+            // Added fields are qualified separately. Any removed old field still
+            // disappears from the JSON and fails equality for an existing row.
+            return sql.unsafe(
+              `select coalesce(jsonb_agg(row order by row::text), '[]'::jsonb) as rows from (select to_jsonb(t) - ARRAY[${added.map((name) => `'${name.replaceAll("'", "''")}'`).join(',')}]::text[] as row from ${table} t) s`,
+            );
+          })()
         )[0]!.rows,
       ]),
     ),
@@ -81,6 +96,11 @@ test(
     const sql = new SQL(scratch.url, { max: 1 });
     const f = new Fixture(sql);
     try {
+      const [baseline] =
+        await sql`select count(*)::int count from drizzle.__drizzle_migrations`;
+      process.stdout.write(
+        `STAGING REHEARSAL MAIN BASELINE: ${baseline!.count} applied migrations before any Tab folder\n`,
+      );
       const host = await f.actor();
       const at = new Date('2026-11-01T10:00:00Z');
       const catalog = [
@@ -107,6 +127,13 @@ test(
       );
       const expectedRules = new Map<string, RoundRules>();
       const roundIds: string[] = [];
+      const legacyRules = new Map<string, unknown>();
+      const legacyJudges: {
+        roundId: string;
+        slot: number;
+        participantId: string;
+        actorId: string;
+      }[] = [];
       for (const format of catalog.filter(({ id }) => existing.has(id))) {
         const compiled = resolveRoomConfiguration(
           format.definition,
@@ -149,6 +176,43 @@ test(
             await f.participant(round, role, 0, await f.actor());
         }
       }
+      // Main accepted these stored snapshots and seat positions. Migration must
+      // observe their actual identities without inventing a repaired grammar.
+      const baseFormat = catalog.find(({ id }) => id === 'policy')!;
+      const compiledLegacy = resolveRoomConfiguration(
+        baseFormat.definition,
+        baseFormat.config,
+      );
+      if (!compiledLegacy.ok)
+        throw new Error('Legacy reference did not compile');
+      for (const judgeCount of [null, 'not-a-count', '1', -1, 257, 1.5, 0, 1]) {
+        const legacy = oldRules(compiledLegacy.rules);
+        const seats: Record<string, unknown> = { ...legacy.seats };
+        if (judgeCount === null) delete seats.judge;
+        else seats.judge = judgeCount;
+        const round = await f.round({
+          format_id: baseFormat.id,
+          format_version: baseFormat.version,
+          rules_snapshot: { ...legacy, seats },
+        });
+        roundIds.push(round);
+        legacyRules.set(round, {
+          ...compiledLegacy.rules,
+          seats: { ...compiledLegacy.rules.seats, judges: judgeCount },
+        });
+        // Include both no judge participants and an actual judge beyond the frozen count.
+        if (judgeCount === 1 || judgeCount === 'not-a-count') {
+          const actorId = await f.actor(),
+            slot = 3;
+          const { id: participantId } = await f.seat(
+            round,
+            'judge',
+            slot,
+            actorId,
+          );
+          legacyJudges.push({ roundId: round, slot, participantId, actorId });
+        }
+      }
       // Rated history on every existing ladder, with human and bot seats and
       // its actual ledger FK chain. The format corpus above also keeps every
       // lifecycle, including winnerless abandoned and unstarted Rounds.
@@ -188,6 +252,19 @@ test(
         roundIds.push(rated);
         await f.participant(rated, 'affirmative', 0, host);
         await f.participant(rated, 'negative', 0, bot.id);
+        const legacyJudge = await f.actor();
+        const { id: legacyParticipant } = await f.seat(
+          rated,
+          'judge',
+          3,
+          legacyJudge,
+        );
+        legacyJudges.push({
+          roundId: rated,
+          slot: 3,
+          participantId: legacyParticipant,
+          actorId: legacyJudge,
+        });
         await f.insert(
           'ratings',
           {
@@ -206,6 +283,28 @@ test(
           actor_id: host,
           format_id: ladder,
           ladder,
+          season_id: season,
+          rating_before: 1500,
+          rating_after: 1490,
+          deviation_before: 120,
+          deviation_after: 110,
+          volatility_before: 0.06,
+          volatility_after: 0.06,
+          calculation_version: 'glicko2-v1',
+          occurred_at: at,
+        });
+      }
+      for (const judge of legacyJudges.filter((j) =>
+        expectedRules.has(j.roundId),
+      )) {
+        const [rated] =
+          await sql`select ladder_id from rounds where id=${judge.roundId}`;
+        await f.insert('rating_changes', {
+          id: createId(),
+          round_id: judge.roundId,
+          actor_id: judge.actorId,
+          format_id: rated!.ladder_id,
+          ladder: rated!.ladder_id,
           season_id: season,
           rating_before: 1500,
           rating_after: 1490,
@@ -302,7 +401,7 @@ test(
         'seasons',
         'room_active_memberships',
       ];
-      const unchanged = (
+      const unchanged: string[] = (
         await sql`select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r', 'p') order by relname`
       )
         .map((row: { relname: string }) => row.relname)
@@ -311,7 +410,17 @@ test(
         await sql`select id, role, slot from room_participants order by id`;
       const seasonsBefore =
         await sql`select to_jsonb(s) as row from seasons s order by id`;
-      const before = await snapshot(sql, unchanged);
+      const columns = Object.fromEntries(
+        await Promise.all(
+          unchanged.map(async (table) => [
+            table,
+            (
+              await sql`select column_name from information_schema.columns where table_schema='public' and table_name=${table} order by ordinal_position`
+            ).map((r: { column_name: string }) => r.column_name),
+          ]),
+        ),
+      );
+      const before = await snapshot(sql, unchanged, columns);
       const roomsBefore =
         await sql`select to_jsonb(r) - array['rules_snapshot', 'capture'] as row from rooms r order by id`;
       const roundFieldsBefore =
@@ -327,9 +436,9 @@ test(
         await sql`select id, status, outcome, started_at, completed_at from rounds order by id`;
       await scratch.migrate(() => true);
       assert({
-        given: 'populated main migrated through all five Tab folders',
+        given: 'populated main migrated through every parent and wiring folder',
         should: 'keep every unrelated row byte-identical',
-        actual: await snapshot(sql, unchanged),
+        actual: await snapshot(sql, unchanged, columns),
         expected: before,
       });
       assert({
@@ -364,26 +473,28 @@ test(
         actual: await sql`select * from active_seats order by actor_id`,
         expected: activeSeatsBefore,
       });
+      const retainedBefore = {
+        rooms: roomsBefore,
+        rounds: roundFieldsBefore,
+        roomParticipants: roomParticipantsBefore,
+        roundParticipants: roundParticipantsBefore,
+      };
+      const retainedAfter = {
+        rooms:
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version'] as row from rooms r order by id`,
+        rounds:
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version'] as row from rounds r order by id`,
+        roomParticipants:
+          await sql`select to_jsonb(p) - array['seat_kind','side'] as row from room_participants p order by id`,
+        roundParticipants:
+          await sql`select to_jsonb(p) - array['seat_kind','side','rating_actor_id','legacy_rating_participant'] as row from round_participants p order by id`,
+      };
       assert({
         given: 'all other fields of rewritten Rooms, Rounds and participants',
         should:
           'preserve exact identities, owners, configuration, consent, visibility, runtime checkpoints and timestamps',
-        actual: {
-          rooms:
-            await sql`select to_jsonb(r) - array['rules_snapshot', 'capture', 'lobby_id', 'lobby_kind', 'template_id', 'ballot_definition_id', 'ballot_definition_version'] as row from rooms r order by id`,
-          rounds:
-            await sql`select to_jsonb(r) - array['rules_snapshot', 'capture', 'winning_side', 'ranking', 'judging'] as row from rounds r order by id`,
-          roomParticipants:
-            await sql`select to_jsonb(p) - array['seat_kind', 'side'] as row from room_participants p order by id`,
-          roundParticipants:
-            await sql`select to_jsonb(p) - array['seat_kind', 'side'] as row from round_participants p order by id`,
-        },
-        expected: {
-          rooms: roomsBefore,
-          rounds: roundFieldsBefore,
-          roomParticipants: roomParticipantsBefore,
-          roundParticipants: roundParticipantsBefore,
-        },
+        actual: retainedAfter,
+        expected: retainedBefore,
       });
       const rulesAfter =
         await sql`select id, rules_snapshot from rooms union all select id, rules_snapshot from rounds`;
@@ -391,6 +502,7 @@ test(
         given: 'each stored two-sided format and rules snapshot',
         should: 'parse and mean exactly the same timetable and seats',
         actual: rulesAfter
+          .filter((r: { id: string }) => !legacyRules.has(r.id))
           .map((r: { id: string; rules_snapshot: unknown }) => ({
             id: r.id,
             parses: roundRulesSchema.safeParse(r.rules_snapshot).success,
@@ -405,6 +517,80 @@ test(
             a.id.localeCompare(b.id),
           ),
       });
+      assert({
+        given:
+          'stored snapshots missing or carrying invalid frozen judge counts',
+        should:
+          'preserve the historical snapshot rather than invent valid rules',
+        actual: rulesAfter
+          .filter((r: { id: string }) => legacyRules.has(r.id))
+          .map((r: { id: string; rules_snapshot: unknown }) => ({
+            id: r.id,
+            rules: r.rules_snapshot,
+          }))
+          .sort((a: { id: string }, b: { id: string }) =>
+            a.id.localeCompare(b.id),
+          ),
+        expected: [...legacyRules]
+          .map(([id, rules]) => ({ id, rules }))
+          .sort((a, b) => a.id.localeCompare(b.id)),
+      });
+      assert({
+        given:
+          'actual main judge identities outside their declared or missing frozen count',
+        should:
+          'retain an observed slot and assignment for every actual judge without changing a seat',
+        actual:
+          await sql`select a.round_id, a.slot, a.participant_id, a.actor_id,a.source from round_judge_assignments a order by a.round_id,a.slot`,
+        expected:
+          await sql`select round_id,slot,id participant_id,actor_id,'observed' source from round_participants where seat_kind='judge' order by round_id,slot`,
+      });
+      assert({
+        given: 'actual pre-migration ratings on non-debating identities',
+        should:
+          'retain exactly those historical identities as immutable legacy rating provenance',
+        actual:
+          await sql`select p.id,p.rating_actor_id from round_participants p where p.legacy_rating_participant order by p.id`,
+        expected:
+          await sql`select distinct p.id,p.actor_id rating_actor_id from round_participants p join rating_changes c on c.round_id=p.round_id and c.actor_id=p.actor_id where p.seat_kind not in ('side','speaker') order by p.id`,
+      });
+      const markerRound = await f.round({
+        format_id: baseFormat.id,
+        format_version: baseFormat.version,
+        rules_snapshot: compiledLegacy.rules,
+      });
+      const markerActor = await f.actor();
+      assert({
+        given:
+          'a future judge attempting to manufacture historical rating provenance',
+        should:
+          'refuse a new legacy marker and any rewrite of observed history',
+        actual: [
+          await rejectedBy(
+            () =>
+              sql`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot,legacy_rating_participant) values(${createId()},${markerRound},${markerActor},'judge',null,0,true)`,
+          ),
+          await rejectedBy(
+            () =>
+              sql`update round_participants set legacy_rating_participant=false where legacy_rating_participant`,
+          ),
+        ],
+        expected: [
+          'round_participants_legacy_rating_marker',
+          'round_participants_identity_immutable',
+        ],
+      });
+      assert({
+        given:
+          'the original missing-count stored snapshot after a successful migration',
+        should:
+          'still fail the strict future-write grammar check rather than weakening it to admit history',
+        actual: await rejectedBy(
+          () =>
+            sql`select daisy_round_judge_slot_count(rules_snapshot) from rounds where id=${[...legacyRules.keys()][0]!}`,
+        ),
+        expected: 'round_judge_slots_frozen_count',
+      });
       const [invalid] =
         await sql`select count(*)::int as count from pg_constraint where connamespace = 'public'::regnamespace and not convalidated`;
       assert({
@@ -414,7 +600,7 @@ test(
         expected: 0,
       });
       process.stdout.write(
-        `STAGING REHEARSAL: ${expectedRules.size - roundIds.length} formats/Rooms, ${roundIds.length} Rounds, ${seatsBefore.length} seats; ${unchanged.length} unchanged tables including rating ledger, recordings, chat and beta preserved; all constraints validated\n`,
+        `STAGING REHEARSAL: ${expectedRules.size - roundIds.length + legacyRules.size} formats/Rooms, ${roundIds.length} Rounds, ${seatsBefore.length} seats; ${unchanged.length} unchanged tables including rating ledger, recordings, chat and beta preserved; all constraints validated\n`,
       );
     } finally {
       await sql.close();

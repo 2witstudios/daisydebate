@@ -18,7 +18,7 @@ const instant = z.iso.datetime();
 
 const organizationRef = z.strictObject({ organizationId: idSchema, name });
 const formatPin = z.strictObject({
-  formatId: idSchema,
+  formatId: z.string().trim().min(1),
   formatVersion: version,
   name,
 });
@@ -45,6 +45,7 @@ const setupTabRoundSchema = z.strictObject({
   name: name.nullable(),
   timeSlotId: idSchema.nullable(),
   resolutionPoolId: idSchema.nullable(),
+  poolResolutionId: idSchema.nullable(),
 });
 
 /** An event as its tournament's setup shows it. */
@@ -68,13 +69,13 @@ const setupEventSchema = z
       .nullable(),
     stages: z.array(setupStageSchema),
     tabRounds: z.array(setupTabRoundSchema),
-    sanction: z
-      .strictObject({
+    sanctions: z.array(
+      z.strictObject({
         organization: organizationRef,
         status: z.enum(sanctionStatuses),
         requestedAt: instant,
-      })
-      .nullable(),
+      }),
+    ),
   })
   .refine(
     (event) => {
@@ -123,7 +124,7 @@ export const lobbySetupViewSchema = z.discriminatedUnion('kind', [
       z.strictObject({
         templateId: idSchema,
         name,
-        format: z.strictObject({ formatId: idSchema, name }),
+        format: z.strictObject({ formatId: z.string().trim().min(1), name }),
       }),
     ),
     seasons: z.array(z.strictObject({ seasonId: idSchema, name })),
@@ -138,7 +139,7 @@ export const lobbySetupViewSchema = z.discriminatedUnion('kind', [
       kind: z.literal('tournament'),
       ...common,
       status: z.enum(tournamentStatuses),
-      events: z.array(setupEventSchema).min(1),
+      events: z.array(setupEventSchema),
       timeSlots: z.array(setupTimeSlotSchema),
       resolutionPools: z.array(setupResolutionPoolSchema),
       capabilities: z.strictObject({ manage: z.boolean() }),
@@ -165,5 +166,7 @@ export type TournamentSetupView = Extract<
 >;
 
 export const lobbySetupReadCatalogue = {
-  LobbySetupView: { gate: ['lobby.host.read'] },
+  LobbySetupView: { gate: ['lobby.setup.manage'] },
 } as const satisfies LobbyReadCatalogue<'LobbySetupView'>;
+
+export const tournamentSetupViewSchema = lobbySetupViewSchema.options[1];

@@ -50,6 +50,9 @@ const fixtureResult = z.discriminatedUnion('kind', [
 
 /** Where one fixture stands, as far as the host's attention goes. */
 const fixtureState = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('waiting_for_start') }),
+  z.strictObject({ kind: z.literal('awaiting_result') }),
+  z.strictObject({ kind: z.literal('preparing') }),
   /** A judge has not opened the ballot that is due. */
   z.strictObject({
     kind: z.literal('ballot_overdue'),
@@ -76,7 +79,7 @@ const fixtureState = z.discriminatedUnion('kind', [
     kind: z.literal('judging'),
     ballotsIn: count,
     ballotsDue: position,
-    openForMs: durationMs,
+    openForMs: durationMs.nullable(),
   }),
   z.strictObject({ kind: z.literal('finished'), result: fixtureResult }),
 ]);
@@ -110,9 +113,12 @@ export const tabRoundHostViewSchema = z.strictObject({
   sectionSize: position.nullable(),
   /** What a bye counts as: the resolved `bye.result`. */
   byeCountsAs: z.enum(['win', 'own_average']),
-  startedAt: instant,
+  startedAt: instant.nullable(),
   progress: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('running'), behindByMs: durationMs }),
+    z.strictObject({
+      kind: z.literal('running'),
+      behindByMs: durationMs.nullable(),
+    }),
     z.strictObject({ kind: z.literal('complete') }),
   ]),
   /** Whether participants have a posting for this tab round. */
@@ -237,8 +243,8 @@ export type TimeSlotHostView = z.infer<typeof timeSlotHostViewSchema>;
 export type TimeSlotConcern = z.infer<typeof slotConcern>;
 
 export const tabRoundReadCatalogue = {
-  TabRoundHostView: { gate: ['lobby.host.read'] },
-  TimeSlotHostView: { gate: ['lobby.host.read'] },
+  TabRoundHostView: { gate: ['lobby.host.draw.read'] },
+  TimeSlotHostView: { gate: ['lobby.host.draw.read'] },
 } as const satisfies LobbyReadCatalogue<
   'TabRoundHostView' | 'TimeSlotHostView'
 >;

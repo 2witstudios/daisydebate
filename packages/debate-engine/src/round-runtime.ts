@@ -1,5 +1,5 @@
 import { speakingChangesOf } from './round-speaking';
-import { startRound } from './round-commands';
+import { closePlayedRound, startRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';
 import { applyPanelCompletion } from './round-panel-completion';
 import type { RoundRuntime } from './round-runtime-api';
@@ -27,7 +27,11 @@ import {
   closeClockSegment,
   type ClockTransition,
 } from './round-clock-transition';
-import { closedCount, normalizeRoundClock } from './round-clock-state';
+import {
+  abandonedLifecycle,
+  closedCount,
+  normalizeRoundClock,
+} from './round-clock-state';
 import { debateSideOf } from './round-command-legality';
 import {
   applyRoundCommand,
@@ -333,6 +337,12 @@ export function createRoundRuntime(input: {
       store = scratch;
       return project(into);
     },
+    stop: (now) =>
+      onScratch(now, (c) => {
+        const ending = abandonedLifecycle(c.on.lifecycle(), c.now);
+        closePlayedRound(c);
+        c.on.setLifecycle(ending);
+      }),
     completePanel: (completion) =>
       onScratch(completion.now, (c) =>
         applyPanelCompletion(c, completion, input.participants),

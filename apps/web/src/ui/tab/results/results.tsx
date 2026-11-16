@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type {
   Certification,
   EventResults,
@@ -40,10 +41,15 @@ export function Results({
   rail,
   event,
   results,
+  storedActions,
 }: {
   readonly rail: TimelineRail;
   readonly event: EventSwitch;
   readonly results: EventResults;
+  readonly storedActions?: {
+    readonly certify: ReactNode;
+    readonly openings: ReadonlyMap<string, ReactNode>;
+  };
 }) {
   return (
     <HostShell rail={rail} current="results">
@@ -51,7 +57,13 @@ export function Results({
       <PageHeader
         title="Results"
         lede={results.lede}
-        actions={<Certify certification={results.certification} />}
+        actions={
+          results.certification.kind === 'ready' && storedActions ? (
+            storedActions.certify
+          ) : (
+            <Certify certification={results.certification} />
+          )
+        }
       />
       <Bracket bracket={results.bracket} />
       <div className="grid grid-cols-2 items-start gap-5 max-rail:grid-cols-1">
@@ -60,11 +72,19 @@ export function Results({
           <ul>
             {results.audiences.map((audience) => (
               <ListRow
-                key={audience.audience}
+                key={audience.id}
                 title={audience.audience}
                 detail={audience.detail}
                 trailing={
-                  audience.open === null ? (
+                  storedActions ? (
+                    (storedActions.openings.get(audience.id) ?? (
+                      <span className="text-sm font-strong text-accent">
+                        {audience.status === 'open'
+                          ? 'Open'
+                          : 'Requires release authority'}
+                      </span>
+                    ))
+                  ) : audience.open === null ? (
                     <span className="text-sm font-strong text-accent">
                       Open
                     </span>
@@ -81,12 +101,12 @@ export function Results({
           <ul>
             {results.checks.map((check) => (
               <ListRow
-                key={check.kind}
+                key={check.id}
                 title={check.title}
                 detail={
                   <>
                     {check.detail}
-                    {check.action === null ? null : (
+                    {storedActions || check.action === null ? null : (
                       <div className="mt-2">
                         <ActionButton size="small" action={check.action} />
                       </div>

@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { encodeOutboxCursor } from '@daisy/db/outbox';
 import { waitForOutboxFinality } from '@daisy/db/testing';
-import { buildUserInboxTopic, sideSeat } from '@daisy/protocol';
+import { buildUserInboxTopic, judgeSeat } from '@daisy/protocol';
 import { serveRealtime } from '../src/serve';
 import { authorityResources } from './authority-resources.test-support';
 import type { SocketData } from '../src/socket';
@@ -41,7 +41,7 @@ test('two actual instances consume durable access and session revocations withou
       hostname: '127.0.0.1',
       now: () => 0,
     });
-    const round = await rounds.seed('private', sideSeat('affirmative'));
+    const round = await rounds.seed('private', judgeSeat());
     const instances = [fixture.runtime, replica];
     const peers = [];
     const acknowledgements: string[] = [];
@@ -82,8 +82,7 @@ test('two actual instances consume durable access and session revocations withou
     ) => {
       const rows = await fixture.client.begin(async (tx) => {
         if (kind === 'access.revoked') {
-          await tx`delete from round_participants where round_id=${round.id} and actor_id=${fixture.actorId}`;
-          await tx`update rounds set version=version+1 where id=${round.id}`;
+          await rounds.unassignJudge(tx as typeof fixture.client, round.id);
         } else await tx`delete from session where id=${fixture.sessionId}`;
         return tx`insert into outbox(topic,kind,version,payload) values(
           ${buildUserInboxTopic(fixture.actorId)},${kind},1,
@@ -117,7 +116,7 @@ test('two actual instances consume durable access and session revocations withou
     );
     assert({
       given:
-        'an atomic durable membership removal and access control row with two independent native listeners/drains',
+        'an atomic durable judge unassignment and access control row with two independent native listeners/drains',
       should:
         'remove the private subscription on both instances without delivering inbox controls as events',
       actual: {

@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import {
   captureRule,
   readRoundOpening,
@@ -137,13 +138,16 @@ test('only an explicit authorized request runs analysis, and delivered reports s
       await analyse();
       const ballotRead = () =>
         f.store.readRoundBallot({
+          ballotAccess: (_round, _account, owner) =>
+            eventBallotAccess(f.host, owner),
           readOpening: readRoundOpening,
           decideWaitingOn: roundWaitingOn,
           captureRule,
           roundId,
           caller: f.host,
-          authorize: (r, a) => canReadRound(f.host, r, a),
-          authorizeTranscript: (r, a) => canReadTranscript(f.host, r, a),
+          authorize: (r, a, authority) => canReadRound(f.host, r, a, authority),
+          authorizeTranscript: (r, a, authority) =>
+            canReadTranscript(f.host, r, a, authority),
         });
       const withPremium = JSON.stringify(await ballotRead());
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;

@@ -7,7 +7,7 @@ import type {
 
 export type NewRoom = {
   readonly id: string;
-  readonly hostActorId: string;
+  readonly hostActorId: string | null;
   readonly title: string;
   /** Null exactly when the Room's plan has a draw (FMT-7). */
   readonly topic: string | null;

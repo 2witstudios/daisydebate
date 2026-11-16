@@ -17,7 +17,7 @@ setupRitewayBun();
 describe('standings byes', () => {
   // A: bye in R1, then 28 > B in R2 and 26 < C in R3; a three-judge panel.
   const played = [
-    bye<typeof twoSides>('y1', 1, 'A'),
+    bye('y1', 1, 'A', { panelSize: 3 }),
     debate('y2', 2, ['A', 'B'], 'A', [28, 27]),
     debate('y3', 3, ['C', 'A'], 'C', [29, 26]),
   ];
@@ -65,7 +65,13 @@ describe('standings byes', () => {
       'judging.panel': panel,
       'bye.result': { value: 'own_average' },
     });
-    const table = standings(inputOf(twoSides, [entry('A')], played, settings));
+    const averagePlayed = [
+      bye('y1', 1, 'A', { rule: 'own_average', panelSize: 3 }),
+      ...played.slice(1),
+    ];
+    const table = standings(
+      inputOf(twoSides, [entry('A')], averagePlayed, settings),
+    );
     assert({
       given: 'one bye over two played games (1 win, 54 points)',
       should:
@@ -91,7 +97,7 @@ describe('standings byes', () => {
       inputOf(
         twoSides,
         [entry('A')],
-        [bye<typeof twoSides>('y', 1, 'A')],
+        [bye('y', 1, 'A', { rule: 'own_average' })],
         settings,
       ),
     );

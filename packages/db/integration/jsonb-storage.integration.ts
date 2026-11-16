@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -147,7 +148,7 @@ test('a non-object jsonb write fails with a typed VALIDATION error before any ro
 test('every jsonb column refuses a scalar written around the application (ISSUE-24)', async () => {
   await withFixture(url, async (fixture) => {
     const scalar = 'a bare string';
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const freezeRevision = await fixture.freeze(roundId);
     const judge = (await fixture.seat(roundId, 'judge')).id;
     const refusals = {
@@ -220,7 +221,7 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
 test('ballots.scores and round_commands.result round-trip as jsonb objects through jsonbColumn (ISSUE-24)', async () => {
   await withFixture(url, async (fixture) => {
     const database = drizzle({ client: fixture.sql });
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const freezeRevision = await fixture.freeze(roundId);
     const judge = (await fixture.seat(roundId, 'judge')).id;
     const ballotId = createId();

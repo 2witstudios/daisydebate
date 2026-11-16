@@ -4,7 +4,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
 import { createDatabase } from '../src/index';
 import {
-  readTenantIsolationProblems,
   tenantIsolationFactsSql,
   tenantIsolationProblems,
   type TenantTableFacts,
@@ -23,11 +22,17 @@ const schema = '20261114051015_tab_schema';
 const scratch = scratchDatabase(url, 'tenantisolation');
 afterAll(() => scratch.drop());
 
-const problemsOf = async (databaseUrl: string) => {
+const problemsOf = async (
+  databaseUrl: string,
+  manifest = tenantIsolationManifest,
+) => {
   const sql = new SQL(databaseUrl, { max: 1 });
   try {
-    return await readTenantIsolationProblems((statement) =>
-      sql.unsafe(statement),
+    return tenantIsolationProblems(
+      (await sql.unsafe(
+        tenantIsolationFactsSql,
+      )) as readonly TenantTableFacts[],
+      manifest,
     );
   } finally {
     await sql.close();
@@ -60,7 +65,25 @@ test(
     await scratch.migrate((folder) => folder < schema);
     const before = await problemsOf(scratch.url);
     await scratch.migrate((folder) => folder <= schema);
-    const afterSchema = await problemsOf(scratch.url);
+    // The original schema predates protected-person history. Verify its own
+    // two-scope contract, then the current contract after the forward migration.
+    const afterSchema = await problemsOf(scratch.url, {
+      ...tenantIsolationManifest,
+      tables: tenantIsolationManifest.tables
+        .filter(
+          (table) =>
+            ![
+              'tournament_sponsorship_versions',
+              'tournament_capture_admissions',
+              'fixture_room_sources',
+            ].includes(table.table),
+        )
+        .map((table) =>
+          table.table === 'action_history'
+            ? { ...table, key: 'either' as const }
+            : table,
+        ),
+    });
     await scratch.migrate(() => true);
     const afterAllFolders = await problemsOf(scratch.url);
     assert({
@@ -152,24 +175,28 @@ test('a table that carries or references a tenant key undeclared is reported', a
   });
 });
 
-test('a nullable isolation key outside a declared one-of-two CHECK is reported', async () => {
+test('a nullable isolation key without its declared scope CHECK is reported', async () => {
   assert({
     given:
-      'a lobby-keyed table whose key becomes nullable, and a one-of-two table whose CHECK is dropped',
+      'a lobby key made nullable, and a two-scope and three-scope table with their CHECKs dropped',
     should: 'report each',
     actual: [
       await afterFault(
         'alter table releases alter column lobby_id drop not null',
       ),
       await afterFault(
-        'alter table action_history drop constraint action_history_one_tenant_key',
+        'alter table grants drop constraint grants_one_tenant_key',
+      ),
+      await afterFault(
+        'alter table action_history drop constraint action_history_one_scope',
       ),
     ],
     expected: [
       ['releases.lobby_id is nullable'],
       [
-        'action_history carries a nullable isolation key without the action_history_one_tenant_key CHECK',
+        'grants carries a nullable isolation key without the grants_one_tenant_key CHECK',
       ],
+      ['action_history lacks its one-scope CHECK'],
     ],
   });
 });

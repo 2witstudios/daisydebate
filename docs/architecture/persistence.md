@@ -52,6 +52,118 @@ A Room sits in exactly one lobby (`rooms.lobby_id`) for life and has a host pers
 
 **Tenant isolation.** Row-level security fences every tenant-owned table ([database operations](../operations/database.md#tenant-isolation)). It is a fence, not the decision: `authorize` decides, then the operation opens its transaction through `withScope` (`packages/db/src/tenant-scope.ts`), the only code that sets the scope. With no scope a fenced table shows the runtime role no row.
 
+Tab organization, lobby, season, settings, tournament setup, adult enrollment and judge registration commands run through `database.tabCommands`
+in one fenced transaction: authoritative facts and versions are loaded under
+the aggregate lock, then the pure decision's writes and its action-history
+receipt are committed together. Creating a lobby serializes its public handle
+before checking availability, so a concurrent retry can replay its receipt.
+Account fences are acquired before aggregate locks. Settings and setup writers
+serialize changes to consuming chains before checking their current definitions;
+private competition facts are visited under each lobby’s own scope, then the
+command’s scope is restored. The authorization instant is sampled after the
+fenced facts have loaded, and is shared by decision and audit; a grant that
+expires during the lock wait cannot authorize at the earlier arrival instant.
+Accepted membership, grant, entry and judge changes invalidate the affected
+account revision once; replay and refusal do not. Counterpart boundary facts
+are read under the counterpart’s own subject scope. Guardian-dependent entry
+additions remain closed while their audit/provenance decisions and counsel
+release are unresolved. Room assembly is a separate operation.
+
+The host Results read and completion commands consume the same retained event
+sources under the event/lobby fence. Readiness and manual-opening eligibility
+share the pure command predicates; reads never mint probe commands or
+certificates. The result guard is one plus the retained event result and
+certification row counts. Stage reads preserve every published fixture's
+actual ordered entry list and result-owned outcome, using the first published
+stage snapshot for elimination seeds. Openings remain per tab round, part and
+audience, and sanctions remain a list. This read exposes no private ballot
+words, screening holds or video authority; those remain with their own readers.
+
+Entry requests address the actual lobby and event and read only that event's
+setting chain. Shared locks on its real parent definitions let unrelated
+consumers proceed while a parent writer waits; a changed parent reference after
+a wait refuses the obsolete request before any entry or audit write.
+Parent policies are selected by scope kind as well as tenant id: a template's
+organization id and an event's lobby id are isolation keys, not a reason to
+include unoffered sibling templates or other events in the addressed chain.
+
+Each new entry captures its authenticated submitter's account id atomically
+with the entry, members and command receipt. Approval does not replace it; a
+database trigger refuses changing or clearing it. The fenced enrollment loader
+reads that immutable field directly. Existing unknown makers remain explicit
+nulls and cannot be reconstructed from current guardians or event history.
+This adds no minor activation, consent or retention policy; those remain closed.
+
+The same action history has exactly one organization, lobby or protected-person
+scope. The protected subject is separate from its actor; organization/lobby
+contexts cannot expose person rows through a matching subject account. Family
+commands fence their current people before relationship/school metadata and
+append one atomic person-scoped receipt. History reads authorize the actual
+current relationship and subject inside shared account fences, including the
+ward fence shared across guardians. Family command/read composition stays
+closed with no approved notice, and the web role still cannot write guardian
+links or restrictions. No family retention/export/erasure policy is inferred.
+The command's person address is explicit, like the lobby address on entry
+commands: its named link must belong to that subject, and a new link's ward must
+match it. Actor-based lookup and an implicit organization or privileged global
+relationship locator are unnecessary.
+
+Organization people are authorized and projected inside the store's transaction,
+under shared canonical viewer-account, organization and actual owned-lobby fences.
+Each lobby is visited under its own tenant scope before its shared lock is taken.
+Readers coexist; authority writers wait. The same snapshot supplies organization
+and lobby versions for role controls; a submission retains its target's displayed
+guard instead of replacing it with a fresh one.
+
+Grant commands address either an organization or a lobby. Lobby scope resolves
+its optional owning organization; personal tournaments need no synthetic
+organization or membership. Preset-role ownership supplies provenance, never a
+policy parent. Giver and holder accounts are fenced before parent and target
+locks; subset, seniority and current membership checks retain their canonical
+meaning. Lobby grants move the lobby guard and journal at that lobby, while
+organization grants use the organization guard and history scope. Staff minimum
+age comes from the actual owning organization's policy, or the catalogue default
+when there is no organization. A normal lobby loader reads only its grants and
+its actual parent's organization grants, without visiting sibling lobbies.
+
+Standing Room drafts likewise retain shared account and actual parent fences
+through authorization and projection. The read addresses one lobby, loads only
+its offered templates, their actual owners and exact preset pins, and the
+settings in that Room chain. Offers and ownership are checked again after lock
+waits; a changed chain returns no obsolete draft. This consumer does not take
+the global settings-writer fence or enumerate unrelated tournament branches.
+
+The tournament setup host read likewise keeps authorization and projection in
+its shared-fenced transaction. It selects only the addressed tournament's pins,
+schedule and available pool metadata; pool sizes count active wording rows
+without selecting their text. The setup contract permits a real zero-event tournament and exposes every
+authorized sanction on each event. Neither case fabricates an event or selects
+one league in place of the full collection.
+
+The host's resolved event-settings read uses the same bounded event context as
+entry/draft commands, with shared lobby/event metadata locks. Commands keep
+their existing exclusive aggregate default. The view comes from the canonical
+resolver, including source names and enforced locks, inside that transaction;
+the HTTP release gate runs before query parsing and returns no-store answers.
+
+The host Draw read uses the addressed draw context with shared account, actual
+setting-parent, slot, fixture, Room and Round fences; commands use the same
+context with exclusive aggregate locks. Reads construct no commands or IDs.
+Record groups consume the pairing engine's exact records and labels from the
+draw's retained result IDs and frozen bye policy, preserving rational values
+and the existing engine coordinates. Native Round and segment rows distinguish
+waiting for start, preparing, speaking, judging and awaiting a Tab result.
+Start and lateness remain null without their actual source; a fixture's Room
+reference is its stored Room, never a synthetic address.
+
+Submitted ballots cannot be updated or directly deleted by the runtime role.
+A database trigger pins a canonical SHA-256 content digest for every ballot a
+Round finalization consumes; the recorded-ending read treats a mismatch as
+unrecorded, so it cannot silently enter ratings. Owning-Round aggregate erasure
+still cascades through ballots and finalization membership. Event Rooms and
+hosted Rooms use one assembly writer for their rows, initial cast and active
+seats; accepted event participation never creates a person's Ready consent.
+
 Every status and vocabulary column is text with a CHECK derived from the protocol where one exists. JSONB writes pass the column's protocol validator and an object-shape CHECK. Foreign keys have leading-column indexes. Lifecycle and provenance constraints are tested against PostgreSQL in `packages/db/integration/`; application checks cover cross-table invariants such as complete seats and a judge ballot on its own Round.
 
 Competitive instants come from the database clock. The application passes one database-sourced instant to the pure Round runtime, then persists its projection under the expected Round version. Segment closes precede inserts in the same transaction. An accepted completion writes the judge ballot and Round result atomically. Redis loss cannot change a result, ballot, rating, or recording reference.
@@ -66,6 +178,18 @@ That close fixes `final_segment_ended_at` and the immutable
 `transcript_admission_cutoff` 120 seconds later. Ballot arrival never moves the
 capture deadline. Historical speaking eligibility remains a separate requirement
 from admission cutoff and transcript freeze.
+
+Round persistence factories accept an explicit trusted `RoundTimeSource` for
+committed deterministic proofs (DEC426). Production omits it and samples the
+database after the required locks. Requests, tenant settings and environment
+flags cannot choose time. The proof resource applies only to Round execution,
+attendance and judging; Room Ready, Start, immutable audit creation and physical
+capture funding/settlement retain their production clocks. Check-in production
+receipts keep the first writer-identity timestamp, including its microseconds;
+a controlled proof uses the same explicit UTC source for the attempt, receipt
+and closure. A freeze stores its freshly sampled instant and derives its one
+ballot deadline from it. Controlled time proves owner composition, never native
+capture or staging acceptance.
 
 ## Roles and migration baseline
 
@@ -87,6 +211,47 @@ references, so ending or deleting a Round never changes a document.
 AI practice yield requests carry the intended segment sequence (`segmentIndex`).
 After clock hydration, the application checks that the same segment is open before
 executing the yield, including when one tick catches up across several segments.
+
+Room template pins reference an existing template in every lobby. Standing
+Rooms additionally reference an offer by their own lobby; tournament event
+Rooms follow their event template without a standing offer. The generated
+`rooms.standing_template_id` is an internal foreign-key projection of
+`template_id` for standing Rooms only, never a second product pin (DEC403).
+
+A membership invitation cancelled by its manager ends with `joined_at` still
+null and a real `ended_at`. Active membership requires a join; invited and
+declined membership forbid one. Ending an accepted membership preserves its
+actual join. The named cancellation command checks the displayed membership
+version, records its own action and leaves grants untouched (DEC406).
+
+A Round's stored ballot-definition FK is integrity provenance, separate from
+catalogue ownership and read authority. Only `freezeRoomBallot`, inside the
+current authorized Room transaction, admits an exact version owned by the
+Room's lobby, its owning organization or its actual template organization;
+a foreign lobby's version is refused before any Start writes. The Round then
+owns its immutable frozen body and never resolves private content by following
+the FK during a read. As with `ballots`, `rounds` remains the existing aggregate
+protected by current Round/ballot evaluators rather than acquiring catalogue
+RLS. A caller knowing every source and judge identifier gains no private Round
+read or ballot-submission authority; actual private custom-source proofs cover
+both admitted judge reads and unrelated-account refusal without writes.
+
+Tournament capture freezes a separate private admission with the actual Room,
+fixture, accepted Start receipt, funding version and acting-official authority.
+A Recording references that exact admission and Round through a generated
+internal composite FK. Its capture worker consumes only the named admission id
+and finite deadline, never the payer/issuer/official identity and never a
+`createdByActorId` host surrogate. This integrity reference supplies no audience,
+media-read or download authority; those remain the Recording and current Round
+read decisions. Dispatch is durable before vendor I/O. Once work is dispatched, its physical reservation
+survives logical Round end and expiry until a confirmed terminal Egress and
+withdrawn observer permit settlement. A terminal Round with no Recording,
+capture or Broadcast may settle its never-opened admission immediately at the
+actual database clock under that admission's lock (DEC429). Terminal status is
+absorbing, and every Recording insert over an admitted Round takes that same
+fence and validates the exact open source, so later use cannot reopen released
+capacity. An existing recorder still uses its close/revocation/egress owner; an unknown response or missing ambiguous
+attempt listing cannot free it or authorize another start.
 
 ## Startup across forward migrations
 

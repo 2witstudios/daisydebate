@@ -15,6 +15,7 @@ const at = (time: string) => `2026-10-17T${time}:00.000Z`;
 const shape = {
   lobbyId: id('lobby'),
   eventId: id('event'),
+  resultsVersion: 1,
   prelimsCertifiedAt: at('16:52'),
   certification: {
     kind: 'blocked',
@@ -22,6 +23,8 @@ const shape = {
   },
   audiences: [
     {
+      tabRoundId: id('tabround'),
+      tabRoundName: 'Round 1',
       audience: 'competitors',
       openings: [
         {
@@ -52,7 +55,7 @@ const shape = {
       usedByPublishedDraws: [{ drawId: id('draw3'), tabRoundNumber: 3 }],
     },
   ],
-  sanction: { organizationName: 'Southeast League', sentAt: null },
+  sanctions: [{ organizationName: 'Southeast League', sentAt: null }],
   capabilities: { release: true, certify: false },
 };
 
@@ -96,6 +99,8 @@ describe('the event results read', () => {
           ...released,
           audiences: [
             {
+              tabRoundId: id('tabround'),
+              tabRoundName: 'Round 1',
               audience: 'public',
               openings: [{ part: 'posting', state: { kind: 'openable' } }],
             },
@@ -105,6 +110,8 @@ describe('the event results read', () => {
           ...released,
           audiences: [
             {
+              tabRoundId: id('tabround'),
+              tabRoundName: 'Round 1',
               audience: 'officials',
               openings: [{ part: 'decision', state: { kind: 'openable' } }],
             },
@@ -123,11 +130,11 @@ describe('the event results read', () => {
   test('the event results read answers under the host read gate', () => {
     assert({
       given: 'the results read catalogue',
-      should: 'name lobby.host.read, a real capability',
+      should: 'name lobby.host.results.read, a real capability',
       actual: resultsReadCatalogue.EventResultsView.gate.map((gate) =>
         parseOutcome(authorizationCapabilitySchema, gate),
       ),
-      expected: [{ data: 'lobby.host.read' }],
+      expected: [{ data: 'lobby.host.results.read' }],
     });
   });
 });

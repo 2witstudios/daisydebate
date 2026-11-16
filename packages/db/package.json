@@ -24,6 +24,7 @@
     "./flags": "./src/flags.ts",
     "./privacy": "./src/privacy/index.ts",
     "./messaging": "./src/messaging/index.ts",
+    "./tab": "./src/tab/store.ts",
     "./contacts": "./src/contacts/index.ts",
     "./friends": "./src/friends/index.ts",
     "./presence-people-list": "./src/presence/people-list.ts",
@@ -47,7 +48,9 @@
     "./attendance": "./src/attendance.ts",
     "./round-incident-rate": "./src/round-incident-rate.ts",
     "./broadcast-worker": "./src/broadcast-worker-store.ts",
-    "./recording-worker": "./src/recording-worker-store.ts"
+    "./recording-worker": "./src/recording-worker-store.ts",
+    "./room-assembly": "./src/room-assembly.ts",
+    "./round-competition": "./src/round-competition-source.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",

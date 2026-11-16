@@ -3,64 +3,35 @@ import type {
   BallotDraft,
   BallotOption,
   BallotSubject,
-  WrittenRule,
 } from './ballot-definition';
 
 // The ballot's pure rules, apart from its reads: the judge's ballot and the
 // settings editor run these in the browser, and must not carry the read's
 // source with them.
 
-const isWrittenRule = (value: string): value is WrittenRule =>
-  value === 'required' || value === 'optional' || value === 'off';
-
-/** The definition after a host chooses `value` for one part of the ballot. */
-export function applyBallotOption(
+/** Screening changes release policy, never the immutable authored definition. */
+export const applyBallotOption = (
   definition: BallotDefinition,
-  id: BallotOption['id'],
-  value: string,
-): BallotDefinition {
-  switch (id) {
-    case 'ranks':
-      return { ...definition, ranks: value === 'on' };
-    case 'criteria':
-      return {
-        ...definition,
-        criteria: value === 'grid' ? ['Argument', 'Evidence', 'Delivery'] : [],
-      };
-    case 'doubleLoss':
-      return {
-        ...definition,
-        outcomes: { ...definition.outcomes, doubleLoss: value !== 'never' },
-      };
-    case 'reason':
-    case 'feedback':
-      return isWrittenRule(value)
-        ? { ...definition, written: { ...definition.written, [id]: value } }
-        : definition;
-    case 'privateNote':
-      return value === 'optional' || value === 'off'
-        ? {
-            ...definition,
-            written: { ...definition.written, privateNote: value },
-          }
-        : definition;
-    // Screening decides what is held back from release, never what a judge is asked.
-    case 'screening':
-      return definition;
-  }
-}
+  _id: BallotOption['id'],
+  _value: string,
+): BallotDefinition => definition;
+
+export const ballotCriteria = (definition: BallotDefinition) =>
+  definition.points?.criteria.kind === 'grid'
+    ? definition.points.criteria.groups.flatMap((group) => group.categories)
+    : [];
 
 /** The scale as a judge reads it: "20 to 30, in halves". */
 export function pointsScaleLabel(
   points: NonNullable<BallotDefinition['points']>,
 ): string {
   const step =
-    points.step === 0.5
+    points.scale.step === 0.5
       ? 'in halves'
-      : points.step === 1
+      : points.scale.step === 1
         ? 'in whole points'
-        : `in steps of ${points.step}`;
-  return `${points.min} to ${points.max}, ${step}`;
+        : `in steps of ${points.scale.step}`;
+  return `${points.scale.min} to ${points.scale.max}, ${step}`;
 }
 
 /** The key one score is kept under: a subject's, or one criterion of it. */
@@ -73,12 +44,13 @@ export function subjectTotal(
   points: Readonly<Record<string, number>>,
   subject: string,
 ): number {
-  const start = definition.points?.min ?? 0;
-  return definition.criteria.length === 0
+  const start = definition.points?.default ?? 0;
+  const criteria = ballotCriteria(definition);
+  return criteria.length === 0
     ? (points[subject] ?? start)
-    : definition.criteria.reduce(
+    : criteria.reduce(
         (sum, criterion) =>
-          sum + (points[scoreKey(subject, criterion)] ?? start),
+          sum + (points[scoreKey(subject, criterion.id)] ?? start),
         0,
       );
 }
@@ -92,7 +64,12 @@ export function ballotProblem(
   subjects: readonly BallotSubject[],
   draft: Pick<BallotDraft, 'winner' | 'points'>,
 ): string | null {
-  if (definition.points === null || definition.points.lowPointWin) return null;
+  if (
+    definition.points === null ||
+    definition.decision.kind !== 'winner' ||
+    definition.decision.lowPointWin
+  )
+    return null;
   const winner = subjects.find((subject) => subject.id === draft.winner);
   if (winner === undefined) return null;
   const total = (subject: BallotSubject) =>

@@ -100,29 +100,28 @@ export async function arena(
     // ended round (ADR 0058 §8).
     const completedAt =
       status === 'active' ? null : (input.completedAt ?? minute(30));
-    await withSql(async (sql) => {
-      // A ranked round is constructed from a sanctioned preset, so it pins
-      // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
-      // presets, so the arena only has to name the version it resolved from.
-      await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id, runtime_state)
-        values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, ${status},
-                ${status === 'active' ? 'live' : null},
-                ${new Date(minute(0))},
-                ${completedAt === null ? null : new Date(completedAt)},
-                ${status === 'completed' ? (input.outcome ?? 'negative') : null}, ${ladderId}, ${emptyRuntimeCheckpointFor(rules)})`;
-      for (const [side, actorId] of [
-        [affirmativeSide, input.affirmative],
-        [negativeSide, input.negative],
-      ] as const)
-        await sql`insert into round_participants (id, round_id, actor_id, seat_kind, side, slot)
+    await withSql((client) =>
+      client.begin(async (sql) => {
+        // A ranked round is constructed from a sanctioned preset, so it pins
+        // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
+        // presets, so the arena only has to name the version it resolved from.
+        await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id, runtime_state)
+        values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, 'opening', null, null, null, null, ${ladderId}, ${emptyRuntimeCheckpointFor(rules)})`;
+        for (const [side, actorId] of [
+          [affirmativeSide, input.affirmative],
+          [negativeSide, input.negative],
+        ] as const)
+          await sql`insert into round_participants (id, round_id, actor_id, seat_kind, side, slot)
           values (${createId()}, ${id}, ${actorId}, 'side', ${side}, 0)`;
-      if (competitionType === 'ranked' && status === 'completed') {
-        const commandId = createId();
-        await sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at)
+        await sql`update rounds set status=${status}, current_stage=${status === 'active' ? 'live' : null}, started_at=${new Date(minute(0))}, completed_at=${completedAt === null ? null : new Date(completedAt)}, winning_side=${status === 'completed' ? (input.outcome ?? 'negative') : null} where id=${id}`;
+        if (competitionType === 'ranked' && status === 'completed') {
+          const commandId = createId();
+          await sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at)
           values(${commandId},${id},${input.affirmative},'forfeit',${'a'.repeat(64)},${{}},1,${new Date(completedAt!)} )`;
-        await sql`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${commandId},1)`;
-      }
-    });
+          await sql`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${commandId},1)`;
+        }
+      }),
+    );
     return id;
   };
 

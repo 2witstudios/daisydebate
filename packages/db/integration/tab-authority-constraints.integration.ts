@@ -494,7 +494,7 @@ test('action history names one tenant, one principal and the authority it ran un
         }),
       },
       expected: {
-        bothTenants: 'action_history_one_tenant_key',
+        bothTenants: 'action_history_one_scope',
         bothPrincipals: 'action_history_one_principal',
         grantWithoutGrant: 'action_history_grant_authority',
         relationshipWithoutRelation: 'action_history_relationship_authority',
@@ -562,6 +562,37 @@ test('Daisy and its preset roles are there after migrating, and only Daisy holds
         sameRank: 'roles_rank_unique',
         unknownPermission: 'role_permissions_permission_check',
       },
+    });
+  });
+});
+
+test('cancelled invitations do not weaken genuine membership join facts', async () => {
+  await withSample(url, async (sql, ids) => {
+    const userId = createId();
+    await insertRow(sql, 'users', { id: userId, username: `u-${userId}` });
+    const refused = [];
+    for (const status of ['active', 'invited', 'declined'] as const)
+      refused.push(
+        await refusedBy(sql, () =>
+          insertRow(sql, 'memberships', {
+            organization_id: ids.league,
+            user_id: userId,
+            status,
+            joined_at: status === 'active' ? null : at(0),
+          }),
+        ),
+      );
+    assert({
+      given:
+        'an active membership without a join, or an invitation/decline with a join',
+      should:
+        'keep refusing each despite allowing cancelled invitations to end without joining',
+      actual: refused,
+      expected: [
+        'memberships_joined_once_accepted',
+        'memberships_joined_once_accepted',
+        'memberships_joined_once_accepted',
+      ],
     });
   });
 });

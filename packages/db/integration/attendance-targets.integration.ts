@@ -14,13 +14,19 @@ const { databaseUrl } = requireTestServices(process.env);
 
 test('target discovery authenticates fresh seats and returns actual unresolved historical speech', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const roundId = await fixture.round({
-      status: 'active',
-      current_stage: 'live',
-      started_at: new Date('2026-10-22T00:00:00Z'),
-    });
     const { userId, actorId } = await createAuthorizationSubject(fixture);
-    const seat = await fixture.seat(roundId, 'affirmative', 0, actorId);
+    const {
+      id: roundId,
+      seats: [seat],
+    } = await fixture.roundWithCast(
+      {
+        status: 'active',
+        current_stage: 'live',
+        started_at: new Date('2026-10-22T00:00:00Z'),
+      },
+      [{ seat: 'affirmative', actorId }],
+    );
+    if (!seat) throw new Error('Initial attendance seat missing');
     const db = drizzle({ client: fixture.sql });
     const store = createAttendanceOperations({
       nextAttemptId: createId,

@@ -1,3 +1,8 @@
+import {
+  fixtureCompetition,
+  fixtureAdministrativeContext,
+  fixtureAwards,
+} from './fixture-competition.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { FixtureCommand } from '@daisy/protocol/lobby/fixture-command';
 import {
@@ -41,9 +46,21 @@ const base: FixtureFacts = {
     roomId: id('o'),
     version: 4,
   },
+  completedCompetition: null,
+  administrativeContext: fixtureAdministrativeContext(),
   entries: [
-    { entryId: id('a'), side: 'affirmative', schoolOrganizationId: id('s') },
-    { entryId: id('b'), side: 'negative', schoolOrganizationId: null },
+    {
+      position: 0,
+      entryId: id('a'),
+      side: 'affirmative',
+      schoolOrganizationId: id('s'),
+    },
+    {
+      position: 1,
+      entryId: id('b'),
+      side: 'negative',
+      schoolOrganizationId: null,
+    },
   ],
   members: [
     { entryId: id('a'), actorId: id('1') },
@@ -75,8 +92,9 @@ const base: FixtureFacts = {
 };
 
 const round = { id: id('d'), status: 'active' } as const;
-const ballot = { id: id('x'), judgeActorId: id('3'), winner: 'affirmative' };
+const ballot = { id: id('x'), judgeActorId: id('3') };
 const result = {
+  competitionRecord: fixtureCompetition(),
   id: id('q'),
   kind: 'decided',
   administrativeReason: null,
@@ -123,6 +141,14 @@ const restart: FixtureCommand = {
 };
 const forfeit: FixtureCommand = {
   type: 'record-forfeit',
+  awards: {
+    ...fixtureAwards,
+    entries: fixtureAwards.entries.map((entry) => ({
+      ...entry,
+      won: !entry.won,
+      ballotCredits: entry.won ? 0 : 3,
+    })),
+  },
   fixtureId,
   entryId: id('b'),
   reason: 'No show',
@@ -318,10 +344,11 @@ test('assign-judge checks the panel, the judge and the judging rules', () => {
       refusalOf(
         {
           ...base,
-          slotBookings: [{ fixtureId: id('g'), tournamentJudgeId: id('k') }],
+          slotBookings: [{ fixtureId: id('g'), actorId: id('4') }],
         },
         assign,
       ),
+      refusalOf(withJudge({ actorId: id('1') }), assign),
       refusalOf(struck, assign),
       refusalOf(withJudge({ availableInSlot: false }), assign),
       refusalOf(struck, {
@@ -340,10 +367,11 @@ test('assign-judge checks the panel, the judge and the judging rules', () => {
       'judge-unavailable',
       'judge-unavailable',
       'judge-double-booked',
+      'judge-double-booked',
       'rule-broken',
       'rule-broken',
       'reason-required',
-      'accepted',
+      'rule-broken',
     ],
   });
   const sameSchool = withJudge({ schoolOrganizationId: id('s') });
@@ -416,18 +444,35 @@ test('replace and unassign', () => {
     expected: 'judge-not-on-panel',
   });
 
-  // j has submitted; k has not. Removing k leaves a complete panel.
+  // Mutable panel changes cannot manufacture a terminal source or result.
   const waiting: FixtureFacts = {
     ...inState.ballot_in,
     panel: [...base.panel, { tournamentJudgeId: id('k'), chair: false }],
   };
-  const completing = decideFixture(waiting, { ...unassign, judgeId: id('k') });
+  const pending = decideFixture(waiting, { ...unassign, judgeId: id('k') });
+  assert({
+    given: 'a still active Round and a reduced mutable panel',
+    should: 'never manufacture a decided result from aggregate ballots',
+    actual:
+      pending.kind === 'accepted' &&
+      pending.writes.some((write) => write.table === 'results'),
+    expected: false,
+  });
+  const completing = decideFixture(
+    {
+      ...waiting,
+      round: { id: id('d'), status: 'completed' },
+      completedCompetition: fixtureCompetition(),
+    },
+    { ...unassign, judgeId: id('k') },
+  );
   const resultRows =
     completing.kind === 'accepted'
       ? completing.writes.filter((write) => write.table === 'results')
       : [];
   assert({
-    given: 'an unassignment after which every judge left has submitted',
+    given:
+      'an unassignment with an actual immutable completed competition input',
     should: 'decide the result: exactly one decided result row on the Round',
     actual: resultRows.map((write) =>
       write.table === 'results'
@@ -448,8 +493,8 @@ test('replace and unassign', () => {
           )
         : completing,
     expected: [
-      [id('a'), true, 1],
-      [id('b'), false, 0],
+      [id('a'), true, 2],
+      [id('b'), false, 1],
     ],
   });
 });
@@ -484,10 +529,9 @@ test('restart and forfeit', () => {
     actual: restarted.kind === 'accepted' ? restarted.writes : restarted,
     expected: [
       {
-        table: 'rounds',
-        op: 'update',
-        id: id('d'),
-        set: { status: 'abandoned' },
+        table: 'round_source_voids',
+        op: 'insert',
+        row: { roundId: id('d') },
       },
       { table: 'rooms', op: 'insert', id: id('m'), likeRoomId: id('o') },
       {
@@ -496,6 +540,25 @@ test('restart and forfeit', () => {
         id: fixtureId,
         set: { version: 5, roomId: id('m') },
       },
+    ],
+  });
+
+  const historical = decideFixture(
+    { ...inState.ballot_in, round: { id: id('d'), status: 'completed' } },
+    restart,
+  );
+  assert({
+    given: 'a completed historical Round without a fixture result',
+    should:
+      'request separate source invalidation while preserving its historical ending',
+    actual:
+      historical.kind === 'accepted'
+        ? historical.writes.filter(
+            (write) => write.table === 'round_source_voids',
+          )
+        : historical,
+    expected: [
+      { table: 'round_source_voids', op: 'insert', row: { roundId: id('d') } },
     ],
   });
 

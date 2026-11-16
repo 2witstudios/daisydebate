@@ -7,6 +7,8 @@ import {
   twoSides,
   type BallotDefinition,
   type SeatRef,
+  sideSeat,
+  judgeSeat,
 } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { aiJudgeFor } from './ai-judge';
@@ -220,7 +222,7 @@ describe('aiJudgeFor: a half-point grid', () => {
 });
 
 describe('aiJudgeFor: refusals', () => {
-  test('an unsided format or a ranking of speakers has no AI judge', async () => {
+  test('an unsided format or an absent frozen speaker cast is refused', async () => {
     await assertRejects({
       given: 'a format of unsided speakers',
       should: 'refuse to build an AI judge',
@@ -233,7 +235,7 @@ describe('aiJudgeFor: refusals', () => {
       invariantId: 'ai-judge-unsided-format',
     });
     await assertRejects({
-      given: 'a definition that ranks speakers',
+      given: 'a speaker-ranking definition without its frozen cast',
       should: 'refuse to build an AI judge',
       actual: () =>
         aiJudgeFor(daisyBallotDefinitions['rank-speakers@1'], {
@@ -241,7 +243,7 @@ describe('aiJudgeFor: refusals', () => {
           segments: [],
         }),
       code: 'INVARIANT',
-      invariantId: 'ai-judge-ranks-speakers',
+      invariantId: 'ai-judge-frozen-subjects',
     });
   });
 });
@@ -269,5 +271,78 @@ describe('transcript evidence of an unsided seat', () => {
         line: '[0.0] speaker 2: Access improves.',
       },
     });
+  });
+});
+
+test('AI speaker subjects are the actual immutable cast, with no transcript-derived roster or actor identities', () => {
+  const participants = [
+    { id: 'actualnegative', seat: sideSeat('negative') },
+    { id: 'actualjudge', seat: judgeSeat() },
+    { id: 'actualaffirmative', seat: sideSeat('affirmative') },
+  ];
+  const definition: BallotDefinition = {
+    ...daisyWinnerBallot,
+    key: 'seated-grid',
+    revision: 1,
+    speakerRanks: true,
+    points: {
+      ...daisyWinnerBallot.points!,
+      per: 'seat',
+      scale: { min: 0.25, max: 1.25, step: 0.1 },
+      default: 0.35,
+      criteria: { kind: 'holistic' },
+    },
+    written: { reason: null, feedback: null },
+  };
+  const judge = aiJudgeFor(
+    definition,
+    {
+      sides: twoSides,
+      seats: {
+        sides: { affirmative: 1, negative: 1 },
+        speakers: 0,
+        judges: 1,
+        moderators: 0,
+      },
+      segments: [],
+    },
+    participants,
+  );
+  const ballot = {
+    rubricVersion: 'seated-grid@1',
+    winner: 'affirmative',
+    scores: { actualaffirmative: 0.35, actualnegative: 0.25 },
+    speakerRanks: [['actualnegative'], ['actualaffirmative']],
+  };
+  const text = contentOf(
+    judge.stageMessages(evidence(sideSeat('affirmative')), { stage: 'first' }),
+  );
+  assert({
+    given: 'a complete frozen cast but evidence from just one speaker',
+    should:
+      'require and name both actual competitor keys, accepting their exact lattice and ranking only',
+    actual: {
+      accepted: judge.judgeAnswer(answer(ballot)).ok,
+      missing: judge.judgeAnswer(
+        answer({ ...ballot, scores: { actualaffirmative: 0.35 } }),
+      ).ok,
+      invented: judge.judgeAnswer(
+        answer({
+          ...ballot,
+          speakerRanks: [['actualjudge'], ['actualaffirmative']],
+        }),
+      ).ok,
+      legend: text.includes(
+        '"key":"actualnegative","seat":{"kind":"side","side":"negative","slot":0}',
+      ),
+      judgeInLegend: text.includes('actualjudge'),
+    },
+    expected: {
+      accepted: true,
+      missing: false,
+      invented: false,
+      legend: true,
+      judgeInLegend: false,
+    },
   });
 });

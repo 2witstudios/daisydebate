@@ -104,17 +104,18 @@ const completedRound = async (
     format_version: 1,
     preset_version: ranked ? 1 : null,
     rules_snapshot: validRules,
-    status: 'completed',
+    status: 'opening',
     current_stage: null,
-    winning_side: input.outcome ?? 'affirmative',
+    winning_side: null,
     runtime_state: emptyRuntimeCheckpointFor(validRules),
     judging: frozenJudgingFor(validRules),
     ladder_id: ranked ? input.formatId : null,
-    started_at: completedAt(0),
-    completed_at: completedAt(input.minute ?? 30),
+    started_at: null,
+    completed_at: null,
   });
   await fixture.participant(id, 'affirmative', 0, input.affirmative);
   await fixture.participant(id, 'negative', 0, input.negative);
+  await fixture.sql`update rounds set status='completed',winning_side=${input.outcome ?? 'affirmative'},started_at=${completedAt(0)},completed_at=${completedAt(input.minute ?? 30)} where id=${id}`;
   if (ranked && input.terminalEvidence !== false) {
     const commandId = createId();
     await fixture.insert(

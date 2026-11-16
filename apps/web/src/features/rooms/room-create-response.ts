@@ -47,6 +47,7 @@ const conflictAnswer = (
     // rest are a Room's later steps, which a create only meets as a bad request.
     case 'illegal-config':
     case 'format-unavailable':
+    case 'ballot-definition-unavailable':
     case 'version-conflict':
     case 'host-required':
     case 'room-closed':

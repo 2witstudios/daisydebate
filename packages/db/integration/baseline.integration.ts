@@ -101,11 +101,12 @@ test('every jsonb column carries a database CHECK for its shape: an object, or a
             and c.conname = col.table_name || '_' || col.column_name || '_is_object'
             and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''object''%'
         ) or exists (
-          -- A ranking's places are the one jsonb array: its table's CHECK names its shape.
+          -- Ranking columns may be nullable; their own CHECK still requires an array.
           select 1 from pg_constraint c
           where c.conrelid = (quote_ident(col.table_name))::regclass
             and c.contype = 'c'
-            and col.column_name = 'ranking'
+            and (select a.attnum from pg_attribute a
+                 where a.attrelid = c.conrelid and a.attname = col.column_name) = any(c.conkey)
             and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''array''%'
         ) as guarded
       from information_schema.columns col
@@ -261,7 +262,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
         -- ADR 0075 / ADR 0090 / ADR 0118: audit and terminal provenance are append-only.
         -- The action history and the tab record's facts are append-only too.
         when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots', 'flag_change_events',
-          'action_history', 'results', 'result_entries', 'result_speakers', 'certifications', 'certification_results', 'releases', 'conflicts', 'ballot_definition_versions') then
+          'ballots', 'action_history', 'results', 'result_entries', 'result_speakers', 'certifications', 'certification_results', 'releases', 'conflicts', 'ballot_definition_versions', 'tournament_sponsorship_versions', 'tournament_capture_admissions') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
@@ -273,6 +274,10 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
+        -- Hosting issuance remains outside the participant app; only the canonical source can be read here.
+        when c.relname in ('account_hosting_versions','fixture_room_sources','round_judge_slots','round_judge_assignments','round_finalization_judge_assignments','round_source_voids') then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
         -- Closed until counsel answers on minors: read only.
         when c.relname in ('guardian_links', 'restrictions', 'restriction_lobbies') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')

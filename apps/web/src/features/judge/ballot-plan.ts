@@ -43,6 +43,8 @@ export type BallotPlan = {
   readonly decided: readonly BallotSubject[];
   /** Who points are given to. */
   readonly scored: readonly BallotSubject[];
+  /** Actual competitors, individually, for an additional speaker ranking. */
+  readonly speakers: readonly BallotSubject[];
 };
 
 type Participant = {
@@ -144,6 +146,7 @@ export function ballotPlanFor(
     subjects: ballotSubjectsFor(round.rules, competitors(round)),
     decided: decidedOf(round, definition),
     scored: scoredOf(round, definition),
+    speakers: speakerSubjects(round),
   };
 }
 

@@ -1,3 +1,4 @@
+import { roundSourceVoided } from './round-source-state';
 import { createAppError } from '@daisy/errors';
 import {
   startGateInstant,
@@ -29,6 +30,7 @@ type ActiveSessionRow = {
   readonly unsafe_at: Date | null;
   readonly deletion_requested_at: Date | null;
   readonly status: RoundStatus;
+  readonly source_voided: boolean;
   readonly final_segment_ended_at: Date | null;
   readonly completed_at: Date | null;
   readonly post_round_call: boolean;
@@ -55,6 +57,7 @@ const activeSession = (row: ActiveSessionRow) => {
     lastPassAt: row.reconcile_started_at?.toISOString() ?? null,
     roundChangedAt: row.updated_at.toISOString(),
     roundStatus: row.status,
+    sourceVoided: row.source_voided,
     finalSegmentEndedAt: row.final_segment_ended_at?.toISOString() ?? null,
     postRoundCall: {
       optedIn: row.post_round_call,
@@ -221,6 +224,7 @@ export function createMediaReconcileClaims(deps: {
           s.unsafe_at,
           s.deletion_requested_at,
           r.status,
+          ${roundSourceVoided(sql`r.id`)} as source_voided,
           r.final_segment_ended_at,
           r.completed_at,
           r.post_round_call,

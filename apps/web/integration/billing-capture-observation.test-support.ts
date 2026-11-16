@@ -117,6 +117,9 @@ export function captureHarness(f: Fixture, root: string) {
     store: database.recordingCaptures,
     port,
     egress: {
+      readStageAttempt: async () => {
+        throw new Error('Unexpected recovery in ordinary fixture');
+      },
       start: async ({ holdPrefix }) => {
         const id = `EG_${createId()}`,
           interval = { began: performance.now(), ended: null };

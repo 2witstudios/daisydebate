@@ -27,6 +27,7 @@ export const ballotScreenings = pgTable(
     lobbyId: text('lobby_id')
       .notNull()
       .references(() => lobbies.id, { onDelete: 'restrict' }),
+    ruleSetVersion: text('rule_set_version').notNull(),
     status: text('status')
       .$type<(typeof ballotScreeningStatuses)[number]>()
       .notNull()
@@ -38,6 +39,10 @@ export const ballotScreenings = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    check(
+      'ballot_screenings_rule_set_version_nonempty',
+      sql`length(${table.ruleSetVersion}) > 0`,
+    ),
     index('ballot_screenings_lobby_idx').on(table.lobbyId, table.status),
     check(
       'ballot_screenings_status_check',

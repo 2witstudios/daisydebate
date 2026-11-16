@@ -1,3 +1,4 @@
+import { ballotScreeningStatuses } from './lobby/vocabulary';
 import { z } from 'zod';
 import { capturePartialReasonSchema } from './capture-verdict';
 import { ballotRecordSchema } from './ballot-schema';
@@ -38,6 +39,13 @@ export const roundBallotReadSchema = z.strictObject({
   ballots: z.array(
     z.strictObject({
       judge: z.enum(['human', 'ai']),
+      /** Only an event official's unreleased read carries review addressing; never a judge identity. */
+      review: z
+        .strictObject({
+          ballotId: idSchema,
+          screening: z.enum(ballotScreeningStatuses),
+        })
+        .optional(),
       ballot: ballotRecordSchema,
       /**
        * This ballot's id when it carries feedback for the reader, who alone

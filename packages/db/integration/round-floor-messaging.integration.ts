@@ -77,7 +77,7 @@ describe('Round floor Messaging producer', () => {
     }));
   test('foreign, judge, hidden host judge and outsider denial is unchanged', async () =>
     withFixture(databaseUrl, async (f) => {
-      const { store, scope } = await prepared(f);
+      const { store, scope } = await prepared(f, true);
       try {
         const judge = await f.participant(scope.roundId, 'judge');
         const outsider = await f.actor();

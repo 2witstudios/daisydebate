@@ -1,3 +1,4 @@
+import { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -244,11 +245,13 @@ const attemptRows = (prepared: number, locked: number) => {
     [accountRow()],
     ...before.slice(4, 11),
     [], // no seat holds
+    before[12]!, // fresh authorization instant before preparation's receipt read
     [],
     before[12]!,
     ...after.slice(0, 3),
     ...after.slice(4, 11),
     [], // no seat holds
+    after[12]!, // final authorization is sampled after account and Room fences
   ];
 };
 /** A whole accepted start at `changeVersion`, through its receipt. */
@@ -256,6 +259,7 @@ const successRows = (changeVersion = 1) => [
   ...attemptRows(changeVersion, changeVersion),
   startRows(changeVersion)[13]!, // grants precede the mutation's authority clock
   startRows(changeVersion)[12]!,
+  [[readyRoom.id, publicLobbyId, null, null, daisyOrganizationId, null]], // exact locked Room ballot-source lookup, genuinely unpinned
   ...startRows(changeVersion).slice(14),
 ];
 

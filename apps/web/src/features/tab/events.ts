@@ -1,3 +1,5 @@
+import { linkTo } from './action';
+import type { HostEventsView } from '@daisy/protocol/lobby/host-events-read';
 import type {
   SetupEvent,
   TournamentSetupView,
@@ -40,8 +42,20 @@ export type EventsSchedule = {
   readonly lede: string;
   readonly actions: readonly TabAction[];
   readonly groups: readonly EventGroup[];
-  readonly entryLimit: { readonly rule: string; readonly source: string };
-  readonly judgePool: { readonly rule: string; readonly action: TabAction };
+  readonly entryLimit:
+    | { readonly kind: 'unconfigured' }
+    | {
+        readonly kind: 'configured';
+        readonly rule: string;
+        readonly source: string;
+      };
+  readonly judgePool:
+    | { readonly kind: 'unconfigured'; readonly action: TabAction | null }
+    | {
+        readonly kind: 'configured';
+        readonly rule: string;
+        readonly action: TabAction;
+      };
   readonly selected: EventForm | null;
 };
 
@@ -80,13 +94,18 @@ function groupsOf(events: readonly SetupEvent[]): readonly SetupEvent[][] {
   const groups: SetupEvent[][] = [];
   for (const event of events) {
     const slots = slotsOf(event);
-    const group = groups.find((members) =>
+    const overlapping = groups.filter((members) =>
       members.some((member) =>
         [...slotsOf(member)].some((id) => slots.has(id)),
       ),
     );
-    if (group) group.push(event);
-    else groups.push([event]);
+    if (overlapping.length === 0) groups.push([event]);
+    else {
+      const first = overlapping[0]!;
+      first.push(...overlapping.slice(1).flat(), event);
+      for (const other of overlapping.slice(1))
+        groups.splice(groups.indexOf(other), 1);
+    }
   }
   return groups;
 }
@@ -156,8 +175,12 @@ function eventsScheduleOf(
         href: hostRoutes.events(setup.handle, eventSlug(event)),
       })),
     })),
-    entryLimit: { rule: copy.entryLimit, source: `Set by ${owner}.` },
-    judgePool: copy.judgePool,
+    entryLimit: {
+      kind: 'configured',
+      rule: copy.entryLimit,
+      source: `Set by ${owner}.`,
+    },
+    judgePool: { kind: 'configured', ...copy.judgePool },
     selected:
       chosen === undefined || form === undefined
         ? null
@@ -183,3 +206,40 @@ export const readEventsSchedule = (
     ? null
     : eventsScheduleOf(sample.setup, event, sample.copy);
 };
+
+export type EventAside =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'create' }
+  | { readonly kind: 'edit'; readonly event: SetupEvent };
+/** Only persisted identity selects an edit; opening or cancelling an aside describes no command. */
+export function eventAside(
+  setup: TournamentSetupView,
+  input: { readonly create: boolean; readonly eventId: string | null },
+): EventAside | null {
+  if (input.create) return input.eventId === null ? { kind: 'create' } : null;
+  if (input.eventId === null) return { kind: 'none' };
+  const event = setup.events.find((event) => event.eventId === input.eventId);
+  return event ? { kind: 'edit', event } : null;
+}
+export function storedEventsSchedule(view: HostEventsView): EventsSchedule {
+  const setup = view.setup,
+    groups = groupsOf(setup.events);
+  return {
+    lede: `${setup.events.length} events in ${countWords(groups.length)} groups. Events in a group share time slots.`,
+    actions: [
+      linkTo('Add event', `${hostRoutes.events(setup.handle)}?new=event`),
+    ],
+    groups: groups.map((group) => ({
+      ...timesOf(setup, group),
+      events: group.map((event) => ({
+        slug: event.eventId,
+        name: event.name,
+        summary: `${event.format.name} · ${event.tabRounds.length} tab rounds`,
+        href: hostRoutes.events(setup.handle, event.eventId),
+      })),
+    })),
+    entryLimit: { kind: 'unconfigured' },
+    judgePool: { kind: 'unconfigured', action: null },
+    selected: null,
+  };
+}

@@ -16,28 +16,44 @@ export const stageHeading = (stage: BracketStage): string =>
       ? stage.name
       : `${stage.name} · ${stage.time}`;
 
-/** One side of a fixture, with its ballots against the other's once decided. */
+/** One actual entry; two-entry fixtures retain the familiar ballot comparison. */
 function Side({
   side,
-  score,
+  other,
 }: {
   readonly side: BracketSide;
-  readonly score: { readonly own: number; readonly other: number } | null;
+  readonly other: BracketSide | null;
 }) {
+  const score = side.outcome;
   return (
     <div
       className={cn(
         'flex justify-between gap-3 px-3 py-2 text-sm',
-        score !== null &&
-          (score.own > score.other ? 'font-strong' : 'text-ink-muted'),
+        score?.won === true ? 'font-strong' : score ? 'text-ink-muted' : '',
       )}
     >
       <span>
-        <span className="tabular-nums">{side.seed}</span> {side.name}
+        {side.seed === null ? null : (
+          <span className="tabular-nums">{side.seed} </span>
+        )}
+        {side.name}
       </span>
       {score === null ? null : (
         <span className="tabular-nums">
-          {score.own}-{score.other}
+          {other &&
+          score.ballotsWon !== null &&
+          other.outcome?.ballotsWon !== null &&
+          other.outcome?.ballotsWon !== undefined
+            ? `${score.ballotsWon}-${other.outcome.ballotsWon}`
+            : score.rank !== null
+              ? `Rank ${score.rank}`
+              : score.won === true
+                ? 'Won'
+                : score.won === false
+                  ? 'Lost'
+                  : score.ballotsWon === null
+                    ? null
+                    : `${score.ballotsWon} ballots`}
         </span>
       )}
     </div>
@@ -53,37 +69,36 @@ function BracketRounds({ bracket }: { readonly bracket: Read }) {
     >
       {bracket.stages.map((stage) => (
         <div
-          key={stage.name}
+          key={stage.id}
           className="flex w-tab-stage shrink-0 flex-col gap-3"
         >
           <h2 className={eyebrowClass}>{stageHeading(stage)}</h2>
           <ul className="flex flex-1 flex-col justify-around gap-3">
-            {stage.ties.map((tie) => (
+            {stage.fixtures.map((tie) => (
               <li
-                key={tie.top.name}
+                key={tie.fixtureId}
                 className={cn(
                   'rounded-sm border bg-surface-raised',
                   stage.state === 'live' ? 'border-ink' : 'border-border',
                 )}
               >
-                <Side
-                  side={tie.top}
-                  score={
-                    tie.result === null
-                      ? null
-                      : { own: tie.result.top, other: tie.result.bottom }
-                  }
-                />
-                <div className="border-t border-border">
-                  <Side
-                    side={tie.bottom}
-                    score={
-                      tie.result === null
-                        ? null
-                        : { own: tie.result.bottom, other: tie.result.top }
+                {tie.entries.map((entry, index) => (
+                  <div
+                    key={entry.entryId}
+                    className={
+                      index === 0 ? undefined : 'border-t border-border'
                     }
-                  />
-                </div>
+                  >
+                    <Side
+                      side={entry}
+                      other={
+                        tie.entries.length === 2
+                          ? (tie.entries[1 - index] ?? null)
+                          : null
+                      }
+                    />
+                  </div>
+                ))}
                 {tie.room === null ? null : (
                   <p className="flex justify-between gap-3 border-t border-border px-3 py-2 text-sm text-ink-muted">
                     {tie.room}
@@ -91,7 +106,9 @@ function BracketRounds({ bracket }: { readonly bracket: Read }) {
                       <ActionButton
                         size="small"
                         action={tie.watch}
-                        about={`${tie.top.name} v ${tie.bottom.name}`}
+                        about={tie.entries
+                          .map((entry) => entry.name)
+                          .join(' v ')}
                       />
                     )}
                   </p>

@@ -2,6 +2,7 @@ import {
   ballotCategories,
   daisyBallotDefinitions,
   daisyWinnerBallot,
+  daisyBallotSource,
 } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
@@ -28,6 +29,9 @@ const row = (
     decision: 'win',
     winner: 'affirmative',
     ranking: null,
+    speakerRanks: null,
+    ballotDefinitionId: null,
+    ballotDefinitionVersion: null,
     scores,
     reason: 'Clearer weighing.',
     feedback,
@@ -36,6 +40,7 @@ const row = (
 /** The Round's frozen definition and subjects every view reads ballots by. */
 const judged = {
   definition: daisyWinnerBallot,
+  source: daisyBallotSource(daisyWinnerBallot),
   subjects: {
     sides: ['affirmative', 'negative'],
     speakers: ['aff', 'neg'],
@@ -92,6 +97,7 @@ test('only a human judge seated in the Round has an own seat', () => {
 test('judges see their own ballot and the frozen input, others’ only after completion', () => {
   const rows = [row('judge-h'), row('judge-b')];
   const open = ballotReadView({
+    audience: { kind: 'ordinary' },
     status: 'active',
     ownSeatId: 'judge-h',
     viewerSubject: undefined,
@@ -101,6 +107,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
     frozen,
   });
   const done = ballotReadView({
+    audience: { kind: 'ordinary' },
     status: 'completed',
     ownSeatId: undefined,
     viewerSubject: undefined,
@@ -148,6 +155,7 @@ test('a judge who has not submitted sees an empty own ballot', () => {
     given: 'a seated judge with no stored ballot',
     should: 'report the seat with no ballot or revision',
     actual: ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'active',
       ownSeatId: 'judge-h',
       viewerSubject: undefined,
@@ -171,6 +179,7 @@ test('a released ballot carries feedback only for the reader’s own side', () =
   };
   const view = (viewerSubject: 'affirmative' | 'negative' | undefined) =>
     ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'completed',
       ownSeatId: undefined,
       viewerSubject,
@@ -208,11 +217,13 @@ test('a released speaker ranking carries feedback only for the reading speaker',
   } as unknown as Row;
   const view = (viewerSubject: string | undefined) =>
     ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'completed',
       ownSeatId: undefined,
       viewerSubject,
       aiJudgeSeatIds: new Set(),
       definition: daisyBallotDefinitions['rank-speakers@1'],
+      source: daisyBallotSource(daisyBallotDefinitions['rank-speakers@1']),
       subjects: { sides: [], speakers: ['s1', 's2', 's3'], segments: [] },
       rows: [ranked],
       frozen: null,
@@ -234,6 +245,48 @@ test('a released speaker ranking carries feedback only for the reading speaker',
         },
       ],
       [{ feedback: {}, reportable: null }],
+    ],
+  });
+});
+
+test('only the event unreleased projection carries screening review addressing', () => {
+  const submitted = row('judge-h');
+  const review = (unreleased: boolean) =>
+    ballotReadView({
+      audience: {
+        kind: 'event',
+        access: {
+          parts: ['decision', 'scores', 'reason', 'feedback'],
+          unreleased,
+        },
+        screenings: new Map([
+          [submitted.id, { status: 'held', releasedText: null }],
+        ]),
+      },
+      status: 'completed',
+      ownSeatId: undefined,
+      viewerSubject: undefined,
+      aiJudgeSeatIds: new Set(),
+      ...judged,
+      rows: [submitted],
+      frozen: null,
+    }).ballots[0];
+  assert({
+    given:
+      'the same held event ballot read under released and unreleased authority',
+    should:
+      'provide review ids only to the official and keep held words off the released copy',
+    actual: [
+      review(false)?.review ?? null,
+      review(false)?.ballot.reason ?? null,
+      review(true)?.review,
+      review(true)?.ballot.reason,
+    ],
+    expected: [
+      null,
+      null,
+      { ballotId: submitted.id, screening: 'held' },
+      body.reason,
     ],
   });
 });

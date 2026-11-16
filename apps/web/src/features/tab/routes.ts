@@ -67,6 +67,7 @@ export const hostRoutes = {
     `${hostEvent(slug, event)}/resolutions`,
   standings: (slug: string) => `${hostTournament(slug)}/standings`,
   results: (slug: string) => `${hostTournament(slug)}/results`,
+  ballots: (slug: string) => `${hostTournament(slug)}/ballots`,
 } as const;
 
 /** The pages only the host area has, as the last segment of their path. */

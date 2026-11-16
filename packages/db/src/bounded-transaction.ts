@@ -1,3 +1,4 @@
+import { scopeReservedTransaction } from './tenant-scope';
 import type { ReservedSQL, SQL } from 'bun';
 import { createAppError, isAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -130,7 +131,18 @@ class TransactionAttempt {
       ),
     });
     const result = await run(
-      transactionContext(database, this.checkLifetime, this.refuseControl),
+      transactionContext(
+        database,
+        this.checkLifetime,
+        this.refuseControl,
+        async (scope) => {
+          this.checkLifetime();
+          // Tenant addressing is adapter-owned. Arbitrary callback configuration
+          // still passes through the unchanged rejecting statement guard.
+          await scopeReservedTransaction(this.work!, scope);
+          this.checkLifetime();
+        },
+      ),
       this.controller.signal,
       this.metadata,
     );

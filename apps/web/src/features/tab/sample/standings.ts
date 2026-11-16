@@ -185,6 +185,7 @@ export function sampleStandingsView(
           ...shape,
           tiebreaks: [...shape.tiebreaks],
           visibility: 'official',
+          resultsVersion: 1,
           capabilities: { announceBreak: true, previewCorrection: true },
         }
       : {

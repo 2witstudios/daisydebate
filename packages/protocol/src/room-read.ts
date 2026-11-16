@@ -56,6 +56,8 @@ export const roomRefusalSchema = z.enum([
   'active-room',
   /** The selected catalog format, revision or preset is not available to this selection (FMT-1). */
   'format-unavailable',
+  /** The exact pinned ballot cannot run on this Room; never substitute a default. */
+  'ballot-definition-unavailable',
   'ranked-unavailable',
   /** The draw's source cannot supply enough resolutions. */
   'draw-unavailable',

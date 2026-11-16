@@ -6,7 +6,6 @@ import { actors } from './schema/actors';
 import { accountBetaAccess } from './schema/beta-access';
 import { applyBetaEntitlementGrants } from './entitlement-grants';
 import { roundParticipants } from './schema/round-participants';
-import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 import { seedVersions } from './schema/seed-versions';
 import { users } from './schema/users';
@@ -130,71 +129,41 @@ export async function applyDevSeed({
           .onConflictDoNothing();
         await applyBetaEntitlementGrants(tx, person.userId, 'approved');
       }
-      await tx
-        .insert(rounds)
-        .values({
-          id: seed.round.id,
-          createdByActorId: seed.round.createdByActorId,
-          resolution: seed.round.resolution,
-          competitionType: 'casual',
-          formatId: seed.round.formatId,
-          formatVersion: seed.round.formatVersion,
-          presetVersion: null,
-          rulesSnapshot: seed.round.rules,
-          judging: frozenJudgingFor(seed.round.rules),
-          runtimeState: emptyRuntimeCheckpointFor(seed.round.rules),
-          status: 'opening',
-          ladderId: null,
+      const [previous] = await tx
+        .select({
+          createdAt: sql<string>`${rounds.createdAt}::text`,
+          updatedAt: sql<string>`${rounds.updatedAt}::text`,
         })
-        .onConflictDoUpdate({
-          target: rounds.id,
-          set: {
-            createdByActorId: sql`excluded.created_by_actor_id`,
-            resolution: sql`excluded.resolution`,
-            formatId: sql`excluded.format_id`,
-            formatVersion: sql`excluded.format_version`,
-            rulesSnapshot: sql`excluded.rules_snapshot`,
-            judging: sql`excluded.judging`,
-            status: sql`excluded.status`,
-            currentStage: null,
-            winningSide: null,
-            ranking: null,
-            ladderId: sql`excluded.ladder_id`,
-            startedAt: null,
-            completedAt: null,
-            // The checkpoint is lifecycle too: a seeded round that ran a prep
-            // must come back with no active prep and nothing consumed.
-            runtimeState: sql`excluded.runtime_state`,
-          },
-        });
-      // Execution rows reconstruct the runtime; resetting only its checkpoint
-      // would resume the old speech. Segment deletion cascades to utterances.
-      await tx
-        .delete(roundSegments)
-        .where(sql`${roundSegments.roundId} = ${seed.round.id}`);
-      await tx
-        .delete(roundParticipants)
-        .where(
-          sql`${roundParticipants.roundId} = ${seed.round.id} and ${roundParticipants.seatKind} <> 'side'`,
-        );
+        .from(rounds)
+        .where(sql`${rounds.id} = ${seed.round.id}`);
+      await tx.delete(rounds).where(sql`${rounds.id} = ${seed.round.id}`);
+      await tx.insert(rounds).values({
+        id: seed.round.id,
+        ...(previous
+          ? {
+              createdAt: sql`${previous.createdAt}::timestamptz`,
+              updatedAt: sql`${previous.updatedAt}::timestamptz`,
+            }
+          : {}),
+        createdByActorId: seed.round.createdByActorId,
+        resolution: seed.round.resolution,
+        competitionType: 'casual',
+        formatId: seed.round.formatId,
+        formatVersion: seed.round.formatVersion,
+        presetVersion: null,
+        rulesSnapshot: seed.round.rules,
+        judging: frozenJudgingFor(seed.round.rules),
+        runtimeState: emptyRuntimeCheckpointFor(seed.round.rules),
+        status: 'opening',
+        ladderId: null,
+      });
       for (const seat of seed.round.seats) {
-        await tx
-          .insert(roundParticipants)
-          .values({
-            id: seat.id,
-            roundId: seed.round.id,
-            actorId: seat.actorId,
-            ...columnsOfSeat(seat.seat),
-          })
-          .onConflictDoUpdate({
-            target: roundParticipants.id,
-            set: {
-              actorId: sql`excluded.actor_id`,
-              seatKind: sql`excluded.seat_kind`,
-              side: sql`excluded.side`,
-              slot: sql`excluded.slot`,
-            },
-          });
+        await tx.insert(roundParticipants).values({
+          id: seat.id,
+          roundId: seed.round.id,
+          actorId: seat.actorId,
+          ...columnsOfSeat(seat.seat),
+        });
       }
       await tx
         .insert(seedVersions)

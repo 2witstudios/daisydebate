@@ -10,7 +10,7 @@ export const inLiveRoomSql = (
   actorId: string | null,
 ) =>
   sql`(coalesce(${round.createdByActorId}=${actorId}::text,false)
-    or exists(select 1 from round_participants lr where lr.round_id=${round.id} and lr.actor_id=${actorId}::text))`;
+    or exists(select 1 from round_participants lr where lr.round_id=${round.id} and lr.actor_id=${actorId}::text and public.daisy_round_participant_is_current(lr.id)))`;
 
 /** The Round under the alias `r`, for raw reads. */
 export const liveRoomOfR = {

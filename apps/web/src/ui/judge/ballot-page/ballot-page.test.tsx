@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { idle } from '../../../features/forms/form-state';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
@@ -21,6 +22,7 @@ await mockNextRouter();
 const { BallotPage } = await import('./ballot-page');
 const input: RoundBallotRead = {
   judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
     ballot: daisyWinnerBallot,
     panel: panelRuleFor(daisyWinnerBallot),
   },

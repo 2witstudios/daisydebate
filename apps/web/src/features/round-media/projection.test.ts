@@ -29,6 +29,7 @@ const snapshot = (prepMs: number | null, now: string) =>
     now,
     finalSegmentEndedAt: null,
     mediaWindow: {
+      sourceVoided: false,
       status: 'opening',
       now,
       finalSegmentEndedAt: null,

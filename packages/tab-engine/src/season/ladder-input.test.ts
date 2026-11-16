@@ -22,7 +22,7 @@ describe('ladder input', () => {
     id: Id,
     fixture: Id,
     winner: Id | null,
-    over: Partial<ResultOf<TwoSides>> = {},
+    over: Partial<Extract<ResultOf<TwoSides>, { kind: 'decided' }>> = {},
   ): ResultOf<TwoSides> => ({
     id,
     fixture,
@@ -63,7 +63,21 @@ describe('ladder input', () => {
         playedAt: '2026-03-04',
       },
       {
-        result: result('g4', 'f4', 'x', { kind: 'administrative' }),
+        result: {
+          ...result('g4', 'f4', 'x'),
+          kind: 'administrative',
+          outcome: {
+            kind: 'winner',
+            winner: 'x',
+            credits: {
+              kind: 'awarded',
+              entries: [
+                { entry: 'x', ballotsWon: 1, ranks: [1], points: 0 },
+                { entry: 'y', ballotsWon: 0, ranks: [2], points: 0 },
+              ],
+            },
+          },
+        },
         fixture: pairing('x', 'y'),
         playedAt: '2026-03-05',
       },

@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import {
   captureRule,
   readRoundOpening,
@@ -188,13 +189,15 @@ export const readBallotAs = (
   roundId: string,
 ) =>
   f.store.readRoundBallot({
+    ballotAccess: (_round, _account, owner) => eventBallotAccess(caller, owner),
     readOpening: readRoundOpening,
     decideWaitingOn: roundWaitingOn,
     captureRule,
     caller,
     roundId,
-    authorize: (r, a) => canReadRound(caller, r, a),
-    authorizeTranscript: (r, a) => canReadTranscript(caller, r, a),
+    authorize: (r, a, authority) => canReadRound(caller, r, a, authority),
+    authorizeTranscript: (r, a, authority) =>
+      canReadTranscript(caller, r, a, authority),
   });
 
 /** A real human submission against its exact current Round version and freeze. */

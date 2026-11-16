@@ -1,3 +1,8 @@
+import { readAuthorizedRound } from './round-read-authority';
+import { roundOutcomeForAudience } from './round-outcome-audience';
+import type { RoundRoomAuthority } from './round-room-authority';
+import { loadRoomDirection } from './tab/room-direction';
+import { fenceTabAccountRead } from './tab/account-read-fence';
 import {
   currentRoomTopic,
   withOpening,
@@ -15,11 +20,8 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
-import { roundLifecycleOfRow, segmentRows } from './round-hydration';
-import { seatOfColumns, seatRowOrder } from './seat-columns';
-import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -40,16 +42,10 @@ import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
-import { rounds } from './schema/rounds';
-import { mediaSessions } from './schema/media-sessions';
-import { recordedPanelRuling } from './round-panel-decisions';
-import { roundCommands } from './schema/round-commands';
-import { readableCheckpoint, roundViewFor } from './round-view-projection';
-import { roundParticipants } from './schema/round-participants';
+import { roundViewFor } from './round-view-projection';
 import { formats } from './schema/formats';
-import { formatRevisions } from './schema/format-revisions';
 
-import { formatPresets } from './schema/format-presets';
+import { loadFormatCatalogue } from './format-catalogue';
 
 import {
   type Caller,
@@ -63,100 +59,8 @@ import {
   roomFacts,
   lockCommand,
   replayReceipt,
+  transactionNow,
 } from './room-command-facts';
-import { roundResolutionAudit } from './room-draw-persistence';
-/**
- * Whether the Round's post-round call still stands (ADR 0127): chosen, and
- * not on a Round whose media session has ended. A completed Round's session
- * ends when its call does, so a view of it stops offering the call then.
- */
-async function postRoundCallStands(
-  tx: Pick<BunSQLDatabase, 'select'>,
-  round: Pick<typeof rounds.$inferSelect, 'id' | 'status' | 'postRoundCall'>,
-) {
-  if (!round.postRoundCall || round.status !== 'completed')
-    return round.postRoundCall;
-  const [session] = await tx
-    .select({ endedAt: mediaSessions.endedAt })
-    .from(mediaSessions)
-    .where(eq(mediaSessions.roundId, round.id));
-  return session !== undefined && session.endedAt === null;
-}
-
-export async function launchedRoundRows(
-  tx: Pick<BunSQLDatabase, 'select'>,
-  roundId: string,
-): Promise<LaunchedRound> {
-  const [row] = await tx
-    .select()
-    .from(rounds)
-    .where(eq(rounds.id, roundId))
-    .for('share');
-  if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
-    throw createAppError('NOT_FOUND');
-  const seats = await tx
-    .select()
-    .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, roundId))
-    .orderBy(...seatRowOrder(roundParticipants));
-  const participants = await Promise.all(
-    seats.map(async (p) => {
-      const actor = await actorFact(tx, p.actorId);
-      if (!actor) throw createAppError('INVARIANT');
-      return {
-        id: p.id,
-        actorId: actor.actorId,
-        kind: actor.kind,
-        label: actor.label,
-        seat: seatOfColumns(p),
-      };
-    }),
-  );
-  const lifecycle = roundLifecycleOfRow(row);
-  const round: LaunchedRound = {
-    ...lifecycle,
-    id: row.id,
-    roomId: row.roomId,
-    version: row.version,
-    competitionType: row.competitionType,
-    ladderId: row.ladderId,
-    topic: row.resolution,
-    visibility: row.visibility,
-    hostActorId: row.createdByActorId,
-    hostInherited: row.hostInherited,
-    config: row.roomConfigSnapshot,
-    rules: row.rulesSnapshot,
-    participants,
-    postRoundCall: await postRoundCallStands(tx, row),
-    platformEnding: row.platformEnding,
-    // A ruling belongs to a panel completion: a Round that is not completed carries none.
-    panelRuling:
-      lifecycle.status !== 'completed'
-        ? null
-        : recordedPanelRuling(
-            await tx
-              .select()
-              .from(roundCommands)
-              .where(
-                and(
-                  eq(roundCommands.roundId, roundId),
-                  eq(roundCommands.type, 'complete'),
-                ),
-              ),
-          ),
-    transcriptCompleteness:
-      (
-        await tx
-          .select({ completeness: roundTranscriptFreezes.completeness })
-          .from(roundTranscriptFreezes)
-          .where(eq(roundTranscriptFreezes.roundId, roundId))
-      )[0]?.completeness ?? null,
-    resolutionAudit: await roundResolutionAudit(tx, row),
-    checkpoint: readableCheckpoint(row.runtimeState),
-    segments: await segmentRows(tx, roundId),
-  };
-  return round;
-}
 export const roomReadOperations = ({
   database,
   eventSink,
@@ -171,21 +75,32 @@ export const roomReadOperations = ({
   async readLaunchedRound(
     roundId: string,
     caller: Caller,
-    authorize: (round: LaunchedRound, account: Account) => boolean,
+    authorize: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => boolean,
     readOpening: ReadOpening,
     /** The engine's decision, injected. Required: no read may report a played Round as waiting on nothing. */
     decideWaitingOn: (facts: RoundWaitingFacts) => RoundWaitingOn | null,
+    readEventDecision: (owner: RoundRoomAuthority) => boolean,
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
-        const account = await sharedAccount(tx, caller);
-        const round = await launchedRoundRows(tx, roundId);
-        if (!authorize(round, account)) throw createAppError('NOT_FOUND');
+        const { round, account, owner } = await readAuthorizedRound(tx, {
+          roundId,
+          caller,
+          authorize,
+        });
         return withOpening(
           tx,
           round,
           {
-            ...roundViewFor(round, caller.actorId),
+            ...roundOutcomeForAudience(
+              roundViewFor(round, caller.actorId),
+              owner,
+              readEventDecision(owner),
+            ),
             waitingOn: await readWaitingOn(tx, round, decideWaitingOn),
           },
           { actorId: caller.actorId, account },
@@ -217,51 +132,7 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'listRoomCatalogSources', () =>
       database.transaction(async (tx) => {
         await requireAccount(tx, caller, authorize);
-        const rows = await tx
-          .select({
-            id: formats.id,
-            name: formats.name,
-            version: formats.currentVersion,
-            role: formats.catalogRole,
-            family: formats.family,
-            leagues: formats.leagues,
-            searchTerms: formats.searchTerms,
-            sortOrder: formats.sortOrder,
-            definition: formatRevisions.definition,
-            rulesEdition: formatRevisions.rulesEdition,
-            sourceUrl: formatRevisions.sourceUrl,
-          })
-          .from(formats)
-          .innerJoin(
-            formatRevisions,
-            and(
-              eq(formatRevisions.formatId, formats.id),
-              eq(formatRevisions.version, formats.currentVersion),
-            ),
-          )
-          .where(isNotNull(formats.catalogRole))
-          .orderBy(asc(formats.sortOrder), asc(formats.id));
-        const presets = await tx
-          .select({
-            formatId: formatPresets.formatId,
-            version: formatPresets.version,
-            formatVersion: formatPresets.formatVersion,
-            config: formatPresets.config,
-            rankedEligible: formatPresets.rankedEligible,
-          })
-          .from(formatPresets)
-          .where(isNull(formatPresets.supersededAt));
-        return rows.map(({ role, ...row }) => {
-          const preset = presets.find(
-            (p) => p.formatId === row.id && p.formatVersion === row.version,
-          );
-          if (!role || !preset)
-            throw createAppError(
-              'INVARIANT',
-              `Catalog format ${row.id} has no current preset`,
-            );
-          return { ...row, role, preset };
-        });
+        return loadFormatCatalogue(tx);
       }),
     );
   },
@@ -285,6 +156,17 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
+        const [found] = await tx
+          .select()
+          .from(rooms)
+          .where(eq(rooms.id, roomId));
+        if (!found) throw createAppError('NOT_FOUND');
+        if (found.hostActorId === null)
+          await fenceTabAccountRead(tx, caller.userId);
+        const direction = await loadRoomDirection(tx, {
+          room: found,
+          userId: caller.userId,
+        });
         const [row] = await tx
           .select()
           .from(rooms)
@@ -292,7 +174,10 @@ export const roomReadOperations = ({
           .for('share');
         if (!row) throw createAppError('NOT_FOUND');
         const facts = await roomFacts(tx, row);
-        if (!authorize(facts.state, account)) throw createAppError('NOT_FOUND');
+        if (
+          !authorize(facts.state, account, direction, await transactionNow(tx))
+        )
+          throw createAppError('NOT_FOUND');
         return {
           state: {
             ...facts.state,

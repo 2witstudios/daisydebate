@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
@@ -21,6 +22,7 @@ import {
 
 setupRitewayBun();
 const judging = {
+  source: daisyBallotSource(daisyWinnerBallot),
   ballot: daisyWinnerBallot,
   panel: { decision: 'majority', quorum: 1 },
 } as const;
@@ -487,6 +489,7 @@ test('a seat with a human judge and no deadline has no panel', () => {
   const facts = {
     judging,
     completeness: 'complete' as const,
+    emptyJudgeSlots: [],
     humanJudgeSeatIds: [judges[0]!],
     aiJudgeSeatIds: [judges[1]!],
     ballotDeadlineAt: null,
@@ -513,6 +516,16 @@ test('a seat with a human judge and no deadline has no panel', () => {
       humanWindow: { deadlineAt: deadline, seatIds: [judges[0]!] },
       aiSeats: [{ id: judges[1]!, standing: { state: 'not_dispatched' } }],
     },
+  });
+  assert({
+    given:
+      'a persisted empty original judge slot even after every other judge could rule',
+    should: 'have no completable panel instead of reducing its cardinality',
+    actual: judgingPanelOf(
+      { ...facts, ballotDeadlineAt: deadline, emptyJudgeSlots: [2] },
+      10_000,
+    ),
+    expected: null,
   });
 });
 

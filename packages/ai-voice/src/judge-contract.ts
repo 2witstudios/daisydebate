@@ -1,5 +1,6 @@
 import {
   ballotSchemaFor,
+  scoreLatticeValues,
   caseMapSchema,
   type BallotDefinition,
   type BallotSubjects,
@@ -31,7 +32,11 @@ function explicitProperties(schema: JsonSchema): JsonSchema {
  * validation still enforces the exact contract, so nothing here widens what
  * is accepted.
  */
-function endpointSubset(input: JsonSchema): JsonSchema {
+type ScoreContext = {
+  readonly scale: NonNullable<BallotDefinition['points']>['scale'];
+  readonly weight: number;
+};
+function endpointSubset(input: JsonSchema, score?: ScoreContext): JsonSchema {
   const schema = explicitProperties(input);
   const {
     minimum,
@@ -48,22 +53,27 @@ function endpointSubset(input: JsonSchema): JsonSchema {
   delete subset['minItems'];
   if (constant !== undefined) subset['enum'] = [constant];
   if (typeof minimum === 'number' && typeof maximum === 'number') {
-    const step = typeof multipleOf === 'number' ? multipleOf : 1;
-    subset['enum'] = Array.from(
-      { length: Math.floor((maximum - minimum) / step + 1e-9) + 1 },
-      (_, offset) => Number((minimum + offset * step).toFixed(6)),
-    );
+    const scale = score?.scale ?? {
+      min: minimum,
+      max: maximum,
+      step: typeof multipleOf === 'number' ? multipleOf : 1,
+    };
+    const values = scoreLatticeValues(scale, score?.weight ?? 1);
+    if (values) subset['enum'] = [...values];
+    else
+      subset['description'] =
+        `From ${minimum} to ${maximum}; exact steps of ${scale.step}${score && score.weight !== 1 ? ` times ${score.weight}` : ''}, starting at ${minimum}.`;
   }
   if (typeof maxLength === 'number')
     subset['description'] = `At most ${maxLength} characters.`;
   if (typeof maxItems === 'number')
     subset['description'] = `At most ${maxItems} items.`;
   if (schema['items'] && typeof schema['items'] === 'object')
-    subset['items'] = endpointSubset(schema['items'] as JsonSchema);
+    subset['items'] = endpointSubset(schema['items'] as JsonSchema, score);
   if (schema['properties'])
     subset['properties'] = Object.fromEntries(
       Object.entries(schema['properties'] as Record<string, JsonSchema>).map(
-        ([key, value]) => [key, endpointSubset(value)],
+        ([key, value]) => [key, endpointSubset(value, score)],
       ),
     );
   return subset;
@@ -83,7 +93,32 @@ export const ballotWireSchemaFor = (
   });
   const properties = { ...(contract['properties'] as JsonSchema) };
   delete properties['citations'];
-  return endpointSubset({ ...contract, properties });
+  const wire = endpointSubset({ ...contract, properties });
+  const points = definition.points;
+  if (!points) return wire;
+  const scoreShape = explicitProperties(properties['scores'] as JsonSchema);
+  const wireProperties = wire['properties'] as Record<string, JsonSchema>;
+  return {
+    ...wire,
+    properties: {
+      ...wireProperties,
+      scores: {
+        ...wireProperties['scores'],
+        properties: Object.fromEntries(
+          Object.entries(
+            scoreShape['properties'] as Record<string, JsonSchema>,
+          ).map(([subject, value]) => [
+            subject,
+            endpointSubset(value, {
+              scale: points.scale,
+              weight:
+                points.per === 'speech' ? (points.weights?.[subject] ?? 1) : 1,
+            }),
+          ]),
+        ),
+      },
+    },
+  };
 };
 
 /** The case map's request schema, derived from its contract the same way. */
@@ -92,4 +127,4 @@ export const caseMapWireSchema: JsonSchema = endpointSubset(
 );
 
 /** Recorded on every attempt: bump when a prompt or wire schema changes. */
-export const judgeContractVersion = 'judge-contract@2';
+export const judgeContractVersion = 'judge-contract@4';

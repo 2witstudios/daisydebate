@@ -42,6 +42,7 @@ export function ageAdmitted(band: AgeBand | null): boolean {
  * the exits and own cleanup, with the replay reads of their own commands.
  */
 const withdrawals: readonly AuthorizationCapability[] = [
+  'tournament.sponsorship.withdraw',
   'room.leave',
   'channel.leave',
   'social.block',

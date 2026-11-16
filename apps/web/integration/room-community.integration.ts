@@ -37,7 +37,7 @@ const removeRoom = (roomId: string) =>
     `;
     if (round)
       await sql`delete from outbox where topic=${buildRoundTopic(round.id)}`;
-    await sql`delete from round_participants where round_id in (select id from rounds where room_id=${roomId})`;
+    await sql`delete from rounds where room_id=${roomId}`;
     await sql`delete from rounds where room_id=${roomId}`;
     await sql`delete from room_commands where room_id=${roomId}`;
     await sql`delete from room_participants where room_id=${roomId}`;

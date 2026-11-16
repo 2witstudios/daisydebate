@@ -1,3 +1,4 @@
+import type { pendingCommandStatuses } from './vocabulary';
 import { z } from 'zod';
 import type { AuthorizationCapability } from '../authorization';
 import { idSchema } from '../primitives';
@@ -35,6 +36,7 @@ const lobbyAggregateKindSchema = z.enum(lobbyAggregateKinds);
  */
 const commandVersionNames = [
   'organization',
+  'membership',
   'guardianLink',
   'template',
   'lobby',
@@ -167,11 +169,23 @@ export const lobbyCommandReceiptSchema = z.strictObject({
 });
 export type LobbyCommandReceipt = z.infer<typeof lobbyCommandReceiptSchema>;
 
+/** A held proposal settled without applying its command; replay preserves its actual status and deadline. */
+export type SettledLobbyCommand = {
+  readonly kind: 'settled';
+  readonly pendingCommandId: string;
+  readonly status: Exclude<
+    (typeof pendingCommandStatuses)[number],
+    'pending' | 'confirmed'
+  >;
+  readonly expiresAt: string;
+};
+
 /**
  * The one answer. A command a conflict holds for a second person is stored
  * whole and answered `pending`; nothing changes until it is confirmed.
  */
 export type LobbyCommandAnswer<Refusal extends string = string> =
+  | SettledLobbyCommand
   | { readonly kind: 'accepted'; readonly receipt: LobbyCommandReceipt }
   | {
       readonly kind: 'pending';
@@ -186,7 +200,7 @@ export type LobbyCommandAnswer<Refusal extends string = string> =
     };
 
 /** Who a command was accepted under: the evaluator's authority, or a service. */
-const historyAuthoritySchema = z.discriminatedUnion('kind', [
+export const historyAuthoritySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('fixed') }),
   z.strictObject({ kind: z.literal('owner') }),
   z.strictObject({ kind: z.literal('grant'), grantId: idSchema }),
@@ -200,8 +214,10 @@ export type HistoryAuthority = z.infer<typeof historyAuthoritySchema>;
 
 /**
  * One action-history entry, appended once per accepted command and never
- * otherwise. It is permanent and is the replay record: the same command id
+ * otherwise. It is the replay record: the same command id
  * with the same digest replays its receipt, with another digest is refused.
+ * Competitive history is retained; family history activation and retention
+ * remain counsel-gated.
  */
 export const actionHistoryEntrySchema = z.strictObject({
   commandId: idSchema,
@@ -211,6 +227,7 @@ export const actionHistoryEntrySchema = z.strictObject({
       organizationId: idSchema,
     }),
     z.strictObject({ kind: z.literal('lobby'), lobbyId: idSchema }),
+    z.strictObject({ kind: z.literal('person'), subjectUserId: idSchema }),
   ]),
   aggregate: z.strictObject({ kind: lobbyAggregateKindSchema, id: idSchema }),
   type: z.string().min(1),
@@ -238,6 +255,7 @@ export const versionsHold = (
 
 /** What the record holds for a command id: its accepted receipt, or its hold. */
 export type StoredOutcome =
+  | SettledLobbyCommand
   | { readonly kind: 'accepted'; readonly receipt: LobbyCommandReceipt }
   | {
       readonly kind: 'pending';
@@ -247,6 +265,7 @@ export type StoredOutcome =
 
 /** What the stored record says about a command id that arrives again. */
 export type CommandReplay =
+  | SettledLobbyCommand
   | { readonly kind: 'new' }
   | { readonly kind: 'replay'; readonly receipt: LobbyCommandReceipt }
   | {

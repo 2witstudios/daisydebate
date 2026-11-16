@@ -7,6 +7,7 @@ import {
 } from '../parse-outcome.test-support';
 import {
   drawReadCatalogue,
+  hostRoundViewSchema,
   drawViewSchema,
   supersededInputListSchema,
 } from './draw-read';
@@ -75,8 +76,8 @@ const drawView = {
   sides: ['affirmative', 'negative'],
   resultsThroughRound: 3,
   recordGroups: [
-    { wins: 2, fixtures: [fixture] },
-    { wins: 1, fixtures: [bye] },
+    { record: { label: 'Wins', value: { n: 2, d: 1 } }, fixtures: [fixture] },
+    { record: { label: 'Wins', value: { n: 1, d: 1 } }, fixtures: [bye] },
   ],
   spareJudges: [{ tournamentJudgeId: id('judgeshah'), name: 'A. Shah' }],
   capabilities: { edit: true, publish: false },
@@ -152,7 +153,7 @@ describe('the draw reads', () => {
           ...drawView,
           recordGroups: [
             {
-              wins: 2,
+              record: { label: 'Wins', value: { n: 2, d: 1 } },
               fixtures: [
                 { ...fixture, findings: [{ severity: 'relaxed', text: 'x' }] },
               ],
@@ -161,7 +162,12 @@ describe('the draw reads', () => {
         },
         {
           ...drawView,
-          recordGroups: [{ wins: 2, fixtures: [{ ...fixture, entries: [] }] }],
+          recordGroups: [
+            {
+              record: { label: 'Wins', value: { n: 2, d: 1 } },
+              fixtures: [{ ...fixture, entries: [] }],
+            },
+          ],
         },
         {
           ...drawView,
@@ -220,13 +226,44 @@ describe('the draw reads', () => {
   test('every draw read answers under the host read gate', () => {
     assert({
       given: 'the draw read catalogue',
-      should: 'name lobby.host.read, a real capability, for each read',
+      should: 'name lobby.host.draw.read, a real capability, for each read',
       actual: Object.values(drawReadCatalogue).map((read) =>
         read.gate.map((gate) =>
           parseOutcome(authorizationCapabilitySchema, gate),
         ),
       ),
-      expected: [[{ data: 'lobby.host.read' }], [{ data: 'lobby.host.read' }]],
+      expected: [
+        [{ data: 'lobby.host.draw.read' }],
+        [{ data: 'lobby.host.draw.read' }],
+      ],
     });
+  });
+});
+
+test('an addressed draft retains its source guard and child identity', () => {
+  const read = {
+    kind: 'draft',
+    lobbyId: drawView.lobbyId,
+    eventId: drawView.eventId,
+    tabRound: { ...drawView.tabRound, name: null },
+    guards: { draw: 3, entries: 2, settings: 4, results: 1, timeSlot: null },
+    capabilities: { generate: true },
+    draw: drawView,
+  };
+  assert({
+    given: 'a real-shaped draft and substituted guard or child address',
+    should: 'accept the coherent read and refuse both substitutions',
+    actual: [
+      hostRoundViewSchema.safeParse(read).success,
+      hostRoundViewSchema.safeParse({
+        ...read,
+        guards: { ...read.guards, draw: 99 },
+      }).success,
+      hostRoundViewSchema.safeParse({
+        ...read,
+        draw: { ...drawView, eventId: id('foreign') },
+      }).success,
+    ],
+    expected: [true, false, false],
   });
 });

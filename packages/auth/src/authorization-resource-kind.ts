@@ -12,6 +12,7 @@ const eventKinds: readonly Resource['kind'][] = [
   'fixture',
   'ballot',
   'sanction',
+  'tournament_sponsorship',
 ];
 /** An event's thing: its facts name a tournament and nothing else. */
 const eventThing = (resource: Resource): boolean => {
