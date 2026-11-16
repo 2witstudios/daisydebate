@@ -28,11 +28,11 @@ ALTER TABLE "rooms" ADD COLUMN "league_ladder_id" text;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "league_ladder_id" text;--> statement-breakpoint
 ALTER TABLE "ladders" ADD CONSTRAINT "ladders_id_lobby_unique" UNIQUE("id","lobby_id");--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_id_league_ladder_unique" UNIQUE("id","league_ladder_id");--> statement-breakpoint
-CREATE INDEX "league_schools_school_idx" ON "league_schools" ("school_id");--> statement-breakpoint
+CREATE INDEX "league_schools_school_idx" ON "league_schools" ("school_id","school_kind");--> statement-breakpoint
 CREATE UNIQUE INDEX "notifications_fixture_command_once" ON "notifications" ("user_id","kind","fixture_id","tab_command_id");--> statement-breakpoint
-CREATE INDEX "notifications_fixture_idx" ON "notifications" ("fixture_id");--> statement-breakpoint
+CREATE INDEX "notifications_fixture_idx" ON "notifications" ("fixture_id","notification_lobby_id");--> statement-breakpoint
 CREATE INDEX "notifications_lobby_idx" ON "notifications" ("notification_lobby_id");--> statement-breakpoint
-CREATE INDEX "notifications_tab_command_idx" ON "notifications" ("tab_command_id");--> statement-breakpoint
+CREATE INDEX "notifications_tab_command_idx" ON "notifications" ("tab_command_id","notification_lobby_id");--> statement-breakpoint
 CREATE INDEX "rooms_league_ladder_lobby_idx" ON "rooms" ("league_ladder_id","lobby_id");--> statement-breakpoint
 CREATE INDEX "rounds_room_league_ladder_idx" ON "rounds" ("room_id","league_ladder_id");--> statement-breakpoint
 CREATE INDEX "rounds_league_ladder_completed_idx" ON "rounds" ("league_ladder_id","completed_at");--> statement-breakpoint
@@ -183,3 +183,12 @@ BEGIN
   END;
  END LOOP;
 END $$;
+
+--> statement-breakpoint
+CREATE INDEX "league_schools_league_idx" ON "league_schools" ("organization_id","league_kind");
+--> statement-breakpoint
+CREATE INDEX "league_schools_invited_by_idx" ON "league_schools" ("invited_by_user_id");
+--> statement-breakpoint
+CREATE INDEX "league_schools_joined_by_idx" ON "league_schools" ("joined_by_user_id");
+--> statement-breakpoint
+CREATE INDEX "league_schools_ended_by_idx" ON "league_schools" ("ended_by_user_id");

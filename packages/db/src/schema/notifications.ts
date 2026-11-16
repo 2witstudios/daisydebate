@@ -92,9 +92,15 @@ export const notifications = pgTable(
       table.fixtureId,
       table.tabCommandId,
     ),
-    index('notifications_fixture_idx').on(table.fixtureId),
+    index('notifications_fixture_idx').on(
+      table.fixtureId,
+      table.notificationLobbyId,
+    ),
     index('notifications_lobby_idx').on(table.notificationLobbyId),
-    index('notifications_tab_command_idx').on(table.tabCommandId),
+    index('notifications_tab_command_idx').on(
+      table.tabCommandId,
+      table.notificationLobbyId,
+    ),
     uniqueIndex('notifications_round_once')
       .on(table.userId, table.kind, table.roundId)
       .where(sql`${table.roundId} is not null`),

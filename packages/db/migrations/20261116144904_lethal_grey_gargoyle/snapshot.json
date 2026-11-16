@@ -27256,6 +27256,13 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        },
+        {
+          "value": "school_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         }
       ],
       "isUnique": false,
@@ -27264,6 +27271,97 @@
       "method": "btree",
       "concurrently": false,
       "name": "league_schools_school_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_schools"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "league_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_schools_league_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_schools"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "invited_by_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_schools_invited_by_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_schools"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "joined_by_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_schools_joined_by_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_schools"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "ended_by_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_schools_ended_by_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "league_schools"
@@ -28628,6 +28726,13 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        },
+        {
+          "value": "notification_lobby_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         }
       ],
       "isUnique": false,
@@ -28666,6 +28771,13 @@
       "columns": [
         {
           "value": "tab_command_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "notification_lobby_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,

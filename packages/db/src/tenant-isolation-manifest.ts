@@ -139,6 +139,11 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
   ],
   exempt: [
     {
+      table: 'notifications',
+      reason:
+        'The existing inbox is owned and read by its recipient account. Fixture, lobby and command references provide notification provenance only; reads recheck current account, boundary and relationship authority before exposing a subject. They confer no tenant read authority.',
+    },
+    {
       table: 'rooms',
       reason:
         'The Room aggregate is read by the Room evaluator path, which filters by lobby in the query; a Room listing is not fenced by a policy.',

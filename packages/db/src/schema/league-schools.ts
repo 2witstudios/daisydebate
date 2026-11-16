@@ -58,7 +58,11 @@ export const leagueSchools = pgTable(
       columns: [table.schoolId, table.schoolKind],
       foreignColumns: [organizations.id, organizations.kind],
     }).onDelete('restrict'),
-    index('league_schools_school_idx').on(table.schoolId),
+    index('league_schools_school_idx').on(table.schoolId, table.schoolKind),
+    index('league_schools_league_idx').on(table.leagueId, table.leagueKind),
+    index('league_schools_invited_by_idx').on(table.invitedByUserId),
+    index('league_schools_joined_by_idx').on(table.joinedByUserId),
+    index('league_schools_ended_by_idx').on(table.endedByUserId),
     check(
       'league_schools_status_check',
       oneOf(table.status, leagueSchoolStatuses),

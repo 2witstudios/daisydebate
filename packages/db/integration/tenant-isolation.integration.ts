@@ -65,7 +65,7 @@ test(
     await scratch.migrate((folder) => folder < schema);
     const before = await problemsOf(scratch.url);
     await scratch.migrate((folder) => folder <= schema);
-    // The original schema predates protected-person history. Verify its own
+    // The original schema predates protected-person history and league extensions. Verify its own
     // two-scope contract, then the current contract after the forward migration.
     const afterSchema = await problemsOf(scratch.url, {
       ...tenantIsolationManifest,
@@ -76,6 +76,8 @@ test(
               'tournament_sponsorship_versions',
               'tournament_capture_admissions',
               'fixture_room_sources',
+              'league_schools',
+              'tournament_rating_snapshots',
             ].includes(table.table),
         )
         .map((table) =>
