@@ -71,7 +71,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
         let room = await f.assemble({
           selection: {
             kind: 'catalog',
-            formatId: 'policy',
+            formatId: 'nsda-ld',
             formatVersion: 1,
             presetVersion: 1,
             competitionType: 'casual',

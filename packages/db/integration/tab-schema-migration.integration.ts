@@ -60,7 +60,7 @@ test(
         {
           actor_id: host,
           season_id: seasonId,
-          ladder: 'policy',
+          ladder: 'freestyle',
           rating: 1500,
           deviation: 350,
           volatility: 0.06,

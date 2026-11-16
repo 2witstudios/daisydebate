@@ -80,7 +80,7 @@ test('a lobby has one kind and one owner, a person or a league, and a ladder bel
       given:
         'lobbies with two owners, none, a school as owner and a person owning a standing lobby; and ladders on a tournament lobby and on a lobby another organization owns',
       should:
-        'refuse each, with the seeded public lobby and its three ladders there after migrating',
+        'refuse each, with the seeded public lobby and its one ladder there after migrating',
       actual: {
         twoOwners: await lobby({
           owner_user_id: ids.owner,
@@ -132,7 +132,7 @@ test('a lobby has one kind and one owner, a person or a league, and a ladder bel
           owner_organization_id: daisy.organization,
           handle: 'daisy',
         },
-        ladders: ['freestyle', 'policy', 'value'],
+        ladders: ['freestyle'],
         ladderOnTournament: 'ladders_standing_lobby_fk',
         ladderOnAnothersLobby: 'ladders_lobby_owner_fk',
       },
@@ -477,8 +477,8 @@ test('each settings scope carries a settings version apart from its own version'
 /** TAB-4.18 */
 test('a template keeps its pins, is offered only by a standing lobby, and is followed only where the keys allow', async () => {
   await withSample(url, async (sql, ids) => {
-    const [daisyPolicy] = (await sql.unsafe(
-      `select id from templates where organization_id = $1 and format_id = 'policy'`,
+    const [daisyFreestyle] = (await sql.unsafe(
+      `select id from templates where organization_id = $1 and format_id = 'freestyle'`,
       [daisy.organization],
     )) as Array<{ id: string }>;
     const host = (
@@ -506,7 +506,7 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
           title: 'A Room',
           topic: 'A topic',
           visibility: 'public',
-          format_id: 'policy',
+          format_id: 'nsda-policy',
           format_version: 1,
           competition_type: 'casual',
           config: validConfig,
@@ -523,9 +523,10 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
         'refuse invalid pins and standing unoffered templates, while accepting renamed/retired templates, standing offered pins and event followed pins',
       actual: {
         format: await refusedBy(sql, () =>
-          sql.unsafe(`update templates set format_id = 'value' where id = $1`, [
-            ids.template,
-          ]),
+          sql.unsafe(
+            `update templates set format_id = 'nsda-ld' where id = $1`,
+            [ids.template],
+          ),
         ),
         ballot: await refusedBy(sql, () =>
           sql.unsafe(
@@ -538,7 +539,7 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
             id: createId(),
             organization_id: ids.league,
             name: 'Half pinned',
-            format_id: 'policy',
+            format_id: 'nsda-policy',
             format_version: 1,
             ballot_definition_id: ids.ballotDefinition,
           }),
@@ -554,7 +555,7 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
             id: createId(),
             organization_id: ids.league,
             name: 'league policy 2027',
-            format_id: 'policy',
+            format_id: 'nsda-policy',
             format_version: 1,
           }),
         ),
@@ -568,15 +569,18 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
           insertRow(sql, 'events', {
             id: createId(),
             lobby_id: ids.lobby,
-            name: 'Value under a policy template',
-            format_id: 'value',
+            name: 'LD under a policy template',
+            format_id: 'nsda-ld',
             format_version: 1,
             template_id: ids.template,
             entry_kind: 'person',
           }),
         ),
         roomFollowsUnoffered: await room({ template_id: ids.template }),
-        roomFollowsOffered: await room({ template_id: daisyPolicy!.id }),
+        roomFollowsOffered: await room({
+          format_id: 'freestyle',
+          template_id: daisyFreestyle!.id,
+        }),
         eventRoomFollowsTemplate: await room({
           lobby_id: ids.lobby,
           lobby_kind: 'tournament',
@@ -610,7 +614,7 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
         roomFollowsOffered: null,
         eventRoomFollowsTemplate: null,
         eventRoomMissingTemplate: 'rooms_template_fk',
-        seededOffer: { offered: 3 },
+        seededOffer: { offered: 1 },
       },
     });
   });
@@ -708,7 +712,7 @@ test("a tournament judge carries a status, a chair qualification, its own lobby'
       id: otherEvent,
       lobby_id: ids.otherLobby,
       name: 'Elsewhere',
-      format_id: 'policy',
+      format_id: 'nsda-policy',
       format_version: 1,
       entry_kind: 'person',
     });

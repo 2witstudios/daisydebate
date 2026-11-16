@@ -25,7 +25,7 @@ const room = {
   visibility: 'public',
   selection: {
     kind: 'catalog',
-    formatId: 'value',
+    formatId: 'nsda-ld',
     formatVersion: 1,
     presetVersion: 1,
     competitionType: 'casual',
@@ -158,7 +158,7 @@ const valid = {
       entry: { kind: 'person' },
       pin: {
         kind: 'format',
-        formatId: 'value',
+        formatId: 'nsda-ld',
         formatVersion: 2,
         ballotDefinition: { id: id('b'), version: 3 },
       },
@@ -171,7 +171,7 @@ const valid = {
       entry: { kind: 'team', size: 2 },
       pin: {
         kind: 'format',
-        formatId: 'policy',
+        formatId: 'nsda-policy',
         formatVersion: 1,
         ballotDefinition: null,
       },
@@ -398,7 +398,7 @@ const invalid: readonly (readonly [string, unknown, string])[] = [
     'a format pin with no version',
     {
       ...event,
-      pin: { kind: 'format', formatId: 'value', ballotDefinition: null },
+      pin: { kind: 'format', formatId: 'nsda-ld', ballotDefinition: null },
     },
     'pin.formatVersion',
   ],
@@ -406,7 +406,7 @@ const invalid: readonly (readonly [string, unknown, string])[] = [
     'a template pin that also names a format',
     {
       ...followEvent,
-      pin: { kind: 'template', templateId: id('t'), formatId: 'value' },
+      pin: { kind: 'template', templateId: id('t'), formatId: 'nsda-ld' },
     },
     'pin',
   ],

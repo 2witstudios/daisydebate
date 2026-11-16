@@ -3,6 +3,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
 import {
+  ratingLadders,
   recordingLifecycleSchema,
   roundRulesSchema,
   type RoundRules,
@@ -178,7 +179,7 @@ test(
       }
       // Main accepted these stored snapshots and seat positions. Migration must
       // observe their actual identities without inventing a repaired grammar.
-      const baseFormat = catalog.find(({ id }) => id === 'policy')!;
+      const baseFormat = catalog.find(({ id }) => id === 'freestyle')!;
       const compiledLegacy = resolveRoomConfiguration(
         baseFormat.definition,
         baseFormat.config,
@@ -213,9 +214,10 @@ test(
           legacyJudges.push({ roundId: round, slot, participantId, actorId });
         }
       }
-      // Rated history on every existing ladder, with human and bot seats and
-      // its actual ledger FK chain. The format corpus above also keeps every
-      // lifecycle, including winnerless abandoned and unstarted Rounds.
+      // Rated history on Daisy's one ladder (ADR 0142: Freestyle), with human
+      // and bot seats and its actual ledger FK chain. The format corpus above
+      // also keeps every lifecycle, including winnerless abandoned and
+      // unstarted Rounds.
       const [bot] =
         await sql`select id from actors where kind = 'bot' order by id limit 1`;
       if (!bot) throw new Error('Main reference seed must include a bot actor');
@@ -226,7 +228,7 @@ test(
         starts_at: at,
         status: 'active',
       });
-      for (const ladder of ['freestyle', 'policy', 'value']) {
+      for (const ladder of ratingLadders) {
         const format = catalog.find(({ id }) => id === ladder)!;
         const compiled = resolveRoomConfiguration(
           format.definition,
