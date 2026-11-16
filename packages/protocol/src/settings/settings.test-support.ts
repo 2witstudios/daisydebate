@@ -105,6 +105,11 @@ export const otherValues: SettingValues = {
     closesAt: '2026-11-20T12:00:00.000Z',
   },
   'entry.approval': { value: 'automatic' },
+  'entry.judge_obligation': {
+    kind: 'ratio',
+    entriesPerJudge: 2,
+    judgesPerGroup: 1,
+  },
   'entry.cap': { perEvent: 64, perSchool: 4 },
   'conflict.handling': { value: 'denied' },
   'recording.capture': { value: 'off' },

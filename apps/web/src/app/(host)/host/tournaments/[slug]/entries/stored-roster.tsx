@@ -1,3 +1,11 @@
+import { createId } from '@paralleldrive/cuid2';
+import { tournamentEventSettingsViewSchema } from '@daisy/protocol/lobby/resolved-settings-read';
+import { settingValueSchemas } from '@daisy/protocol/setting-values';
+import { tournamentEventSettingsPath } from '../../../../../../features/tab/tournament-event-settings-route';
+import { resolvedEntry } from '../../../../../../features/tab/reads/resolved-settings';
+import { JudgeObligationForm } from '../../../../../../ui/tab/host-entries/judge-obligation-form';
+import { GET as settingsGET } from '../../../../../api/tab/tournament-event-settings/route';
+import { judgeObligationAction } from './actions';
 import { notFound } from 'next/navigation';
 import { hostRosterViewSchema } from '@daisy/protocol/lobby/entry-read';
 import { requireTabRelease } from '../../../../../../features/tab/release';
@@ -59,14 +67,66 @@ export async function StoredRoster({
         linkTo(e.name, `${entriesHref}?event=${encodeURIComponent(e.id)}`),
       ),
   });
+  const settings = view.entries.eventId
+    ? await readOwnRoute(
+        settingsGET,
+        tournamentEventSettingsPath(
+          navigation.id,
+          view.entries.eventId,
+          'entries',
+        ),
+        tournamentEventSettingsViewSchema,
+      )
+    : null;
+  const obligation = settings
+    ? resolvedEntry(settings, 'entry.judge_obligation')
+    : null;
+  const policy = obligation
+    ? settingValueSchemas['entry.judge_obligation'].parse(obligation.value)
+    : null;
   return (
     <HostEntries
       rail={rail}
       entries={{
         ...entries,
         actions: [],
-        note: 'Judge obligations are unconfigured. Judge school groups show affiliation; they do not establish who furnished a judge.',
+        note:
+          policy?.kind !== 'ratio'
+            ? 'Judge obligations are unconfigured. Judge school groups show affiliation; they do not establish who furnished a judge.'
+            : 'School obligations count accepted entries. Judges shown are accepted, eligible and cleared for this event; school groups show their affiliation.',
       }}
+      obligationEditor={
+        settings && obligation?.locked === null && view.entries.eventId ? (
+          <JudgeObligationForm
+            entries={
+              policy?.kind === 'ratio' ? String(policy.entriesPerJudge) : ''
+            }
+            judges={
+              policy?.kind === 'ratio' ? String(policy.judgesPerGroup) : ''
+            }
+            action={judgeObligationAction.bind(null, {
+              eventId: view.entries.eventId,
+              settingsVersion: settings.settingsVersion,
+              commandId: createId(),
+              handle,
+            })}
+          />
+        ) : obligation ? (
+          <p className="text-sm text-ink-muted">
+            Judge obligations:{' '}
+            {policy?.kind === 'ratio'
+              ? `${policy.judgesPerGroup} judges per ${policy.entriesPerJudge} accepted entries`
+              : 'unconfigured'}
+            .{' '}
+            {obligation.source.kind === 'catalogue'
+              ? "Daisy's default"
+              : 'name' in obligation.source
+                ? `Set by ${obligation.source.name}`
+                : ''}
+            {obligation.locked === 'enforced' ? ' · Enforced' : ''}
+          </p>
+        ) : null
+      }
       entriesHref={entriesHref}
       judgesHref={judgesHref}
     />

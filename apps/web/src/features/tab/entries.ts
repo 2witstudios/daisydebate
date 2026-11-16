@@ -264,7 +264,7 @@ export function hostJudgesOf(view: JudgeListView): HostJudges {
   return {
     lede:
       need === null
-        ? `${view.counts.judges} accepted eligible judges. Judge obligations unconfigured.`
+        ? `${view.counts.judges} accepted eligible judges. ${view.groups.some((group) => group.judgesOwed !== null) ? 'Panel demand is not shown.' : 'Judge obligations unconfigured.'}`
         : `${need.tabRoundName} needs ${need.judgesNeeded} judges in ${need.eventName} and ${need.judgesCounted} ${
             need.counting === 'named' ? 'have been named' : 'are free then'
           }.${short.join('')}`,

@@ -40,6 +40,7 @@ export const settingKeys = [
   'entry.registration',
   'entry.approval',
   'entry.cap',
+  'entry.judge_obligation',
   'conflict.handling',
   'recording.capture',
   'audience.posting',

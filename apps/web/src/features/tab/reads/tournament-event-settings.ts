@@ -58,7 +58,7 @@ export const readTournamentEventSettings =
     input: {
       readonly lobbyId: string;
       readonly eventId: string;
-      readonly area?: 'setup' | 'results';
+      readonly area?: 'setup' | 'results' | 'entries';
     },
   ): Promise<TournamentEventSettingsView | null> => {
     if (
@@ -93,7 +93,9 @@ export const readTournamentEventSettings =
             !ask(
               input.area === 'results'
                 ? 'lobby.host.results.read'
-                : 'lobby.setup.manage',
+                : input.area === 'entries'
+                  ? 'lobby.host.entries.read'
+                  : 'lobby.setup.manage',
             )
           )
             return null;

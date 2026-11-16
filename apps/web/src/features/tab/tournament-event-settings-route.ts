@@ -14,14 +14,14 @@ import type { TabPrincipal } from './tab-principal';
 const querySchema = z.strictObject({
   lobbyId: idSchema,
   eventId: idSchema,
-  area: z.enum(['setup', 'results']).default('setup'),
+  area: z.enum(['setup', 'results', 'entries']).default('setup'),
 });
 export const tournamentEventSettingsPath = (
   lobbyId: string,
   eventId: string,
-  area: 'setup' | 'results' = 'setup',
+  area: 'setup' | 'results' | 'entries' = 'setup',
 ): string =>
-  `/api/tab/tournament-event-settings?${new URLSearchParams({ lobbyId, eventId, ...(area === 'results' ? { area } : {}) })}`;
+  `/api/tab/tournament-event-settings?${new URLSearchParams({ lobbyId, eventId, ...(area !== 'setup' ? { area } : {}) })}`;
 export type TournamentEventSettingsRouteDependencies = {
   readonly boundary: MemberBoundary;
   readonly released: (userId: string) => Promise<boolean>;
@@ -30,7 +30,7 @@ export type TournamentEventSettingsRouteDependencies = {
     input: {
       readonly lobbyId: string;
       readonly eventId: string;
-      readonly area?: 'setup' | 'results';
+      readonly area?: 'setup' | 'results' | 'entries';
     },
   ) => Promise<TournamentEventSettingsView | null>;
 };

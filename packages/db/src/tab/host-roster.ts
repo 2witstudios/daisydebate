@@ -17,11 +17,16 @@ import { ballots } from '../schema/ballots';
 import { scopeTransaction } from '../tenant-scope';
 import { namedTournamentPeople } from './tournament-people';
 import { fenceTabAccountsRead } from './account-read-fence';
+import { lockEventSettingContext } from './event-setting-context';
 import { loadLobbyAuthority } from './lobby-authority';
 import { loadTabCounterpart } from './boundary';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
-type Input = { readonly viewerUserId: string; readonly lobbyId: string };
+type Input = {
+  readonly viewerUserId: string;
+  readonly lobbyId: string;
+  readonly eventId?: string | undefined;
+};
 async function load(tx: TabTransaction, input: Input) {
   await scopeTransaction(tx, {
     subjectUserId: input.viewerUserId,
@@ -93,8 +98,22 @@ async function load(tx: TabTransaction, input: Input) {
         .for('share')
     : [];
   const roundIds = roomRounds.map((row) => row.id);
+  const eventRows = await tx
+    .select()
+    .from(events)
+    .where(eq(events.lobbyId, input.lobbyId));
+  const eventId = input.eventId ?? eventRows[0]?.id;
+  const configuration = eventId
+    ? await lockEventSettingContext(tx, {
+        lobbyId: input.lobbyId,
+        eventId,
+        subjectUserId: input.viewerUserId,
+        strength: 'share',
+      })
+    : null;
   return {
     ...authority,
+    configuration,
     accounts,
     entries: entryRows,
     judges: judgeRows,

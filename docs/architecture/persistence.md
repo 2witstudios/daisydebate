@@ -264,3 +264,19 @@ in doctor and integration tests. The release runner maintains read-only
 journal provenance for the web role; startup has no DDL or grants. This does
 not make destructive schema or contract rewrites reversible. Details and role
 permissions are in [database operations](../operations/database.md#tenant-isolation).
+
+### School judge obligations
+
+`entry.judge_obligation` uses the canonical organization → template → lobby →
+event settings chain and its settings-version command guard. Its catalogue
+default is explicitly unconfigured. A configured ratio owes `judgesPerGroup`
+judges for each `entriesPerJudge` accepted school entries, rounding each school's
+partial group up independently. Zero judges per group explicitly means no
+obligation. Pending and withdrawn entries do not contribute.
+
+The host Entries editor writes that setting through the existing setting command;
+inherited enforced values stay locked. The roster reads the fenced event chain
+and shows each school's obligation alongside its accepted, eligible judges
+cleared for the selected event. Affiliation identifies the school group; it does
+not assert who furnished a judge. These obligations are distinct from panel
+demand and carry no payment behavior.

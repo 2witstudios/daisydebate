@@ -185,6 +185,14 @@ export const settingValueSchemas = {
       ),
   ]),
   'entry.approval': choice(['automatic', 'host']),
+  'entry.judge_obligation': z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('unconfigured') }),
+    z.strictObject({
+      kind: z.literal('ratio'),
+      entriesPerJudge: z.int().min(1).max(10000),
+      judgesPerGroup: z.int().min(0).max(10000),
+    }),
+  ]),
   'entry.cap': z.strictObject({
     perEvent: size.nullable(),
     perSchool: size.nullable(),
