@@ -42,6 +42,16 @@ Use the existing staging apps, credentials and workflow described in
    If a migrator already ran, determine its journal head before proceeding;
    cancelling a workflow does not undo a committed migration.
 
+The reviewed release runner provisions startup's read-only version witness
+when migration succeeds, even with no pending folders: `daisy_web` receives
+`USAGE` on schema `drizzle` and `SELECT (id, hash, created_at)` on
+`drizzle.__drizzle_migrations`. It receives no journal write or schema CREATE
+permission and cannot read the other journal columns. This is part of the
+migrator step below, never a runtime grant or a reason to give the web app the
+migration credential. Missing permission or divergent/missing image history
+refuses startup; do not bypass the check. The grant does not patch startup
+code in an already deployed older image.
+
 ## Dispatch the parent while keeping main held
 
 A disabled workflow cannot be dispatched. Use this short, coordinated window
