@@ -133,7 +133,7 @@ test('native Train Start practice creates a Room and recovers an active Room wit
 });
 
 for (const javaScriptEnabled of [true, false]) {
-  test(`an ordinary host fills side and judge seats through Manage seats (${javaScriptEnabled ? 'enhanced' : 'native'}), and refusals leave the cast unchanged`, async ({
+  test(`an ordinary host fills side and judge seats from the roster (${javaScriptEnabled ? 'enhanced' : 'native'}), and refusals leave the cast unchanged`, async ({
     browser,
   }, info) => {
     test.setTimeout(120_000);
@@ -148,56 +148,72 @@ for (const javaScriptEnabled of [true, false]) {
     });
     try {
       await resetRateLimits(hostContext.request);
-      await signUpMember(hostContext.request);
+      const { username: hostName } = await signUpMember(hostContext.request);
       await signUpMember(outsiderContext.request);
       const host = await openPage(hostContext, 'Manage host');
       const outsider = await openPage(outsiderContext, 'Manage outsider');
       const roster = await readRoomBotRoster(host.request);
-      const debater = roster.find((bot) => bot.seatRole === 'debater');
-      const judge = roster.find((bot) => bot.seatRole === 'judge');
+      // The roster's Seat picker offers eligible bots only.
+      const debater = roster.find(
+        (bot) => bot.seatRole === 'debater' && bot.eligible,
+      );
+      const judge = roster.find(
+        (bot) => bot.seatRole === 'judge' && bot.eligible,
+      );
       let view = await createFromPlay(
         host,
         `Manage bots ${createId().slice(0, 8)}`,
         'freestyle',
       );
-      await host.getByText('Manage seats', { exact: true }).click();
-      await expect(
-        host.getByLabel('Assign Negative 1', { exact: true }),
-      ).toHaveValue('');
-      const seatBot = async (seat: string, actorId: string) => {
-        const select = host.getByLabel(`Assign ${seat}`, { exact: true });
-        if (!(await select.isVisible()))
-          await host.getByText('Manage seats', { exact: true }).click();
+      // Each open seat's row carries the host's own Seat picker.
+      const picker = (seat: string) =>
+        host.getByLabel(`Seat someone in ${seat}`, { exact: true });
+      const row = (name: string) =>
+        host.getByRole('listitem', { name, exact: true });
+      await expect(picker('Negative 1')).toHaveValue('');
+      const seatBot = async (seat: string, actorId: string, label: string) => {
+        const select = picker(seat);
+        const form = host.locator('form').filter({ has: select });
         await select.selectOption(actorId);
-        await select
-          .locator('..')
-          .getByRole('button', { name: 'Assign', exact: true })
-          .click();
+        await form.getByRole('button', { name: 'Seat', exact: true }).click();
         await expect(async () => {
           view = await reread(host.request, view.id);
           expect(seated(view, actorId) !== undefined).toBe(true);
         }).toPass({ timeout: 10_000 });
-        await expect(select).toHaveValue(actorId);
+        // The seat's row now names its occupant, and its picker is gone.
+        await expect(row(label)).toBeVisible();
+        await expect(select).toHaveCount(0);
       };
-      await seatBot('Negative 1', debater!.actorId);
-      await seatBot('Judge 1', judge!.actorId);
-      // A form answer and a reload must both keep the saved picker value.
-      await expect(
-        host.getByLabel('Assign Negative 1', { exact: true }),
-      ).toHaveValue(debater!.actorId);
+      /** The host's Remove on an occupied row: the seat opens again. */
+      const removeFrom = async (seat: string, label: string) => {
+        await row(label)
+          .getByRole('button', { name: `Remove ${label}`, exact: true })
+          .click();
+        await expect(row(seat)).toBeVisible();
+        await expect(async () => {
+          view = await reread(host.request, view.id);
+          expect(
+            view.participants.some(
+              (p) => isNamedSeat(p) && p.role === 'negative',
+            ),
+          ).toBe(false);
+        }).toPass({ timeout: 10_000 });
+      };
+      await seatBot('Negative 1', debater!.actorId, debater!.label);
+      await seatBot('Judge 1', judge!.actorId, judge!.label);
       const hostId = view.hostActorId;
       if (!hostId) throw new Error('Host identity was redacted to itself');
-      await seatBot('Affirmative 1', hostId);
-      // Assigning over an occupied seat replaces its occupant in one command
-      // (ADR 0121): a second bot takes Negative 1 and the first leaves the
-      // cast, then the first takes it back the same way.
+      await seatBot('Affirmative 1', hostId, hostName);
+      // An occupied seat is never assigned over: the host removes its
+      // occupant first, then seats a second bot, and back the same way.
       const understudy = roster.find(
         (bot) =>
           bot.seatRole === 'debater' &&
           bot.eligible &&
           bot.actorId !== debater!.actorId,
       );
-      await seatBot('Negative 1', understudy!.actorId);
+      await removeFrom('Negative 1', debater!.label);
+      await seatBot('Negative 1', understudy!.actorId, understudy!.label);
       view = await reread(host.request, view.id);
       expect(seated(view, understudy!.actorId)).toMatchObject({
         role: 'negative',
@@ -205,19 +221,17 @@ for (const javaScriptEnabled of [true, false]) {
       });
       expect(seated(view, debater!.actorId)).toBeUndefined();
       expect(seated(view, hostId)?.role).toBe('affirmative');
-      await seatBot('Negative 1', debater!.actorId);
+      await removeFrom('Negative 1', understudy!.label);
+      await seatBot('Negative 1', debater!.actorId, debater!.label);
       view = await reread(host.request, view.id);
       expect(seated(view, understudy!.actorId)).toBeUndefined();
       expect(seated(view, debater!.actorId)?.role).toBe('negative');
       // The cast is durable: a reload still shows both bots seated.
       await host.reload();
-      await host.getByText('Manage seats', { exact: true }).click();
-      await expect(
-        host.getByLabel('Assign Negative 1', { exact: true }),
-      ).toHaveValue(debater!.actorId);
-      await expect(
-        host.getByLabel('Assign Judge 1', { exact: true }),
-      ).toHaveValue(judge!.actorId);
+      await expect(row(debater!.label)).toBeVisible();
+      await expect(row(judge!.label)).toBeVisible();
+      await expect(row(hostName)).toBeVisible();
+      await expect(picker('Negative 1')).toHaveCount(0);
       view = await reread(host.request, view.id);
       expect(seated(view, debater!.actorId)).toMatchObject({
         role: 'negative',

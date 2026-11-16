@@ -14,6 +14,7 @@ import { createRoomLaunchAccounts } from './room-launch-accounts';
 import {
   claim,
   createFromPlay,
+  fixSides,
   readyUp,
   reread,
   turnOffPreRoundPrep,
@@ -28,7 +29,7 @@ import { subscriptionLedger } from './subscription-ledger';
 type Seat = 'Affirmative 1' | 'Negative 1' | 'Judge 1';
 export type Player = { readonly page: Page; readonly seat: Seat };
 
-/** Prep before the round off through Room setup; prep time during the round stays on. */
+/** Prep before the round off through Settings; prep time during the round stays on. */
 export async function skipPreRoundPrep(host: Page, room: RoomView) {
   await turnOffPreRoundPrep(host);
   await expect(async () => {
@@ -290,6 +291,8 @@ export async function proveThreeBrowserRound(browser: Browser) {
       ldTemplate,
     );
     room = await skipPreRoundPrep(aff!, room);
+    // Each seat plays its own side: the journey's turns follow the seats.
+    room = await fixSides(aff!.request, room);
     room = await assemble(players, room);
     const first = await launch(aff!);
     await expectAutomaticRoundEntry(players, room, first.roundId);
@@ -355,6 +358,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
       [],
     ]);
     next = await skipPreRoundPrep(host, next);
+    next = await fixSides(host.request, next);
     next = await assemble(
       [{ page: host, seat: 'Affirmative 1' }, ...players.slice(1)],
       next,
