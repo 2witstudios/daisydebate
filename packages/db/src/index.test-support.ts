@@ -87,6 +87,7 @@ export const roundRow = (record: {
   /** The winning side; a ranking is never mocked here. */
   outcome: string | null;
   judging?: unknown;
+  leagueLadderId?: string | null;
   ladderId: string | null;
   startedAt: string | null;
   completedAt: string | null;
@@ -121,6 +122,7 @@ export const roundRow = (record: {
   record.judging ?? null,
   null, // generated stored-ballot identity (Daisy/unjudged fixture)
   null, // generated stored-ballot version
+  record.leagueLadderId ?? null,
   record.ladderId,
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),
@@ -168,6 +170,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     presetVersion: null,
     basisFormatId: null,
     basisPresetVersion: null,
+    leagueLadderId: null,
     competitionType: 'casual',
     config: oneOnOneSettings,
     capture: null,
@@ -199,6 +202,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     row.presetVersion,
     row.basisFormatId,
     row.basisPresetVersion,
+    row.leagueLadderId,
     row.competitionType,
     row.config,
     row.capture,
