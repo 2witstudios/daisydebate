@@ -1,3 +1,4 @@
+import { officiatingStage } from './tab-tournament-officiating.test-support';
 import { publishDrawStage } from './tab-tournament-publication.test-support';
 import { draftDrawStage } from './tab-tournament-draw-draft.test-support';
 import { leagueConfigurationStage } from './tab-tournament-league-configuration.test-support';
@@ -74,7 +75,7 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'officiating: grants, conflicts, judge no-show',
-    run: unwired('officiating'),
+    run: officiatingStage,
   },
   {
     name: 'ballots to results: late ballot, correction',

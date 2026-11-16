@@ -15,7 +15,7 @@ import { withRoomRuntime } from './room-runtime.test-support';
 import { committedEventRoom } from './tab-event-room-direction.test-support';
 import { registerFixtureJudge } from './tab-fixture-judge.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
-import { mediaDependencies } from './round-media.test-support';
+import { mediaDependencies, tokenClaims } from './round-media.test-support';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { fixtureCommand } from '../src/features/tab/operations/fixture-command';
 setupRitewayBun();
@@ -126,11 +126,12 @@ test('actual fixture retirement disconnects a native hidden judge and fences its
               'disconnect it and physically delete the old admission room so its unexpired signed token cannot reconnect',
             actual: [
               admitted.grants.hidden,
+              tokenClaims(admitted.token).exp * 1000 > Date.now(),
               dropped,
               await deps.media.exists(oldRoomName),
               stale === null,
             ],
-            expected: [true, true, false, true],
+            expected: [true, true, true, false, true],
           });
           await assertRejects({
             given:

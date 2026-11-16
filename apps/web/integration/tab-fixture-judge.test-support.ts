@@ -4,14 +4,13 @@ import type { TabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import { as } from './tab-tournament-organization-wiring.test-support';
-import type { committedEventRoom } from './tab-event-room-direction.test-support';
-import type { Bot } from './tab-tournament.test-support';
+import type { Bot, World } from './tab-tournament.test-support';
 
 /** An actual spare accepts its invitation and declares the actual slot, through existing guarded commands. */
 export async function registerFixtureJudge(input: {
   readonly owner: SQL;
   readonly store: Pick<TabStore, 'judgeRegistrationCommand'>;
-  readonly world: Awaited<ReturnType<typeof committedEventRoom>>;
+  readonly world: Pick<World, 'bots' | 'made'>;
   readonly person: Bot;
 }) {
   const { owner, store, world, person } = input,
