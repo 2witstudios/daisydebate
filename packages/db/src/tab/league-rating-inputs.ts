@@ -76,9 +76,19 @@ export async function loadLeagueRatingInputs(
         .from(roundParticipants)
         .where(
           and(
+            // The same completed league Rounds, by subquery rather than a
+            // bound id per Round.
             inArray(
               roundParticipants.roundId,
-              roomRounds.map((r) => r.id),
+              tx
+                .select({ id: rounds.id })
+                .from(rounds)
+                .where(
+                  and(
+                    eq(rounds.leagueLadderId, home.ladder.id),
+                    eq(rounds.status, 'completed'),
+                  ),
+                ),
             ),
             eq(roundParticipants.seatKind, 'side'),
           ),

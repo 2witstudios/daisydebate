@@ -112,19 +112,25 @@ const readCandidates = async (
  * The ending facts of these Rounds, the same Daisy's ratings read, for a
  * ladder outside Daisy's own (a league's) to ask `endingRating` of.
  */
+const endingReadBatch = 10_000;
+
 export async function readEndingRatingFacts(
   db: Execute,
   roundIds: readonly string[],
 ): Promise<readonly EndingRead<EndingRatingFacts>[]> {
   if (!roundIds.every((id) => idSchema.safeParse(id).success))
     throw createAppError('VALIDATION');
-  if (roundIds.length === 0) return [];
-  const rows = (await db.execute(sql`select ${endingColumns}
+  // Bound each query well below PostgreSQL's 65,535 bind parameters.
+  const rows: EndingRow[] = [];
+  for (let at = 0; at < roundIds.length; at += endingReadBatch)
+    rows.push(
+      ...((await db.execute(sql`select ${endingColumns}
     from rounds r ${recordedEndingJoins}
     where r.id = any(array[${sql.join(
-      roundIds.map((id) => sql`${id}`),
+      roundIds.slice(at, at + endingReadBatch).map((id) => sql`${id}`),
       sql`, `,
-    )}]::text[])`)) as unknown as EndingRow[];
+    )}]::text[])`)) as unknown as EndingRow[]),
+    );
   return rows.map(endingFacts);
 }
 
