@@ -238,16 +238,20 @@ describe('resolvedSettingsViewOf', async () => {
         'carry only keys a Room reads, no own rows, enforced values locked',
       actual: {
         keysRoomsNeverRead: view.settings.filter((entry) =>
-          ['recording.capture', 'pairing.preset', 'judging.panel'].includes(
-            entry.key,
-          ),
+          ['pairing.preset', 'judging.panel'].includes(entry.key),
         ).length,
+        roomSettings: [
+          'recording.capture',
+          'audience.video',
+          'standings.rating_ladder',
+        ].map((key) => view.settings.some((entry) => entry.key === key)),
         ownRows: view.settings.filter((entry) => entry.own !== null).length,
         visibility: pick(view, 'room.visibility')?.locked,
         posting: pick(view, 'audience.posting')?.locked,
       },
       expected: {
         keysRoomsNeverRead: 0,
+        roomSettings: [true, true, true],
         ownRows: 0,
         visibility: 'enforced',
         posting: null,
