@@ -1,6 +1,5 @@
 import { challengesPrivacyAdopter } from './challenges/privacy';
 import { contactsPrivacyAdopter } from './contacts/privacy';
-import { ratingVisibilityPrivacyAdopter } from './ratings-visibility-privacy';
 import { moderationPrivacyAdopter } from './moderation/privacy';
 import { reportsPrivacyAdopter } from './reports/privacy';
 import { friendsPrivacyAdopter } from './friends/privacy';
@@ -19,7 +18,6 @@ export const socialPrivacyAdoption = () => [
   challengesPrivacyAdopter,
   reportsPrivacyAdopter,
   moderationPrivacyAdopter,
-  ratingVisibilityPrivacyAdopter,
   presencePrivacyAdopter,
   contactsPrivacyAdopter,
 ];

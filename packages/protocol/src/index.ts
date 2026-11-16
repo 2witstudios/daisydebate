@@ -82,11 +82,7 @@ export type {
 export { roomCaptureSchema } from './room-capture';
 export type { RoomCapture } from './room-capture';
 export { formatSettingsSchema } from './format-settings';
-export { publishedResolutionSchema } from './room-resolution';
-export type {
-  PublishedResolution,
-  RoomResolutionSelection,
-} from './room-resolution';
+export type { RoomResolutionSelection } from './room-resolution';
 export type { FormatSettings } from './format-settings';
 export type {
   HydratedRound,
@@ -466,13 +462,11 @@ export {
   memberStatuses,
   presenceSettingResultSchema,
   presenceSettingSchema,
-  ratingVisibilitySchema,
 } from './presence-setting';
 export type {
   ChosenStatus,
   MemberPlacement,
   MemberStatus,
-  RatingVisibility,
 } from './presence-setting';
 export { peopleListSchema, peopleQuerySchema } from './people-list';
 export type { PeopleFilter, PeopleList, Person } from './people-list';

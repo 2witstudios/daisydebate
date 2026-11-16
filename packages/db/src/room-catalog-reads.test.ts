@@ -10,13 +10,13 @@ test('Room catalog lists role-bearing formats at their canonical presets', async
   const account = accountRow();
   // Select column order as listRoomCatalogSources declares it.
   const formatRow = [
-    'value',
-    'Value',
+    'freestyle',
+    'Freestyle',
     1,
     'standard',
     null,
     [],
-    'value daisy',
+    'freestyle daisy',
     2,
     foundationDefinition,
     null,
@@ -25,7 +25,7 @@ test('Room catalog lists role-bearing formats at their canonical presets', async
   const { database, queries } = createTestDatabase([
     [account],
     [formatRow],
-    [['value', 4, 1, oneOnOneSettings]],
+    [['freestyle', 4, 1, oneOnOneSettings]],
   ]);
   const catalog = await database.listRoomCatalogSources(
     caller,
@@ -40,7 +40,7 @@ test('Room catalog lists role-bearing formats at their canonical presets', async
       role,
       preset.version,
     ]),
-    expected: [['value', 1, 'standard', 4]],
+    expected: [['freestyle', 1, 'standard', 4]],
   });
   assert({
     given: 'the read',
@@ -56,8 +56,8 @@ test('Room catalog refuses a listed format with no current preset', async () => 
     [account],
     [
       [
-        'value',
-        'Value',
+        'freestyle',
+        'Freestyle',
         1,
         'standard',
         null,

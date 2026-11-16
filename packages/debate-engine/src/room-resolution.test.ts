@@ -2,58 +2,23 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { decideRoomResolution } from './room-resolution';
 
 setupRitewayBun();
-const publication = {
-  id: 'a'.repeat(24),
-  kind: 'value' as const,
-  text: 'Privacy ought to be valued above public safety.',
-  provenance: 'Daisy original',
-  edition: null,
-  theme: null,
-  publishedAt: '2026-10-29T00:00:00.000Z',
-};
 
 describe('decideRoomResolution', () => {
-  test('published wording', () => {
+  test('the Freestyle standard strikes', () => {
     assert({
-      given: 'a Value publication resolved by its trusted adapter',
-      should: 'use its pinned text and reference',
+      given: 'a Strike selection on the Freestyle standard, whose rules strike',
+      should: 'start with no topic until the reveal',
       actual: decideRoomResolution({
-        selection: { kind: 'value', id: publication.id },
-        publication,
-        formatId: 'value',
+        selection: { kind: 'strike' },
         standard: true,
-        strikes: false,
+        strikes: true,
       }),
-      expected: {
-        ok: true,
-        topic: publication.text,
-        publishedResolutionId: publication.id,
-      },
-    });
-  });
-  test('unavailable or mismatched publication', () => {
-    assert({
-      given:
-        'missing publication facts or a Policy request with Value publication facts',
-      should: 'refuse instead of guessing a resolution',
-      actual: [null, publication].map(
-        (facts) =>
-          decideRoomResolution({
-            selection: { kind: 'policy', id: publication.id },
-            publication: facts,
-            formatId: 'policy',
-            standard: true,
-            strikes: false,
-          }).ok,
-      ),
-      expected: [false, false],
+      expected: { ok: true, topic: null },
     });
   });
   test('standard and Custom methods', () => {
     const input = {
       selection: { kind: 'custom' as const, text: 'A host resolution' },
-      publication: null,
-      formatId: 'value',
       strikes: false,
     };
     assert({
@@ -62,10 +27,26 @@ describe('decideRoomResolution', () => {
       should: 'accept only the Custom fixed-resolution request',
       actual: [
         decideRoomResolution({ ...input, standard: true }).ok,
-        decideRoomResolution({ ...input, standard: false }).ok,
+        decideRoomResolution({ ...input, standard: false }),
         decideRoomResolution({ ...input, standard: false, strikes: true }).ok,
       ],
-      expected: [false, true, false],
+      expected: [
+        false,
+        { ok: true, topic: 'A host resolution' },
+        false,
+      ],
+    });
+  });
+  test('a strike without strike rules', () => {
+    assert({
+      given: 'a Strike selection on Custom rules that do not strike',
+      should: 'refuse instead of guessing a resolution',
+      actual: decideRoomResolution({
+        selection: { kind: 'strike' },
+        standard: false,
+        strikes: false,
+      }).ok,
+      expected: false,
     });
   });
 });
