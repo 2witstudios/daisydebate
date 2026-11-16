@@ -31,4 +31,33 @@ test('league standings require a current league connection', () => {
     }).allow,
     expected: false,
   });
+  const member = {
+    ...league,
+    member: true,
+    standingLobbyIds: ['league-lobby'],
+  };
+  const restricted = {
+    ageBand: '16-17' as const,
+    boundary: { allowedLobbyIds: [], entryLobbyIds: [], revision: 1 },
+  };
+  assert({
+    given: 'a minor league member whose guardian allows no league lobby',
+    should:
+      'retain organization identity access without exposing season standings',
+    actual: [
+      ask('organization.read', member, { account: restricted }).allow,
+      ask('standings.read', member, { account: restricted }).allow,
+      ask('standings.read', member, {
+        account: {
+          ...restricted,
+          boundary: {
+            allowedLobbyIds: ['league-lobby'],
+            entryLobbyIds: [],
+            revision: 1,
+          },
+        },
+      }).allow,
+    ],
+    expected: [true, false, true],
+  });
 });
