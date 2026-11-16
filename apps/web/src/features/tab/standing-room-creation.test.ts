@@ -14,6 +14,7 @@ test('standing Room metadata validates exact resolved creation inputs', () => {
     config: plainRoomConfig,
     resolutionChoicePolicy: { method: 'fixed', ownText: true, choices: [] },
     rating: { kind: 'unrated' },
+    recording: { value: 'off', locked: true },
     visibility: { value: 'unlisted', locked: true },
   };
   assert({
@@ -21,6 +22,16 @@ test('standing Room metadata validates exact resolved creation inputs', () => {
     should: 'accept the complete creation read',
     actual: standingRoomCreationSchema.safeParse(value).success,
     expected: true,
+  });
+  assert({
+    given: 'a creation read without its Recording enforcement policy',
+    should:
+      'refuse an incomplete description rather than default capture silently',
+    actual: standingRoomCreationSchema.safeParse({
+      ...value,
+      recording: undefined,
+    }).success,
+    expected: false,
   });
   assert({
     given: 'metadata missing its pinned preset revision',

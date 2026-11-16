@@ -323,6 +323,12 @@ export const createLobbyRoom =
             () => {
               const decision = decideLobby(facts, command);
               if (decision.kind !== 'accepted') return decision;
+              const recordingSetting = resolved.settings['recording.capture'];
+              if (
+                recordingSetting.hold === 'enforced' &&
+                (recording !== null) !== (recordingSetting.value.value === 'on')
+              )
+                return { kind: 'refused', refusal: 'setting-enforced' };
               if (
                 selected.competitionType === 'ranked' ||
                 !sameSettingValue(config, expectedConfig)

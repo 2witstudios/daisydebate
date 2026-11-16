@@ -91,6 +91,55 @@ export async function nativeRoomCases(
     if (answer.kind !== 'accepted')
       throw new Error(`native setting: ${JSON.stringify(answer)}`);
   };
+  for (const policy of ['off', 'on'] as const) {
+    await set({
+      type: 'set-setting',
+      scope: { kind: 'lobby', id: lobbyId },
+      key: 'recording.capture',
+      value: { value: policy },
+      hold: 'enforced',
+    });
+    const policyRead = await read(principal, {
+      lobbyId,
+      templateId: original.templateId!,
+    });
+    assert({
+      given: `an enforced Recording ${policy} policy on the actual Room chain`,
+      should: 'publish its exact value and lock in native creation metadata',
+      actual: policyRead?.creation?.recording,
+      expected: { value: policy, locked: true },
+    });
+    const policyCounts = await counts();
+    const requests: CreateLobbyRoomCommand[] =
+      policy === 'off'
+        ? [
+            {
+              ...original,
+              room: { ...original.room, recordingPolicy: 'officials' },
+            },
+          ]
+        : [
+            { ...original, room: { ...original.room } },
+            { ...original, room: { ...original.room, recordingPolicy: 'off' } },
+          ];
+    for (const request of requests) {
+      assert({
+        given: `a requested Recording ${request.room.recordingPolicy ?? 'omitted'} against enforced ${policy}`,
+        should:
+          'refuse before assembly without a Room, history or outbox write',
+        actual: [await send(principal, body(request)), await counts()],
+        expected: [
+          { kind: 'refused', refusal: 'setting-enforced' },
+          policyCounts,
+        ],
+      });
+    }
+  }
+  await set({
+    type: 'clear-setting',
+    scope: { kind: 'lobby', id: lobbyId },
+    key: 'recording.capture',
+  });
   await set({
     type: 'set-setting',
     scope: { kind: 'lobby', id: lobbyId },

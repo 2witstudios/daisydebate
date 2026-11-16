@@ -17,6 +17,10 @@ export const standingRoomCreationSchema = z.strictObject({
       z.strictObject({ id: idSchema, text: z.string().trim().min(1).max(300) }),
     ),
   }),
+  recording: z.strictObject({
+    value: z.enum(['on', 'off']),
+    locked: z.boolean(),
+  }),
   rating: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('unrated') }),
     z.strictObject({ kind: z.literal('rated'), ladderId: idSchema }),

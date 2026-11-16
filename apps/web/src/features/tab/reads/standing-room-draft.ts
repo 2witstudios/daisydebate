@@ -144,6 +144,11 @@ export const readStandingRoomDraft =
               creation,
               facts.resolutions,
             ),
+            recording: {
+              value: creation.settings['recording.capture'].value.value,
+              locked:
+                creation.settings['recording.capture'].hold === 'enforced',
+            },
             resolutionChoicePolicy: {
               method: creation.settings['resolution.rule'].value.method,
               ownText:
