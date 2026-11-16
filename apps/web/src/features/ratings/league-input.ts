@@ -12,6 +12,10 @@ import { endingRating } from '@daisy/debate-engine';
 
 /** Consume only the league's received, certified tournament output and own frozen Rooms. */
 export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
+  // One pass over the seats, so each Round reads only its own.
+  const seats = new Map<string, (typeof input.participants)[number][]>();
+  for (const person of input.participants)
+    seats.set(person.roundId, [...(seats.get(person.roundId) ?? []), person]);
   const rooms: LadderGame[] = input.roomRounds.flatMap((round) => {
     const [first, second] = round.rules.sides;
     // Daisy's own rule for whether an ending rates: a Round Daisy refuses
@@ -26,10 +30,8 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
     )
       return [];
     const sides = [first, second].map((side) =>
-      input.participants
-        .filter(
-          (person) => person.roundId === round.id && person.side === side.key,
-        )
+      (seats.get(round.id) ?? [])
+        .filter((person) => person.side === side.key)
         .map((person) => person.actorId),
     );
     const { side } = rated.outcome;
