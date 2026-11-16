@@ -71,9 +71,11 @@ ones, and onboarding taught three ladders instead of how to play.
    drops `published_resolutions` and `rating_visibility`, and tightens the
    CHECKs. No stored object loses its owner. Chat files in the deleted
    channels become file deletion intents. The migration refuses while a
-   Policy or Value recording is not removed, a capture has not ended or a
-   broadcast feed is not withdrawn: the operator clears those through their
-   own sweeps first (docs/operations/database.md). A seeded integration test
+   Policy or Value recording is not removed, a capture has not ended, a
+   broadcast feed is not withdrawn or a media session has not ended: the
+   operator clears those through their own sweeps first
+   (docs/operations/database.md). Usage reservations cascade with their
+   Rounds, which the waiver covers (billing is TEST mode before release). A seeded integration test
    proves the refusal and the deletion. Running it against the shared
    environment keeps human sign-off (FOR-H.1).
 

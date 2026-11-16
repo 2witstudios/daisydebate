@@ -155,7 +155,7 @@ test(
           () => 'migrated',
           (error: unknown) =>
             String(error).includes(
-              'requires every Policy and Value recording removed and broadcast feed withdrawn first',
+              'requires every Policy and Value recording removed, broadcast feed withdrawn and media session ended first',
             ),
         );
       assert({

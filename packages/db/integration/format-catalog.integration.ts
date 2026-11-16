@@ -36,7 +36,7 @@ test('the migrations seed the catalog with a current preset each', async () => {
     assert({
       given: 'a migrated database',
       should:
-        'list every catalog format at preset1 and admit exactly the three canonical rated IDs',
+        'list every catalog format at preset1 and admit exactly the canonical ladder IDs (Freestyle)',
       actual: { listed, oneOnOneRanked: oneOnOne[0]?.ranked },
       expected: {
         listed: catalogFormats.map(({ id, role, family }) => ({

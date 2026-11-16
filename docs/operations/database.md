@@ -227,8 +227,10 @@ those Rooms' and Rounds' channels become `messaging_file_deletion_intents`, so
 the file sweep still deletes their objects and releases their bytes. Recorded
 and broadcast media leave storage only through their own sweeps, which find
 it from its rows, so the migration refuses while any Policy or Value Round has
-a recording that is not `removed`, a capture that has not ended, or a
-broadcast whose feed is not withdrawn.
+a recording that is not `removed`, a capture that has not ended, a
+broadcast whose feed is not withdrawn, or a media session that has not
+ended. Deleted Rounds take their usage reservations with them (they
+cascade); billing is TEST mode before release and the owner waived the rows.
 
 Running it is FOR-H.1 and needs owner sign-off. The operator:
 
@@ -249,7 +251,8 @@ Running it is FOR-H.1 and needs owner sign-off. The operator:
    take it down and then remove it from the admin content-moderation screen
    (`/operator/v1/recordings/:id/takedown`, then `/removal`). Waits until the
    deletion sweep marks it `removed`, and until every listed broadcast's feed
-   is withdrawn. Never edits a status by hand to pass the guard.
+   is withdrawn and no Policy or Value Round is still live (its media
+   session ended). Never edits a status by hand to pass the guard.
 4. Applies the migration, then confirms that no `policy` or `value` row is
    left in `formats`, `rounds`, `rooms`, `ratings` or `challenges`, and that
    Freestyle standings are unchanged.
