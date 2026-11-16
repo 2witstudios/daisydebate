@@ -101,7 +101,15 @@ A host creates a Room from the catalog or a custom definition. Members take
 debater or judge seats; the host may seat bots. A host assign replaces the
 seat's occupant outright, person or bot, in one command (ADR 0121); removing
 to empty is the separate remove command. Changing settings or seats clears
-every Ready consent, so nobody plays under rules they did not see. Consent
+every Ready consent, so nobody plays under rules they did not see.
+
+Debaters sit in **teams** (ADR 0143). A Room seat's role is its team's
+placement: team 1 in the affirmative seats, team 2 in the negative ones, and the
+Room says which side team 1 argues, or `?` for a coin flip. A debater may set
+their own team and position to `?` as well. Start round resolves every `?` in
+one public draw, frozen on the Round as its seat draw and shown first in the
+opening. Ranked Rooms always flip; a Tab cast and teams of different sizes keep
+fixed sides. Consent
 lives in expiring Redis behind a durable revision fence.
 
 A host can also **invite** a member by username, as a debater (either side) or

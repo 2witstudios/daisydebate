@@ -265,19 +265,36 @@ resolved ordered schedule. Settings are an acknowledged summary with explicit
 native Edit disclosures; a refused save opens its disclosure and retains the
 submitted draft and version.
 
-The page is two columns once there is room. The right column is the Start card,
-Seats and the Round setup summary. The left column is the viewer's own: a seated
-debater's camera preview and device rows, then the Room chat, which takes the
-column's spare height and scrolls inside it. A viewer with no devices (a
-visitor, a judge, a seatless host) has the Room chat alone there, with no
-banner explaining why. A device is one row: its name and state on one line, its
-select beside a short Check button on the next, and remedy text only when a
-check is refused.
+The page is two columns once there is room (ADR 0143). The left column is the
+roster, then the Room chat, which takes the column's spare height and scrolls
+inside it. The right column is the viewer's own tile (a seated debater's camera
+preview and device rows, with I'm ready under it), then Room controls (Who can
+join, Broadcast, Record), then the settings preview. A viewer with no seat has
+no tile, with no banner explaining why. A device is one row: its name and state
+on one line, its select beside a short Check button on the next, and remedy
+text only when a check is refused. The video never expands a row.
 
-Ready belongs to a seat, so the viewer's Ready or Not ready sits in their own
-seat row in place of the status pill, with its reason line, and the ranked
-waiver form while it is unsigned, beneath it. The Start card says what the
-Round waits on and holds only the host's Start round.
+The roster is one row per declared seat, debaters then judges, like a game
+lobby. A debater row is a Ready mark, the debater with their rating inline (a
+plain integer, provisional `1500*` in italic), then boxes: Side always, Team
+and Position only when a team seats more than one. `?` is random, decided at
+Start round; a box the viewer may change is a button that cycles to its next
+value (team 1 → 2 → ?, side ? → Aff → Neg, position 1st → … → ?). A member
+changes their own row and the host anyone's. An open seat offers Take seat,
+Invite and, to the host, a Seat picker (and AI judge on a judge seat); the
+host removes an occupant with Remove before seating someone else. The roster
+ends with what Start waits on and the host's Start round.
+
+Ready belongs to the viewer, so I'm ready is one full-width button under their
+own tile, with the capture notice and the ranked waiver form above it while
+they apply. The roster shows only each seat's Ready mark.
+
+Who can join, Broadcast and Record post on change, as a select and two switches
+for the host and plain values for everyone else; the broadcast delay shows as
+words under Broadcast. Everything else is in Edit settings: a near-full-screen
+dialog opened from the preview (and the Resolution card's Edit), the Room's name
+and resolution beside the round's format and settings, and the broadcast delay.
+No line of copy explains a box or a column.
 
 Room chat is the Room's own conversation for everyone who may read the Room,
 seat or no seat (ADR 0126). A message shows its author's username and, where
@@ -294,9 +311,8 @@ boundary converts their strings to exact integer milliseconds and checks the
 combined duration against the room's pinned format bounds. Speech order, seat
 identity and structural schedule authority remain with the pinned definition.
 
-Seat assignment pickers show the saved occupant, or an explicit empty choice.
-An acknowledged assignment follows the canonical Room view; a refused enhanced
-submission retains its selected participant and shows the refusal.
+A refused seat command (a Seat picker, a box) shows its refusal and the roster
+follows the canonical Room view.
 
 Invite people is a host tool, so it takes no page space: it is a button in the
 header's button row that opens a modal dialog, and it shows only to the host
