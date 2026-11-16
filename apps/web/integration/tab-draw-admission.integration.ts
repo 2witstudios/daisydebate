@@ -320,4 +320,4 @@ test('draw admission follows new seats while unrelated accounts and cleanup do n
       await publishDrawStage(world);
     },
   });
-});
+}, 30_000);

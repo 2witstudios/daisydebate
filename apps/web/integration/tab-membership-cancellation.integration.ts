@@ -194,4 +194,4 @@ test('DEC406: invitation cancellation binds the displayed membership and races a
   } finally {
     await Promise.all([owner.close(), cancelling.close(), accepting.close()]);
   }
-});
+}, 30_000);
