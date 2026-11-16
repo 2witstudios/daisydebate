@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ladderLabels } from '../../features/ratings/ladder-labels';
 import type { MemberStanding } from '../../features/ratings/read-member';
 import {
   markedRating,
@@ -22,7 +23,7 @@ export function MemberStandings({
       {standings.length === 0 ? (
         <p className="text-sm text-ink-muted">No season is active.</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 max-narrow:grid-cols-1">
+        <ul className="flex flex-col gap-3">
           {standings.map((s) => (
             <li
               key={s.ladder}
@@ -30,10 +31,10 @@ export function MemberStandings({
             >
               <div className="flex items-center justify-between gap-2">
                 <Link
-                  href={`/leaderboard?ladder=${s.ladder}`}
+                  href="/leaderboard"
                   className="font-strong text-ink no-underline hover:underline"
                 >
-                  {s.ladder[0]!.toUpperCase() + s.ladder.slice(1)}
+                  {ladderLabels[s.ladder]}
                 </Link>
                 <span className="text-xs text-ink-muted">{s.season}</span>
               </div>

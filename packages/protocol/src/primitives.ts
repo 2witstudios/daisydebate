@@ -11,12 +11,12 @@ import { z } from 'zod';
 export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
 
 /**
- * The rating ladders (ADR 0055): Ranked, the one ladder now that every
- * Round is full length (DEC-237, DEC-238). A ladder joins the rating key,
- * and the ladder CHECKs on `ratings`, `rating_changes` and `rounds` derive
- * from this array.
+ * Daisy's rating ladders (ADR 0142): Freestyle, the one standard, is the one
+ * ladder. The rating key stays (actor, ladder, season), and the ladder
+ * CHECKs on `ratings`, `rating_changes`, `rounds` and `challenges` derive
+ * from this list, so a later ladder extends it rather than a literal.
  */
-export const ratingLadders = ['freestyle', 'policy', 'value'] as const;
+export const ratingLadders = ['freestyle'] as const;
 export type RatingLadder = (typeof ratingLadders)[number];
 
 /**

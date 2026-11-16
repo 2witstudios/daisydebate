@@ -1,6 +1,9 @@
 # 0092: Explicit resolution selection at Room creation
 
 Status: accepted; owner-approved create-room design, 2026-10-29 (FMT-8).
+Amended by [ADR 0142](0142-freestyle-the-one-standard-and-ladder.md): creation offers Freestyle and Custom, the resolution is
+Strike or Custom, and published resolutions (with the Beta Season 1
+publications below) are deleted.
 
 ## Decision
 

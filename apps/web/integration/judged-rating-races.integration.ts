@@ -32,7 +32,7 @@ test('three postings overlapping on the Round lock from separate sessions write 
     await inSeason(f, async () => {
       const { roundId, freezeRevision } = await frozenRankedRound(
         f,
-        'policy',
+        'freestyle',
         'human',
       );
       await (
@@ -79,7 +79,7 @@ test('a posting queued behind the deciding ballot sees the committed finalizatio
     await inSeason(f, async () => {
       const { roundId, freezeRevision } = await frozenRankedRound(
         f,
-        'policy',
+        'freestyle',
         'human',
       );
       const submit = await ballotCommand(

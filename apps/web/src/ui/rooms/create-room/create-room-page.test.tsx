@@ -39,7 +39,7 @@ test('create page renders durable-create fields without a placeholder judge', ()
 test('the ranked create form explains why it is public and states no notice', () => {
   const template = {
     ...unequalTemplate,
-    formatId: 'value',
+    formatId: 'freestyle',
     role: 'standard' as const,
     preset: { ...unequalTemplate.preset, rankedEligible: true },
   };
@@ -47,7 +47,6 @@ test('the ranked create form explains why it is public and states no notice', ()
     renderToString(
       h(CreateRoomEditor, {
         choices: [template],
-        resolutions: [],
         initialChoice: template,
         values: {},
         commandId: 'n'.repeat(24),
@@ -88,7 +87,6 @@ test('recording is a visible casual choice and automatically on for Ranked', () 
     renderToString(
       h(CreateRoomEditor, {
         choices: [template],
-        resolutions: [],
         initialChoice: template,
         values,
         commandId: 'n'.repeat(24),
@@ -131,7 +129,6 @@ test('post-round feedback is a casual choice that Ranked switches off', () => {
     renderToString(
       h(CreateRoomEditor, {
         choices: [template],
-        resolutions: [],
         initialChoice: template,
         values,
         commandId: 'n'.repeat(24),
@@ -165,7 +162,6 @@ test('a casual Room is public unless its host chooses otherwise', () => {
     renderToString(
       h(CreateRoomEditor, {
         choices: [unequalTemplate],
-        resolutions: [],
         initialChoice: unequalTemplate,
         values,
         commandId: 'n'.repeat(24),

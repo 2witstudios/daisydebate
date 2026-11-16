@@ -146,7 +146,6 @@ export async function restartFixtureRoom(
     JSON.stringify(plan.capture) !== JSON.stringify(old.capture) ||
     plan.postRoundCall !== old.postRoundCall ||
     plan.room.topic !== old.topic ||
-    (plan.room.publishedResolutionId ?? null) !== old.publishedResolutionId ||
     plan.room.title !== old.title ||
     plan.room.visibility !== old.visibility ||
     plan.room.competitionType !== old.competitionType ||

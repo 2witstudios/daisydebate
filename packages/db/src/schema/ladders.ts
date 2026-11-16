@@ -6,7 +6,7 @@ import { constantText, nonEmpty } from './tenant-keys';
 /**
  * A rating over one standing lobby's rated Rooms. It belongs to exactly one
  * standing lobby and to that lobby's organization; a tournament lobby never
- * owns one. Daisy's three keep the ids `freestyle`, `policy` and `value`.
+ * owns one. Daisy's one ladder keeps the id `freestyle` (ADR 0142).
  * Ratings stay Daisy-only by the ladder CHECKs on `ratings` and
  * `rating_changes`, so a league's ladder row may exist while nothing can be
  * posted to it.

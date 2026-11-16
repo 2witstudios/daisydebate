@@ -16,6 +16,7 @@ import {
   roomCaptureNotice,
 } from './ready-agreements';
 import type { Database } from '@daisy/db';
+import { standardFormatIds } from '@daisy/db/catalog-formats';
 import {
   readRoundOpeningTopic,
   activeRoomMembers,
@@ -38,11 +39,14 @@ import type {
   RoomCastChoice,
   RoomCommandResponse,
   RoomCreate,
-  PublishedResolution,
 } from '@daisy/protocol';
 import { isDebatingSeat, isOpenRoomStatus } from '@daisy/protocol';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
+
+/** Whether a catalog format is Daisy's standard, Freestyle (ADR 0142). */
+const isStandardFormat = (formatId: string) =>
+  (standardFormatIds as readonly string[]).includes(formatId);
 export type Store = Pick<
   Database,
   | 'readRoomInvitations'
@@ -54,8 +58,6 @@ export type Store = Pick<
   | 'listRoomBots'
   | 'getFormatRevision'
   | 'getFormatSelectionFacts'
-  | 'listPublishedResolutions'
-  | 'getPublishedResolution'
   | 'readRoomCreateReceipt'
   | 'createRoomCommand'
   | 'readRoomAssembly'
@@ -209,7 +211,6 @@ export function createRoomRuntimeOperations({
     caller: Caller,
   ): Promise<{
     readonly choices: readonly RoomCatalogChoice[];
-    readonly resolutions: readonly PublishedResolution[];
     /** The caller may include the AI judge in a new bot debate. */
     readonly botDebateAiJudge: boolean;
   }> => {
@@ -236,7 +237,6 @@ export function createRoomRuntimeOperations({
     }));
     return {
       choices,
-      resolutions: await store.listPublishedResolutions(),
       botDebateAiJudge:
         (await store.readOwnCasualJudgeAllowance(caller, true)).kind ===
         'admit',
@@ -285,22 +285,9 @@ export function createRoomRuntimeOperations({
     );
     if (createNotice.kind === 'refused')
       throw createRefusal('CONFLICT', 'capture-notice-changed');
-    const resolutionSelection = body.resolution;
-    const publication =
-      resolutionSelection.kind === 'policy' ||
-      resolutionSelection.kind === 'value'
-        ? await store.getPublishedResolution(
-            resolutionSelection.id,
-            resolutionSelection.kind,
-          )
-        : null;
     const resolution = decideRoomResolution({
-      selection: resolutionSelection,
-      publication,
-      formatId,
-      standard:
-        selection.kind !== 'custom' &&
-        ['policy', 'value', 'freestyle'].includes(formatId),
+      selection: body.resolution,
+      standard: selection.kind !== 'custom' && isStandardFormat(formatId),
       strikes: resolved.roomPlan.resolutionDraw.enabled,
     });
     if (!resolution.ok) throw createRefusal('CONFLICT', 'illegal-config');
@@ -323,10 +310,6 @@ export function createRoomRuntimeOperations({
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,
-      resolutionPublication: publication && {
-        id: publication.id,
-        kind: publication.kind,
-      },
       selection: recheck,
       ...(recordingPolicy
         ? {
@@ -400,7 +383,6 @@ export function createRoomRuntimeOperations({
         hostActorId: caller.actorId,
         title: body.title,
         topic: resolution.topic,
-        publishedResolutionId: resolution.publishedResolutionId,
         visibility: body.visibility,
         formatId,
         formatVersion,

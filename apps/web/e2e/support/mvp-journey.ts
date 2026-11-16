@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage } from './fixtures';
 import { origin, signUpWaitlisted } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
-import { createFromPlay } from './room-launch-flow';
+import { createFromPlay, ldTemplate, setResolution } from './room-launch-flow';
 import { expectRoundResult } from './round-result-proof';
 import {
   assemble,
@@ -62,9 +62,11 @@ async function expectInHistory(page: Page, username: string, roundId: string) {
 /**
  * ISSUE-639, the unranked beta MVP journey as one proof:
  * - clause 1: the beta gate denies a pending member (approval: ISSUE-685);
- * - clause 2: two approved members meet through the Lobby, play a standard
- *   one-on-one Value Round to a human ballot, read the authorized result and
- *   transcript, and find the same Round in their profile history.
+ * - clause 2: two approved members meet through the Lobby, play a casual
+ *   one-on-one Round on the host's wording (Custom, based on the NSDA
+ *   Lincoln-Douglas template, so no strike) to a human ballot, read the
+ *   authorized result and transcript, and find the same Round in their
+ *   profile history.
  * Clause 3 (Freestyle strike and reveal) has no producer on main; clause 4
  * (friends, Challenge, DM) is the Social slice's seam. Both are recorded in
  * the evidence as missing, never replaced by a mock.
@@ -78,7 +80,13 @@ export async function proveMvpJourney(browser: Browser) {
       'ISSUE-639',
     );
     const title = `ISSUE-639 ${createId().slice(0, 8)}`;
-    let room = await createFromPlay(aff, title);
+    let room = await createFromPlay(
+      aff,
+      title,
+      'custom',
+      setResolution,
+      ldTemplate,
+    );
     for (const page of [neg, judge]) await joinFromLobby(page, title, room.id);
     const players: Player[] = [
       { page: aff, seat: 'Affirmative 1' },

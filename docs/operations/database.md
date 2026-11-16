@@ -266,6 +266,58 @@ delete sessions, and what each one costs:
 for any reset that must close live sockets. A database reset that recreates
 the schema drops the trigger with it; migrations recreate it.
 
+## Freestyle only (ADR 0142)
+
+`20261116175848_freestyle_only_ranked` deletes every Policy and Value Room
+(with all its Rounds), every Round on either format, and their ratings,
+challenges, presets and formats; the owner waived keeping them. Chat files in
+those Rooms' and Rounds' channels become `messaging_file_deletion_intents`, so
+the file sweep still deletes their objects and releases their bytes. Recorded
+and broadcast media leave storage only through their own sweeps, which find
+it from its rows, so the migration refuses while any Policy or Value Round has
+a recording that is not `removed`, a capture that has not ended, a
+broadcast that is not withdrawn and completed, or a media session that has
+not ended. Deleted Rounds take their usage reservations with them (they
+cascade); billing is TEST mode before release and the owner waived the rows.
+
+Running it is FOR-H.1 and needs owner sign-off. The operator:
+
+1. Takes a restore point (see [restore rehearsal](restore-rehearsal.md)).
+2. Checks in a read-only session, over the same Rounds the migration deletes
+   (on either format or ladder, or in a Policy or Value Room):
+
+   ```sql
+   with doomed as (
+     select id from rounds
+      where format_id in ('policy','value') or ladder_id in ('policy','value')
+         or room_id in (select id from rooms where format_id in ('policy','value'))
+   )
+   select 'recording not removed' as blocker, count(*) from recordings
+    where round_id in (select id from doomed) and status <> 'removed'
+   union all
+   select 'capture not ended', count(*) from recording_captures
+    where round_id in (select id from doomed) and ended_at is null
+   union all
+   select 'broadcast not withdrawn and completed', count(*) from broadcasts
+    where round_id in (select id from doomed)
+      and (feed_withdrawn_at is null or completed_at is null)
+   union all
+   select 'media session not ended', count(*) from media_sessions
+    where round_id in (select id from doomed) and ended_at is null;
+   ```
+
+   Every count must be zero before the migration runs.
+
+3. Removes any recording that is not `removed` through the existing pipeline:
+   take it down and then remove it from the admin content-moderation screen
+   (`/operator/v1/recordings/:id/takedown`, then `/removal`). Waits until the
+   deletion sweep marks it `removed`, until every listed broadcast is withdrawn
+   and completed, and until no Policy or Value Round is still live (its media
+   session ended). Never edits a status by hand to pass the guard.
+4. Applies the migration, then confirms that no `policy` or `value` row is
+   left in `formats`, `rounds`, `rooms`, `ratings` or `challenges`, and that
+   Freestyle standings are unchanged.
+
 ## Three-ladder rollout and beta Season 1
 
 Before applying `20261028224402_three_rating_ladders`, an authorized operator
@@ -325,7 +377,7 @@ COMMIT;
 
 An existing closed Season 1 is returned closed; it is never reopened. Any competing season refuses. No start date can be supplied.
 
-Authorized beta checks cover Freestyle, Policy and Value: native opt-in setup,
+Authorized beta checks cover the Freestyle ladder (ADR 0142): native opt-in setup,
 selected resolution/strike freeze, eligible human/AI judged and forfeit result,
 one matching ledger pair, actor+ladder+season projection, exact leaderboard,
 profile and Round figures, provisional state and judge blinding. Check empty

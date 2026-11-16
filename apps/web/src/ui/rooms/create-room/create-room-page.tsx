@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import type { PublishedResolution } from '@daisy/protocol';
 import { buttonClass } from '../../components/button/button-class';
 import { PageHeader } from '../../components/page-header/page-header';
 import type { RoomDraftAnswer } from '../../../features/rooms/create-room-answer';
@@ -12,7 +11,6 @@ export function CreateRoomPage({
   sourceRoomId,
   commandId,
   choices,
-  resolutions = [],
   freshRoom = false,
   initialRanked = false,
 }: {
@@ -22,7 +20,6 @@ export function CreateRoomPage({
   readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
-  readonly resolutions?: readonly PublishedResolution[];
 }) {
   return (
     <div className="create-room-page">
@@ -51,7 +48,6 @@ export function CreateRoomPage({
         {...(sourceRoomId ? { sourceRoomId } : {})}
         commandId={commandId}
         choices={choices}
-        resolutions={resolutions}
       />
     </div>
   );

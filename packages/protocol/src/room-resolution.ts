@@ -1,23 +1,11 @@
 import { z } from 'zod';
-import { idSchema } from './primitives';
 
-/** Publication identity is supplied instead of trusting text returned by a client. */
-export const publishedResolutionSchema = z.strictObject({
-  id: idSchema,
-  kind: z.enum(['policy', 'value']),
-  text: z.string().trim().min(1).max(300),
-  provenance: z.string().trim().min(1),
-  publishedAt: z.iso.datetime({ offset: true }),
-  /** Descriptive publication edition, independent from rating-season authority. */
-  edition: z.string().trim().min(1).max(100).nullable(),
-  theme: z.string().trim().min(1).max(200).nullable(),
-});
-export type PublishedResolution = z.infer<typeof publishedResolutionSchema>;
-
-/** Strike rules belong to the product; the host selects only the method. */
+/**
+ * How a Room's resolution is chosen at creation (ADR 0092, amended by ADR
+ * 0142): Freestyle's strike from Daisy's bank, or the host's own wording.
+ * Strike rules belong to the product; the host selects only the method.
+ */
 export const roomResolutionSelectionSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('policy'), id: idSchema }),
-  z.strictObject({ kind: z.literal('value'), id: idSchema }),
   z.strictObject({ kind: z.literal('strike') }),
   z.strictObject({
     kind: z.literal('custom'),

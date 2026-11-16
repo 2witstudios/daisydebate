@@ -55,8 +55,8 @@ const facts = (
   } = {},
 ): FormatSelectionFacts => ({
   format: {
-    id: 'value',
-    name: 'Value',
+    id: 'freestyle',
+    name: 'Freestyle',
     leagues: [],
     catalogOwned: true,
     role: 'standard',
@@ -78,7 +78,7 @@ const request = (
   overrides: Partial<FormatSelectionRequest> = {},
 ): FormatSelectionRequest => ({
   intent: 'choose',
-  formatId: 'value',
+  formatId: 'freestyle',
   formatVersion: 1,
   presetVersion: 3,
   basis: null,
@@ -111,7 +111,7 @@ describe('decideFormatSelection', () => {
       expected: {
         definition: oneOnOneFormatFixture,
         config: oneOnOneSettings,
-        basis: { formatId: 'value', presetVersion: 3 },
+        basis: { formatId: 'freestyle', presetVersion: 3 },
         rankedPresetVersion: null,
         compiled: true,
       },
@@ -163,7 +163,7 @@ describe('decideFormatSelection', () => {
           request({ presetVersion: 9 }),
           facts(),
         ),
-        refusal('a forged format id', request({ formatId: 'policy' }), facts()),
+        refusal('a forged format id', request({ formatId: 'forged' }), facts()),
       ],
       expected: [
         { given: 'an unknown format', refused: 'format-unavailable' },
@@ -304,7 +304,7 @@ describe('decideFormatSelection', () => {
   test('reset restores the pinned basis', () => {
     const reset = request({
       intent: 'reset',
-      basis: { formatId: 'value', presetVersion: 3 },
+      basis: { formatId: 'freestyle', presetVersion: 3 },
     });
     assert({
       given:

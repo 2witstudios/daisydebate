@@ -26,7 +26,7 @@ const backfill = async () => {
     .at(-1)!;
   if (!statement.includes('INSERT INTO "room_active_memberships"'))
     throw new Error('The migration no longer ends with its backfill');
-  const seatless = (await migrationText('20261114151541_tab_seats'))
+  const seatless = (await migrationText('20261116175851_tab_seats'))
     .split('--> statement-breakpoint')
     .find((part) => part.trim().startsWith('DELETE FROM "active_seats" s'));
   if (!seatless) throw new Error('TAB-6 no longer releases seatless holds');

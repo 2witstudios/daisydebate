@@ -181,13 +181,17 @@ describe('projectRoom format (FMT-1)', () => {
   const standard = {
     ...base,
     definition,
-    formatId: 'value',
-    catalogFormat: { name: 'Value', role: 'standard' as const, leagues: [] },
+    formatId: 'freestyle',
+    catalogFormat: {
+      name: 'Freestyle',
+      role: 'standard' as const,
+      leagues: [],
+    },
     basis: {
-      formatId: 'value',
+      formatId: 'freestyle',
       presetVersion: 3,
       formatVersion: base.formatVersion,
-      name: 'Value',
+      name: 'Freestyle',
       role: 'standard' as const,
       definition,
       config: plainFormatSettings,
@@ -211,17 +215,17 @@ describe('projectRoom format (FMT-1)', () => {
       },
       expected: {
         format: {
-          name: 'Value',
+          name: 'Freestyle',
           role: 'standard',
           leagues: [],
           basis: {
-            formatId: 'value',
-            name: 'Value',
+            formatId: 'freestyle',
+            name: 'Freestyle',
             formatVersion: base.formatVersion,
             presetVersion: 3,
             strikes: false,
           },
-          standing: { kind: 'standard', formatId: 'value' },
+          standing: { kind: 'standard', formatId: 'freestyle' },
         },
         leaked: [],
         parses: true,
@@ -247,7 +251,7 @@ describe('projectRoom format (FMT-1)', () => {
       actual: seen.format.standing,
       expected: {
         kind: 'custom',
-        basis: { formatId: 'value', role: 'standard' },
+        basis: { formatId: 'freestyle', role: 'standard' },
         changes: [
           {
             kind: 'countdown',

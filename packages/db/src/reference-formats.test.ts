@@ -191,8 +191,20 @@ const migrated = async () => {
   const quickDeleted = sql.includes(
     `DELETE FROM "format_presets" WHERE "length" = 'quick';`,
   );
+  // ADR 0142 deleted the Policy and Value standards outright.
+  const deletedFormats = new Set(
+    [
+      ...sql.matchAll(/DELETE FROM public\.formats WHERE id IN \(([^)]*)\)/g),
+    ].flatMap(([, ids]) =>
+      [...(ids ?? '').matchAll(/'([a-z0-9-]+)'/g)].map(([, id]) => id!),
+    ),
+  );
+  for (const id of deletedFormats) formats.delete(id);
+  for (const key of [...definitions.keys()])
+    if (deletedFormats.has(key.split('@')[0]!)) definitions.delete(key);
   const presets = approved
     .filter(({ length }) => !(quickDeleted && length === 'quick'))
+    .filter(({ formatId }) => !deletedFormats.has(formatId))
     .map(({ formatId, version, formatVersion, config }) => ({
       formatId,
       version,

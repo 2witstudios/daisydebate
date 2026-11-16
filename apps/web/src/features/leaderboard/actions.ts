@@ -1,5 +1,5 @@
 /**
- * Published destinations for leaderboard actions. Selected ladder/season links
+ * Published destinations for leaderboard actions. Selected season links
  * are shaped with seasonsHref by the display.
  */
 export const leaderboardDestinations = {

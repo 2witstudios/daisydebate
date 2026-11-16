@@ -162,19 +162,11 @@ async function fixture(
     who: typeof host = host,
   ) => {
     const selection = overrides.selection ?? foundationSelection;
-    const fixed =
-      selection.kind !== 'custom' &&
-      (selection.formatId === 'policy' || selection.formatId === 'value')
-        ? (await store.listPublishedResolutions()).find(
-            (resolution) => resolution.kind === selection.formatId,
-          )
-        : null;
     const r = await operations.create(who, {
       commandId: createId(),
       title: 'Durable room',
-      resolution: fixed
-        ? { kind: fixed.kind, id: fixed.id }
-        : selection.kind !== 'custom' && selection.formatId === 'freestyle'
+      resolution:
+        selection.kind !== 'custom' && selection.formatId === 'freestyle'
           ? { kind: 'strike' }
           : { kind: 'custom', text: 'Cities should make transit free' },
       visibility: 'public',

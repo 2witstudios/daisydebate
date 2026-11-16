@@ -13,13 +13,14 @@ import { drawRoom, drawSettings } from './round-opening.test-support';
 
 setupRitewayBun();
 
-const valueFacts: FormatSelectionFacts = {
+/** A league template with a fixed resolution: a casual starting point. */
+const templateFacts: FormatSelectionFacts = {
   format: {
-    id: 'value',
-    name: 'Value',
-    leagues: [],
+    id: 'nsda-ld',
+    name: 'NSDA Lincoln-Douglas',
+    leagues: ['NSDA'],
     catalogOwned: true,
-    role: 'standard',
+    role: 'template',
     currentVersion: 1,
   },
   definition: oneOnOneFormatFixture,
@@ -40,7 +41,7 @@ const selectFormat = (
   commandId: 'select',
   expectedVersion: room.version,
   intent: 'choose',
-  formatId: 'value',
+  formatId: 'nsda-ld',
   formatVersion: 1,
   presetVersion: 3,
   ...overrides,
@@ -49,63 +50,20 @@ const selectFormat = (
 const run = (
   room: RoomAssemblyState,
   command: RoomCommand,
-  facts: FormatSelectionFacts | null = valueFacts,
+  facts: FormatSelectionFacts | null = templateFacts,
   actor = 'host',
 ) =>
   executeRoomCommand(room, actor, command, consent, {
     ...edges,
     formatFacts: facts,
-    resolutionPublication:
-      facts?.format.id === 'value' || facts?.format.id === 'policy'
-        ? {
-            id: 'v'.repeat(24),
-            kind: facts.format.id,
-            text: 'Motion',
-            provenance: 'Test publication',
-            edition: null,
-            theme: null,
-            publishedAt: '2026-10-29T00:00:00.000Z',
-          }
-        : null,
   });
 
 describe('select-format', () => {
-  test('a standard selection takes its published resolution instead of retaining host text', () => {
-    const room = state();
-    const outcome = executeRoomCommand(
-      room,
-      'host',
-      selectFormat(room),
-      consent,
-      {
-        ...edges,
-        formatFacts: valueFacts,
-        resolutionPublication: {
-          id: 'v'.repeat(24),
-          kind: 'value',
-          text: 'Published Value resolution',
-          provenance: 'Test publication',
-          edition: null,
-          theme: null,
-          publishedAt: '2026-10-29T00:00:00.000Z',
-        },
-      },
-    );
-    assert({
-      given: 'choosing Value from a room with host-written text',
-      should: 'adopt and pin the trusted Value publication',
-      actual: outcome.ok && [
-        outcome.mutation.state.topic,
-        outcome.mutation.state.publishedResolutionId,
-      ],
-      expected: ['Published Value resolution', 'v'.repeat(24)],
-    });
-  });
   test('choosing a catalog format', () => {
     const room = state();
     const outcome = run(room, selectFormat(room));
     assert({
-      given: 'the host choosing a standard’s current preset',
+      given: 'the host choosing a template’s current preset',
       should:
         'adopt its definition and preset config, set the basis, advance the version and clear readiness',
       actual: outcome.ok && {
@@ -122,18 +80,22 @@ describe('select-format', () => {
         publishDefinition: outcome.mutation.publishDefinition,
       },
       expected: {
-        formatId: 'value',
+        formatId: 'nsda-ld',
         formatVersion: 1,
         basis: {
-          formatId: 'value',
+          formatId: 'nsda-ld',
           presetVersion: 3,
           formatVersion: 1,
-          name: 'Value',
-          role: 'standard',
+          name: 'NSDA Lincoln-Douglas',
+          role: 'template',
           definition: oneOnOneFormatFixture,
           config: oneOnOneSettings,
         },
-        catalogFormat: { name: 'Value', role: 'standard', leagues: [] },
+        catalogFormat: {
+          name: 'NSDA Lincoln-Douglas',
+          role: 'template',
+          leagues: ['NSDA'],
+        },
         config: oneOnOneSettings,
         definition: oneOnOneFormatFixture,
         version: room.version + 1,
@@ -151,7 +113,7 @@ describe('select-format', () => {
       given: 'select-format commands the room must refuse',
       should: 'refuse each with no mutation',
       actual: [
-        refusal(run(room, selectFormat(room), valueFacts, 'other')),
+        refusal(run(room, selectFormat(room), templateFacts, 'other')),
         refusal(
           run({ ...room, competitionType: 'ranked' }, selectFormat(room)),
         ),
@@ -159,8 +121,8 @@ describe('select-format', () => {
         refusal(run(room, selectFormat(room), null)),
         refusal(
           run(room, selectFormat(room), {
-            ...valueFacts,
-            preset: { ...valueFacts.preset, current: false },
+            ...templateFacts,
+            preset: { ...templateFacts.preset, current: false },
           }),
         ),
         refusal(run(room, selectFormat(room, { intent: 'reset' }))),
@@ -213,23 +175,23 @@ describe('select-format', () => {
     const room: RoomAssemblyState = {
       ...state(),
       basis: {
-        formatId: 'value',
+        formatId: 'nsda-ld',
         presetVersion: 3,
         formatVersion: 1,
-        name: 'Value',
-        role: 'standard',
+        name: 'NSDA Lincoln-Douglas',
+        role: 'template',
         definition: oneOnOneFormatFixture,
         config: oneOnOneSettings,
       },
       config: { ...oneOnOneSettings, inRoundPrep: { enabled: false } },
     };
     const outcome = run(room, selectFormat(room, { intent: 'reset' }), {
-      ...valueFacts,
-      format: { ...valueFacts.format, currentVersion: 2 },
-      preset: { ...valueFacts.preset, current: false },
+      ...templateFacts,
+      format: { ...templateFacts.format, currentVersion: 2 },
+      preset: { ...templateFacts.preset, current: false },
     });
     assert({
-      given: 'Back to standard after the catalog published a newer preset',
+      given: 'Back to the template after the catalog published a newer preset',
       should: 'restore the room’s own pinned preset',
       actual: outcome.ok && {
         config: outcome.mutation.state.config,
@@ -240,7 +202,7 @@ describe('select-format', () => {
       },
       expected: {
         config: oneOnOneSettings,
-        basis: { formatId: 'value', presetVersion: 3 },
+        basis: { formatId: 'nsda-ld', presetVersion: 3 },
       },
     });
   });
@@ -248,11 +210,17 @@ describe('select-format', () => {
   test('the topic follows the draw state', () => {
     const drawn = drawRoom({ kind: 'bank', categories: ['policy', 'value'] });
     const freestyleFacts: FormatSelectionFacts = {
-      ...valueFacts,
-      format: { ...valueFacts.format, id: 'freestyle', name: 'Freestyle' },
+      ...templateFacts,
+      format: {
+        ...templateFacts.format,
+        id: 'freestyle',
+        name: 'Freestyle',
+        leagues: [],
+        role: 'standard',
+      },
       definition: drawn.definition,
       preset: {
-        ...valueFacts.preset,
+        ...templateFacts.preset,
         config: drawSettings(['policy', 'value']),
       },
     };
@@ -265,7 +233,7 @@ describe('select-format', () => {
         }),
         freestyleFacts,
       );
-    const value = (room: RoomAssemblyState, topic?: string) =>
+    const template = (room: RoomAssemblyState, topic?: string) =>
       run(room, selectFormat(room, topic === undefined ? {} : { topic }));
     const topicOf = (outcome: ReturnType<typeof run>) =>
       outcome.ok ? outcome.mutation.state.topic : outcome.refusal;
@@ -273,20 +241,20 @@ describe('select-format', () => {
       given:
         'switching into a draw, out of one, and between draws, with and without a topic',
       should:
-        'clear text entering a draw, load the publication for Value, and refuse host text for standards',
+        'clear text entering a draw, take the host’s text leaving one, and refuse text a draw does not use',
       actual: {
         intoDraw: topicOf(freestyle(state())),
         intoDrawWithText: topicOf(freestyle(state(), 'A motion')),
-        outOfDraw: topicOf(value(drawn, 'A new motion')),
-        outOfDrawWithoutText: topicOf(value(drawn)),
+        outOfDraw: topicOf(template(drawn, 'A new motion')),
+        outOfDrawWithoutText: topicOf(template(drawn)),
         betweenDraws: topicOf(freestyle(drawn)),
         betweenDrawsWithText: topicOf(freestyle(drawn, 'A motion')),
       },
       expected: {
         intoDraw: null,
         intoDrawWithText: 'illegal-config',
-        outOfDraw: 'illegal-config',
-        outOfDrawWithoutText: 'Motion',
+        outOfDraw: 'A new motion',
+        outOfDrawWithoutText: 'illegal-config',
         betweenDraws: null,
         betweenDrawsWithText: 'illegal-config',
       },

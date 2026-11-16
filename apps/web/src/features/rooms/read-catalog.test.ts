@@ -10,7 +10,6 @@ test('catalog unavailability stays distinct from an authoritative empty list', a
     Response.json({
       choices: [],
       bots: [],
-      resolutions: [],
       botDebateAiJudge: false,
     }),
     new Response(null, { status: 404 }),
@@ -29,7 +28,6 @@ test('catalog unavailability stays distinct from an authoritative empty list', a
         kind: 'found',
         choices: [],
         bots: [],
-        resolutions: [],
         botDebateAiJudge: false,
       },
       { kind: 'unavailable' },
@@ -44,7 +42,6 @@ test('catalog retains exact template revisions, unequal seat counts and producer
     Response.json({
       choices: [unequalTemplate],
       bots: [],
-      resolutions: [],
       botDebateAiJudge: false,
     }),
   );
@@ -57,7 +54,6 @@ test('catalog retains exact template revisions, unequal seat counts and producer
       kind: 'found',
       choices: [unequalTemplate],
       bots: [],
-      resolutions: [],
       botDebateAiJudge: false,
     },
   });

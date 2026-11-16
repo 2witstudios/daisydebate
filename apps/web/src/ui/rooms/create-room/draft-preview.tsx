@@ -39,11 +39,7 @@ export function DraftPreview({
         <p>
           {draft.resolutionMethod === 'strike'
             ? 'Resolution by strike'
-            : draft.resolutionMethod === 'custom'
-              ? 'Custom resolution'
-              : draft.resolutionMethod === 'policy'
-                ? 'Policy res'
-                : 'Value res'}
+            : 'Custom resolution'}
         </p>
         {draft.custom ? <p>Based on {draft.basis.label}</p> : null}
       </div>

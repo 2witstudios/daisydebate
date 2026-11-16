@@ -90,9 +90,9 @@ describe('competition vocabulary', () => {
     });
     assert({
       given: 'the rating ladder vocabulary',
-      should: 'be exactly ranked: Rounds are full length only (DEC-237)',
+      should: 'be exactly Freestyle, the one Daisy standard (ADR 0142)',
       actual: ratingLadders,
-      expected: ['freestyle', 'policy', 'value'],
+      expected: ['freestyle'],
     });
     assert({
       given: 'the status vocabulary',

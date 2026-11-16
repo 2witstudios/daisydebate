@@ -10,7 +10,7 @@ import {
   now,
   state,
 } from './operations.test-support';
-import { valueFacts } from './catalog-sources.test-support';
+import { freestyleFacts } from './catalog-sources.test-support';
 
 setupRitewayBun();
 
@@ -42,7 +42,7 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
     },
     expected: {
       catalog: [
-        ['value', 'standard', null, 1],
+        ['freestyle', 'standard', null, 1],
         ['proof-template', 'template', 'other', 2],
       ],
       cast: [
@@ -117,11 +117,11 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   const body: RoomCreate = {
     commandId: 'c7n6p8r2t4v6x8z1k3b5c7d9',
     title: 'A persisted casual room',
-    resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+    resolution: { kind: 'strike' },
     visibility: 'public',
     selection: {
       kind: 'catalog',
-      formatId: 'value',
+      formatId: 'freestyle',
       formatVersion: 1,
       presetVersion: 1,
       competitionType: 'casual',
@@ -215,11 +215,11 @@ test('Room creation hands the initial cast to the create transaction through the
       .create(caller, {
         commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
         title: 'A practice room',
-        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+        resolution: { kind: 'strike' },
         visibility: 'public',
         selection: {
           kind: 'catalog',
-          formatId: 'value',
+          formatId: 'freestyle',
           formatVersion: 1,
           presetVersion: 1,
           competitionType: 'casual',
@@ -375,7 +375,7 @@ test('Room creation decides catalog selections through the one policy (FMT-1)', 
       .create(caller, {
         commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
         title: 'Policy room',
-        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+        resolution: { kind: 'strike' },
         visibility: 'public',
         selection,
       })
@@ -386,7 +386,7 @@ test('Room creation decides catalog selections through the one policy (FMT-1)', 
   };
   const accepted = await create({
     kind: 'catalog',
-    formatId: 'value',
+    formatId: 'freestyle',
     formatVersion: 1,
     presetVersion: 1,
     competitionType: 'casual',
@@ -401,9 +401,9 @@ test('Room creation decides catalog selections through the one policy (FMT-1)', 
       config: accepted.config,
     },
     expected: {
-      basis: { formatId: 'value', presetVersion: 1 },
+      basis: { formatId: 'freestyle', presetVersion: 1 },
       presetVersion: null,
-      config: valueFacts.preset.config,
+      config: freestyleFacts.preset.config,
     },
   });
   assert({
@@ -412,14 +412,14 @@ test('Room creation decides catalog selections through the one policy (FMT-1)', 
     actual: [
       await create({
         kind: 'catalog',
-        formatId: 'value',
+        formatId: 'freestyle',
         formatVersion: 1,
         presetVersion: 9,
         competitionType: 'casual',
       }),
       await create({
         kind: 'ranked',
-        formatId: 'value',
+        formatId: 'freestyle',
         formatVersion: 1,
         presetVersion: 1,
       }),
@@ -433,11 +433,11 @@ test('Room creation asks the create transaction to recheck its catalog selection
   await run.operations.create(caller, {
     commandId: 'c8n6p8r2t4v6x8z1k3b5c7d9',
     title: 'Policy room',
-    resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+    resolution: { kind: 'strike' },
     visibility: 'public',
     selection: {
       kind: 'catalog',
-      formatId: 'value',
+      formatId: 'freestyle',
       formatVersion: 1,
       presetVersion: 1,
       competitionType: 'casual',
@@ -450,15 +450,15 @@ test('Room creation asks the create transaction to recheck its catalog selection
       'name the tuple and admit only facts the policy still accepts as decided',
     actual: recheck && {
       tuple: recheck.tuple,
-      unchanged: recheck.admits(valueFacts),
+      unchanged: recheck.admits(freestyleFacts),
       superseded: recheck.admits({
-        ...valueFacts,
-        preset: { ...valueFacts.preset, current: false },
+        ...freestyleFacts,
+        preset: { ...freestyleFacts.preset, current: false },
       }),
       gone: recheck.admits(null),
     },
     expected: {
-      tuple: { formatId: 'value', formatVersion: 1, presetVersion: 1 },
+      tuple: { formatId: 'freestyle', formatVersion: 1, presetVersion: 1 },
       unchanged: true,
       superseded: false,
       gone: false,
@@ -480,11 +480,11 @@ test('a create seating the AI judge consumes its fresh allowance decision (BILL-
     .create(caller, {
       commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
       title: 'A casual room',
-      resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+      resolution: { kind: 'strike' },
       visibility: 'public',
       selection: {
         kind: 'catalog',
-        formatId: 'value',
+        formatId: 'freestyle',
         formatVersion: 1,
         presetVersion: 1,
         competitionType: 'casual',

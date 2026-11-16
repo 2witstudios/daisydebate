@@ -41,7 +41,7 @@ for (const judgeKind of ['human', 'ai'] as const)
         await inSeason(f, async () => {
           const { roundId, freezeRevision } = await frozenRankedRound(
             f,
-            'policy',
+            'freestyle',
             judgeKind,
           );
           const replay =
@@ -164,7 +164,7 @@ test('a posting that fails after its ledger insert leaves nothing and the next s
     await inSeason(f, async () => {
       const { roundId, freezeRevision } = await frozenRankedRound(
         f,
-        'policy',
+        'freestyle',
         'human',
       );
       await (

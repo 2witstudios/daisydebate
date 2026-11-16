@@ -200,5 +200,6 @@ profile and Round consume that named published output; leaderboard shapes
 display rows and navigation. The frozen Round ladder is authoritative. Shared
 Round finalization owns immutable terminal command/freeze/ballot membership;
 ratings consumes its finalized outcome without re-aggregating ballots.
-See [ADR0090](../decisions/0090-three-rating-ladders.md) for admission, lock
-ordering, durable recovery and beta activation boundaries.
+Daisy has one ladder, Freestyle ([ADR 0142](../decisions/0142-freestyle-the-one-standard-and-ladder.md),
+which owns admission). [ADR 0090](../decisions/0090-three-rating-ladders.md)
+still owns lock ordering, durable recovery and beta activation boundaries.

@@ -11,7 +11,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261114172122_tab_casual_templates';
+const migration = '20261116175853_tab_casual_templates';
 const scratch = scratchDatabase(url, 'casualtpl');
 
 afterAll(() => scratch.drop());

@@ -23,24 +23,15 @@ export async function submitConfiguredRoomCreation(
   const submitted = form instanceof FormData ? form : new FormData();
   if (catalog.kind !== 'found')
     return refused(submitted, 'Room settings are unavailable. Try again.');
-  const prepared = prepareRoomDraft(
-    submitted,
-    catalog.choices,
-    catalog.resolutions,
-  );
+  const prepared = prepareRoomDraft(submitted, catalog.choices);
   if (prepared.kind === 'invalid')
     return {
       kind: 'invalid',
       values: formValues(submitted),
       error: prepared.error,
-      resolutions: catalog.resolutions,
     };
   if (prepared.kind === 'preview')
-    return {
-      kind: 'previewed',
-      values: prepared.values,
-      resolutions: catalog.resolutions,
-    };
+    return { kind: 'previewed', values: prepared.values };
   return submitRoomCreation(fetch, incoming, prepared.form, path);
 }
 

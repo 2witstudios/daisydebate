@@ -19,8 +19,8 @@ import { casualTemplates } from './catalog-casual';
 export { casualTemplateIds } from './catalog-casual';
 
 /**
- * The picker's catalog (ADR 0058 extension, FMT-1/FMT-2a): Daisy's standard
- * formats and the league templates whose rules Daisy runs faithfully, as
+ * The picker's catalog (ADR 0058 extension, FMT-1/FMT-2a, ADR 0142): Daisy's
+ * one standard, Freestyle, and the league templates whose rules Daisy runs faithfully, as
  * TypeScript the migrations must match. A template is a casual starting
  * point, never rankable on its own; every time below is the league's
  * published default inside bounds wide enough for practice. Daisy's own
@@ -38,12 +38,12 @@ const nsdaManual = {
   sourceUrl: 'https://www.speechanddebate.org/?p=81990',
 };
 
-/** What the picker offers: Daisy's standards and league templates. */
+/** What the picker offers: Daisy's standard and league templates. */
 export const catalogRoles = ['standard', 'template'] as const;
 /** The league browser's tabs. */
 export const catalogFamilies = ['policy', 'value', 'parli', 'other'] as const;
-/** The standards' format ids, which are also their identity (FMT-1). */
-export const standardFormatIds = ['policy', 'value', 'freestyle'] as const;
+/** The standard's format id, which is also its identity and ladder (ADR 0142). */
+export const standardFormatIds = ['freestyle'] as const;
 
 export type CatalogFormat = {
   readonly id: string;
@@ -60,31 +60,23 @@ export type CatalogFormat = {
 };
 
 /**
- * Daisy's standards share the one-on-one schedule. Policy and Value differ
- * only in the resolution, set in advance though a host may turn on a
- * strike; Freestyle always strikes it (FMT-2b).
+ * Freestyle, Daisy's one standard (FMT-2b, ADR 0142): the one-on-one
+ * schedule, its resolution struck from five drawn from Daisy's bank, then
+ * 20 minutes of prep.
  */
-const standard = (
-  id: (typeof standardFormatIds)[number],
-  name: string,
-  sortOrder: number,
-  { definition, preset }: Pick<CatalogFormat, 'definition' | 'preset'> = {
-    definition: withDraw(oneOnOneDefinition),
-    preset: oneOnOneSettings,
-  },
-): CatalogFormat => ({
-  id,
-  name,
+const freestyle: CatalogFormat = {
+  id: 'freestyle',
+  name: 'Freestyle',
   role: 'standard',
   family: null,
   leagues: [],
-  searchTerms: `${id} daisy standard one-on-one`,
-  sortOrder,
+  searchTerms: 'freestyle daisy standard one-on-one',
+  sortOrder: 3,
   rulesEdition: null,
   sourceUrl: null,
-  definition,
-  preset,
-});
+  definition: withDraw(oneOnOneDefinition),
+  preset: strikeSettings(oneOnOneSettings, 20),
+};
 
 const template = (format: Omit<CatalogFormat, 'role'>): CatalogFormat => ({
   ...format,
@@ -92,12 +84,7 @@ const template = (format: Omit<CatalogFormat, 'role'>): CatalogFormat => ({
 });
 
 export const catalogFormats: readonly CatalogFormat[] = [
-  standard('policy', 'Policy', 1),
-  standard('value', 'Value', 2),
-  standard('freestyle', 'Freestyle', 3, {
-    definition: withDraw(oneOnOneDefinition),
-    preset: strikeSettings(oneOnOneSettings, 20),
-  }),
+  freestyle,
   template({
     id: 'nsda-ld',
     name: 'NSDA Lincoln-Douglas',

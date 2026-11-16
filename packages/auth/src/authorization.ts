@@ -362,7 +362,6 @@ function resolveMemberResource(
     case 'friend_collection':
     case 'challenge_collection':
     case 'people_list':
-    case 'rating_visibility':
     case 'moderation_notice':
     case 'presence_setting':
       return decision(resource.actorId === actorId);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
-import type { PublishedResolution, RoomCatalogChoice } from '@daisy/protocol';
+import type { RoomCatalogChoice } from '@daisy/protocol';
 import {
   changeRoomValue,
   chooseRoomChoice,
@@ -20,16 +20,14 @@ import { FormError } from '../../components/form-field/form-field';
 import { DraftSettings } from './draft-settings';
 import { DraftPreview } from './draft-preview';
 
+/** Daisy's one standard, or any rules of your own (ADR 0142). */
 const formats = [
   ['freestyle', 'Freestyle', 'Strike & prepare'],
-  ['policy', 'Policy', 'Policy res'],
-  ['value', 'Value', 'Value res'],
-  ['custom', 'Custom', 'Your rules'],
+  ['custom', 'Custom', 'Any rules, league templates'],
 ] as const;
 
 export function CreateRoomEditor({
   choices,
-  resolutions,
   initialChoice,
   values: kept,
   commandId,
@@ -38,7 +36,6 @@ export function CreateRoomEditor({
   error,
 }: {
   readonly choices: readonly RoomCatalogChoice[];
-  readonly resolutions: readonly PublishedResolution[];
   readonly initialChoice: RoomCatalogChoice;
   readonly values: Readonly<Record<string, string>>;
   readonly commandId: string;
@@ -52,13 +49,6 @@ export function CreateRoomEditor({
   const { values, draft } = model;
   const isCustom = draft.custom;
   const isRanked = values.ranked === 'on' && !isCustom;
-  const publication = resolutions.find(
-    (resolution) => resolution.kind === values.resolutionMethod,
-  );
-  const missingPublication =
-    (values.resolutionMethod === 'policy' ||
-      values.resolutionMethod === 'value') &&
-    !publication;
   const change = (name: string, value: string) =>
     setModel((current) => changeRoomValue(current, name, value, choices));
   const metadata = (name: string, value: string) =>
@@ -80,14 +70,6 @@ export function CreateRoomEditor({
           value={kept.commandId ?? commandId}
         />
         <input type="hidden" name="basis" value={values.basis} />
-        {resolutions.map((resolution) => (
-          <input
-            key={resolution.kind}
-            type="hidden"
-            name={`${resolution.kind}ResolutionId`}
-            value={resolution.id}
-          />
-        ))}
         <div className="create-room-section">
           <label className="create-room-field" htmlFor="assembly-title">
             <span>Room name</span>
@@ -168,11 +150,7 @@ export function CreateRoomEditor({
                 name="ranked"
                 value="on"
                 checked={isRanked}
-                disabled={
-                  isCustom ||
-                  !draft.basis.preset.rankedEligible ||
-                  missingPublication
-                }
+                disabled={isCustom || !draft.basis.preset.rankedEligible}
                 onChange={(event) => {
                   const ranked = event.target.checked;
                   setModel((current) => ({
@@ -306,8 +284,6 @@ export function CreateRoomEditor({
                   change('resolutionMethod', event.target.value)
                 }
               >
-                <option value="policy">Policy res</option>
-                <option value="value">Value res</option>
                 <option value="strike">Strike</option>
                 <option value="custom">Custom</option>
               </select>
@@ -323,23 +299,7 @@ export function CreateRoomEditor({
                 Apply resolution
               </button>
             </noscript>
-            {publication ? (
-              <div className="create-room-publication">
-                {publication.edition || publication.theme ? (
-                  <p className="create-room-eyebrow">
-                    {[publication.edition, publication.theme]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                ) : null}
-                <blockquote>{publication.text}</blockquote>
-              </div>
-            ) : missingPublication ? (
-              <p role="status">
-                That resolution is unavailable. Choose another option or try
-                again later.
-              </p>
-            ) : values.resolutionMethod === 'strike' ? (
+            {values.resolutionMethod === 'strike' ? (
               <p>Chosen by strike before the round</p>
             ) : null}
             <div hidden={values.resolutionMethod !== 'custom'}>
@@ -408,7 +368,7 @@ export function CreateRoomEditor({
             name="intent"
             value="create"
             className={buttonClass('primary')}
-            disabled={pending || missingPublication}
+            disabled={pending}
           >
             {pending ? 'Creating…' : 'Create room'}
           </button>

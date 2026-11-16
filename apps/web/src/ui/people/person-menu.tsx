@@ -1,11 +1,9 @@
 'use client';
 
 import {
-  ratingLadders,
   competitionTypes,
   reportReasonLabels,
   reportReasons,
-  type RatingLadder,
   type ChallengeList,
   type CompetitionType,
   type Person,
@@ -57,11 +55,6 @@ const chip =
 const modeLabels: Readonly<Record<CompetitionType, string>> = {
   ranked: 'Ranked',
   casual: 'Casual',
-};
-const formatLabels: Readonly<Record<RatingLadder, string>> = {
-  freestyle: 'Freestyle',
-  policy: 'Policy',
-  value: 'Value',
 };
 
 /** Open to a challenge: anyone not Busy, away or online, and not already placed. */
@@ -236,7 +229,6 @@ function ChallengeView({
   readonly onDone: () => void;
 }) {
   const [mode, setMode] = useState<CompetitionType>('ranked');
-  const [format, setFormat] = useState<RatingLadder>('freestyle');
   const [answer, post, pending] = useFormAction(
     action,
     initialChallengeForm,
@@ -250,7 +242,7 @@ function ChallengeView({
     <form action={post} className="flex flex-col gap-2">
       <input type="hidden" name="username" value={username} />
       <input type="hidden" name="mode" value={mode} />
-      <input type="hidden" name="format" value={format} />
+      <input type="hidden" name="format" value="freestyle" />
       <div role="group" aria-label="Mode" className="flex gap-1">
         {competitionTypes.map((value) => (
           <button
@@ -261,19 +253,6 @@ function ChallengeView({
             className={chip}
           >
             {modeLabels[value]}
-          </button>
-        ))}
-      </div>
-      <div role="group" aria-label="Format" className="flex gap-1">
-        {ratingLadders.map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={format === value}
-            onClick={() => setFormat(value)}
-            className={chip}
-          >
-            {formatLabels[value]}
           </button>
         ))}
       </div>

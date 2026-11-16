@@ -7,27 +7,23 @@ import { withSql } from './fixtures';
 
 requireTestServices(process.env);
 setupRitewayBun();
-const { f, routes, headers, member, command } = createRoomHttpFixture();
+const { f, routes, member, command } = createRoomHttpFixture();
 
 test('recording create HTTP binds the receipt to its payload and member and refuses missing entitlement atomically', async () => {
   const host = await member();
   const outsider = await member();
-  const catalog = await routes.rooms.catalog(
-    new Request(`${f.origin}/api/rooms/catalog`, { headers: headers(host) }),
-  );
-  const { resolutions } = await catalog.json();
   const body = {
     commandId: createId(),
     title: `Recording ${createId()}`,
     resolution: {
-      kind: 'value',
-      id: resolutions.find((r: { kind: string }) => r.kind === 'value').id,
+      kind: 'custom',
+      text: 'Cities should make public transit free',
     },
     visibility: 'unlisted',
     recordingPolicy: 'released',
     selection: {
       kind: 'catalog',
-      formatId: 'value',
+      formatId: 'nsda-ld',
       formatVersion: 1,
       presetVersion: 1,
       competitionType: 'casual',
@@ -93,9 +89,10 @@ test('recording create HTTP binds the receipt to its payload and member and refu
       commandId: createId(),
       recordingPolicy: 'off',
       visibility: 'public',
+      resolution: { kind: 'strike' },
       selection: {
         kind: 'ranked',
-        formatId: 'value',
+        formatId: 'freestyle',
         formatVersion: 1,
         presetVersion: 1,
       },
