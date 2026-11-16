@@ -290,7 +290,11 @@ const folds: Record<string, LockEntry> = {
   },
 };
 
-/** Refresh an entry by copying the actual value from a failure. */
+/**
+ * Refresh an entry by copying the actual value from a failure. Swiss inputs
+ * use the catalogue's record-first preference order; these digests include
+ * that resolved input, without changing the engine or method versions.
+ */
 const locked: Record<string, LockEntry> = {
   'two-sided first round': {
     versions: {
@@ -299,7 +303,7 @@ const locked: Record<string, LockEntry> = {
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'bd9c88b2785ae1d130006cbc470285b387415bacf28e2f782abdbfd9d01a83bf',
+    digest: '09e4325433306f49a5379e7eb1bc46cd25eef6314ea17394e6b107f26773824e',
   },
   'two-sided powered round': {
     versions: {
@@ -308,7 +312,7 @@ const locked: Record<string, LockEntry> = {
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: '1d62685c835297f1099784de8c358c27f755a36a606435e67b948222f012c4f9',
+    digest: '718c8f0f0becceb90df82353c28d2c9e38b40e9f9ce4df97bdb0e04c8cf52b2b',
   },
   'round robin': {
     versions: {
@@ -326,7 +330,7 @@ const locked: Record<string, LockEntry> = {
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: '2d888b6fcba7c4eceb992a1715bda8218401616870b2bc440e6a6f40973f9e8a',
+    digest: 'a4f824e484bc5776596836e27d5d0a88ab9ce45903bf75bae10457147c651a2e',
   },
   sections: {
     versions: {
@@ -335,7 +339,7 @@ const locked: Record<string, LockEntry> = {
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'fe8850c71f14e584acb7433ca85fb1ff5331ab9162dceea09ff627f46b36890b',
+    digest: 'bdb308c29cd482e3e41386ed67f3b95e1d79e51222b221148b42cd3dbbf70d31',
   },
   elimination: {
     versions: {
@@ -344,7 +348,7 @@ const locked: Record<string, LockEntry> = {
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'f8911175608fe1a622847b06f0c84a2cb43af5e989dd26b62f2bd6190439dcb5',
+    digest: 'd02310f8023f8f7ae3624af300edf340d7739b0580cf0ffd7d1f36725eeb5520',
   },
   'prematched second round': {
     versions: {
@@ -362,7 +366,7 @@ const locked: Record<string, LockEntry> = {
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'a22c53cf66ffe5e6dbe238b75a6c67283d866a7a732e8c84dce43393414ab7be',
+    digest: 'ce3f212fe7eacd4b39799840c4acadd24fd2b730a300fe3344b4e2d7093053e9',
   },
   'sections second round': {
     versions: {
@@ -371,11 +375,11 @@ const locked: Record<string, LockEntry> = {
       judges: 'judges@1',
       assess: 'assess@1',
     },
-    digest: 'd41a50226a0234ce3d4e0ab404d2f54361900f2dd2ef4eea0f9c3603c8f15c96',
+    digest: '8fa734bd48d83fae380ebdc8aa3f3c2e97b15de238bf4583f39c5aead2014f75',
   },
   'assess of a hand plan': {
     versions: { assess: 'assess@1' },
-    digest: 'ae77536acc3d4ebd58d30c1d3cfd9407dc6e1f7162e8a28a49ed2e3d56f19580',
+    digest: 'fa2fe043c9cd9c84cdbd5b14660596d9e7b9732dd2000d74bab8a33cc4789d3b',
   },
   standings: {
     versions: { standings: 'standings@2' },

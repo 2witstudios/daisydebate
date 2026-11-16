@@ -114,7 +114,7 @@ const rows: { readonly [Key in SettingKey]: Row<Key> } = {
     minimumGames: null,
     terminal: 'lot',
   }),
-  'standings.rating_ladder': daisy(everywhere, { ladderId: null }),
+  'standings.rating_ladder': daisy(everywhere, { ladderId: null }, 'both'),
   'break.line': daisy(everywhere, {
     default: { kind: 'fixed', size: 8 },
     byDivision: {},
@@ -129,7 +129,7 @@ const rows: { readonly [Key in SettingKey]: Row<Key> } = {
   'entry.approval': daisy(everywhere, { value: 'host' }),
   'entry.cap': daisy(everywhere, { perEvent: null, perSchool: null }),
   'conflict.handling': daisy(aboveEvents, { value: 'second_confirms' }),
-  'recording.capture': daisy(aboveEvents, { value: 'on' }),
+  'recording.capture': daisy(aboveEvents, { value: 'on' }, 'both'),
   'audience.posting': daisy(
     everywhere,
     {
@@ -165,12 +165,16 @@ const rows: { readonly [Key in SettingKey]: Row<Key> } = {
     participants: 'never',
     ...never,
   }),
-  'audience.video': daisy(everywhere, {
-    responsible_adults: 'prelims_end',
-    competitors: 'prelims_end',
-    participants: 'never',
-    ...never,
-  }),
+  'audience.video': daisy(
+    everywhere,
+    {
+      responsible_adults: 'prelims_end',
+      competitors: 'prelims_end',
+      participants: 'never',
+      ...never,
+    },
+    'both',
+  ),
   'ballot.screening': daisy(everywhere, { value: 'hold' }),
   'resolution.rule': daisy(
     everywhere,

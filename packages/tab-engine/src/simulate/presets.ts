@@ -81,7 +81,18 @@ export const swissPower: ResolvedSettings = {
   },
   'pairing.position_balance': { force: 'preference' },
   'pairing.section_repeat': { force: 'preference' },
-  'pairing.preference_order': { order: pairingOrder },
+  'pairing.preference_order': {
+    order: [
+      'pairing.rematch',
+      'pairing.same_school',
+      'pairing.pull_up',
+      'pairing.side_balance',
+      'pairing.side_alternation',
+      'pairing.position_balance',
+      'pairing.section_repeat',
+      'bye.repeat',
+    ],
+  },
   'bye.recipient': { value: 'lowest' },
   'bye.result': { value: 'win' },
   'bye.repeat': { force: 'rule' },
@@ -90,6 +101,7 @@ export const swissPower: ResolvedSettings = {
 /** Every preliminary round drawn at random, set before the first. */
 export const randomPreset: ResolvedSettings = {
   ...swissPower,
+  'pairing.preference_order': { order: pairingOrder },
   'pairing.method': {
     preliminary: {
       structure: 'prematched',
@@ -110,6 +122,7 @@ export const randomPreset: ResolvedSettings = {
 /** Everyone meets everyone, so meeting again or a schoolmate is not weighed. */
 export const roundRobinPreset: ResolvedSettings = {
   ...swissPower,
+  'pairing.preference_order': { order: pairingOrder },
   'pairing.method': {
     preliminary: {
       structure: 'round_robin',

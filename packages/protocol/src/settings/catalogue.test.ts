@@ -37,6 +37,39 @@ const families = (...prefixes: string[]) =>
   keys.filter((key) => prefixes.some((prefix) => key.startsWith(prefix)));
 
 describe('the settings catalogue', () => {
+  test('Swiss power weighs record distance before side repeats', () => {
+    const order = pairingPresets.swiss_power['pairing.preference_order'].order;
+    assert({
+      given: 'the Swiss power preset',
+      should: 'weigh pulling up before side balance and side alternation',
+      actual: (
+        ['pairing.side_balance', 'pairing.side_alternation'] as const
+      ).map((key) => order.indexOf('pairing.pull_up') < order.indexOf(key)),
+      expected: [true, true],
+    });
+  });
+
+  test('Room recording, video and rating settings belong to both chains', () => {
+    const roomKeys = [
+      'recording.capture',
+      'audience.video',
+      'standings.rating_ladder',
+    ] as const;
+    assert({
+      given: 'the settings used by create-room and standing league lobbies',
+      should: 'be read on both chains and accept template and lobby rows',
+      actual: roomKeys.map((key) => ({
+        chains: settingsCatalogue[key].chains,
+        scopes: (['template', 'lobby'] as const).map(
+          (kind) =>
+            settingRowSchema.safeParse(row(scope(kind), key, otherValues[key]))
+              .success,
+        ),
+      })),
+      expected: roomKeys.map(() => ({ chains: 'both', scopes: [true, true] })),
+    });
+  });
+
   test('defines every key with a schema, scopes, a default and a hold rule', () => {
     assert({
       given: 'every key',

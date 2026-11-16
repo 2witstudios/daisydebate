@@ -802,6 +802,8 @@ describe('check: the assessment is recounted in full (gap 7)', () => {
     settings: {
       ...swissPower,
       'pairing.same_school': { force: 'warning' },
+      // Keep nonzero pull-ups so omitting their total remains detectable.
+      'pairing.preference_order': randomPreset['pairing.preference_order'],
     },
     judges: Array.from({ length: 4 }, (_, i) =>
       judge(`j${i}`, { outstandingBallots: i % 2 }),

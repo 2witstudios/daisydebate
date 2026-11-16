@@ -44,7 +44,19 @@ export const pairingPresets: Record<PairingPresetName, PresetValues> = {
     },
     'pairing.position_balance': { force: 'preference' },
     'pairing.section_repeat': { force: 'preference' },
-    'pairing.preference_order': weighedInCatalogueOrder,
+    'pairing.preference_order': {
+      // Record distance takes priority over repeating a side.
+      order: [
+        'pairing.rematch',
+        'pairing.same_school',
+        'pairing.pull_up',
+        'pairing.side_balance',
+        'pairing.side_alternation',
+        'pairing.position_balance',
+        'pairing.section_repeat',
+        'bye.repeat',
+      ],
+    },
     'bye.recipient': { value: 'lowest' },
     'bye.result': { value: 'win' },
     'bye.repeat': { force: 'rule' },
