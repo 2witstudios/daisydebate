@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "8882fe82-e8ac-4dc7-87a8-3b62071a02e7",
+  "id": "334079ed-89d4-41b6-998c-8d933399f9da",
   "prevIds": [
     "a3680d44-ffd5-4e93-adb4-19817ff77a13"
   ],
@@ -19233,6 +19233,27 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "member_profiles"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "profile_photos_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "profile_photos"
     },
     {
       "nameExplicit": true,

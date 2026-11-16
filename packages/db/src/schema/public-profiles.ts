@@ -105,6 +105,8 @@ export const profilePhotos = pgTable(
       'profile_photos_delete_attempts_check',
       sql`${table.deleteAttempts} >= 0`,
     ),
+    // The foreign key's own index: account deletion and per-member reads.
+    index('profile_photos_actor_idx').on(table.actorId),
     uniqueIndex('profile_photos_one_published')
       .on(table.actorId)
       .where(sql`${table.status} = 'published'`),

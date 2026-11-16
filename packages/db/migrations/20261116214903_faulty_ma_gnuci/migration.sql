@@ -31,6 +31,7 @@ CREATE TABLE "profile_photos" (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX "member_profiles_id_unique" ON "member_profiles" ("id");--> statement-breakpoint
+CREATE INDEX "profile_photos_actor_idx" ON "profile_photos" ("actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "profile_photos_one_published" ON "profile_photos" ("actor_id") WHERE "status" = 'published';--> statement-breakpoint
 CREATE UNIQUE INDEX "profile_photos_one_in_review" ON "profile_photos" ("actor_id") WHERE "status" = 'in_review';--> statement-breakpoint
 CREATE UNIQUE INDEX "profile_photos_object_prefix_unique" ON "profile_photos" ("object_prefix");--> statement-breakpoint
