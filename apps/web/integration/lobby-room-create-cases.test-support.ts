@@ -9,7 +9,7 @@ import { settingCommand } from '../src/features/tab/operations/settings';
 import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
-import { sideSeat } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
@@ -248,7 +248,17 @@ export async function nativeRoomCases(
             seat: sideSeat(side),
           })
         ).view;
-      for (const person of [world.bots['Debater 1']!, world.bots['Debater 2']!])
+      view = (
+        await f.command(world.bots['Judge A']!, view, {
+          type: 'claim-seat',
+          seat: judgeSeat(),
+        })
+      ).view;
+      for (const person of [
+        world.bots['Debater 1']!,
+        world.bots['Debater 2']!,
+        world.bots['Judge A']!,
+      ])
         view = (await f.consent(person, view, 'ready')).view;
       await f.command(world.bots.Coach!, view, { type: 'start-round' });
       const [frozen] =
