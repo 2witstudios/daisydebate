@@ -19,6 +19,7 @@ import { createAppError } from '@daisy/errors';
 import {
   commandReplay,
   type LobbyCommandAnswer,
+  type LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
 import {
   lobbySetupCommandEnvelopeSchema,
@@ -264,7 +265,8 @@ export const createLobbyRoom =
           );
           let assembly: LobbyRoomAssembly | null = null;
           const envelope = { ...parsed.data, command };
-          return runLobbyCommand<
+          let appliedReceipt: LobbyCommandReceipt | null = null;
+          const answer = await runLobbyCommand<
             typeof command,
             LobbyFacts,
             string,
@@ -292,7 +294,7 @@ export const createLobbyRoom =
                         'INVARIANT',
                         'Accepted Room has no resolved assembly',
                       );
-                    await session.apply(
+                    appliedReceipt = await session.apply(
                       assembly,
                       history,
                       receipt,
@@ -453,6 +455,9 @@ export const createLobbyRoom =
               return decision;
             },
           );
+          return answer.kind === 'accepted' && appliedReceipt
+            ? { ...answer, receipt: appliedReceipt }
+            : answer;
         },
       );
     } catch (error) {

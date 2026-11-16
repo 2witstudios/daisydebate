@@ -62,7 +62,7 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
           grants: readonly EntitlementGrant[],
           now: string,
         ) => boolean,
-      ) => Promise<void>;
+      ) => Promise<LobbyCommandReceipt>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
     database.transaction(async (tx) => {
@@ -129,7 +129,14 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
               roomId: assembly.room.id,
               now: assembly.now,
             });
-          await appendHistory(tx, history, receipt);
+          const resultingVersion = assembled?.version ?? 1;
+          const actualReceipt = { ...receipt, resultingVersion };
+          await appendHistory(
+            tx,
+            { ...history, resultingVersion },
+            actualReceipt,
+          );
+          return actualReceipt;
         },
       });
     }),

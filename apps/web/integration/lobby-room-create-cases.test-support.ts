@@ -46,6 +46,20 @@ export async function nativeRoomCases(
       world.sql`select count(*)::int n from action_history where type='create-lobby-room'`,
       world.sql`select count(*)::int n from outbox`,
     ]);
+  const [uncastRoom] =
+    await world.sql`select version from rooms where id=${roomId}`;
+  const [uncastHistory] =
+    await world.sql`select resulting_version, result from action_history where aggregate_id=${roomId} and type='create-lobby-room'`;
+  assert({
+    given: 'an accepted Room create without an initial cast',
+    should: 'retain version one in the Room and durable receipt',
+    actual: [
+      Number(uncastRoom!.version),
+      Number(uncastHistory!.resulting_version),
+      uncastHistory!.result.resultingVersion,
+    ],
+    expected: [1, 1, 1],
+  });
   const unchanged = await counts();
   for (const [command, refusal] of [
     [
@@ -216,20 +230,40 @@ export async function nativeRoomCases(
     templateId: original.templateId!,
   });
   const fresh = { ...poolCommand, config: current!.creation!.config };
-  const held = await send(
-    principal,
-    body({
-      ...fresh,
-      room: {
-        ...fresh.room,
-        cast: [
-          { actorId: world.bots.Coach!.actorId, seat: sideSeat('affirmative') },
-        ],
-      },
-    }),
-  );
+  const heldBody = body({
+    ...fresh,
+    room: {
+      ...fresh.room,
+      cast: [
+        { actorId: world.bots.Coach!.actorId, seat: sideSeat('affirmative') },
+      ],
+    },
+  });
+  const held = await send(principal, heldBody);
   if (held.kind !== 'accepted')
     throw new Error(`held seat: ${JSON.stringify(held)}`);
+  const [castRoom] =
+    await world.sql`select version from rooms where id=${held.receipt.aggregate.id}`;
+  const [castHistory] =
+    await world.sql`select resulting_version, result from action_history where command_id=${heldBody.commandId}`;
+  assert({
+    given: 'an accepted Room create with one initial cast seat',
+    should: 'return and persist the canonical assembled version and replay it',
+    actual: [
+      Number(castRoom!.version),
+      held.receipt.resultingVersion,
+      Number(castHistory!.resulting_version),
+      castHistory!.result.resultingVersion,
+      await send(principal, heldBody),
+    ],
+    expected: [
+      2,
+      2,
+      2,
+      2,
+      { ...held, receipt: { ...held.receipt, replayed: true } },
+    ],
+  });
   const beforeActive = await counts();
   let reason: string | undefined;
   try {
