@@ -29,13 +29,14 @@ export async function standingsStage(world: World) {
       'fold current results into host standings and expose no history to an entrant or foreign event',
     actual: [
       actual?.visibility,
+      actual?.visibility === 'official' ? actual.resultsVersion : null,
       actual?.rows.length,
       actual?.rows.reduce((n, row) => n + row.wins, 0),
       actual?.progress.kind,
       await read(as(world.bots['Debater 1']!), { lobbyId, eventId }),
       await read(as(world.bots.Director!), { lobbyId, eventId: createId() }),
     ],
-    expected: ['official', 4, 2, 'complete', null, null],
+    expected: ['official', 4, 4, 2, 'complete', null, null],
   });
   const used = await store.eventCompetition(
     { viewerUserId: world.bots.Director!.userId, lobbyId, eventId },

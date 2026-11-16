@@ -1,3 +1,6 @@
+import { systemId } from '@daisy/clock';
+import { CompletionCommandForm } from '../../../../../../ui/tab/completion/completion-command-form';
+import { eventCompletionAction } from '../completion-actions';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { readSetup } from '../../../../../../features/tab/setup';
@@ -67,6 +70,30 @@ export default async function Page({
     return (
       <HostStandings
         rail={hostNavigationRail(navigation)}
+        announcement={
+          read.visibility === 'official' &&
+          read.capabilities.announceBreak &&
+          read.progress.kind === 'complete' &&
+          read.breakAnnouncedAt === null &&
+          read.rows.some((row) => row.decidesBreak) ? (
+            <CompletionCommandForm
+              label="Announce this event’s break"
+              submitLabel="Announce break"
+              action={eventCompletionAction.bind(null, {
+                commandId: systemId.next(),
+                lobbyId: navigation.id,
+                eventId: selected.eventId,
+                handle: slug,
+                target: {
+                  type: 'announce-break',
+                  resultsVersion: read.resultsVersion,
+                },
+              })}
+            >
+              {null}
+            </CompletionCommandForm>
+          ) : undefined
+        }
         event={{
           current: selected.name,
           position: `${navigation.events.indexOf(selected) + 1} of ${navigation.events.length}`,

@@ -1,8 +1,16 @@
+import { eventResultCommand } from '../src/features/tab/operations/event-result-command';
+import {
+  completionEnvelope,
+  completionAnswer,
+} from '../src/features/tab/completion-form';
+import { createTabCommandRoute } from '../src/features/tab/command-route';
+import { member, origin } from '../src/server/member-boundary.test-support';
+import { silentLogger } from '../src/server/test-loggers.test-support';
+import { noopErrorReporter } from '@daisy/observability';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { committingRuntimeTestDatabase } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { resultCommand } from '../src/features/tab/operations/result-command';
 import { completionCommand } from '../src/features/tab/operations/completion-command';
 import {
   as,
@@ -101,7 +109,7 @@ test('actual ballot submission screens atomically, retains originals and replays
           now: () => new Date().toISOString(),
         };
         const complete = completionCommand(common),
-          record = resultCommand(common),
+          record = eventResultCommand(common),
           principal = as(world.bots.Director!);
         const [fixture] =
           await owner`select f.id,f.version from fixtures f join rounds r on r.room_id=f.room_id where r.id=${roundId}`;
@@ -153,9 +161,73 @@ test('actual ballot submission screens atomically, retains originals and replays
           ),
           expected: true,
         });
-        const resolved = await complete(principal, lobbyId, disposition);
-        if (resolved.kind !== 'accepted')
-          throw new Error(`Human disposition: ${JSON.stringify(resolved)}`);
+        const form = new FormData();
+        form.set('mode', 'redacted');
+        form.set('reason', 'Email [contact removed] for feedback');
+        const envelope = completionEnvelope(
+          {
+            commandId: disposition.commandId,
+            lobbyId,
+            eventId,
+            handle: 'actual-tournament',
+            target: {
+              type: 'resolve-screening-hold',
+              ballotId,
+              roundId,
+              feedbackKeys: [],
+            },
+          },
+          form,
+        );
+        const submit = (released: boolean) =>
+          createTabCommandRoute({
+            boundary: {
+              logger: silentLogger,
+              reporter: noopErrorReporter,
+              origin: () => origin,
+              identify: async () => ({
+                ...member,
+                principal: {
+                  ...principal,
+                  actorId: world.bots.Director!.actorId,
+                },
+              }),
+            },
+            released: async () => released,
+            name: 'tab.result.command',
+            address: 'lobby',
+            execute: record,
+          })(
+            new Request(
+              `${origin}/api/tab/result-command?${new URLSearchParams({ lobbyId })}`,
+              {
+                method: 'POST',
+                headers: { origin, 'content-type': 'application/json' },
+                body: JSON.stringify(envelope),
+              },
+            ),
+          );
+        assert({
+          given: 'the actual held-text form while the Tab release is closed',
+          should:
+            'refuse at the real request boundary without resolving the hold',
+          actual: [(await submit(false)).status, (await read())[0]!.status],
+          expected: [404, 'held'],
+        });
+        const response = await submit(true);
+        const result = completionAnswer(form, await response.json());
+        assert({
+          given:
+            'the reviewed text submitted through the production event-result dispatcher and evaluated HTTP boundary',
+          should:
+            'acknowledge the real retained receipt without caching private text',
+          actual: [
+            response.status,
+            response.headers.get('cache-control'),
+            result.kind,
+          ],
+          expected: [200, 'no-store', 'accepted'],
+        });
         const [settled] = await read();
         const [audit] =
           await owner`select actor_user_id,type from action_history where command_id=${disposition.commandId}`;

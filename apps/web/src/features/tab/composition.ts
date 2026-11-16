@@ -3,15 +3,13 @@ import {
   createHostBallotsRoute,
   type HostBallotsRouteDependencies,
 } from './host-ballots-route';
-import { completionCommand } from './operations/completion-command';
-import { resultCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { readHostNavigation } from './reads/host-navigation';
 import {
   createHostNavigationRoute,
   type HostNavigationRouteDependencies,
 } from './host-navigation-route';
 import { fixtureCommand } from './operations/fixture-command';
-import { resultCommand } from './operations/result-command';
+import { eventResultCommand } from './operations/event-result-command';
 import { releaseCommand } from './operations/release-command';
 import { settlePendingCommand } from './operations/confirmation-command';
 import { requestConflictWaiver } from './operations/conflict-waiver-request';
@@ -91,8 +89,7 @@ export function composeTabRoutes(app: App) {
   const setup = setupCommand(common);
   const settings = settingCommand(common);
   const fixtures = fixtureCommand(common);
-  const results = resultCommand(common);
-  const completion = completionCommand(common);
+  const results = eventResultCommand(common);
   const releases = releaseCommand(common);
   const confirmations = settlePendingCommand(common);
   const waivers = requestConflictWaiver(common);
@@ -132,12 +129,7 @@ export function composeTabRoutes(app: App) {
       commandRoute(released, {
         name: 'tab.result.command',
         address: 'lobby',
-        execute: (principal, lobbyId, body) => {
-          const parsed = resultCommandEnvelopeSchema.safeParse(body);
-          return parsed.success && 'fixtureId' in parsed.data.command
-            ? results(principal, lobbyId, body)
-            : completion(principal, lobbyId, body);
-        },
+        execute: results,
       }),
     releaseCommand: (released: TabCommandRouteDependencies['released']) =>
       commandRoute(released, {

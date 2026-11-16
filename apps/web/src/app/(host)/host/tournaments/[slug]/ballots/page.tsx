@@ -67,11 +67,12 @@ export default async function Page({
           .filter((one) => one.eventId !== event.eventId)
           .map((one) => linkTo(one.name, path(one.eventId))),
       }}
-      rounds={index.rounds.map((one) => ({
+      rounds={index.rounds.map((one, position) => ({
         id: one.roundId,
         action: linkTo(
-          `${one.tabRoundName ?? 'Round'} · ${one.roomTitle}`,
+          `${one.roomTitle} · Ballot group ${position + 1}`,
           path(event.eventId, one.roundId),
+          selected?.roundId === one.roundId,
         ),
       }))}
       view={view}

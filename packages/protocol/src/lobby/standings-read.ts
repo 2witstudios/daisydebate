@@ -72,6 +72,8 @@ export const standingsViewSchema = z.discriminatedUnion('visibility', [
   z.strictObject({
     ...standingsShape,
     visibility: z.literal('official'),
+    /** The actual retained event result/certification guard for host commands. */
+    resultsVersion: z.int().positive(),
     rows: z.array(rowWithPoints),
     capabilities: z.strictObject({
       announceBreak: z.boolean(),

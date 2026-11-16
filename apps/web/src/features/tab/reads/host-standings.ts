@@ -1,3 +1,4 @@
+import { eventResultsVersion } from '../operations/event-results-version';
 import type {
   AuthorizationInput,
   AuthorizationDecision,
@@ -106,6 +107,7 @@ export function hostStandingsView(
     breakAnnouncedAt: facts.announcements[0]?.appliedAt.toISOString() ?? null,
     entryCount: folded.rows.length,
     visibility: 'official',
+    resultsVersion: eventResultsVersion(facts),
     capabilities,
     rows: folded.rows.map((row, i) => {
       const entry = facts.entries.find((entry) => entry.id === row.entry)!;

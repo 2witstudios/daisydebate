@@ -43,6 +43,7 @@ const shape = {
 const official = {
   ...shape,
   visibility: 'official',
+  resultsVersion: 1,
   rows: [{ ...row, points: 114.5 }],
   capabilities: { announceBreak: true, previewCorrection: true },
 };

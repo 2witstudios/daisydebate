@@ -103,10 +103,10 @@ export function HostBallots({
             {address ? (
               <p className="text-sm text-ink-muted">
                 {address.screening === 'held'
-                  ? 'Written feedback needs review before release.'
+                  ? 'Contact details need review before release.'
                   : address.screening === 'pending'
-                    ? 'Written feedback screening is pending.'
-                    : 'Written feedback has been screened.'}
+                    ? 'Contact screening is pending.'
+                    : 'Contact screening is complete.'}
               </p>
             ) : null}
             {review(index)}
