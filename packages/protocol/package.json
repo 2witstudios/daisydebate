@@ -65,7 +65,8 @@
     "./lobby/result-record-correction": "./src/lobby/result-record-correction.ts",
     "./lobby/sponsorship-command": "./src/lobby/sponsorship-command.ts",
     "./lobby/host-navigation-read": "./src/lobby/host-navigation-read.ts",
-    "./lobby/break-command": "./src/lobby/break-command.ts"
+    "./lobby/break-command": "./src/lobby/break-command.ts",
+    "./lobby/host-ballots-read": "./src/lobby/host-ballots-read.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

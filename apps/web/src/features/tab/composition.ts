@@ -1,3 +1,8 @@
+import { readHostBallots } from './reads/host-ballots';
+import {
+  createHostBallotsRoute,
+  type HostBallotsRouteDependencies,
+} from './host-ballots-route';
 import { completionCommand } from './operations/completion-command';
 import { resultCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { readHostNavigation } from './reads/host-navigation';
@@ -103,6 +108,12 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    hostBallots: (released: HostBallotsRouteDependencies['released']) =>
+      createHostBallotsRoute({
+        boundary,
+        released,
+        read: readHostBallots({ store, authorize }),
+      }),
     hostNavigation: (released: HostNavigationRouteDependencies['released']) =>
       createHostNavigationRoute({
         boundary,

@@ -176,6 +176,17 @@ export function ballotReadView(input: {
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)
                 : ('human' as const),
+              ...(input.audience.kind === 'event' &&
+              input.audience.access.unreleased
+                ? {
+                    review: {
+                      ballotId: row.id,
+                      screening:
+                        input.audience.screenings.get(row.id)?.status ??
+                        'pending',
+                    },
+                  }
+                : {}),
               ballot: {
                 ...ballot,
                 ...(ballot.feedback !== undefined

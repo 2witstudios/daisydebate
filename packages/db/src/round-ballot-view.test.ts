@@ -248,3 +248,45 @@ test('a released speaker ranking carries feedback only for the reading speaker',
     ],
   });
 });
+
+test('only the event unreleased projection carries screening review addressing', () => {
+  const submitted = row('judge-h');
+  const review = (unreleased: boolean) =>
+    ballotReadView({
+      audience: {
+        kind: 'event',
+        access: {
+          parts: ['decision', 'scores', 'reason', 'feedback'],
+          unreleased,
+        },
+        screenings: new Map([
+          [submitted.id, { status: 'held', releasedText: null }],
+        ]),
+      },
+      status: 'completed',
+      ownSeatId: undefined,
+      viewerSubject: undefined,
+      aiJudgeSeatIds: new Set(),
+      ...judged,
+      rows: [submitted],
+      frozen: null,
+    }).ballots[0];
+  assert({
+    given:
+      'the same held event ballot read under released and unreleased authority',
+    should:
+      'provide review ids only to the official and keep held words off the released copy',
+    actual: [
+      review(false)?.review ?? null,
+      review(false)?.ballot.reason ?? null,
+      review(true)?.review,
+      review(true)?.ballot.reason,
+    ],
+    expected: [
+      null,
+      null,
+      { ballotId: submitted.id, screening: 'held' },
+      body.reason,
+    ],
+  });
+});

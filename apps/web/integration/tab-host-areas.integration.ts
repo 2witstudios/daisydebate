@@ -1,3 +1,11 @@
+import {
+  createHostBallotsRoute,
+  hostBallotsPath,
+} from '../src/features/tab/host-ballots-route';
+import { member, origin } from '../src/server/member-boundary.test-support';
+import { silentLogger } from '../src/server/test-loggers.test-support';
+import { noopErrorReporter } from '@daisy/observability';
+import { readHostBallots } from '../src/features/tab/reads/host-ballots';
 import { withActualCopiedBallot } from './tab-actual-ballot.test-support';
 import { roundBallotReader } from '../src/features/round-ballots/reader';
 import { roundViewReader } from '../src/features/round-runtime/reads';
@@ -52,6 +60,7 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
     const setup = readTournamentSetup(dependencies);
     const settings = readTournamentEventSettings(dependencies);
     const ballot = readEventBallot(dependencies);
+    const hostBallots = readHostBallots(dependencies);
     const people = await createBots(owner, [
       'Ballot reviewer only',
       'Results staff only',
@@ -135,6 +144,45 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
                 : ['standings.tiebreaks', 'standings.rating_ladder'],
             ],
           });
+          const listed = await hostBallots(as(person), { lobbyId, eventId });
+          const route = (released = true) =>
+            createHostBallotsRoute({
+              boundary: {
+                logger: silentLogger,
+                reporter: noopErrorReporter,
+                origin: () => origin,
+                identify: async () => ({
+                  ...member,
+                  principal: { ...as(person), actorId: person.actorId },
+                }),
+              },
+              released: async () => released,
+              read: hostBallots,
+            });
+          const request = () =>
+            new Request(`${origin}${hostBallotsPath(lobbyId, eventId)}`, {
+              headers: { origin },
+            });
+          const response = await route()(request());
+          assert({
+            given: `the actual ${permission} viewer at the Ballots HTTP boundary`,
+            should:
+              'apply the area capability, closed release and no-store policy',
+            actual: [
+              response.status,
+              response.headers.get('cache-control'),
+              (await route(false)(request())).status,
+            ],
+            expected: [index === 0 ? 200 : 404, 'no-store', 404],
+          });
+
+          assert({
+            given: `the actual ${permission} host area`,
+            should:
+              'list only its own real ballot Round addresses and require the ballots area',
+            actual: listed?.rounds.map((row) => row.roundId) ?? null,
+            expected: index === 0 ? [roundId] : null,
+          });
           const [recorded] =
             await owner`select scores,winner from ballots where id=${ballotId}`;
           const ballotView =
@@ -148,6 +196,7 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
               ballotView?.ballots[0]?.ballot.scores ?? null,
               ballotView?.ballots[0]?.ballot.winner ?? null,
               ballotView?.transcript ?? null,
+              ballotView?.ballots[0]?.review ?? null,
               await hidden(() => runtime.operations.view(person, world.roomId)),
               await hidden(() => readVideo(person, roundId)),
               index === 1
@@ -158,6 +207,7 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
               index === 0 ? recorded!.scores : null,
               index === 0 ? recorded!.winner : null,
               null,
+              index === 0 ? { ballotId, screening: 'clear' } : null,
               true,
               true,
               true,
@@ -186,11 +236,12 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
               revoked.kind,
               await navigation(as(person), { kind: 'lobby', id: lobbyId }),
               await standings(as(person), { lobbyId, eventId }),
+              await hostBallots(as(person), { lobbyId, eventId }),
               (
                 await owner`select revoked_at is not null ended from grants where id=${grant!.id}`
               )[0]!.ended,
             ],
-            expected: ['accepted', null, null, true],
+            expected: ['accepted', null, null, null, true],
           });
           assert({
             given: 'that actual role after canonical revocation',
