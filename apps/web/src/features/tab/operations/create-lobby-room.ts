@@ -15,7 +15,7 @@ import {
   resolveRoomConfiguration,
   decideRoomResolution,
 } from '@daisy/debate-engine';
-import { createAppError, createRefusal } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import {
   commandReplay,
   type LobbyCommandAnswer,
@@ -292,15 +292,6 @@ export const createLobbyRoom =
                         'INVARIANT',
                         'Accepted Room has no resolved assembly',
                       );
-                    if (
-                      (recording || command.room.postRoundCall) &&
-                      !hostHoldsCasualCapture(
-                        await session.grants(),
-                        dependencies.betaGrantsPremium ?? false,
-                        await session.now(),
-                      )
-                    )
-                      throw createRefusal('CONFLICT', 'capture-premium');
                     await session.apply(
                       assembly,
                       history,
@@ -315,6 +306,14 @@ export const createLobbyRoom =
                             words: notice.notice.text,
                           }
                         : null,
+                      recording || command.room.postRoundCall
+                        ? (grants, at) =>
+                            hostHoldsCasualCapture(
+                              grants,
+                              dependencies.betaGrantsPremium ?? false,
+                              at,
+                            )
+                        : undefined,
                     );
                   },
                 }),

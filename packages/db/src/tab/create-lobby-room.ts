@@ -1,5 +1,5 @@
-import { createAppError } from '@daisy/errors';
-import type { FormatDefinition } from '@daisy/protocol';
+import { createAppError, createRefusal } from '@daisy/errors';
+import type { FormatDefinition, EntitlementGrant } from '@daisy/protocol';
 import type { LobbyCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import type {
   ActionHistoryEntry,
@@ -16,6 +16,7 @@ import {
   lockCommand,
   lockedAccount,
   publishDefinition,
+  appendRoomChanged,
 } from '../room-command-facts';
 import { loadStandingRoomDraft } from './standing-room-draft';
 import { appendHistory, storedCommand } from './command-record';
@@ -45,7 +46,6 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
         id: string,
         kind: 'policy' | 'value',
       ) => ReturnType<typeof readPublishedResolution>;
-      readonly grants: () => ReturnType<typeof readEntitlementGrants>;
       readonly now: () => Promise<string>;
       readonly stored: (id: string) => ReturnType<typeof storedCommand>;
       readonly apply: (
@@ -58,6 +58,10 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
           readonly version: string;
           readonly words: string;
         } | null,
+        authorizeCapture?: (
+          grants: readonly EntitlementGrant[],
+          now: string,
+        ) => boolean,
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
@@ -87,10 +91,16 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
           }),
         selectionFacts: (tuple) => readFormatSelectionFacts(tx, tuple),
         publication: (id, kind) => readPublishedResolution(tx, id, kind),
-        grants: () => readEntitlementGrants(tx, input.senderUserId),
         now: async () => (await readDatabaseTime(tx)).toISOString(),
         stored: (id) => storedCommand(tx, id),
-        apply: async (assembly, history, receipt, definition, notice) => {
+        apply: async (
+          assembly,
+          history,
+          receipt,
+          definition,
+          notice,
+          authorizeCapture,
+        ) => {
           if (definition)
             await publishDefinition(
               tx,
@@ -98,7 +108,20 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
               input.senderActorId,
               definition,
             );
-          await assembleRoom(tx, assembly);
+          const assembled = await assembleRoom(tx, assembly);
+          if (
+            authorizeCapture &&
+            !authorizeCapture(
+              await readEntitlementGrants(tx, input.senderUserId),
+              (await readDatabaseTime(tx)).toISOString(),
+            )
+          )
+            throw createRefusal('CONFLICT', 'capture-premium');
+          await appendRoomChanged(
+            tx,
+            assembly.room.id,
+            assembled?.changeVersion ?? 1,
+          );
           if (notice)
             await recordCaptureNotice(tx, {
               ...notice,
