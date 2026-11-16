@@ -1,4 +1,3 @@
-import { tournamentRatingSnapshotSchema } from '@daisy/protocol/lobby/rating-snapshot';
 import { lobbyKinds, tournamentStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
@@ -14,7 +13,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
-  jsonbColumnNullable,
   oneOf,
   timestampColumn,
   updatedAtColumn,
@@ -105,11 +103,6 @@ export const tournaments = pgTable(
       .default('draft'),
     admitsMinors: boolean('admits_minors').notNull().default(false),
     linkHash: text('link_hash'),
-    /** First accepted draw freezes every event against one tournament-start input. */
-    ratingSnapshot: jsonbColumnNullable(
-      'rating_snapshot',
-      tournamentRatingSnapshotSchema,
-    ),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
   },

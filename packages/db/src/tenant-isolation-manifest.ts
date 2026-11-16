@@ -98,6 +98,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     either('settings', { openRead: true }),
     organization('ladders', { openRead: true }),
     lobby('tournaments', { openRead: true }),
+    lobby('tournament_rating_snapshots'),
     lobby('tournament_sponsorship_versions', {
       subject: 'tournament-sponsorship',
     }),
