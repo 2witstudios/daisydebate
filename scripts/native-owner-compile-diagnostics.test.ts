@@ -93,3 +93,24 @@ test('Rust and linker diagnostics retain their distinct evidence', () => {
     expected: { rust: 'rust-compiler', codes: ['E0433'], linker: 'linker' },
   });
 });
+
+test('quoted and prefixed credentials never reach compiler evidence', () => {
+  const result = classify(
+    'error: unclassified vendor failure\n{"token":"tiny-token", "password": "short-pass"}\nGH_TOKEN=short-gh-token\nAWS_SECRET_ACCESS_KEY=short-cloud-key\naccessToken = short-camel-token\nBearer short-bearer',
+  );
+  const output = JSON.stringify(result);
+  assert({
+    given:
+      'quoted JSON keys, provider-prefixed variables, camelCase keys and bearer values',
+    should: 'suppress each credential value even when it is short',
+    actual: [
+      'tiny-token',
+      'short-pass',
+      'short-gh-token',
+      'short-cloud-key',
+      'short-camel-token',
+      'short-bearer',
+    ].some((value) => output.includes(value)),
+    expected: false,
+  });
+});

@@ -7,10 +7,19 @@ OUTPUT_BYTES = 8192
 def sanitize(line, scratch):
     line = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', line[:2048])
     line = ''.join(char for char in line if char == '\t' or ord(char) >= 32)
-    if re.search(r'(?i)\b(?:authorization|cookie)\s*[:=]', line):
+    if re.search(r'(?i)\b(?:authorization|cookie)\s*[:=]|\bbearer\s+[A-Za-z0-9._~+/-]+=*', line):
         return '<credential-line>'
+    assignments = re.finditer(r"""(["']?)([A-Za-z_][A-Za-z0-9_.-]{0,255})\1\s*[:=](?!:)""", line)
+    for assignment in assignments:
+        key = assignment[2]
+        words = re.sub(r'([a-z])([A-Z])', r'\1_\2', key).lower()
+        parts = re.split(r'[_\-.]+', words)
+        normalized = re.sub(r'[^a-z0-9]', '', words)
+        if (any(part in ('authorization', 'password', 'passwd', 'secret', 'token', 'cookie', 'credential') for part in parts)
+                or normalized.endswith(('token', 'password', 'passwd', 'secret'))
+                or any(term in normalized for term in ('apikey', 'accesskey', 'privatekey'))):
+            return '<credential-line>'
     line = re.sub(r'[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\'"<>]+', '<url>', line)
-    line = re.sub(r'(?i)\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|token)\s*[:=]\s*(?:"[^"]*"|\'[^\']*\'|[^\s,;]+)', '<credential>', line)
     line = line.replace(scratch.rstrip('/') + '/source', '<source>')
     line = line.replace(scratch.rstrip('/'), '<scratch>')
     line = re.sub(r'(?<![\w>])/[^\s\'"`<>():]+', '<path>', line)
