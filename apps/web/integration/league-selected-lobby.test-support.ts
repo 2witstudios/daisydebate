@@ -92,6 +92,25 @@ export async function selectedLobbyCases(world: World) {
     ],
     expected: [true, lobbyId, [[created.receipt.aggregate.id, lobbyId]]],
   });
+  await world.sql`update rooms set visibility='private' where id=${created.receipt.aggregate.id}`;
+  const listedTo = async (who: ReturnType<typeof as>) =>
+    store.leagueSeason(
+      { viewerUserId: who.userId, organizationId, lobbyId },
+      async (value) => value?.standingRooms.map((room) => room.id),
+    );
+  assert({
+    given: 'a private Room in the members-only lobby',
+    should: 'list it to its host and never to another member',
+    actual: [await listedTo(principal), await listedTo(as(world.bots.Coach!))],
+    expected: [[created.receipt.aggregate.id], []],
+  });
+  await world.sql`update rooms set visibility='unlisted' where id=${created.receipt.aggregate.id}`;
+  assert({
+    given: 'an unlisted Room in the members-only lobby',
+    should: 'list it to another member of the lobby',
+    actual: await listedTo(as(world.bots.Coach!)),
+    expected: [created.receipt.aggregate.id],
+  });
   const read = readLeagueSeason(dependencies);
   const selected = await read(principal, {
     organizationId,

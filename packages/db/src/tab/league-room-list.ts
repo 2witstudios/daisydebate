@@ -7,7 +7,10 @@ import { settings } from '../schema/settings';
 import { scopeTransaction } from '../tenant-scope';
 import type { TabTransaction } from './tab-transaction';
 
-/** Current standing-lobby list metadata; no ballots, results or contact details. */
+/**
+ * Current standing-lobby list metadata; no ballots, results or contact
+ * details. A private Room is listed only to its host and seated people.
+ */
 export async function loadLeagueRoomList(
   tx: TabTransaction,
   input: {
@@ -35,6 +38,26 @@ export async function loadLeagueRoomList(
       and(
         eq(rooms.lobbyId, input.lobbyId),
         inArray(rooms.status, ['assembling', 'ready', 'started']),
+        // The lobby is members-only, so its public and unlisted Rooms are
+        // listed to members; a private Room only to its host and its seats.
+        or(
+          inArray(rooms.visibility, ['public', 'unlisted']),
+          inArray(
+            rooms.hostActorId,
+            tx
+              .select({ id: actors.id })
+              .from(actors)
+              .where(eq(actors.userId, input.viewerUserId)),
+          ),
+          inArray(
+            rooms.id,
+            tx
+              .select({ roomId: roomParticipants.roomId })
+              .from(roomParticipants)
+              .innerJoin(actors, eq(actors.id, roomParticipants.actorId))
+              .where(eq(actors.userId, input.viewerUserId)),
+          ),
+        ),
       ),
     )
     .orderBy(desc(rooms.createdAt))
