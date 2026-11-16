@@ -91,6 +91,65 @@ const failures = (
   modelKeys.flatMap((key) => over.filter((cells) => !check(key, cells))).length;
 
 describe('resolving a setting', () => {
+  test('Room recording, video and rating use the same resolution rule as events', () => {
+    const room = roomChain({
+      organizationId: 'organization',
+      templateId: 'template',
+      lobbyId: 'lobby',
+    });
+    const event = eventChain({
+      template: { id: 'template', organizationId: 'organization' },
+      leagueId: null,
+      lobbyId: 'lobby',
+      eventId: 'event',
+    });
+    const keys = [
+      'recording.capture',
+      'audience.video',
+      'standings.rating_ladder',
+    ] as const;
+    assert({
+      given:
+        'template and lobby defaults, or an enforced template value, on both chains',
+      should:
+        'take the lobby default, keep template enforcement and otherwise use the catalogue',
+      actual: keys.flatMap((key) =>
+        [room, event].flatMap((chain) => {
+          const templateRow = row(room[1]!, key, otherValues[key]);
+          const defaultValue = resolveSetting(
+            key,
+            [],
+            [],
+            formatDefaults,
+          ).value;
+          const lobbyRow = row(room[2]!, key, defaultValue);
+          return [
+            resolveSetting(key, chain, [templateRow, lobbyRow], formatDefaults),
+            resolveSetting(
+              key,
+              chain,
+              [{ ...templateRow, hold: 'enforced' }, lobbyRow],
+              formatDefaults,
+            ),
+            resolveSetting(key, chain, [], formatDefaults),
+          ];
+        }),
+      ),
+      expected: keys.flatMap((key) =>
+        [room, event].flatMap(() => [
+          {
+            key,
+            value: resolveSetting(key, [], [], formatDefaults).value,
+            hold: 'default',
+            source: room[2],
+          },
+          { key, value: otherValues[key], hold: 'enforced', source: room[1] },
+          resolveSetting(key, [], [], formatDefaults),
+        ]),
+      ),
+    });
+  });
+
   test('an enforced value wins', () => {
     assert({
       given: 'every chain of rows with an enforced one, for three kinds of key',
