@@ -35,7 +35,7 @@ function Section({
 
 /**
  * One person: a friend shows the display name and photo they chose (ADR
- * 0142), with @username kept beside it; a request shows the username alone.
+ * 0143), with @username kept beside it; a request shows the username alone.
  */
 function PersonRow({
   username,

@@ -5,6 +5,9 @@ slice, TAB-4). Amends section 7 of [ADR 0058](0058-one-round-model.md): a
 Room now has a parent. Amends [ADR 0055](0055-glicko-2-calculation-ladders-and-seasons.md) and
 [ADR 0090](0090-three-rating-ladders.md): a season belongs to an
 organization and a ladder to a standing lobby; Daisy's are unchanged.
+[ADR 0142](0142-freestyle-the-one-standard-and-ladder.md) reduces Daisy's
+ladders to one, Freestyle, which belongs to the public lobby as §5 says of
+the three.
 
 ## Decision
 

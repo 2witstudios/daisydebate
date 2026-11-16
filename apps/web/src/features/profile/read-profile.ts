@@ -21,7 +21,7 @@ export type ProfileStore = Pick<
 >;
 
 /**
- * What a member chose to show besides the username (ADR 0142): their display
+ * What a member chose to show besides the username (ADR 0143): their display
  * name, bio and published photo, and the profile row a report of the text
  * names. A closed account shows none of it.
  */

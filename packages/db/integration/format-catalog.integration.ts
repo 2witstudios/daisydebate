@@ -36,7 +36,7 @@ test('the migrations seed the catalog with a current preset each', async () => {
     assert({
       given: 'a migrated database',
       should:
-        'list every catalog format at preset1 and admit exactly the three canonical rated IDs',
+        'list every catalog format at preset1 and admit exactly the canonical ladder IDs (Freestyle)',
       actual: { listed, oneOnOneRanked: oneOnOne[0]?.ranked },
       expected: {
         listed: catalogFormats.map(({ id, role, family }) => ({
@@ -143,12 +143,12 @@ test('a room basis names a whole preset or none', async () => {
         }),
       );
     assert({
-      given: 'a half basis, a basis naming no preset, and the Value preset',
+      given: 'a half basis, a basis naming no preset, and a template preset',
       should: 'refuse the half and the dangling basis and accept a real preset',
       actual: [
-        await basis('value', null),
+        await basis('nsda-ld', null),
         await basis(formatId, 1),
-        await basis('value', 1),
+        await basis('nsda-ld', 1),
       ],
       expected: ['rooms_basis_complete', 'rooms_basis_preset_fk', null],
     });

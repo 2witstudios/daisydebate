@@ -59,7 +59,7 @@ export async function sweepPhotoDeletions(
   return { deleted, retried, owed: await store.owed() };
 }
 
-/** The scheduled sweep (ADR 0142): rejected, removed, withdrawn and erased photos. */
+/** The scheduled sweep (ADR 0143): rejected, removed, withdrawn and erased photos. */
 export function startPhotoDeletions(input: {
   readonly store: PhotoDeletionStore;
   readonly objects: ProfilePhotoObjects | null;

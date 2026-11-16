@@ -13,7 +13,7 @@ type ReportTarget = {
 };
 
 /**
- * What of a member's public profile someone else may report (ADR 0142): the
+ * What of a member's public profile someone else may report (ADR 0143): the
  * published photo, and the display name and bio while they are set. Nothing
  * shown is nothing to report.
  */

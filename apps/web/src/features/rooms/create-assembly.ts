@@ -46,12 +46,10 @@ export async function createAssembly(
     resolution:
       field(form, 'resolutionMethod') === 'strike'
         ? { kind: 'strike' }
-        : field(form, 'resolutionMethod') === 'custom'
-          ? { kind: 'custom', text: field(form, 'customResolution') }
-          : {
-              kind: field(form, 'resolutionMethod'),
-              id: field(form, `${field(form, 'resolutionMethod')}ResolutionId`),
-            },
+        : {
+            kind: field(form, 'resolutionMethod'),
+            text: field(form, 'customResolution'),
+          },
     visibility: field(form, 'visibility'),
     selection,
     ...(recording ? { recording: true } : {}),

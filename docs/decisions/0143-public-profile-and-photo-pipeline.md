@@ -1,4 +1,4 @@
-# 0142: The public profile and the profile photo pipeline
+# 0143: The public profile and the profile photo pipeline
 
 Status: accepted (owner, 2026-11-16; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/l6ida68g5fopfzw6ag4nqje0)).
 Builds on [ADR 0036](0036-privacy-by-design.md), [ADR 0075](0075-beta-access-gate.md),

@@ -16,7 +16,6 @@ import { contactReactions } from '../src/contact-composition';
 import { createContactStore } from '../src/contacts/store';
 import { loadAuthorizationAccount } from '../src/authorization';
 import { memberCardOperations } from '../src/member-cards';
-import { ratingVisibilityOperations } from '../src/ratings-visibility';
 import { reportsPrivacyAdopter } from '../src/reports/privacy';
 import { moderationPrivacyAdopter } from '../src/moderation/privacy';
 import { moderationOperations } from '../src/moderation/store';
@@ -391,35 +390,21 @@ test('an active Room is a placement: room while open, round once launched', asyn
 
 test('a card reads a page of people, whatever they have played', async () => {
   const ctx = await open();
-  const cards = ratingVisibilityOperations({ database: ctx.database });
   const memberCards = memberCardOperations({ database: ctx.database });
   try {
     const clock = { now: ctx.now, rankedDelaySeconds: 60 };
     const none = await memberCards.readMemberCards([], clock);
     const empty = await memberCards.readMemberCards([ctx.them.actorId], clock);
-    await cards.writeRatingVisibility(
-      ctx.them,
-      { showPolicy: true, showValue: false, now: ctx.now },
-      unfenced,
-    );
-    const shown = await memberCards.readMemberCards([ctx.them.actorId], clock);
-    const own = await cards.readRatingVisibility(ctx.them, unfenced);
     assert({
-      given: 'nobody, a member with nothing played, then one turning Policy on',
-      should: 'answer empty pages, then their choice',
-      actual: [none, empty, shown.visibility.map((v) => v.showPolicy), own],
+      given: 'nobody, then a member with nothing played',
+      should: 'answer empty pages',
+      actual: [none, empty],
       expected: [
-        { ratings: [], records: [], visibility: [] },
-        { ratings: [], records: [], visibility: [] },
-        [true],
-        { showPolicy: true, showValue: false },
+        { ratings: [], records: [] },
+        { ratings: [], records: [] },
       ],
     });
   } finally {
-    await ctx.client.unsafe(
-      'delete from rating_visibility where actor_id = $1',
-      [ctx.them.actorId],
-    );
     await ctx.cleanup();
     await ctx.client.close();
   }
@@ -440,7 +425,7 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
         notificationId: createId(),
         emailJobId: createId(),
         mode: 'ranked',
-        format: 'policy',
+        format: 'freestyle',
         now: ctx.now,
         expiresAt,
       }),
@@ -485,7 +470,7 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
       expected: [
         first,
         first,
-        [['outgoing', 'ranked', 'policy', null]],
+        [['outgoing', 'ranked', 'freestyle', null]],
         ['incoming'],
         [],
         true,
@@ -512,7 +497,7 @@ test('accepting names only a room made for the offer, and only for a free challe
         notificationId: createId(),
         emailJobId: createId(),
         mode,
-        format: 'policy',
+        format: 'freestyle',
         now: ctx.now,
         expiresAt,
       }),
@@ -533,7 +518,7 @@ test('accepting names only a room made for the offer, and only for a free challe
       );
   await withFixture(databaseUrl, async (fixture) => {
     const room = (overrides: Readonly<Record<string, unknown>>) =>
-      fixture.room(ctx.them.actorId, 'policy', overrides);
+      fixture.room(ctx.them.actorId, 'freestyle', overrides);
     await send('ranked');
     const { challengeId } = await send('casual');
     const terms = (
@@ -551,7 +536,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     const unheld = await room({});
     const lapsed = await holdFor(await room({}), ctx.now);
     const wrongFormat = await holdFor(
-      await fixture.room(ctx.them.actorId, 'freestyle', {}),
+      await fixture.room(ctx.them.actorId, 'nsda-ld', {}),
       expiresAt,
     );
     const refused = [
@@ -559,7 +544,7 @@ test('accepting names only a room made for the offer, and only for a free challe
       await accept(challengeId, lapsed),
       await accept(challengeId, wrongFormat),
     ];
-    const mine = await fixture.room(ctx.me.actorId, 'policy', {});
+    const mine = await fixture.room(ctx.me.actorId, 'freestyle', {});
     await ctx.client.unsafe(
       'insert into room_active_memberships (actor_id, room_id) values ($1, $2)',
       [ctx.me.actorId, mine],
@@ -818,7 +803,7 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
           notificationId: createId(),
           emailJobId: createId(),
           mode: 'casual',
-          format: 'value',
+          format: 'freestyle',
           now: live,
           expiresAt: new Date(Date.now() + 120_000).toISOString(),
         }),

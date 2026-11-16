@@ -13,7 +13,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rowsOf } from './raw-rows';
 
 /**
- * Moderation of public profiles (ADR 0142): what a report of a photo, a
+ * Moderation of public profiles (ADR 0143): what a report of a photo, a
  * display name or a bio may name, what an operator reads about it, and the
  * three commands that act on it. Each runs inside the moderation command's
  * transaction and answers as a command does: applied, unchanged, or null when

@@ -11,7 +11,6 @@ export type NewRoom = {
   readonly title: string;
   /** Null exactly when the Room's plan has a draw (FMT-7). */
   readonly topic: string | null;
-  readonly publishedResolutionId?: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly formatId: string;
   readonly formatVersion: number;
@@ -33,7 +32,6 @@ export const newRoomValues = (room: NewRoom) => ({
   hostActorId: room.hostActorId,
   title: room.title,
   topic: room.topic,
-  publishedResolutionId: room.publishedResolutionId ?? null,
   visibility: room.visibility,
   formatId: room.formatId,
   formatVersion: room.formatVersion,

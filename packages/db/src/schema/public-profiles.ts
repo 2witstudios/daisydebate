@@ -24,7 +24,7 @@ import {
 import { actors } from './actors';
 
 /**
- * A member's public text (ADR 0142): a display name and a bio, both optional,
+ * A member's public text (ADR 0143): a display name and a bio, both optional,
  * both public. No row shows neither. The username and the competitive record
  * are not here; erasure deletes the row.
  */
@@ -56,7 +56,7 @@ export const memberProfiles = pgTable(
 );
 
 /**
- * A member's profile photos (ADR 0142). A row exists only once its image was
+ * A member's profile photos (ADR 0143). A row exists only once its image was
  * scanned, sanitized, checked and stored under `objectPrefix`. A terminal row
  * is the obligation to delete that image: the storage sweep deletes the
  * objects and then the row, so local erasure survives a storage outage.

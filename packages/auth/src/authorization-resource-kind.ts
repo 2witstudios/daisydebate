@@ -15,8 +15,6 @@ export function validResourceKind(
     'social.friend.list': 'friend_collection',
     'social.challenge.list': 'challenge_collection',
     'social.people.list': 'people_list',
-    'social.rating_visibility.read': 'rating_visibility',
-    'social.rating_visibility.update': 'rating_visibility',
     'social.moderation_notice.read': 'moderation_notice',
     'social.moderation_notice.acknowledge': 'moderation_notice',
     'social.presence.read': 'presence_setting',

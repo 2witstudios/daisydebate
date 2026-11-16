@@ -43,7 +43,7 @@ const TEXT_RULE = { windowSeconds: 60, max: 20 } as const;
 const WITHDRAW_RULE = { windowSeconds: 60, max: 10 } as const;
 /** A stored rendition is well under this; anything larger is not ours. */
 const RENDITION_MAX_BYTES = 1_000_000;
-/** How long a viewer may keep a published photo before asking again (ADR 0142). */
+/** How long a viewer may keep a published photo before asking again (ADR 0143). */
 const PHOTO_CACHE_SECONDS = 60;
 
 type Capability =
@@ -96,7 +96,7 @@ const mimeOf = (request: Request) =>
     .toLowerCase();
 
 /**
- * The member's public profile (ADR 0142): read and edit their display name
+ * The member's public profile (ADR 0143): read and edit their display name
  * and bio, upload or clear a photo, and the public image route.
  */
 export function composePublicProfileRoutes(app: App) {

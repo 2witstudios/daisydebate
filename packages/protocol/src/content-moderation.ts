@@ -13,7 +13,7 @@ export { recordingLegalRemovalReasons, recordingTakedownReasons };
 /**
  * Reporting and moderation (WATCH-7): one report for a Round, a Recording, a
  * chat message, abusive ballot feedback, or a member's public profile photo,
- * display name or bio (ADR 0142). Reasons are closed per target, so a
+ * display name or bio (ADR 0143). Reasons are closed per target, so a
  * report cannot carry free text or a reason its target does not have. Dispute
  * and integrity review is a reason on a Round or Recording, in the same queue.
  */

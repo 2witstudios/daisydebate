@@ -288,7 +288,7 @@ const livePhoto = async () => ({
   objectPrefix: `profile-photos/${id}`,
 });
 
-describe('operator profile moderation (ADR 0142)', () => {
+describe('operator profile moderation (ADR 0143)', () => {
   test('each profile command reaches the store as its own named change', async () => {
     const { handle, changes } = withStore();
     const answers = [

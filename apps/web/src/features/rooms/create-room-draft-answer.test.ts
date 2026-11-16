@@ -39,7 +39,6 @@ test('native preview answers are bounded and principal scoped', async () => {
     kind: 'invalid',
     values: { title: 'Newest' },
     error: 'Choose a resolution.',
-    resolutions: [],
   });
   assert({
     given:

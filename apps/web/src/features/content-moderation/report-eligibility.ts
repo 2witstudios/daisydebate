@@ -36,7 +36,7 @@ export type ReportTargetFacts =
       readonly feedbackIsForReporter: boolean;
     }
   | {
-      /** A published photo, or a display name or bio that is set (ADR 0142). */
+      /** A published photo, or a display name or bio that is set (ADR 0143). */
       readonly kind: 'profile';
       readonly ownedByReporter: boolean;
     };

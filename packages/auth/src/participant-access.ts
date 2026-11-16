@@ -62,7 +62,7 @@ const withdrawals: readonly AuthorizationCapability[] = [
   // ADR 0072: declining a challenge only deletes a row naming the caller.
   'social.challenge.decline',
   'social.challenge.cancel',
-  // ADR 0142: reading, clearing and taking down your own public profile.
+  // ADR 0143: reading, clearing and taking down your own public profile.
   'profile.public.read',
   'profile.public.withdraw',
 ];

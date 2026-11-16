@@ -12,8 +12,6 @@ const authorizationCapabilities = [
   'social.challenge.list',
   'social.people.list',
   'social.report',
-  'social.rating_visibility.read',
-  'social.rating_visibility.update',
   'social.moderation_notice.read',
   'social.moderation_notice.acknowledge',
   'social.presence.read',
@@ -87,7 +85,7 @@ const authorizationCapabilities = [
   'recording.rebuild',
   'recording.rebuildable.read',
   'chat_message.remove',
-  // ADR 0142: operator moderation of public profiles.
+  // ADR 0143: operator moderation of public profiles.
   'profile_photo.review.read',
   'profile_photo.review',
   'profile_photo.remove',

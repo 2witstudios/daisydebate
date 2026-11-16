@@ -279,7 +279,7 @@ const recordingDeletions = startRecordingDeletions({
   logger: app.logger,
   timers: workerTimers,
 });
-// ADR 0142: a rejected, removed, withdrawn or erased profile photo's image is
+// ADR 0143: a rejected, removed, withdrawn or erased profile photo's image is
 // deleted here, then its row; storage outages leave the obligation owed.
 const photoDeletions = startPhotoDeletions({
   store: {

@@ -12,7 +12,7 @@ import {
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
-import { savePublicProfileAction, saveRatingVisibilityAction } from './actions';
+import { savePublicProfileAction } from './actions';
 import {
   clearWatchHistoryAction,
   forgetWatchedAction,
@@ -20,10 +20,7 @@ import {
 } from '../audience/actions';
 import { NotificationPreferencesForm } from '../../../ui/notifications/notification-preferences-form';
 import { WatchHistoryList } from '../../../ui/watch-history/watch-history-list';
-import { ratingVisibilitySchema } from '@daisy/protocol';
-import { GET as readRatingVisibility } from '../../api/ratings/visibility/route';
 import { readOwnRoute } from '../friends/read-route';
-import { RatingVisibilityForm } from '../../../ui/settings/preferences/rating-visibility-form';
 import { ownPublicProfileSchema } from '@daisy/protocol/public-profile';
 import { GET as readPublicProfileRoute } from '../../api/profile/route';
 import { PublicProfileForm } from '../../../ui/settings/preferences/public-profile-form';
@@ -35,7 +32,7 @@ import { readChosenStatus } from '../people/read-people';
 export const metadata: Metadata = { title: 'Settings' };
 
 /**
- * The member's display name, bio and photo (ADR 0142), through the route a
+ * The member's display name, bio and photo (ADR 0143), through the route a
  * script would call; nothing when it could not be read.
  */
 async function publicProfileSection(username: string | null) {
@@ -98,7 +95,7 @@ export default async function SettingsRoute({
   ]);
   const answers = admitted ? ownAnswers : null;
   const username = claimedUsername(identity);
-  // A restricted member may still read and clear what they show (ADR 0142);
+  // A restricted member may still read and clear what they show (ADR 0143);
   // the route decides, and answers nothing to anyone else.
   const [publicProfile, chosen] = await Promise.all([
     'principal' in identity && identity.principal.kind === 'user'
@@ -106,11 +103,6 @@ export default async function SettingsRoute({
       : null,
     identity.state === 'member' ? readChosenStatus() : null,
   ]);
-  const visibility = await readOwnRoute(
-    readRatingVisibility,
-    '/api/ratings/visibility',
-    ratingVisibilitySchema,
-  );
   return (
     <SettingsPage
       {...('principal' in identity && identity.principal.kind === 'user'
@@ -123,14 +115,6 @@ export default async function SettingsRoute({
       }
       dataRightsNotices={parseDataRightsQuery(query)}
       analytics={await requestAnalytics()}
-      ratingCard={
-        visibility ? (
-          <RatingVisibilityForm
-            action={saveRatingVisibilityAction}
-            visibility={visibility}
-          />
-        ) : null
-      }
       onboarding={
         answers === null
           ? null

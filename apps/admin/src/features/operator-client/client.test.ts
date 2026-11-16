@@ -293,7 +293,7 @@ describe('operator response outcomes', () => {
   });
 });
 
-describe('profile photo reads (ADR 0142)', () => {
+describe('profile photo reads (ADR 0143)', () => {
   test('the queue and one photo are read from their own routes', async () => {
     const photoId = 'p'.repeat(24);
     const photo = {

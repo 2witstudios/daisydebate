@@ -9,7 +9,7 @@ import {
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
 /**
- * What a photo upload came to, as the member's browser hears it (ADR 0142).
+ * What a photo upload came to, as the member's browser hears it (ADR 0143).
  * `accepted` names where the photo stands: `published` for everyone, or
  * `in_review` for its owner alone until an operator decides. A lost answer is
  * `unavailable`: nothing the member did is wrong.
@@ -95,7 +95,7 @@ const refusalOf = async (response: Response): Promise<unknown> => {
 
 /**
  * Posts the photo as the request body with its own type: a server action
- * caps bodies at 16 KiB, so the photo has its own route (ADR 0142).
+ * caps bodies at 16 KiB, so the photo has its own route (ADR 0143).
  */
 export async function uploadProfilePhoto(
   fetch: FetchLike,

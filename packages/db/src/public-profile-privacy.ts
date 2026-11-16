@@ -4,7 +4,7 @@ import type { PrivacyAdopter, PrivacyExport } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 
 /**
- * The public profile's subject rights (ADR 0142). Export: the display name,
+ * The public profile's subject rights (ADR 0143). Export: the display name,
  * the bio and each photo's record (the image itself is the member's to
  * download from Settings; an adopter calls no storage). Erasure deletes the
  * text and ends every photo as `erased`: the storage sweep then deletes each

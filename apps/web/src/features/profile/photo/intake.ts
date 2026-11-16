@@ -141,7 +141,7 @@ const renditionOf = (
 };
 
 /**
- * A member's new profile photo (ADR 0142): bounded, scanned, decoded and
+ * A member's new profile photo (ADR 0143): bounded, scanned, decoded and
  * re-encoded as square WebP without metadata, checked, stored, then recorded.
  * Nothing is stored for a refused upload, and a photo the check did not allow
  * is visible only to its owner until an operator decides.

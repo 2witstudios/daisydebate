@@ -77,7 +77,7 @@ and lifecycle proof are tracked separately from deterministic fixtures in BILL-1
 
 `sharp` `0.35.5` is a direct dependency of `apps/web`, imported only by
 `apps/web/src/features/image-intake` (messaging attachments and profile
-photos, ADR 0142). It decodes accepted images under injected pixel limits and
+photos, ADR 0143). It decodes accepted images under injected pixel limits and
 re-encodes their pixels without source metadata: in the same format for
 private messaging quarantine, and as square WebP renditions for profile
 photos. The [version-matched release](https://sharp.pixelplumbing.com/changelog/v0.35.5/),

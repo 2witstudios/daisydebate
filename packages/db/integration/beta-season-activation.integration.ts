@@ -33,7 +33,7 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
       'ratings',
       {
         actor_id: actorId,
-        ladder: 'policy',
+        ladder: 'freestyle',
         season_id: first.id,
         rating: 1666.125,
         deviation: 108.75,

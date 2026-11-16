@@ -132,7 +132,7 @@ export type ContentModerationStore = {
 
 type Deps = {
   readonly store: ContentModerationStore;
-  /** The private photo bucket; null when none is configured (ADR 0142). */
+  /** The private photo bucket; null when none is configured (ADR 0143). */
   readonly profilePhotos: ProfilePhotoObjects | null;
   readonly crypto: OperatorCrypto;
   readonly nowMs: () => number;
@@ -440,7 +440,7 @@ async function listPhotoReviews(
  */
 const OPERATOR_PHOTO_MAX_BYTES = 750_000;
 
-/** A live photo's 512px rendition, for an operator to look at (ADR 0142). */
+/** A live photo's 512px rendition, for an operator to look at (ADR 0143). */
 async function readPhoto(
   deps: Deps,
   principal: AuthorizationPrincipal,

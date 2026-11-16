@@ -2,30 +2,32 @@ import type { FormatSelectionFacts } from '@daisy/protocol';
 import {
   foundationSettings,
   foundationDefinition,
-  oneOnOneDefinition,
-  oneOnOneSettings,
 } from '@daisy/db/reference-formats';
+import { catalogFormats } from '@daisy/db/catalog-formats';
+
+/** Freestyle, Daisy's one standard, as the catalog seeds it (ADR 0142). */
+const freestyle = catalogFormats.find((format) => format.id === 'freestyle')!;
 
 /** Catalog sources as the store lists them: role-bearing formats at their canonical presets. */
 export const catalog = [
   {
-    id: 'value',
-    name: 'Value',
+    id: 'freestyle',
+    name: 'Freestyle',
     version: 1,
     role: 'standard' as const,
     family: null,
     leagues: [],
-    searchTerms: 'value daisy',
-    sortOrder: 2,
+    searchTerms: freestyle.searchTerms,
+    sortOrder: freestyle.sortOrder,
     rulesEdition: null,
     sourceUrl: null,
-    definition: oneOnOneDefinition,
+    definition: freestyle.definition,
     preset: {
       rankedEligible: true,
-      formatId: 'value',
+      formatId: 'freestyle',
       version: 1,
       formatVersion: 1,
-      config: oneOnOneSettings,
+      config: freestyle.preset,
     },
   },
   {
@@ -50,21 +52,21 @@ export const catalog = [
   },
 ];
 
-/** The selection facts the store reports for the Value standard's current tuple. */
-export const valueFacts: FormatSelectionFacts = {
+/** The selection facts the store reports for the Freestyle standard's current tuple. */
+export const freestyleFacts: FormatSelectionFacts = {
   format: {
-    id: 'value',
-    name: 'Value',
+    id: 'freestyle',
+    name: 'Freestyle',
     leagues: [],
     catalogOwned: true,
     role: 'standard' as const,
     currentVersion: 1,
   },
-  definition: oneOnOneDefinition,
+  definition: freestyle.definition,
   preset: {
     version: 1,
     formatVersion: 1,
-    config: oneOnOneSettings,
+    config: freestyle.preset,
     rankedEligible: false,
     current: true,
   },

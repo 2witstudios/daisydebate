@@ -242,7 +242,7 @@ export const requestMemberProfile = async (
 
 /**
  * The member's own display name and published photo, for the shell's account
- * menu (ADR 0142): the one public read lists use, for one actor.
+ * menu (ADR 0143): the one public read lists use, for one actor.
  */
 export const requestOwnProfileCard = async (
   actorId: string,
@@ -428,10 +428,6 @@ export async function requestLadder(input: {
       : {}),
   });
 }
-
-/** The current published resolutions, Formats' output, read as they stand. */
-export const requestPublishedResolutions = () =>
-  processApp().database.listPublishedResolutions();
 
 export async function requestMemberStandings(username: string) {
   const identity = await requestIdentity();

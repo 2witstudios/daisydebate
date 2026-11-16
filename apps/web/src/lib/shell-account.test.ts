@@ -22,7 +22,7 @@ test('a restricted account in the shell (ADR 0103)', () => {
   });
 });
 
-test('a member in the shell (ADR 0142)', () => {
+test('a member in the shell (ADR 0143)', () => {
   const member = {
     state: 'member',
     username: 'ada',

@@ -64,7 +64,7 @@ export default async function ShellLayout({
       ? await Promise.all([
           readChosenStatus(),
           readModerationNotices(),
-          // A failed read shows the username and initials, as before ADR 0142.
+          // A failed read shows the username and initials, as before ADR 0143.
           requestOwnProfileCard(identity.principal.actorId).catch(() => null),
         ])
       : [null, [], null];

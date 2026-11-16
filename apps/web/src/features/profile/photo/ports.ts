@@ -12,7 +12,7 @@ export type ProfilePhotoObjects = {
 };
 
 /**
- * The automated inappropriate-content check (ADR 0142). It sees the sanitized
+ * The automated inappropriate-content check (ADR 0143). It sees the sanitized
  * 512px rendition only. Any failure throws, and the photo goes to review.
  */
 export type PhotoClassifier = {

@@ -119,7 +119,7 @@ export type FriendReadDependencies = {
 
 /** The list page's reads: the badge's, and what each friend chose to show. */
 export type FriendListDependencies = FriendReadDependencies & {
-  /** Each friend's display name and published photo (ADR 0142), in one read. */
+  /** Each friend's display name and published photo (ADR 0143), in one read. */
   readonly profiles: (
     actorIds: readonly string[],
   ) => Promise<ReadonlyMap<string, PublicProfileCard>>;

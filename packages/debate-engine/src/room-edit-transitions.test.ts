@@ -519,10 +519,10 @@ test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
     'host',
     {
       type: 'select-format',
-      commandId: 'choose-policy',
+      commandId: 'choose-template',
       expectedVersion: room.version,
       intent: 'choose',
-      formatId: 'policy',
+      formatId: 'nsda-ld',
       formatVersion: 1,
       presetVersion: 3,
     },
@@ -531,11 +531,11 @@ test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
       ...edges,
       formatFacts: {
         format: {
-          id: 'policy',
-          name: 'Policy',
-          leagues: [],
+          id: 'nsda-ld',
+          name: 'NSDA Lincoln-Douglas',
+          leagues: ['NSDA'],
           catalogOwned: true,
-          role: 'standard' as const,
+          role: 'template' as const,
           currentVersion: 1,
         },
         definition: oneOnOneFormatFixture,
@@ -547,33 +547,23 @@ test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
           current: true,
         },
       },
-      resolutionPublication: {
-        id: 'p'.repeat(24),
-        kind: 'policy' as const,
-        text: 'Resolved: the standard is worth it',
-        provenance: 'Daisy Beta Season 1',
-        publishedAt: '2026-09-01T00:00:00.000Z',
-        edition: null,
-        theme: null,
-      },
     },
   );
   assert({
-    given: 'a Room with a bot debater seated choosing the Policy standard',
-    should:
-      'keep the bot seated, adopt the standard and take its publication as the topic',
+    given: 'a Room with a bot debater seated choosing a league template',
+    should: 'keep the bot seated, adopt the template and keep the host’s topic',
     actual: outcome.ok && [
       outcome.mutation.state.formatId,
       outcome.mutation.state.participants.map((p) => [p.actorId, p.kind]),
       outcome.mutation.state.topic,
     ],
     expected: [
-      'policy',
+      'nsda-ld',
       [
         ['host', 'human'],
         ['wren-bot', 'bot'],
       ],
-      'Resolved: the standard is worth it',
+      room.topic,
     ],
   });
 });

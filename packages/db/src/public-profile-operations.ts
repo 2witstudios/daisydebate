@@ -15,7 +15,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { rowsOf } from './raw-rows';
 
 /**
- * The public profile's storage (ADR 0142): a member's display name and bio,
+ * The public profile's storage (ADR 0143): a member's display name and bio,
  * and their profile photos' lifecycle rows. What a status means and which
  * transitions exist are the profile feature's decisions; this store applies
  * them and keeps the one-live-photo-per-status invariant its indexes state.

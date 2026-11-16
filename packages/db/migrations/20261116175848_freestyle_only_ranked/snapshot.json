@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "cbde89b0-af41-41eb-928b-948325df9ab5",
+  "id": "a3680d44-ffd5-4e93-adb4-19817ff77a13",
   "prevIds": [
     "5d9b2236-0dde-4f7f-a84f-98c8d15869f5"
   ],
@@ -500,31 +500,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "member_profiles",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "profile_photos",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "published_resolutions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "rating_changes",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "rating_visibility",
       "entityType": "tables",
       "schema": "public"
     },
@@ -8948,331 +8924,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "display_name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "bio",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "1",
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "check_verdict",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "object_prefix",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "decided_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ended_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "delete_attempts",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "delete_after",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "1",
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "text",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "provenance",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "edition",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "theme",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "published_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "retired_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -9446,58 +9097,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "rating_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "show_policy",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "show_value",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
     },
     {
       "type": "text",
@@ -11341,19 +10940,6 @@
       "generated": null,
       "identity": null,
       "name": "topic",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "published_resolution_id",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -13502,19 +13088,6 @@
       "generated": null,
       "identity": null,
       "name": "pre_round_prep_ms",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "published_resolution_id",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -19411,167 +18984,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "member_profiles_id_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"status\" = 'published'",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "profile_photos_one_published",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"status\" = 'in_review'",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "profile_photos_one_in_review",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "object_prefix",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "profile_photos_object_prefix_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"status\" = 'in_review'",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "profile_photos_review_queue_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "delete_after",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"ended_at\" is not null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "profile_photos_deletion_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "kind",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"retired_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "published_resolutions_current_kind",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "round_id",
           "isExpression": false,
           "asc": true,
@@ -20579,27 +19991,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "rooms_host_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "published_resolution_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rooms_published_resolution_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "rooms"
@@ -22241,27 +21632,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_transcript_freezes"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "published_resolution_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rounds_published_resolution_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rounds"
     },
     {
       "nameExplicit": true,
@@ -25324,40 +24694,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "member_profiles_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "profile_photos_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "round_id"
       ],
       "schemaTo": "public",
@@ -25460,23 +24796,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "rating_changes"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "rating_visibility_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rating_visibility"
     },
     {
       "nameExplicit": false,
@@ -26026,23 +25345,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "rooms_host_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "published_resolution_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "published_resolutions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "rooms_published_resolution_id_published_resolutions_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "rooms"
@@ -26921,23 +26223,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "rounds_created_by_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "published_resolution_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "published_resolutions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "rounds_published_resolution_id_published_resolutions_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "rounds"
@@ -28303,52 +27588,12 @@
     },
     {
       "columns": [
-        "actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "member_profiles_pkey",
-      "schema": "public",
-      "table": "member_profiles",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "profile_photos_pkey",
-      "schema": "public",
-      "table": "profile_photos",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "published_resolutions_pkey",
-      "schema": "public",
-      "table": "published_resolutions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
       "name": "rating_changes_pkey",
       "schema": "public",
       "table": "rating_changes",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "rating_visibility_pkey",
-      "schema": "public",
-      "table": "rating_visibility",
       "entityType": "pks"
     },
     {
@@ -29564,7 +28809,7 @@
       "table": "challenges"
     },
     {
-      "value": "\"format_id\" in ('freestyle', 'policy', 'value')",
+      "value": "\"format_id\" in ('freestyle')",
       "name": "challenges_format_check",
       "entityType": "checks",
       "schema": "public",
@@ -29662,7 +28907,7 @@
       "table": "social_requests"
     },
     {
-      "value": "\"target_kind\" in ('round', 'recording', 'chat_message', 'ballot_feedback', 'profile_photo', 'profile_display_name', 'profile_bio')",
+      "value": "\"target_kind\" in ('round', 'recording', 'chat_message', 'ballot_feedback')",
       "name": "content_reports_target_kind_check",
       "entityType": "checks",
       "schema": "public",
@@ -29872,7 +29117,7 @@
       "table": "formats"
     },
     {
-      "value": "\"catalog_role\" is distinct from 'standard' or \"id\" in ('policy', 'value', 'freestyle')",
+      "value": "\"catalog_role\" is distinct from 'standard' or \"id\" in ('freestyle')",
       "name": "formats_standard_ids",
       "entityType": "checks",
       "schema": "public",
@@ -30726,112 +29971,7 @@
       "table": "privacy_jobs"
     },
     {
-      "value": "\"display_name\" is null or char_length(\"display_name\") between 1 and 40",
-      "name": "member_profiles_display_name_length",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "value": "\"bio\" is null or char_length(\"bio\") between 1 and 160",
-      "name": "member_profiles_bio_length",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "value": "\"version\" > 0",
-      "name": "member_profiles_version_positive",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "member_profiles"
-    },
-    {
-      "value": "\"status\" in ('in_review', 'published', 'rejected', 'removed', 'withdrawn', 'erased')",
-      "name": "profile_photos_status_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "value": "\"check_verdict\" is null or \"check_verdict\" in ('allow', 'review', 'block')",
-      "name": "profile_photos_check_verdict_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "value": "(\"status\" in ('in_review','published')) = (\"ended_at\" is null)",
-      "name": "profile_photos_ended_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "value": "(\"ended_at\" is null) = (\"delete_after\" is null)",
-      "name": "profile_photos_delete_after_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "value": "\"delete_attempts\" >= 0",
-      "name": "profile_photos_delete_attempts_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "value": "\"version\" > 0",
-      "name": "profile_photos_version_positive",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "profile_photos"
-    },
-    {
-      "value": "\"kind\" in ('policy', 'value')",
-      "name": "published_resolutions_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "length(trim(\"text\")) between 1 and 300",
-      "name": "published_resolutions_text_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "length(trim(\"provenance\")) > 0",
-      "name": "published_resolutions_provenance_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"edition\" is null or length(trim(\"edition\")) between 1 and 100",
-      "name": "published_resolutions_edition_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"theme\" is null or length(trim(\"theme\")) between 1 and 200",
-      "name": "published_resolutions_theme_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"retired_at\" is null or \"retired_at\" >= \"published_at\"",
-      "name": "published_resolutions_retirement_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"ladder\" in ('freestyle', 'policy', 'value')",
+      "value": "\"ladder\" in ('freestyle')",
       "name": "rating_changes_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -30859,7 +29999,7 @@
       "table": "rating_changes"
     },
     {
-      "value": "\"ladder\" in ('freestyle', 'policy', 'value')",
+      "value": "\"ladder\" in ('freestyle')",
       "name": "ratings_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -31916,7 +31056,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"ladder_id\" is null or \"ladder_id\" in ('freestyle', 'policy', 'value')",
+      "value": "\"ladder_id\" is null or \"ladder_id\" in ('freestyle')",
       "name": "rounds_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -32212,13 +31352,6 @@
     {
       "value": "\"deleted_at\" is null or (\"email\" is null and \"image\" is null and \"name\" = '')",
       "name": "users_tombstone_scrubbed",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "users"
-    },
-    {
-      "value": "\"image\" is null",
-      "name": "users_image_unused",
       "entityType": "checks",
       "schema": "public",
       "table": "users"

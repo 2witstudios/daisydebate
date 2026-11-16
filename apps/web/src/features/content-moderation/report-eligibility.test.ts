@@ -160,7 +160,7 @@ describe('Who may report what', () => {
     });
   });
 
-  test('a public profile is reportable by anyone but its owner (ADR 0142)', () => {
+  test('a public profile is reportable by anyone but its owner (ADR 0143)', () => {
     const photo: ContentReportCreate = {
       targetKind: 'profile_photo',
       targetId: id,

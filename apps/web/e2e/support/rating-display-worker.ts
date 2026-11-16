@@ -11,7 +11,7 @@ const { username, rooms } = z
     username: z.string().regex(/^[a-z0-9-]{1,40}$/),
     rooms: z
       .array(z.object({ ladder: z.enum(ratingLadders), id: idSchema }))
-      .length(3),
+      .length(ratingLadders.length),
   })
   .parse(JSON.parse(await Bun.stdin.text()));
 const url = betaAccessTarget(process.env);

@@ -5,7 +5,7 @@ type Named = {
 };
 
 /**
- * What a screen reader hears for a person on a list (ADR 0142): the display
+ * What a screen reader hears for a person on a list (ADR 0143): the display
  * name, with the username always beside it, since only the username is an
  * identity and a display name may look like anyone's.
  */

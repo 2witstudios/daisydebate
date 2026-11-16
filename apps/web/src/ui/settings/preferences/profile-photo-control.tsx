@@ -16,7 +16,7 @@ import {
 
 /**
  * The photo control's shell: it sends the chosen file as the request body
- * (server actions cap bodies at 16 KiB, ADR 0142), says what came of it, and
+ * (server actions cap bodies at 16 KiB, ADR 0143), says what came of it, and
  * refreshes the page so every photo on it is the new one.
  */
 export function ProfilePhotoControl(

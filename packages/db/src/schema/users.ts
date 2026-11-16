@@ -26,7 +26,7 @@ export const users = pgTable(
     /**
      * Better Auth's core user field, kept only because its adapter reads it.
      * Daisy never stores an image here: the public profile photo lives in
-     * `profile_photos` (ADR 0142), and the CHECK keeps this null.
+     * `profile_photos` (ADR 0143), and the CHECK keeps this null.
      */
     image: text('image'),
     createdAt: createdAtColumn(),

@@ -43,7 +43,7 @@ export const friendListSchema = z.strictObject({
     z.strictObject({
       username: z.string(),
       presence: z.enum(memberStatuses),
-      /** The label they chose besides the username (ADR 0142), or null. */
+      /** The label they chose besides the username (ADR 0143), or null. */
       displayName: z.string().nullable(),
       /** Their published profile photo, or null. */
       photoId: idSchema.nullable(),

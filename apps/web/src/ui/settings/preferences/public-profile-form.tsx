@@ -21,7 +21,7 @@ export const counterText = (text: string, max: number): string =>
   `${characterCount(text)} of ${max} characters`;
 
 /**
- * The member's display name and bio (ADR 0142): what others see beside the
+ * The member's display name and bio (ADR 0143): what others see beside the
  * username on their profile, the account menu and People and Friends. Either
  * may be left empty, which clears it. A refusal keeps what was typed.
  */

@@ -250,11 +250,6 @@ type PeopleListAuthorizationFact = {
   readonly kind: 'people_list';
   readonly actorId: string;
 };
-/** A member's own rating visibility choice (ADR 0103). */
-type RatingVisibilityAuthorizationFact = {
-  readonly kind: 'rating_visibility';
-  readonly actorId: string;
-};
 /** A member's own moderation notices (ADR 0103). */
 type ModerationNoticeAuthorizationFact = {
   readonly kind: 'moderation_notice';
@@ -265,7 +260,7 @@ type PresenceSettingAuthorizationFact = {
   readonly kind: 'presence_setting';
   readonly actorId: string;
 };
-/** A member's own public profile: display name, bio and photo (ADR 0142). */
+/** A member's own public profile: display name, bio and photo (ADR 0143). */
 type PublicProfileAuthorizationFact = {
   readonly kind: 'public_profile';
   readonly actorId: string;
@@ -291,7 +286,6 @@ export type AuthorizationInput = {
     | FriendCollectionAuthorizationFact
     | ChallengeCollectionAuthorizationFact
     | PeopleListAuthorizationFact
-    | RatingVisibilityAuthorizationFact
     | ModerationNoticeAuthorizationFact
     | PresenceSettingAuthorizationFact
     | PublicProfileAuthorizationFact

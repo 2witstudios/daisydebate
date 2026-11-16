@@ -3,7 +3,7 @@ import { refused, type Refused } from '../forms/form-state';
 import type { SaveFormState } from '../forms/save-form';
 
 /**
- * The display name and bio form's answer (ADR 0142): a settings form that
+ * The display name and bio form's answer (ADR 0143): a settings form that
  * saves in place, whose refusal renders the typed text again beside what to
  * do about it.
  */

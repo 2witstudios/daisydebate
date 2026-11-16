@@ -11,7 +11,7 @@ setupRitewayBun();
 
 test('a settings save answers exactly one of nothing yet, a refusal, or saved', () => {
   const form = new FormData();
-  form.set('showPolicy', 'on');
+  form.set('weeklyDigest', 'on');
   const answers: readonly SaveFormState[] = [
     initialSaveForm,
     saveRefused(form),
@@ -31,6 +31,6 @@ test('a settings save answers exactly one of nothing yet, a refusal, or saved', 
     given: 'a refused save',
     should: 'keep the choices that were posted',
     actual: saveRefused(form).values,
-    expected: { showPolicy: 'on' },
+    expected: { weeklyDigest: 'on' },
   });
 });

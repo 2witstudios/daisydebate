@@ -5,7 +5,6 @@ import type {
   RoomMutationOutcome,
   RoomParticipant,
   RoomRefusal,
-  PublishedResolution,
 } from '@daisy/protocol';
 import {
   formatDefinitionSchema,
@@ -41,7 +40,6 @@ export type Edges = {
   readonly hostHoldsCasualCapture: boolean;
   /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */
   readonly formatFacts?: FormatSelectionFacts | null;
-  readonly resolutionPublication?: PublishedResolution | null;
   /** Facts for a new draw, loaded only for `start-round` on a draw Room. */
   readonly drawStart: DrawStartFacts | null;
 };

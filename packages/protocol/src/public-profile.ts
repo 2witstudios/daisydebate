@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from './primitives';
 
 /**
- * The public profile (ADR 0142): what a member chooses to show others, besides
+ * The public profile (ADR 0143): what a member chooses to show others, besides
  * the username and the competitive record. A display name is a label, never an
  * identifier or an authority; the username stays the competitive identity.
  */

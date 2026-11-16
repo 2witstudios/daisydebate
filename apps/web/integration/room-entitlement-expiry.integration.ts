@@ -7,7 +7,7 @@ setupRitewayBun();
 requireTestServices(process.env);
 const selection = {
   kind: 'catalog',
-  formatId: 'value',
+  formatId: 'nsda-ld',
   formatVersion: 1,
   presetVersion: 1,
   competitionType: 'casual',

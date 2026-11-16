@@ -11,14 +11,14 @@ export type ShellAccount =
   | {
       readonly state: 'member';
       readonly username: string;
-      /** The label they chose besides the username (ADR 0142), or null. */
+      /** The label they chose besides the username (ADR 0143), or null. */
       readonly displayName: string | null;
       /** Their published profile photo, which anyone may see, or null. */
       readonly photoId: string | null;
     };
 
 /**
- * A member's standing on each ladder, read once per request for the account
+ * A member's standing on each Daisy ladder, read once per request for the account
  * menu. `unavailable` when the read fails, so the menu says so instead of
  * blocking the page.
  */

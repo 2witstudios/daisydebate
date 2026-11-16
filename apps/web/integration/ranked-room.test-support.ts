@@ -36,16 +36,7 @@ export async function readyRankedRoom(
       words: agreementWords(contentWaiverDocument),
     });
   let room = await f.assemble({
-    resolution:
-      ladder === 'freestyle'
-        ? { kind: 'strike' }
-        : {
-            kind: ladder,
-            id:
-              ladder === 'policy'
-                ? 's3vycbr7v7fl6a2xzmgneize'
-                : 'd3qrq2srlk8wpa3qhzefly0y',
-          },
+    resolution: { kind: 'strike' },
     selection: {
       kind: 'ranked',
       formatId: ladder,

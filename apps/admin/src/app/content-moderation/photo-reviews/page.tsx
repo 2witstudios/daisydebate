@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 const shownAtOnce = 20;
 
 /**
- * Profile photos the automated check did not allow (ADR 0142). Only their
+ * Profile photos the automated check did not allow (ADR 0143). Only their
  * owners see them until an operator publishes or rejects each, oldest first.
  */
 export default async function PhotoReviewsPage({

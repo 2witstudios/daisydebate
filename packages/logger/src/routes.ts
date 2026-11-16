@@ -139,7 +139,6 @@ const appRoutes = [
   '/api/ops/metrics',
   '/api/people',
   '/api/presence',
-  '/api/ratings/visibility',
   '/api/profile',
   '/api/profile/photo',
   '/api/profile-photos/[photoId]/[size]',

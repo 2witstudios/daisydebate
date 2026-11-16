@@ -254,7 +254,7 @@ export function createApp({
       : null,
     /** The private Recording bucket; a deployment without it refuses every object. */
     recordingObjects: recordingObjectStore(env),
-    /** The private profile photo bucket; null refuses every upload (ADR 0142). */
+    /** The private profile photo bucket; null refuses every upload (ADR 0143). */
     profilePhotoObjects: profilePhotoObjects(env),
     /** The malware scanner photo intake requires; null refuses every upload. */
     imageScanner: configuredScanner(env),
