@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createStreamingAudioWriter } from './audio-stream';
+import { createCadenceTestClock } from './cadence-clock.test-support';
 
 setupRitewayBun();
 const FRAME = 240;
@@ -228,5 +229,60 @@ test('the writer refuses PCM that is not whole 10 ms frames', async () => {
     actual: () =>
       write(new Int16Array(FRAME + 1), new AbortController().signal),
     code: 'VALIDATION',
+  });
+});
+
+test('controlled cadence isolates an unrelated promise from an awaited handoff dependency', async () => {
+  const scenario = async (awaitDependency: boolean) => {
+    const clock = createCadenceTestClock();
+    const signal = new AbortController().signal;
+    const dependency = clock.waitUntilMs(200, signal);
+    const stamps: number[] = [];
+    const write = createStreamingAudioWriter({
+      target: {
+        queuedMs: () => 0,
+        clearQueue: () => undefined,
+        capture10ms: async () => {
+          stamps.push(clock.nowMs());
+          // Negative control: deliberately put the unrelated promise on the handoff path.
+          if (awaitDependency && stamps.length === 1) await dependency;
+        },
+      },
+      sampleRate: 24000,
+      channels: 1,
+      nowMs: clock.nowMs,
+      waitUntilMs: clock.waitUntilMs,
+      leadMs: 0,
+    });
+    const writing = write(pcm(30), signal);
+    await clock.advanceTo(400);
+    const result = await writing;
+    process.stderr.write(
+      JSON.stringify({
+        event: 'media.cadenceControlledModel',
+        kind: 'writer',
+        deliberatelyAwaited: awaitDependency,
+        maxGapMs: Math.max(...stamps.slice(1).map((at, i) => at - stamps[i]!)),
+        stamps,
+      }) + '\n',
+    );
+    return {
+      sentFrames: result.sentSamples / FRAME,
+      onTime: stamps.filter((at) => at < 190).length >= 15,
+      maxGapUnder60:
+        Math.max(...stamps.slice(1).map((at, i) => at - stamps[i]!)) < 60,
+      pending: clock.pending(),
+    };
+  };
+  assert({
+    given:
+      'the same 200ms promise beside zero-lead audio, then deliberately awaited by its first handoff',
+    should:
+      'preserve cadence only for the nonblocking path and detect the awaited negative control',
+    actual: [await scenario(false), await scenario(true)],
+    expected: [
+      { sentFrames: 30, onTime: true, maxGapUnder60: true, pending: 0 },
+      { sentFrames: 30, onTime: false, maxGapUnder60: false, pending: 0 },
+    ],
   });
 });

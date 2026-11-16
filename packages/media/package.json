@@ -12,7 +12,8 @@
     "./worker": "./src/worker-client.ts",
     "./observation": "./src/frame-clock.ts",
     "./broadcast": "./src/broadcast-egress.ts",
-    "./pcm": "./src/pcm-wave.ts"
+    "./pcm": "./src/pcm-wave.ts",
+    "./testing/cadence": "./src/cadence-clock.test-support.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",

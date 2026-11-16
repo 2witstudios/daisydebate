@@ -6,6 +6,7 @@ import {
   playedFraction,
   type BotSpeechJob,
 } from './publication';
+import { createCadenceTestClock } from '@daisy/media/testing/cadence';
 setupRitewayBun();
 
 const scope = {
@@ -1327,5 +1328,86 @@ test('a stop during the next phrase’s first frames cuts the tail of the phrase
     should: 'report the phrase before as cut, so the turn says it again',
     actual: claim.tailCut(a),
     expected: true,
+  });
+});
+
+test('controlled cadence isolates a delayed phrase close from the next phrase handoff', async () => {
+  const scenario = async (awaitClose: boolean) => {
+    const clock = createCadenceTestClock();
+    const firstClosed = Promise.withResolvers<void>();
+    let firstClosedAt = Infinity;
+    const { claim, handoffs, ends } = harness({
+      nowMs: clock.nowMs,
+      waitUntilMs: clock.waitUntilMs,
+      end: async (id) => {
+        await clock.waitUntilMs(clock.nowMs() + 200, signal());
+        if (id[0] === 'a') {
+          firstClosedAt = clock.nowMs();
+          firstClosed.resolve();
+        }
+      },
+    });
+    let boundary = 0;
+    const publishing = (async () => {
+      await claim.publish(job(400, 'a'.repeat(24)), signal(), 60_000);
+      boundary = handoffs.length;
+      // Negative control: deliberately await the first close before asking for the next audio.
+      if (awaitClose) await firstClosed.promise;
+      await claim.publish(job(400, 'b'.repeat(24)), signal(), 60_000);
+    })();
+    await clock.advanceTo(1500);
+    await publishing;
+    const actual = {
+      frames: handoffs.length,
+      boundaryUnder30: handoffs[boundary]! - handoffs[boundary - 1]! < 30,
+      maxGapUnder60:
+        Math.max(...handoffs.slice(1).map((at, i) => at - handoffs[i]!)) < 60,
+      nextBeforeFirstClose: handoffs[boundary]! < firstClosedAt,
+      ends: ends.map((row) => [row.phraseId[0], row.end]),
+    };
+    process.stderr.write(
+      JSON.stringify({
+        event: 'media.cadenceControlledModel',
+        kind: 'publication',
+        deliberatelyAwaited: awaitClose,
+        maxGapMs: Math.max(
+          ...handoffs.slice(1).map((at, i) => at - handoffs[i]!),
+        ),
+        boundaryMs: handoffs[boundary]! - handoffs[boundary - 1]!,
+        nextAt: handoffs[boundary],
+        firstClosedAt,
+      }) + '\n',
+    );
+    await claim.close();
+    return { ...actual, pending: clock.pending() };
+  };
+  const whole = [
+    ['a', { kind: 'whole' }],
+    ['b', { kind: 'whole' }],
+  ];
+  assert({
+    given:
+      'two controlled-clock 400ms phrases with 200ms closes, then a deliberately awaited close',
+    should:
+      'prove the real publisher does not await close and detect the blocking negative control',
+    actual: [await scenario(false), await scenario(true)],
+    expected: [
+      {
+        frames: 80,
+        boundaryUnder30: true,
+        maxGapUnder60: true,
+        nextBeforeFirstClose: true,
+        ends: whole,
+        pending: 0,
+      },
+      {
+        frames: 80,
+        boundaryUnder30: false,
+        maxGapUnder60: false,
+        nextBeforeFirstClose: false,
+        ends: whole,
+        pending: 0,
+      },
+    ],
   });
 });
