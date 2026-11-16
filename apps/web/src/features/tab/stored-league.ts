@@ -137,10 +137,9 @@ export function storedLeagueLobbyOf(
   return {
     name: read.view.organization.name,
     lede: read.view.name,
-    create: null,
-    ...(rooms?.canCreate
-      ? { creationUnavailable: 'New room is unavailable here.' }
-      : {}),
+    create: rooms?.canCreate
+      ? linkTo('New room', tabRoutes.newLeagueRoom(handle), true)
+      : null,
     tabs: [
       ['rooms', 'Rooms'],
       ['ladder', 'Ladder'],
@@ -169,10 +168,13 @@ export function storedHostLeagueOf(
   handle: string,
   read: LeagueSeasonRead,
 ): HostLeague {
+  const memberHandle = read.standingLobby?.handle;
   return {
     name: read.view.organization.name,
     lede: read.view.name,
-    lobbyView: linkTo('View as a member', tabRoutes.league(handle, 'season')),
+    lobbyView: memberHandle
+      ? linkTo('View as a member', tabRoutes.league(memberHandle, 'season'))
+      : null,
     requests: read.requests.map((row) => ({
       id: row.sanctionId,
       event: row.lobbyName,
@@ -213,12 +215,16 @@ export function storedHostLeagueOf(
       heading: `Season standings · ${read.view.standings.series.name}`,
       rows: seasonRows(read),
       note: seasonNote(read),
-      rule: linkTo('How points count', tabRoutes.league(handle, 'season')),
+      rule: memberHandle
+        ? linkTo('How points count', tabRoutes.league(memberHandle, 'season'))
+        : null,
     },
     ladder: {
       detail:
         'League ratings include eligible lobby Rooms and certified tournaments.',
-      open: linkTo('Open the ladder', tabRoutes.league(handle, 'ladder')),
+      open: memberHandle
+        ? linkTo('Open the ladder', tabRoutes.league(memberHandle, 'ladder'))
+        : null,
     },
     lobby: read.rooms?.settings ?? [],
   };

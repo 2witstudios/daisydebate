@@ -1,3 +1,5 @@
+import { leaguePageAddress } from '../features/tab/reads/league-address';
+import { readStandingRoomDraft } from '../features/tab/reads/standing-room-draft';
 import { authorize } from '@daisy/auth/authorization';
 import { readLeagueSeason } from '../features/tab/reads/league-season';
 import { readLeagueLadder } from '../features/ratings/read-league-ladder';
@@ -477,6 +479,7 @@ export async function requestRoomDraftAnswer(
 export const requestLeaguePage = async (
   handle: string,
   input: {
+    readonly addressKind: 'standing' | 'organization';
     readonly seasonId?: string | undefined;
     readonly templateId?: string | undefined;
     readonly ladder?:
@@ -496,8 +499,12 @@ export const requestLeaguePage = async (
     return null;
   const app = processApp();
   const store = app.database.tabCommands;
-  const organizationId = await store.organizationIdOfHandle(handle);
-  if (!organizationId) return null;
+  const address = await leaguePageAddress(store, {
+    kind: input.addressKind,
+    handle,
+  });
+  if (!address) return null;
+  const organizationId = address.organizationId;
   const principal = identity.principal;
   const season = await readLeagueSeason({ store, authorize })(principal, {
     organizationId,
@@ -518,4 +525,25 @@ export const requestLeaguePage = async (
       : null;
   if (input.ladder && !ladder) return null;
   return { season, ladder };
+};
+
+/** Native draft addressing uses the actual standing-lobby handle and never depends on a season. */
+export const requestStandingRoomPage = async (
+  handle: string,
+  templateId?: string,
+) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const lobbyId = await store.lobbyIdOfHandle(handle);
+  if (!lobbyId) return null;
+  return readStandingRoomDraft({ store, authorize, now: app.clock.now })(
+    identity.principal,
+    { lobbyId, ...(templateId ? { templateId } : {}) },
+  );
 };

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, roomConfigSchema } from '@daisy/protocol';
+import { idSchema, roomConfigSchema, roomCreateSchema } from '@daisy/protocol';
 export const standingRoomSelectionSchema = z.strictObject({
   kind: z.literal('catalog'),
   formatId: z.string().min(1),
@@ -23,7 +23,7 @@ export const standingRoomCreationSchema = z.strictObject({
     z.strictObject({ kind: z.literal('unsupported') }),
   ]),
   visibility: z.strictObject({
-    value: z.enum(['public', 'unlisted', 'private']),
+    value: roomCreateSchema.shape.visibility,
     locked: z.boolean(),
   }),
 });

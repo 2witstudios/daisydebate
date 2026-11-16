@@ -27,7 +27,11 @@ export function HostLeague({
       <PageHeader
         title={league.name}
         lede={league.lede}
-        actions={<ActionButton size="small" action={league.lobbyView} />}
+        actions={
+          league.lobbyView ? (
+            <ActionButton size="small" action={league.lobbyView} />
+          ) : null
+        }
       />
       {league.requests.length === 0 ? null : (
         <ListCard>
@@ -98,7 +102,9 @@ export function HostLeague({
           <ListHeading>League ladder</ListHeading>
           <div className="flex flex-col items-start gap-2 px-4 py-3 text-sm">
             <p>{league.ladder.detail}</p>
-            <ActionButton size="small" action={league.ladder.open} />
+            {league.ladder.open ? (
+              <ActionButton size="small" action={league.ladder.open} />
+            ) : null}
           </div>
         </ListCard>
       </div>

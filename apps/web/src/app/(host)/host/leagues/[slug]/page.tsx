@@ -23,11 +23,16 @@ export default async function Page({
   await requireAccess(hostRoutes.league(slug), searchParams);
   const query = await searchParams;
   const read = await requestLeaguePage(slug, {
+    addressKind: 'organization',
     ...(query.season ? { seasonId: query.season } : {}),
     ...(query.event ? { templateId: query.event } : {}),
   });
   if (!read) notFound();
-  if (!read.season.canHost) redirect(tabRoutes.league(slug, 'season'));
+  if (!read.season.canHost) {
+    if (read.season.standingLobby)
+      redirect(tabRoutes.league(read.season.standingLobby.handle, 'season'));
+    notFound();
+  }
   const league = storedHostLeagueOf(slug, read.season);
   return (
     <HostLeague

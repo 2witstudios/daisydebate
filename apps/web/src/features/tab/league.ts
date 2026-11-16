@@ -87,7 +87,7 @@ export type SanctionRequest = {
 export type HostLeague = {
   readonly name: string;
   readonly lede: string;
-  readonly lobbyView: TabAction;
+  readonly lobbyView: TabAction | null;
   readonly requests: readonly SanctionRequest[];
   readonly template: {
     readonly name: string;
@@ -101,7 +101,7 @@ export type HostLeague = {
     readonly note: string;
     readonly rule: TabAction | null;
   };
-  readonly ladder: { readonly detail: string; readonly open: TabAction };
+  readonly ladder: { readonly detail: string; readonly open: TabAction | null };
   readonly lobby: readonly SettingLine[];
 };
 
@@ -186,7 +186,6 @@ export type LeaguePanel =
 
 /** A league's standing lobby, as one of its members sees it. */
 export type LeagueLobby = {
-  readonly creationUnavailable?: string;
   readonly name: string;
   readonly lede: string;
   /** Null for someone who is not a member: only members open rooms here. */
