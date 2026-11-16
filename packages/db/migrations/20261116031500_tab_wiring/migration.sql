@@ -752,6 +752,8 @@ UPDATE public.round_participants p SET legacy_rating_participant=true
   SELECT 1 FROM public.rating_changes c WHERE c.round_id=p.round_id AND c.actor_id=p.actor_id
  );
 --> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;
+--> statement-breakpoint
 ALTER TABLE "round_participants" ADD COLUMN "rating_actor_id" text GENERATED ALWAYS AS (case when seat_kind in ('side','speaker') or legacy_rating_participant then actor_id else null end) STORED;--> statement-breakpoint
 ALTER TABLE "round_participants" ADD CONSTRAINT "round_participants_assignment_identity_unique" UNIQUE("id","round_id","slot","actor_id");--> statement-breakpoint
 CREATE INDEX "round_finalization_judge_assignments_version_idx" ON "round_finalization_judge_assignments" ("round_id","slot","assignment_version","participant_id");--> statement-breakpoint
