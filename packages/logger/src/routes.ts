@@ -179,6 +179,7 @@ const appRoutes = [
   '/api/tab/organization-people',
   '/api/tab/tournament-setup',
   '/api/tab/tournament-event-settings',
+  '/api/tab/host-standings',
   '/api/tab/event-ballot',
   '/api/tab/organization-command',
   '/api/tab/guardian-command',

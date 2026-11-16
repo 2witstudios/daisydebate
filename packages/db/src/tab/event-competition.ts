@@ -30,7 +30,7 @@ export async function loadEventCompetition(
       .from(entries)
       .where(eq(entries.eventId, eventId)),
     members: await tx
-      .select()
+      .select({ entryId: entryMembers.entryId, actorId: entryMembers.actorId })
       .from(entryMembers)
       .innerJoin(entries, eq(entries.id, entryMembers.entryId))
       .where(eq(entries.eventId, eventId)),

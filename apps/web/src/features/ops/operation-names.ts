@@ -154,6 +154,7 @@ const OPERATION_NAMES = [
   'tab.organization.people',
   'tab.tournament.setup',
   'tab.tournament.event.settings',
+  'tab.host.standings',
   'tab.event.ballot',
   'tab.organization.command',
   'tab.guardian.command',

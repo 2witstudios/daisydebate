@@ -1,3 +1,8 @@
+import { readHostStandings } from './reads/host-standings';
+import {
+  createHostStandingsRoute,
+  type HostStandingsRouteDependencies,
+} from './host-standings-route';
 import { readEventBallot } from './reads/event-ballot';
 import {
   createEventBallotRoute,
@@ -79,6 +84,12 @@ export function composeTabRoutes(app: App) {
   ) => createTabCommandRoute({ ...operation, boundary, released });
 
   return {
+    hostStandings: (released: HostStandingsRouteDependencies['released']) =>
+      createHostStandingsRoute({
+        boundary,
+        released,
+        read: readHostStandings({ store, authorize, now }),
+      }),
     eventBallot: (released: EventBallotRouteDependencies['released']) =>
       createEventBallotRoute({
         boundary,

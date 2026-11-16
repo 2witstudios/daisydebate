@@ -15,7 +15,18 @@ import { eventFormatDescriptor } from './draw-facts';
 
 /** Consume retained individual contributions, including every immutable correction. */
 export function eventCompetition(
-  facts: EventCompetitionFacts,
+  facts: Pick<
+    EventCompetitionFacts,
+    | 'configuration'
+    | 'entries'
+    | 'members'
+    | 'rounds'
+    | 'fixtures'
+    | 'fixtureEntries'
+    | 'fixtureJudges'
+    | 'results'
+    | 'certified'
+  >,
   input: {
     readonly stageIds: readonly string[];
     readonly cutoff: number;
@@ -106,13 +117,15 @@ export function eventCompetition(
     format,
     entries: facts.entries
       .filter(
-        (entry) => entry.status === 'accepted' || entry.status === 'withdrawn',
+        (entry) =>
+          entry.eventId === facts.configuration.event.id &&
+          (entry.status === 'accepted' || entry.status === 'withdrawn'),
       )
       .map((entry) => ({
         id: entry.id,
         members: facts.members
-          .filter((row) => row.entry_members.entryId === entry.id)
-          .map((row) => row.entry_members.actorId),
+          .filter((row) => row.entryId === entry.id)
+          .map((row) => row.actorId),
         protection: entry.schoolOrganizationId
           ? [{ scope: 'school', key: entry.schoolOrganizationId }]
           : [],

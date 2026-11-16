@@ -7,6 +7,13 @@ import { readHostStandings } from '../src/features/tab/reads/host-standings';
 import { eventCompetition } from '../src/features/tab/operations/event-competition';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
+import {
+  createHostStandingsRoute,
+  hostStandingsPath,
+} from '../src/features/tab/host-standings-route';
+import { member, origin } from '../src/server/member-boundary.test-support';
+import { silentLogger } from '../src/server/test-loggers.test-support';
+import { noopErrorReporter } from '@daisy/observability';
 
 /** Recompute actual competitive inputs; neither standings nor break seeds are stored. */
 export async function standingsStage(world: World) {
@@ -56,5 +63,37 @@ export async function standingsStage(world: World) {
       'count precisely the latest competition records without inventing ballots from projection rows',
     actual: [...used].sort(),
     expected: latest,
+  });
+  const route = (person: (typeof world.bots)[string], released = true) =>
+    createHostStandingsRoute({
+      boundary: {
+        logger: silentLogger,
+        reporter: noopErrorReporter,
+        origin: () => origin,
+        identify: async () => ({
+          ...member,
+          principal: { ...as(person), actorId: person.actorId },
+        }),
+      },
+      released: async () => released,
+      read,
+    });
+  const request = () =>
+    new Request(`${origin}${hostStandingsPath(lobbyId, eventId)}`, {
+      headers: { origin },
+    });
+  const response = await route(world.bots.Director!)(request());
+  assert({
+    given: 'the evaluated HTTP route over those same actual committed results',
+    should:
+      'serve the schema with no-store and conceal release/authority denials',
+    actual: [
+      response.status,
+      response.headers.get('cache-control'),
+      await response.json(),
+      (await route(world.bots.Director!, false)(request())).status,
+      (await route(world.bots['Debater 1']!)(request())).status,
+    ],
+    expected: [200, 'no-store', actual, 404, 404],
   });
 }
