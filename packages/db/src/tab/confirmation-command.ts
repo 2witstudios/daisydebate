@@ -114,12 +114,10 @@ export const createConfirmationCommandStore = (
                 write.row.confirmedByUserId !== input.senderUserId
               )
                 throw createAppError('INVARIANT');
-              await tx
-                .insert(conflicts)
-                .values({
-                  ...write.row,
-                  detectedAt: new Date(write.row.detectedAt),
-                });
+              await tx.insert(conflicts).values({
+                ...write.row,
+                detectedAt: new Date(write.row.detectedAt),
+              });
             }
           }
           const originalWrites = writes.filter(
