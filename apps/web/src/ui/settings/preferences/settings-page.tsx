@@ -49,6 +49,13 @@ function Section({
 }
 
 export type SettingsPageProps = {
+  /**
+   * The member's display name, bio and photo (ADR 0142), when their public
+   * profile could be read.
+   */
+  readonly publicProfile?: ReactNode;
+  /** The member's own status choice, the rail's control again (ADR 0103). */
+  readonly status?: ReactNode;
   /** Which ratings the member's card shows, when it could be read. */
   readonly ratingCard?: ReactNode;
   /** What is stored for the member, when it could be read (ISSUE-1045). */
@@ -82,6 +89,8 @@ export function SettingsPage({
   analytics,
   dataRightsNotices,
   onboarding,
+  publicProfile,
+  status,
   ratingCard,
   notifications,
   watchHistory,
@@ -125,6 +134,13 @@ export function SettingsPage({
                 </>
               )}
             </p>
+            {publicProfile}
+            {status ? (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-md font-strong text-ink">Status</h3>
+                {status}
+              </div>
+            ) : null}
             {onboarding === null ? null : (
               <div className="flex flex-col gap-2">
                 <h3 className="text-md font-strong text-ink">

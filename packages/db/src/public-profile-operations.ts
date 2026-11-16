@@ -278,23 +278,28 @@ export const publicProfileOperations = ({
       );
     }),
 
-  /** The public profile's text and published photo for one member. */
+  /**
+   * The public profile's text and published photo for one member, and the
+   * profile row's id, which a report of the display name or bio names.
+   */
   readPublicProfile: (actorId: string) =>
     instrumented(eventSink, 'readPublicProfile', async () => {
       idSchema.parse(actorId);
       const [row] = await rowsOf<{
+        profile_id: string | null;
         display_name: string | null;
         bio: string | null;
         photo_id: string | null;
       }>(
         database,
-        sql`select m.display_name, m.bio, p.id as photo_id
+        sql`select m.id as profile_id, m.display_name, m.bio, p.id as photo_id
           from actors a
           left join member_profiles m on m.actor_id = a.id
           left join profile_photos p on p.actor_id = a.id and p.status = 'published'
           where a.id = ${actorId}`,
       );
       return {
+        profileId: row?.profile_id ?? null,
         displayName: row?.display_name ?? null,
         bio: row?.bio ?? null,
         photoId: row?.photo_id ?? null,

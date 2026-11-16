@@ -16,6 +16,7 @@ import type {
   RoundOutcome,
   DebateRole,
 } from '@daisy/protocol';
+import type { PublicProfileCard } from '@daisy/db';
 import type {
   PeopleListCursor,
   PersonRow,
@@ -78,6 +79,10 @@ export type PeopleListDependencies = {
   }>;
   /** Actors whose ratings a judge may not see before their ballot. */
   readonly blinded: (viewerActorId: string) => Promise<readonly string[]>;
+  /** Each actor's display name and published photo (ADR 0142), in one read. */
+  readonly profiles: (
+    actorIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, PublicProfileCard>>;
 };
 
 /** The ladders a card shows: Freestyle always, the rest by the member's choice. */
@@ -172,10 +177,11 @@ export async function readPeopleList(
   );
   const rows = page.rows.slice(0, PEOPLE_PAGE);
   const ids = rows.map((row) => row.actorId);
-  const [activity, cards, blinded] = await Promise.all([
+  const [activity, cards, blinded, profiles] = await Promise.all([
     dependencies.activity([...ids, actorId]),
     dependencies.cards(ids),
     dependencies.blinded(actorId),
+    dependencies.profiles(ids),
   ]);
   const hidden = new Set(blinded);
   const visibilityOf = new Map(cards.visibility.map((v) => [v.actorId, v]));
@@ -196,8 +202,11 @@ export async function readPeopleList(
           rounds: group.rounds,
         })),
     );
+    const profile = profiles.get(row.actorId);
     people.push({
       username: row.username,
+      displayName: profile?.displayName ?? null,
+      photoId: profile?.photoId ?? null,
       status,
       relation: relationOf(row, actorId),
       ratings: shownLadders(visibilityOf.get(row.actorId)).map((ladder) => {

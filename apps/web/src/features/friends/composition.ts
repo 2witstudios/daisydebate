@@ -7,8 +7,8 @@ import { createFriendHandlers } from './handlers';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
   changeFriendship,
+  countFriendsOnline,
   type FriendOperationDependencies,
-  friendsOnlineOf,
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
@@ -47,7 +47,10 @@ const friendReads = (
 
 /** The member's own friend list, for pages and the list route. */
 const composeFriendList = (app: App) => (principal: AuthorizationPrincipal) =>
-  readFriendList(principal, friendReads(app, principal));
+  readFriendList(principal, {
+    ...friendReads(app, principal),
+    profiles: (actorIds) => app.database.readPublicProfileCards(actorIds),
+  });
 
 /** The operations' ports for the principal: limiter, lookup and fenced store. */
 const friendPorts = (
@@ -77,9 +80,11 @@ export function composeFriendRoutes(app: App) {
       ),
     list,
     websocketEndpoint: app.websocketEndpoint,
-    counts: async (principal) => {
-      const { friends } = await list(principal);
-      return { friendsOnline: friendsOnlineOf(friends) };
-    },
+    counts: async (principal) => ({
+      friendsOnline: await countFriendsOnline(
+        principal,
+        friendReads(app, principal),
+      ),
+    }),
   });
 }

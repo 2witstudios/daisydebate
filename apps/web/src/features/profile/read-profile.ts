@@ -15,7 +15,34 @@ import type {
   MemberProfile,
 } from '@daisy/protocol';
 
-export type ProfileStore = Pick<Database, 'readMemberProfile'>;
+export type ProfileStore = Pick<
+  Database,
+  'readMemberProfile' | 'readPublicProfile'
+>;
+
+/**
+ * What a member chose to show besides the username (ADR 0142): their display
+ * name, bio and published photo, and the profile row a report of the text
+ * names. A closed account shows none of it.
+ */
+export type ShownPublicProfile = {
+  readonly profileId: string | null;
+  readonly displayName: string | null;
+  readonly bio: string | null;
+  readonly photoId: string | null;
+};
+
+/** The profile page's read: the record and history, and the public profile. */
+export type ProfileView = MemberProfile & {
+  readonly shown: ShownPublicProfile;
+};
+
+const nothingShown: ShownPublicProfile = {
+  profileId: null,
+  displayName: null,
+  bio: null,
+  photoId: null,
+};
 
 type HistoryRow = NonNullable<
   Awaited<ReturnType<Database['readMemberProfile']>>
@@ -107,7 +134,7 @@ export async function readProfile(
     /** The render's instant: a public record waits for the spectator timeline. */
     readonly now: string;
   },
-): Promise<MemberProfile | null> {
+): Promise<ProfileView | null> {
   const { identity } = input;
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
   // Budget the in-process render itself: no API request protects this read.
@@ -140,6 +167,9 @@ export async function readProfile(
     clock: spectatorClockAt(input.now),
   });
   if (read === null) return null;
+  const shown = read.member.closed
+    ? nothingShown
+    : await store.readPublicProfile(read.member.actorId);
   return {
     version: 1,
     username: read.member.username,
@@ -149,5 +179,6 @@ export async function readProfile(
     record: tallyRecord(read.groups),
     history: read.rows.map(toEntry),
     nextBefore: read.nextBefore,
+    shown,
   };
 }

@@ -10,6 +10,7 @@ import { profileHref } from '../../layout/app-shell/components/destinations';
 import { AddFriendForm, FriendButtonForm } from '../friend-forms';
 import { friendsLede } from '../friends';
 import { statusLabels } from '../../components/presence-dot/status-labels';
+import { profilePhotoSrc } from '../../profile/photo-src';
 
 type Action = FormAction<FriendFormState>;
 
@@ -32,29 +33,45 @@ function Section({
   );
 }
 
+/**
+ * One person: a friend shows the display name and photo they chose (ADR
+ * 0142), with @username kept beside it; a request shows the username alone.
+ */
 function PersonRow({
   username,
+  displayName = null,
+  photoId = null,
   detail,
   presence,
   children,
 }: {
   readonly username: string;
+  readonly displayName?: string | null;
+  readonly photoId?: string | null;
   readonly detail?: string;
   readonly presence?: FriendList['friends'][number]['presence'];
   readonly children: ReactNode;
 }) {
+  const secondary = [displayName === null ? null : `@${username}`, detail]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <li className="flex min-h-12 flex-wrap items-center gap-3 rounded-md px-2 py-1 hover:bg-surface-overlay">
-      <Avatar name={username} size="sm" {...(presence ? { presence } : {})} />
+      <Avatar
+        name={displayName ?? username}
+        src={profilePhotoSrc(photoId, 128)}
+        size="sm"
+        {...(presence ? { presence } : {})}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
         <Link
           href={profileHref(username)}
           className="truncate text-base text-ink no-underline hover:no-underline"
         >
-          @{username}
+          {displayName ?? `@${username}`}
         </Link>
-        {detail ? (
-          <span className="text-sm text-ink-muted">{detail}</span>
+        {secondary ? (
+          <span className="text-sm text-ink-muted">{secondary}</span>
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
@@ -117,32 +134,36 @@ export function FriendsPage({
       {list && list.friends.length > 0 ? (
         <Section id="friends-list" title="Your friends">
           <ul className="flex flex-col">
-            {list.friends.map(({ username, presence }) => (
-              <PersonRow
-                key={username}
-                username={username}
-                presence={presence}
-                detail={statusLabels[presence]}
-              >
-                {liveHrefs.get(username) ? (
-                  <Link
-                    href={liveHrefs.get(username) ?? ''}
-                    aria-label={`Watch @${username} live`}
-                    className="text-sm font-strong"
-                  >
-                    Watch live
-                  </Link>
-                ) : null}
-                {message(username)}
-                <FriendButtonForm
-                  action={friendAction}
+            {list.friends.map(
+              ({ username, presence, displayName, photoId }) => (
+                <PersonRow
+                  key={username}
                   username={username}
-                  intent="remove"
-                  label="Remove"
-                  variant="ghost"
-                />
-              </PersonRow>
-            ))}
+                  displayName={displayName}
+                  photoId={photoId}
+                  presence={presence}
+                  detail={statusLabels[presence]}
+                >
+                  {liveHrefs.get(username) ? (
+                    <Link
+                      href={liveHrefs.get(username) ?? ''}
+                      aria-label={`Watch @${username} live`}
+                      className="text-sm font-strong"
+                    >
+                      Watch live
+                    </Link>
+                  ) : null}
+                  {message(username)}
+                  <FriendButtonForm
+                    action={friendAction}
+                    username={username}
+                    intent="remove"
+                    label="Remove"
+                    variant="ghost"
+                  />
+                </PersonRow>
+              ),
+            )}
           </ul>
         </Section>
       ) : null}

@@ -380,7 +380,9 @@ describe('operator profile moderation (ADR 0142)', () => {
       uploadedAt: '2026-11-16T10:00:00.000Z',
       version: 1,
     };
-    const { handle } = withStore({ listProfilePhotoReviews: async () => [item] });
+    const { handle } = withStore({
+      listProfilePhotoReviews: async () => [item],
+    });
     const response = await handle(
       signed({ method: 'GET', path: '/operator/v1/profile-photos/in-review' }),
     );

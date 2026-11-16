@@ -21,3 +21,25 @@ test('a restricted account in the shell (ADR 0103)', () => {
     ],
   });
 });
+
+test('a member in the shell (ADR 0142)', () => {
+  const member = {
+    state: 'member',
+    username: 'ada',
+    principal: { kind: 'user', userId: 'u', actorId: 'a' },
+  } as const;
+  const photoId = 'f'.repeat(24);
+  assert({
+    given:
+      'a member with a display name and photo, then one whose card was not read',
+    should: 'carry what they chose to show, or nothing, and never their ids',
+    actual: [
+      shellAccount(member, { displayName: 'Ada Byron', photoId }),
+      shellAccount(member),
+    ],
+    expected: [
+      { state: 'member', username: 'ada', displayName: 'Ada Byron', photoId },
+      { state: 'member', username: 'ada', displayName: null, photoId: null },
+    ],
+  });
+});

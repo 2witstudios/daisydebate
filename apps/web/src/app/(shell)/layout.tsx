@@ -21,6 +21,7 @@ import { shellAccount } from '../../lib/shell-account';
 import {
   requestIdentity,
   requestMemberStandings,
+  requestOwnProfileCard,
 } from '../../lib/request-session';
 import type { ShellRatings } from '../../ui/layout/app-shell/account';
 import { requestActiveRoom } from './active-room';
@@ -58,10 +59,15 @@ export default async function ShellLayout({
           activeRoomId: activeRoom?.id ?? null,
         })
       : null;
-  const [chosen, notices] =
+  const [chosen, notices, card] =
     identity.state === 'member'
-      ? await Promise.all([readChosenStatus(), readModerationNotices()])
-      : [null, []];
+      ? await Promise.all([
+          readChosenStatus(),
+          readModerationNotices(),
+          // A failed read shows the username and initials, as before ADR 0142.
+          requestOwnProfileCard(identity.principal.actorId).catch(() => null),
+        ])
+      : [null, [], null];
   const ratings: Promise<ShellRatings> | null =
     identity.state === 'member'
       ? requestMemberStandings(identity.username).then(
@@ -81,7 +87,7 @@ export default async function ShellLayout({
           />
         )}
         <AppShell
-          account={shellAccount(identity)}
+          account={shellAccount(identity, card)}
           activeRoom={activeRoom}
           rail={rail}
           ratings={ratings}

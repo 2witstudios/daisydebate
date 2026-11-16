@@ -86,6 +86,7 @@ export function composePresenceRoutes(app: App) {
             spectatorClockAt(app.clock.now()),
           ),
         blinded: (actorId) => app.database.readRatingBlindings(actorId),
+        profiles: (actorIds) => app.database.readPublicProfileCards(actorIds),
       }),
   });
 }

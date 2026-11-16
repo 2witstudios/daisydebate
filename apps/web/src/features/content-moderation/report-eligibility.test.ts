@@ -168,10 +168,19 @@ describe('Who may report what', () => {
     };
     assert({
       given: 'someone else’s published photo, their own, and a missing one',
-      should: 'accept the first, refuse the owner, and answer not found for the missing',
+      should:
+        'accept the first, refuse the owner, and answer not found for the missing',
       actual: [
-        reportRefusal(photo, { kind: 'profile', ownedByReporter: false }, noLink),
-        reportRefusal(photo, { kind: 'profile', ownedByReporter: true }, noLink),
+        reportRefusal(
+          photo,
+          { kind: 'profile', ownedByReporter: false },
+          noLink,
+        ),
+        reportRefusal(
+          photo,
+          { kind: 'profile', ownedByReporter: true },
+          noLink,
+        ),
         reportRefusal(photo, { kind: 'missing' }, noLink),
       ],
       expected: [null, 'report-not-eligible', 'report-not-found'],

@@ -48,6 +48,7 @@ import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
 import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
+import { publicNameLabel } from '../profile/public-name';
 
 const item =
   'flex min-h-nav-target w-full items-center rounded-sm px-2 text-left text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline disabled:cursor-default disabled:text-ink-muted';
@@ -425,7 +426,7 @@ export function PersonMenu({
       />
       <section
         role="dialog"
-        aria-label={`@${username}`}
+        aria-label={publicNameLabel(member)}
         ref={(element) => {
           dialog.current = element;
           anchorAt(top)(element);

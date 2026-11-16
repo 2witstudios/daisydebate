@@ -8,7 +8,14 @@ export type ShellAccount =
   | { readonly state: 'waitlisted' }
   /** Signed in under a suspension or ban (ADR 0103). */
   | { readonly state: 'restricted' }
-  | { readonly state: 'member'; readonly username: string };
+  | {
+      readonly state: 'member';
+      readonly username: string;
+      /** The label they chose besides the username (ADR 0142), or null. */
+      readonly displayName: string | null;
+      /** Their published profile photo, which anyone may see, or null. */
+      readonly photoId: string | null;
+    };
 
 /**
  * A member's standing on each ladder, read once per request for the account

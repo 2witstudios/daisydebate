@@ -49,7 +49,14 @@ test('friend reads', () => {
     should: 'refuse it',
     actual: friendListSchema.safeParse({
       version: 1,
-      friends: [{ username: 'ada', presence: 'in-debate' }],
+      friends: [
+        {
+          username: 'ada',
+          presence: 'in-debate',
+          displayName: null,
+          photoId: null,
+        },
+      ],
       incoming: [],
       outgoing: [],
       challenges: [],

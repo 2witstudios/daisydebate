@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { memberStatuses } from './presence-setting';
-import { ratingLadders } from './primitives';
+import { idSchema, ratingLadders } from './primitives';
 
 const count = z.number().int().nonnegative().safe();
 
@@ -16,6 +16,10 @@ const shownRatingSchema = z.strictObject({
 /** One person on the list, online or offline, as this viewer may see them. */
 const personSchema = z.strictObject({
   username: z.string(),
+  /** The label they chose besides the username (ADR 0142), or null. */
+  displayName: z.string().nullable(),
+  /** Their published profile photo, or null. */
+  photoId: idSchema.nullable(),
   status: z.enum(memberStatuses),
   relation: z.enum(['none', 'friends', 'outgoing', 'incoming']),
   ratings: z.array(shownRatingSchema).min(1).max(3),
