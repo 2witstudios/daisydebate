@@ -1,3 +1,4 @@
+import { walkHref } from '../../../../../../../../features/tab/walk-href';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
@@ -23,7 +24,7 @@ export default async function Page({
 }) {
   const { room: roomId } = await params;
   // A Room needs an account, sample or not: the page rechecks it for itself.
-  await requireAccess(tabRoutes.liveRoom(roomId), searchParams);
+  await requireAccess(walkHref(tabRoutes.liveRoom(roomId)), searchParams);
   const section = readLiveSection(roomId, await requestSampleScene());
   if (section === null) notFound();
   return (

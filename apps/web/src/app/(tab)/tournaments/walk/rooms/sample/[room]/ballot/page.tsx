@@ -1,3 +1,4 @@
+import { walkHref } from '../../../../../../../../features/tab/walk-href';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../../../../../features/access/decision';
@@ -19,7 +20,7 @@ export default async function Page({
 }) {
   const { room: roomId } = await params;
   // A Room needs an account, sample or not: the page rechecks it for itself.
-  await requireAccess(tabRoutes.ballot(roomId), searchParams);
+  await requireAccess(walkHref(tabRoutes.ballot(roomId)), searchParams);
   const ballot = readJudgeBallot(roomId, await requestSampleScene());
   if (ballot === null) notFound();
   return (
