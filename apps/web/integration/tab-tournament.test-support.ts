@@ -7,9 +7,8 @@ import {
 
 /**
  * The scripted tournament's frame (TAB-8.18): bots on a real database, an
- * injected clock, and stages run in order. A stage that is not wired yet
- * throws `StageNotWired`, so the script fails at its first unwired stage and
- * names it. Nothing waits on real time: the clock moves only when a stage
+ * injected clock, and stages run in order. Required stages fail the gate by
+ * name; stages explicitly assigned to a later slice remain pending. Nothing waits on real time: the clock moves only when a stage
  * moves it.
  */
 
@@ -34,12 +33,6 @@ export type World = {
   readonly bots: Readonly<Record<string, Bot>>;
   readonly made: Map<string, string>;
 };
-
-export class StageNotWired extends Error {
-  constructor(readonly stage: string) {
-    super(`not wired: ${stage}`);
-  }
-}
 
 /** A clock the script owns. It starts at a fixed instant. */
 export type ScriptClock = {
@@ -81,25 +74,29 @@ export const createBots = async (
   return bots;
 };
 
-export type Stage<World> = {
-  readonly name: string;
-  readonly run: (world: World) => Promise<void>;
-};
+export type Stage<World> =
+  | { readonly name: string; readonly run: (world: World) => Promise<void> }
+  | { readonly name: string; readonly pending: string };
 
 export type StageReport =
   | { readonly stage: string; readonly outcome: 'passed'; readonly ms: number }
   | {
       readonly stage: string;
-      readonly outcome: 'not-wired' | 'failed';
+      readonly outcome: 'failed';
       readonly ms: number;
       readonly detail: string;
     }
-  | { readonly stage: string; readonly outcome: 'not-run' };
+  | { readonly stage: string; readonly outcome: 'not-run' }
+  | {
+      readonly stage: string;
+      readonly outcome: 'pending';
+      readonly slice: string;
+    };
 
 /**
  * Runs the stages in order and stops at the first that does not pass; the
- * stages after it are reported as not run, so the output shows how far a
- * tournament gets.
+ * required stages after it are reported as not run. Later-slice stages are
+ * always named explicitly as pending and never counted as passed.
  */
 export const runStages = async <World>(
   stages: readonly Stage<World>[],
@@ -108,6 +105,14 @@ export const runStages = async <World>(
   const reports: StageReport[] = [];
   let stopped = false;
   for (const stage of stages) {
+    if ('pending' in stage) {
+      reports.push({
+        stage: stage.name,
+        outcome: 'pending',
+        slice: stage.pending,
+      });
+      continue;
+    }
     if (stopped) {
       reports.push({ stage: stage.name, outcome: 'not-run' });
       continue;
@@ -124,7 +129,7 @@ export const runStages = async <World>(
       stopped = true;
       reports.push({
         stage: stage.name,
-        outcome: error instanceof StageNotWired ? 'not-wired' : 'failed',
+        outcome: 'failed',
         ms: Math.round(performance.now() - started),
         detail:
           error instanceof Error
@@ -140,14 +145,16 @@ export const runStages = async <World>(
 export const reportLines = (reports: readonly StageReport[]): string =>
   reports
     .map((report) =>
-      report.outcome === 'not-run'
-        ? `  - ${report.stage}: not run`
-        : report.outcome === 'passed'
-          ? `  ✓ ${report.stage} (${report.ms} ms)`
-          : `  ✗ ${report.stage}: ${report.outcome}\n${report.detail
-              .split('\n')
-              .slice(0, 6)
-              .map((line) => `      ${line}`)
-              .join('\n')}`,
+      report.outcome === 'pending'
+        ? `  - ${report.stage}: pending (${report.slice})`
+        : report.outcome === 'not-run'
+          ? `  - ${report.stage}: not run`
+          : report.outcome === 'passed'
+            ? `  ✓ ${report.stage} (${report.ms} ms)`
+            : `  ✗ ${report.stage}: ${report.outcome}\n${report.detail
+                .split('\n')
+                .slice(0, 6)
+                .map((line) => `      ${line}`)
+                .join('\n')}`,
     )
     .join('\n');

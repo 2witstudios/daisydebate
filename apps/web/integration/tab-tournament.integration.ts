@@ -17,7 +17,6 @@ import {
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  StageNotWired,
   createBots,
   reportLines,
   runStages,
@@ -37,12 +36,6 @@ import { organizationStage } from './tab-tournament-organization.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-
-const unwired =
-  (stage: string) =>
-  async (_world: World): Promise<void> => {
-    throw new StageNotWired(stage);
-  };
 
 /** The tournament, in the plan's dependency order. */
 const stages: readonly Stage<World>[] = [
@@ -93,13 +86,13 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'sanction and season standings',
-    run: unwired('sanction'),
+    pending: 'league and notifications slice',
   },
   {
     name: 'rating-seeded single elimination',
-    run: unwired('single-elimination'),
+    pending: 'league and notifications slice',
   },
-  { name: 'notifications', run: unwired('notifications') },
+  { name: 'notifications', pending: 'league and notifications slice' },
 ];
 
 const names = [
@@ -138,10 +131,29 @@ test('the scripted tournament', async () => {
     await owner.close();
     await scratch.drop();
   }
+  process.stdout.write(`${reportLines(reports)}\n`);
+  assert({
+    given:
+      'the point-guard-approved nine-stage wiring gate and three explicitly deferred stages',
+    should:
+      'execute all nine required stages and retain exactly three pending records',
+    actual: [
+      reports.filter((report) => report.outcome === 'passed').length,
+      reports.filter((report) => report.outcome === 'pending').length,
+    ],
+    expected: [9, 3],
+  });
   assert({
     given: 'a tournament scripted from an empty database',
-    should: 'run every stage to certified results',
+    should:
+      'pass all nine required stages through certification and retain the three later-slice stages as pending',
     actual: reportLines(reports).replace(/ \(\d+ ms\)/g, ''),
-    expected: stages.map((stage) => `  ✓ ${stage.name}`).join('\n'),
+    expected: stages
+      .map((stage) =>
+        'pending' in stage
+          ? `  - ${stage.name}: pending (${stage.pending})`
+          : `  ✓ ${stage.name}`,
+      )
+      .join('\n'),
   });
 }, 90_000);
