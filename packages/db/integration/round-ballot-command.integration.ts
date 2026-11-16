@@ -84,6 +84,29 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
       "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,1,0,'incomplete')",
       [roundId],
     );
+    for (const absent of ['reason', 'feedback'] as const) {
+      const incomplete = { ...ballot };
+      delete incomplete[absent];
+      await assertRejects({
+        given: `an ordinary Room ballot without ${absent}`,
+        should: 'refuse before nullable event-only defaults can reach storage',
+        actual: () =>
+          store.executeRoundBallot({
+            ...input,
+            envelope: { ...input.envelope, ballot: incomplete },
+          }),
+        code: 'VALIDATION',
+      });
+    }
+    assert({
+      given: 'ordinary ballots missing their required written fields',
+      should: 'leave the ballot and command ledgers empty',
+      actual: [
+        await f.count('ballots', 'judge_participant_id', judge.id),
+        await f.count('round_commands', 'command_id', input.envelope.commandId),
+      ],
+      expected: [0, 0],
+    });
     const receipt = await store.executeRoundBallot(input);
     f.track('ballots', receipt.ballotId);
     const [stored] =

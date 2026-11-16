@@ -1,5 +1,5 @@
 import { andMore } from './at-scale';
-import { sampleAction } from './action';
+import { unavailableAction } from './action';
 import type { AttentionRoom } from './tab-round';
 
 /** One reminder for overdue ballots; individual cases keep their own action. */
@@ -19,7 +19,7 @@ export function mergeRoomNeeds(
             words: overdue.flatMap(
               (room) => room.words ?? [room.title, room.detail],
             ),
-            action: sampleAction(`Remind all ${overdue.length}`, true),
+            action: unavailableAction(`Remind all ${overdue.length}`, true),
           },
         ];
   const replacements =
@@ -29,7 +29,7 @@ export function mergeRoomNeeds(
           {
             title: `${withdrawn.length} judges withdrew`,
             detail: withdrawn.map((room) => room.title).join(' · '),
-            action: sampleAction(`Review ${withdrawn.length} rooms`, true),
+            action: unavailableAction(`Review ${withdrawn.length} rooms`, true),
           },
         ];
   return [

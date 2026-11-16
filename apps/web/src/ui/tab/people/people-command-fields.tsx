@@ -6,8 +6,8 @@ import {
   fieldClass,
   labelClass,
 } from '../../components/form-field/form-field-class';
-import type { peopleCommandFields } from '../../../features/tab/organization-people-forms';
-import type { PeopleCommandModel } from './people-command-form';
+import type { FormValues } from '../../../features/forms/form-state';
+import type { PeopleCommandModel } from './people-command-model';
 
 const options = (
   items: readonly { readonly value: string; readonly label: string }[],
@@ -26,13 +26,17 @@ export function PeopleCommandFields({
   noticeId,
 }: {
   readonly model: PeopleCommandModel;
-  readonly fields: ReturnType<typeof peopleCommandFields>;
+  readonly fields: {
+    readonly values: FormValues;
+    readonly error: string | null;
+    readonly notice: string | null;
+  };
   readonly submit: (form: FormData) => void;
   readonly pending: boolean;
   readonly noticeId: string;
 }) {
   const label =
-    model.kind === 'give'
+    model.kind === 'give' || model.kind === 'give-lobby'
       ? 'Give someone a role'
       : model.kind === 'cancel'
         ? `Cancel invitation for ${model.person}`
@@ -41,12 +45,12 @@ export function PeopleCommandFields({
     <details className="flex flex-col items-start gap-3">
       <summary
         className={
-          model.kind === 'give'
+          model.kind === 'give' || model.kind === 'give-lobby'
             ? buttonClass('primary')
             : 'cursor-pointer font-strong text-ink underline'
         }
       >
-        {model.kind === 'give'
+        {model.kind === 'give' || model.kind === 'give-lobby'
           ? 'Give someone a role'
           : model.kind === 'cancel'
             ? 'Cancel invite'
@@ -59,24 +63,44 @@ export function PeopleCommandFields({
       >
         <fieldset disabled={pending} className="flex min-w-0 flex-col gap-3">
           <legend className="sr-only">{label}</legend>
-          {model.kind === 'give' ? (
+          {model.kind === 'give' || model.kind === 'give-lobby' ? (
             <>
+              {model.kind === 'give-lobby' ? (
+                <label className={fieldClass}>
+                  <span className={labelClass}>Username</span>
+                  <input
+                    name="username"
+                    required
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    defaultValue={fields.values.username ?? ''}
+                    className={controlClass}
+                  />
+                </label>
+              ) : (
+                <>
+                  {' '}
+                  <label className={fieldClass}>
+                    <span className={labelClass}>Member</span>
+                    <select
+                      name="userId"
+                      defaultValue={fields.values.userId}
+                      required
+                      className={controlClass}
+                    >
+                      <option value="" disabled>
+                        Choose a member
+                      </option>
+                      {options(model.members)}
+                    </select>
+                  </label>
+                </>
+              )}{' '}
               <label className={fieldClass}>
-                <span className={labelClass}>Member</span>
-                <select
-                  name="userId"
-                  defaultValue={fields.values.userId}
-                  required
-                  className={controlClass}
-                >
-                  <option value="" disabled>
-                    Choose a member
-                  </option>
-                  {options(model.members)}
-                </select>
-              </label>
-              <label className={fieldClass}>
-                <span className={labelClass}>Preset role</span>
+                <span className={labelClass}>
+                  {model.kind === 'give-lobby' ? 'Role' : 'Preset role'}
+                </span>
                 <select
                   name="roleId"
                   defaultValue={fields.values.roleId}
@@ -89,17 +113,26 @@ export function PeopleCommandFields({
                   {options(model.roles)}
                 </select>
               </label>
-              <label className={fieldClass}>
-                <span className={labelClass}>Applies to</span>
-                <select
-                  name="scope"
-                  defaultValue={fields.values.scope}
-                  required
-                  className={controlClass}
-                >
-                  {options(model.scopes)}
-                </select>
-              </label>
+              {model.kind === 'give-lobby' ? (
+                <p className="text-sm text-ink-muted">
+                  Applies only to {model.lobbyName}.
+                </p>
+              ) : (
+                <>
+                  {' '}
+                  <label className={fieldClass}>
+                    <span className={labelClass}>Applies to</span>
+                    <select
+                      name="scope"
+                      defaultValue={fields.values.scope}
+                      required
+                      className={controlClass}
+                    >
+                      {options(model.scopes)}
+                    </select>
+                  </label>
+                </>
+              )}{' '}
               <label className={fieldClass}>
                 <span className={labelClass}>Expiry (UTC, optional)</span>
                 <input
@@ -134,7 +167,7 @@ export function PeopleCommandFields({
           <Button type="submit" disabled={pending}>
             {pending
               ? 'Saving…'
-              : model.kind === 'give'
+              : model.kind === 'give' || model.kind === 'give-lobby'
                 ? 'Give role'
                 : model.kind === 'cancel'
                   ? 'Cancel invite'

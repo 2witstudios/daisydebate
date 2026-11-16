@@ -1,11 +1,11 @@
-import Link from 'next/link';
+import { WalkLink as Link } from '../walk/walk-link';
 import {
   standingLabel,
   type RailItem,
   type TimelineRail as Rail,
 } from '../../../features/tab/tournament';
 import { cn } from '../../cn';
-import { SampleAction } from '../../components/sample-action/sample-action';
+import { UnavailableControl } from '../action-control/unavailable-control';
 import { BackButton } from '../action-control/action-control';
 import { eyebrowClass } from '../list-card/list-card';
 
@@ -33,14 +33,14 @@ function Stop({
   );
   if (item.action === null)
     return <span className={cn(stopClass, 'text-ink-muted')}>{face}</span>;
-  if (item.action.href === null)
+  if (item.action.kind === 'unavailable')
     return (
-      <SampleAction
+      <UnavailableControl
         label={item.action.label}
         className={cn(stopClass, 'text-ink')}
       >
         {face}
-      </SampleAction>
+      </UnavailableControl>
     );
   return (
     <Link

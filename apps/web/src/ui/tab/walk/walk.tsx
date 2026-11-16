@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { WalkLink as Link } from './walk-link';
 import {
   sampleMomentLabels,
   sampleMoments,

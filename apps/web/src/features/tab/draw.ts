@@ -4,9 +4,12 @@ import type {
   DrawView,
   DrawViewFixture,
 } from '@daisy/protocol/lobby/draw-read';
-import { choice, sampleAction, type Choice, type TabAction } from './action';
-import { sampleDrawView } from './sample/draw';
-import type { SampleScene } from './sample/scene';
+import {
+  choice,
+  unavailableAction,
+  type Choice,
+  type TabAction,
+} from './action';
 import type { EventSwitch } from './setup';
 
 /** What the engine reports about a fixture; a broken rule is never relaxed. */
@@ -131,7 +134,7 @@ const detailOf = (read: DrawView, fixture: DrawViewFixture): FixtureDetail => ({
           heading: fixture.alternative.change,
           cost: fixture.alternative.cost,
           breaksRule: fixture.alternative.breaksRule,
-          show: sampleAction('Show that draw'),
+          show: unavailableAction('Show that draw'),
         },
 });
 
@@ -188,8 +191,11 @@ export const drawBoardOf = (
         : `from results through round ${read.resultsThroughRound}`,
     rulesBroken: counted('rule_broken'),
     preferencesBent: counted('preference_bent'),
-    again: sampleAction('Draw again'),
-    publish: sampleAction(`Publish round ${round}`, read.capabilities.publish),
+    again: unavailableAction('Draw again'),
+    publish: unavailableAction(
+      `Publish round ${round}`,
+      read.capabilities.publish,
+    ),
     groups: (read.recordGroups.flatMap((group) => group.fixtures).length > 20
       ? read.recordGroups
       : read.recordGroups.slice(0, listedGroups)
@@ -203,24 +209,8 @@ export const drawBoardOf = (
         : restOf(read.recordGroups.slice(listedGroups)),
     back:
       read.capabilities.edit && read.draw.basedOn !== null
-        ? sampleAction(`Go back to draft ${read.draw.basedOn.version}`)
+        ? unavailableAction(`Go back to draft ${read.draw.basedOn.version}`)
         : null,
     selected: chosen === null ? null : detailOf(read, chosen),
   };
-};
-
-export const readDrawBoard = (
-  slug: string,
-  event: string,
-  round: string,
-  fixture: string | null,
-  scene: SampleScene,
-): DrawBoard | null => {
-  const sample = sampleDrawView(slug, event, round, scene);
-  return sample === null
-    ? null
-    : drawBoardOf(sample.read, {
-        ...sample.context,
-        selectedFixtureId: sample.fixtureIdOf(fixture),
-      });
 };

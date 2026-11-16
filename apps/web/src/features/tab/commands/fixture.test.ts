@@ -1,3 +1,4 @@
+import type { FixtureState } from './fixture-lifecycle';
 import {
   fixtureCompetition,
   fixtureAdministrativeContext,
@@ -9,7 +10,6 @@ import {
   decideFixture,
   fixtureStateOf,
   type FixtureFacts,
-  type FixtureState,
   type TournamentJudgeRow,
 } from './fixture';
 

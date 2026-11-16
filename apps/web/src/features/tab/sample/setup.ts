@@ -4,7 +4,7 @@ import type {
 } from '@daisy/protocol/lobby/lobby-setup-read';
 import { eventChain } from '@daisy/protocol/setting-resolution';
 import type { SettingScope } from '@daisy/protocol/settings';
-import { choice, linkTo, sampleAction } from '../action';
+import { choice, linkTo, unavailableAction } from '../action';
 import { resolvedSettingsViewOf } from '../reads/resolved-settings';
 import { hostRoutes } from '../routes';
 import type {
@@ -205,7 +205,7 @@ export function sampleAutumnSetup(scene: SampleScene): TournamentSetupView {
   };
 }
 
-const change = sampleAction('Change');
+const change = unavailableAction('Change');
 
 /** The words setup uses for the sample's values. */
 const setupCopy: SetupCopy = {
@@ -296,7 +296,7 @@ const setupCopy: SetupCopy = {
     {
       subject: 'sanction',
       label: 'Counts for',
-      request: () => sampleAction('View request'),
+      request: () => unavailableAction('View request'),
     },
   ],
   pairing: {
@@ -351,7 +351,7 @@ const setupCopy: SetupCopy = {
       },
     ],
     forceNote: `A host picks a preset. ${LEAGUE_NAME} can set each of these individually in its template.`,
-    save: sampleAction('Save pairing', true),
+    save: unavailableAction('Save pairing', true),
   },
 };
 

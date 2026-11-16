@@ -1,3 +1,4 @@
+import { fixtureState, type FixtureState } from './fixture-lifecycle';
 import type {
   CommandFinding,
   FixtureChange,
@@ -235,30 +236,20 @@ type FixtureWrite =
     }
   | CompetitionWrite;
 
-/** Where a fixture is in its life: the rows of the plan's state table. */
-export type FixtureState =
-  | 'draft'
-  | 'not_started'
-  | 'round_started'
-  | 'ballot_in'
-  | 'has_result'
-  | 'withdrawn';
-
-/** The one place a fixture's state is read from its facts. */
+/** The officiating record reads the shared fixture lifecycle from its source rows. */
 export const fixtureStateOf = (
   record: Pick<FixtureRecord, 'fixture' | 'round' | 'ballots' | 'results'>,
-): FixtureState => {
-  switch (record.fixture.status) {
-    case 'draft':
-      return 'draft';
-    case 'withdrawn':
-      return 'withdrawn';
-    case 'published':
-      if (record.results.length > 0) return 'has_result';
-      if (record.ballots.length > 0) return 'ballot_in';
-      return record.round === null ? 'not_started' : 'round_started';
-  }
-};
+): FixtureState =>
+  fixtureState(
+    record.fixture.status,
+    record.results.length > 0
+      ? 'has_result'
+      : record.ballots.length > 0
+        ? 'ballot_in'
+        : record.round === null
+          ? 'not_started'
+          : 'round_started',
+  );
 
 /** What the state table refuses a judge command, or a forfeit or restart. */
 export const officiatingRefusal = (

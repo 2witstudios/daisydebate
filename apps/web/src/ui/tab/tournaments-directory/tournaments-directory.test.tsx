@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readTournamentsIndex } from '../../../features/tab/tournaments-index';
+import { readTournamentsIndex } from '../../../features/tab/sample/read-tournaments-index';
 import { WithAppRouter } from '../../test-support/app-router';
 import { TournamentsDirectory } from './tournaments-directory';
 

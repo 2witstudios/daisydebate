@@ -1,17 +1,17 @@
 import type { TabAction } from '../../../features/tab/action';
 import type { EventSwitch } from '../../../features/tab/setup';
-import Link from 'next/link';
+import { WalkLink as Link } from '../walk/walk-link';
 import { buttonClass } from '../../components/button/button-class';
-import { SampleAction } from '../../components/sample-action/sample-action';
+import { UnavailableControl } from '../action-control/unavailable-control';
 
 const itemClass =
   'block rounded-sm px-3 py-2 whitespace-nowrap text-ink no-underline hover:bg-surface hover:no-underline';
 
 function Other({ event }: { readonly event: TabAction }) {
-  return event.href === null ? (
-    <SampleAction label={event.label} className={itemClass}>
+  return event.kind === 'unavailable' ? (
+    <UnavailableControl label={event.label} className={itemClass}>
       {event.label}
-    </SampleAction>
+    </UnavailableControl>
   ) : (
     <Link href={event.href} className={itemClass}>
       {event.label}

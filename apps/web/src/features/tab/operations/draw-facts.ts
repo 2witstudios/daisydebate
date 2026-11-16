@@ -29,17 +29,43 @@ export const drawStageSnapshotSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 
+const recordedEngineInputs = {
+  engine: z.record(z.string(), z.string()),
+  settings: z.record(z.string(), z.unknown()),
+  settingsDigest: z.string(),
+  seed: z.string(),
+  entriesDigest: z.string(),
+  judgesDigest: z.string(),
+  existing: z.array(
+    z.strictObject({ id: z.string(), hold: z.enum(['fixed', 'movable']) }),
+  ),
+  ratings: z
+    .strictObject({
+      ladder: z.string(),
+      takenAt: z.string(),
+      calculation: z.string(),
+    })
+    .nullable(),
+  cutoff: z.int().nonnegative(),
+  results: z.array(z.string()),
+};
+
 const inputsSchema = z.strictObject({
   stage: drawStageSnapshotSchema,
   breakResultIds: z.array(idSchema),
   engine: z
-    .looseObject({
-      engine: z.record(z.string(), z.string()),
-      settingsDigest: z.string(),
-      seed: z.string(),
-      cutoff: z.int().nonnegative(),
-      results: z.array(z.string()),
-    })
+    .discriminatedUnion('call', [
+      z.looseObject({
+        call: z.literal('slot'),
+        slot: z.string(),
+        commitments: z.array(z.string()),
+        alongside: z.array(
+          z.strictObject({ event: z.string(), tabRound: z.int() }),
+        ),
+        ...recordedEngineInputs,
+      }),
+      z.looseObject({ call: z.literal('windowed'), ...recordedEngineInputs }),
+    ])
     .nullable(),
   settingsDigest: z.string(),
   broken: z.array(z.string()),

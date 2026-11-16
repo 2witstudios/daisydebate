@@ -5,7 +5,7 @@ import {
   judgeSearchOf,
   type JudgeFilter,
 } from '../../../features/tab/judge-search';
-import { sampleAction } from '../../../features/tab/action';
+import { unavailableAction } from '../../../features/tab/action';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 import { buttonClass } from '../../components/button/button-class';
 import type {
@@ -92,7 +92,9 @@ export function HostJudges({
                   trailing={
                     <ActionButton
                       size="small"
-                      action={sampleAction(`Remind ${short.length} coaches`)}
+                      action={unavailableAction(
+                        `Remind ${short.length} coaches`,
+                      )}
                     />
                   }
                 />
@@ -103,7 +105,7 @@ export function HostJudges({
                   trailing={
                     <ActionButton
                       size="small"
-                      action={sampleAction('Review conflicts')}
+                      action={unavailableAction('Review conflicts')}
                     />
                   }
                 />

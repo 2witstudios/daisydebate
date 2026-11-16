@@ -65,11 +65,12 @@ export const loadRoles = async (
 
 /**
  * The roles an organization may give: Daisy's presets, offered to every
- * organization, and its own, highest first.
+ * organization, and its own, highest first. A personal lobby has no owning
+ * organization and receives only the shared presets.
  */
 export const loadOfferedRoles = async (
   tx: TabTransaction,
-  organizationId: string,
+  organizationId: string | null,
 ): Promise<readonly RoleRow[]> =>
   withPermissions(
     tx,
@@ -82,7 +83,9 @@ export const loadOfferedRoles = async (
             eq(roles.organizationId, daisyOrganizationId),
             eq(roles.preset, true),
           ),
-          eq(roles.organizationId, organizationId),
+          organizationId === null
+            ? undefined
+            : eq(roles.organizationId, organizationId),
         ),
       )
       .orderBy(asc(roles.rank), asc(roles.id)),

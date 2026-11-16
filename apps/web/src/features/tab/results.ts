@@ -6,9 +6,7 @@ import type {
 } from '@daisy/protocol/lobby/results-read';
 import type { BracketView } from '@daisy/protocol/lobby/standings-read';
 import type { Audience } from '@daisy/protocol/lobby';
-import { sampleAction, type TabAction } from './action';
-import { sampleBracketView, sampleEventResultsView } from './sample/results';
-import type { SampleScene } from './sample/scene';
+import { unavailableAction, type TabAction } from './action';
 import { countWord, type WallClock } from './tab-round';
 import { shownName } from './shown-entrant';
 
@@ -123,7 +121,7 @@ export const bracketOf = (
         room: fixture.state.kind === 'live' ? fixture.state.room.name : null,
         watch:
           fixture.state.kind === 'live' && fixture.state.watchable
-            ? sampleAction('Watch')
+            ? unavailableAction('Watch')
             : null,
       })),
       note:
@@ -232,7 +230,7 @@ const openingOf = (
     detail,
     open:
       openable.length > 0 && read.capabilities.release
-        ? sampleAction(`Open to ${label.toLowerCase()}`, true)
+        ? unavailableAction(`Open to ${label.toLowerCase()}`, true)
         : null,
   };
 };
@@ -290,7 +288,10 @@ const certificationOf = (
       };
     case 'ready':
       return read.capabilities.certify
-        ? { kind: 'ready', certify: sampleAction('Certify the event', true) }
+        ? {
+            kind: 'ready',
+            certify: unavailableAction('Certify the event', true),
+          }
         : {
             kind: 'blocked',
             reason:
@@ -349,7 +350,7 @@ export const eventResultsOf = (
               kind: 'held_ballots' as const,
               title: `${holds.count} ${holds.count === 1 ? 'ballot' : 'ballots'} held by screening`,
               detail: holds.summary ?? '',
-              action: sampleAction('Review held ballots'),
+              action: unavailableAction('Review held ballots'),
             },
           ]),
       ...(corrections.length === 0
@@ -375,26 +376,4 @@ export const eventResultsOf = (
       })),
     ],
   };
-};
-
-export const readEventResults = (
-  slug: string,
-  scene: SampleScene,
-): EventResults | null => {
-  const sample = sampleEventResultsView(slug, scene);
-  return sample === null
-    ? null
-    : eventResultsOf(sample.read, {
-        bracket: bracketOf(sample.bracket, sample.wallClock),
-        wallClock: sample.wallClock,
-      });
-};
-
-export const readBracket = (
-  slug: string,
-  event: string | null,
-  scene: SampleScene,
-): Bracket | null => {
-  const sample = sampleBracketView(slug, event, scene);
-  return sample === null ? null : bracketOf(sample.read, sample.wallClock);
 };

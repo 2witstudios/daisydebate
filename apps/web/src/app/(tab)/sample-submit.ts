@@ -1,3 +1,4 @@
+import { walkHref } from '../../features/tab/walk-href';
 import type { SampleSubmit } from '../../ui/tab/sample-form/sample-form';
 import { sampleFormAction } from './sample-form-action';
 
@@ -5,4 +6,4 @@ import { sampleFormAction } from './sample-form-action';
 export const sampleSubmit =
   (path: string): SampleSubmit =>
   (label) =>
-    sampleFormAction.bind(null, path, label);
+    sampleFormAction.bind(null, walkHref(path), label);

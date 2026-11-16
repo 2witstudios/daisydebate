@@ -5,9 +5,7 @@ import type {
   TimeSlotHostView,
 } from '@daisy/protocol/lobby/tab-round-read';
 import { fixtureWords, roomStatusOf, type RoomStatus } from './at-scale-rooms';
-import { linkTo, sampleAction, type TabAction } from './action';
-import { sampleTabRoundView, sampleTimeSlotView } from './sample/tab-round';
-import type { SampleScene } from './sample/scene';
+import { linkTo, unavailableAction, type TabAction } from './action';
 import type { EventSwitch } from './setup';
 
 /** How much of the host's attention a Room wants, most first. */
@@ -191,7 +189,7 @@ const roundRoom = (
   fixture: TabRoundFixture,
 ): AttentionRoom => {
   const title = titleOf(fixture);
-  const openRoom = sampleAction('Open room');
+  const openRoom = unavailableAction('Open room');
   const { state } = fixture;
   switch (state.kind) {
     case 'waiting_for_start':
@@ -225,7 +223,7 @@ const roundRoom = (
             `${minutes(state.overdueByMs)} overdue`,
           ].join(' · '),
           read.capabilities.officiate
-            ? sampleAction('Replace judge', true)
+            ? unavailableAction('Replace judge', true)
             : openRoom,
         ),
         need: 'overdue_ballot',
@@ -235,7 +233,9 @@ const roundRoom = (
       return attentionRoom(
         title,
         state.summary,
-        state.canConfirm ? sampleAction('Review and confirm', true) : openRoom,
+        state.canConfirm
+          ? unavailableAction('Review and confirm', true)
+          : openRoom,
       );
     case 'speaking':
       return attentionRoom(
@@ -247,7 +247,7 @@ const roundRoom = (
             ? `${ordinalWords[state.segment] ?? ordinal(state.segment)} speech`
             : `${state.speaker} speaking, ${ordinal(state.segment)} of ${state.segmentCount}`,
         ].join(' · '),
-        sampleAction('Watch'),
+        unavailableAction('Watch'),
       );
     case 'judging':
       return attentionRoom(
@@ -274,7 +274,7 @@ const roundRoom = (
       return attentionRoom(
         title,
         resultLine(read, fixture, state.result),
-        sampleAction('Result'),
+        unavailableAction('Result'),
       );
   }
 };
@@ -372,11 +372,13 @@ export const runningRoundOf = (
       next === null
         ? null
         : {
+            ...(context.address.nextDraw === null
+              ? { kind: 'unavailable' as const }
+              : { kind: 'link' as const, href: context.address.nextDraw }),
             label:
               next.name === null
                 ? `Open round ${next.number} draw`
                 : `Open the ${next.name.toLowerCase()}'s draw`,
-            href: context.address.nextDraw,
             primary: true,
           },
     groups: [
@@ -395,7 +397,7 @@ export const runningRoundOf = (
           status: 'finished',
           words: fixtureWords(fixture),
         })),
-        more: unlisted > 0 ? sampleAction(`Show ${unlisted} more`) : null,
+        more: unlisted > 0 ? unavailableAction(`Show ${unlisted} more`) : null,
       },
     ],
   };
@@ -434,8 +436,8 @@ const concernRoom = (
         `${event} · ${concern.entries.map((entry) => entry.name).join(' v ')}`,
         `Judge ${concern.judge.name} hasn't finished ${section ? 'ranking' : 'judging'} ${elsewhere.eventName} ${section ? `section ${elsewhere.fixtureLabel}` : elsewhere.fixtureLabel} from the ${wallClock(elsewhere.timeSlotStartsAt)} slot, so this room can't start.`,
         officiate
-          ? sampleAction('Swap judge', true)
-          : sampleAction('Open room'),
+          ? unavailableAction('Swap judge', true)
+          : unavailableAction('Open room'),
       );
     }
     case 'judge_withdrawn': {
@@ -450,13 +452,13 @@ const concernRoom = (
             ? `Judge ${concern.judge.name} dropped out. No free judge in this slot is cleared for ${format}.`
             : `Judge ${concern.judge.name} dropped out. ${replacement.name} is free in this slot, has no conflict here and is cleared for ${format}.`,
           officiate
-            ? sampleAction(
+            ? unavailableAction(
                 replacement === null
                   ? 'Swap judge'
                   : `Assign ${surname(replacement.name)}`,
                 true,
               )
-            : sampleAction('Open room'),
+            : unavailableAction('Open room'),
         ),
         ...(replacement === null ? { need: 'withdrawn_judge' as const } : {}),
       };
@@ -469,7 +471,7 @@ const concernRoom = (
             ? ''
             : ` or held until ${wallClock(concern.publishWithOthersAt)} with the other events`
         }.`,
-        sampleAction(editDraw ? 'Review draw' : 'Open draw', editDraw),
+        unavailableAction(editDraw ? 'Review draw' : 'Open draw', editDraw),
       );
   }
 };
@@ -510,7 +512,7 @@ const eventDetail = (
 };
 
 /** A time slot across its events: a projection of `TimeSlotHostView`. */
-const timeSlotOf = (
+export const timeSlotOf = (
   read: TimeSlotHostView,
   context: TimeSlotContext,
 ): TimeSlot => {
@@ -586,7 +588,7 @@ const timeSlotOf = (
             ? null
             : `one pool, ${listed(event.separateBreaks.map((label) => label.toLowerCase()))} break separately`,
         detail: eventDetail(event, wallClock),
-        rooms: sampleAction('Rooms'),
+        rooms: unavailableAction('Rooms'),
       })),
     next:
       selectedEventId !== null || next === null
@@ -616,32 +618,9 @@ const timeSlotOf = (
                           ? `all ${countWord(next.judgesSeatedHere)} are on time so far`
                           : `${countWord(next.judgesRunningLate)} running late`
                       }.`,
-                      sampleAction('See judges'),
+                      unavailableAction('See judges'),
                     ),
                   ],
           },
   };
-};
-
-export const readRunningRound = (
-  slug: string,
-  event: string,
-  round: string,
-  scene: SampleScene,
-): RunningRound | null => {
-  const sample = sampleTabRoundView(slug, event, round, scene);
-  return sample === null ? null : runningRoundOf(sample.read, sample.context);
-};
-
-export const readTimeSlot = (
-  slug: string,
-  slot: string,
-  event: string | null,
-  scene: SampleScene,
-): TimeSlot | null => {
-  const sample = sampleTimeSlotView(slug, slot, scene);
-  if (sample === null) return null;
-  const selectedEventId = sample.eventIdOf(event);
-  if (event !== null && selectedEventId === null) return null;
-  return timeSlotOf(sample.read, { ...sample.context, selectedEventId });
 };

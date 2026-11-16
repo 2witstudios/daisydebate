@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
-import type { People as Read } from '../../../features/tab/organization';
+import { WalkLink as Link } from '../walk/walk-link';
+import type { People as Read } from '../../../features/tab/people';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { cn } from '../../cn';
 import { buttonClass } from '../../components/button/button-class';
@@ -66,7 +66,9 @@ export function People({
             </ul>
           </div>
           <p className="text-sm text-ink-muted">{people.role.conflictRule}</p>
-          <p className="text-sm text-ink-muted">A Daisy preset.</p>
+          <p className="text-sm text-ink-muted">
+            {people.role.preset ? 'A Daisy preset.' : 'An organization role.'}
+          </p>
         </>
       }
     >

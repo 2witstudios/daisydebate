@@ -3,19 +3,19 @@ import { initialFormState } from '../../features/forms/form-state';
 import {
   readBallotSettings,
   readJudgeBallot,
-} from '../../features/tab/ballot-definition';
-import { readDrawBoard } from '../../features/tab/draw';
+} from '../../features/tab/sample/read-ballot-definition';
+import { readDrawBoard } from '../../features/tab/sample/read-draw';
 import {
   readHostEntries,
   readHostJudges,
   readSchoolEntries,
-} from '../../features/tab/entries';
-import { readEventsSchedule } from '../../features/tab/events';
+} from '../../features/tab/sample/read-entries';
+import { readEventsSchedule } from '../../features/tab/sample/read-events';
 import {
   readFamily,
   readMinorAccount,
   readTournamentRequest,
-} from '../../features/tab/guardian';
+} from '../../features/tab/sample/read-guardian';
 import {
   readCreateRoom,
   leagueViewOf,
@@ -27,22 +27,27 @@ import {
   readHostHome,
   readHostRail,
   readPeople,
-} from '../../features/tab/organization';
-import { readResolutionPool } from '../../features/tab/resolution-pool';
-import { readEventResults } from '../../features/tab/results';
-import { readLiveSection, readRoom } from '../../features/tab/room';
+} from '../../features/tab/sample/read-organization';
+import { readResolutionPool } from '../../features/tab/sample/read-resolution-pool';
+import { readEventResults } from '../../features/tab/sample/read-results';
+import { readLiveSection, readRoom } from '../../features/tab/sample/read-room';
 import { hostRoutes, participantPathOf } from '../../features/tab/routes';
 import { holdsGrant, type SampleScene } from '../../features/tab/sample/scene';
-import { readSetup } from '../../features/tab/setup';
-import { readStandings } from '../../features/tab/standings';
-import { readRunningRound, readTimeSlot } from '../../features/tab/tab-round';
+import { readSetup } from '../../features/tab/sample/read-setup';
+import { readStandings } from '../../features/tab/sample/read-standings';
+import {
+  readRunningRound,
+  readTimeSlot,
+} from '../../features/tab/sample/read-tab-round';
 import {
   landingStop,
-  readTimelineRail,
-  readTournamentPage,
   type TournamentView,
 } from '../../features/tab/tournament';
-import { readTournamentsIndex } from '../../features/tab/tournaments-index';
+import {
+  readTimelineRail,
+  readTournamentPage,
+} from '../../features/tab/sample/read-tournament';
+import { readTournamentsIndex } from '../../features/tab/sample/read-tournaments-index';
 import { readWalk } from '../../features/tab/walk';
 import { BallotSettings } from './ballot-settings/ballot-settings';
 import { DrawBoard } from './draw-board/draw-board';

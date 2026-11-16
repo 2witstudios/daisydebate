@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { readHostEntries, readHostJudges } from '../../../features/tab/entries';
-import { readTimelineRail } from '../../../features/tab/tournament';
+import {
+  readHostEntries,
+  readHostJudges,
+} from '../../../features/tab/sample/read-entries';
+import { readTimelineRail } from '../../../features/tab/sample/read-tournament';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import type * as Client from '../searchable-groups/searchable-groups.test-support';
 setupRitewayBun();

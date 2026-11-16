@@ -67,7 +67,10 @@ export function Resolutions({
         </>
       }
     >
-      <BackButton href={pool.setup.href} label={pool.setup.label} />
+      <BackButton
+        href={pool.setup.kind === 'link' ? pool.setup.href : null}
+        label={pool.setup.label}
+      />
       <EventSwitcher event={pool.event} />
       <PageHeader
         title="Resolutions"
