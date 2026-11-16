@@ -184,3 +184,19 @@ export function hostAuthority(
   const [grant] = usableGrants(holder, target);
   return grant ? { kind: 'grant', grantId: grant.grantId } : null;
 }
+
+/** Area access requires a permission in that area; shell access alone grants none. */
+export function hostAreaAuthority(
+  holder: Holder,
+  target: AuthorityTarget,
+  permissions: readonly Permission[],
+): DecisionAuthority | null {
+  const owner = usableOwner(holder, target);
+  if (owner) return owner;
+  const grant = usableGrants(holder, target).find((candidate) =>
+    permissions.some((permission) =>
+      candidate.permissions.includes(permission),
+    ),
+  );
+  return grant ? { kind: 'grant', grantId: grant.grantId } : null;
+}

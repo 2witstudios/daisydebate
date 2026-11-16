@@ -1,4 +1,6 @@
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
+import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
+import { lobbyScopeOf } from './authorization-boundary';
 import {
   allowRelated,
   allowUnder,
@@ -11,6 +13,7 @@ import {
   holdingDecision,
   holds,
   hostAuthority,
+  hostAreaAuthority,
   type Holder,
 } from './authorization-holding';
 import {
@@ -132,6 +135,19 @@ export function lobbyDecision(
   context: Context,
   decideOn: DecideOn,
 ): AuthorizationDecision {
+  const areaPermissions = capabilityMetadata[capability].hostAreaPermissions;
+  if (areaPermissions !== null) {
+    const scope = lobbyScopeOf(resource);
+    const target =
+      resource.kind === 'organization'
+        ? organization(resource)
+        : scope
+          ? lobby(scope)
+          : null;
+    return under(
+      target ? hostAreaAuthority(holder, target, areaPermissions) : null,
+    );
+  }
   switch (resource.kind) {
     case 'organization_collection':
       return organizationCreation(holder, resource, context);
