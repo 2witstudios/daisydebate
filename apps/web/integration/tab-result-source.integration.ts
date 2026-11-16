@@ -35,9 +35,7 @@ test('actual event Round source persists one immutable competition record, compl
   await scratch.create();
   const owner = new SQL(scratch.url, { max: 1 });
   try {
-    await scratch.migrate(
-      (path) => !path.includes('20261116000843_result_judge_lineage'),
-    );
+    await scratch.migrate(() => true);
     const world = await committedEventRoom(owner, 'copy', { noPrep: true });
     await withRoomRuntime(
       async (f) => {
@@ -339,23 +337,16 @@ test('actual event Round source persists one immutable competition record, compl
           actual: submittedRetirement,
           expected: { kind: 'refused', refusal: 'result-exists' },
         });
-        // Private populated predecessor-shape loan: remove only the new field
-        // from the genuinely produced a4-shaped record, without changing any
-        // outcome, identity, command, competitive word or consumed digest.
-        await owner.begin(async (tx) => {
-          await tx`alter table results disable trigger results_append_only`;
-          await tx`update results set competition_record=competition_record #- '{source,judgeAssignments}' where id=${answer.receipt.aggregate.id}`;
-          await tx`alter table results enable trigger results_append_only`;
-        });
-        await scratch.migrate(() => true);
-        const [upgraded] =
+        // Decision67 consolidates undeployed intermediate schemas. Current records
+        // retain their complete real lineage through replay and denied retirement.
+        const [retained] =
           await owner`select competition_record from results where id=${answer.receipt.aggregate.id}`;
         assert({
           given:
-            'the genuine retained predecessor-shaped record upgraded by forward132',
+            'the genuinely authored immutable result after replay and refused terminal retirement',
           should:
-            'add exactly its actual frozen lineage while preserving every other retained byte value',
-          actual: upgraded!.competition_record,
+            'retain every competitive value and actual frozen assignment version unchanged',
+          actual: retained!.competition_record,
           expected: record,
         });
         const [terminal] =

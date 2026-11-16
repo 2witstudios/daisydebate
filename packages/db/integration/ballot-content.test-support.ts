@@ -1,7 +1,8 @@
+import { judgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { publicLobbyId } from '../src/daisy-reference';
 import { validConfig } from './round-fixtures';
-import type { Fixture } from './constraint-helpers';
+import { Fixture } from './constraint-helpers';
 
 class AllowedWrite extends Error {}
 export const runtimeRefusal = async (
@@ -28,16 +29,23 @@ export const runtimeRefusal = async (
   }
 };
 export const frozenBallot = async (fixture: Fixture) => {
-  const formatId = await fixture.format();
   const host = await fixture.actor();
-  const roomId = await fixture.room(host, formatId);
-  const roundId = await fixture.round({
-    room_id: roomId,
-    format_id: formatId,
-    room_config_snapshot: validConfig,
-    visibility: 'public',
+  const roomId = await fixture.room(host, 'one-on-one', { format_version: 2 });
+  const { roundId, judge } = await fixture.sql.begin(async (tx) => {
+    const constructing = new Fixture(tx);
+    try {
+      const roundId = await judgedRound(constructing, {
+        room_id: roomId,
+        room_config_snapshot: validConfig,
+        visibility: 'public',
+      });
+      const judge = await constructing.seat(roundId, 'judge');
+      return { roundId, judge };
+    } finally {
+      for (const [table, ids] of constructing.tracked)
+        for (const id of ids) fixture.track(table, id);
+    }
   });
-  const judge = await fixture.seat(roundId, 'judge');
   await fixture.freeze(roundId);
   const ballotId = createId();
   await fixture.insert('ballots', {

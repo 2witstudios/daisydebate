@@ -1,1 +1,0 @@
-CREATE INDEX "entries_submitted_by_user_idx" ON "entries" ("submitted_by_user_id");

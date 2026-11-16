@@ -1,1 +1,0 @@
-CREATE INDEX "tournament_capture_admissions_expired_idx" ON "tournament_capture_admissions" ("deadline_at","round_id") WHERE "settled_at" is null;

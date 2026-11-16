@@ -1,4 +1,0 @@
-ALTER TABLE "action_history" ADD COLUMN "confirmed_by_user_id" text;--> statement-breakpoint
-CREATE INDEX "action_history_confirmed_by_idx" ON "action_history" ("confirmed_by_user_id");--> statement-breakpoint
-ALTER TABLE "action_history" ADD CONSTRAINT "action_history_confirmed_by_user_id_users_id_fkey" FOREIGN KEY ("confirmed_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "action_history" ADD CONSTRAINT "action_history_second_person_check" CHECK ("confirmed_by_user_id" is null or ("actor_user_id" is not null and "confirmed_by_user_id"<>"actor_user_id" and "conflict_id" is not null));

@@ -11,7 +11,7 @@ import { integrationSuite } from './suite.test-support';
 
 const { databaseUrl } = integrationSuite();
 const scratch = scratchDatabase(databaseUrl, 'roomtemplate');
-const migration = '20261115132508_standing_template_membership';
+const migration = '20261116031500_tab_wiring';
 afterAll(() => scratch.drop());
 
 test(

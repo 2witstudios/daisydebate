@@ -12,7 +12,7 @@ import { integrationSuite } from './suite.test-support';
 
 const { databaseUrl } = integrationSuite();
 const scratch = scratchDatabase(databaseUrl, 'ballotcontent');
-const migration = '20261114234545_ballot_content_integrity';
+const migration = '20261116031500_tab_wiring';
 afterAll(() => scratch.drop());
 test(
   'ISSUE-1409: ballot_content_integrity backfills consumed content without rewriting ballots',

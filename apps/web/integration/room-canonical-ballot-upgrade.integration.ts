@@ -19,7 +19,7 @@ import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const sourceMigration = '20261115145330_canonical_ballot_source';
+const sourceMigration = '20261116031500_tab_wiring';
 
 test('canonical source/storage migrations preserve a genuinely submitted and finalized Daisy ballot and its consumed v1 digest', async () => {
   const scratch = scratchDatabase(databaseUrl, 'ballotupgrade');
@@ -27,6 +27,29 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
   const sql = new SQL(scratch.url, { max: 1 });
   try {
     await scratch.migrate((tag) => tag < sourceMigration);
+    // Only a decoder/consumption interface is lent to today's adapters. The
+    // digest uses the exact forward SQL and the real stored submitted ballot.
+    const migrationSql = await Bun.file(
+      new URL(
+        '../../../packages/db/migrations/20261116031500_tab_wiring/migration.sql',
+        import.meta.url,
+      ),
+    ).text();
+    const statements = migrationSql.split('--> statement-breakpoint');
+    for (const prefix of [
+      'CREATE FUNCTION daisy_ballot_content_digest',
+      'ALTER TABLE round_finalization_ballots ADD COLUMN ballot_digest',
+      'CREATE FUNCTION pin_finalization_ballot_digest',
+      'CREATE TRIGGER round_finalization_ballot_digest',
+    ]) {
+      const statement = statements.find((statement) =>
+        statement.includes(prefix),
+      );
+      if (!statement)
+        throw new Error(`Missing actual forward interface: ${prefix}`);
+      await sql.unsafe(statement);
+    }
+    await sql`alter table rooms add column standing_template_id text generated always as (case when lobby_kind='standing' then template_id else null end) stored`;
     // Current adapters select these columns. Lend their nullable interface for the
     // real Daisy journey only, then remove it before the generated migrations run.
     await sql`alter table rounds add column ballot_definition_id text,add column ballot_definition_version integer`;
@@ -91,6 +114,11 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;
     await removeAssignmentInterface();
+    await sql`alter table rooms drop column standing_template_id`;
+    await sql`drop trigger round_finalization_ballot_digest on round_finalization_ballots`;
+    await sql`drop function pin_finalization_ballot_digest()`;
+    await sql`drop function daisy_ballot_content_digest(ballots)`;
+    await sql`alter table round_finalization_ballots drop column ballot_digest`;
     await scratch.migrate(() => true);
     const after = await read();
     const [owner] =

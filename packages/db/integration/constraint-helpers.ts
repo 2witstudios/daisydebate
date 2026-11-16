@@ -76,11 +76,11 @@ type Row = Readonly<Record<string, unknown>>;
 
 /** Cleanup order: children before parents; RESTRICT edges never fire. */
 const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
-  ['ballots', 'id'],
   ['rating_changes', 'id'],
   ['ratings', 'actor_id'],
   // Immutable competitive children erase only with their actual owning Round.
   ['rounds', 'id'],
+  ['ballots', 'id'],
   // Agent runs and utterances hang off the seats and the live segments.
   ['agent_runs', 'id'],
   ['utterances', 'id'],
