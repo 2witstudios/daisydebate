@@ -1,6 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import type {
   DebaterStanding,
+  EndingRating,
   RatingEligibility,
   RatingEligibilityFacts,
 } from '@daisy/protocol';
@@ -216,8 +217,10 @@ describe('endingRating', () => {
       assert({
         given: `an ending Daisy refuses (${JSON.stringify(facts)})`,
         should: 'refuse it for the same reason',
-        actual: endingRating({ ...completed, ...facts }),
-        expected: ratingEligibility({ ...completed, ...facts }),
+        actual: endingRating({ ...completed, ...facts }) as
+          EndingRating | RatingEligibility,
+        expected: ratingEligibility({ ...completed, ...facts }) as
+          EndingRating | RatingEligibility,
       });
   });
 });
