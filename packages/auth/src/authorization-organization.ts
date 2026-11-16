@@ -41,6 +41,12 @@ export function organizationDecision(
   context: Context,
 ): AuthorizationDecision {
   const target = organization(resource);
+  if (capability === 'standings.read') {
+    if (resource.organizationKind !== 'league') return deny('denied');
+    return resource.member
+      ? allowRelated('audience')
+      : holdingDecision(holds(holder, 'organization.manage', target));
+  }
   if (capability === 'organization.read')
     return decide(organizationReadable(resource, context));
   if (capability === 'organization.host.read')

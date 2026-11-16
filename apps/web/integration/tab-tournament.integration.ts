@@ -1,3 +1,4 @@
+import { seasonStage } from './tab-tournament-season.test-support';
 import { completionStage } from './tab-tournament-completion.test-support';
 import { resultsStage } from './tab-tournament-results.test-support';
 import { standingsStage } from './tab-tournament-standings.test-support';
@@ -86,7 +87,7 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'sanction and season standings',
-    pending: 'league and notifications slice',
+    run: seasonStage,
   },
   {
     name: 'rating-seeded single elimination',
@@ -135,13 +136,12 @@ test('the scripted tournament', async () => {
   assert({
     given:
       'the point-guard-approved nine-stage wiring gate and three explicitly deferred stages',
-    should:
-      'execute all nine required stages and retain exactly three pending records',
+    should: 'execute all ten required stages and retain two pending records',
     actual: [
       reports.filter((report) => report.outcome === 'passed').length,
       reports.filter((report) => report.outcome === 'pending').length,
     ],
-    expected: [9, 3],
+    expected: [10, 2],
   });
   assert({
     given: 'a tournament scripted from an empty database',

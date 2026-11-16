@@ -1,4 +1,8 @@
+import { createLeagueSeasonStore } from './league-season';
+export type { LeagueSeasonFacts } from './league-season';
 import { createHostRosterStore } from './host-roster';
+import { createSanctionCommandStore } from './sanction-command';
+export type { SanctionCommandFacts } from './sanction-command';
 export type { HostRosterFacts } from './host-roster';
 import { createHostEventsStore } from './host-events';
 export type { HostEventsFacts } from './host-events';
@@ -194,6 +198,8 @@ const roleNamedOf = (
  * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TabDatabase) => ({
+  ...createSanctionCommandStore(database),
+  ...createLeagueSeasonStore(database),
   ...createResultCommandStore(database),
   ...createFixtureCommandStore(database),
   ...createConfirmationCommandStore(database),

@@ -300,7 +300,10 @@ const rows: Record<AuthorizationCapability, Row> = {
   'posting.read': on(['draw'], 'lobby', tournamentRead),
   'result.read': on(['fixture'], 'lobby', tournamentRead),
   'ballot.read': on(['ballot'], 'lobby', tournamentRead),
-  'standings.read': on(['lobby'], 'lobby', tournamentRead),
+  'standings.read': on(['lobby', 'organization'], 'lobby', {
+    ...tournamentRead,
+    organizationKind: 'league',
+  }),
   'resolution.read': on(['tab_round'], 'lobby', tournamentRead),
   'command.confirm': on(['pending_command'], null),
   'command.withdraw': on(['pending_command'], null),
