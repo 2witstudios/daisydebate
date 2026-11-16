@@ -1,3 +1,6 @@
+import { authorize } from '@daisy/auth/authorization';
+import { readLeagueSeason } from '../features/tab/reads/league-season';
+import { readLeagueLadder } from '../features/ratings/read-league-ladder';
 import { channelMessagesWindow } from '@daisy/protocol';
 import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
 import { readNotificationItems } from '../features/notifications/read-notifications';
@@ -469,3 +472,50 @@ export async function requestRoomDraftAnswer(
     source,
   );
 }
+
+/** Live league page binding with this request's durable principal and account-targeted release gate. */
+export const requestLeaguePage = async (
+  handle: string,
+  input: {
+    readonly seasonId?: string | undefined;
+    readonly templateId?: string | undefined;
+    readonly ladder?:
+      | {
+          readonly scope: 'top' | 'around';
+          readonly search: string;
+          readonly page?: number | undefined;
+        }
+      | undefined;
+  },
+) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const organizationId = await store.organizationIdOfHandle(handle);
+  if (!organizationId) return null;
+  const principal = identity.principal;
+  const season = await readLeagueSeason({ store, authorize })(principal, {
+    organizationId,
+    ...(input.seasonId ? { seasonId: input.seasonId } : {}),
+    ...(input.templateId ? { templateId: input.templateId } : {}),
+  });
+  if (!season) return null;
+  const ladder =
+    input.ladder && season.standingLobby
+      ? await readLeagueLadder({ store, authorize })(principal, {
+          lobbyId: season.standingLobby.id,
+          scope: input.ladder.scope,
+          search: input.ladder.search,
+          ...(input.ladder.page !== undefined
+            ? { page: input.ladder.page }
+            : {}),
+        })
+      : null;
+  if (input.ladder && !ladder) return null;
+  return { season, ladder };
+};

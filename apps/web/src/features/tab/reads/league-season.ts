@@ -21,10 +21,40 @@ export const seasonFormulaSchema = z.strictObject({
   bestEvents: z.int().positive().nullable(),
   topPerSchool: z.int().positive().nullable(),
 });
-export type LeagueSeasonRead = {
+export type LeagueSeasonProjection = {
+  readonly asOf: string;
   readonly view: SeasonView;
   readonly formula: SeasonFormula | null;
   readonly series: readonly { readonly id: string; readonly name: string }[];
+};
+export type LeagueSeasonRead = LeagueSeasonProjection & {
+  readonly handle: string;
+  readonly standingLobby: {
+    readonly id: string;
+    readonly handle: string;
+    readonly name: string;
+  } | null;
+  readonly template: {
+    readonly name: string;
+    readonly formatId: string;
+    readonly formatVersion: number;
+    readonly ballotDefinitionId: string | null;
+    readonly settings: readonly {
+      readonly key: string;
+      readonly value: unknown;
+      readonly hold: 'default' | 'enforced';
+    }[];
+  };
+  readonly canHost: boolean;
+  readonly canManage: boolean;
+  readonly requests: readonly {
+    readonly sanctionId: string;
+    readonly version: number;
+    readonly lobbyId: string;
+    readonly lobbyName: string;
+    readonly eventName: string;
+    readonly templateName: string;
+  }[];
 };
 const history = (
   competition: LeagueSeasonFacts['events'][number]['competition'],
@@ -42,7 +72,7 @@ export function projectLeagueSeason(
   facts: LeagueSeasonFacts,
   viewerActorId: string | null,
   templateId?: string,
-): LeagueSeasonRead | null {
+): LeagueSeasonProjection | null {
   const template =
     facts.series.find((row) => row.id === templateId) ??
     (templateId ? null : facts.series[0]);
@@ -91,6 +121,7 @@ export function projectLeagueSeason(
     viewer: row.competitor === viewerActorId,
   }));
   return {
+    asOf: facts.now,
     formula,
     series: facts.series.map((row) => ({ id: row.id, name: row.name })),
     view: seasonViewSchema.parse({
@@ -160,6 +191,70 @@ export const readLeagueSeason =
           }).allow
         )
           return null;
-        return projectLeagueSeason(facts, principal.actorId, input.templateId);
+        const projected = projectLeagueSeason(
+          facts,
+          principal.actorId,
+          input.templateId,
+        );
+        if (!projected) return null;
+        const ask = (capability: AuthorizationInput['capability']) =>
+          dependencies.authorize({
+            principal,
+            resource: facts.authorization.organization!,
+            context: {
+              account: facts.authorization.account,
+              grants: facts.authorization.grants,
+              now: facts.now,
+            },
+            capability,
+          }).allow;
+        const canHost = ask('organization.host.read');
+        const canManage = ask('organization.manage');
+        return {
+          ...projected,
+          handle: facts.organization.handle,
+          standingLobby: facts.standingLobby
+            ? {
+                id: facts.standingLobby.id,
+                handle: facts.standingLobby.handle,
+                name: facts.standingLobby.name,
+              }
+            : null,
+          template: (() => {
+            const template = facts.series.find(
+              (row) => row.id === projected.view.standings.series.templateId,
+            )!;
+            return {
+              name: template.name,
+              formatId: template.formatId,
+              formatVersion: template.formatVersion,
+              ballotDefinitionId: template.ballotDefinitionId,
+              settings: facts.templateSettings
+                .filter((row) => row.templateId === template.id)
+                .map((row) => ({
+                  key: row.key,
+                  value: row.value,
+                  hold: row.hold,
+                })),
+            };
+          })(),
+          canHost,
+          canManage,
+          requests: canHost
+            ? facts.calendar
+                .filter((row) => row.sanction.status === 'requested')
+                .map((row) => ({
+                  sanctionId: row.sanction.id,
+                  version: row.sanction.version,
+                  lobbyId: row.lobby.id,
+                  lobbyName: row.lobby.name,
+                  eventName: row.event.name,
+                  templateName:
+                    facts.series.find(
+                      (template) => template.id === row.sanction.templateId,
+                    )?.name ?? row.event.name,
+                }))
+            : [],
+        };
       },
     );

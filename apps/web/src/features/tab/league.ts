@@ -73,7 +73,8 @@ export type SeasonRow = {
 };
 
 /** An event asking a league to count its certified results for the season. */
-type SanctionRequest = {
+export type SanctionRequest = {
+  readonly id?: string;
   readonly event: string;
   readonly facts: string;
   /** The computed check: every enforced value equals the event's own. */
@@ -90,14 +91,14 @@ export type HostLeague = {
   readonly template: {
     readonly name: string;
     readonly settings: readonly SettingLine[];
-    readonly edit: TabAction;
+    readonly edit: TabAction | null;
     readonly note: string;
-  };
+  } | null;
   readonly season: {
     readonly heading: string;
     readonly rows: readonly SeasonRow[];
     readonly note: string;
-    readonly rule: TabAction;
+    readonly rule: TabAction | null;
   };
   readonly ladder: { readonly detail: string; readonly open: TabAction };
   readonly lobby: readonly SettingLine[];
@@ -159,6 +160,7 @@ export type LeaguePanel =
     }
   | {
       readonly kind: 'season';
+      readonly seasonId?: string;
       readonly address: string;
       readonly season: string;
       readonly events: readonly {
@@ -167,7 +169,7 @@ export type LeaguePanel =
       }[];
       readonly event: string;
       readonly rows: readonly SeasonRow[];
-      readonly all: TabAction;
+      readonly all: TabAction | null;
       readonly points: readonly {
         readonly label: string;
         readonly points: number;
