@@ -12,6 +12,7 @@ import tempfile
 import time
 from policy import GIB, LIMITS, refusal
 from source_inputs import REFUSALS
+from preparation import REFUSALS as PREPARATION_REFUSALS
 from diagnostics import classify_failure, INPUT_BYTES
 
 HERE = Path(__file__).resolve().parent
@@ -83,7 +84,7 @@ def sizes(root):
             categories = []
             if parts[0] == 'source':
                 categories.append('sourceBytes')
-            if parts[0] == 'tmp':
+            if parts[0] in ('tmp', 'preparation'):
                 categories.append('temporaryAndPrebuiltBytes')
             if parts[0] == 'cargo':
                 categories.append('cargoBytes')
@@ -154,7 +155,7 @@ def supervise(root, mount, uid, gid, env, budget, mode, limits=LIMITS):
         os.chown(root / name, uid, gid)
     deadline = clock() + budget
     command = [sys.executable, '-B', str(HERE / ('worker.py' if mode == 'build' else 'watchdog.py')),
-               str(root)] if mode == 'build' else [sys.executable, '-B', str(HERE / 'watchdog.py'), '--fault', str(root), mode]
+               str(root), str(deadline - 10)] if mode == 'build' else [sys.executable, '-B', str(HERE / 'watchdog.py'), '--fault', str(root), mode]
     args = ['systemd-run', '--quiet', '--no-block', f'--unit={unit}',
             '--property=Type=exec', '--property=Slice=system.slice', '--property=Restart=no', '--property=ExitType=cgroup', '--property=RemainAfterExit=yes',
             f'--property=User={uid}', f'--property=Group={gid}',
@@ -362,7 +363,7 @@ def main():
             raise RuntimeError('worker-report-refused')
         raw_status = json.loads(status_file.read_text()) if status_file.exists() else {}
         worker_stage = raw_status.get('stage', 'not-admitted')
-        if worker_stage not in ('not-admitted', 'source-fetch', 'source-refused', 'cargo-build', 'complete'):
+        if worker_stage not in ('not-admitted', 'source-fetch', 'source-refused', 'prerequisite-prepare', 'prerequisite-refused', 'cargo-build', 'complete'):
             raise RuntimeError('worker-report-refused')
         versions = {}
         for tool in ('cargo', 'rustc', 'clang++'):
@@ -372,7 +373,19 @@ def main():
         prerequisites = raw_status.get('prerequisiteTools', {})
         prerequisites = prerequisites if isinstance(prerequisites, dict) else {}
         observed_tools = {tool: prerequisites.get(tool) if isinstance(prerequisites.get(tool), bool) else None for tool in ('protoc', 'cmake', 'clang++', 'pkg-config', 'make')}
-        status = dict(stage=worker_stage, sourceInputsVerified=raw_status.get('sourceInputsVerified') is True,
+        prepared = raw_status.get('preparation', {})
+        prepared = prepared if isinstance(prepared, dict) else {}
+        preparation = {key: prepared.get(key) is True for key in ('signaturesVerified', 'libclangLoaded', 'importsAccepted', 'pkgConfigAccepted')}
+        for key in ('compilerVersion', 'protocVersion'):
+            value = prepared.get(key)
+            preparation[key] = value if isinstance(value, str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', value) else None
+        for key in ('downloadBytes', 'expandedLogicalBytes'):
+            value = prepared.get(key)
+            preparation[key] = value if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 2 * 1024 ** 3 else None
+        step = raw_status.get('prerequisiteStep')
+        step = step if isinstance(step, str) and re.fullmatch(r'[a-z0-9-]{1,64}', step) else None
+        status = dict(stage=worker_stage, preparation=preparation, prerequisiteStep=step,
+                      prerequisiteRefusal=raw_status.get('prerequisiteRefusal') if raw_status.get('prerequisiteRefusal') in PREPARATION_REFUSALS else None, sourceInputsVerified=raw_status.get('sourceInputsVerified') is True,
                       sourceRefusal=raw_status.get('sourceRefusal') if raw_status.get('sourceRefusal') in REFUSALS else None, prerequisiteTools=observed_tools, glibPkgConfig=raw_status.get('glibPkgConfig') if isinstance(raw_status.get('glibPkgConfig'), bool) else None, rustPin='7187f6a42ca6382b73c631b75a9d560253f5b90f',
                       nodePin='31d9d7e306e6c70c2eb748efde5afbded95a170e',
                       toolchainVersions=versions, profile='release', target='x86_64-unknown-linux-gnu',

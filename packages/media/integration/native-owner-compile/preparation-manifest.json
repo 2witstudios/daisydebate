@@ -1,0 +1,234 @@
+{
+  "repositories": {
+    "base": {
+      "base": "https://archive.ubuntu.com/ubuntu",
+      "key": {
+        "url": "https://archive.ubuntu.com/ubuntu/project/ubuntu-archive-keyring.gpg",
+        "bytes": 3607,
+        "sha256": "80a36b0a6de2f69f49d2df75ef473ccde121e9e190b9ea01d20a4f63778d5c31"
+      },
+      "release": {
+        "url": "https://archive.ubuntu.com/ubuntu/dists/noble/InRelease",
+        "bytes": 255850,
+        "sha256": "cdb2f31d809f589719a53c6ad15f255b27569c4059542ada282aaa21b8e164b0"
+      },
+      "index": {
+        "url": "https://archive.ubuntu.com/ubuntu/dists/noble/main/binary-amd64/Packages.gz",
+        "bytes": 1808488,
+        "sha256": "e0d7e4cbb09d2aa7f9e104a1488817417bc9d85f3e5d9a21156a52ec641ae531"
+      },
+      "indexPath": "main/binary-amd64/Packages.gz",
+      "armoredKey": false
+    },
+    "ubuntu": {
+      "base": "https://archive.ubuntu.com/ubuntu",
+      "key": {
+        "url": "https://archive.ubuntu.com/ubuntu/project/ubuntu-archive-keyring.gpg",
+        "bytes": 3607,
+        "sha256": "80a36b0a6de2f69f49d2df75ef473ccde121e9e190b9ea01d20a4f63778d5c31"
+      },
+      "release": {
+        "url": "https://archive.ubuntu.com/ubuntu/dists/noble-updates/InRelease",
+        "bytes": 126125,
+        "sha256": "cc12944ff54a4dfde90014a9532b6c924139a888e53e5f0cb9e010b44f81c83f"
+      },
+      "index": {
+        "url": "https://archive.ubuntu.com/ubuntu/dists/noble-updates/main/binary-amd64/Packages.gz",
+        "bytes": 1791932,
+        "sha256": "e1e0f535c34472b256112515578148225e5020c08cd771087a8eb11fdddc69d3"
+      },
+      "indexPath": "main/binary-amd64/Packages.gz",
+      "armoredKey": false
+    },
+    "universe": {
+      "base": "https://archive.ubuntu.com/ubuntu",
+      "key": {
+        "url": "https://archive.ubuntu.com/ubuntu/project/ubuntu-archive-keyring.gpg",
+        "bytes": 3607,
+        "sha256": "80a36b0a6de2f69f49d2df75ef473ccde121e9e190b9ea01d20a4f63778d5c31"
+      },
+      "release": {
+        "url": "https://archive.ubuntu.com/ubuntu/dists/noble-updates/InRelease",
+        "bytes": 126125,
+        "sha256": "cc12944ff54a4dfde90014a9532b6c924139a888e53e5f0cb9e010b44f81c83f"
+      },
+      "index": {
+        "url": "https://archive.ubuntu.com/ubuntu/dists/noble-updates/universe/binary-amd64/Packages.gz",
+        "bytes": 2178787,
+        "sha256": "71ba85634fcf374c2269694bdf01cff094744f239614436a8d9814ba540869d3"
+      },
+      "indexPath": "universe/binary-amd64/Packages.gz",
+      "armoredKey": false
+    },
+    "llvm": {
+      "base": "https://apt.llvm.org/noble",
+      "key": {
+        "url": "https://apt.llvm.org/llvm-snapshot.gpg.key",
+        "bytes": 3167,
+        "sha256": "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d"
+      },
+      "release": {
+        "url": "https://apt.llvm.org/noble/dists/llvm-toolchain-noble-21/Release",
+        "bytes": 4675,
+        "sha256": "f4afbf911d84e3fa9ef4895979296fafefc710329f9b41668bb3a942a5da80f6"
+      },
+      "index": {
+        "url": "https://apt.llvm.org/noble/dists/llvm-toolchain-noble-21/main/binary-amd64/Packages.gz",
+        "bytes": 13442,
+        "sha256": "624b95f241e886e2c00dea07c66a9adc0b94801c260d9176f018fa65118c8fd7"
+      },
+      "indexPath": "main/binary-amd64/Packages.gz",
+      "armoredKey": true,
+      "signature": {
+        "url": "https://apt.llvm.org/noble/dists/llvm-toolchain-noble-21/Release.gpg",
+        "bytes": 833,
+        "sha256": "289cb5ffb12e23870d823bb5e5f20f364da1a305726ed29e7f897d598bb7b96e"
+      }
+    }
+  },
+  "packages": [
+    {
+      "name": "clang-21",
+      "version": "1:21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70",
+      "repo": "llvm",
+      "file": "pool/main/l/llvm-toolchain-21/clang-21_21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70_amd64.deb",
+      "bytes": 176080,
+      "sha256": "943b013e1f8e0ae4940a41406dd4f63e468e435054cbf5db5951a6dbbd3785ec"
+    },
+    {
+      "name": "libclang-common-21-dev",
+      "version": "1:21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70",
+      "repo": "llvm",
+      "file": "pool/main/l/llvm-toolchain-21/libclang-common-21-dev_21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70_amd64.deb",
+      "bytes": 800354,
+      "sha256": "8cac87266a164b961d85ebcc583806454957ba05429c74e87c4de5e9de2730aa"
+    },
+    {
+      "name": "libclang-cpp21",
+      "version": "1:21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70",
+      "repo": "llvm",
+      "file": "pool/main/l/llvm-toolchain-21/libclang-cpp21_21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70_amd64.deb",
+      "bytes": 13892636,
+      "sha256": "68d5b7f5f1a9e4861f91ef51ea89724214a94caa3703fd311f344b53780c0088"
+    },
+    {
+      "name": "libclang1-21",
+      "version": "1:21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70",
+      "repo": "llvm",
+      "file": "pool/main/l/llvm-toolchain-21/libclang1-21_21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70_amd64.deb",
+      "bytes": 8256408,
+      "sha256": "833be136a58b5ed4706b15dcd75bcb40482e4876a19c7b14435095a241546fb9"
+    },
+    {
+      "name": "libllvm21",
+      "version": "1:21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70",
+      "repo": "llvm",
+      "file": "pool/main/l/llvm-toolchain-21/libllvm21_21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70_amd64.deb",
+      "bytes": 30916824,
+      "sha256": "f1f058fff19f9d711c32b9efe5cd473dd2f0e7d5338d082fa5a25858322048cd"
+    },
+    {
+      "name": "llvm-21-linker-tools",
+      "version": "1:21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70",
+      "repo": "llvm",
+      "file": "pool/main/l/llvm-toolchain-21/llvm-21-linker-tools_21.1.8~++20251221032922+2078da43e25a-1~exp1~20251221153059.70_amd64.deb",
+      "bytes": 1384042,
+      "sha256": "f0ffa7684f0f97362ae48f39cacdbd8d791c0cadd4b8ad24956ebac6e95d92b3"
+    },
+    {
+      "name": "libglib2.0-dev",
+      "version": "2.80.0-6ubuntu3.10",
+      "repo": "ubuntu",
+      "file": "pool/main/g/glib2.0/libglib2.0-dev_2.80.0-6ubuntu3.10_amd64.deb",
+      "bytes": 1860604,
+      "sha256": "6d1d88d68192256603c0de05d084b8ef06ed9b16753215ec2c1ef9ef5fa15014"
+    },
+    {
+      "name": "protobuf-compiler",
+      "version": "3.21.12-8.2ubuntu0.4",
+      "repo": "universe",
+      "file": "pool/universe/p/protobuf/protobuf-compiler_3.21.12-8.2ubuntu0.4_amd64.deb",
+      "bytes": 28964,
+      "sha256": "10dc45fcc354dcddb50f35b73ec11ed67f55053476ddc8d3f520e2bfcfbc8016"
+    },
+    {
+      "name": "libprotobuf32t64",
+      "version": "3.21.12-8.2ubuntu0.4",
+      "repo": "ubuntu",
+      "file": "pool/main/p/protobuf/libprotobuf32t64_3.21.12-8.2ubuntu0.4_amd64.deb",
+      "bytes": 922780,
+      "sha256": "765aec7fc6c7c14aea8d10677c17617d71acc5103ad580f0e97bff903acccdaf"
+    },
+    {
+      "name": "libprotoc32t64",
+      "version": "3.21.12-8.2ubuntu0.4",
+      "repo": "ubuntu",
+      "file": "pool/main/p/protobuf/libprotoc32t64_3.21.12-8.2ubuntu0.4_amd64.deb",
+      "bytes": 682946,
+      "sha256": "a135645fed6c3c766cc0cf23f49e1fdf766a5611a3c80ac6f2e62f8ed6a17e45"
+    },
+    {
+      "name": "libffi-dev",
+      "version": "3.4.6-1build1",
+      "repo": "base",
+      "file": "pool/main/libf/libffi/libffi-dev_3.4.6-1build1_amd64.deb",
+      "bytes": 62802,
+      "sha256": "7009959b8a3b77206325026917fb45150ac81bf6139468abc0841d5a29c8619d"
+    },
+    {
+      "name": "libmount-dev",
+      "version": "2.39.3-9ubuntu6.6",
+      "repo": "ubuntu",
+      "file": "pool/main/u/util-linux/libmount-dev_2.39.3-9ubuntu6.6_amd64.deb",
+      "bytes": 14894,
+      "sha256": "87b7ed1fedfa79aedfb3772c539db2047857c4b0a3cf663161a657a752a3ca2e"
+    },
+    {
+      "name": "libblkid-dev",
+      "version": "2.39.3-9ubuntu6.6",
+      "repo": "ubuntu",
+      "file": "pool/main/u/util-linux/libblkid-dev_2.39.3-9ubuntu6.6_amd64.deb",
+      "bytes": 204610,
+      "sha256": "49ef9eb8716c4d7ec8921b87328052e75efecf89ab5975b5e43360e8cb7aa27c"
+    },
+    {
+      "name": "libpcre2-dev",
+      "version": "10.42-4ubuntu2.2",
+      "repo": "ubuntu",
+      "file": "pool/main/p/pcre2/libpcre2-dev_10.42-4ubuntu2.2_amd64.deb",
+      "bytes": 737246,
+      "sha256": "572714fe3fbe1b49ffb4c5a483223c663a51948e0d8590add1620917326f3d21"
+    },
+    {
+      "name": "libselinux1-dev",
+      "version": "3.5-2ubuntu2.1",
+      "repo": "ubuntu",
+      "file": "pool/main/libs/libselinux/libselinux1-dev_3.5-2ubuntu2.1_amd64.deb",
+      "bytes": 163720,
+      "sha256": "2cc37cb9251f49a11f9c34bc8605c2aace8ded76f50b951ad28ded42d6ab3f68"
+    },
+    {
+      "name": "libsepol-dev",
+      "version": "3.5-2build1",
+      "repo": "base",
+      "file": "pool/main/libs/libsepol/libsepol-dev_3.5-2build1_amd64.deb",
+      "bytes": 383718,
+      "sha256": "85e47c1d7bcccbc059ea99d4c379659236f63b1716af8d796072875d418402bf"
+    },
+    {
+      "name": "zlib1g-dev",
+      "version": "1:1.3.dfsg-3.1ubuntu2.3",
+      "repo": "ubuntu",
+      "file": "pool/main/z/zlib/zlib1g-dev_1.3.dfsg-3.1ubuntu2.3_amd64.deb",
+      "bytes": 894134,
+      "sha256": "419902a649e1078f24596cdf31ced9c839519828790f59888056fcdcd58e8a28"
+    }
+  ],
+  "artifact": {
+    "url": "https://github.com/livekit/rust-sdks/releases/download/webrtc-89d790b/webrtc-linux-x64-release.zip",
+    "bytes": 156139058,
+    "sha256": "b167adad5291cea0e4d66a0454d9d52d2ad714e6b0ed70f4410317d3ebde70c5",
+    "root": "linux-x64-release",
+    "compilerHeaderSha256": "387a0caa8022e615e6f030d43b6e7a3039bd06741c28b234290ee1c8b1c6e1d0"
+  }
+}

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from source_inputs import SourceRefusal, verify_checkout, verify_gitlink
+from preparation import PreparationRefusal, prepare, cargo_window
 
 PIN = '7187f6a42ca6382b73c631b75a9d560253f5b90f'
 NODE_PIN = '31d9d7e306e6c70c2eb748efde5afbded95a170e'
@@ -57,25 +58,37 @@ try:
                  'fetch', '--quiet', '--depth=1', url, pin], checkout)
         command(['git', '-c', 'core.hooksPath=/dev/null', 'checkout', '--quiet', '--detach', 'FETCH_HEAD'], checkout)
         verify_checkout(checkout, pin, inputs)
+    stage('prerequisite-prepare', sourceInputsVerified=True, rustPin=PIN, nodePin=NODE_PIN)
+    def progress(step):
+        stage('prerequisite-prepare', prerequisiteStep=step, sourceInputsVerified=True, rustPin=PIN, nodePin=NODE_PIN)
+    environment, prepared = prepare(root, source, float(sys.argv[2]), progress)
+    os.environ.update(environment)
     toolchain = {}
     for tool in ('cargo', 'rustc', 'clang++'):
-        toolchain[tool] = subprocess.check_output([tool, '--version'], text=True).splitlines()[0]
+        toolchain[tool] = subprocess.check_output([environment['CXX'] if tool == 'clang++' else tool, '--version'], text=True).splitlines()[0]
     prerequisite_tools = {name: shutil.which(name) is not None for name in ('protoc', 'cmake', 'clang++', 'pkg-config', 'make')}
     try:
         glib = subprocess.run(['pkg-config', '--exists', 'glib-2.0'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2).returncode == 0
     except Exception:
         glib = None
-    stage('cargo-build', prerequisiteTools=prerequisite_tools, glibPkgConfig=glib, rustPin=PIN, nodePin=NODE_PIN, sourceInputsVerified=True, toolchain=toolchain,
+    cargo_window(float(sys.argv[2]))
+    stage('cargo-build', prerequisiteTools=prerequisite_tools, glibPkgConfig=glib, rustPin=PIN, nodePin=NODE_PIN, sourceInputsVerified=True, preparation=prepared, toolchain=toolchain,
           profile='release', target='x86_64-unknown-linux-gnu', jobs=2,
           qualification='stock pinned Node FFI baseline; native owner not implemented')
     command(['cargo', 'build', '--locked', '--release', '--jobs', '2',
              '--target', 'x86_64-unknown-linux-gnu', '-p', 'rtc-node-ffi-bindings'], source)
-    stage('complete', prerequisiteTools=prerequisite_tools, glibPkgConfig=glib, rustPin=PIN, nodePin=NODE_PIN, sourceInputsVerified=True, toolchain=toolchain,
+    stage('complete', prerequisiteTools=prerequisite_tools, glibPkgConfig=glib, rustPin=PIN, nodePin=NODE_PIN, sourceInputsVerified=True, preparation=prepared, toolchain=toolchain,
           profile='release', jobs=2, qualification='compile only; no runtime execution')
+except PreparationRefusal as error:
+    previous = json.loads((root / 'stage.json').read_text())
+    stage('prerequisite-refused', prerequisiteStep=previous.get('prerequisiteStep'), prerequisiteRefusal=str(error), sourceInputsVerified=True, rustPin=PIN, nodePin=NODE_PIN)
+    print('error: fixed-pin prerequisite refused: ' + str(error), flush=True)
+    sys.exit(1)
 except SourceRefusal as error:
     stage('source-refused', sourceRefusal=str(error), rustPin=PIN, nodePin=NODE_PIN)
     print('error: fixed-pin source input refused: ' + str(error), flush=True)
     sys.exit(1)
-except Exception:
+except Exception as error:
+    print('error: worker ' + type(error).__name__ + ': ' + str(error)[:2048], flush=True)
     # The supervisor retains the stage and bounded redacted compiler-failure evidence.
     sys.exit(1)
