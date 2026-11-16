@@ -9,7 +9,8 @@ import {
   standingsViewSchema,
   type StandingsView,
 } from '@daisy/protocol/lobby/standings-read';
-import { standings, breaks } from '@daisy/tab-engine';
+import { standings } from '@daisy/tab-engine';
+import { eventBreaks } from '../operations/event-breaks';
 import { hostLobbyResource } from '../operations/host-lobby-resource';
 import { eventCompetition } from '../operations/event-competition';
 import type { TabPrincipal } from '../tab-principal';
@@ -66,24 +67,7 @@ export function hostStandingsView(
       },
     },
   });
-  const computedBreak = breaks({
-    ...input,
-    stages: facts.stages
-      .filter((stage) => stage.kind === 'elimination')
-      .map((stage) => ({ id: stage.id, division: stage.division })),
-    choices: Object.fromEntries(
-      facts.entries.flatMap((entry) => {
-        const stage = facts.stages.find(
-          (stage) =>
-            stage.kind === 'elimination' &&
-            stage.division === entry.breakDivision,
-        );
-        return entry.breakDivision !== null && stage
-          ? [[entry.id, stage.id]]
-          : [];
-      }),
-    ),
-  });
+  const computedBreak = eventBreaks(facts);
   const firstBreak =
     computedBreak.kind === 'resolved' ? computedBreak.stages[0] : null;
   const firstRound = facts.rounds.find(
