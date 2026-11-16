@@ -34,6 +34,17 @@ describe('foldLeagueRatings', () => {
       ],
     });
   });
+  test('keeps Room and tournament result identities separate', () => {
+    assert({
+      given:
+        'a Room and a tournament result sharing an identifier in different tables',
+      should: 'count both distinct competitive occurrences',
+      actual: foldLeagueRatings([game, { ...game, source: 'league_room' }]).map(
+        (row) => row.games,
+      ),
+      expected: [2, 2],
+    });
+  });
   test('does not invent a result for empty or overlapping sides', () => {
     assert({
       given: 'invalid participant membership',

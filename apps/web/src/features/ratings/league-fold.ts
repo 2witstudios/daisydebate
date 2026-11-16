@@ -21,8 +21,9 @@ export function foldLeagueRatings(
   const ratings = new Map<string, LeagueRating>();
   const seen = new Set<string>();
   for (const game of games) {
-    if (seen.has(game.result)) continue;
-    seen.add(game.result);
+    const identity = `${game.source}:${game.result}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
     const [first, second] = game.sides;
     if (
       first.length === 0 ||
