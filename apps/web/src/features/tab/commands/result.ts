@@ -246,12 +246,46 @@ const certified = (
   };
 };
 
+/** Readiness of the retained current result set, shared by reads and commands. */
+export const assessEventCertification = (
+  facts: Pick<
+    CertificationFacts,
+    'publishedFixtureIds' | 'results' | 'certifiedResultIds' | 'screenings'
+  >,
+):
+  | { readonly kind: 'results-incomplete' | 'screening-pending' }
+  | {
+      readonly kind: 'ready' | 'already-certified';
+      readonly resultIds: readonly string[];
+    } => {
+  const superseded = supersededIds(facts.results);
+  const current = facts.results.filter((result) => !superseded.has(result.id));
+  if (
+    current.length === 0 ||
+    facts.publishedFixtureIds.some(
+      (fixtureId) => !current.some((result) => result.fixtureId === fixtureId),
+    )
+  )
+    return { kind: 'results-incomplete' };
+  const resultIds = current.map((result) => result.id);
+  if (current.every((result) => facts.certifiedResultIds.includes(result.id)))
+    return { kind: 'already-certified', resultIds };
+  if (
+    facts.screenings.some(
+      (screening) =>
+        screeningOpen(screening) &&
+        current.some((result) => result.roundId === screening.roundId),
+    )
+  )
+    return { kind: 'screening-pending' };
+  return { kind: 'ready', resultIds };
+};
+
 export const decideCertification = (
   facts: CertificationFacts,
   command: Command<'certify-result' | 'certify-event'>,
 ): CommandDecision<CertificationRefusal, CertificationWrite> => {
   const superseded = supersededIds(facts.results);
-  const current = facts.results.filter((result) => !superseded.has(result.id));
   const certifiedIds = new Set(facts.certifiedResultIds);
   const screeningPending = (results: readonly ResultRow[]) =>
     facts.screenings.some(
@@ -272,21 +306,13 @@ export const decideCertification = (
     }
     case 'certify-event': {
       if (command.eventId !== facts.event.id) return refuse('not-found');
-      if (
-        facts.publishedFixtureIds.some(
-          (fixtureId) =>
-            !current.some((result) => result.fixtureId === fixtureId),
-        )
-      )
-        return refuse('results-incomplete');
-      if (current.every((result) => certifiedIds.has(result.id)))
-        return refuse('already-certified');
-      if (screeningPending(current)) return refuse('screening-pending');
+      const assessment = assessEventCertification(facts);
+      if (assessment.kind !== 'ready') return refuse(assessment.kind);
       return certified(
         facts,
         'event',
         { kind: 'event', id: facts.event.id },
-        current.map((result) => result.id),
+        assessment.resultIds,
       );
     }
   }

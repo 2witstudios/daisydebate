@@ -12,6 +12,7 @@ import type {
 import type { ResultRow } from './fixture';
 import {
   decideCertification,
+  assessEventCertification,
   decideFixtureResult,
   decideOpenAudience,
   decideReleaseResolution,
@@ -621,6 +622,49 @@ test('releasing a resolution', () => {
       'not-manual',
       'resolution-unset',
       'resolution-unset',
+    ],
+  });
+});
+
+test('event certification assessment needs actual current results', () => {
+  const facts = {
+    publishedFixtureIds: [fixtureId],
+    results: [{ ...original, fixtureId }],
+    certifiedResultIds: [] as string[],
+    screenings: [],
+  };
+  assert({
+    given:
+      'empty, unfinished, ready, held and already certified current sources',
+    should:
+      'share a truthful readiness assessment without minting a command or certificate',
+    actual: [
+      assessEventCertification({
+        ...facts,
+        publishedFixtureIds: [],
+        results: [],
+      }),
+      assessEventCertification({ ...facts, results: [] }),
+      assessEventCertification(facts),
+      assessEventCertification({
+        ...facts,
+        screenings: [
+          {
+            ballotId: id('b'),
+            roundId: original.roundId!,
+            tabRoundId: id('t'),
+            status: 'pending',
+          },
+        ],
+      }),
+      assessEventCertification({ ...facts, certifiedResultIds: [original.id] }),
+    ],
+    expected: [
+      { kind: 'results-incomplete' },
+      { kind: 'results-incomplete' },
+      { kind: 'ready', resultIds: [original.id] },
+      { kind: 'screening-pending' },
+      { kind: 'already-certified', resultIds: [original.id] },
     ],
   });
 });
