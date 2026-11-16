@@ -255,6 +255,16 @@ Erasure closes the account. It deletes everything in the classes marked
   name the closed account only by its id. The member's memberships are
   ended and their grants revoked, never deleted.
 
+League seasons and rating snapshots are part of that competitive record.
+The private tournament snapshot stores actor ids and frozen rating inputs,
+not contact details, and remains scoped to its tournament after erasure.
+The league-to-school relation records organization ids, controller account
+ids and assent/ending instants under the existing organization/action-history
+purpose. Erasing a controller does not end either organization's independent
+membership or erase its audit trail. Tournament notification subjects use the
+existing notification purpose, export, account erasure and read-retention
+rules; they add fixture/lobby/command references, never outcome text.
+
 Spectator chat is not ranked content, on any Round: erasure scrubs the member's
 messages in place, keeping only each message's place in the channel.
 

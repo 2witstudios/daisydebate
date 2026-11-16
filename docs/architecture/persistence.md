@@ -332,3 +332,21 @@ with a journal entry identifying the exact `league_school` aggregate, acting
 account and evaluated authority. The relation retains invitation, joining and
 ending times and acting accounts; only `status = 'active'` supplies member-school
 ids to the season fold.
+
+### Certified league season inputs
+
+A sanction is requested by the current tournament controller and accepted by
+the league controller. Both decisions recheck the pinned format, ballot and
+every enforced template value inside the fenced transaction; the approval
+does not grant tournament authority. Reads fold received certified result ids,
+so a later correction stays local until a certification names it.
+
+A membership-counting season admits events owned by the league or an active
+personal league member, only when the event follows a league template. Only
+direct league members and entrants whose responsible school has an active
+two-sided league relation score. Invited/ended schools and unrelated hosts do
+not qualify. The same pure season fold computes both admission modes; no
+standings projection is stored. `standings.read` on the actual league
+organization authorizes active members and organization managers through the
+evaluator and its minor boundary; public organization identity is not season
+read authority.

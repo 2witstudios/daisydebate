@@ -31,13 +31,6 @@ async function load(tx: TabTransaction, input: Input) {
   };
   await scopeTransaction(tx, scope);
   await lockTabCommandAccounts(tx, [input.senderUserId]);
-  const organization = await loadAuthorityContext(
-    tx,
-    scope,
-    input.senderUserId,
-    'share',
-  );
-  if (organization.organization?.organizationKind !== 'league') return null;
   const [sanction] = await tx
     .select()
     .from(sanctions)
@@ -48,8 +41,7 @@ async function load(tx: TabTransaction, input: Input) {
           ? eq(sanctions.eventId, input.command.eventId)
           : eq(sanctions.id, input.command.sanctionId),
       ),
-    )
-    .for('update');
+    );
   if (
     input.command.type !== 'request-sanction' &&
     (!sanction || sanction.lobbyId !== input.lobbyId)
@@ -67,6 +59,42 @@ async function load(tx: TabTransaction, input: Input) {
     input.command.type === 'request-sanction'
       ? input.command.seasonId
       : sanction!.seasonId;
+  const configuration = await lockEventSettingContext(tx, {
+    lobbyId: input.lobbyId,
+    eventId,
+    subjectUserId: input.senderUserId,
+    extraOrganizationIds: [input.organizationId],
+  });
+  if (!configuration) return null;
+  const organization = await loadAuthorityContext(
+    tx,
+    scope,
+    input.senderUserId,
+    'share',
+  );
+  if (organization.organization?.organizationKind !== 'league') return null;
+  await scopeTransaction(tx, scope);
+  const [lockedSanction] = await tx
+    .select()
+    .from(sanctions)
+    .where(
+      and(
+        eq(sanctions.organizationId, input.organizationId),
+        input.command.type === 'request-sanction'
+          ? eq(sanctions.eventId, eventId)
+          : eq(sanctions.id, input.command.sanctionId),
+      ),
+    )
+    .for('update');
+  if (
+    input.command.type !== 'request-sanction' &&
+    (!lockedSanction ||
+      lockedSanction.eventId !== eventId ||
+      lockedSanction.lobbyId !== input.lobbyId ||
+      lockedSanction.templateId !== templateId ||
+      lockedSanction.seasonId !== seasonId)
+  )
+    return null;
   const [template] = await tx
     .select()
     .from(templates)
@@ -100,13 +128,6 @@ async function load(tx: TabTransaction, input: Input) {
         ),
       ),
     );
-  const configuration = await lockEventSettingContext(tx, {
-    lobbyId: input.lobbyId,
-    eventId,
-    subjectUserId: input.senderUserId,
-    extraOrganizationIds: [input.organizationId],
-  });
-  if (!configuration) return null;
   const lobby = await loadLobbyAuthority(tx, {
     viewerUserId: input.senderUserId,
     lobbyId: input.lobbyId,
@@ -125,7 +146,7 @@ async function load(tx: TabTransaction, input: Input) {
     organization,
     lobby,
     configuration,
-    sanction: sanction ?? null,
+    sanction: lockedSanction ?? null,
     template,
     season,
     templateSettings,
