@@ -1,5 +1,5 @@
 import { tournamentRatingSnapshotSchema } from '@daisy/protocol/lobby/rating-snapshot';
-import { check, pgTable, text } from 'drizzle-orm/pg-core';
+import { pgTable, text } from 'drizzle-orm/pg-core';
 import { createdAtColumn, jsonbColumn, jsonbIsObject } from './columns';
 import { tournaments } from './lobbies';
 
@@ -14,6 +14,6 @@ export const tournamentRatingSnapshots = pgTable(
     createdAt: createdAtColumn(),
   },
   (table) => [
-    check('tournament_rating_snapshots_object', jsonbIsObject(table.snapshot)),
+    jsonbIsObject('tournament_rating_snapshots', table.snapshot),
   ],
 );
