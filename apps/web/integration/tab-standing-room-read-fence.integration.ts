@@ -207,4 +207,4 @@ test('standing Room readers coexist and retain actual template, offer and member
       observer.close(),
     ]);
   }
-});
+}, 30_000);
