@@ -10,7 +10,8 @@ import {
   type Conflict,
 } from './authorization-decision';
 import { conflictRefusal } from './authorization-conflict';
-import { holds, type Holder } from './authorization-holding';
+import { hostAreaAuthority, type Holder } from './authorization-holding';
+import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
 import type {
   LobbyScopeFact,
   VideoSubjectsFact,
@@ -54,9 +55,9 @@ export function visibleThing(
 }
 
 /**
- * An official holds `tournament.ballots.read_unreleased` on the lobby and
- * sees everything, unless a conflict stops that authority; then, like
- * everyone else, they see what their audiences were released.
+ * Unreleased access belongs to the thing's own host area. Ballot permission
+ * never becomes video, draw or aggregate-results authority. A conflict stops
+ * that authority; recorded audience releases remain independent.
  */
 export function audienceDecision(
   holder: Holder,
@@ -65,13 +66,23 @@ export function audienceDecision(
   viewing: ViewingFact,
   conflict: Conflict | null,
   subjects: VideoSubjectsFact | null = null,
+  decisionArea: 'ballots' | 'results' = 'ballots',
 ): AuthorizationDecision {
-  const official = holds(holder, 'tournament.ballots.read_unreleased', {
-    kind: 'lobby',
-    scope,
-  });
-  if (official.held && conflictRefusal(conflict) === null)
-    return allowUnder(official.authority);
+  const area =
+    thing === 'video'
+      ? 'lobby.host.recordings.read'
+      : thing === 'posting'
+        ? 'lobby.host.draw.read'
+        : decisionArea === 'results'
+          ? 'lobby.host.results.read'
+          : 'lobby.host.ballots.read';
+  const official = hostAreaAuthority(
+    holder,
+    { kind: 'lobby', scope },
+    capabilityMetadata[area].hostAreaPermissions ?? [],
+  );
+  if (official && conflictRefusal(conflict) === null)
+    return allowUnder(official);
   return visibleThing(thing, viewing, subjects)
     ? allowRelated('audience')
     : deny('missing-capability');

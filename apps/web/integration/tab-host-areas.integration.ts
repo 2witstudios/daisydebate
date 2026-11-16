@@ -1,3 +1,7 @@
+import { withActualCopiedBallot } from './tab-actual-ballot.test-support';
+import { roundBallotReader } from '../src/features/round-ballots/reader';
+import { roundViewReader } from '../src/features/round-runtime/reads';
+import { isAppError } from '@daisy/errors';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -52,98 +56,151 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
       'Ballot reviewer only',
       'Results staff only',
     ]);
-    for (const [index, permission] of [
-      'tournament.ballots.read_unreleased',
-      'tournament.results.enter',
-    ].entries()) {
-      const person = people[index]!,
-        roleId = createId();
-      // Custom-role editor is a separate feature. These real permission rows
-      // are fixture inputs; the actual guarded grant command grants that role.
-      await owner`insert into roles(id,organization_id,name,rank,preset) values(${roleId},${organizationId},${person.name},${50 + index},false)`;
-      await owner`insert into role_permissions(role_id,organization_id,permission) values(${roleId},${organizationId},${permission})`;
-      const [before] =
-        await owner`select version from lobbies where id=${lobbyId}`;
-      const granted = await command(as(world.bots.Director!), {
-        version: 1,
-        commandId: createId(),
-        expected: { lobby: Number(before!.version) },
-        command: {
-          type: 'give-grant',
-          scope: { kind: 'lobby', lobbyId },
-          userId: person.userId,
-          roleId,
-          expiresAt: null,
-        },
-      });
-      if (granted.kind !== 'accepted')
-        throw new Error(
-          `Actual narrow grant refused: ${JSON.stringify(granted)}`,
-        );
-      const nav = await navigation(as(person), { kind: 'lobby', id: lobbyId });
-      const expectedArea =
-        index === 0 ? 'lobby.host.ballots.read' : 'lobby.host.results.read';
-      const resolved = await settings(as(person), {
-        lobbyId,
-        eventId,
-        area: 'results',
-      });
-      assert({
-        given: `the real ${permission} role with no other permission`,
-        should:
-          'open exactly its evaluated area, conceal setup and keep results metadata within the results area',
-        actual: [
-          nav?.areas,
-          nav && hostNavigationRail(nav).items.map((item) => item.id),
-          await setup(as(person), lobbyId),
-          await settings(as(person), { lobbyId, eventId }),
-          await ballot(as(person), { lobbyId, eventId }),
-          (await standings(as(person), { lobbyId, eventId }))?.visibility ??
-            null,
-          resolved?.settings.map((row) => row.key) ?? null,
-        ],
-        expected: [
-          [expectedArea],
-          index === 0 ? ['ballots'] : ['break', 'results'],
-          null,
-          null,
-          null,
-          index === 0 ? null : 'official',
-          index === 0
-            ? null
-            : ['standings.tiebreaks', 'standings.rating_ladder'],
-        ],
-      });
-      const [grant] =
-        await owner`select id from grants where lobby_id=${lobbyId} and user_id=${person.userId} and revoked_at is null`;
-      const [current] =
-        await owner`select version from lobbies where id=${lobbyId}`;
-      const revoked = await command(as(world.bots.Director!), {
-        version: 1,
-        commandId: createId(),
-        expected: { lobby: Number(current!.version) },
-        command: {
-          type: 'remove-grant',
-          scope: { kind: 'lobby', lobbyId },
-          grantId: String(grant!.id),
-        },
-      });
-      assert({
-        given:
-          'the actual grant owner revoking the only role through its command',
-        should:
-          'remove the shell and every unreleased result without deleting its retained grant',
-        actual: [
-          revoked.kind,
-          await navigation(as(person), { kind: 'lobby', id: lobbyId }),
-          await standings(as(person), { lobbyId, eventId }),
-          (
-            await owner`select revoked_at is not null ended from grants where id=${grant!.id}`
-          )[0]!.ended,
-        ],
-        expected: ['accepted', null, null, true],
-      });
-    }
+    await withActualCopiedBallot(
+      { owner, databaseUrl: scratch.url, world },
+      async ({ runtime, roundId, ballotId }) => {
+        const readBallot = roundBallotReader(runtime.store);
+        const readVideo = roundViewReader(runtime.store);
+        const hidden = async (read: () => Promise<unknown>) => {
+          try {
+            await read();
+            return false;
+          } catch (error) {
+            if (isAppError(error) && error.code === 'NOT_FOUND') return true;
+            throw error;
+          }
+        };
+        for (const [index, permission] of [
+          'tournament.ballots.read_unreleased',
+          'tournament.results.enter',
+        ].entries()) {
+          const person = people[index]!,
+            roleId = createId();
+          // Custom-role editor is a separate feature. These real permission rows
+          // are fixture inputs; the actual guarded grant command grants that role.
+          await owner`insert into roles(id,organization_id,name,rank,preset) values(${roleId},${organizationId},${person.name},${50 + index},false)`;
+          await owner`insert into role_permissions(role_id,organization_id,permission) values(${roleId},${organizationId},${permission})`;
+          const [before] =
+            await owner`select version from lobbies where id=${lobbyId}`;
+          const granted = await command(as(world.bots.Director!), {
+            version: 1,
+            commandId: createId(),
+            expected: { lobby: Number(before!.version) },
+            command: {
+              type: 'give-grant',
+              scope: { kind: 'lobby', lobbyId },
+              userId: person.userId,
+              roleId,
+              expiresAt: null,
+            },
+          });
+          if (granted.kind !== 'accepted')
+            throw new Error(
+              `Actual narrow grant refused: ${JSON.stringify(granted)}`,
+            );
+          const nav = await navigation(as(person), {
+            kind: 'lobby',
+            id: lobbyId,
+          });
+          const expectedArea =
+            index === 0 ? 'lobby.host.ballots.read' : 'lobby.host.results.read';
+          const resolved = await settings(as(person), {
+            lobbyId,
+            eventId,
+            area: 'results',
+          });
+          assert({
+            given: `the real ${permission} role with no other permission`,
+            should:
+              'open exactly its evaluated area, conceal setup and keep results metadata within the results area',
+            actual: [
+              nav?.areas,
+              nav && hostNavigationRail(nav).items.map((item) => item.id),
+              await setup(as(person), lobbyId),
+              await settings(as(person), { lobbyId, eventId }),
+              await ballot(as(person), { lobbyId, eventId }),
+              (await standings(as(person), { lobbyId, eventId }))?.visibility ??
+                null,
+              resolved?.settings.map((row) => row.key) ?? null,
+            ],
+            expected: [
+              [expectedArea],
+              index === 0 ? ['ballots'] : ['break', 'results'],
+              null,
+              null,
+              null,
+              index === 0 ? null : 'official',
+              index === 0
+                ? null
+                : ['standings.tiebreaks', 'standings.rating_ladder'],
+            ],
+          });
+          const [recorded] =
+            await owner`select scores,winner from ballots where id=${ballotId}`;
+          const ballotView =
+            index === 0 ? await readBallot(person, roundId) : null;
+          assert({
+            given:
+              'a genuinely submitted copied ballot and the current narrow role',
+            should:
+              'keep exact ballot content separate from every ordinary Room/Round video read',
+            actual: [
+              ballotView?.ballots[0]?.ballot.scores ?? null,
+              ballotView?.ballots[0]?.ballot.winner ?? null,
+              ballotView?.transcript ?? null,
+              await hidden(() => runtime.operations.view(person, world.roomId)),
+              await hidden(() => readVideo(person, roundId)),
+              index === 1
+                ? await hidden(() => readBallot(person, roundId))
+                : true,
+            ],
+            expected: [
+              index === 0 ? recorded!.scores : null,
+              index === 0 ? recorded!.winner : null,
+              null,
+              true,
+              true,
+              true,
+            ],
+          });
+          const [grant] =
+            await owner`select id from grants where lobby_id=${lobbyId} and user_id=${person.userId} and revoked_at is null`;
+          const [current] =
+            await owner`select version from lobbies where id=${lobbyId}`;
+          const revoked = await command(as(world.bots.Director!), {
+            version: 1,
+            commandId: createId(),
+            expected: { lobby: Number(current!.version) },
+            command: {
+              type: 'remove-grant',
+              scope: { kind: 'lobby', lobbyId },
+              grantId: String(grant!.id),
+            },
+          });
+          assert({
+            given:
+              'the actual grant owner revoking the only role through its command',
+            should:
+              'remove the shell and every unreleased result without deleting its retained grant',
+            actual: [
+              revoked.kind,
+              await navigation(as(person), { kind: 'lobby', id: lobbyId }),
+              await standings(as(person), { lobbyId, eventId }),
+              (
+                await owner`select revoked_at is not null ended from grants where id=${grant!.id}`
+              )[0]!.ended,
+            ],
+            expected: ['accepted', null, null, true],
+          });
+          assert({
+            given: 'that actual role after canonical revocation',
+            should: 'conceal the retained private ballot as well',
+            actual: await hidden(() => readBallot(person, roundId)),
+            expected: true,
+          });
+        }
+      },
+    );
   } finally {
     await owner.close();
     await scratch.drop();

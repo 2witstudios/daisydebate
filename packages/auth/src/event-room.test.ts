@@ -101,20 +101,8 @@ describe('an event Room', () => {
         ),
       },
       expected: {
-        read: [
-          'owner',
-          'officiator',
-          'staff without officiating',
-          'seat',
-          'judge',
-        ],
-        round: [
-          'owner',
-          'officiator',
-          'staff without officiating',
-          'seat',
-          'judge',
-        ],
+        read: ['owner', 'officiator', 'seat', 'judge'],
+        round: ['owner', 'officiator', 'seat', 'judge'],
         join: ['seat', 'judge'],
         ready: ['seat', 'judge'],
         transcript: ['seat', 'judge'],

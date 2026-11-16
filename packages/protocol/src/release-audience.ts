@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** Who may see a thing, narrowest first. Officials see everything and are not one. */
+/** Who may see a released thing, narrowest first. Host area authority is separate. */
 export const releaseAudiences = [
   'responsible_adults',
   'competitors',

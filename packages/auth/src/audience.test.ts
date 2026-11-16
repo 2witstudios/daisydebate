@@ -42,9 +42,18 @@ const releasesOf = (
 ) => audiences.map((audience) => ({ thing, audience }));
 const official: Asker = {
   grants: [
-    lobbyGrant('hosted', ['tournament.ballots.read_unreleased'], {
-      grantId: 'official',
-    }),
+    lobbyGrant(
+      'hosted',
+      [
+        'tournament.ballots.read_unreleased',
+        'tournament.rooms.officiate',
+        'tournament.draw.edit',
+        'tournament.results.enter',
+      ],
+      {
+        grantId: 'official',
+      },
+    ),
   ],
 };
 const subjects = (

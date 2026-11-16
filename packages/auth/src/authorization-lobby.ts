@@ -101,6 +101,8 @@ function lobbyResourceDecision(
       'decision',
       resource.viewing,
       null,
+      null,
+      'results',
     );
   return permissionDecision(holder, capability, target, context);
 }
