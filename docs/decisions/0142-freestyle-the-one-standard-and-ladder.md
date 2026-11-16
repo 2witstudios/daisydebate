@@ -6,7 +6,8 @@ confirmed by the point guard on Delivery). Supersedes
 [ADR 0090](0090-three-rating-ladders.md). Amends
 [ADR 0078](0078-standard-formats-league-templates.md) §1,
 [ADR 0092](0092-room-creation-resolution-selection.md) and
-[ADR 0103](0103-whos-online.md) (rating visibility). DEC-265's three-ladder
+[ADR 0103](0103-whos-online.md) (rating visibility), and restates
+[ADR 0131](0131-the-lobby-is-the-one-container.md) §5 for one ladder. DEC-265's three-ladder
 vocabulary and DEC-266's per-standard admission clauses are superseded by
 this record.
 
@@ -68,8 +69,13 @@ ones, and onboarding taught three ladders instead of how to play.
    deletes the Policy and Value ratings, challenges, presets, formats and
    revisions, unsets a surviving Custom Room's pointer to a deleted basis,
    drops `published_resolutions` and `rating_visibility`, and tightens the
-   CHECKs. A seeded integration test proves it. Running it against the
-   shared environment keeps human sign-off (FOR-H.1).
+   CHECKs. No stored object loses its owner. Chat files in the deleted
+   channels become file deletion intents. The migration refuses while a
+   Policy or Value recording is not removed, a capture has not ended or a
+   broadcast feed is not withdrawn: the operator clears those through their
+   own sweeps first (docs/operations/database.md). A seeded integration test
+   proves the refusal and the deletion. Running it against the shared
+   environment keeps human sign-off (FOR-H.1).
 
 ## Consequences
 

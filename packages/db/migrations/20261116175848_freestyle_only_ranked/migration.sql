@@ -10,11 +10,11 @@ CREATE TEMP TABLE deleted_rounds ON COMMIT DROP AS
   WHERE format_id IN ('policy','value')
      OR ladder_id IN ('policy','value')
      OR room_id IN (SELECT id FROM deleted_rooms);--> statement-breakpoint
--- Recorded media leaves storage only through the deletion sweep, which finds
--- it from its recordings row. Dropping a row whose media remains would orphan
--- it, so the operator removes these recordings first (docs/operations/
--- database.md, ADR 0142) and this refuses until every one is removed and
--- every capture has ended. A removed recording holds no objects or sources.
+-- Recorded and broadcast media leave storage only through their sweeps, which
+-- find it from its rows. Dropping a row whose media remains would orphan it,
+-- so the operator removes these recordings and withdraws these feeds first
+-- (docs/operations/database.md, ADR 0142), and this refuses until every
+-- recording is removed, every capture has ended and every feed is withdrawn.
 DO $$
 BEGIN
   IF EXISTS (
@@ -23,11 +23,26 @@ BEGIN
   ) OR EXISTS (
     SELECT 1 FROM public.recording_captures
      WHERE round_id IN (SELECT id FROM deleted_rounds) AND ended_at IS NULL
+  ) OR EXISTS (
+    SELECT 1 FROM public.broadcasts
+     WHERE round_id IN (SELECT id FROM deleted_rounds) AND feed_withdrawn_at IS NULL
   ) THEN
-    RAISE EXCEPTION 'Freestyle only (ADR 0142) requires every Policy and Value recording removed first: see docs/operations/database.md';
+    RAISE EXCEPTION 'Freestyle only (ADR 0142) requires every Policy and Value recording removed and broadcast feed withdrawn first: see docs/operations/database.md';
   END IF;
 END
 $$;--> statement-breakpoint
+-- Chat files in the deleted Rooms' and Rounds' channels keep their owner:
+-- each stored object becomes a deletion intent the file sweep drains, as
+-- subject erasure does (messaging-files/cleanup.ts), before its row goes.
+CREATE TEMP TABLE deleted_channels ON COMMIT DROP AS
+  SELECT id FROM public.messaging_channels
+  WHERE room_id IN (SELECT id FROM deleted_rooms)
+     OR round_id IN (SELECT id FROM deleted_rounds);--> statement-breakpoint
+INSERT INTO public.messaging_file_deletion_intents (object_key, charged_bytes)
+  SELECT object_key, reserved_bytes FROM public.messaging_files
+  WHERE channel_id IN (SELECT id FROM deleted_channels) AND lifecycle <> 'deleted';--> statement-breakpoint
+DELETE FROM public.messaging_files
+  WHERE channel_id IN (SELECT id FROM deleted_channels);--> statement-breakpoint
 DELETE FROM public.rating_changes
   WHERE ladder IN ('policy','value')
      OR format_id IN ('policy','value')

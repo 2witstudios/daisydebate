@@ -220,25 +220,39 @@ the schema drops the trigger with it; migrations recreate it.
 
 ## Freestyle only (ADR 0142)
 
-`20261116175848_freestyle_only_ranked` deletes every Policy and Value Room,
-Round, rating, challenge, preset and format (the owner waived keeping them).
-Recorded media leaves object storage only through the recording deletion
-sweep, which finds it from its `recordings` row, so the migration refuses
-while any Policy or Value Round still has a recording that is not `removed`
-or a capture that has not ended. Before applying it (FOR-H.1, human
-sign-off), an authorized operator checks in a read-only session:
+`20261116175848_freestyle_only_ranked` deletes every Policy and Value Room
+(with all its Rounds), every Round on either format, and their ratings,
+challenges, presets and formats; the owner waived keeping them. Chat files in
+those Rooms' and Rounds' channels become `messaging_file_deletion_intents`, so
+the file sweep still deletes their objects and releases their bytes. Recorded
+and broadcast media leave storage only through their own sweeps, which find
+it from its rows, so the migration refuses while any Policy or Value Round has
+a recording that is not `removed`, a capture that has not ended, or a
+broadcast whose feed is not withdrawn.
 
-```sql
-select r.status, count(*) from recordings r join rounds d on d.id = r.round_id
- where d.format_id in ('policy','value') group by r.status;
-```
+Running it is FOR-H.1 and needs owner sign-off. The operator:
 
-Any recording that is not `removed` is removed through the existing pipeline:
-taken down and then removed from the admin content-moderation screen
-(`/operator/v1/recordings/:id/takedown`, then `/removal`), after which
-the deletion sweep clears its objects and sources and marks it `removed`.
-Then apply the migration. Never edit a recording's status by hand to pass the
-guard.
+1. Takes a restore point (see [restore rehearsal](restore-rehearsal.md)).
+2. Checks in a read-only session:
+
+   ```sql
+   select 'recording' as kind, r.status as state, count(*)
+     from recordings r join rounds d on d.id = r.round_id
+    where d.format_id in ('policy','value') group by r.status
+   union all
+   select 'broadcast', (b.feed_withdrawn_at is not null)::text, count(*)
+     from broadcasts b join rounds d on d.id = b.round_id
+    where d.format_id in ('policy','value') group by 2;
+   ```
+
+3. Removes any recording that is not `removed` through the existing pipeline:
+   take it down and then remove it from the admin content-moderation screen
+   (`/operator/v1/recordings/:id/takedown`, then `/removal`). Waits until the
+   deletion sweep marks it `removed`, and until every listed broadcast's feed
+   is withdrawn. Never edits a status by hand to pass the guard.
+4. Applies the migration, then confirms that no `policy` or `value` row is
+   left in `formats`, `rounds`, `rooms`, `ratings` or `challenges`, and that
+   Freestyle standings are unchanged.
 
 ## Three-ladder rollout and beta Season 1
 

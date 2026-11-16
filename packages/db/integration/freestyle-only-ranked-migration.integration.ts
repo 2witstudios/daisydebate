@@ -121,6 +121,29 @@ test(
       const policyChallenge = await challenge('policy', policy.actor);
       const freestyleChallenge = await challenge('freestyle', freestyle.actor);
 
+      // Chat files in a deleted Room's and a deleted Round's channels.
+      const channel = async (kind: string, column: string, id: string) => {
+        const channelId = createId();
+        await f.insert('messaging_channels', {
+          id: channelId,
+          kind,
+          policy_key:
+            kind === 'room_community' ? 'room.community' : 'round.floor',
+          policy_revision: 1,
+          lifecycle: 'active',
+          [column]: id,
+        });
+        const objectKey = `freestyle-only/${createId()}`;
+        await f.sql.unsafe(
+          "insert into messaging_files(id,channel_id,owner_actor_id,request_id,object_key,filename,mime,reserved_bytes,generation,authority_revision,lifecycle,created_at,expires_at) values($1,$2,$3,$4,$5,'notes.pdf','application/pdf',20,1,1,'reserved',now(),now() + interval '1 hour')",
+          [createId(), channelId, host, createId(), objectKey],
+        );
+        return objectKey;
+      };
+      const chatObjects = [
+        await channel('room_community', 'room_id', valueRoom),
+        await channel('round_floor', 'round_id', policy.roundId),
+      ];
       const counts = () => f.sql`
         select (select count(*)::int from rounds) as rounds,
                (select count(*)::int from recordings) as recordings,
@@ -132,7 +155,7 @@ test(
           () => 'migrated',
           (error: unknown) =>
             String(error).includes(
-              'requires every Policy and Value recording removed first',
+              'requires every Policy and Value recording removed and broadcast feed withdrawn first',
             ),
         );
       assert({
@@ -174,14 +197,20 @@ test(
           (select count(*)::int from recordings where round_id = ${valueRound}) as recordings,
           to_regclass('public.published_resolutions') is null as publications_dropped,
           to_regclass('public.rating_visibility') is null as visibility_dropped`;
+      const intents = await f.sql`
+        select object_key, charged_bytes::int as charged_bytes from messaging_file_deletion_intents
+         where object_key in ${f.sql(chatObjects)} order by object_key`;
+      const files = await f.sql`
+        select count(*)::int as files from messaging_files
+         where object_key in ${f.sql(chatObjects)}`;
       const refused = await f.sql`
         select pg_get_constraintdef(oid) as definition from pg_constraint
          where conname = 'ratings_ladder_check'`;
       assert({
         given:
-          'ranked Policy and Freestyle Rounds with standings, a recorded Value Room and Round pinned to a publication, a Custom Room based on Value, and Policy and Freestyle challenges, then the migration',
+          'ranked Policy and Freestyle Rounds with standings, a recorded Value Room and Round pinned to a publication, chat files in a Value Room and a Policy Round, a Custom Room based on Value, and Policy and Freestyle challenges, then the migration',
         should:
-          'delete every Policy and Value row and the publication and visibility tables, unset the Custom basis, and keep every Freestyle row',
+          'delete every Policy and Value row and the publication and visibility tables, turn their chat files into deletion intents, unset the Custom basis, and keep every Freestyle row',
         actual: {
           rounds: ids(rounds as unknown as { id: string }[]),
           rooms: [...rooms],
@@ -193,6 +222,7 @@ test(
           freestyleOnly: (
             refused[0] as { definition: string }
           ).definition.includes("'policy'"),
+          chat: { intents: [...intents], files: [...files] },
         },
         expected: {
           rounds: [freestyle.roundId],
@@ -215,6 +245,12 @@ test(
             },
           ],
           freestyleOnly: false,
+          chat: {
+            intents: [...chatObjects]
+              .sort()
+              .map((object_key) => ({ object_key, charged_bytes: 20 })),
+            files: [{ files: 0 }],
+          },
         },
       });
     } finally {
