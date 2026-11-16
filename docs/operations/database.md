@@ -218,6 +218,28 @@ delete sessions, and what each one costs:
 for any reset that must close live sockets. A database reset that recreates
 the schema drops the trigger with it; migrations recreate it.
 
+## Freestyle only (ADR 0142)
+
+`20261116175848_freestyle_only_ranked` deletes every Policy and Value Room,
+Round, rating, challenge, preset and format (the owner waived keeping them).
+Recorded media leaves object storage only through the recording deletion
+sweep, which finds it from its `recordings` row, so the migration refuses
+while any Policy or Value Round still has a recording that is not `removed`
+or a capture that has not ended. Before applying it (FOR-H.1, human
+sign-off), an authorized operator checks in a read-only session:
+
+```sql
+select r.status, count(*) from recordings r join rounds d on d.id = r.round_id
+ where d.format_id in ('policy','value') group by r.status;
+```
+
+Any recording that is not `removed` is removed through the existing pipeline:
+taken down and then removed from the admin content-moderation screen
+(`/operator/v1/recordings/:id/takedown`, then `/removal`), after which
+the deletion sweep clears its objects and sources and marks it `removed`.
+Then apply the migration. Never edit a recording's status by hand to pass the
+guard.
+
 ## Three-ladder rollout and beta Season 1
 
 Before applying `20261028224402_three_rating_ladders`, an authorized operator

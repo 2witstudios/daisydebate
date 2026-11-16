@@ -2,7 +2,6 @@ import { ratingLadders, type RatingLadder } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import {
-  boolean,
   check,
   doublePrecision,
   foreignKey,

@@ -95,8 +95,9 @@ test(
         format_id: 'value',
         published_resolution_id: (publication as { id: string }).id,
       });
+      const recordingId = createId();
       await f.sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
-        values (${createId()},${valueRound},'casual',${{ kind: 'casual_opted_in', hostActorId: host }},'ready',${{ status: 'ready' }})`;
+        values (${recordingId},${valueRound},'casual',${{ kind: 'casual_opted_in', hostActorId: host }},'ready',${{ status: 'ready' }})`;
       // A Custom Room that started from Value keeps its rules, not the basis.
       const customFormat = await f.format();
       const customRoom = await f.room(host, customFormat, {
@@ -120,6 +121,32 @@ test(
       const policyChallenge = await challenge('policy', policy.actor);
       const freestyleChallenge = await challenge('freestyle', freestyle.actor);
 
+      const counts = () => f.sql`
+        select (select count(*)::int from rounds) as rounds,
+               (select count(*)::int from recordings) as recordings,
+               (select count(*)::int from formats where id in ('policy','value')) as formats`;
+      const before = await counts();
+      const refusal = await scratch
+        .migrate((folder) => folder <= migration)
+        .then(
+          () => 'migrated',
+          (error: unknown) =>
+            String(error).includes(
+              'requires every Policy and Value recording removed first',
+            ),
+        );
+      assert({
+        given:
+          'a Value Round whose recording still holds media (not yet removed by the deletion sweep)',
+        should:
+          'refuse the whole migration and change nothing, so no stored media is orphaned',
+        actual: { refused: refusal, unchanged: [...(await counts())] },
+        expected: { refused: true, unchanged: [...before] },
+      });
+      // The operator removes it through the normal pipeline; the sweep marks it removed.
+      await f.sql`update recordings set status = 'removed',
+        lifecycle = ${{ status: 'removed', cause: 'participant_request', requestedAt: '2026-10-02T00:00:00.000Z', removedAt: '2026-10-02T00:10:00.000Z' }}
+        where id = ${recordingId}`;
       await scratch.migrate((folder) => folder <= migration);
 
       const ids = (rows: readonly { id: string }[]) => rows.map((r) => r.id);

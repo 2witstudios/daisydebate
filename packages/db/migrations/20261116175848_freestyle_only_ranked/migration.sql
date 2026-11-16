@@ -10,6 +10,24 @@ CREATE TEMP TABLE deleted_rounds ON COMMIT DROP AS
   WHERE format_id IN ('policy','value')
      OR ladder_id IN ('policy','value')
      OR room_id IN (SELECT id FROM deleted_rooms);--> statement-breakpoint
+-- Recorded media leaves storage only through the deletion sweep, which finds
+-- it from its recordings row. Dropping a row whose media remains would orphan
+-- it, so the operator removes these recordings first (docs/operations/
+-- database.md, ADR 0142) and this refuses until every one is removed and
+-- every capture has ended. A removed recording holds no objects or sources.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.recordings
+     WHERE round_id IN (SELECT id FROM deleted_rounds) AND status <> 'removed'
+  ) OR EXISTS (
+    SELECT 1 FROM public.recording_captures
+     WHERE round_id IN (SELECT id FROM deleted_rounds) AND ended_at IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Freestyle only (ADR 0142) requires every Policy and Value recording removed first: see docs/operations/database.md';
+  END IF;
+END
+$$;--> statement-breakpoint
 DELETE FROM public.rating_changes
   WHERE ladder IN ('policy','value')
      OR format_id IN ('policy','value')
