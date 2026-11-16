@@ -11,6 +11,7 @@ import {
   deniedAsNotFound,
 } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
+import { seasonCorrection } from './tab-tournament-season-correction.test-support';
 
 export async function seasonStage(world: World) {
   const store = createTabStore(world.database),
@@ -163,4 +164,5 @@ export async function seasonStage(world: World) {
     ],
     expected: [null, null],
   });
+  await seasonCorrection(world);
 }

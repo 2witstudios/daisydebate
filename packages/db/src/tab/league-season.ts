@@ -6,11 +6,13 @@ import { templates } from '../schema/templates';
 import { users } from '../schema/users';
 import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
-import { timeSlots } from '../schema/events';
+import { timeSlots, events as eventRows } from '../schema/events';
+import { settings } from '../schema/settings';
 import { fenceOrganizationRead } from './organization-fence';
 import { loadAuthorityContext } from './authority-context';
 import { readDatabaseTime } from '../database-clock';
 import { loadLeagueEvents } from './league-events';
+import { loadLeagueMembershipEvents } from './league-membership-events';
 import { scopeTransaction } from '../tenant-scope';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -56,6 +58,26 @@ async function load(tx: TabTransaction, input: Input) {
     .from(templates)
     .where(eq(templates.organizationId, organization.id))
     .orderBy(templates.id);
+  const [standingLobby] = await tx
+    .select()
+    .from(lobbies)
+    .where(
+      and(
+        eq(lobbies.ownerOrganizationId, organization.id),
+        eq(lobbies.kind, 'standing'),
+      ),
+    )
+    .orderBy(lobbies.id)
+    .limit(1);
+  const templateSettings = await tx
+    .select()
+    .from(settings)
+    .where(
+      and(
+        eq(settings.organizationId, organization.id),
+        eq(settings.scopeKind, 'template'),
+      ),
+    );
   const approvals = await tx
     .select()
     .from(sanctions)
@@ -66,7 +88,14 @@ async function load(tx: TabTransaction, input: Input) {
       ),
     )
     .for('share');
-  const events = await loadLeagueEvents(tx, { ...input, seasonId: season.id });
+  const events =
+    rule.counting === 'membership'
+      ? await loadLeagueMembershipEvents(tx, {
+          ...input,
+          startsAt: season.startsAt,
+          endsAt: season.endsAt,
+        })
+      : await loadLeagueEvents(tx, { ...input, seasonId: season.id });
   const peopleIds = [
     ...new Set(
       events.flatMap((row) =>
@@ -112,9 +141,23 @@ async function load(tx: TabTransaction, input: Input) {
       .where(eq(timeSlots.lobbyId, approval.lobbyId))
       .orderBy(timeSlots.startsAt)
       .limit(1);
-    if (lobby)
+    const [event] = await tx
+      .select({
+        id: eventRows.id,
+        name: eventRows.name,
+        templateId: eventRows.templateId,
+      })
+      .from(eventRows)
+      .where(
+        and(
+          eq(eventRows.lobbyId, approval.lobbyId),
+          eq(eventRows.id, approval.eventId),
+        ),
+      );
+    if (lobby && event)
       calendar.push({
         lobby,
+        event,
         startsAt: slot?.startsAt ?? lobby.createdAt,
         sanction: approval,
       });
@@ -122,6 +165,8 @@ async function load(tx: TabTransaction, input: Input) {
   await scopeTransaction(tx, scope);
   return {
     organization,
+    standingLobby: standingLobby ?? null,
+    templateSettings,
     season,
     rule,
     series,
