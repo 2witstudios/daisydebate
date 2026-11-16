@@ -103,6 +103,29 @@ Row-level security is `ENABLE`d, not `FORCE`d: the migration owner keeps access 
 
 **The check.** `tenantIsolationProblems` (`packages/db/src/tenant-isolation.ts`) compares the catalog with the manifest and reports a tenant-owned table without row-level security or with a policy that differs from its declared shape, an undeclared table that carries a key or references a tenant-owned table, a nullable key outside the `<table>_one_tenant_key` CHECK, any `tournament_id` column, a privilege held by `PUBLIC` or `daisy_realtime`, and a declaration that names no table. It runs in `tenant-isolation.integration.ts` (which also proves it passes after each migration folder), in `bun doctor` (`tenant-isolation`) and at production start-up, where `startProductionServer` refuses to serve after the runtime-role refusal and before Next is prepared.
 
+**Startup with a newer database.** Production startup reads the image's
+committed SQL hashes/timestamps and latest generated snapshot. In one read-only
+REPEATABLE READ transaction it requires the complete image history as an exact
+prefix of the live journal, every image table and column still present, and all
+image-declared tenant fences intact. Only a strictly newer journal permits
+unused added tables outside that image's snapshot; extra columns and functions
+do not change those requirements. Equal, missing, reordered or divergent
+history never excuses an undeclared tenant table. This establishes additive
+version tolerance, not compatibility with removed columns or changed stored
+contracts. Doctor and integration authoring checks remain exact over the whole
+catalogue.
+
+The release runner owns the journal and refreshes a narrow read grant after
+successful migration, including a release with no pending folders:
+`daisy_web` gets schema `drizzle` USAGE and SELECT on journal `id`, `hash`, and
+`created_at` only. It gets no journal INSERT/UPDATE/DELETE, sequence or schema
+CREATE privilege. Runtime startup never creates or grants anything; a missing
+journal permission refuses startup. The image containing this startup check
+must be released through that runner first. Its previous unpatched image
+cannot gain this behavior without a code rollout. See the
+[Daisy Tab staging procedure](daisy-tab-staging.md) for the hold and the
+irreversible seat/outcome rewrite.
+
 **Adding a tenant-owned table.** Add its manifest entry, generate the migration, and append what `bun packages/db/scripts/tenant-policies.ts <table>` prints, in the same folder that creates the table, so the check passes after every folder. Widening a policy by hand makes the check fail by design: a read across tenants goes through the subject shape, the open read shape, or a registered `SECURITY DEFINER` function.
 
 **Refusals the database makes itself.** Triggers refuse, for every role, an UPDATE or DELETE of `action_history`, `results`, `result_entries`, `result_speakers`, `certifications`, `certification_results`, `releases`, `conflicts` and `ballot_definition_versions`; any change to a grant but its one revocation; a change to a template's pins or a pool resolution's wording; any change to a published draw or to the fixtures and results it holds; a fixture moving any way but draft to published to withdrawn; a change to a published fixture's entries; a second settlement of a held command; a Room moved to another lobby; and a ballot screening whose lobby is not that of its ballot's Room. Each raises SQLSTATE 23514 with a constraint name, as a CHECK would. `daisy_web` also holds no UPDATE or DELETE on the append-only tables, no DELETE on `grants` or `pending_commands`, and no INSERT, UPDATE or DELETE on `guardian_links`, `restrictions` and `restriction_lobbies`, which stay closed until counsel answers on minors.

@@ -313,20 +313,21 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
   const ddl = await asRole('daisy_web', (client) =>
     refused(() => client.unsafe('create table public.web_probe (id integer)')),
   );
-  const migrations = await asRole('daisy_web', (client) =>
+  // The release runner exposes provenance columns only; other metadata stays private.
+  const migrationDetails = await asRole('daisy_web', (client) =>
     refused(() =>
-      client.unsafe('select count(*) from drizzle.__drizzle_migrations'),
+      client.unsafe('select name from drizzle.__drizzle_migrations'),
     ),
   );
   assert({
-    given: 'the daisy_web runtime role the baseline creates',
+    given: 'the daisy_web runtime role after the release runner',
     should:
       'hold exact table DML scopes and sequence use, and nothing that alters schema',
     actual: {
       ...privileges[0],
       sequences: sequences[0]?.usable,
       ddl,
-      migrations,
+      migrationDetails,
     },
     expected: {
       dml: true,
@@ -338,7 +339,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
       create: false,
       sequences: true,
       ddl: '42501',
-      migrations: '42501',
+      migrationDetails: '42501',
     },
   });
 });

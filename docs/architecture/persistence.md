@@ -232,3 +232,15 @@ absorbing, and every Recording insert over an admitted Round takes that same
 fence and validates the exact open source, so later use cannot reopen released
 capacity. An existing recorder still uses its close/revocation/egress owner; an unknown response or missing ambiguous
 attempt listing cannot free it or authorize another start.
+
+## Startup across forward migrations
+
+The production tenant gate accepts a database ahead of its image only when the
+image migration hashes and instants form the exact prefix of the live journal.
+The image snapshot still requires all its tables/columns, and its declared
+tenant policies remain strict. Unused additions from later migrations do not
+block an older machine restart. Exact whole-schema authoring validation remains
+in doctor and integration tests. The release runner maintains read-only
+journal provenance for the web role; startup has no DDL or grants. This does
+not make destructive schema or contract rewrites reversible. Details and role
+permissions are in [database operations](../operations/database.md#tenant-isolation).
