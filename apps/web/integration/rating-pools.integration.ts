@@ -1,31 +1,26 @@
 import { requireTestServices } from '@daisy/config';
-import { ratingLadders } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { inArena } from './ratings-arena';
 import { withSql } from './fixtures';
 requireTestServices(process.env);
 setupRitewayBun();
 
-test('one actor has three isolated pools and retry never crosses a pool', async () => {
+test('one actor has one ladder pool and retry never posts twice', async () => {
   await inArena(async ({ actor, round, rate, seasonId }) => {
     const shared = await actor();
     const opponent = await actor();
-    const rounds = await Promise.all(
-      ratingLadders.map((ladder) =>
-        round({
-          ladder,
-          affirmative: shared,
-          negative: opponent,
-          outcome: ladder === 'policy' ? 'negative' : 'affirmative',
-        }),
-      ),
-    );
-    await Promise.all(rounds.map(rate));
+    const roundId = await round({
+      ladder: 'freestyle',
+      affirmative: shared,
+      negative: opponent,
+      outcome: 'affirmative',
+    });
+    await Promise.all([rate(roundId), rate(roundId)]);
     const before = await withSql(
       (sql) =>
         sql`select ladder,rating,deviation,version from ratings where actor_id=${shared} and season_id=${seasonId} order by ladder`,
     );
-    await Promise.all(rounds.flatMap((id) => [rate(id), rate(id)]));
+    await Promise.all([rate(roundId), rate(roundId)]);
     const after = await withSql(
       (sql) =>
         sql`select ladder,rating,deviation,version from ratings where actor_id=${shared} and season_id=${seasonId} order by ladder`,
@@ -36,9 +31,9 @@ test('one actor has three isolated pools and retry never crosses a pool', async 
     );
     assert({
       given:
-        'the same two humans complete one result in each canonical ladder concurrently',
+        'the same two humans complete one Freestyle result rated concurrently and then retried',
       should:
-        'start each pool independently at1500 and update each once with Glicko2',
+        'start the Freestyle pool at 1500 and update it exactly once with Glicko2',
       actual: [
         before.map((r: { ladder: string; version: number; rating: number }) => [
           r.ladder,
@@ -55,12 +50,8 @@ test('one actor has three isolated pools and retry never crosses a pool', async 
         after,
       ],
       expected: [
-        [
-          ['freestyle', 1, true],
-          ['policy', 1, false],
-          ['value', 1, true],
-        ],
-        ratingLadders.map((ladder) => [ladder, 1500, 'glicko2-v1']),
+        [['freestyle', 1, true]],
+        [['freestyle', 1500, 'glicko2-v1']],
         before,
       ],
     });

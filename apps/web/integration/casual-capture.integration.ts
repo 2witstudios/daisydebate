@@ -9,9 +9,9 @@ import { assembleJudgedRoom } from './round-judging.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const casualValue = {
+const casualTemplate = {
   kind: 'catalog' as const,
-  formatId: 'value',
+  formatId: 'nsda-ld',
   formatVersion: 1,
   presetVersion: 1,
   competitionType: 'casual' as const,
@@ -26,7 +26,7 @@ const both = {
 
 test('a beta host’s capture choice is stored and every seat is told before Ready', async () => {
   await withRoomRuntime(async (f) => {
-    const open = await f.create({ selection: casualValue });
+    const open = await f.create({ selection: casualTemplate });
     const chosen = await f.command(f.host, open.view, {
       type: 'set-capture',
       capture: both,
@@ -51,7 +51,7 @@ test('a host without the grant is offered neither, is refused, and captures noth
   await withRoomRuntime(async (f) => {
     const host = await f.member();
     await f.sql`delete from account_entitlement_grants where user_id=${host.userId} and entitlement='casual_capture'`;
-    const open = await f.create({ selection: casualValue }, host);
+    const open = await f.create({ selection: casualTemplate }, host);
     const before = await f.snapshot(open.view.id);
     const refusal = await f.operations
       .command(host, open.view.id, {
@@ -81,7 +81,7 @@ test('the casual AI judge grant does not speak for capture', async () => {
   await withRoomRuntime(async (f) => {
     const host = await f.member();
     await f.sql`delete from account_entitlement_grants where user_id=${host.userId} and entitlement='casual_capture'`;
-    const open = await f.create({ selection: casualValue }, host);
+    const open = await f.create({ selection: casualTemplate }, host);
     const [held] =
       await f.sql`select count(*)::int as c from account_entitlement_grants where user_id=${host.userId} and entitlement='casual_ai_judge'`;
     assert({
@@ -133,7 +133,7 @@ test('Launch freezes the choice on the Round, and refuses a host who lost the gr
 
 test('a ready that read no notice is refused once the host opts in', async () => {
   await withRoomRuntime(async (f) => {
-    const open = await f.create({ selection: casualValue });
+    const open = await f.create({ selection: casualTemplate });
     const claimed = await f.command(f.host, open.view, {
       type: 'claim-seat',
       role: 'affirmative',
@@ -170,14 +170,14 @@ test('creation saves recording atomically, replays it, and refuses a host withou
       commandId,
       recording: true,
       noticeVersion: notice.version,
-      selection: casualValue,
+      selection: casualTemplate,
     });
     const before = await f.snapshot(open.view.id);
     const replay = await f.create({
       commandId,
       recording: true,
       noticeVersion: notice.version,
-      selection: casualValue,
+      selection: casualTemplate,
     });
     const reread = await f.operations.view(f.host, open.view.id);
     assert({
@@ -210,7 +210,7 @@ test('creation saves recording atomically, replays it, and refuses a host withou
     });
     const unshownHost = await f.member();
     const unshown = await f.create(
-      { recording: true, selection: casualValue },
+      { recording: true, selection: casualTemplate },
       unshownHost,
     );
     const unshownNotices =
@@ -229,7 +229,7 @@ test('creation saves recording atomically, replays it, and refuses a host withou
         {
           recording: true,
           noticeVersion: notice.version,
-          selection: casualValue,
+          selection: casualTemplate,
           cast: [{ actorId: bot.actorId, role: 'negative', slot: 0 }],
         },
         host,
@@ -256,7 +256,7 @@ test('creation saves recording atomically, replays it, and refuses a host withou
       ],
       expected: ['capture-premium', 0, [], [], null],
     });
-    const plain = await f.create({ selection: casualValue }, host);
+    const plain = await f.create({ selection: casualTemplate }, host);
     assert({
       given: 'the same host creating without recording',
       should: 'still create normally',

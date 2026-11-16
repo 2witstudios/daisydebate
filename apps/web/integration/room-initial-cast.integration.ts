@@ -9,35 +9,21 @@ import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const valueSelection = {
+/** Train's practice selection: casual Freestyle, struck from Daisy's bank. */
+const practiceSelection = {
   kind: 'catalog' as const,
-  formatId: 'value',
+  formatId: 'freestyle',
   formatVersion: 1,
   presetVersion: 1,
   competitionType: 'casual' as const,
 };
 
-/** The published value resolution the practice room pins (FMT-1). */
-const valueResolutionId = async (f: {
-  store: {
-    listPublishedResolutions: () => Promise<
-      readonly { kind: string; id: string }[]
-    >;
-  };
-}) => {
-  const resolutions = await f.store.listPublishedResolutions();
-  return resolutions.find((resolution) => resolution.kind === 'value')!.id;
-};
-
-const valueBody = (
-  resolutionId: string,
-  cast: RoomCreate['cast'],
-): RoomCreate => ({
+const practiceCreate = (cast: RoomCreate['cast']): RoomCreate => ({
   commandId: createId(),
   title: 'Practice against a bot',
-  resolution: { kind: 'value', id: resolutionId },
+  resolution: { kind: 'strike' },
   visibility: 'public',
-  selection: valueSelection,
+  selection: practiceSelection,
   cast,
 });
 
@@ -72,7 +58,7 @@ test('a create with an initial cast persists it atomically and stays assembling 
     const { actorId: botId } = await f.bot();
     const { actorId: judgeId } = await f.aiJudge();
     const { receipt, view } = await f.create({
-      selection: valueSelection,
+      selection: practiceSelection,
       cast: [
         { actorId: botId, role: 'negative', slot: 0 },
         { actorId: judgeId, role: 'judge', slot: 0 },
@@ -129,9 +115,8 @@ test('a cast refusal rolls the whole create back', async () => {
     const { actorId: botId } = await f.bot();
     const { actorId: judgeId } = await f.aiJudge();
     const member = await f.member();
-    const resolutionId = await valueResolutionId(f);
     const attempt = (cast: RoomCreate['cast']) =>
-      f.operations.create(member, valueBody(resolutionId, cast));
+      f.operations.create(member, practiceCreate(cast));
     const refused = [
       {
         given: 'a cast seating one actor twice',
@@ -179,16 +164,11 @@ test('a cast refusal rolls the whole create back', async () => {
 /** A fresh fixture bot and the practice create that seats it at negative. */
 const practiceBody = async (f: {
   bot: () => Promise<{ actorId: string }>;
-  store: {
-    listPublishedResolutions: () => Promise<
-      readonly { kind: string; id: string }[]
-    >;
-  };
 }) => {
   const { actorId: botId } = await f.bot();
   return {
     botId,
-    body: valueBody(await valueResolutionId(f), [
+    body: practiceCreate([
       { actorId: botId, role: 'negative', slot: 0 },
     ]),
   };
@@ -235,9 +215,8 @@ test('provider unavailability atomically refuses a fresh cast but does not inval
   await withRoomRuntime(async (f) => {
     const { actorId: botId } = await f.bot();
     const member = await f.member();
-    const resolutionId = await valueResolutionId(f);
     const unavailable = f.operationsWithBotAvailability(false);
-    const refusedBody = valueBody(resolutionId, [
+    const refusedBody = practiceCreate([
       { actorId: botId, role: 'negative', slot: 0 },
     ]);
     await assertRejects({
@@ -320,7 +299,7 @@ test('a cast actor whose durable profile is already gone refuses inside the tran
     const { actorId: botId } = await f.bot();
     await f.sql`delete from bot_profiles where actor_id = ${botId}`;
     const member = await f.member();
-    const body = valueBody(await valueResolutionId(f), [
+    const body = practiceCreate([
       { actorId: botId, role: 'negative', slot: 0 },
     ]);
     await assertRejects({
@@ -344,7 +323,6 @@ test('a concurrent bot-profile deactivation serializes with fresh cast creation'
   await withRoomRuntime(async (f) => {
     const { actorId: botId } = await f.bot();
     const member = await f.member();
-    const resolutionId = await valueResolutionId(f);
     const lock = new SQL(process.env.TEST_DATABASE_URL!, { max: 1 });
     let created: Promise<unknown> | null = null;
     try {
@@ -355,7 +333,7 @@ test('a concurrent bot-profile deactivation serializes with fresh cast creation'
       `;
       created = f.operations.create(
         member,
-        valueBody(resolutionId, [
+        practiceCreate([
           { actorId: botId, role: 'negative', slot: 0 },
         ]),
       );
