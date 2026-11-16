@@ -1,12 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { unequalTemplate } from './assembly.test-support';
+import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import { createRoomDraft } from './create-room-draft';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
 
 setupRitewayBun();
+/** The standard with the unequal fixture's seats and fractional timings. */
 const choice = () => ({
   ...unequalTemplate,
-  formatId: 'value',
+  formatId: 'freestyle',
   role: 'standard' as const,
 });
 
@@ -64,8 +65,8 @@ describe('native room draft fields', () => {
     const read = readRoomDraft(
       {
         basis: draftFormValues(preset).basis ?? '',
-        format: 'value',
-        resolutionMethod: 'value',
+        format: 'freestyle',
+        resolutionMethod: 'custom',
         intent: 'create',
       },
       [source],
@@ -172,24 +173,22 @@ test('database JSON key order cannot customize an untouched standard', () => {
 });
 
 test('native standard switching never carries a checked Ranked flag into the replacement preset', () => {
-  const source = choice();
-  const policy = { ...source, formatId: 'policy' };
   const fields = {
-    ...draftFormValues(createRoomDraft(source)),
-    format: 'policy',
+    ...draftFormValues(createRoomDraft(unequalTemplate)),
+    format: 'freestyle',
     ranked: 'on',
   };
-  const read = readRoomDraft(fields, [source, policy]);
+  const read = readRoomDraft(fields, [unequalTemplate, freestyleChoice]);
   assert({
-    given: 'a checked Ranked flag posted with a different standard',
+    given: 'a checked Ranked flag posted while switching a template to the standard',
     should:
-      'restore that standard while leaving Ranked off, as the enhanced editor does',
+      'restore the standard while leaving Ranked off, as the enhanced editor does',
     actual: read.ok && [
       read.draft.basis.formatId,
       read.draft.ranked,
       read.draft.resolutionMethod,
     ],
-    expected: ['policy', false, 'policy'],
+    expected: ['freestyle', false, 'strike'],
   });
 });
 

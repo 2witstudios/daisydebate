@@ -186,7 +186,7 @@ export function readRoomDraft(
     }),
   );
   const method = decoded.resolutionMethod;
-  if (!['policy', 'value', 'strike', 'custom'].includes(method ?? ''))
+  if (!['strike', 'custom'].includes(method ?? ''))
     return invalid;
   const poi = decoded.questionStyle === 'poi';
   if (!poi && decoded.questionStyle !== 'cross-examination') return invalid;

@@ -2,26 +2,26 @@ import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
 import { heading, type IntroStepProps } from './intro';
 
-/** The three formats with a rating ladder, Freestyle first. */
-const ladders = [
-  [
-    'Freestyle',
-    'Parli-style, on the spot.',
-    'The topic is a surprise: five resolutions are drawn and you strike them in turn until one is left.',
-    'Topic revealed at the table',
-  ],
-  [
-    'Policy',
-    '“Schools should ban smartphones during the school day.”',
-    'Argue whether we should take an action.',
-    'Topic known in advance',
-  ],
-  [
-    'Value',
-    '“Privacy ought to be valued above public safety.”',
-    'Argue which value matters more.',
-    'Topic known in advance',
-  ],
+/** Daisy's two choices: the ranked Freestyle standard, and Custom for any rules. */
+const choices = [
+  {
+    name: 'Freestyle',
+    tag: 'Ranked',
+    summary: 'Daisy’s standard, with its own ladder.',
+    detail: [
+      'The topic is revealed at the table: five resolutions are drawn from Daisy’s bank, and the sides strike them in turn until one is left. Neg strikes first.',
+      'Then 20 minutes of prep, and the round begins.',
+    ],
+  },
+  {
+    name: 'Custom',
+    tag: 'Unranked',
+    summary: 'Any rules, any kind of debate.',
+    detail: [
+      'Start from a league template such as NSDA Lincoln-Douglas, NCFCA Team Policy or Public Forum, or write your own.',
+      'Practice or compete, just not ranked.',
+    ],
+  },
 ] as const;
 
 const pill =
@@ -35,42 +35,40 @@ export function StylesStep({ nextHref, backHref, skip }: IntroStepProps) {
       skip={skip}
     >
       <h1 id="onboarding-title" className={heading}>
-        Ranked ladders and custom formats
+        Freestyle and Custom
       </h1>
       <p className="max-w-reading text-md leading-normal text-ink-muted">
-        Freestyle, Policy and Value each have a ladder: win ranked rounds and
-        your rating climbs. Every format runs the same round.
+        Play Freestyle to climb the ladder. Run anything else as a custom
+        debate.
       </p>
-      <div className="grid grid-cols-3 gap-4 max-narrow:grid-cols-1">
-        {ladders.map(([name, quote, detail, tag]) => (
+      <div className="grid grid-cols-2 gap-4 max-narrow:grid-cols-1">
+        {choices.map(({ name, tag, summary, detail }) => (
           <div
             key={name}
             className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-4"
           >
-            <h2 className="font-display text-xl font-semibold text-ink">
-              {name}
-            </h2>
-            <p className="font-display text-sm leading-normal text-ink-muted italic">
-              {quote}
-            </p>
-            <p className="text-sm leading-normal text-ink-muted">{detail}</p>
-            <p className="mt-auto text-sm font-strong text-ink">{tag}</p>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-display text-xl font-semibold text-ink">
+                {name}
+              </h2>
+              <span
+                className={
+                  tag === 'Ranked'
+                    ? `${pill} bg-accent text-accent-ink`
+                    : `${pill} border border-border-strong text-ink`
+                }
+              >
+                {tag}
+              </span>
+            </div>
+            <p className="text-sm font-strong text-ink">{summary}</p>
+            {detail.map((line) => (
+              <p key={line} className="text-sm leading-normal text-ink-muted">
+                {line}
+              </p>
+            ))}
           </div>
         ))}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-lg bg-surface-sunken px-5 py-3">
-        <div className="flex min-w-0 flex-1 basis-onboarding-col flex-col gap-1">
-          <h2 className="font-display text-xl font-semibold text-ink">
-            Custom format
-          </h2>
-          <p className="text-sm leading-normal text-ink-muted">
-            Want your own rules? Host a custom debate, or play other formats on
-            the list. Practice or compete, just not ranked.
-          </p>
-        </div>
-        <span className={`${pill} border border-border-strong text-ink`}>
-          Unranked
-        </span>
       </div>
       <StepFooter
         backHref={backHref}

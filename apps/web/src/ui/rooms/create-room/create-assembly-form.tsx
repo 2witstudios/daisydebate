@@ -6,7 +6,6 @@ import {
   idle,
   type FormFields,
 } from '../../../features/forms/form-state';
-import type { PublishedResolution } from '@daisy/protocol';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import {
   postRoomDraft,
@@ -24,7 +23,6 @@ import { CreateRoomEditor } from './create-room-editor';
 type FieldsProps = {
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
-  readonly resolutions?: readonly PublishedResolution[];
   readonly state: FormFields;
   readonly pending: boolean;
   readonly initialRanked?: boolean;
@@ -33,7 +31,6 @@ type FieldsProps = {
 export function CreateAssemblyFields({
   commandId,
   choices,
-  resolutions = [],
   state,
   pending,
   initialRanked = false,
@@ -60,7 +57,6 @@ export function CreateAssemblyFields({
   return (
     <CreateRoomEditor
       choices={choices}
-      resolutions={resolutions}
       initialChoice={first}
       values={state.values}
       commandId={commandId}
@@ -79,14 +75,12 @@ export function CreateAssemblyForm({
   sourceRoomId,
   commandId,
   choices,
-  resolutions = [],
   initialRanked = false,
 }: {
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
-  readonly resolutions?: readonly PublishedResolution[];
   readonly initialRanked?: boolean;
 }) {
   const [state, setState] = useState<RoomDraftAnswer>(initialState);
@@ -127,7 +121,6 @@ export function CreateAssemblyForm({
         key={JSON.stringify(fields.values)}
         commandId={commandId}
         choices={choices}
-        resolutions={fields.resolutions ?? resolutions}
         state={fields}
         pending={pending}
         initialRanked={initialRanked}

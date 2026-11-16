@@ -1,5 +1,4 @@
 import type {
-  PublishedResolution,
   RoomCatalogChoice,
   RoomCastChoice,
   RoomCreate,
@@ -25,10 +24,8 @@ export type PracticeCatalog = {
   readonly bots: readonly RoomCastChoice[];
   /** The member may seat an AI judge on this casual Round (WATCH-16). */
   readonly botDebateAiJudge: boolean;
-  /** The standards a practice may run: Freestyle, Policy and Value, catalog order. */
-  readonly formats: readonly RoomCatalogChoice[];
-  /** The published resolutions a fixed-resolution practice names. */
-  readonly resolutions: readonly PublishedResolution[];
+  /** The catalog's format choices; a practice runs its Freestyle standard. */
+  readonly choices: readonly RoomCatalogChoice[];
 };
 
 export type PracticeRequest =
@@ -39,16 +36,20 @@ export type PracticeRequest =
       readonly body: RoomCreate;
     };
 
-const formatUnavailable =
-  'Practice in that format is unavailable right now. Choose another.';
+/** Daisy's one standard as the catalog offers it, or null when it is absent. */
+const freestyleOf = (
+  choices: readonly RoomCatalogChoice[],
+): RoomCatalogChoice | null =>
+  choices.find(
+    (choice) => choice.role === 'standard' && choice.formatId === 'freestyle',
+  ) ?? null;
 
 /**
- * The create a Start practice post asks for (DEC-269): a casual Room in the
- * addressed standard — Freestyle strikes its resolution; Policy and Value
- * debate their current publication — with the chosen bot at negative. The AI
- * judge judges for a member holding the casual AI judge entitlement
- * (WATCH-16); otherwise the judge seat stays open for a person the host
- * invites from the Room. The host claims a side in the Room.
+ * The create a Start practice post asks for (DEC-269): a casual Freestyle
+ * Room, its resolution struck from the five Daisy draws, with the chosen bot
+ * at negative. The AI judge judges for a member holding the casual AI judge
+ * entitlement (WATCH-16); otherwise the judge seat stays open for a person
+ * the host invites from the Room. The host claims a side in the Room.
  */
 export function preparePractice(
   form: FormData,
@@ -70,30 +71,17 @@ export function preparePractice(
       kind: 'refused',
       error: 'The AI judge is unavailable, so a practice room can’t assemble.',
     };
-  const format = catalog.formats.find(
-    (choice) => choice.formatId === (field(form, 'format') || 'freestyle'),
-  );
-  if (!format) return { kind: 'refused', error: formatUnavailable };
-  const publication = catalog.resolutions.find(
-    (resolution) => resolution.kind === format.formatId,
-  );
-  let resolution: RoomCreate['resolution'] = { kind: 'strike' };
-  if (format.formatId !== 'freestyle') {
-    if (
-      (format.formatId !== 'policy' && format.formatId !== 'value') ||
-      !publication
-    )
-      return { kind: 'refused', error: formatUnavailable };
-    resolution = { kind: format.formatId, id: publication.id };
-  }
+  const freestyle = freestyleOf(catalog.choices);
+  if (!freestyle)
+    return { kind: 'refused', error: 'Practice is unavailable. Try again.' };
   return {
     kind: 'ready',
     body: {
       commandId,
       title: `Practice vs ${bot.label}`,
-      resolution,
+      resolution: { kind: 'strike' },
       visibility: defaultRoomVisibility,
-      selection: casualSelection(format),
+      selection: casualSelection(freestyle),
       cast: [
         { actorId: bot.actorId, role: 'negative', slot: 0 },
         ...(judge

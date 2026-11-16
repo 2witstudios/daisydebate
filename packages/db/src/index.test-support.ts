@@ -102,7 +102,6 @@ export const roundRow = (record: {
   record.visibility ?? null,
   record.resolution,
   null,
-  null,
   record.competitionType,
   record.formatId,
   record.formatVersion,

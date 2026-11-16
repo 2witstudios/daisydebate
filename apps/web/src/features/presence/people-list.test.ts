@@ -9,7 +9,6 @@ import {
   encodePeopleListCursor,
   readPeopleList,
   PEOPLE_PAGE,
-  shownLadders,
   type PeopleListDependencies,
 } from './people-list';
 
@@ -57,7 +56,7 @@ const deps = (
     counts: { everyone: 2, friends: 1, online: 2 },
     self: { chosen: 'busy', placement: null },
   }),
-  cards: async () => ({ visibility: [], ratings: [], records: [] }),
+  cards: async () => ({ ratings: [], records: [] }),
   blinded: async () => [],
   ...overrides,
 });
@@ -68,25 +67,6 @@ const read = (overrides: Partial<PeopleListDependencies> = {}) =>
     { filter: 'all', query: null, cursor: undefined },
     deps(overrides),
   );
-
-describe('shownLadders', () => {
-  test('Freestyle always, the others by choice', () => {
-    assert({
-      given: 'no choice, Policy on, and both on',
-      should: 'show Freestyle alone, then add what they turned on',
-      actual: [
-        shownLadders(undefined),
-        shownLadders({ showPolicy: true, showValue: false }),
-        shownLadders({ showPolicy: true, showValue: true }),
-      ],
-      expected: [
-        ['freestyle'],
-        ['freestyle', 'policy'],
-        ['freestyle', 'policy', 'value'],
-      ],
-    });
-  });
-});
 
 describe('readPeopleList', () => {
   test('each row carries its status, relation and the viewer’s own status', async () => {
@@ -189,13 +169,10 @@ describe('readPeopleList', () => {
     });
   });
 
-  test('a card shows only the ratings its owner turned on', async () => {
-    const state = (
-      actorId: string,
-      ladder: 'freestyle' | 'policy' | 'value',
-    ) => ({
+  test('a card shows each person’s Daisy ladder rating and record', async () => {
+    const state = (actorId: string) => ({
       actorId,
-      ladder,
+      ladder: 'freestyle' as const,
       rating: 1600.4,
       deviation: 40,
       volatility: 0.06,
@@ -203,13 +180,7 @@ describe('readPeopleList', () => {
     });
     const list = await read({
       cards: async () => ({
-        visibility: [{ actorId: ada, showPolicy: true, showValue: false }],
-        ratings: [
-          state(ada, 'freestyle'),
-          state(ada, 'policy'),
-          state(ada, 'value'),
-          state(bea, 'policy'),
-        ],
+        ratings: [state(ada)],
         records: [
           {
             actorId: ada,
@@ -229,19 +200,15 @@ describe('readPeopleList', () => {
       }),
     });
     assert({
-      given: 'Ada showing Policy, and Bea rated on Policy but not showing it',
-      should:
-        'leave Value off Ada’s card, Policy off Bea’s, and tally the record',
+      given: 'Ada rated on Freestyle with a record, and Bea not yet rated',
+      should: 'show Ada’s rating and record, and Bea’s unrated Freestyle',
       actual: list.people.map((m) => ({
         ratings: m.ratings.map((r) => [r.ladder, r.rating]),
         record: [m.wins, m.losses],
       })),
       expected: [
         {
-          ratings: [
-            ['freestyle', 1600],
-            ['policy', 1600],
-          ],
+          ratings: [['freestyle', 1600]],
           record: [3, 1],
         },
         { ratings: [['freestyle', null]], record: [0, 0] },
@@ -253,7 +220,6 @@ describe('readPeopleList', () => {
     const list = await read({
       blinded: async () => [ada],
       cards: async () => ({
-        visibility: [],
         ratings: [
           {
             actorId: ada,

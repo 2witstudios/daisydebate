@@ -1,15 +1,12 @@
-import type {
-  RatingLadder,
-  CompetitionType,
-  PublishedResolution,
-} from '@daisy/protocol';
+import type { RatingLadder, CompetitionType } from '@daisy/protocol';
 import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import { defaultRoomVisibility } from '../rooms/room-visibility';
 
 /**
  * The room an accepted challenge opens (ADR 0103), through the one room-create
- * form on the format they agreed. Both modes are public, the Room default:
+ * form on the ladder's format they agreed: Freestyle, which strikes its
+ * resolution (ADR 0142). Both modes are public, the Room default:
  * casual like any Room nobody chose otherwise for, and ranked because it is
  * always public, so a human judge can find it and a public result counts on
  * both records. The two debater seats stay held for the two of them while
@@ -23,21 +20,11 @@ export function challengeRoomForm(input: {
   readonly mode: CompetitionType;
   readonly template: RoomTemplate;
   readonly commandId: string;
-  readonly resolutions: readonly PublishedResolution[];
 }): FormData {
   const form = new FormData();
   form.set('commandId', input.commandId);
   form.set('title', `@${input.opponent} vs @${input.host}`);
-  const method = input.template.preset.config.resolutionDraw.enabled
-    ? 'strike'
-    : input.template.formatId === 'policy'
-      ? 'policy'
-      : 'value';
-  form.set('resolutionMethod', method);
-  const publication = input.resolutions.find(
-    (resolution) => resolution.kind === method,
-  );
-  if (publication) form.set(`${publication.kind}ResolutionId`, publication.id);
+  form.set('resolutionMethod', 'strike');
   // Ranked is always public; casual takes the Room default, also public.
   form.set(
     'visibility',

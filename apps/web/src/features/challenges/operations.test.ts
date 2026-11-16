@@ -72,7 +72,7 @@ const offer = {
   commandId: id,
   username: 'ada',
   mode: 'ranked',
-  format: 'policy',
+  format: 'freestyle',
 } as const;
 
 describe('sendChallenge', () => {
@@ -80,7 +80,7 @@ describe('sendChallenge', () => {
     const { calls, dependencies } = harness();
     const answer = await sendChallenge(member, offer, dependencies);
     assert({
-      given: 'a ranked Policy challenge to a member who is online',
+      given: 'a ranked Freestyle challenge to a member who is online',
       should:
         'fence the pair and record the offer, expiring in two minutes, with ids for its notification and email',
       actual: { answer, calls },
@@ -96,7 +96,7 @@ describe('sendChallenge', () => {
               notificationId: 'id0000000000000000000001',
               emailJobId: 'id0000000000000000000002',
               mode: 'ranked',
-              format: 'policy',
+              format: 'freestyle',
               now,
               expiresAt: new Date(
                 Date.parse(now) + CHALLENGE_TTL_MS,
@@ -258,7 +258,7 @@ describe('challengeListOf', () => {
     actorId: them,
     username: 'ada',
     mode: 'casual' as const,
-    format: 'value' as const,
+    format: 'freestyle' as const,
     roomId: null,
     createdAt: now,
     expiresAt: now,

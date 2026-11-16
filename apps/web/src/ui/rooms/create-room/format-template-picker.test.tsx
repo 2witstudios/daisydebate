@@ -148,21 +148,20 @@ test('a new room starts on Value, with standards before league rules (FMT-3)', (
     <FormatTemplatePicker
       choices={[
         unequalTemplate,
-        standard('value', 'Value', 2),
-        standard('policy', 'Policy', 1),
+        standard('freestyle', 'Freestyle', 3),
       ]}
     />,
   );
   const selected = html.match(/<option[^>]*selected=""[^>]*>/)?.[0];
   assert({
-    given: 'a catalog with Policy, Value and a league template',
-    should: 'select Value and group Daisy standards ahead of the league rules',
+    given: 'a catalog with Freestyle and a league template',
+    should:
+      'select Freestyle and group the Daisy standard ahead of the league rules',
     actual: [
-      selected?.includes('&quot;formatId&quot;:&quot;value&quot;'),
-      html.indexOf('label="Daisy standards"') <
+      selected?.includes('&quot;formatId&quot;:&quot;freestyle&quot;'),
+      html.indexOf('label="Daisy standard"') <
         html.indexOf('label="League rules · Other formats"'),
-      html.indexOf('Policy (') < html.indexOf('Value ('),
     ],
-    expected: [true, true, true],
+    expected: [true, true],
   });
 });

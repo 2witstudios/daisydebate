@@ -1,11 +1,6 @@
 import type { Person } from '@daisy/protocol';
+import { ladderLabels } from '../../features/ratings/ladder-labels';
 import { statusLabels } from '../components/presence-dot/status-labels';
-
-const ladderLabels = {
-  freestyle: 'Freestyle',
-  policy: 'Policy',
-  value: 'Value',
-} as const;
 
 /** The account menu's words: a figure, or why there is none (ui-conventions). */
 export const ratingText = (rating: Person['ratings'][number]): string => {
@@ -14,7 +9,7 @@ export const ratingText = (rating: Person['ratings'][number]): string => {
   return rating.provisional ? 'Provisional' : String(rating.rating);
 };
 
-/** What a screen reader hears for a person's shown ratings. */
+/** What a screen reader hears for a person's ratings. */
 export const ratingsLabel = (member: Person): string =>
   member.ratings
     .map((rating) => `${ladderLabels[rating.ladder]} ${ratingText(rating)}`)
@@ -25,7 +20,7 @@ export const anchorAt = (top: number) => (element: HTMLElement | null) => {
   element?.style.setProperty('--person-anchor', `${top}px`);
 };
 
-/** Name, status, record and the ratings this person shows. */
+/** Name, status, record and this person's Daisy ladder ratings. */
 export function MemberCardBody({ member }: { readonly member: Person }) {
   return (
     <>
@@ -37,7 +32,7 @@ export function MemberCardBody({ member }: { readonly member: Person }) {
           {statusLabels[member.status]} · {member.wins}–{member.losses}
         </p>
       </div>
-      <dl className="grid grid-cols-3 gap-2">
+      <dl className="flex flex-wrap gap-x-4 gap-y-2">
         {member.ratings.map((rating) => (
           <div key={rating.ladder}>
             <dt className="text-xs text-ink-muted">

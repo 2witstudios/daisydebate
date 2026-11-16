@@ -31,10 +31,10 @@ describe('standings reads (RATE-1.4.1)', () => {
           expected: [active, newer, older],
         });
         assert({
-          given: 'two ranked-eligible formats and one that is not',
-          should: 'list only the ranked-eligible ones, by name',
+          given: 'the seeded catalog, whose one standard is ranked-eligible',
+          should: 'list only Freestyle (ADR 0142)',
           actual: listedFormats,
-          expected: ['freestyle', 'policy', 'value'],
+          expected: ['freestyle'],
         });
       } finally {
         await database.close();
@@ -47,7 +47,6 @@ describe('standings reads (RATE-1.4.1)', () => {
       const database = createDatabase({ url, nextActorId: createId });
       try {
         const formatId = 'freestyle';
-        const otherFormat = 'policy';
         const first = await season(fixture, 'closed', at(1));
         const second = await season(fixture, 'closed', at(2));
         const third = await season(fixture, 'closed', at(3));
@@ -92,10 +91,6 @@ describe('standings reads (RATE-1.4.1)', () => {
           1520,
         );
         await rated({ formatId, seasonId: third, ladder: 'freestyle' }, 1530);
-        await rated(
-          { formatId: otherFormat, seasonId: first, ladder: 'policy' },
-          1550,
-        );
 
         const read = await database.readStandings({
           ladder: 'freestyle',
@@ -122,7 +117,7 @@ describe('standings reads (RATE-1.4.1)', () => {
           );
         assert({
           given:
-            'ratings in two asked seasons, a third season and another format',
+            'ratings in two asked seasons and a third season',
           should:
             'return exactly the ranked rows of that format in the two asked seasons, a closed account by name and marked closed',
           actual: bySeasonThenRating(read.ratings, (row) => row.rating).map(

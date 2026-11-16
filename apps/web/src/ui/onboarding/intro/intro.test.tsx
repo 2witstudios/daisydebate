@@ -39,7 +39,7 @@ describe('DaisyStep', () => {
     assert({
       given: 'the approved A variant',
       should:
-        'open with the competitive promise, the product loop and three ladders',
+        'open with the competitive promise, the product loop and the one Freestyle ladder',
       actual: [
         page.includes('1 of 6'),
         page.includes(
@@ -52,68 +52,78 @@ describe('DaisyStep', () => {
           'Debate Go live, make your case, and let a judge decide.',
         ),
         page.includes(
-          'Ladder Ranked results move your rating on that format’s ladder.',
-        ),
-        ...['Three ladders', 'Season 1', 'Freestyle', 'Policy', 'Value'].map(
-          (label) => page.includes(label),
+          'Ladder Ranked Freestyle results move your rating on the ladder.',
         ),
         stageColourClasses(html),
       ],
-      expected: [
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        [],
+      expected: [true, true, true, true, true, []],
+    });
+  });
+
+  test('the resolution draw', () => {
+    const html = render(DaisyStep);
+    const page = text(html);
+    assert({
+      given: 'the figure under the loop',
+      should:
+        'draw five resolutions, two struck by each side and one left to debate',
+      actual: [
+        page.includes('Resolution draw'),
+        page.includes('Neg strikes first'),
+        html.split('<del').length - 1,
+        page.split('Aff struck').length - 1,
+        page.split('Neg struck').length - 1,
+        page.includes('This house would ban homework Debating'),
       ],
+      expected: [true, true, 4, 2, 2, true],
+    });
+    assert({
+      given: 'one ranked ladder',
+      should: 'name no other ladder or retired standard',
+      actual: ['Three ladders', 'Policy', 'Value', 'Season 1'].map((label) =>
+        page.includes(label),
+      ),
+      expected: [false, false, false, false],
     });
   });
 });
 
 describe('StylesStep', () => {
-  test('three ranked ladders and the custom format', () => {
+  test('Freestyle and Custom', () => {
     const page = text(render(StylesStep));
     assert({
       given: 'the second step',
       should:
-        'present Freestyle, Policy and Value as ranked ladders and custom debates as unranked',
+        'present Freestyle as the ranked standard with its draw and prep, and Custom as any rules, unranked',
       actual: [
         '2 of 6',
-        'Ranked ladders and custom formats',
-        'each have a ladder',
-        'The topic is a surprise: five resolutions are drawn',
-        'strike them in turn until one is left',
-        'Schools should ban smartphones during the school day.',
-        'Privacy ought to be valued above public safety.',
-        'Want your own rules? Host a custom debate',
+        'Freestyle and Custom',
+        'Freestyle Ranked Daisy’s standard, with its own ladder.',
+        'five resolutions are drawn from Daisy’s bank, and the sides strike them in turn until one is left. Neg strikes first.',
+        'Then 20 minutes of prep',
+        'Custom Unranked Any rules, any kind of debate.',
+        'NSDA Lincoln-Douglas, NCFCA Team Policy or Public Forum, or write your own.',
         'Practice or compete, just not ranked.',
       ].map((line) => page.includes(line)),
-      expected: Array(9).fill(true),
+      expected: Array(8).fill(true),
     });
   });
 
-  test('ladder order and the one Unranked label', () => {
+  test('two choices, Freestyle first', () => {
     const page = text(render(StylesStep));
     assert({
       given: 'the second step',
       should:
-        'list Freestyle before Policy and Value, with no badge on the ladders and one Unranked card',
+        'list Freestyle before Custom, with one Ranked and one Unranked label and no retired ladders',
       actual: [
-        page.indexOf('Freestyle') < page.indexOf('Policy'),
-        page.indexOf('Policy') < page.indexOf('Value'),
-        (page.match(/Ranked ladder(?!s)/g) ?? []).length,
+        page.indexOf('Freestyle Ranked') < page.indexOf('Custom Unranked'),
         page.split('Unranked').length - 1,
-        page.includes('Three ways to debate'),
-        page.includes('A Freestyle draw'),
-        page.includes('set ahead of time'),
+        page.includes('Three ladders'),
+        page.includes('Policy and Value'),
+        page.includes('Value'),
+        page.includes('each have a ladder'),
       ],
-      expected: [true, true, 0, 1, false, false, false],
+      expected: [true, 1, false, false, false, false],
     });
   });
 });
