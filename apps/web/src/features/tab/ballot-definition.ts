@@ -181,8 +181,11 @@ function pinnedBallotParts(
   ];
 }
 
-/** The settings preview's prelim, drawn with sample names. */
-const preview: BallotSettings['preview'] = {
+/**
+ * The settings preview's prelim, drawn with sample names. Every ballot
+ * settings screen previews with these, the walk's and the stored event's.
+ */
+export const sampleBallotPreview: BallotSettings['preview'] = {
   lede: 'A prelim round, with sample names',
   subjects: [
     { id: 'jensen', name: 'Jensen', role: 'Affirmative' },
@@ -237,7 +240,7 @@ export function ballotSettingsOf(
       },
     ],
     definition,
-    preview,
+    preview: sampleBallotPreview,
   };
 }
 

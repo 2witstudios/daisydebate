@@ -9,10 +9,10 @@ import { applyBallotOption } from '../../../features/tab/ballot-rules';
 import { sourceLabel } from '../../../features/tab/settings';
 import { Button } from '../../components/button/button';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ConfiguredBallot } from '../ballot/configured-ballot';
 import { inlineSelectClass } from '../choice-field/choice-field';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 import { SampleForm, type SampleSubmit } from '../sample-form/sample-form';
+import { BallotPreview, BallotPreviewLayout } from './ballot-preview';
 
 type Chosen = Readonly<Partial<Record<BallotOption['id'], string>>>;
 
@@ -63,31 +63,16 @@ export function BallotSettingsEditor({
           </Button>
         }
       />
-      <div className="flex items-start gap-6 max-rail:flex-col">
-        <section
-          aria-label="Preview of the judge's ballot"
-          className="flex min-w-0 flex-1 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5 max-rail:w-full max-narrow:p-3"
-        >
-          <div className="flex flex-col">
-            <h2 className="font-display text-xl font-bold">
-              What a judge sees
-            </h2>
-            <p className="text-sm text-ink-muted">{settings.preview.lede}</p>
-          </div>
-          <ConfiguredBallot
-            key={JSON.stringify(definition)}
-            definition={definition}
-            subjects={settings.preview.subjects}
-            draft={settings.preview.draft}
-            reasonReaders="Both debaters and their coaches read this."
-            preview
-          />
-        </section>
+      <BallotPreviewLayout
+        preview={
+          <BallotPreview definition={definition} preview={settings.preview} />
+        }
+      >
         <SampleForm
           id={formId}
           action={submit}
           label="Ballot settings"
-          className="flex w-host-aside shrink-0 flex-col gap-4 max-rail:w-full"
+          className="flex flex-col gap-4"
         >
           <ListCard>
             {settings.sections.map((section) => (
@@ -145,7 +130,7 @@ export function BallotSettingsEditor({
             <Button type="submit">{settings.saveLabel}</Button>
           </div>
         </SampleForm>
-      </div>
+      </BallotPreviewLayout>
     </div>
   );
 }
