@@ -70,6 +70,16 @@
       "owner": "platform",
       "adr": "docs/decisions/0093-glob-minimatch-audit-exceptions.md",
       "reviewBy": "2027-01-15"
+    },
+    {
+      "advisory": "GHSA-fc5q-39xc-vjpf",
+      "packages": ["picomatch"],
+      "dependencyPath": "workspace:@daisy/web > @sentry/nextjs 11.10.0 > @rollup/plugin-commonjs 28.0.1 (and its @rollup/pluginutils 5.5.1) > picomatch 4.0.7; knip 6.37.0 (dev) > picomatch / fdir 6.5.0 > picomatch 4.0.7; typescript-eslint 8.70.0 and eslint-config-next 16.3.5 (eslint-import-resolver-typescript) > tinyglobby 0.2.17 > fdir > picomatch 4.0.7; riteway 9.3.0 (dev) and better-auth's optional vitest peer > vitest 3.2.7 > vite 7.3.7 / tinyglobby > picomatch 4.0.7; eslint-config-next > @next/eslint-plugin-next > fast-glob 3.3.1 > micromatch 4.0.8 > picomatch 2.3.2.",
+      "reason": "ReDoS through single-branch repeated extglobs (high). Every picomatch through 4.0.7 is affected and no patched release exists.",
+      "unreachable": "Physically present in production installs via @sentry/nextjs > @rollup/plugin-commonjs, but never executed there: @sentry/nextjs requires plugin-commonjs only in build/cjs/config/loaders/wrappingLoader.js, a webpack loader that runs inside `next build`. The remaining chains are lint, test and knip tooling (eslint, typescript-eslint, knip, vitest/vite, fast-glob) over repository-authored globs. No apps/* or packages/* source imports picomatch, micromatch, tinyglobby, fdir, fast-glob, vite or @rollup/*; a production `next build` of apps/web traces none of them into any of its 225 server .nft.json files, and the other services run from source on Bun with no such import. The only picomatch in the web and admin Next servers is Next's vendored next/dist/compiled/picomatch (not this lockfile package), used for images.localPatterns/remotePatterns, which both apps leave at the framework default `**` - no extglob. The finding needs an attacker-chosen pattern; none reaches any matcher.",
+      "owner": "platform",
+      "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
+      "reviewBy": "2026-12-23"
     }
   ]
 }
