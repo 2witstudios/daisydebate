@@ -11,6 +11,7 @@ import {
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
+import { seatJudges } from './seat-judges';
 
 /**
  * Commits a live Round's public facts to this suite's own e2e database, as the
@@ -92,16 +93,7 @@ const create = async (sql: SQL, input: Create) => {
       `aff-${suffix}`,
     );
     await seat(tx as never, roundId, negativeSide, `neg-${suffix}`);
-    // Every frozen judge slot is filled at construction, so the Round can
-    // complete (rounds_judge_slots_complete).
-    for (let slot = 0; slot < rules.seats.judges; slot += 1) {
-      const judgeUser = createId();
-      const judgeActor = createId();
-      await tx`insert into users (id,username,email_verified) values (${judgeUser},${`judge-${slot}-${suffix}`},true)`;
-      await tx`insert into actors (id,kind,user_id) values (${judgeActor},'human',${judgeUser})`;
-      await tx`insert into round_participants (id,round_id,actor_id,seat_kind,slot)
-        values (${createId()},${roundId},${judgeActor},'judge',${slot})`;
-    }
+    await seatJudges(tx as never, roundId, rules.seats.judges);
     const segmentId = createId();
     await tx`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
       values (${segmentId},${roundId},0,${segment.type},${segment.key},now()-interval '4 minutes',${segment.durationMs})`;

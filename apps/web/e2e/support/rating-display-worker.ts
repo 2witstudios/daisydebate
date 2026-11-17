@@ -11,6 +11,7 @@ import {
 } from '@daisy/protocol';
 import { rateCompletedRound } from '../../src/features/ratings/rate-debate';
 import { betaAccessTarget } from './beta-access-target';
+import { seatJudges } from './seat-judges';
 // Fixture-backed rendering proof, distinct from real terminal-producer journeys.
 const { username, rooms } = z
   .object({
@@ -50,18 +51,7 @@ try {
         [negativeSide, opponent],
       ])
         await tx`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot) values(${createId()},${id},${actor},'side',${side},0)`;
-      // Every frozen judge slot is filled too (rounds_judge_slots_complete).
-      for (
-        let slot = 0;
-        slot < (room.rules_snapshot.seats?.judges ?? 0);
-        slot += 1
-      ) {
-        const judgeUser = createId(),
-          judge = createId();
-        await tx`insert into users(id,username) values(${judgeUser},${`judge-${judgeUser}`})`;
-        await tx`insert into actors(id,kind,user_id) values(${judge},'human',${judgeUser})`;
-        await tx`insert into round_participants(id,round_id,actor_id,seat_kind,slot) values(${createId()},${id},${judge},'judge',${slot})`;
-      }
+      await seatJudges(tx as never, id, room.rules_snapshot.seats?.judges ?? 0);
       // The cast is seated while the Round is constructed, then it completes
       // (round_participants_fixed_cast).
       await tx`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=clock_timestamp()-interval '10 minutes' where id=${id}`;

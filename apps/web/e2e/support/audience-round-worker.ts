@@ -2,8 +2,13 @@ import { createHash } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { validRules, publicLobbyId } from '@daisy/db/testing';
 import { SQL } from 'bun';
-import { affirmativeSide, emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  emptyRuntimeCheckpointFor,
+  roundJudgeAssignmentReceiptSchema,
+} from '@daisy/protocol';
 import { betaAccessTarget } from './beta-access-target';
+import { seatJudges } from './seat-judges';
 
 /**
  * A Round on air, plus one stored notification and one watched Round for the
@@ -13,8 +18,8 @@ import { betaAccessTarget } from './beta-access-target';
  * boundary as beta approval.
  *
  * `seat <username> <roundId>` puts an account in an existing `judged` Round's
- * live room as its replacement judge, then ends that Round; `host` names who hosts it, seatless, and `link` makes
- * it unlisted.
+ * live room as its replacement judge, then ends that Round; `host` names who
+ * hosts it, seatless, and `link` makes it unlisted.
  */
 const [username, ...options] = process.argv.slice(2);
 if (!username) throw new Error('Name the account');
@@ -26,8 +31,10 @@ try {
   if (identity?.role !== 'daisy_e2e') throw new Error('Identity refused');
   if (username === 'seat') {
     // The cast froze at Start (round_participants_fixed_cast): the one way into
-    // a Round's live room after it began is a judge assignment, so the account
-    // replaces the Round's judge through its ordinary command.
+    // a Round's live room after it began is a judge assignment. This writes a
+    // schema-valid change_judge receipt row directly and appends the assignment
+    // through daisy_append_round_judge_assignment; it skips the command's
+    // room-judge, retirement and phase-event side effects, which no spec reads.
     const [name, seatRound] = options;
     const [seated] =
       await client`select a.id from users u join actors a on a.user_id=u.id where u.username=${name!}`;
@@ -45,13 +52,16 @@ try {
         actor_id: seated!.id,
         type: 'change_judge',
         payload_digest: createHash('sha3-256').update(commandId).digest('hex'),
-        result: {
+        result: roundJudgeAssignmentReceiptSchema.parse({
           kind: 'judge_assignment',
+          commandId,
           roundId: seatRound!,
           slot: 0,
           assignmentVersion: slot!.current_version + 1,
           participantId,
-        },
+          resultingVersion: round!.version + 1,
+          replayed: false,
+        }),
         resulting_version: round!.version + 1,
         applied_at: appliedAt,
       })}`;
@@ -138,19 +148,7 @@ try {
     })}`;
     // The cast is seated while the Round is constructed. A judged Round stays
     // on air until `seat`, since only an active Round's judge is reassigned.
-    for (let slot = 0; slot < rules.seats.judges; slot += 1) {
-      const [user] =
-        await tx`insert into users (id,username) values (${createId()},${`judge-${createId()}`}) returning id`;
-      const [judge] =
-        await tx`insert into actors (id,kind,user_id) values (${createId()},'human',${user!.id}) returning id`;
-      await tx`insert into round_participants ${tx({
-        id: createId(),
-        round_id: roundId,
-        actor_id: judge!.id,
-        seat_kind: 'judge',
-        slot,
-      })}`;
-    }
+    await seatJudges(tx as never, roundId, rules.seats.judges);
     if (!judged)
       await tx`update rounds set ${tx({
         status: 'completed',
