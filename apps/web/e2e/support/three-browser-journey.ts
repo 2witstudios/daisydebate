@@ -46,7 +46,7 @@ export async function assemble(players: readonly Player[], room: RoomView) {
   for (const { page, seat } of players) room = await claim(page, room, seat);
   for (const { page, seat } of players) {
     await page.goto(`/rooms/${room.id}`);
-    await readyUp(page, seat === 'Judge 1' ? [] : undefined);
+    await readyUp(page, seat !== 'Judge 1');
   }
   await expect(async () => {
     room = await reread(players[0]!.page.request, room.id);

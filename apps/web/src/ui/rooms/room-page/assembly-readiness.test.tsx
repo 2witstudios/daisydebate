@@ -143,6 +143,32 @@ describe('native room readiness and Start round controls', () => {
     });
   });
 
+  test('a Ready standing from another tab still offers this tab’s Turn on', () => {
+    const view = {
+      ...base,
+      participants: [
+        {
+          ...base.participants[0]!,
+          role: 'affirmative' as const,
+          ready: 'ready' as const,
+        },
+      ],
+      capabilities: { ...base.capabilities, canStart: true },
+    };
+    const tree = ReadyControl({ ...props, view, turnOnDevices: () => {} });
+    assert({
+      given: 'a ready debater host whose devices this tab has not turned on',
+      should:
+        'offer Turn on camera and mic in place of Start round, and keep Not ready',
+      actual: [
+        Boolean(byText(tree, 'button', 'Turn on camera and mic')),
+        Boolean(byText(tree, 'button', 'Start round')),
+        Boolean(byText(tree, 'button', 'Not ready')),
+      ],
+      expected: [true, false, true],
+    });
+  });
+
   test('the host’s Start round sits under their tile once they are ready', () => {
     const ready = { ...base.participants[0]!, ready: 'ready' as const };
     const start = (participants: Props['view']['participants'], host = true) =>

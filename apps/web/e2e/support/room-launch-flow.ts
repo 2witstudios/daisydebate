@@ -10,6 +10,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';
+import { turnOnDevices } from './turn-on-devices';
 /** The host's Start round, then the Round room it opens; returns the Round id. */
 export async function startRoundInBrowser(page: Page): Promise<string> {
   await page.getByRole('button', { name: 'Start round', exact: true }).click();
@@ -372,14 +373,8 @@ export async function assertFrozenLaunch(view: RoomView) {
   return proof;
 }
 /** The member's own device checks, then Ready, through the Room page. */
-export async function readyUp(
-  page: Page,
-  devices: readonly string[] = ['camera', 'microphone'],
-) {
-  for (const device of devices)
-    await page
-      .getByRole('button', { name: `Check ${device}`, exact: true })
-      .click();
+export async function readyUp(page: Page, devices = true) {
+  if (devices) await turnOnDevices(page);
   await page.getByRole('button', { name: 'I’m ready', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Not ready', exact: true }),
