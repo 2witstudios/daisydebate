@@ -3,7 +3,6 @@ import type {
   CompetitionType,
   RatingLadder,
   SeatKind,
-  TournamentNotificationKind,
 } from '@daisy/protocol';
 import { ladderLabels } from '../ratings/ladder-labels';
 
