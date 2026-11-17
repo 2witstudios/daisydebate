@@ -41,12 +41,18 @@ const TEXT_RULE = { windowSeconds: 60, max: 20 } as const;
 /** Photo clears per member per minute. */
 const WITHDRAW_RULE = { windowSeconds: 60, max: 10 } as const;
 /**
- * The public image route's budgets, before any database or storage read: a
- * list page shows dozens of avatars, so one client gets plenty, and the
- * global bound caps what anyone can cost in reads and egress.
+ * The public image route's budget: storage reads per client, the only costly
+ * step (a 304 and a refusal read nothing). Generous, since a school's shared
+ * address may show many lists of avatars at once. No global bucket, which
+ * would let a few clients turn avatars off for everyone.
  */
-const IMAGE_CLIENT_RULE = { windowSeconds: 60, max: 600 } as const;
-const IMAGE_GLOBAL_RULE = { windowSeconds: 60, max: 30_000 } as const;
+const IMAGE_READ_RULE = { windowSeconds: 60, max: 3_000 } as const;
+
+const tooManyImageReads = () =>
+  new Response(null, {
+    status: 429,
+    headers: { 'cache-control': 'no-store', 'retry-after': '60' },
+  });
 /** How long a viewer may keep a published photo: the moderation delivery bound (ADR 0143). */
 const PHOTO_CACHE_SECONDS = Math.floor(
   CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000,
@@ -112,6 +118,27 @@ export function composePublicProfileRoutes(app: App) {
       ? { objects: app.profilePhotoObjects, scanner: app.imageScanner }
       : null;
   const uploads = storage ? 'available' : 'unavailable';
+
+  /**
+   * Whether this client may cost one more storage read. A client the ingress
+   * could not identify, or a limiter outage, fails open: avatars are public,
+   * cacheable and bounded per object, and must not all break while Redis
+   * fails over.
+   */
+  const imageReadAllowed = async (request: Request): Promise<boolean> => {
+    const client = request.headers.get(CLIENT_ID_HASH_HEADER);
+    if (!client) return true;
+    try {
+      await consumeOrThrow(
+        app.limiter,
+        `profile-photo-image:${client}`,
+        IMAGE_READ_RULE,
+      );
+      return true;
+    } catch (error) {
+      return !(isAppError(error) && error.code === 'RATE_LIMIT');
+    }
+  };
 
   return {
     read: (request: Request) =>
@@ -269,17 +296,6 @@ export function composePublicProfileRoutes(app: App) {
       if (!photoId.success || !size.success)
         return new Response(null, { status: 404 });
       try {
-        const client = request.headers.get(CLIENT_ID_HASH_HEADER) ?? 'unknown';
-        await consumeOrThrow(
-          app.limiter,
-          `profile-photo-image:client:${client}`,
-          IMAGE_CLIENT_RULE,
-        );
-        await consumeOrThrow(
-          app.limiter,
-          'profile-photo-image:global',
-          IMAGE_GLOBAL_RULE,
-        );
         const photo = await app.database.readProfilePhoto(photoId.data);
         if (!photo || !app.profilePhotoObjects)
           return new Response(null, { status: 404 });
@@ -296,6 +312,7 @@ export function composePublicProfileRoutes(app: App) {
             status: 304,
             headers: { etag, 'cache-control': cache },
           });
+        if (!(await imageReadAllowed(request))) return tooManyImageReads();
         const bytes = await app.profilePhotoObjects.read(
           photoObjectKey(photo.objectPrefix, size.data),
           PROFILE_PHOTO_RENDITION_MAX_BYTES,
@@ -310,12 +327,7 @@ export function composePublicProfileRoutes(app: App) {
             'content-disposition': 'inline',
           },
         });
-      } catch (error) {
-        if (isAppError(error) && error.code === 'RATE_LIMIT')
-          return new Response(null, {
-            status: 429,
-            headers: { 'cache-control': 'no-store', 'retry-after': '60' },
-          });
+      } catch {
         app.logger.log(
           'profile.photo.image.failed',
           {},

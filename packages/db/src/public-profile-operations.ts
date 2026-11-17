@@ -182,11 +182,18 @@ export const publicProfileOperations = ({
         },
         async (tx) => {
           await tx.execute(sql`insert into member_profiles
-              (actor_id, id, display_name, bio, updated_at)
+              (actor_id, id, display_name, bio, display_name_changed_at,
+               bio_changed_at, updated_at)
             values (${scope.actorId}, ${input.profileId}, ${input.displayName},
-              ${input.bio}, ${input.now}::timestamptz)
+              ${input.bio}, now(), now(), ${input.now}::timestamptz)
             on conflict (actor_id) do update set
               display_name = excluded.display_name, bio = excluded.bio,
+              display_name_changed_at = case
+                when excluded.display_name is distinct from member_profiles.display_name
+                then now() else member_profiles.display_name_changed_at end,
+              bio_changed_at = case
+                when excluded.bio is distinct from member_profiles.bio
+                then now() else member_profiles.bio_changed_at end,
               updated_at = excluded.updated_at,
               version = member_profiles.version + 1`);
           return ownProfile(tx, scope.actorId);

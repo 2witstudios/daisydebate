@@ -9,6 +9,7 @@ import type {
   ProfileContentRemovalReason,
 } from '@daisy/protocol/content-moderation';
 import {
+  PROFILE_PHOTO_REVIEWS_MAX,
   contentModerationCommandResultSchema,
   contentReportSchema,
   type broadcastStopReasons,
@@ -683,7 +684,10 @@ export function contentModerationOperations({
     /** Photos an operator must decide, oldest first. */
     listProfilePhotoReviews: () =>
       instrumented(eventSink, 'listProfilePhotoReviews', () =>
-        publicProfileModeration.listInReview(database, 100),
+        publicProfileModeration.listInReview(
+          database,
+          PROFILE_PHOTO_REVIEWS_MAX,
+        ),
       ),
     /** Where a live photo's image is, for the operator's view of it. */
     readOperatorProfilePhoto: (photoId: string) =>

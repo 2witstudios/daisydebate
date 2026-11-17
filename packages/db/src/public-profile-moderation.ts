@@ -260,7 +260,12 @@ export const publicProfileModeration = {
     if (!row) return null;
     if (row.text === null) return 'unchanged';
     if (row.version !== input.expectedVersion) throw createAppError('CONFLICT');
+    const changedAt =
+      input.field === 'display_name'
+        ? sql.raw('display_name_changed_at')
+        : sql.raw('bio_changed_at');
     await tx.execute(sql`update member_profiles set ${column} = null,
+        ${changedAt} = now(),
         updated_at = ${input.now.toISOString()}::timestamptz, version = version + 1
       where id = ${input.profileId}`);
     return 'applied';

@@ -166,27 +166,42 @@ test('a failed defer never stops the pass', async () => {
   });
 });
 
-test('an object with no write time is never an orphan', async () => {
-  const removed: string[] = [];
-  const result = await reconcileOrphans(
-    now,
-    null,
-    { existing: async () => new Set<string>() },
-    {
-      put: async () => undefined,
-      read: async () => new Uint8Array(),
-      removePrefix: async (prefix) => {
-        removed.push(prefix);
+test('an object with no write time ages from when it was first seen', async () => {
+  const key = `profile-photos/${'n'.repeat(24)}/512.webp`;
+  const run = async (firstSeen: Map<string, string>) => {
+    const removed: string[] = [];
+    const result = await reconcileOrphans(
+      now,
+      null,
+      { existing: async () => new Set<string>() },
+      {
+        put: async () => undefined,
+        read: async () => new Uint8Array(),
+        removePrefix: async (prefix) => {
+          removed.push(prefix);
+        },
+        list: async () => [{ key, writtenAt: null }],
       },
-      list: async () => [
-        { key: `profile-photos/${'n'.repeat(24)}/512.webp`, writtenAt: null },
-      ],
-    },
-  );
+      firstSeen,
+    );
+    return { orphans: result.orphans, removed, remembered: firstSeen.has(key) };
+  };
   assert({
-    given: 'a stored object storage gave no write time, with no row',
-    should: 'treat it as fresh and delete nothing',
-    actual: { result, removed },
-    expected: { result: { next: null, orphans: 0 }, removed: [] },
+    given:
+      'an unnamed object storage gave no write time, seen for the first time, then first seen two hours ago',
+    should:
+      'keep it the first time and remember when, and delete it once that sighting is an hour old',
+    actual: [
+      await run(new Map()),
+      await run(new Map([[key, '2026-11-15T22:00:00.000Z']])),
+    ],
+    expected: [
+      { orphans: 0, removed: [], remembered: true },
+      {
+        orphans: 1,
+        removed: [`profile-photos/${'n'.repeat(24)}`],
+        remembered: false,
+      },
+    ],
   });
 });

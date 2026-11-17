@@ -3,6 +3,7 @@ import type { ProfilePhotoStatus } from '@daisy/protocol/public-profile';
 import type { App } from '../../server/app';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { composePublicProfileRoutes } from './public-profile-routes';
+import { CLIENT_ID_HASH_HEADER } from '../auth/abuse/client-ip';
 
 setupRitewayBun();
 
@@ -13,13 +14,16 @@ const bytes = new Uint8Array([82, 73, 70, 70]);
 const appWith = (
   status: ProfilePhotoStatus | null,
   signedInActor: string | null = null,
-  limited = false,
+  limited: boolean | 'outage' = false,
 ) => {
   const reads: string[] = [];
   const app = {
     logger: silentLogger,
     limiter: {
-      consume: async () => ({ allowed: !limited, retryAfterSeconds: 60 }),
+      consume: async () => {
+        if (limited === 'outage') throw new Error('redis down');
+        return { allowed: !limited, retryAfterSeconds: 60 };
+      },
     },
     reporter: { capture: () => undefined },
     profilePhotoObjects: {
@@ -191,20 +195,40 @@ test('a photo in review is its owner’s alone, and never cached', async () => {
   });
 });
 
-test('the image route has a budget before any read', async () => {
-  const { routes, reads } = appWith('published', null, true);
-  const response = await routes.image(
-    new Request(`http://daisy.test/api/profile-photos/${photoId}/128`),
-    { photoId, size: '128' },
-  );
+test('the image budget charges storage reads per client, and fails open', async () => {
+  const fetch = async (
+    limited: boolean | 'outage',
+    headers: Record<string, string>,
+  ) => {
+    const { routes, reads } = appWith('published', null, limited);
+    const response = await routes.image(
+      new Request(`http://daisy.test/api/profile-photos/${photoId}/128`, {
+        headers,
+      }),
+      { photoId, size: '128' },
+    );
+    return [response.status, reads.length];
+  };
+  const client = { [CLIENT_ID_HASH_HEADER]: 'c'.repeat(64) };
   assert({
-    given: 'a client past the image budget',
-    should: 'answer 429, uncached, reading nothing',
+    given:
+      'a client past its budget, the same revalidating, a limiter outage, and a client the ingress could not name',
+    should:
+      'refuse the storage read with 429, answer the 304 free, and serve the last two',
     actual: [
-      response.status,
-      response.headers.get('cache-control'),
-      reads.length,
+      await fetch(true, client),
+      await fetch(true, {
+        ...client,
+        'if-none-match': `"${photoId}-128-published"`,
+      }),
+      await fetch('outage', client),
+      await fetch(true, {}),
     ],
-    expected: [429, 'no-store', 0],
+    expected: [
+      [429, 0],
+      [304, 0],
+      [200, 1],
+      [200, 1],
+    ],
   });
 });

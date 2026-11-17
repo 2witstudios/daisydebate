@@ -172,14 +172,17 @@ export async function intakeProfilePhoto(
   const objectPrefix = photoObjectPrefix(photoId);
   const status = decision.kind === 'publish' ? 'published' : 'in_review';
   try {
-    await Promise.all(
-      profilePhotoSizes.map((size) =>
-        storage.objects.put(
-          photoObjectKey(objectPrefix, size),
-          renditionOf(renditions, size).bytes,
-        ),
-      ),
+    const sized = profilePhotoSizes.map((size) => ({
+      key: photoObjectKey(objectPrefix, size),
+      bytes: renditionOf(renditions, size).bytes,
+    }));
+    // Both writes settle before any cleanup runs, so no write lands after
+    // its prefix was removed; then the first failure, if any, is the answer.
+    const written = await Promise.allSettled(
+      sized.map(({ key, bytes }) => storage.objects.put(key, bytes)),
     );
+    const failed = written.find((result) => result.status === 'rejected');
+    if (failed) throw failed.reason;
     const profile = await dependencies.record(scope, {
       photoId,
       objectPrefix,

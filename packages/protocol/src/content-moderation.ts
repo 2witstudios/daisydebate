@@ -273,6 +273,9 @@ export const profileContentRemovalReasons = [
 export type ProfileContentRemovalReason =
   (typeof profileContentRemovalReasons)[number];
 
+/** The most photos in review one listing names, oldest first. */
+export const PROFILE_PHOTO_REVIEWS_MAX = 100;
+
 /** A photo waiting for an operator because its automated check was unsure. */
 export const profilePhotoReviewsSchema = z.strictObject({
   items: z
@@ -285,7 +288,7 @@ export const profilePhotoReviewsSchema = z.strictObject({
         version: z.int().positive(),
       }),
     )
-    .max(100),
+    .max(PROFILE_PHOTO_REVIEWS_MAX),
 });
 export type ProfilePhotoReviews = z.infer<typeof profilePhotoReviewsSchema>;
 

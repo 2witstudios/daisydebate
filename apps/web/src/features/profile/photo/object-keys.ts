@@ -12,3 +12,16 @@ export const photoObjectKey = (
   prefix: string,
   size: ProfilePhotoSize,
 ): string => `${prefix}/${size}.webp`;
+
+/** The prefix every photo object lives under, for walking them all. */
+export const photoObjectsRoot = 'profile-photos/';
+
+/** The photo id a stored key names, or null for a key not laid out as ours. */
+export const photoIdOfObjectKey = (key: string): string | null => {
+  const [root, photoId, file] = key.split('/');
+  return `${root}/` === photoObjectsRoot &&
+    file !== undefined &&
+    idSchema.safeParse(photoId).success
+    ? (photoId ?? null)
+    : null;
+};

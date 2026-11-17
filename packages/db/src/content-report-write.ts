@@ -10,8 +10,9 @@ import type { AuthorizationTransaction } from './authorization';
 /**
  * A profile's text keeps its target id across edits (ADR 0143), so a repeat
  * report of it may be about new text: a resolved one reopens with the new
- * reason, but only once the profile changed after it was resolved, so a
- * dismissed report cannot be pushed back into the queue unchanged. An open
+ * reason, but only once that field's text changed after it was resolved
+ * (both times by the database clock), so a dismissed report cannot be pushed
+ * back into the queue unchanged. An open
  * one stays as it is, since its operator reads the current text. Every other
  * target is reported once per reporter.
  */
@@ -24,7 +25,9 @@ const onRepeat = (report: ContentReportCreate) =>
         where content_reports.status <> 'open'
           and exists (select 1 from member_profiles m
             where m.id = excluded.target_id
-              and m.updated_at > content_reports.resolved_at)`
+              and (case excluded.target_kind
+                when 'profile_display_name' then m.display_name_changed_at
+                else m.bio_changed_at end) > content_reports.resolved_at)`
     : sql`on conflict do nothing`;
 
 /** Content Reports owns the one closed-reason, deduplicated write; callers supply current target authority. */

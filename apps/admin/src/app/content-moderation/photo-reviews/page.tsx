@@ -1,3 +1,4 @@
+import { PROFILE_PHOTO_REVIEWS_MAX } from '@daisy/protocol/content-moderation';
 import { requireOperator } from '../../../server/operator-gate';
 import { adminRuntime } from '../../../server/runtime';
 import { NotPermitted, OperatorNav } from '../../operator-nav';
@@ -64,7 +65,8 @@ export default async function PhotoReviewsPage({
   );
   const waiting = read.value.items.length - shown.length;
   // The store lists at most 100, so a full list means there may be more.
-  const atLeast = read.value.items.length >= 100 ? '+' : '';
+  const atLeast =
+    read.value.items.length >= PROFILE_PHOTO_REVIEWS_MAX ? '+' : '';
   return (
     <>
       {nav}

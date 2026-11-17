@@ -39,6 +39,13 @@ export const memberProfiles = pgTable(
     id: text('id').notNull(),
     displayName: text('display_name'),
     bio: text('bio'),
+    /**
+     * When each field's text last changed, by the database clock (the clock
+     * a report's resolution uses): a resolved report of a field reopens only
+     * once that field changed after it.
+     */
+    displayNameChangedAt: timestampColumn('display_name_changed_at'),
+    bioChangedAt: timestampColumn('bio_changed_at'),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
   },

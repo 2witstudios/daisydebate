@@ -32,7 +32,8 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
       );
     return {
       member_profiles: await rowsOf(
-        sql`select id, display_name, bio, updated_at, version
+        sql`select id, display_name, bio, display_name_changed_at, bio_changed_at,
+          updated_at, version
           from member_profiles where actor_id = ${actorId}`,
       ),
       // The storage location is internal and never leaves the system.

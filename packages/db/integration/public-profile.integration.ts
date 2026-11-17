@@ -467,6 +467,18 @@ test('a repeat report of profile text reopens a resolved one once the text chang
         context.member,
         {
           profileId: createId(),
+          displayName: 'Fine',
+          bio: 'New bio',
+          now: later,
+        },
+        () => unfenced,
+      );
+      await report('impersonation');
+      const otherField = await state();
+      await context.profiles.writePublicProfileText(
+        context.member,
+        {
+          profileId: createId(),
           displayName: 'Imposter',
           bio: null,
           now: later,
@@ -478,13 +490,20 @@ test('a repeat report of profile text reopens a resolved one once the text chang
       await report('spam');
       assert({
         given:
-          'a dismissed report of a display name, the same report again with the name unchanged, after the name changed, and once more while open',
+          'a dismissed report of a display name, reported again unchanged, after only the bio changed, after the name changed, and once more while open',
         should:
-          'keep it dismissed while nothing changed, reopen it with the new reason once the name changed, and leave an open one as it is',
-        actual: { dismissed, unchanged, reopened, open: await state() },
+          'keep it dismissed until the name itself changed, then reopen it with the new reason, and leave an open one as it is',
+        actual: {
+          dismissed,
+          unchanged,
+          otherField,
+          reopened,
+          open: await state(),
+        },
         expected: {
           dismissed: [['dismissed', 'spam']],
           unchanged: [['dismissed', 'spam']],
+          otherField: [['dismissed', 'spam']],
           reopened: [['open', 'impersonation']],
           open: [['open', 'impersonation']],
         },

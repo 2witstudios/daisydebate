@@ -4,6 +4,7 @@ import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../../ops/scheduled-worker';
 import { startRunSchedule } from '../../../server/run-schedule';
 import type { WorkerTimers } from '../../../lib/worker-timers';
+import { photoIdOfObjectKey, photoObjectPrefix } from './object-keys';
 import type { ProfilePhotoObjects } from './ports';
 
 const SWEEP_INTERVAL_MS = 60_000;
@@ -36,10 +37,6 @@ const RECONCILE_PAGE = 100;
 /** An object this old with no row is an orphan, not an upload in flight. */
 const ORPHAN_AFTER_MS = 3_600_000;
 
-/** The photo id a stored key names, `profile-photos/<id>/<size>.webp`. */
-const photoIdOfKey = (key: string): string | null =>
-  /^profile-photos\/([a-z0-9]{24})\//u.exec(key)?.[1] ?? null;
-
 /**
  * One reconcile step (ADR 0143): an upload whose row was never written and
  * whose cleanup also failed leaves objects no sweep would reach. Walk one page
@@ -52,27 +49,39 @@ export async function reconcileOrphans(
   cursor: string | null,
   store: Pick<PhotoDeletionStore, 'existing'>,
   objects: ProfilePhotoObjects,
+  /**
+   * When this worker first saw each object storage gave no write time: such
+   * an object ages from its first sighting, so it is neither deleted while an
+   * upload may be in flight nor exempt forever.
+   */
+  firstSeen: Map<string, string> = new Map(),
 ): Promise<{ readonly next: string | null; readonly orphans: number }> {
   const page = await objects.list(cursor, RECONCILE_PAGE);
   const cutoff = new Date(now).getTime() - ORPHAN_AFTER_MS;
-  // An object with no write time counts as fresh: it may be an upload whose
-  // row has not committed yet.
+  // An object storage gave no write time ages from when it was first seen.
+  const writtenAt = (object: (typeof page)[number]): string => {
+    if (object.writtenAt !== null) return object.writtenAt;
+    const seen = firstSeen.get(object.key) ?? now;
+    firstSeen.set(object.key, seen);
+    return seen;
+  };
   const aged = page.filter(
-    (object) =>
-      object.writtenAt !== null &&
-      new Date(object.writtenAt).getTime() < cutoff,
+    (object) => new Date(writtenAt(object)).getTime() < cutoff,
   );
   const ids = [
     ...new Set(
       aged
-        .map((object) => photoIdOfKey(object.key))
+        .map((object) => photoIdOfObjectKey(object.key))
         .filter((id) => id !== null),
     ),
   ];
   const existing = await store.existing(ids);
   const orphans = ids.filter((id) => !existing.has(id));
-  for (const photoId of orphans)
-    await objects.removePrefix(`profile-photos/${photoId}`);
+  for (const photoId of orphans) {
+    await objects.removePrefix(photoObjectPrefix(photoId));
+    for (const key of firstSeen.keys())
+      if (photoIdOfObjectKey(key) === photoId) firstSeen.delete(key);
+  }
   return {
     next: page.length < RECONCILE_PAGE ? null : (page.at(-1)?.key ?? null),
     orphans: orphans.length,
@@ -123,6 +132,7 @@ export function startPhotoDeletions(input: {
   readonly timers: WorkerTimers;
 }) {
   let cursor: string | null = null;
+  const firstSeen = new Map<string, string>();
   return startRunSchedule({
     work: createScheduledWorker({
       name: 'profile_photo_deletions',
@@ -140,10 +150,17 @@ export function startPhotoDeletions(input: {
           cursor,
           input.store,
           input.objects,
+          firstSeen,
         );
         cursor = reconciled.next;
-        // Orphans deleted count as deleted in the run's log line.
-        return { ...swept, deleted: swept.deleted + reconciled.orphans };
+        // An orphan means an upload's cleanup failed: its own signal.
+        if (reconciled.orphans > 0)
+          input.logger.log(
+            'profile.photo.orphans_deleted',
+            { deleted: reconciled.orphans },
+            'Orphaned profile photo objects deleted',
+          );
+        return swept;
       },
     }),
     timers: input.timers,

@@ -1,5 +1,6 @@
 import { S3Client } from 'bun';
 import { createAppError } from '@daisy/errors';
+import { photoObjectsRoot } from './object-keys';
 import type { ProfilePhotoObjects } from './ports';
 
 export type ProfilePhotoBucketConfig = {
@@ -46,7 +47,7 @@ export const createProfilePhotoBucket = (
     },
     list: async (after, limit) => {
       const listed = await client.list({
-        prefix: 'profile-photos/',
+        prefix: photoObjectsRoot,
         maxKeys: limit,
         ...(after ? { startAfter: after } : {}),
       });
