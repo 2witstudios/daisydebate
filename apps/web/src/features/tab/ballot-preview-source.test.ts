@@ -182,6 +182,56 @@ describe('ballot preview source', () => {
     });
   });
 
+  test('a form edited back to the saved ballot', () => {
+    const view = authoringView();
+    const asSaved = draftedPreview(
+      view,
+      publishForm({
+        'publish-target': leagueDefinitionId,
+        decision: 'winner',
+        'double-loss': 'on',
+        'score-subject': 'side',
+        'criteria-kind': 'holistic',
+        'score-min': '20',
+        'score-max': '30',
+        'score-step': '0.5',
+        'score-default': '27',
+        'reason-rule': 'required',
+        'reason-max': '2000',
+        'feedback-rule': 'off',
+      }),
+      savedPreview,
+    );
+    assert({
+      given: 'a publish form whose fields make exactly the saved version 2',
+      should: 'show the saved ballot, not an unpublished draft',
+      actual: asSaved,
+      expected: savedPreview,
+    });
+  });
+
+  test('a defect while reading the form', () => {
+    const broken = {
+      has: () => {
+        throw new TypeError('form is not readable');
+      },
+    } as unknown as FormData;
+    const thrown = (() => {
+      try {
+        draftedPreview(authoringView(), broken, savedPreview);
+        return null;
+      } catch (error) {
+        return error instanceof TypeError;
+      }
+    })();
+    assert({
+      given: 'a form whose reading fails for a reason other than its fields',
+      should: 'surface the error, not call the draft unfinished',
+      actual: thrown,
+      expected: true,
+    });
+  });
+
   test("Daisy's ballot picked again on an event that uses it", () => {
     const view = authoringView({ definition: null });
     assert({
@@ -238,13 +288,13 @@ describe("the editor's two choices", () => {
     });
   });
 
-  test('a pin awaiting retry', () => {
+  test('the pin form read for a retry, and after a refusal', () => {
     const picked = pick(unchangedChoices, `${leagueDefinitionId}@3`);
     const reset = pick(picked, `${leagueDefinitionId}@3`);
     const refused = pick(picked, `${leagueDefinitionId}@2`);
     assert({
       given:
-        "the pin form reset with a retry's hidden version 3, and reset to the saved version 2",
+        "the pin form's posted fields after a reset: a retry's hidden version 3 (its select disabled, so left out), and the saved version 2 after a refusal",
       should:
         'draw version 3 for the retry, and the saved ballot after a refusal',
       actual: [shown(reset), shown(refused)],

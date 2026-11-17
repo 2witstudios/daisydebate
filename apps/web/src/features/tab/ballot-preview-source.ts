@@ -1,5 +1,10 @@
-import type { BallotDefinition } from '@daisy/protocol';
+import {
+  ballotDefinitionBodySchema,
+  type BallotDefinition,
+} from '@daisy/protocol';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
+import { isAppError } from '@daisy/errors';
+import { ZodError } from 'zod';
 import { field } from '../forms/form-state';
 import { ballotBodyFromForm } from './ballot-body-form';
 
@@ -38,6 +43,25 @@ export const savedPreview: BallotPreviewSource = { kind: 'saved' };
 
 const savedDefinition = (view: EventBallotAuthoringView) =>
   view.definition?.ballot ?? null;
+
+/** Whether a definition has exactly a body's settings, whatever its key. */
+const sameBody = (
+  definition: BallotDefinition,
+  body: Omit<BallotDefinition, 'key' | 'revision'>,
+): boolean => {
+  const { decision, points, speakerRanks, written } = definition;
+  // Both through the schema, so their keys come out in one order.
+  return (
+    JSON.stringify(
+      ballotDefinitionBodySchema.parse({
+        decision,
+        points,
+        speakerRanks,
+        written,
+      }),
+    ) === JSON.stringify(ballotDefinitionBodySchema.parse(body))
+  );
+};
 
 /** The definition the preview draws for a source. */
 export const previewDefinition = (
@@ -135,6 +159,8 @@ export const draftedPreview = (
   try {
     const body = ballotBodyFromForm(form);
     const saved = savedDefinition(view);
+    // A form edited back to the saved ballot (or only renamed) draws it as saved.
+    if (saved !== null && sameBody(saved, body)) return savedPreview;
     return {
       kind: 'draft',
       definition: {
@@ -146,8 +172,14 @@ export const draftedPreview = (
         field(form, 'publish-target') !== 'new' ||
         field(form, 'definition-name') !== '',
     };
-  } catch {
-    return unfinished;
+  } catch (error) {
+    // Only an unfinished form; a defect in reading it must surface.
+    if (
+      error instanceof ZodError ||
+      (isAppError(error) && error.code === 'VALIDATION')
+    )
+      return unfinished;
+    throw error;
   }
 };
 

@@ -22,7 +22,11 @@ const mountEditor = async () => {
   const preview = () =>
     container.querySelector('[aria-label="Preview of the judge\'s ballot"]')!;
   const read = () => ({
-    status: preview().querySelector('[role="status"]')?.textContent ?? null,
+    status:
+      [...preview().querySelectorAll('p[id]')].find(
+        (paragraph) =>
+          paragraph.id === preview().getAttribute('aria-describedby'),
+      )?.textContent ?? null,
     places: preview().textContent.includes('Who placed where?'),
     max:
       preview().querySelector('input[type="range"]')?.getAttribute('max') ??

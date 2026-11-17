@@ -13,7 +13,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
 import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import { ballotBodyFromForm } from './ballot-body-form';
 
 export const ballotAuthoringContextSchema = z.strictObject({

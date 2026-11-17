@@ -3,6 +3,7 @@ import type {
   EventBallotView,
   JudgeBallotView,
 } from '@daisy/protocol/lobby/ballot-read';
+import { isScoreOnScale } from '@daisy/protocol';
 import { linkTo, type TabAction } from './action';
 import { hostRoutes } from './routes';
 import { lockedSetting, type ResolvedSetting } from './settings';
@@ -205,17 +206,12 @@ export function previewDraftOn(
 ): BallotDraft {
   const points = definition.points;
   if (points === null) return draft;
-  const { min, max, step } = points.scale;
-  const fits = (value: number) =>
-    value >= min &&
-    value <= max &&
-    Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-9;
   return {
     ...draft,
     points: Object.fromEntries(
       Object.entries(draft.points).map(([key, value]) => [
         key,
-        fits(value) ? value : points.default,
+        isScoreOnScale(value, points.scale) ? value : points.default,
       ]),
     ),
   };

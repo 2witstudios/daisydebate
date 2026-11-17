@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useId, useMemo, type ReactNode } from 'react';
 import {
   previewDraftOn,
   type BallotDefinition,
@@ -69,6 +69,7 @@ export function BallotPreview({
   readonly preview: BallotSettings['preview'];
   readonly status?: ReactNode;
 }) {
+  const statusId = useId();
   const draft = useMemo(
     () => definition && previewDraftOn(definition, preview.draft),
     [definition, preview.draft],
@@ -76,13 +77,15 @@ export function BallotPreview({
   return (
     <section
       aria-label="Preview of the judge's ballot"
+      // A description, not a live region: it changes as the host types.
+      aria-describedby={status ? statusId : undefined}
       className="flex min-w-0 flex-1 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5 max-rail:w-full max-narrow:p-3"
     >
       <div className="flex flex-col gap-1">
         <h2 className="font-display text-xl font-bold">What a judge sees</h2>
         <p className="text-sm text-ink-muted">{preview.lede}</p>
         {status ? (
-          <p role="status" className="text-sm font-strong text-ink">
+          <p id={statusId} className="text-sm font-strong text-ink">
             {status}
           </p>
         ) : null}

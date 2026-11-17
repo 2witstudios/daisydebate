@@ -5,7 +5,7 @@ import { idSchema } from '@daisy/protocol';
 import { breakCommandEnvelopeSchema } from '@daisy/protocol/lobby/break-command';
 import { resultCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import {
   formValues,
   refusedWith,
