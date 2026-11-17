@@ -27,7 +27,8 @@ test('set-visibility (ADR 0143, D9)', () => {
   const room = state();
   const unlisted = setVisibility(room, room.hostActorId, 'unlisted');
   assert({
-    given: 'the host making a casual Room unlisted, a guest trying, and a ranked Room',
+    given:
+      'the host making a casual Room unlisted, a guest trying, and a ranked Room',
     should:
       'change who can join and nothing else, for the host only, and keep a ranked Room public',
     actual: {
