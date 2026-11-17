@@ -1,5 +1,5 @@
 'use client';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { FormField } from '../../components/form-field/form-field';
 import {
@@ -11,7 +11,36 @@ import {
 } from './ballot-authoring-fields';
 import { BallotCriteriaFields } from './ballot-criteria-fields';
 import { BallotSpeechWeights } from './ballot-speech-weights';
+/**
+ * The publish form's definition fields. Their selects are controlled (each
+ * mounts the fields it governs), so when a post resets the form, which puts
+ * every field back to its server-rendered default, they are mounted afresh
+ * from the definition: no select can show one choice while the fields under
+ * it follow another, and the whole definition reads as the saved one.
+ */
 export function BallotDefinitionFields({
+  view,
+}: {
+  readonly view: EventBallotAuthoringView;
+}) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [resets, setResets] = useState(0);
+  useEffect(() => {
+    const form = anchor.current?.closest('form');
+    if (!form) return;
+    const reset = () => setResets((count) => count + 1);
+    form.addEventListener('reset', reset);
+    return () => form.removeEventListener('reset', reset);
+  }, []);
+  return (
+    <>
+      <span ref={anchor} hidden />
+      <DefinitionFields key={resets} view={view} />
+    </>
+  );
+}
+
+function DefinitionFields({
   view,
 }: {
   readonly view: EventBallotAuthoringView;

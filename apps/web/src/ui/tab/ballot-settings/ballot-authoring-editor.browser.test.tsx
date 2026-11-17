@@ -15,6 +15,7 @@ const mountEditor = async () => {
       URLSearchParams,
       FormData: BrowserFormData,
       performance,
+      TextEncoder,
       process: { env: { NODE_ENV: 'test' } },
     },
   );
@@ -300,5 +301,99 @@ test('a reset form takes the preview back with it', async () => {
     });
   } finally {
     await act(async () => root.unmount());
+  }
+});
+
+test('a refused publish leaves its fields showing their own state', async () => {
+  const {
+    act,
+    createElement,
+    hydrateRoot,
+    renderToString,
+    container,
+    EditorHarness,
+    authoringView,
+    leagueDefinitionId,
+    refusedPublish,
+    enter,
+    press,
+  } = await mountEditor();
+  const has = (selector: string) => container.querySelector(selector) !== null;
+  const valueOf = (name: string) =>
+    (
+      container.querySelector(`select[name="${name}"]`) as {
+        readonly value?: string;
+      } | null
+    )?.value;
+  /** Each select's shown value beside the fields its state has mounted. */
+  const fields = () => ({
+    target: valueOf('publish-target'),
+    nameField: has('input[name="definition-name"]'),
+    decision: valueOf('decision'),
+    winnerToggles: has('input[name="double-loss"]'),
+    scores: valueOf('score-subject'),
+    scaleFields: has('input[name="score-min"]'),
+    reason: valueOf('reason-rule'),
+    reasonLength: has('input[name="reason-max"]'),
+  });
+  const editor = createElement(EditorHarness, {
+    view: authoringView(),
+    publish: refusedPublish,
+  });
+  // As the page arrives: server markup, whose `selected` options are what a
+  // form reset returns its selects to, then hydrated.
+  container.innerHTML = renderToString(editor);
+  let hydrated: ReturnType<typeof hydrateRoot> | undefined;
+  try {
+    await act(async () => {
+      hydrated = hydrateRoot(container as unknown as Element, editor);
+    });
+    await enter('select[name="publish-target"]', leagueDefinitionId, 'change');
+    await enter('select[name="decision"]', 'ranking-sides', 'change');
+    await enter('select[name="score-subject"]', 'none', 'change');
+    await enter('select[name="reason-rule"]', 'off', 'change');
+    const edited = fields();
+    await press('Publish definition');
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const refusal = container.textContent.includes(
+      'This ballot changed. Review it and publish again.',
+    );
+    const after = fields();
+    assert({
+      given:
+        'four selects changed in the publish form, then a publish the server refuses',
+      should:
+        'reset each select and the fields it shows together, back to the saved ballot',
+      actual: { edited, refusal, after },
+      expected: {
+        edited: {
+          target: leagueDefinitionId,
+          nameField: false,
+          decision: 'ranking-sides',
+          winnerToggles: false,
+          scores: 'none',
+          scaleFields: false,
+          reason: 'off',
+          reasonLength: false,
+        },
+        refusal: true,
+        // The saved ballot: a winner between sides, scored per side, with a
+        // required reason, published as a new definition.
+        after: {
+          target: 'new',
+          nameField: true,
+          decision: 'winner',
+          winnerToggles: true,
+          scores: 'side',
+          scaleFields: true,
+          reason: 'required',
+          reasonLength: true,
+        },
+      },
+    });
+  } finally {
+    await act(async () => hydrated?.unmount());
   }
 });
