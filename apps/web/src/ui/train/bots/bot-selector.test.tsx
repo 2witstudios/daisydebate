@@ -50,15 +50,6 @@ const view = {
   },
   available: true,
   judge: 'ai' as const,
-  formats: [
-    { id: 'freestyle', label: 'Freestyle', selected: true, href: '/train' },
-    {
-      id: 'policy',
-      label: 'Policy',
-      selected: false,
-      href: '/train?format=policy',
-    },
-  ],
 };
 
 const noopAction = async () => idle();
@@ -82,44 +73,6 @@ describe('BotSelectorPage', () => {
         html.includes('aria-current="true"'),
       ],
       expected: [true, true, true, true],
-    });
-  });
-
-  test('the practice format rides the address and the post', () => {
-    const html = render({ view, action: noopAction });
-    const policyLanding = {
-      ...view,
-      formats: [
-        {
-          id: 'freestyle',
-          label: 'Freestyle',
-          selected: false,
-          href: '/train?bot=juno-actor-id-000000',
-        },
-        {
-          id: 'policy',
-          label: 'Policy',
-          selected: true,
-          href: '/train?bot=juno-actor-id-000000&format=policy',
-        },
-      ],
-    };
-    const policyHtml = render({ view: policyLanding, action: noopAction });
-    assert({
-      given: 'a landing whose format nav offers Freestyle and Policy',
-      should:
-        'link each format by address, mark the selected one, and post it with the bot',
-      actual: [
-        html.includes('href="/train?format=policy"'),
-        html.includes('aria-label="Freestyle"'),
-        html.includes('name="format" value="freestyle"'),
-        policyHtml.includes('aria-current="true"'),
-        policyHtml.includes(
-          'href="/train?bot=juno-actor-id-000000&amp;format=policy"',
-        ),
-        policyHtml.includes('name="format" value="policy"'),
-      ],
-      expected: [true, true, true, true, true, true],
     });
   });
 
@@ -164,7 +117,6 @@ describe('BotSelectorPage', () => {
         chosen: null,
         available: false,
         judge: 'ai' as const,
-        formats: [],
       },
       action: noopAction,
     });

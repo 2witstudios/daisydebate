@@ -158,7 +158,7 @@ for (const javaScriptEnabled of [true, false]) {
       let view = await createFromPlay(
         host,
         `Manage bots ${createId().slice(0, 8)}`,
-        'value',
+        'freestyle',
       );
       await host.getByText('Manage seats', { exact: true }).click();
       await expect(
@@ -282,7 +282,7 @@ for (const javaScriptEnabled of [true, false]) {
       const rankedView = await submitCreateRoom(
         host,
         `Ranked bots ${createId().slice(0, 8)}`,
-        'value',
+        'freestyle',
         true,
       );
       const rankedCast = await host.request.post(

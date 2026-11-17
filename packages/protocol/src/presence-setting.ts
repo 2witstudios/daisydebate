@@ -31,11 +31,3 @@ export const presenceSettingResultSchema = z.strictObject({
   version: z.literal(1),
   status: z.enum(chosenStatuses),
 });
-
-/** Which ratings a member's card shows besides Freestyle (ADR 0103). */
-export const ratingVisibilitySchema = z.strictObject({
-  version: z.literal(1),
-  showPolicy: z.boolean(),
-  showValue: z.boolean(),
-});
-export type RatingVisibility = z.infer<typeof ratingVisibilitySchema>;

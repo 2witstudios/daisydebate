@@ -33,7 +33,6 @@ const roomRow = (
 ) => ({
   title: next.title,
   topic: next.topic,
-  publishedResolutionId: next.publishedResolutionId,
   visibility: next.visibility,
   hostActorId: next.hostActorId,
   hostInherited: next.hostInherited,
@@ -112,7 +111,6 @@ export const persistRoomMutation = async (
       hostInherited: next.hostInherited,
       resolution: next.topic,
       preRoundPrepMs: prepMs,
-      publishedResolutionId: next.publishedResolutionId,
       competitionType: next.competitionType,
       formatId: next.formatId,
       formatVersion: next.formatVersion,

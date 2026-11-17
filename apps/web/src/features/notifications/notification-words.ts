@@ -4,6 +4,7 @@ import type {
   RatingLadder,
   RoomSeatKind,
 } from '@daisy/protocol';
+import { ladderLabels } from '../ratings/ladder-labels';
 
 /** What one notification is about, with only the facts its words need. */
 export type NotificationSubject = InboxRow extends infer Row
@@ -12,16 +13,13 @@ export type NotificationSubject = InboxRow extends infer Row
     : never
   : never;
 
-const ladderName = (format: RatingLadder) =>
-  format.charAt(0).toUpperCase() + format.slice(1);
-
 /** "to judge" or "to debate": what the invitation asks of the member. */
 export const invitedTo = (seat: RoomSeatKind) =>
   seat === 'judge' ? 'to judge' : 'to debate';
 
 /** "a casual Freestyle debate". */
 export const challengeWhat = (mode: CompetitionType, format: RatingLadder) =>
-  `a ${mode} ${ladderName(format)} debate`;
+  `a ${mode} ${ladderLabels[format]} debate`;
 
 /**
  * The words and the destination, from the kind and the names read now, so a

@@ -154,12 +154,15 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
 test('create replay survives catalog advancement and refuses a changed payload without writes', async () => {
   await withRoomRuntime(async (f) => {
     const choice = (await f.operations.catalog(f.host)).choices.find(
-      (c) => c.formatId === 'value',
+      (c) => c.formatId === 'nsda-ld',
     )!;
     const body = {
       commandId: createId(),
       title: 'Pinned create',
-      resolution: { kind: 'value' as const, id: 'd3qrq2srlk8wpa3qhzefly0y' },
+      resolution: {
+        kind: 'custom' as const,
+        text: 'Cities should make public transit free',
+      },
       visibility: 'public' as const,
       selection: {
         kind: 'catalog' as const,
@@ -177,16 +180,16 @@ test('create replay survives catalog advancement and refuses a changed payload w
     // current-preset trigger requires.
     const publish = (to: number, presetFrom: number, presetTo: number) =>
       f.sql.begin(async (tx) => {
-        await tx`update format_presets set superseded_at = now() where format_id = 'value' and version = ${presetFrom}`;
-        await tx`update formats set current_version = ${to} where id = 'value'`;
-        await tx`update format_presets set superseded_at = null where format_id = 'value' and version = ${presetTo} and format_version = ${to}`;
+        await tx`update format_presets set superseded_at = now() where format_id = 'nsda-ld' and version = ${presetFrom}`;
+        await tx`update formats set current_version = ${to} where id = 'nsda-ld'`;
+        await tx`update format_presets set superseded_at = null where format_id = 'nsda-ld' and version = ${presetTo} and format_version = ${to}`;
       });
     try {
       await f.sql.begin(async (tx) => {
-        await tx`insert into format_revisions (format_id, version, definition) select format_id, ${next}, definition from format_revisions where format_id = 'value' and version = ${choice.formatVersion}`;
-        await tx`update format_presets set superseded_at = now() where format_id = 'value' and version = ${choice.preset.version}`;
-        await tx`insert into format_presets (format_id, version, format_version, config, ranked_eligible, approved_at) select format_id, ${nextPreset}, ${next}, config, ranked_eligible, now() from format_presets where format_id = 'value' and version = ${choice.preset.version}`;
-        await tx`update formats set current_version = ${next} where id = 'value'`;
+        await tx`insert into format_revisions (format_id, version, definition) select format_id, ${next}, definition from format_revisions where format_id = 'nsda-ld' and version = ${choice.formatVersion}`;
+        await tx`update format_presets set superseded_at = now() where format_id = 'nsda-ld' and version = ${choice.preset.version}`;
+        await tx`insert into format_presets (format_id, version, format_version, config, ranked_eligible, approved_at) select format_id, ${nextPreset}, ${next}, config, ranked_eligible, now() from format_presets where format_id = 'nsda-ld' and version = ${choice.preset.version}`;
+        await tx`update formats set current_version = ${next} where id = 'nsda-ld'`;
       });
       const retry = await f.operations.create(f.host, body);
       assert({
@@ -222,8 +225,8 @@ test('create replay survives catalog advancement and refuses a changed payload w
       });
     } finally {
       await publish(choice.formatVersion, nextPreset, choice.preset.version);
-      await f.sql`delete from format_presets where format_id = 'value' and version = ${nextPreset}`;
-      await f.sql`delete from format_revisions where format_id = 'value' and version = ${next}`;
+      await f.sql`delete from format_presets where format_id = 'nsda-ld' and version = ${nextPreset}`;
+      await f.sql`delete from format_revisions where format_id = 'nsda-ld' and version = ${next}`;
     }
   });
 });

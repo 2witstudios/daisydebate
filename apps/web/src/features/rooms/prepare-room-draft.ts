@@ -1,8 +1,4 @@
-import type {
-  PublishedResolution,
-  RoomCatalogChoice,
-  RoomCreate,
-} from '@daisy/protocol';
+import type { RoomCatalogChoice, RoomCreate } from '@daisy/protocol';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { formValues } from '../forms/form-state';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
@@ -93,7 +89,6 @@ function selectionOf(draft: CreateRoomDraft): RoomCreate['selection'] {
 export function prepareRoomDraft(
   form: FormData,
   choices: readonly RoomCatalogChoice[],
-  resolutions: readonly PublishedResolution[],
 ):
   | {
       readonly kind: 'preview';
@@ -142,15 +137,6 @@ export function prepareRoomDraft(
   const method = draft.resolutionMethod;
   if (method === 'custom' && !draft.customResolution.trim())
     return { kind: 'invalid', error: 'Enter a custom resolution.' };
-  const publication = resolutions.find(
-    (resolution) => resolution.kind === method,
-  );
-  if ((method === 'policy' || method === 'value') && !publication)
-    return {
-      kind: 'invalid',
-      error:
-        'That resolution is unavailable. Choose another option or try again later.',
-    };
   const submitted = new FormData();
   for (const [key, value] of form) submitted.append(key, value);
   submitted.set('selection', JSON.stringify(selection));
@@ -158,14 +144,5 @@ export function prepareRoomDraft(
   if (draft.ranked) submitted.set('visibility', 'public');
   submitted.set('resolutionMethod', method);
   submitted.set('customResolution', draft.customResolution);
-  if (publication) {
-    if (form.get(`${publication.kind}ResolutionId`) !== publication.id)
-      return {
-        kind: 'invalid',
-        error:
-          'That published resolution changed. Review the new wording before creating your room.',
-      };
-    submitted.set(`${publication.kind}ResolutionId`, publication.id);
-  }
   return { kind: 'submit', form: submitted };
 }

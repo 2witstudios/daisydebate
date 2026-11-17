@@ -250,11 +250,6 @@ type PeopleListAuthorizationFact = {
   readonly kind: 'people_list';
   readonly actorId: string;
 };
-/** A member's own rating visibility choice (ADR 0103). */
-type RatingVisibilityAuthorizationFact = {
-  readonly kind: 'rating_visibility';
-  readonly actorId: string;
-};
 /** A member's own moderation notices (ADR 0103). */
 type ModerationNoticeAuthorizationFact = {
   readonly kind: 'moderation_notice';
@@ -286,7 +281,6 @@ export type AuthorizationInput = {
     | FriendCollectionAuthorizationFact
     | ChallengeCollectionAuthorizationFact
     | PeopleListAuthorizationFact
-    | RatingVisibilityAuthorizationFact
     | ModerationNoticeAuthorizationFact
     | PresenceSettingAuthorizationFact
     | MemberHistoryAuthorizationFact

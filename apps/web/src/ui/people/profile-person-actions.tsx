@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ratingLadders,
   competitionTypes,
   reportReasonLabels,
   reportReasons,
@@ -26,12 +25,9 @@ import { controlClass } from '../components/form-field/form-field-class';
 import { useFormAction } from '../form-action/form-action';
 import type { PersonActions } from './person-actions';
 
-const labels = {
+const modeLabels = {
   ranked: 'Ranked',
   casual: 'Casual',
-  freestyle: 'Freestyle',
-  policy: 'Policy',
-  value: 'Value',
 } as const;
 
 const summary =
@@ -77,25 +73,12 @@ export function ProfilePersonActions({
             <select name="mode" defaultValue="ranked" className={controlClass}>
               {competitionTypes.map((mode) => (
                 <option key={mode} value={mode}>
-                  {labels[mode]}
+                  {modeLabels[mode]}
                 </option>
               ))}
             </select>
           </label>
-          <label>
-            <span className="sr-only">Format</span>
-            <select
-              name="format"
-              defaultValue="freestyle"
-              className={controlClass}
-            >
-              {ratingLadders.map((format) => (
-                <option key={format} value={format}>
-                  {labels[format]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <input type="hidden" name="format" value="freestyle" />
           <Button type="submit" disabled={sending}>
             Send challenge
           </Button>

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { LaddersFigure } from './ladders-figure';
+import { DrawFigure } from './draw-figure';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
@@ -16,7 +16,7 @@ export const heading =
 const marker =
   'flex size-8 shrink-0 items-center justify-center rounded-round text-sm font-strong';
 
-/** The opening slide introduces the product loop and its independent ladders. */
+/** The opening slide introduces the product loop and the Freestyle draw. */
 export function DaisyStep({ nextHref, backHref, skip }: IntroStepProps) {
   const steps: ReadonlyArray<readonly [string, ReactNode]> = [
     [
@@ -24,7 +24,7 @@ export function DaisyStep({ nextHref, backHref, skip }: IntroStepProps) {
       'Choose ranked or casual and get matched with someone near your rating.',
     ],
     ['Debate', 'Go live, make your case, and let a judge decide.'],
-    ['Ladder', 'Ranked results move your rating on that format’s ladder.'],
+    ['Ladder', 'Ranked Freestyle results move your rating on the ladder.'],
   ];
   return (
     <OnboardingFrame
@@ -61,7 +61,7 @@ export function DaisyStep({ nextHref, backHref, skip }: IntroStepProps) {
           </li>
         ))}
       </ol>
-      <LaddersFigure />
+      <DrawFigure />
       <StepFooter
         backHref={backHref}
         next={<NextLink href={nextHref}>Next</NextLink>}

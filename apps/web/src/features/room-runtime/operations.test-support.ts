@@ -9,7 +9,7 @@ import {
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
-import { catalog, valueFacts } from './catalog-sources.test-support';
+import { catalog, freestyleFacts } from './catalog-sources.test-support';
 import { seatedListingEntry } from '../rooms/assembly.test-support';
 
 export const caller = {
@@ -39,7 +39,6 @@ export const state: RoomAssemblyState = {
   changeVersion: 1,
   title: 'A persisted casual room',
   topic: 'Cities should make transit free',
-  publishedResolutionId: null,
   visibility: 'public',
   hostActorId: caller.actorId,
   hostInherited: false,
@@ -126,25 +125,15 @@ export function makeOperations(
       ];
     },
     getFormatRevision: async () => null,
-    listPublishedResolutions: async () => [],
-    getPublishedResolution: async (id: string, kind: 'policy' | 'value') => ({
-      id,
-      kind,
-      text: state.topic!,
-      provenance: 'Daisy-original test publication',
-      edition: null,
-      theme: null,
-      publishedAt: now,
-    }),
     getFormatSelectionFacts: async (tuple: {
       readonly formatId: string;
       readonly formatVersion: number;
       readonly presetVersion: number;
     }) =>
-      tuple.formatId === 'value' &&
+      tuple.formatId === 'freestyle' &&
       tuple.formatVersion === 1 &&
       tuple.presetVersion === 1
-        ? valueFacts
+        ? freestyleFacts
         : null,
     readRoomCreateReceipt: async (input: {
       readonly caller: typeof caller;

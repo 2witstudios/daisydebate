@@ -23,9 +23,9 @@ import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-sup
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 
-const casualValue = {
+const casualTemplate = {
   kind: 'catalog' as const,
-  formatId: 'value',
+  formatId: 'nsda-ld',
   formatVersion: 1,
   presetVersion: 1,
   competitionType: 'casual' as const,
@@ -37,7 +37,7 @@ test('a casual AI judge seat needs the host’s own grant, refused on the server
     const withdraw = (userId: string) =>
       f.sql`delete from account_entitlement_grants where user_id=${userId} and entitlement='casual_ai_judge'`;
 
-    const entitled = await f.create({ selection: casualValue });
+    const entitled = await f.create({ selection: casualTemplate });
     const seated = await f.command(f.host, entitled.view, {
       type: 'assign-seat',
       actorId: judgeId,
@@ -56,7 +56,7 @@ test('a casual AI judge seat needs the host’s own grant, refused on the server
 
     const other = await f.member();
     await withdraw(other.userId);
-    const open = await f.create({ selection: casualValue }, other);
+    const open = await f.create({ selection: casualTemplate }, other);
     const before = await f.snapshot(open.view.id);
     await assertRejects({
       given: 'a casual host without the grant posting the AI judge seat',
@@ -108,7 +108,7 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
         f.create(
           {
             title,
-            selection: casualValue,
+            selection: casualTemplate,
             cast: [
               { actorId: botId, role: 'negative', slot: 0 },
               { actorId: judgeId, role: 'judge', slot: 0 },
@@ -122,7 +122,7 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
     const practice = await f.create(
       {
         title,
-        selection: casualValue,
+        selection: casualTemplate,
         cast: [{ actorId: botId, role: 'negative', slot: 0 }],
       },
       host,
@@ -163,7 +163,7 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
     );
     try {
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;
-      const room = await readyRankedRoom(f, 'value', 'ai');
+      const room = await readyRankedRoom(f, 'freestyle', 'ai');
       assert({
         given: 'a ranked Room whose host holds no entitlement grant',
         should: 'seat the AI judge and tell the host it is free',

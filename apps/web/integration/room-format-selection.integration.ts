@@ -22,13 +22,15 @@ const summary = (view: RoomView) => ({
 test('a casual room chooses, edits and returns to a standard through the database', async () => {
   await withRoomRuntime(async (f) => {
     const catalog = (await f.operations.catalog(f.host)).choices;
-    const value = catalog.find((choice) => choice.formatId === 'value')!;
+    const freestyle = catalog.find(
+      (choice) => choice.formatId === 'freestyle',
+    )!;
     const template = catalog.find((choice) => choice.formatId === 'nsda-ld')!;
     const created = (
       await f.create({
         selection: {
           kind: 'catalog',
-          ...tuple(value),
+          ...tuple(freestyle),
           competitionType: 'casual',
         },
       })
@@ -46,7 +48,7 @@ test('a casual room chooses, edits and returns to a standard through the databas
       await f.command(f.host, edited, {
         type: 'select-format',
         intent: 'reset',
-        ...tuple(value),
+        ...tuple(freestyle),
       })
     ).view;
     const chosen = (
@@ -54,15 +56,16 @@ test('a casual room chooses, edits and returns to a standard through the databas
         type: 'select-format',
         intent: 'choose',
         ...tuple(template),
+        topic: 'Cities should make public transit free',
       })
     ).view;
     const [row] = await f.sql`
       select basis_format_id, basis_preset_version from rooms where id=${chosen.id}`;
     assert({
       given:
-        'a room created on Value, its prep edited, Back to Value, then a league template chosen',
+        'a room created on Freestyle, its prep edited, Back to Freestyle, then a league template chosen',
       should:
-        'read Standard, Custom based on Value, Standard again, then Custom based on the template, persisting the basis',
+        'read Standard, Custom based on Freestyle, Standard again, then Custom based on the template, persisting the basis',
       actual: {
         created: summary(created),
         edited: summary(edited),
@@ -73,22 +76,22 @@ test('a casual room chooses, edits and returns to a standard through the databas
       },
       expected: {
         created: {
-          formatId: 'value',
-          name: 'Value',
-          basis: 'value',
+          formatId: 'freestyle',
+          name: 'Freestyle',
+          basis: 'freestyle',
           standing: 'standard',
         },
         edited: {
-          formatId: 'value',
-          name: 'Value',
-          basis: 'value',
+          formatId: 'freestyle',
+          name: 'Freestyle',
+          basis: 'freestyle',
           standing: 'custom',
         },
-        resetConfig: value.preset.config,
+        resetConfig: created.config,
         reset: {
-          formatId: 'value',
-          name: 'Value',
-          basis: 'value',
+          formatId: 'freestyle',
+          name: 'Freestyle',
+          basis: 'freestyle',
           standing: 'standard',
         },
         chosen: {
@@ -109,8 +112,10 @@ test('a casual room chooses, edits and returns to a standard through the databas
 test('select-format refuses what the policy refuses and leaves the room unchanged', async () => {
   await withRoomRuntime(async (f) => {
     const catalog = (await f.operations.catalog(f.host)).choices;
-    const value = catalog.find((choice) => choice.formatId === 'value')!;
-    const policy = catalog.find((choice) => choice.formatId === 'policy')!;
+    const freestyle = catalog.find(
+      (choice) => choice.formatId === 'freestyle',
+    )!;
+    const template = catalog.find((choice) => choice.formatId === 'nsda-ld')!;
     const view = (await f.create()).view;
     const before = await f.snapshot(view.id);
     await assertRejects({
@@ -120,8 +125,8 @@ test('select-format refuses what the policy refuses and leaves the room unchange
         f.command(f.host, view, {
           type: 'select-format',
           intent: 'choose',
-          ...tuple(value),
-          presetVersion: value.preset.version + 1,
+          ...tuple(freestyle),
+          presetVersion: freestyle.preset.version + 1,
         }),
       code: 'CONFLICT',
     });
@@ -132,7 +137,7 @@ test('select-format refuses what the policy refuses and leaves the room unchange
         f.command(f.host, view, {
           type: 'select-format',
           intent: 'reset',
-          ...tuple(policy),
+          ...tuple(template),
         }),
       code: 'CONFLICT',
     });
@@ -143,7 +148,7 @@ test('select-format refuses what the policy refuses and leaves the room unchange
         f.command(f.guest, view, {
           type: 'select-format',
           intent: 'choose',
-          ...tuple(value),
+          ...tuple(freestyle),
         }),
       code: 'AUTHORIZATION',
     });
@@ -160,7 +165,7 @@ test('select-format refuses what the policy refuses and leaves the room unchange
 test('a room switches into and out of a striking format (FMT-2b)', async () => {
   await withRoomRuntime(async (f) => {
     const catalog = (await f.operations.catalog(f.host)).choices;
-    const value = catalog.find((choice) => choice.formatId === 'value')!;
+    const template = catalog.find((choice) => choice.formatId === 'nsda-ld')!;
     const freestyle = catalog.find(
       (choice) => choice.formatId === 'freestyle',
     )!;
@@ -168,7 +173,7 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
       await f.create({
         selection: {
           kind: 'catalog',
-          ...tuple(value),
+          ...tuple(template),
           competitionType: 'casual',
         },
       })
@@ -181,14 +186,13 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
       })
     ).view;
     await assertRejects({
-      given: 'leaving a draw for Value with host-written replacement text',
-      should: 'refuse: Value uses its published resolution',
+      given: 'leaving a draw for a league template with no replacement text',
+      should: 'refuse: a template runs a host-written resolution',
       actual: () =>
         f.command(f.host, striking, {
           type: 'select-format',
           intent: 'choose',
-          ...tuple(value),
-          topic: 'Cities should ban cars downtown',
+          ...tuple(template),
         }),
       code: 'CONFLICT',
     });
@@ -196,7 +200,8 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
       await f.command(f.host, striking, {
         type: 'select-format',
         intent: 'choose',
-        ...tuple(value),
+        ...tuple(template),
+        topic: 'Cities should ban cars downtown',
       })
     ).view;
     const fresh = (
@@ -214,7 +219,7 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
     ).view;
     assert({
       given:
-        'a Value room choosing Freestyle, then Value with a resolution, and a new Freestyle room',
+        'a template room choosing Freestyle, then the template with a resolution, and a new Freestyle room',
       should:
         'clear the topic and run the strike, restore a set resolution, and create the striking room with no topic',
       actual: {
@@ -223,7 +228,7 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
           striking.topic,
           striking.config.resolutionDraw.enabled,
         ],
-        back: [summary(back), back.topic],
+        back: [summary(back), back.topic, back.config.resolutionDraw.enabled],
         fresh: [summary(fresh), fresh.topic],
         listed: catalog
           .filter((c) => c.role === 'standard')
@@ -242,12 +247,13 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
         ],
         back: [
           {
-            formatId: 'value',
-            name: 'Value',
-            basis: 'value',
-            standing: 'standard',
+            formatId: 'nsda-ld',
+            name: template.label,
+            basis: 'nsda-ld',
+            standing: 'custom',
           },
-          'Resolved: The world would be a better place if traditional sports were replaced by competitive debate.',
+          'Cities should ban cars downtown',
+          false,
         ],
         fresh: [
           {
@@ -258,7 +264,7 @@ test('a room switches into and out of a striking format (FMT-2b)', async () => {
           },
           null,
         ],
-        listed: ['policy', 'value', 'freestyle'],
+        listed: ['freestyle'],
       },
     });
   });

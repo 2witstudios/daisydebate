@@ -6,9 +6,9 @@ import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const rankedValue = {
+const rankedFreestyle = {
   kind: 'ranked' as const,
-  formatId: 'value',
+  formatId: 'freestyle',
   formatVersion: 1,
   presetVersion: 1,
 };
@@ -71,7 +71,7 @@ test('a ranked Room is refused the post-round call', async () => {
   await withRoomRuntime(async (f) => {
     const refusal = await f
       .create({
-        selection: rankedValue,
+        selection: rankedFreestyle,
         visibility: 'public',
         postRoundCall: true,
       })

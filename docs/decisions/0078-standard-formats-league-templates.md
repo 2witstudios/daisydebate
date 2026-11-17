@@ -4,7 +4,8 @@ Status: accepted; owner decisions 2026-10-26 (format picker), DEC-243. The
 cross-examination setting is retired by
 [ADR 0096](0096-cross-examination-open-microphones.md).
 Extends [ADR 0058](0058-one-round-model.md) §2a–§5. Plan:
-FMT-1 to FMT-4 (PageSpace, Plans/Format catalog, rev 3).
+FMT-1 to FMT-4 (PageSpace, Plans/Format catalog, rev 3). §1 is amended by
+[ADR 0142](0142-freestyle-the-one-standard-and-ladder.md): Policy and Value are deleted, and Freestyle is Daisy's one standard.
 
 ## Context
 

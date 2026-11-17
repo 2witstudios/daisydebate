@@ -1,4 +1,4 @@
-import type { ChallengeList, PublishedResolution } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import type { Moved, Refused } from '../forms/form-state';
 import {
@@ -19,7 +19,6 @@ export type AcceptOfferPorts = {
     | {
         readonly kind: 'found';
         readonly choices: readonly RoomTemplate[];
-        readonly resolutions: readonly PublishedResolution[];
       }
     | { readonly kind: 'unavailable' }
   >;
@@ -77,7 +76,6 @@ export async function acceptOffer(
       mode: offer.mode,
       template,
       commandId: ports.nextId(),
-      resolutions: catalog.resolutions,
     }),
     async (roomId, created) => {
       try {

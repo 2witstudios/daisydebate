@@ -12,7 +12,6 @@ import {
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
-import { saveRatingVisibilityAction } from './actions';
 import {
   clearWatchHistoryAction,
   forgetWatchedAction,
@@ -22,10 +21,6 @@ import {
 import { NotificationPreferencesForm } from '../../../ui/notifications/notification-preferences-form';
 import { NotificationPresentationForm } from '../../../ui/notifications/notification-presentation-form';
 import { WatchHistoryList } from '../../../ui/watch-history/watch-history-list';
-import { ratingVisibilitySchema } from '@daisy/protocol';
-import { GET as readRatingVisibility } from '../../api/ratings/visibility/route';
-import { readOwnRoute } from '../friends/read-route';
-import { RatingVisibilityForm } from '../../../ui/settings/preferences/rating-visibility-form';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -72,11 +67,6 @@ export default async function SettingsRoute({
     requestOnboardingAnswers(),
   ]);
   const answers = admitted ? ownAnswers : null;
-  const visibility = await readOwnRoute(
-    readRatingVisibility,
-    '/api/ratings/visibility',
-    ratingVisibilitySchema,
-  );
   return (
     <SettingsPage
       {...('principal' in identity && identity.principal.kind === 'user'
@@ -85,14 +75,6 @@ export default async function SettingsRoute({
       username={claimedUsername(identity)}
       dataRightsNotices={parseDataRightsQuery(query)}
       analytics={await requestAnalytics()}
-      ratingCard={
-        visibility ? (
-          <RatingVisibilityForm
-            action={saveRatingVisibilityAction}
-            visibility={visibility}
-          />
-        ) : null
-      }
       onboarding={
         answers === null
           ? null

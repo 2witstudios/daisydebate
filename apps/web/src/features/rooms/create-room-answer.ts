@@ -1,9 +1,5 @@
 import { z } from 'zod';
 import {
-  publishedResolutionSchema,
-  type PublishedResolution,
-} from '@daisy/protocol';
-import {
   formFields,
   refused,
   type FormFields,
@@ -13,37 +9,29 @@ import {
   type Refused,
 } from '../forms/form-state';
 
-/** The settings as the server prepared them, with the catalog it read them against. */
+/** The settings as the server prepared them. */
 type RoomDraftPreviewed = {
   readonly kind: 'previewed';
   readonly values: FormValues;
-  readonly resolutions: readonly PublishedResolution[];
 };
-/** Settings the catalog refuses, with that catalog to choose from again. */
+/** Settings the catalog refuses, to edit again. */
 type RoomDraftInvalid = {
   readonly kind: 'invalid';
   readonly values: FormValues;
   readonly error: string;
-  readonly resolutions: readonly PublishedResolution[];
 };
 /** The create-room editor's answer: a preview, a refusal, or the Room to go to. */
 export type RoomDraftAnswer =
   Idle | Refused | RoomDraftPreviewed | RoomDraftInvalid | Moved;
 
 const values = z.record(z.string().max(100), z.string().max(131072));
-const resolutions = z.array(publishedResolutionSchema).readonly();
 
 export const roomDraftAnswerSchema: z.ZodType<RoomDraftAnswer> =
   z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('idle'), values }),
     z.object({ kind: z.literal('refused'), values, error: z.string() }),
-    z.object({ kind: z.literal('previewed'), values, resolutions }),
-    z.object({
-      kind: z.literal('invalid'),
-      values,
-      error: z.string(),
-      resolutions,
-    }),
+    z.object({ kind: z.literal('previewed'), values }),
+    z.object({ kind: z.literal('invalid'), values, error: z.string() }),
     z.object({
       kind: z.literal('moved'),
       next: z
@@ -52,27 +40,17 @@ export const roomDraftAnswerSchema: z.ZodType<RoomDraftAnswer> =
     }),
   ]);
 
-/** What the editor renders from each answer, and the catalog it brought, if any. */
-export function roomDraftFields(answer: RoomDraftAnswer): FormFields & {
-  readonly resolutions: readonly PublishedResolution[] | undefined;
-} {
+/** What the editor renders from each answer. */
+export function roomDraftFields(answer: RoomDraftAnswer): FormFields {
   switch (answer.kind) {
     case 'previewed':
-      return {
-        values: answer.values,
-        error: undefined,
-        resolutions: answer.resolutions,
-      };
+      return { values: answer.values, error: undefined };
     case 'invalid':
-      return {
-        values: answer.values,
-        error: answer.error,
-        resolutions: answer.resolutions,
-      };
+      return { values: answer.values, error: answer.error };
     case 'idle':
     case 'refused':
     case 'moved':
-      return { ...formFields(answer), resolutions: undefined };
+      return formFields(answer);
   }
 }
 

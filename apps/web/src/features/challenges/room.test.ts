@@ -23,7 +23,6 @@ const form = (mode: 'ranked' | 'casual') =>
     mode,
     template,
     commandId: 'c'.repeat(24),
-    resolutions: [],
   });
 
 describe('challengeRoomForm', () => {
@@ -85,11 +84,11 @@ describe('challengeRoomForm', () => {
 describe('templateFor', () => {
   test('finds the format, or nothing', () => {
     assert({
-      given: 'a catalog with Freestyle only',
-      should: 'find it and miss Policy',
+      given: 'a catalog with Freestyle, and one without it',
+      should: 'find it, then nothing',
       actual: [
         templateFor([template], 'freestyle'),
-        templateFor([template], 'policy'),
+        templateFor([], 'freestyle'),
       ],
       expected: [template, undefined],
     });

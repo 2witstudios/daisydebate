@@ -2,7 +2,6 @@ import { ratingLadders, type RatingLadder } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import {
-  boolean,
   check,
   doublePrecision,
   foreignKey,
@@ -74,7 +73,7 @@ const ratingScope = () => ({
   seasonId: text('season_id')
     .notNull()
     .references(() => seasons.id, { onDelete: 'restrict' }),
-  /** One of the three Daisy ladders (ADR 0090). */
+  /** A Daisy ladder (ADR 0142): today only Freestyle. */
   ladder: text('ladder').$type<RatingLadder>().notNull(),
 });
 
@@ -178,16 +177,3 @@ export const ratingChanges = pgTable(
     ),
   ],
 );
-
-/**
- * Which ratings a member shows on their card besides Freestyle (ADR 0103).
- * No row shows Freestyle alone. Ladders stay public either way.
- */
-export const ratingVisibility = pgTable('rating_visibility', {
-  actorId: text('actor_id')
-    .primaryKey()
-    .references(() => actors.id, { onDelete: 'cascade' }),
-  showPolicy: boolean('show_policy').notNull(),
-  showValue: boolean('show_value').notNull(),
-  updatedAt: updatedAtColumn(),
-});

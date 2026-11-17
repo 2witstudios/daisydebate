@@ -16,7 +16,6 @@ import { composeRoomInvitationRoutes } from '../features/room-invitations/compos
 import { composeFriendRoutes } from '../features/friends/composition';
 import { composeModerationRoutes } from '../features/moderation/composition';
 import { composeReportRoutes } from '../features/reports/composition';
-import { composeRatingVisibilityRoutes } from '../features/ratings/visibility-routes';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
 import { composeAgreementRoutes } from '../features/agreements/composition';
@@ -95,7 +94,6 @@ export function createRoutes(app: App) {
     roomInvitations: composeRoomInvitationRoutes(app),
     reports: composeReportRoutes(app),
     moderation: composeModerationRoutes(app),
-    ratingVisibility: composeRatingVisibilityRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
     audienceLink: createAudienceLinkHandlers({

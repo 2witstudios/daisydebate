@@ -16,7 +16,6 @@ import type {
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
-  PublishedResolution,
   RoomRefusal,
 } from '@daisy/protocol';
 
@@ -35,10 +34,6 @@ import {
   type SelectionTuple,
 } from './format-operations';
 import { drawStartFacts } from './draw-start-facts';
-import {
-  readPublishedResolution,
-  readPublishedResolutions,
-} from './published-resolutions';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -94,7 +89,6 @@ type CommandInput = {
       account: Account,
       draw: RoomDrawFacts,
       formatFacts: FormatSelectionFactsRecord | null,
-      resolutionPublication: PublishedResolution | null,
       /** The caller's own grants, read under the account fence this holds. */
       grants: readonly EntitlementGrant[],
       /** This member's standing on the waiver a Ready needs, under this lock. */
@@ -189,16 +183,6 @@ async function executeOnce(
   const formatFacts = input.formatTuple
     ? await readFormatSelectionFacts(tx, input.formatTuple)
     : null;
-  const selectedKind = formatFacts?.format.id;
-  const current =
-    selectedKind === 'policy' || selectedKind === 'value'
-      ? (await readPublishedResolutions(tx)).find(
-          (resolution) => resolution.kind === selectedKind,
-        )
-      : undefined;
-  const publication = current
-    ? await readPublishedResolution(tx, current.id, current.kind)
-    : null;
   const agreements =
     input.type === 'ready' ? input.readyAgreements(state) : null;
   const draw = await drawFacts(tx, input.type, state);
@@ -231,7 +215,6 @@ async function executeOnce(
     account,
     draw,
     formatFacts,
-    publication,
     grants,
     contentWaiver,
     judgeQuote?.decision.kind === 'admit',
