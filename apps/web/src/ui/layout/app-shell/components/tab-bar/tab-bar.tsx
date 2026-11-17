@@ -150,8 +150,20 @@ export function TabBar({
         <div className="fixed inset-x-0 more-sheet flex flex-col overflow-y-auto border-t border-border bg-surface-raised shadow-3">
           {account.state === 'member' ? (
             <p className="flex items-center gap-2 px-4 pt-3 text-sm font-semibold text-ink">
-              <SelfAvatar username={account.username} />
-              {account.username}
+              <SelfAvatar
+                name={account.displayName ?? account.username}
+                photoId={account.photoId}
+              />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate">
+                  {account.displayName ?? account.username}
+                </span>
+                {account.displayName === null ? null : (
+                  <span className="truncate text-xs text-ink-muted">
+                    @{account.username}
+                  </span>
+                )}
+              </span>
             </p>
           ) : null}
           {statusControl}

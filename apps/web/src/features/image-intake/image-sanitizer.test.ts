@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { sanitizeMessagingImage } from './image-sanitizer';
+import { sanitizeImage } from './image-sanitizer';
 setupRitewayBun();
 test('image adapter actually decodes and strips private metadata', async () => {
   const input = await sharp({
@@ -16,7 +16,7 @@ test('image adapter actually decodes and strips private metadata', async () => {
     .jpeg()
     .toBuffer();
   const before = await sharp(input).metadata();
-  const output = await sanitizeMessagingImage(input, 'image/jpeg', {
+  const output = await sanitizeImage(input, 'image/jpeg', {
     maxPixels: 4,
     maxBytes: 4096,
     serviceMs: 1000,
@@ -37,7 +37,7 @@ test('image adapter actually decodes and strips private metadata', async () => {
     given: 'a decoded image beyond its explicit pixel bound',
     should: 'refuse processing',
     actual: () =>
-      sanitizeMessagingImage(input, 'image/jpeg', {
+      sanitizeImage(input, 'image/jpeg', {
         maxPixels: 3,
         maxBytes: 4096,
         serviceMs: 1000,
@@ -48,7 +48,7 @@ test('image adapter actually decodes and strips private metadata', async () => {
     given: 'signature-like truncated PNG bytes',
     should: 'refuse full decode',
     actual: () =>
-      sanitizeMessagingImage(
+      sanitizeImage(
         new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
         'image/png',
         { maxPixels: 100, maxBytes: 4096, serviceMs: 1000 },
@@ -59,7 +59,7 @@ test('image adapter actually decodes and strips private metadata', async () => {
     given: 'decoded output above its explicit byte limit',
     should: 'refuse oversized sanitized output',
     actual: () =>
-      sanitizeMessagingImage(input, 'image/jpeg', {
+      sanitizeImage(input, 'image/jpeg', {
         maxPixels: 4,
         maxBytes: 1,
         serviceMs: 1000,

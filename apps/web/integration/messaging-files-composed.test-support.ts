@@ -20,8 +20,8 @@ import {
 import { mutateMessagingMessage } from '../src/features/messaging/mutate';
 import { composeMessagingFileCleanup } from '../src/features/messaging/file-cleanup';
 import { createLocalPrivateObjectStore } from '../src/features/messaging/files/local-object-store';
-import { createClamdScanner } from '../src/features/messaging/files/clamd';
-import { sanitizeMessagingImage } from '../src/features/messaging/files/image-sanitizer';
+import { createClamdScanner } from '../src/features/image-intake/clamd';
+import { sanitizeImage } from '../src/features/image-intake/image-sanitizer';
 import {
   finalizeMessagingFile,
   reserveMessagingFile,
@@ -101,7 +101,7 @@ export async function openComposedFileFixture(
       }),
       objects,
       scanner: createClamdScanner(relay),
-      sanitizeImage: sanitizeMessagingImage,
+      sanitizeImage: sanitizeImage,
       clock,
       ids: { next: createId },
     });

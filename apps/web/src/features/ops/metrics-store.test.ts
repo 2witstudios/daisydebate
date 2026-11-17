@@ -111,6 +111,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         privacy_jobs: 2,
         billing_cleanup: 0,
         messaging_file_maintenance: 0,
+        profile_photo_deletions: 0,
       },
     });
   });
@@ -162,6 +163,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
           privacy_jobs: 0,
           billing_cleanup: 0,
           messaging_file_maintenance: 0,
+          profile_photo_deletions: 0,
         },
         retentionSweepFailuresByOperation: {},
         latencyMsByOperation: {},
@@ -259,6 +261,7 @@ describe('formatPrometheusMetrics (AUTH-7.7)', () => {
         'worker_run_failures_total{worker="billing_cleanup"} 0',
         'worker_run_failures_total{worker="observation_purges"} 0',
         'worker_run_failures_total{worker="messaging_file_maintenance"} 0',
+        'worker_run_failures_total{worker="profile_photo_deletions"} 0',
       ].every((line) => text.includes(line)),
       expected: true,
     });

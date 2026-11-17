@@ -3,6 +3,7 @@ import {
   contentReportStatuses,
   type ContentModerationQueue,
   type ContentReport,
+  type OperatorProfilePhoto,
 } from '@daisy/protocol/content-moderation';
 import { z } from 'zod';
 import {
@@ -65,6 +66,24 @@ const notices: Readonly<Record<ContentModerationNotice, string>> = {
 
 export const contentModerationNoticeText = (notice: ContentModerationNotice) =>
   notices[notice];
+
+/** Where the in-review photos queue lives, and where its commands come back to. */
+export const photoReviewsHref = '/content-moderation/photo-reviews';
+
+/**
+ * A photo's 512px rendition as an image source. Only well-formed base64 is
+ * put in a data URL; anything else shows no image at all.
+ */
+export const profilePhotoSrc = (photo: OperatorProfilePhoto): string | null =>
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+    photo.imageWebpBase64,
+  ) && photo.imageWebpBase64 !== ''
+    ? `data:image/webp;base64,${photo.imageWebpBase64}`
+    : null;
+
+export const profileTextFieldLabels: Readonly<
+  Record<'display_name' | 'bio', string>
+> = { display_name: 'Display name', bio: 'Bio' };
 
 export const queueLabels: Readonly<Record<ContentModerationQueue, string>> = {
   safety: 'Safety',

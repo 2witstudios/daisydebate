@@ -18,8 +18,9 @@ import type { ReleaseFlagKey } from '../features/flags/catalogue';
 
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
+import type { PublicProfileCard } from '@daisy/db';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import { type MatchHistoryQuery, type MemberProfile } from '@daisy/protocol';
+import { type MatchHistoryQuery } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
@@ -33,7 +34,10 @@ import { followingOf } from '../features/watch/following';
 import type { HubCounts } from '../features/watch/hub-counts';
 import { liveRoundsOf } from '../features/watch/list-live';
 import type { LiveQuery } from '../features/watch/live-query';
-import { readProfile } from '../features/profile/read-profile';
+import {
+  readProfile,
+  type ProfileView,
+} from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
 import { createDocumentOperations } from '../features/documents/document-operations';
@@ -225,7 +229,7 @@ export const requestOptionalAnswersAdmitted = cache(
 export const requestMemberProfile = async (
   username: string,
   query: MatchHistoryQuery,
-): Promise<MemberProfile | null> =>
+): Promise<ProfileView | null> =>
   readProfile(
     { store: processApp().database, limiter: processApp().limiter },
     {
@@ -236,6 +240,17 @@ export const requestMemberProfile = async (
       now: processApp().clock.now(),
     },
   );
+
+/**
+ * The member's own display name and published photo, for the shell's account
+ * menu (ADR 0143): the one public read lists use, for one actor.
+ */
+export const requestOwnProfileCard = async (
+  actorId: string,
+): Promise<PublicProfileCard> =>
+  (await processApp().database.readPublicProfileCards([actorId])).get(
+    actorId,
+  ) ?? { displayName: null, photoId: null };
 
 /**
  * What the public Round route reads, its one way in: the same facts the

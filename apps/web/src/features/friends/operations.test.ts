@@ -6,6 +6,7 @@ import type { FriendStore } from '@daisy/db/friends';
 import {
   capabilityFor,
   changeFriendship,
+  countFriendsOnline,
   friendsOnlineOf,
   readFriendList,
   type FriendCapability,
@@ -227,7 +228,9 @@ test('readFriendList', async () => {
     otherPlacement: null,
   });
   const asked: (readonly string[])[] = [];
-  const list = await readFriendList(principal, {
+  const profilesAsked: (readonly string[])[] = [];
+  const photoId = 'p'.repeat(24);
+  const reads = {
     list: async () => [
       row(them, 'zed', 'accepted', me),
       row(c, 'bea', 'accepted', c),
@@ -236,7 +239,7 @@ test('readFriendList', async () => {
       row(d, 'dan', 'pending', d),
       row('f'.repeat(24), 'eve', 'pending', me),
     ],
-    presence: async (ids) => {
+    presence: async (ids: readonly string[]) => {
       asked.push(ids);
       return new Map([
         [them, 'active' as const],
@@ -245,6 +248,13 @@ test('readFriendList', async () => {
         ['g'.repeat(24), 'active' as const],
       ]);
     },
+  };
+  const list = await readFriendList(principal, {
+    ...reads,
+    profiles: async (ids) => {
+      profilesAsked.push(ids);
+      return new Map([[c, { displayName: 'Bea Bee', photoId }]]);
+    },
   });
   assert({
     given: 'friends with mixed presence and requests both ways',
@@ -252,10 +262,25 @@ test('readFriendList', async () => {
     actual: list,
     expected: {
       friends: [
-        { username: 'zed', presence: 'online' },
-        { username: 'cat', presence: 'away' },
-        { username: 'bea', presence: 'offline' },
-        { username: 'gus', presence: 'offline' },
+        {
+          username: 'zed',
+          presence: 'online',
+          displayName: null,
+          photoId: null,
+        },
+        { username: 'cat', presence: 'away', displayName: null, photoId: null },
+        {
+          username: 'bea',
+          presence: 'offline',
+          displayName: 'Bea Bee',
+          photoId,
+        },
+        {
+          username: 'gus',
+          presence: 'offline',
+          displayName: null,
+          photoId: null,
+        },
       ],
       incoming: [{ username: 'dan', requestedAt: now }],
       outgoing: [{ username: 'eve', requestedAt: now }],
@@ -272,5 +297,18 @@ test('readFriendList', async () => {
     should: 'count only the visible online and away friends in the badge',
     actual: friendsOnlineOf(list.friends),
     expected: 2,
+  });
+  assert({
+    given: 'the profile read',
+    should: 'ask once, for every accepted friend',
+    actual: profilesAsked.map((ids) => [...ids].sort()),
+    expected: [[them, e, c, 'g'.repeat(24)].sort()],
+  });
+  profilesAsked.length = 0;
+  assert({
+    given: 'the shell badge’s count',
+    should: 'count the same friends without reading any profile',
+    actual: [await countFriendsOnline(principal, reads), profilesAsked],
+    expected: [2, []],
   });
 });

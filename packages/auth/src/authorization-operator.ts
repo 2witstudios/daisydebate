@@ -27,6 +27,10 @@ const contentModerationCapabilities: readonly AuthorizationCapability[] = [
   'recording.rebuild',
   'recording.rebuildable.read',
   'chat_message.remove',
+  'profile_photo.review.read',
+  'profile_photo.review',
+  'profile_photo.remove',
+  'profile_text.remove',
   'account.audience_ban.update',
 ];
 
