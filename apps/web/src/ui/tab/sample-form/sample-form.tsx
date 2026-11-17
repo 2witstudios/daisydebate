@@ -23,11 +23,14 @@ export type SampleSubmit = (label: string) => FormStateAction;
 export function SampleForm({
   action,
   label,
+  id,
   className,
   children,
 }: {
   readonly action: FormStateAction;
   readonly label: string;
+  /** Lets a submit button outside the form post it (its `form` attribute). */
+  readonly id?: string;
   readonly className?: string;
   readonly children: ReactNode;
 }) {
@@ -37,6 +40,7 @@ export function SampleForm({
       key={answered}
       action={action}
       label={label}
+      {...(id === undefined ? {} : { id })}
       {...(className === undefined ? {} : { className })}
     >
       {() => children}

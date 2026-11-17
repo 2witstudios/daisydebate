@@ -13,12 +13,18 @@
   /* The ballot lays out by its own width, not the viewport's: the page
      around it decides how much it gets. From this width the score sheet sets
      the two sides beside the category with a slider of at least 100 px each
-     (two 1/4 tracks after the row's padding and gaps, less the number);
+     (two 1/4 tracks after the row's 40 px padding and three 16 px gaps, less
+     the 12 px gap and the 40 px number: (696 - 88) / 4 - 52 = 100);
      narrower, each side gets a row. */
-  --container-ballot-sheet: 37.5rem;
+  --container-ballot-sheet: 43.5rem;
   /* From this width the score comparison puts the category and both judges
      on one line; narrower, the category heads its row. */
   --container-ballot-compare: 26rem;
+  /* From this width the winner cards sit two to a line with about 140 px
+     for the name and side label: (544 - 12) / 2 per card, less 32 px
+     padding, the 44 px avatar, two 16 px gaps and the 20 px check; narrower,
+     they stack and draw compact. */
+  --container-ballot-sides: 34rem;
   /* A readable measure for long copy and single-column forms. */
   --spacing-reading: 44rem;
   --spacing-search-x: 2px;
