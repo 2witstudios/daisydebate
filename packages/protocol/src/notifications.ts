@@ -117,11 +117,18 @@ export const notificationChannelsOf = (
 ): readonly NotificationChannel[] =>
   emailsKind(kind) ? ['in_app', 'email'] : ['in_app'];
 
+/** The most notifications one read names: the rows one inbox page shows. */
+export const NOTIFICATIONS_READ_AT_ONCE = 50;
+
+/**
+ * Marks some of a member's own notifications read (one the member opened, or
+ * those the page they are on shows), or all of them.
+ */
 export const notificationsReadSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     version: z.literal(1),
-    kind: z.literal('one'),
-    notificationId: idSchema,
+    kind: z.literal('some'),
+    notificationIds: z.array(idSchema).min(1).max(NOTIFICATIONS_READ_AT_ONCE),
   }),
   z.strictObject({ version: z.literal(1), kind: z.literal('all') }),
 ]);

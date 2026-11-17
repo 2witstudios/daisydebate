@@ -1,86 +1,26 @@
 import {
   buildUserInboxTopic,
   type CompetitionType,
-  type EmailedNotificationKind,
   type NotificationKind,
   type RatingLadder,
   type RoomSeatKind,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { AuthorizationTransaction } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { challengeOpen } from '../challenges/open';
 import { appendOutboxEvent } from '../outbox';
 import { rowsOf } from '../raw-rows';
-import { invitationOpen } from '../room-invitations/open';
-import { wants } from './preferences';
+import { notificationStands, standingJoins } from './standing';
 
-/** What a producer owes one member, in its own transaction (ADR 0124). */
-export type OwedNotification = {
-  readonly id: string;
-  /** The email job's id, or null when the producer owes no email for it. */
-  readonly emailJobId: string | null;
-  readonly recipient: { readonly userId: string; readonly actorId: string };
-  /** Who it is about: the inviting host or the challenger. */
-  readonly actorId: string;
-  readonly at: string;
-} & (
-  | {
-      readonly kind: 'room_invitation';
-      readonly roomInvitationId: string;
-    }
-  | { readonly kind: 'challenge_received'; readonly challengeId: string }
-);
-
-/**
- * Writes one notification for an event a producer just recorded, in the
- * producer's transaction: the inbox row, one content-free `user:inbox`
- * signal, and an email job when the member's email channel for the kind is
- * on (read now; the job re-reads it at send time). The row is written even
- * when the in-app channel is off: the inbox read leaves it out, so a
- * preference suppresses delivery without deleting truth. A repeat of the
- * same subject writes nothing.
- */
-export async function oweNotification(
-  tx: AuthorizationTransaction,
-  owed: OwedNotification,
-): Promise<void> {
-  const subject =
-    owed.kind === 'room_invitation'
-      ? { invitation: owed.roomInvitationId, challenge: null }
-      : { invitation: null, challenge: owed.challengeId };
-  const written = await rowsOf<{ id: string }>(
-    tx,
-    sql`insert into notifications(id,user_id,kind,room_invitation_id,challenge_id,actor_id,created_at)
-      values(${owed.id},${owed.recipient.userId},${owed.kind},${subject.invitation},${subject.challenge},${owed.actorId},${owed.at}::timestamptz)
-      on conflict do nothing returning id`,
-  );
-  if (written.length === 0) return;
-  await appendOutboxEvent(tx, {
-    topic: buildUserInboxTopic(owed.recipient.actorId),
-    kind: 'user.notification-delivered',
-    version: 1,
-    payload: {
-      entityVersion: 1,
-      kind: 'user.notification-delivered',
-      ids: [owed.id],
-      notificationType: owed.kind,
-      occurredAt: owed.at,
-    },
-  });
-  if (owed.emailJobId === null) return;
-  await tx.execute(sql`insert into notification_emails(id,notification_id,user_id,kind,state,attempts,next_attempt_at,created_at)
-    select ${owed.emailJobId},${owed.id},u.id,${owed.kind},'queued',0,${owed.at}::timestamptz,${owed.at}::timestamptz
-    from users u where u.id=${owed.recipient.userId} and u.deleted_at is null
-      and ${wants(owed.kind satisfies EmailedNotificationKind, 'email', sql`u.id`)}`);
-}
+/** A position in the inbox, newest first: the last row a page showed. */
+export type InboxCursor = { readonly surfacedAt: string; readonly id: string };
 
 /** One stored notification as the inbox reads it, with the facts its words need. */
 export type InboxRow = {
   readonly id: string;
   readonly readAt: string | null;
-  readonly createdAt: string;
+  /** When it last reached the member: written, or brought back unread. */
+  readonly surfacedAt: string;
 } & (
   | {
       readonly kind: 'followed_debater_live';
@@ -112,11 +52,15 @@ type FlatRow = {
   mode: CompetitionType | null;
   format: RatingLadder | null;
   readAt: string | null;
-  createdAt: string;
+  surfacedAt: string;
 };
 
 const inboxRow = (row: FlatRow): InboxRow => {
-  const base = { id: row.id, readAt: row.readAt, createdAt: row.createdAt };
+  const base = {
+    id: row.id,
+    readAt: row.readAt,
+    surfacedAt: row.surfacedAt,
+  };
   switch (row.kind) {
     case 'followed_debater_live':
       return {
@@ -168,55 +112,80 @@ export const notificationInboxOperations = ({
     readonly unreadOnly: boolean;
     readonly limit: number;
     readonly now: string;
-  }) {
+    /** The last row of the page before; null for the first page. */
+    readonly after: InboxCursor | null;
+  }): Promise<{
+    readonly rows: readonly InboxRow[];
+    readonly unread: number;
+    /** Where the next page starts, or null when this is the last. */
+    readonly next: InboxCursor | null;
+  }> {
     return instrumented(eventSink, 'readNotifications', async () => {
-      const now = sql`${input.now}::timestamptz`;
-      const standing = sql`(
-        (n.kind='followed_debater_live' and r.visibility='public' and u.username is not null
-          and exists(select 1 from broadcasts b where b.round_id=n.round_id and b.completed_at is null and b.stopped_at is null))
-        or (n.kind='recording_ready' and rc.status='ready')
-        or (n.kind='room_invitation' and ${invitationOpen(now, { invitation: sql`i`, room: sql`ro` })}
-          and ${wants('room_invitation', 'in_app', sql`n.user_id`)})
-        or (n.kind='challenge_received' and ${challengeOpen(now, sql`c`)}
-          and ${wants('challenge_received', 'in_app', sql`n.user_id`)}))`;
-      const from = sql`from notifications n
-        left join rounds r on r.id=n.round_id
-        left join actors a on a.id=n.actor_id
-        left join users u on u.id=a.user_id and u.deleted_at is null
-        left join recordings rc on rc.round_id=n.round_id
-        left join room_invitations i on i.id=n.room_invitation_id
-        left join rooms ro on ro.id=i.room_id
-        left join challenges c on c.id=n.challenge_id
-        where n.user_id=${input.userId} and ${standing}`;
+      const from = sql`from notifications n ${standingJoins}
+        where n.user_id=${input.userId}
+          and ${notificationStands(sql`${input.now}::timestamptz`)}`;
+      const after =
+        input.after === null
+          ? sql``
+          : sql`and (n.surfaced_at,n.id) < (${input.after.surfacedAt}::timestamptz,${input.after.id})`;
       const rows = await rowsOf<FlatRow>(
         database,
         sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",i.seat,
             u.username as about,c.mode,c.format_id as format,
-            ${iso('n.read_at')} as "readAt",${iso('n.created_at')} as "createdAt"
-          ${from} ${input.unreadOnly ? sql`and n.read_at is null` : sql``}
-          order by n.created_at desc,n.id desc limit ${input.limit}`,
+            ${iso('n.read_at')} as "readAt",${iso('n.surfaced_at')} as "surfacedAt"
+          ${from} ${input.unreadOnly ? sql`and n.read_at is null` : sql``} ${after}
+          order by n.surfaced_at desc,n.id desc limit ${input.limit + 1}`,
       );
       const [count] = await rowsOf<{ unread: number | string }>(
         database,
         sql`select count(*) as unread ${from} and n.read_at is null`,
       );
-      return { rows: rows.map(inboxRow), unread: Number(count?.unread ?? 0) };
+      const page = rows.slice(0, input.limit);
+      const last = page.at(-1);
+      return {
+        rows: page.map(inboxRow),
+        unread: Number(count?.unread ?? 0),
+        next:
+          rows.length > input.limit && last
+            ? { surfacedAt: last.surfacedAt, id: last.id }
+            : null,
+      };
     });
   },
-  /** Marks one, or every, of this account's own; another's id changes nothing. */
+  /**
+   * Marks some, or every, of this account's own; another's id changes
+   * nothing. When anything changed, every tab of the member's hears it.
+   */
   markNotificationsRead(input: {
     readonly userId: string;
-    readonly notificationId: string | null;
+    readonly notificationIds: readonly string[] | 'all';
     readonly at: string;
   }) {
-    return instrumented(eventSink, 'markNotificationsRead', async () => {
-      const one =
-        input.notificationId === null
-          ? sql``
-          : sql`and id=${input.notificationId}`;
-      await database.execute(sql`update notifications set read_at=${input.at}::timestamptz
-        where user_id=${input.userId} and read_at is null ${one}`);
-    });
+    return instrumented(eventSink, 'markNotificationsRead', () =>
+      database.transaction(async (tx) => {
+        const some =
+          input.notificationIds === 'all'
+            ? sql``
+            : sql`and id in (select jsonb_array_elements_text(${JSON.stringify(input.notificationIds)}::text::jsonb))`;
+        const changed = await rowsOf(
+          tx,
+          sql`update notifications set read_at=${input.at}::timestamptz
+            where user_id=${input.userId} and read_at is null ${some} returning id`,
+        );
+        if (changed.length === 0) return;
+        const [actor] = await rowsOf<{ id: string }>(
+          tx,
+          sql`select id from actors where user_id=${input.userId}`,
+        );
+        if (actor)
+          await appendOutboxEvent(tx, {
+            topic: buildUserInboxTopic(actor.id),
+            kind: 'user.notifications-read',
+            version: 1,
+            payload: { kind: 'user.notifications-read' },
+          });
+      }),
+    );
   },
   /** The retention sweep: a notification goes 90 days after it is read. */
   purgeReadNotifications(input: {

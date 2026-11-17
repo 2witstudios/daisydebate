@@ -51,11 +51,8 @@ const withInvitation = (
         roomId,
         username: coach.userId,
         seat: 'judge',
-        ids: {
-          invitation: createId(),
-          notification: createId(),
-          emailJob: createId(),
-        },
+        ids: { invitation: createId() },
+        nextId: createId,
         admitted: (account) => account?.beta?.state === 'approved',
         decide: (facts) =>
           decideRoomInvitation({
@@ -74,6 +71,7 @@ const withInvitation = (
         standing: async (now = new Date().toISOString()) => ({
           inbox: (
             await notifications.readNotifications({
+              after: null,
               userId: coach.userId,
               unreadOnly: false,
               limit: 10,

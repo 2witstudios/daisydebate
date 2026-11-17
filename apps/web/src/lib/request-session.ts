@@ -1,5 +1,6 @@
 import { channelMessagesWindow } from '@daisy/protocol';
 import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
+import type { NotificationsQuery } from '../features/notifications/notifications';
 import { readNotificationItems } from '../features/notifications/read-notifications';
 import { browserCaptureAttributes } from '../features/telemetry/browser-capture';
 import { cookies } from 'next/headers';
@@ -350,10 +351,13 @@ export const requestHubCounts = async (): Promise<HubCounts> => {
 const WATCH_HISTORY_ROWS = 50;
 
 /** This account's stored notifications, as its list reads them. */
-export const requestNotifications = (userId: string, unreadOnly: boolean) =>
+export const requestNotifications = (
+  userId: string,
+  query: NotificationsQuery,
+) =>
   readNotificationItems(processApp().database, {
     userId,
-    unreadOnly,
+    query,
     now: processApp().clock.now(),
   });
 

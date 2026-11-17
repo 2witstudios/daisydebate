@@ -10,7 +10,7 @@ import {
 import type { AuthorizationTransaction } from '../authorization';
 import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
-import { oweNotification } from '../notifications/inbox';
+import { oweNotifications } from '../notifications/owe';
 import { appendOutboxEvent } from '../outbox';
 import { rowsOf } from '../raw-rows';
 import { readAvailability } from '../presence/availability';
@@ -29,9 +29,8 @@ export type ChallengeFrame = {
   /** Records a new offer; a repeat of the open one answers it unchanged. */
   readonly send: (input: {
     readonly id: string;
-    /** The challenged member's notification, and its email job (ADR 0124). */
-    readonly notificationId: string;
-    readonly emailJobId: string;
+    /** Mints the challenged member's notification ids (ADR 0143). */
+    readonly nextId: () => string;
     readonly mode: CompetitionType;
     readonly format: RatingLadder;
     readonly now: string;
@@ -140,15 +139,7 @@ export function challengeFrame(
   };
   return {
     otherActorId: other,
-    async send({
-      id,
-      notificationId,
-      emailJobId,
-      mode,
-      format,
-      now,
-      expiresAt,
-    }) {
+    async send({ id, nextId, mode, format, now, expiresAt }) {
       await authorize();
       requireId(id);
       const [mine, theirs] = await Promise.all([
@@ -179,20 +170,20 @@ export function challengeFrame(
         .returning({ id: challenges.id });
       if (inserted[0]) {
         await ring(owner, [input.actorId, other]);
-        const [recipient] = await rowsOf<{ user_id: string }>(
+        const recipients = await rowsOf<{ user_id: string }>(
           tx,
           sql`select user_id from actors where id=${other} and user_id is not null`,
         );
-        if (recipient)
-          await oweNotification(owner, {
-            kind: 'challenge_received',
-            id: notificationId,
-            emailJobId,
-            recipient: { userId: recipient.user_id, actorId: other },
-            actorId: input.actorId,
-            challengeId: inserted[0].id,
-            at: now,
-          });
+        await oweNotifications(tx, {
+          kind: 'challenge_received',
+          subjectId: inserted[0].id,
+          recipients: recipients.map((row) => ({
+            userId: row.user_id,
+            about: input.actorId,
+          })),
+          at: now,
+          nextId,
+        });
         return { challengeId: inserted[0].id };
       }
       // A second offer while one stands replaces its terms, so "sent" is true.

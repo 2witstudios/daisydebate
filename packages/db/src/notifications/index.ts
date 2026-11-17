@@ -11,7 +11,12 @@ export {
   type NotificationEmailDelivery,
   type NotificationEmailOutcome,
 } from './email-jobs';
-export { oweNotification, type InboxRow, type OwedNotification } from './inbox';
+export { type InboxCursor, type InboxRow } from './inbox';
+export {
+  oweNotifications,
+  type NotificationRecipient,
+  type OwedNotifications,
+} from './owe';
 export { notificationPrivacyAdopter } from './privacy';
 
 /** Notifications (WATCH-12, ADR 0124): the inbox, choices, Watch's fan-out and email jobs. */

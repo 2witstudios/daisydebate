@@ -174,7 +174,7 @@ export async function markNotificationReadAction(
   return mutate(
     routes.read,
     '/api/notifications/read',
-    { version: 1, kind: 'one', notificationId },
+    { version: 1, kind: 'some', notificationIds: [notificationId] },
     form,
     '/notifications',
   );

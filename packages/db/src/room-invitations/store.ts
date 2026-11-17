@@ -14,7 +14,7 @@ import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { oweNotification } from '../notifications/inbox';
+import { oweNotifications } from '../notifications/owe';
 import { rowsOf } from '../raw-rows';
 import {
   appendRoomChanged,
@@ -128,11 +128,9 @@ export const roomInvitationOperations = ({
     readonly roomId: string;
     readonly username: string;
     readonly seat: RoomSeatKind;
-    readonly ids: {
-      readonly invitation: string;
-      readonly notification: string;
-      readonly emailJob: string;
-    };
+    readonly ids: { readonly invitation: string };
+    /** Mints the invitee's notification ids (ADR 0143). */
+    readonly nextId: () => string;
     /** The participant admission rule over the invitee's locked account. */
     readonly admitted: (account: Account) => boolean;
     readonly decide: (facts: {
@@ -207,14 +205,13 @@ export const roomInvitationOperations = ({
               and j.state='sent'
               and j.completed_at > ${now}::timestamptz - interval '1 hour' limit 1`,
         );
-        await oweNotification(tx, {
+        await oweNotifications(tx, {
           kind: 'room_invitation',
-          id: input.ids.notification,
-          emailJobId: recent ? null : input.ids.emailJob,
-          recipient: { userId: found.user_id, actorId: found.actor_id },
-          actorId: input.caller.actorId,
-          roomInvitationId: input.ids.invitation,
+          subjectId: input.ids.invitation,
+          recipients: [{ userId: found.user_id, about: input.caller.actorId }],
           at: now,
+          nextId: input.nextId,
+          email: !recent,
         });
         return { invitationId: input.ids.invitation };
       }),

@@ -61,6 +61,8 @@ export const notifications = pgTable(
     }),
     readAt: timestampColumn('read_at'),
     createdAt: createdAtColumn(),
+    /** When it last reached the member: written, or brought back unread. */
+    surfacedAt: timestampColumn('surfaced_at').notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('notifications_round_once')
@@ -70,7 +72,7 @@ export const notifications = pgTable(
     uniqueIndex('notifications_challenge_once').on(table.challengeId),
     index('notifications_user_idx').on(
       table.userId,
-      table.createdAt.desc(),
+      table.surfacedAt.desc(),
       table.id.desc(),
     ),
     index('notifications_read_idx')

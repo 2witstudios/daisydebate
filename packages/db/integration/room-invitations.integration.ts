@@ -85,11 +85,8 @@ const invite = (
     roomId: env.roomId,
     username,
     seat,
-    ids: {
-      invitation: createId(),
-      notification: createId(),
-      emailJob: createId(),
-    },
+    ids: { invitation: createId() },
+    nextId: createId,
     admitted: (account) => account?.beta?.state === 'approved',
     decide: (facts) =>
       decideRoomInvitation({ ...facts, callerActorId: env.host.actorId, seat }),
@@ -102,6 +99,7 @@ test('an invitation holds the judge seat and tells the invitee in the same trans
     const holds = await env.f
       .sql`select actor_id,seat from room_seat_holds where room_id=${env.roomId}`;
     const inbox = await env.notifications.readNotifications({
+      after: null,
       userId: env.coach.userId,
       unreadOnly: false,
       limit: 10,

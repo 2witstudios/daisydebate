@@ -1,5 +1,5 @@
 import type { CaptureRule, DebateRole, RoundOutcome } from '@daisy/protocol';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
 import type { SpectatorClock } from './spectator-release-sql';
@@ -14,6 +14,13 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
+
+/**
+ * Recording's published read: the `recordings` row named by `recording` in the
+ * reader's query is ready to watch.
+ */
+export const recordingReady = (recording: SQL) =>
+  sql`(${recording}.status='ready')`;
 
 /** A debater's side, read for the record; a judge's name is never read here. */
 const debaterSides = ['affirmative', 'negative'] as const;

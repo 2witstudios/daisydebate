@@ -639,6 +639,7 @@ export {
   notificationKinds,
   notificationPreferencesSchema,
   notificationSubjects,
+  NOTIFICATIONS_READ_AT_ONCE,
   notificationsReadSchema,
   subjectOf,
   type EmailedNotificationKind,

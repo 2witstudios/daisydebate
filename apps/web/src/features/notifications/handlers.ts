@@ -12,7 +12,7 @@ import { parseValidated } from '../../server/http';
 
 const WRITE_LIMIT = { max: 120, windowSeconds: 3600 };
 
-/** POST /api/notifications/read: marks one, or all, of the account's own. */
+/** POST /api/notifications/read: marks some, or all, of the account's own. */
 export const createNotificationsReadRoute = (
   deps: AccountRouteDeps & {
     readonly store: Pick<Database, 'markNotificationsRead'>;
@@ -24,14 +24,14 @@ export const createNotificationsReadRoute = (
     {
       operation: 'notifications.read',
       limit: WRITE_LIMIT,
-      maxBodyBytes: 256,
+      maxBodyBytes: 2048,
       refusals: [],
     },
     async ({ identity, body }) => {
       const read = parseValidated(notificationsReadSchema, body);
       await deps.store.markNotificationsRead({
         userId: identity.principal.userId,
-        notificationId: read.kind === 'one' ? read.notificationId : null,
+        notificationIds: read.kind === 'some' ? read.notificationIds : 'all',
         at: deps.clock.now(),
       });
       return Response.json({ received: true });

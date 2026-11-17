@@ -59,6 +59,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
       const inboxOf = async (userId: string) =>
         (
           await f.store.readNotifications({
+            after: null,
             userId,
             unreadOnly: true,
             limit: 10,

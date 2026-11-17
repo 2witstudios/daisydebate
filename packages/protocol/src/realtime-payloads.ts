@@ -23,6 +23,14 @@ const challengeChangedPayloadSchema = z.strictObject({
 });
 
 /**
+ * A member's read state changed in one of their tabs: every other tab re-reads
+ * its unread count (ADR 0143). It carries nothing, not even which row.
+ */
+const notificationsReadPayloadSchema = z.strictObject({
+  kind: z.literal('user.notifications-read'),
+});
+
+/**
  * `round.presence-changed` is not one of these: presence is never written
  * to the outbox (ADR 0033 §1). It is delivered as the `presence.changed`
  * server message instead, which carries no outbox position or kind.
@@ -102,6 +110,7 @@ export const outboxPayloadSchema = z.discriminatedUnion('kind', [
   doorbellPayloadSchema,
   roomChangedPayloadSchema,
   inboxDeltaPayloadSchema,
+  notificationsReadPayloadSchema,
   sessionRevokedPayloadSchema,
   accessRevokedPayloadSchema,
   actorPresencePreferenceChangedPayloadSchema,
@@ -134,6 +143,7 @@ const storageFamilyPayloadKinds: Readonly<
     'messaging.inbox.changed',
     'challenge.changed',
     'user.notification-delivered',
+    'user.notifications-read',
     'session.revoked',
     'access.revoked',
     'actor.presence-preference-changed',
