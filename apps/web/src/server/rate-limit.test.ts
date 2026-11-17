@@ -91,27 +91,31 @@ describe('createRateLimiter', () => {
 test('retryAfterHeaders', () => {
   assert({
     given:
-      'a valid hint, invalid hints, and invalid hints with a floor and a fallback',
+      'valid hints, invalid ones (NaN, negative), ones below the minimum or too large to print, and unusable fallbacks',
     should:
-      'round the valid one up, omit the header for the rest, or use the fallback',
+      'round a kept hint up, use a usable fallback, and otherwise omit the header',
     actual: [
       retryAfterHeaders(2.1),
+      retryAfterHeaders(0.3, { minimum: 1, fallback: 60 }),
       retryAfterHeaders(Number.NaN),
       retryAfterHeaders(-1),
       retryAfterHeaders(0, { minimum: 1, fallback: 60 }),
-      retryAfterHeaders(0.3, { minimum: 1, fallback: 60 }),
       retryAfterHeaders(Infinity, { fallback: 60 }),
       retryAfterHeaders(1e21, { minimum: 1, fallback: 60 }),
       retryAfterHeaders(Number.MAX_VALUE),
+      retryAfterHeaders(Number.NaN, { minimum: 1, fallback: 0 }),
+      retryAfterHeaders(Number.NaN, { fallback: 1e21 }),
     ],
     expected: [
       { 'Retry-After': '3' },
-      {},
-      {},
-      { 'Retry-After': '60' },
       { 'Retry-After': '1' },
+      {},
+      {},
       { 'Retry-After': '60' },
       { 'Retry-After': '60' },
+      { 'Retry-After': '60' },
+      {},
+      {},
       {},
     ],
   });

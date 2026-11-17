@@ -54,31 +54,24 @@ export const readLimiterDecision = (decision: unknown) => {
 };
 
 /**
- * A limiter's wait as a Retry-After header: a valid hint (a finite,
- * non-negative number) is rounded up to whole seconds and kept if that is at
- * least `minimum`. An invalid one omits
- * the header, or, given a `fallback`, advertises that instead, so a route
- * that must never say "retry now" passes its window.
+ * A limiter's wait as a Retry-After header (RFC 9110 delay-seconds: plain
+ * digits). A hint is kept when it is a finite, non-negative number whose
+ * rounded-up whole seconds are a safe integer of at least `minimum`;
+ * otherwise `fallback` is used, held to the same rule, and with neither the
+ * header is omitted rather than advertising a made-up wait.
  */
 export const retryAfterHeaders = (
   retryAfterSeconds: unknown,
   { minimum = 0, fallback }: { minimum?: number; fallback?: number } = {},
 ): Record<string, string> => {
-  const rounded =
-    typeof retryAfterSeconds === 'number' &&
-    Number.isFinite(retryAfterSeconds) &&
-    retryAfterSeconds >= 0
-      ? Math.ceil(retryAfterSeconds)
-      : null;
-  // A header carries plain digits (RFC 9110 delay-seconds): a value too large
-  // to print as one takes the fallback.
-  const seconds =
-    rounded !== null && Number.isSafeInteger(rounded) && rounded >= minimum
-      ? rounded
-      : fallback;
-  return seconds === undefined
-    ? {}
-    : { 'Retry-After': String(Math.ceil(seconds)) };
+  const usable = (value: unknown): number | null => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
+      return null;
+    const seconds = Math.ceil(value);
+    return Number.isSafeInteger(seconds) && seconds >= minimum ? seconds : null;
+  };
+  const seconds = usable(retryAfterSeconds) ?? usable(fallback);
+  return seconds === null ? {} : { 'Retry-After': String(seconds) };
 };
 
 /**
