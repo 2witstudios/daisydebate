@@ -50,7 +50,8 @@ const sameBody = (
   body: Omit<BallotDefinition, 'key' | 'revision'>,
 ): boolean => {
   const { decision, points, speakerRanks, written } = definition;
-  // Both through the schema, so their keys come out in one order.
+  // The saved side through the schema too (the body already is its output),
+  // so their keys come out in one order.
   return (
     JSON.stringify(
       ballotDefinitionBodySchema.parse({
@@ -59,7 +60,7 @@ const sameBody = (
         speakerRanks,
         written,
       }),
-    ) === JSON.stringify(ballotDefinitionBodySchema.parse(body))
+    ) === JSON.stringify(body)
   );
 };
 
@@ -156,22 +157,9 @@ export const draftedPreview = (
           ? previous.lastComplete
           : null,
   };
+  let body: ReturnType<typeof ballotBodyFromForm>;
   try {
-    const body = ballotBodyFromForm(form);
-    const saved = savedDefinition(view);
-    // A form edited back to the saved ballot (or only renamed) draws it as saved.
-    if (saved !== null && sameBody(saved, body)) return savedPreview;
-    return {
-      kind: 'draft',
-      definition: {
-        key: saved?.key ?? 'ballot-draft',
-        revision: saved?.revision ?? 1,
-        ...body,
-      },
-      named:
-        field(form, 'publish-target') !== 'new' ||
-        field(form, 'definition-name') !== '',
-    };
+    body = ballotBodyFromForm(form);
   } catch (error) {
     // Only an unfinished form; a defect in reading it must surface.
     if (
@@ -181,6 +169,21 @@ export const draftedPreview = (
       return unfinished;
     throw error;
   }
+  const saved = savedDefinition(view);
+  // A form edited back to the saved ballot (or only renamed) draws it as saved,
+  // outside the catch so a saved definition the schema refuses surfaces.
+  if (saved !== null && sameBody(saved, body)) return savedPreview;
+  return {
+    kind: 'draft',
+    definition: {
+      key: saved?.key ?? 'ballot-draft',
+      revision: saved?.revision ?? 1,
+      ...body,
+    },
+    named:
+      field(form, 'publish-target') !== 'new' ||
+      field(form, 'definition-name') !== '',
+  };
 };
 
 /**
