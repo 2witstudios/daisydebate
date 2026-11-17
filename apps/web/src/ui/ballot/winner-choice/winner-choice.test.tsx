@@ -60,16 +60,18 @@ describe('WinnerChoice', () => {
     assert({
       given: 'a long name in a column narrower than two cards',
       should:
-        'lay the cards out by the group’s own width, keep the name on one truncated line, and draw the side label whole',
+        'lay the cards and their padding out by the group’s own width, show the whole name, and draw the side label whole',
       actual: [
         /class="@container"><fieldset class="[^"]*grid-cols-1[^"]*@ballot-sides:grid-cols-2/.test(
           html,
         ),
-        html.includes('max-narrow:grid-cols-1'),
-        new RegExp(`title="${name}" class="[^"]*\\btruncate\\b`).test(html),
+        /max-narrow:(?:grid-cols-1|gap-3|p-3)/.test(html),
+        html.includes('@max-ballot-sides:p-3'),
+        html.includes(`>${name}</span>`),
+        /\btruncate\b/.test(html),
         html.includes('>Affirmative</span>'),
       ],
-      expected: [true, false, true, true],
+      expected: [true, false, true, true, false, true],
     });
   });
 });

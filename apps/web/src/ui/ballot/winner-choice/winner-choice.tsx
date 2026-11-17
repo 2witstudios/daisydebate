@@ -34,9 +34,10 @@ const picked = (tone: number) =>
 /**
  * Who won: one choice per side, with its debaters' avatar, name and side.
  * The cards sit two to a line only where the group itself is wide enough
- * (`@ballot-sides`), whatever the viewport, so a narrow column stacks them
- * rather than wrapping a name a letter at a time; a long name ends in an
- * ellipsis on its one line and the side label stays whole. A real
+ * (`@ballot-sides`), whatever the viewport, and draw compact below it, so
+ * a narrow column stacks them rather than wrapping a name a letter at a
+ * time. A long name wraps between words and is never cut: the judge has to
+ * read whom they are voting for. The side label stays whole. A real
  * radio group named `winner` that the browser owns (`defaultChecked`), so it
  * posts without JavaScript and a form reset after a refusal restores the
  * pick it was rendered with. Once one is picked the other steps back.
@@ -60,7 +61,7 @@ export function WinnerChoice({
           <label
             key={subject.key}
             className={cn(
-              'flex min-w-0 cursor-pointer items-center gap-4 rounded-lg border border-border-strong bg-surface-raised p-4 transition-colors duration-120 ease-standard group-has-checked:not-has-checked:border-border group-has-checked:not-has-checked:bg-surface hover:border-ink-muted has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink max-narrow:gap-3 max-narrow:p-3',
+              'flex min-w-0 cursor-pointer items-center gap-4 rounded-lg border border-border-strong bg-surface-raised p-4 transition-colors duration-120 ease-standard group-has-checked:not-has-checked:border-border group-has-checked:not-has-checked:bg-surface hover:border-ink-muted has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink @max-ballot-sides:gap-3 @max-ballot-sides:p-3',
               picked(subject.tone).card,
             )}
           >
@@ -79,10 +80,7 @@ export function WinnerChoice({
               nameVisible
             />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span
-                title={subject.name}
-                className="truncate text-md font-strong text-ink"
-              >
+              <span className="text-md font-strong text-pretty text-ink">
                 {subject.name}
               </span>
               <span className="text-sm text-ink-muted">{subject.role}</span>

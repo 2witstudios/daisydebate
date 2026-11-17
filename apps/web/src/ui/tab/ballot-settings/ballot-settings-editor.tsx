@@ -87,7 +87,7 @@ export function BallotSettingsEditor({
           id={formId}
           action={submit}
           label="Ballot settings"
-          className="flex w-host-aside shrink-0 flex-col max-rail:w-full"
+          className="flex w-host-aside shrink-0 flex-col gap-4 max-rail:w-full"
         >
           <ListCard>
             {settings.sections.map((section) => (
@@ -139,6 +139,11 @@ export function BallotSettingsEditor({
               </section>
             ))}
           </ListCard>
+          {/* Narrow, the settings follow the whole ballot: Save again
+              beside them, so nobody scrolls back up to the header. */}
+          <div className="hidden max-rail:block">
+            <Button type="submit">{settings.saveLabel}</Button>
+          </div>
         </SampleForm>
       </div>
     </div>

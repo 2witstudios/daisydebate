@@ -74,7 +74,11 @@ export function ScoreSheet({
         {subjects.map((subject) => (
           <span
             key={subject.key}
-            className={cn(ballotSideCellClass, sideTextClass(subject.tone))}
+            className={cn(
+              ballotSideCellClass,
+              'text-right',
+              sideTextClass(subject.tone),
+            )}
           >
             {`${firstName(subject.name)} · ${subject.short}${points.per === 'speech' && points.weights?.[subject.key] !== undefined ? ` · score weight ${points.weights[subject.key]}` : ''}`}
           </span>

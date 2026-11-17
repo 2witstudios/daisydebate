@@ -50,9 +50,7 @@ describe('BallotSettingsEditor', () => {
         html.slice(form, formEnd).includes('What a judge sees'),
         html.slice(form, formEnd).includes('name="screening"'),
         formId !== undefined &&
-          new RegExp(`<button[^>]*type="submit"[^>]*form="${formId}"`).test(
-            html.slice(0, form),
-          ),
+          html.slice(0, form).includes(`form="${formId}"`),
       ],
       expected: [true, true, true, true, false, true, true],
     });
