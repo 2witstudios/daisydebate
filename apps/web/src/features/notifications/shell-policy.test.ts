@@ -80,12 +80,13 @@ describe('arrivalsOf', () => {
     assert({
       given:
         'a challenge and an invitation since the last read, on the invited Room',
-      should: 'toast only the challenge, and sound it: it needs the member now',
+      should:
+        'toast nothing (the invited Room shows its invitation, and a challenge has its own cards), but sound the challenge: it needs the member now',
       actual: {
         toasts: toasts.map((t) => t.id),
         urgent: urgent.map((t) => t.id),
       },
-      expected: { toasts: ['c'], urgent: ['c'] },
+      expected: { toasts: [], urgent: ['c'] },
     });
   });
 

@@ -1,4 +1,4 @@
-import { consumeMessagingRead } from './handler-boundary';
+import { consumeBadgeRead, consumeMessagingRead } from './handler-boundary';
 import type { App } from '../../server/app';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import {
@@ -104,7 +104,7 @@ export function composeMessagingUnreadRoute(app: App) {
       headers: { 'cache-control': 'no-store' },
       readInput: async () => null,
       operation: async (_input, principal) => {
-        await consumeMessagingRead(app, requireMemberActor(principal).actorId);
+        await consumeBadgeRead(app, requireMemberActor(principal).actorId);
         const { entries } = await inboxOf(app, principal).read({
           limit: app.messagingPolicy.bounds.pageItems,
         });

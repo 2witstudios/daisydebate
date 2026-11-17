@@ -68,7 +68,7 @@ needs people to know when something needs them, and to be pulled back.
    read, with a backstop. It drives the rail's and the tab bar's badges ("9+"),
    the document title, and toasts after the designed canvas: a toast is a view
    of a stored row, never a source; the first read interrupts no one; a row the
-   current page shows is not toasted but marked read; one that asks for an
+   current page shows is not toasted but marked read; a challenge is not toasted either, since its own cards show it on every page (it still chimes and alerts); one that asks for an
    answer stays until dismissed, an informational one goes after ten seconds,
    held while hovered or focused. An urgent kind also chimes, and raises a
    desktop alert while Daisy is in another tab, with permission asked only when

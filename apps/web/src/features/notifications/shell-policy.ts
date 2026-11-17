@@ -45,6 +45,27 @@ export const toastWaits = (kind: NotificationKind): boolean => {
   }
 };
 
+/**
+ * Whether a kind is toasted. A challenge is not: its own cards already show
+ * it on every page, and a toast over them would hide their answer. It still
+ * chimes and raises a desktop alert.
+ */
+export const toasted = (kind: NotificationKind): boolean => {
+  switch (kind) {
+    case 'challenge_received':
+    case 'challenge_accepted':
+      return false;
+    case 'followed_debater_live':
+    case 'recording_ready':
+    case 'room_invitation':
+    case 'friend_request_received':
+    case 'friend_request_accepted':
+    case 'round_started':
+    case 'round_decision_released':
+      return true;
+  }
+};
+
 /** Path only: `/rooms/r1?x` and `/rooms/r1` are the same page. */
 const pathOf = (href: string) => href.split(/[?#]/)[0]!;
 
@@ -57,9 +78,9 @@ export const shownOn = (
 
 /** What a fresh read brings: new rows to present, and which call for an alert. */
 export type Arrivals = {
-  /** New since the last read, newest first, minus those this page shows. */
+  /** New since the last read, newest first, minus those this page shows or another surface owns. */
   readonly toasts: readonly Recent[];
-  /** Of those, the ones that need the member now: a sound, a desktop alert. */
+  /** New ones that need the member now, toasted or not: a sound, a desktop alert. */
   readonly urgent: readonly Recent[];
 };
 
@@ -76,11 +97,11 @@ export const arrivalsOf = (input: {
   if (input.seen === null) return { toasts: [], urgent: [] };
   const seen = input.seen;
   const here = new Set(shownOn(input.recent, input.path));
-  const toasts = input.recent.filter(
+  const fresh = input.recent.filter(
     (row) => !seen.has(row.id) && !here.has(row.id),
   );
   return {
-    toasts,
-    urgent: toasts.filter((row) => isUrgentNotificationKind(row.kind)),
+    toasts: fresh.filter((row) => toasted(row.kind)),
+    urgent: fresh.filter((row) => isUrgentNotificationKind(row.kind)),
   };
 };
