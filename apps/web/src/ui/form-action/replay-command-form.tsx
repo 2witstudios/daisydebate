@@ -13,6 +13,7 @@ import {
 import { useFormAction, useFocusAfterAnswer } from './form-action';
 import { useMovedOn } from './use-moved-on';
 import { HiddenFields } from './hidden-fields';
+import { PostedValues } from './posted-values';
 import { Button } from '../components/button/button';
 
 type ReplayCommandState = Idle | Refused | Unacknowledged | Moved;
@@ -68,7 +69,15 @@ export function ReplayCommandForm({
           disabled={state.kind === 'unacknowledged'}
           className="flex flex-col gap-4"
         >
-          {children}
+          <PostedValues.Provider
+            value={
+              state.kind === 'refused' || state.kind === 'unacknowledged'
+                ? fields.values
+                : null
+            }
+          >
+            {children}
+          </PostedValues.Provider>
         </fieldset>
         <Button type="submit" className="self-start">
           {state.kind === 'unacknowledged'

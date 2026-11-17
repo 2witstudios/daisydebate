@@ -3,6 +3,7 @@ import { useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { Button } from '../../components/button/button';
 import { FormField } from '../../components/form-field/form-field';
+import { usePostedValues } from '../../form-action/posted-values';
 import {
   NumberField,
   authoringControlClass as control,
@@ -13,15 +14,24 @@ export function BallotSpeechWeights({
   readonly view: EventBallotAuthoringView;
 }) {
   const body = view.definition?.ballot;
-  const initialWeights = body?.points?.weights ?? {};
+  const posted = usePostedValues();
+  const postedCount = Number(posted?.['weight-count']);
+  // The rows as posted, else the definition's.
+  const initialWeights =
+    Number.isInteger(postedCount) && postedCount >= 0
+      ? Array.from({ length: postedCount }, (_, index) => [
+          posted?.[`weight-${index}-key`] ?? '',
+          posted?.[`weight-${index}-value`] ?? '',
+        ])
+      : Object.entries(body?.points?.weights ?? {});
   const [weights, setWeights] = useState(
-    Object.entries(initialWeights).map(([key, value], index) => ({
+    initialWeights.map(([key, value], index) => ({
       id: index,
-      key,
+      key: String(key),
       value: String(value),
     })),
   );
-  const nextWeight = useRef(Object.keys(initialWeights).length);
+  const nextWeight = useRef(initialWeights.length);
   const id = useId();
   return (
     <>

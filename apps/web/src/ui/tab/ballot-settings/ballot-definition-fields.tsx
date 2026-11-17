@@ -11,12 +11,15 @@ import {
 } from './ballot-authoring-fields';
 import { BallotCriteriaFields } from './ballot-criteria-fields';
 import { BallotSpeechWeights } from './ballot-speech-weights';
+import { usePostedValues } from '../../form-action/posted-values';
 /**
  * The publish form's definition fields. Their selects are controlled (each
  * mounts the fields it governs), so when a post resets the form, which puts
- * every field back to its server-rendered default, they are mounted afresh
- * from the definition: no select can show one choice while the fields under
- * it follow another, and the whole definition reads as the saved one.
+ * every field back to its server-rendered default, they are mounted afresh:
+ * from the fields just posted while the answer gives them back (a refusal,
+ * or a retry awaiting its answer), else from the definition. No select can
+ * then show one choice while the fields under it follow another. Focus held
+ * in a field returns to the field of the same name.
  */
 export function BallotDefinitionFields({
   view,
@@ -24,14 +27,36 @@ export function BallotDefinitionFields({
   readonly view: EventBallotAuthoringView;
 }) {
   const anchor = useRef<HTMLSpanElement>(null);
+  const focused = useRef<string | null>(null);
   const [resets, setResets] = useState(0);
   useEffect(() => {
     const form = anchor.current?.closest('form');
     if (!form) return;
-    const reset = () => setResets((count) => count + 1);
+    const reset = () => {
+      const active = form.ownerDocument.activeElement as {
+        readonly name?: unknown;
+      } | null;
+      focused.current =
+        active &&
+        form.contains(active as Node) &&
+        typeof active.name === 'string'
+          ? active.name
+          : null;
+      setResets((count) => count + 1);
+    };
     form.addEventListener('reset', reset);
     return () => form.removeEventListener('reset', reset);
   }, []);
+  useEffect(() => {
+    const name = focused.current;
+    focused.current = null;
+    const form = anchor.current?.closest('form');
+    if (resets === 0 || !name || !form) return;
+    const field = form.elements.namedItem(name) as {
+      focus?: () => void;
+    } | null;
+    field?.focus?.();
+  }, [resets]);
   return (
     <>
       <span ref={anchor} hidden />
@@ -46,15 +71,19 @@ function DefinitionFields({
   readonly view: EventBallotAuthoringView;
 }) {
   const body = view.definition?.ballot;
+  const posted = usePostedValues();
   const [kind, setKind] = useState(
-    body?.decision.kind === 'winner'
-      ? 'winner'
-      : body?.decision.kind === 'ranking'
-        ? `ranking-${body.decision.of}`
-        : '',
+    posted?.decision ??
+      (body?.decision.kind === 'winner'
+        ? 'winner'
+        : body?.decision.kind === 'ranking'
+          ? `ranking-${body.decision.of}`
+          : ''),
   );
-  const [per, setPer] = useState(body ? (body.points?.per ?? 'none') : '');
-  const [target, setTarget] = useState('new');
+  const [per, setPer] = useState(
+    posted?.['score-subject'] ?? (body ? (body.points?.per ?? 'none') : ''),
+  );
+  const [target, setTarget] = useState(posted?.['publish-target'] ?? 'new');
   const id = useId();
   return (
     <>

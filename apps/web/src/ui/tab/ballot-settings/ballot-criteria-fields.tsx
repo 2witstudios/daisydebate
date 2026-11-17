@@ -3,6 +3,7 @@ import { useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { Button } from '../../components/button/button';
 import { FormField } from '../../components/form-field/form-field';
+import { usePostedValues } from '../../form-action/posted-values';
 import {
   TextField,
   authoringControlClass as control,
@@ -13,18 +14,32 @@ export function BallotCriteriaFields({
   readonly view: EventBallotAuthoringView;
 }) {
   const body = view.definition?.ballot;
+  const posted = usePostedValues();
   const [criteriaKind, setCriteriaKind] = useState(
-    body?.points?.criteria.kind ?? '',
+    posted?.['criteria-kind'] ?? body?.points?.criteria.kind ?? '',
   );
   const initialGroups =
     body?.points?.criteria.kind === 'grid' ? body.points.criteria.groups : [];
+  // Rows as posted (each field then seeds from its posted value by name),
+  // else the definition's.
+  const postedCount = (name: string) => {
+    const count = Number(posted?.[name]);
+    return Number.isInteger(count) && count >= 0 ? count : null;
+  };
+  const seededGroups =
+    postedCount('group-count') === null
+      ? initialGroups.map((group) => group.categories.length)
+      : Array.from(
+          { length: postedCount('group-count')! },
+          (_, group) => postedCount(`group-${group}-count`) ?? 0,
+        );
   const [groups, setGroups] = useState(
-    initialGroups.map((group, index) => ({
+    seededGroups.map((categories, index) => ({
       key: index,
-      categories: group.categories.map((_, category) => category),
+      categories: Array.from({ length: categories }, (_, category) => category),
     })),
   );
-  const nextGroup = useRef(initialGroups.length);
+  const nextGroup = useRef(seededGroups.length);
   const nextCategory = useRef(20);
   const id = useId();
   return (

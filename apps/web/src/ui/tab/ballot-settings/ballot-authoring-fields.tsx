@@ -1,6 +1,7 @@
 'use client';
 import { useId, useState } from 'react';
 import { FormField } from '../../components/form-field/form-field';
+import { usePostedValues } from '../../form-action/posted-values';
 export const authoringControlClass =
   'min-h-10 w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-base text-ink';
 export function NumberField({
@@ -13,6 +14,7 @@ export function NumberField({
   readonly value: number | undefined;
 }) {
   const id = useId();
+  const posted = usePostedValues();
   return (
     <FormField id={id} label={label}>
       <input
@@ -21,7 +23,7 @@ export function NumberField({
         type="number"
         step="any"
         required
-        defaultValue={value ?? ''}
+        defaultValue={posted?.[name] ?? value ?? ''}
         className={authoringControlClass}
       />
     </FormField>
@@ -39,6 +41,7 @@ export function TextField({
   readonly multiline?: boolean;
 }) {
   const id = useId();
+  const seed = usePostedValues()?.[name] ?? value;
   return (
     <FormField id={id} label={label}>
       {multiline ? (
@@ -46,7 +49,7 @@ export function TextField({
           id={id}
           name={name}
           required
-          defaultValue={value}
+          defaultValue={seed}
           className={authoringControlClass}
           rows={3}
         />
@@ -55,7 +58,7 @@ export function TextField({
           id={id}
           name={name}
           required
-          defaultValue={value}
+          defaultValue={seed}
           className={authoringControlClass}
         />
       )}
@@ -71,12 +74,14 @@ export function Toggle({
   readonly label: string;
   readonly value: boolean;
 }) {
+  // A posted form sends a checkbox only when it is ticked.
+  const posted = usePostedValues();
   return (
     <label className="flex min-h-10 items-center gap-3">
       <input
         type="checkbox"
         name={name}
-        defaultChecked={value}
+        defaultChecked={posted ? posted[name] === 'on' : value}
         className="size-5 accent-accent"
       />
       {label}
@@ -91,14 +96,17 @@ export function WrittenFields({
   readonly value:
     { readonly required: boolean; readonly max: number } | null | undefined;
 }) {
+  const posted = usePostedValues()?.[`${kind}-rule`];
   const [rule, setRule] = useState(
-    value === undefined
-      ? ''
-      : value === null
-        ? 'off'
-        : value.required
-          ? 'required'
-          : 'optional',
+    posted !== undefined
+      ? posted
+      : value === undefined
+        ? ''
+        : value === null
+          ? 'off'
+          : value.required
+            ? 'required'
+            : 'optional',
   );
   const id = useId();
   return (
