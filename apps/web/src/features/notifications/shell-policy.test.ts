@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  arrivalKey,
   arrivalsOf,
   badgeText,
   shownOn,
@@ -73,7 +74,7 @@ describe('arrivalsOf', () => {
 
   test('new rows, minus what this page shows', () => {
     const { toasts, urgent } = arrivalsOf({
-      seen: new Set(['a']),
+      seen: new Set([arrivalKey(recent[2]!)]),
       recent,
       path: '/rooms/r1',
     });
@@ -87,6 +88,28 @@ describe('arrivalsOf', () => {
         urgent: urgent.map((t) => t.id),
       },
       expected: { toasts: [], urgent: ['c'] },
+    });
+  });
+
+  test('a resurfaced row is news again', () => {
+    const decision = row('d', 'round_decision_released', '/rounds/r1');
+    const later = { ...decision, surfacedAt: '2026-11-16T13:00:00.000Z' };
+    assert({
+      given: 'a decision already presented, then brought back by its analysis',
+      should: 'present it once more, under the same id',
+      actual: [
+        arrivalsOf({
+          seen: new Set([arrivalKey(decision)]),
+          recent: [decision],
+          path: '/lobby',
+        }).toasts.length,
+        arrivalsOf({
+          seen: new Set([arrivalKey(decision)]),
+          recent: [later],
+          path: '/lobby',
+        }).toasts.length,
+      ],
+      expected: [0, 1],
     });
   });
 

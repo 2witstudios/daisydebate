@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  arrivalKey,
   arrivalsOf,
   shownOn,
   titleWith,
@@ -162,7 +163,7 @@ export function NotificationShellProvider({
     });
     seen.current = new Set([
       ...(seen.current ?? []),
-      ...shell.recent.map((row) => row.id),
+      ...shell.recent.map(arrivalKey),
     ]);
     if (shell.presentation.toasts && arrivals.toasts.length > 0)
       setToasts((shown) => [...arrivals.toasts, ...shown]);
@@ -173,11 +174,15 @@ export function NotificationShellProvider({
 
   // The page the member is on shows these: they are read.
   useEffect(() => {
+    // Keyed by arrival: a row brought back unread is read again here.
+    const surfaced = new Map(
+      shell.recent.map((row) => [row.id, arrivalKey(row)]),
+    );
     const here = shownOn(shell.recent, path).filter(
-      (id) => !marked.current.has(id),
+      (id) => !marked.current.has(surfaced.get(id)!),
     );
     if (here.length === 0) return;
-    for (const id of here) marked.current.add(id);
+    for (const id of here) marked.current.add(surfaced.get(id)!);
     setToasts((shown) => shown.filter((row) => !here.includes(row.id)));
     void markRead(here).then(() => driver?.signal());
   }, [shell, path, driver]);

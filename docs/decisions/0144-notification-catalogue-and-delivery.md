@@ -91,5 +91,15 @@ needs people to know when something needs them, and to be pulled back.
 - A new kind is one catalogue entry; the exhaustive switches name every place
   it must be read, worded and presented.
 - Dropping `notification_emails` drops any job still queued in it; the digest
-  owes those notifications only when the next one arrives.
+  owes those notifications only when the next one arrives. A stored
+  challenge email choice is deleted, since that channel no longer exists.
+- An unsubscribe link in an email sent before this change named one kind and
+  no longer verifies: it answers "not valid" and points to Settings. Daisy is
+  pre-launch and keeps no compatibility path (ADR 0023).
+- A conversation read before this change keeps its stored notification level
+  `none`, so it sends no unread-messages email until the member chooses All;
+  the stored value cannot tell a default from a choice. Only read state
+  written from now on starts at All.
+- The unread count is shown on the title, not the favicon: a drawn favicon is
+  left for a later change.
 - Web push is not decided here; it is a later slice with its own ADR.

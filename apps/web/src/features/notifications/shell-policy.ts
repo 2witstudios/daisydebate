@@ -66,6 +66,13 @@ export const toasted = (kind: NotificationKind): boolean => {
   }
 };
 
+/**
+ * A row as it reached the member: brought back unread (a Round's analysis
+ * resurfacing its decision), it is news again under the same id.
+ */
+export const arrivalKey = (row: Pick<Recent, 'id' | 'surfacedAt'>): string =>
+  `${row.id}@${row.surfacedAt}`;
+
 /** Path only: `/rooms/r1?x` and `/rooms/r1` are the same page. */
 const pathOf = (href: string) => href.split(/[?#]/)[0]!;
 
@@ -90,6 +97,7 @@ export type Arrivals = {
  * waiting before they came. A row the current page shows is never toasted.
  */
 export const arrivalsOf = (input: {
+  /** The arrival keys already presented; null before the first read. */
   readonly seen: ReadonlySet<string> | null;
   readonly recent: readonly Recent[];
   readonly path: string;
@@ -98,7 +106,7 @@ export const arrivalsOf = (input: {
   const seen = input.seen;
   const here = new Set(shownOn(input.recent, input.path));
   const fresh = input.recent.filter(
-    (row) => !seen.has(row.id) && !here.has(row.id),
+    (row) => !seen.has(arrivalKey(row)) && !here.has(row.id),
   );
   return {
     toasts: fresh.filter((row) => toasted(row.kind)),
