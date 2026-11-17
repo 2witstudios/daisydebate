@@ -13,6 +13,10 @@ import {
   sendChallengeAction,
 } from '../challenges/actions';
 import { readChallenges } from '../challenges/read-challenges';
+import { readNotificationShell } from '../notifications/read-shell';
+import { NotificationShellProvider } from '../../../ui/notifications/notification-shell-provider';
+import { MessagesUnreadProvider } from '../../../ui/messaging/messages-unread-provider';
+import { defaultNotificationPresentation } from '@daisy/protocol';
 import { blockAction } from '../contacts/actions';
 import { messagePersonAction } from '../messages/new/actions';
 import { reportAction } from '../reports/actions';
@@ -44,6 +48,13 @@ const noChallenges = {
   accepted: [],
 };
 
+const noNotifications = {
+  version: 1 as const,
+  unread: 0,
+  recent: [],
+  presentation: defaultNotificationPresentation,
+};
+
 /**
  * A member's people list for the shell (ADR 0105): read here so the first HTML
  * already holds it, and a failed read still renders the rail, empty until the
@@ -56,9 +67,10 @@ export async function PeopleShell({
   readonly preference: PeopleRailPreference;
   readonly activeRoomId: string | null;
 }) {
-  const [list, challenges] = await Promise.all([
+  const [list, challenges, notifications] = await Promise.all([
     readPeople(),
     readChallenges().catch(() => null),
+    readNotificationShell().catch(() => null),
   ]);
   return {
     preference,
@@ -76,19 +88,38 @@ export async function PeopleShell({
         />
       </>
     ),
-    wrap: (shell: ReactNode) => (
-      <PeopleProvider
-        initialList={list ?? empty}
-        socketUrl={challenges?.socketUrl ?? null}
-      >
-        <ChallengeProvider
-          initialChallenges={challenges?.list ?? noChallenges}
-          actorId={challenges?.actorId ?? null}
+    wrap: (shell: ReactNode) => {
+      const people = (
+        <PeopleProvider
+          initialList={list ?? empty}
           socketUrl={challenges?.socketUrl ?? null}
         >
-          {shell}
-        </ChallengeProvider>
-      </PeopleProvider>
-    ),
+          <ChallengeProvider
+            initialChallenges={challenges?.list ?? noChallenges}
+            actorId={challenges?.actorId ?? null}
+            socketUrl={challenges?.socketUrl ?? null}
+          >
+            {shell}
+          </ChallengeProvider>
+        </PeopleProvider>
+      );
+      // The member's inbox rings on the same socket as their challenges.
+      return challenges?.actorId ? (
+        <NotificationShellProvider
+          initialShell={notifications ?? noNotifications}
+          actorId={challenges.actorId}
+          socketUrl={challenges.socketUrl}
+        >
+          <MessagesUnreadProvider
+            actorId={challenges.actorId}
+            socketUrl={challenges.socketUrl}
+          >
+            {people}
+          </MessagesUnreadProvider>
+        </NotificationShellProvider>
+      ) : (
+        people
+      );
+    },
   };
 }

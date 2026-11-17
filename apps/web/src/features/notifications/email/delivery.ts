@@ -1,4 +1,4 @@
-import { DIGEST_ONLINE_POSTPONE_MS, type Database } from '@daisy/db';
+import type { Database } from '@daisy/db';
 import { knownDeliveryRejection } from '../../mail/resend-sender';
 import {
   MAIL_LEASE_MS,
@@ -9,6 +9,9 @@ import {
 import type { EmailMessage } from '../../mail/types';
 import { renderNotificationDigest } from './templates';
 import { oneClickUnsubscribeUrl, unsubscribeUrl } from './unsubscribe-token';
+
+/** How long a digest waits again while its member is in Daisy (ADR 0143). */
+export const DIGEST_ONLINE_POSTPONE_MS = 15 * 60_000;
 
 type Store = Pick<
   Database,

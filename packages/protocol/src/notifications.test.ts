@@ -15,11 +15,13 @@ test('notification kinds', () => {
   assert({
     given: 'the accepted kinds (WATCH-12, ADR 0124, ADR 0143)',
     should:
-      'name Watch’s two released events, a Room invitation, a challenge and its acceptance, and a friend request and its acceptance',
+      'name Watch’s two released events, a Round starting and its decision, a Room invitation, a challenge and its acceptance, and a friend request and its acceptance',
     actual: notificationKinds,
     expected: [
       'followed_debater_live',
       'recording_ready',
+      'round_started',
+      'round_decision_released',
       'room_invitation',
       'challenge_received',
       'challenge_accepted',
@@ -39,6 +41,9 @@ test('choice pairs', () => {
     expected: [
       'followed_debater_live.in_app',
       'recording_ready.in_app',
+      'round_started.in_app',
+      'round_decision_released.in_app',
+      'round_decision_released.email',
       'room_invitation.in_app',
       'room_invitation.email',
       'challenge_received.in_app',
@@ -89,7 +94,11 @@ test('catalogue', () => {
     given: 'the catalogue',
     should: 'derive the emailed kinds from each entry',
     actual: emailedNotificationKinds,
-    expected: ['room_invitation', 'friend_request_received'],
+    expected: [
+      'round_decision_released',
+      'room_invitation',
+      'friend_request_received',
+    ],
   });
   assert({
     given: 'a subject',
@@ -100,7 +109,12 @@ test('catalogue', () => {
       kindsAbout('friendship'),
     ],
     expected: [
-      ['followed_debater_live', 'recording_ready'],
+      [
+        'followed_debater_live',
+        'recording_ready',
+        'round_started',
+        'round_decision_released',
+      ],
       ['challenge_received', 'challenge_accepted'],
       ['friend_request_received', 'friend_request_accepted'],
     ],

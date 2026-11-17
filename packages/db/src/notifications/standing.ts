@@ -4,6 +4,7 @@ import { challengeAccepted, challengeOpen } from '../challenges/open';
 import { friendRequestOpen, friendshipAccepted } from '../friends/standing';
 import { broadcastOnAir } from '../live-broadcast-reads';
 import { recordingReady } from '../recording-round-reads';
+import { roundDecisionReleased, roundUnderway } from '../round-standing';
 import { invitationOpen } from '../room-invitations/open';
 
 /**
@@ -34,6 +35,10 @@ const subjectStands = (kind: NotificationKind, now: SQL): SQL => {
         and ${broadcastOnAir(sql`n.round_id`)})`;
     case 'recording_ready':
       return recordingReady(sql`rc`);
+    case 'round_started':
+      return roundUnderway(sql`r`);
+    case 'round_decision_released':
+      return roundDecisionReleased(sql`r`);
     case 'room_invitation':
       return invitationOpen(now, { invitation: sql`i`, room: sql`ro` });
     case 'challenge_received':

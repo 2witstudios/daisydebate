@@ -101,6 +101,7 @@ const OPERATION_NAMES = [
   'messaging.group.manage',
   'messaging.history',
   'messaging.inbox',
+  'messaging.unread',
   'messaging.invitation.cancel',
   'messaging.invitation.decide',
   'messaging.invitation.read',

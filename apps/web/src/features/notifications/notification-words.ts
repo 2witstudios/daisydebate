@@ -41,6 +41,16 @@ export const notificationWords = (
         text: 'A recording is ready to watch.',
         href: `/recordings/${subject.roundId}`,
       };
+    case 'round_started':
+      return {
+        text: 'Your Round has started.',
+        href: `/rounds/${subject.roundId}`,
+      };
+    case 'round_decision_released':
+      return {
+        text: `The decision is in for your Round${subject.opponent ? ` with @${subject.opponent}` : ''}.`,
+        href: `/rounds/${subject.roundId}`,
+      };
     case 'room_invitation':
       return {
         text: `${subject.host ? `@${subject.host}` : 'A host'} invited you ${invitedTo(subject.seat)}.`,

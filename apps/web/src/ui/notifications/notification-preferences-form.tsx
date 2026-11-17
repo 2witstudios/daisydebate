@@ -22,6 +22,8 @@ import { useFormAction, type FormAction } from '../form-action/form-action';
 const kindLabel: Record<NotificationKind, string> = {
   followed_debater_live: 'A debater I follow is on air',
   recording_ready: 'A recording is ready to watch',
+  round_started: 'My Round starts',
+  round_decision_released: 'The decision in my Round is in',
   room_invitation: 'A host invites me to a room',
   challenge_received: 'Someone challenges me',
   challenge_accepted: 'Someone accepts my challenge',

@@ -27,6 +27,9 @@ test('NotificationPreferencesForm', () => {
     expected: [
       'A debater I follow is on air | In Daisy',
       'A recording is ready to watch | In Daisy',
+      'My Round starts | In Daisy',
+      'The decision in my Round is in | In Daisy',
+      'The decision in my Round is in | Email',
       'A host invites me to a room | In Daisy',
       'A host invites me to a room | Email',
       'Someone challenges me | In Daisy',
@@ -40,6 +43,6 @@ test('NotificationPreferencesForm', () => {
     given: 'friend request email turned off',
     should: 'leave only that switch unchecked',
     actual: (html.match(/checked=""/g) ?? []).length,
-    expected: 8,
+    expected: 11,
   });
 });

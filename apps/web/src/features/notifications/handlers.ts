@@ -133,13 +133,15 @@ export const createNotificationPresentationRoute = (
       refusals: [],
     },
     async ({ identity, body }) => {
-      const { version: _version, ...presentation } = parseValidated(
-        notificationPresentationSchema,
-        body,
-      );
+      const chosen = parseValidated(notificationPresentationSchema, body);
       await deps.store.writeNotificationPresentation({
         userId: identity.principal.userId,
-        presentation,
+        presentation: {
+          toasts: chosen.toasts,
+          sound: chosen.sound,
+          desktopAlerts: chosen.desktopAlerts,
+          email: chosen.email,
+        },
       });
       return Response.json({ received: true });
     },

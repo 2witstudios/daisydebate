@@ -1,11 +1,16 @@
 import { consumeMessagingRead } from './handler-boundary';
 import type { App } from '../../server/app';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { createMessagingInboxSchemas, idSchema } from '@daisy/protocol';
+import {
+  createMessagingInboxSchemas,
+  idSchema,
+  messagingUnreadSchema,
+} from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { parseValidated } from '../../server/http';
 
 import { composeMessagingInbox } from './inbox-composition';
+import { unreadConversationsOf } from './inbox-view';
 import { requireMemberActor } from '../access/actor';
 import {
   memberHttpBoundary,
@@ -84,4 +89,29 @@ export function composeMessagingInboxRoute(app: App) {
       },
     });
   };
+}
+
+/**
+ * GET /api/messaging/unread (ADR 0143): how many conversations on the first
+ * inbox page wait on the member, for the Messages badge, under the same
+ * fresh authority as the inbox itself.
+ */
+export function composeMessagingUnreadRoute(app: App) {
+  return (request: Request) =>
+    runEvaluatedRoute(memberHttpBoundary(app), request, {
+      name: 'messaging.unread',
+      readOnly: true,
+      headers: { 'cache-control': 'no-store' },
+      readInput: async () => null,
+      operation: async (_input, principal) => {
+        await consumeMessagingRead(app, requireMemberActor(principal).actorId);
+        const { entries } = await inboxOf(app, principal).read({
+          limit: app.messagingPolicy.bounds.pageItems,
+        });
+        return messagingUnreadSchema.parse({
+          version: 1,
+          unread: unreadConversationsOf(entries),
+        });
+      },
+    });
 }

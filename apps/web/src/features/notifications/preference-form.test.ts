@@ -16,6 +16,8 @@ test('choicesFromForm', () => {
     expected: {
       followed_debater_live: { in_app: true },
       recording_ready: { in_app: false },
+      round_started: { in_app: false },
+      round_decision_released: { in_app: false, email: false },
       room_invitation: { in_app: true, email: false },
       challenge_received: { in_app: false },
       challenge_accepted: { in_app: false },

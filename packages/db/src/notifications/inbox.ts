@@ -29,6 +29,13 @@ export type InboxRow = {
       readonly debater: string | null;
     }
   | { readonly kind: 'recording_ready'; readonly roundId: string }
+  | { readonly kind: 'round_started'; readonly roundId: string }
+  | {
+      readonly kind: 'round_decision_released';
+      readonly roundId: string;
+      /** Who the member debated (a judge: the affirmative), if a live account. */
+      readonly opponent: string | null;
+    }
   | {
       readonly kind: 'room_invitation';
       readonly roomId: string;
@@ -83,7 +90,15 @@ const inboxRow = (row: FlatRow): InboxRow => {
         debater: row.about,
       };
     case 'recording_ready':
+    case 'round_started':
       return { ...base, kind: row.kind, roundId: row.roundId! };
+    case 'round_decision_released':
+      return {
+        ...base,
+        kind: row.kind,
+        roundId: row.roundId!,
+        opponent: row.about,
+      };
     case 'room_invitation':
       return {
         ...base,

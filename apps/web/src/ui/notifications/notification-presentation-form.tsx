@@ -23,6 +23,19 @@ const switches: readonly {
 ];
 
 /**
+ * The browser asks once, when the member turns desktop alerts on: a choice
+ * they just made, never a prompt on arrival.
+ */
+const askForDesktopAlerts = (event: { readonly target: HTMLInputElement }) => {
+  if (
+    event.target.checked &&
+    typeof Notification !== 'undefined' &&
+    Notification.permission === 'default'
+  )
+    void Notification.requestPermission();
+};
+
+/**
  * How Daisy tells the member, and whether it emails them at all (ADR 0143).
  * The inbox keeps every notification whatever these say.
  */
@@ -56,6 +69,9 @@ export function NotificationPresentationForm({
               type="checkbox"
               name={name}
               defaultChecked={presentation[name]}
+              onChange={
+                name === 'desktopAlerts' ? askForDesktopAlerts : undefined
+              }
             />{' '}
             {label}
           </label>

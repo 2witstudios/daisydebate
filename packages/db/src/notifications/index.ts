@@ -7,7 +7,6 @@ import { notificationPresentationOperations } from './presentation';
 import { watchNotificationOperations } from './watch-fanout';
 
 export {
-  DIGEST_ONLINE_POSTPONE_MS,
   type NotificationDigestClaim,
   type NotificationDigestDelivery,
   type NotificationDigestOutcome,
@@ -15,6 +14,7 @@ export {
 export { type InboxCursor, type InboxRow } from './inbox';
 export {
   oweNotifications,
+  resurfaceNotifications,
   type NotificationRecipient,
   type OwedNotifications,
 } from './owe';

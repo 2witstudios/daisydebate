@@ -112,3 +112,14 @@ export function createMessagingInboxSchemas(maxItems: number) {
     }),
   };
 }
+
+/**
+ * How many conversations on the first page of a member's inbox hold a message
+ * they have not read, for the Messages badge (ADR 0143). Messaging's own
+ * count over its own read state; a notification never carries it.
+ */
+export const messagingUnreadSchema = z.strictObject({
+  version: z.literal(1),
+  unread: z.int().nonnegative(),
+});
+export type MessagingUnread = z.infer<typeof messagingUnreadSchema>;

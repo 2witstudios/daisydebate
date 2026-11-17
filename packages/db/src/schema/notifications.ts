@@ -140,7 +140,8 @@ export const notifications = pgTable(
     check('notifications_subject_check', subjectCheck),
     check(
       'notifications_actor_check',
-      sql`(${table.kind} = 'recording_ready') = (${table.actorId} is null)`,
+      // These are about a Round alone: nobody in particular brought them.
+      sql`(${oneOf(table.kind, ['recording_ready', 'round_started'])}) = (${table.actorId} is null)`,
     ),
   ],
 );

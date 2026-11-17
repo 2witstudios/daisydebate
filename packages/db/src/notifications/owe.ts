@@ -81,7 +81,33 @@ export async function oweNotifications<K extends NotificationKind>(
       select w.id,w.user_id,a.id as actor_id from w join actors a on a.user_id=w.user_id
       order by w.id`,
   );
-  for (const row of written)
+  await tellMembers(tx, {
+    kind: owed.kind,
+    rows: written,
+    at: owed.at,
+    nextId: owed.nextId,
+  });
+  return written.length;
+}
+
+/**
+ * What every written or resurfaced row owes its member: one content-free
+ * `user:inbox` signal, and for an emailed kind a place in their digest.
+ */
+async function tellMembers(
+  tx: AuthorizationTransaction,
+  told: {
+    readonly kind: NotificationKind;
+    readonly rows: readonly {
+      readonly id: string;
+      readonly user_id: string;
+      readonly actor_id: string;
+    }[];
+    readonly at: string;
+    readonly nextId: () => string;
+  },
+): Promise<void> {
+  for (const row of told.rows)
     await appendOutboxEvent(tx, {
       topic: buildUserInboxTopic(row.actor_id),
       kind: 'user.notification-delivered',
@@ -90,16 +116,63 @@ export async function oweNotifications<K extends NotificationKind>(
         entityVersion: 1,
         kind: 'user.notification-delivered',
         ids: [row.id],
-        notificationType: owed.kind,
-        occurredAt: owed.at,
+        notificationType: told.kind,
+        occurredAt: told.at,
       },
     });
-  if (isEmailedNotificationKind(owed.kind))
+  if (isEmailedNotificationKind(told.kind))
     await oweDigests(tx, {
-      kind: owed.kind,
-      rows: written.map((row) => ({ id: row.id, userId: row.user_id })),
-      at: owed.at,
-      nextId: owed.nextId,
+      kind: told.kind,
+      rows: told.rows.map((row) => ({ id: row.id, userId: row.user_id })),
+      at: told.at,
+      nextId: told.nextId,
     });
-  return written.length;
+}
+
+/**
+ * Brings members' existing notifications of one subject back to them, in the
+ * producer's transaction (ADR 0143): something new about it happened (a
+ * Round's analysis is ready beside its decision). Each comes back unread at
+ * the top of the inbox and is told like a new one. Returns the rows moved.
+ */
+export async function resurfaceNotifications<K extends NotificationKind>(
+  tx: AuthorizationTransaction,
+  owed: {
+    readonly kind: K;
+    readonly subject: NotificationSubjectIds<K>;
+    readonly userIds: readonly string[];
+    readonly at: string;
+    readonly nextId: () => string;
+  },
+): Promise<number> {
+  if (owed.userIds.length === 0) return 0;
+  const columns: readonly string[] =
+    notificationSubjectColumns[subjectOf(owed.kind)];
+  const ids = owed.subject as Readonly<Record<string, string>>;
+  const names = sql.join(
+    columns.map((column) => sql`n.${sql.raw(column)}=${ids[column]}`),
+    sql` and `,
+  );
+  const users = JSON.stringify(owed.userIds);
+  const moved = await rowsOf<{
+    id: string;
+    user_id: string;
+    actor_id: string;
+  }>(
+    tx,
+    sql`with m as (
+        update notifications n set surfaced_at=${owed.at}::timestamptz,read_at=null
+        where n.kind=${owed.kind} and ${names}
+          and n.user_id in (select jsonb_array_elements_text(${users}::text::jsonb))
+        returning n.id,n.user_id)
+      select m.id,m.user_id,a.id as actor_id from m join actors a on a.user_id=m.user_id
+      order by m.id`,
+  );
+  await tellMembers(tx, {
+    kind: owed.kind,
+    rows: moved,
+    at: owed.at,
+    nextId: owed.nextId,
+  });
+  return moved.length;
 }

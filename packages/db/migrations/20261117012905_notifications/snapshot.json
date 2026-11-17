@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ce5545c6-4fc8-44c9-aa2b-6f3900dfc5d5",
+  "id": "1efe7942-b17f-4721-b5b5-842513b05f36",
   "prevIds": [
     "5d9b2236-0dde-4f7f-a84f-98c8d15869f5"
   ],
@@ -13717,6 +13717,19 @@
       "generated": null,
       "identity": null,
       "name": "audience_link_hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'on_finalize'",
+      "generated": null,
+      "identity": null,
+      "name": "decision_release",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -30409,28 +30422,28 @@
       "table": "notification_fanouts"
     },
     {
-      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'))",
+      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'))",
       "name": "notification_preferences_pair_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notification_preferences"
     },
     {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted')",
+      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted')",
       "name": "notifications_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notifications"
     },
     {
-      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null)",
+      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null)",
       "name": "notifications_subject_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notifications"
     },
     {
-      "value": "(\"kind\" = 'recording_ready') = (\"actor_id\" is null)",
+      "value": "(\"kind\" in ('recording_ready', 'round_started')) = (\"actor_id\" is null)",
       "name": "notifications_actor_check",
       "entityType": "checks",
       "schema": "public",
@@ -31699,6 +31712,13 @@
     {
       "value": "\"competition_type\" in ('ranked', 'casual')",
       "name": "rounds_competition_type_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "\"decision_release\" in ('on_finalize', 'held')",
+      "name": "rounds_decision_release_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"

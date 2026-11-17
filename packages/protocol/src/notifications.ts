@@ -44,6 +44,13 @@ export const notificationCatalogue = {
     email: 'none',
   },
   recording_ready: { subject: 'round', urgency: 'durable', email: 'none' },
+  // The debate's clock is running: the member is needed in it now.
+  round_started: { subject: 'round', urgency: 'urgent' },
+  round_decision_released: {
+    subject: 'round',
+    urgency: 'durable',
+    email: 'batched',
+  },
   room_invitation: {
     subject: 'room_invitation',
     urgency: 'durable',
@@ -107,10 +114,9 @@ const emailsKind = (kind: NotificationKind): kind is EmailedNotificationKind =>
   specOf(kind).email === 'batched';
 
 /** Kinds sent by email, each with its own unsubscribe. */
-export const emailedNotificationKinds = notificationKinds.filter(emailsKind) as [
-  EmailedNotificationKind,
-  ...EmailedNotificationKind[],
-];
+export const emailedNotificationKinds = notificationKinds.filter(
+  emailsKind,
+) as [EmailedNotificationKind, ...EmailedNotificationKind[]];
 
 export const isEmailedNotificationKind = (
   kind: string,

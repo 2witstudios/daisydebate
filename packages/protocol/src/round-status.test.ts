@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { isRoundOver, isRoundRunning, roundStatuses } from './round';
+import {
+  isRoundOver,
+  isRoundRunning,
+  roundBegan,
+  roundStatuses,
+} from './round';
 import {
   isOpenRoomStatus,
   isRoomRoundLink,
@@ -97,5 +102,23 @@ describe('a Room and the Round it launched', () => {
       ),
       expected: true,
     });
+  });
+});
+
+test('roundBegan', () => {
+  assert({
+    given:
+      'a Round frozen active, one frozen opening, its opening ending, a running debate, and an opening abandoned',
+    should:
+      'begin only when its clock first runs, never at an opening and never twice',
+    actual: [
+      roundBegan(null, 'active'),
+      roundBegan(null, 'opening'),
+      roundBegan('opening', 'active'),
+      roundBegan('active', 'active'),
+      roundBegan('opening', 'abandoned'),
+      roundBegan('active', 'completed'),
+    ],
+    expected: [true, false, true, false, false, false],
   });
 });

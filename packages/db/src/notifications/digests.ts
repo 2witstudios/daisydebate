@@ -27,8 +27,6 @@ type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 export const DIGEST_QUIET_MS = 15 * 60_000;
 /** ...but never longer than this after its first. */
 export const DIGEST_LONGEST_WAIT_MS = 60 * 60_000;
-/** How long a digest waits again while its member is in Daisy. */
-export const DIGEST_ONLINE_POSTPONE_MS = 15 * 60_000;
 
 export type NotificationDigestClaim = {
   readonly id: string;
