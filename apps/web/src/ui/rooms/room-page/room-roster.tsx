@@ -47,7 +47,7 @@ const boxTone: Readonly<Record<SideMark, string>> = {
   '?': 'border-2 border-dashed border-gold-border bg-gold-soft text-ink',
 };
 const boxClass =
-  'flex min-h-11 w-full items-center justify-center rounded-lg text-sm font-semibold';
+  'flex min-h-room-target w-full items-center justify-center rounded-lg text-sm font-semibold';
 
 /** One box of a row: a button that posts its next value, or the value alone. */
 function CycleBox({
@@ -169,7 +169,7 @@ function ReadyMark({ seat }: { readonly seat: Participant }) {
     <span
       role="img"
       aria-label={ready ? 'Ready' : 'Not ready'}
-      className={`size-7 flex items-center justify-center justify-self-center rounded-md border-2 text-sm font-bold ${ready ? 'border-accent bg-accent text-accent-ink' : 'border-border-strong'}`}
+      className={`size-8 flex items-center justify-center justify-self-center rounded-md border-2 text-sm font-bold ${ready ? 'border-accent bg-accent text-accent-ink' : 'border-border-strong'}`}
     >
       {ready ? '✓' : null}
     </span>
@@ -204,7 +204,7 @@ function Who({
     <div className="flex min-w-0 items-center gap-3">
       <span
         aria-hidden="true"
-        className={`size-9 flex shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
+        className={`size-10 flex shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
       >
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
@@ -213,7 +213,7 @@ function Who({
           {seat?.label ?? 'Judge'}
           {seat?.rating ? (
             <span
-              className={`font-normal text-xs text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
+              className={`text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
             >
               {seat.rating.value}
               {seat.rating.provisional ? '*' : ''}
@@ -365,7 +365,7 @@ function OpenSeat({
     <>
       <span
         aria-hidden="true"
-        className="size-7 justify-self-center rounded-md border-2 border-dashed border-border"
+        className="size-8 justify-self-center rounded-md border-2 border-dashed border-border"
       />
       <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
         <p className="text-ink-muted">
@@ -449,7 +449,7 @@ function Row({
               teams={teams}
             />
           ) : null}
-          <div className="flex justify-end room-roster-action empty:hidden">
+          <div className="room-roster-action flex justify-end empty:hidden">
             {named &&
             view.capabilities.host &&
             named.actorId !== props.viewer.actorId ? (

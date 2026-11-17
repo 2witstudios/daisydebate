@@ -44,7 +44,7 @@ function Row({
   readonly detail?: string | null;
 }) {
   return (
-    <div className="min-h-11 flex flex-col justify-center">
+    <div className="flex min-h-room-target flex-col justify-center">
       <div className="flex items-center justify-between gap-3">
         {htmlFor ? (
           <label htmlFor={htmlFor} className="text-sm font-strong">

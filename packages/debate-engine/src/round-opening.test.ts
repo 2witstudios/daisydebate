@@ -212,8 +212,12 @@ describe('projectOpening sides', () => {
     const draw = humanDraw();
     const at = after(windowMs(draw) * (draw.manifest.drawSize - 1) + 1);
     const without = opening(draw, PREP_MS);
-    const { sides: _, ...withSides } = read({ ...without, sides }, 'aff', at);
-    const { sides: __, ...plain } = read(without, 'aff', at);
+    const withoutSides = (view: object) =>
+      Object.fromEntries(
+        Object.entries(view).filter(([key]) => key !== 'sides'),
+      );
+    const withSides = withoutSides(read({ ...without, sides }, 'aff', at));
+    const plain = withoutSides(read(without, 'aff', at));
     assert({
       given: 'the same opening with and without a seat draw',
       should: 'leave its step, strikes and prep exactly as they were',
