@@ -57,6 +57,9 @@ import {
   type MetricsStore,
 } from '../features/ops/metrics-store';
 import { recordingObjectStore } from '../features/recording/tigris-object-store';
+import { profilePhotoObjects } from '../features/profile/photo/bucket';
+import { configuredScanner } from '../features/image-intake/scanner-config';
+import type { PhotoClassifier } from '../features/profile/photo/ports';
 import { createRequestNetwork } from './request-network';
 
 export type AppDependencies = {
@@ -251,6 +254,15 @@ export function createApp({
       : null,
     /** The private Recording bucket; a deployment without it refuses every object. */
     recordingObjects: recordingObjectStore(env),
+    /** The private profile photo bucket; null refuses every upload (ADR 0143). */
+    profilePhotoObjects: profilePhotoObjects(env),
+    /** The malware scanner photo intake requires; null refuses every upload. */
+    imageScanner: configuredScanner(env),
+    /**
+     * The automated photo check. None is approved yet (PROF-12, owner), so
+     * every photo waits for an operator: nothing unchecked is ever public.
+     */
+    profilePhotoClassifier: null as PhotoClassifier | null,
     clock,
     ids,
     logger,

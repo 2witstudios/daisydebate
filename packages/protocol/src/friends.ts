@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { memberStatuses } from './presence-setting';
+import { idSchema } from './primitives';
 import { usernameSchema as username } from './username';
 
 /**
@@ -42,6 +43,10 @@ export const friendListSchema = z.strictObject({
     z.strictObject({
       username: z.string(),
       presence: z.enum(memberStatuses),
+      /** The label they chose besides the username (ADR 0143), or null. */
+      displayName: z.string().nullable(),
+      /** Their published profile photo, or null. */
+      photoId: idSchema.nullable(),
     }),
   ),
   incoming: z.array(

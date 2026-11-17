@@ -4,8 +4,8 @@ import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 
 /**
- * The actions row in a profile's header. The owner edits their profile from
- * Settings; actions toward another member (befriend, challenge, message)
+ * The actions row in a profile's header. The owner edits their profile in
+ * Settings' Profile section; actions toward another member (befriend, challenge, message)
  * join this row beside it.
  */
 export function ProfileActions({
@@ -26,13 +26,13 @@ export function ProfileActions({
     >
       {me ? (
         <Link
-          href="/settings"
+          href="/settings#profile"
           className={cn(
             buttonClass('secondary'),
             'no-underline hover:no-underline',
           )}
         >
-          Settings
+          Edit profile
         </Link>
       ) : (
         children

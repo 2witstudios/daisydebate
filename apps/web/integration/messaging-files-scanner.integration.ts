@@ -5,7 +5,7 @@ import {
   openFileScannerRelay,
   requireFileScannerPort,
 } from './messaging-files.test-support';
-import { createClamdScanner } from '../src/features/messaging/files/clamd';
+import { createClamdScanner } from '../src/features/image-intake/clamd';
 import {
   fileProofEicar,
   infectedFilePdf,

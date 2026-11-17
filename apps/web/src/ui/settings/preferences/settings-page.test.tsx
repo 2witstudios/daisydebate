@@ -133,6 +133,42 @@ describe('SettingsPage', () => {
     });
   });
 
+  test('the profile section', () => {
+    const html = renderToString(
+      h(ThemeProvider, {
+        initialPreference: 'system',
+        children: h(SettingsPage, {
+          username: 'debater-a',
+          dataRightsNotices: { exportData: null, erase: null },
+          analytics: {
+            choice: { kind: 'unreadable' },
+            available: { analytics: false, replay: false },
+          },
+          onboarding: null,
+          publicProfile: h('p', null, 'PUBLIC-PROFILE'),
+          status: h('p', null, 'STATUS-FORM'),
+        }),
+      }),
+    );
+    const profile = html.slice(
+      html.indexOf('id="profile"'),
+      html.indexOf('id="privacy"'),
+    );
+    assert({
+      given: 'a member’s display name, bio, photo and status controls',
+      should:
+        'show them in the Profile section beside the username, which stays a link and not a field',
+      actual: [
+        profile.includes('href="/profile/debater-a"'),
+        profile.includes('PUBLIC-PROFILE'),
+        profile.includes('>Status</h3>'),
+        profile.includes('STATUS-FORM'),
+        html.includes('name="username"'),
+      ],
+      expected: [true, true, true, true, false],
+    });
+  });
+
   test('an account with no username yet', () => {
     const html = render(null);
     assert({

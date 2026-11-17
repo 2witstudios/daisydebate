@@ -13,8 +13,11 @@ describe('ProfileActions', () => {
     const html = render(true);
     assert({
       given: 'the owner of the profile',
-      should: 'offer a link to Settings',
-      actual: [html.includes('>Settings<'), html.includes('href="/settings"')],
+      should: 'offer Edit profile, leading to Settings’ Profile section',
+      actual: [
+        html.includes('>Edit profile<'),
+        html.includes('href="/settings#profile"'),
+      ],
       expected: [true, true],
     });
   });
@@ -26,7 +29,7 @@ describe('ProfileActions', () => {
       should: 'name the member and offer no edit link',
       actual: [
         html.includes('aria-label="Actions for @debater-a"'),
-        html.includes('>Settings<'),
+        html.includes('>Edit profile<'),
       ],
       expected: [true, false],
     });

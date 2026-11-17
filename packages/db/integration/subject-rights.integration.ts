@@ -25,7 +25,7 @@ test('closing an account through every feature step keeps the competitive record
   await withFixture(url, async (fixture) => {
     const subject = await createAuthorizationSubject(fixture);
     const email = `${subject.userId}@closure.invalid`;
-    await fixture.sql`update users set email=${email}, name='Private name', image='private-image' where id=${subject.userId}`;
+    await fixture.sql`update users set email=${email}, name='Private name' where id=${subject.userId}`;
     const recipientHash = createId().padEnd(64, '0');
     await fixture.sql`insert into email_suppression (recipient_hash, reason, provider_message_id)
       values (${recipientHash}, 'bounce', ${createId()})`;

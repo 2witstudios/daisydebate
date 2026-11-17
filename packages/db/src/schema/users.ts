@@ -23,6 +23,11 @@ export const users = pgTable(
     email: text('email'),
     emailVerified: boolean('email_verified').notNull().default(false),
     name: text('name').notNull().default(''),
+    /**
+     * Better Auth's core user field, kept only because its adapter reads it.
+     * Daisy never stores an image here: the public profile photo lives in
+     * `profile_photos` (ADR 0143), and the CHECK keeps this null.
+     */
     image: text('image'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -50,6 +55,7 @@ export const users = pgTable(
       'users_tombstone_scrubbed',
       sql`${table.deletedAt} is null or (${table.email} is null and ${table.image} is null and ${table.name} = '')`,
     ),
+    check('users_image_unused', sql`${table.image} is null`),
     versionPositive('users', table.version),
   ],
 );

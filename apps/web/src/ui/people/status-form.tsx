@@ -13,6 +13,7 @@ import { Icon } from '../components/icon/icon';
 import { presenceDotClass } from '../components/presence-dot/presence-dot-class';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useOptionalPeople } from './people-provider';
+import { profilePhotoSrc } from '../profile/photo-src';
 
 const labels: Readonly<Record<ChosenStatus, string>> = {
   online: 'Online',
@@ -20,18 +21,25 @@ const labels: Readonly<Record<ChosenStatus, string>> = {
   appearing_offline: 'Appear offline',
 };
 
-/** The avatar at the foot of the left rail, showing the member's real status. */
+/**
+ * The avatar at the foot of the left rail, showing the member's real status
+ * and the photo they published (ADR 0143).
+ */
 export function SelfAvatar({
-  username,
+  name,
+  photoId,
   size = 'sm',
 }: {
-  readonly username: string;
+  /** The display name if they chose one, else the username: the initials' source. */
+  readonly name: string;
+  readonly photoId: string | null;
   readonly size?: 'sm' | 'md';
 }) {
   const people = useOptionalPeople();
   return (
     <Avatar
-      name={username}
+      name={name}
+      src={profilePhotoSrc(photoId, 128)}
       size={size}
       {...(people ? { presence: people.list.self } : {})}
     />

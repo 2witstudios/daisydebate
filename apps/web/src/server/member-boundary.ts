@@ -4,10 +4,12 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
+import type { RefusalReason } from '@daisy/protocol';
 import { identify } from '../lib/identity';
 import type { App } from './app';
 import {
   handleOperation,
+  refusalResponse,
   requireSameOrigin,
   requireSameOriginRead,
   requireSignedIn,
@@ -124,17 +126,28 @@ export function runEvaluatedRoute(
     ) => Promise<unknown>;
     readonly headers?: HeadersInit;
     readonly respond?: (value: unknown) => Response;
+    /** The closed words a refusal answers by name rather than by code alone. */
+    readonly refusals?: readonly RefusalReason[];
   },
 ) {
   return runGated(
     boundary,
     request,
     { ...input, evaluatorDecides: true },
-    async (identity) => {
-      const value = await input.operation(
-        await input.readInput(),
-        identity.principal,
-      );
+    async (identity, { requestId }) => {
+      let value: unknown;
+      try {
+        value = await input.operation(
+          await input.readInput(),
+          identity.principal,
+        );
+      } catch (error) {
+        const refused = input.refusals
+          ? refusalResponse(error, requestId, input.refusals)
+          : null;
+        if (refused) return refused;
+        throw error;
+      }
       return input.respond
         ? input.respond(value)
         : Response.json(value, { headers: input.headers ?? {} });

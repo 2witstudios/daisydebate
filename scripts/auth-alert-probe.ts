@@ -171,6 +171,7 @@ const ALERT_CONDITION_IDS = [
   'observation_purges_missed',
   'privacy_jobs_missed',
   'file_maintenance_missed',
+  'profile_photo_deletions_missed',
   'mail_shed',
   'network_limited',
 ] as const satisfies readonly AlertCondition['id'][];
@@ -233,6 +234,7 @@ const UNEVALUATED_WITHOUT_ALERT_STATE = [
   'observation_purges_missed',
   'privacy_jobs_missed',
   'file_maintenance_missed',
+  'profile_photo_deletions_missed',
   'mail_shed',
   'network_limited',
 ] as const;

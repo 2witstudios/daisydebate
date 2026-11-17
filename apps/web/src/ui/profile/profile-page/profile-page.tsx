@@ -6,6 +6,7 @@ import type {
   MemberProfile,
   RecordResult,
 } from '@daisy/protocol';
+import type { ProfileView } from '../../../features/profile/read-profile';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
 import type { BadgeTone } from '../../components/badge/badge-class';
@@ -15,6 +16,7 @@ import { liveHref } from '../../../features/watch/routes';
 import { MediaPageLink } from '../../round-media/media-page-link';
 import { profileHref } from '../../layout/app-shell/components/destinations';
 import { ProfileActions } from '../profile-actions/profile-actions';
+import { profilePhotoSrc } from '../photo-src';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
 const heading = 'text-xs font-bold tracking-widest text-ink-muted uppercase';
@@ -144,37 +146,74 @@ function RecordSummary({ profile }: { readonly profile: MemberProfile }) {
   );
 }
 
-/** Who the member is: name, badges, join month or closed notice, and actions. */
+/** What a live member chose to show; a closed account shows none of it. */
+const shownOf = (profile: ProfileView) =>
+  profile.closed
+    ? { displayName: null, bio: null, photoId: null }
+    : profile.shown;
+
+/** Their display name above their username, or the username alone. */
+function ProfileName({ profile }: { readonly profile: ProfileView }) {
+  const { displayName } = shownOf(profile);
+  const handle = `@${profile.username}`;
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+          {displayName ?? handle}
+        </h1>
+        {profile.me ? <Badge tone="accent">You</Badge> : null}
+        {profile.closed ? <Badge tone="neutral">Closed</Badge> : null}
+      </div>
+      {displayName === null ? null : (
+        <p className="text-base font-semibold text-ink-muted">{handle}</p>
+      )}
+    </>
+  );
+}
+
+/**
+ * Who the member is: their name, join month or closed notice, bio, photo and
+ * actions.
+ */
 function ProfileHeader({
   profile,
   actions,
+  reports,
 }: {
-  readonly profile: MemberProfile;
+  readonly profile: ProfileView;
   readonly actions?: ReactNode;
+  readonly reports?: ReactNode;
 }) {
+  const { displayName, bio, photoId } = shownOf(profile);
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-4">
-        <Avatar name={profile.username} size="lg" nameVisible />
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-              {`@${profile.username}`}
-            </h1>
-            {profile.me ? <Badge tone="accent">You</Badge> : null}
-            {profile.closed ? <Badge tone="neutral">Closed</Badge> : null}
+    <>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <Avatar
+            name={displayName ?? profile.username}
+            src={profilePhotoSrc(photoId, 512)}
+            size="lg"
+            nameVisible
+          />
+          <div className="flex min-w-0 flex-col gap-1">
+            <ProfileName profile={profile} />
+            <p className="text-base text-ink-muted">
+              {profile.closed
+                ? 'This account is closed. Its public rounds stay on the record.'
+                : `Member since ${month(profile.memberSince)}`}
+            </p>
+            {bio ? (
+              <p className="text-base whitespace-pre-line text-ink">{bio}</p>
+            ) : null}
           </div>
-          <p className="text-base text-ink-muted">
-            {profile.closed
-              ? 'This account is closed. Its public rounds stay on the record.'
-              : `Member since ${month(profile.memberSince)}`}
-          </p>
         </div>
-      </div>
-      <ProfileActions username={profile.username} me={profile.me}>
-        {actions}
-      </ProfileActions>
-    </header>
+        <ProfileActions username={profile.username} me={profile.me}>
+          {actions}
+        </ProfileActions>
+      </header>
+      {profile.me || profile.closed ? null : reports}
+    </>
   );
 }
 
@@ -186,14 +225,17 @@ export function ProfilePage({
   profile,
   paged,
   actions,
+  reports,
   ratings,
   liveRound = null,
 }: {
-  readonly profile: MemberProfile;
+  readonly profile: ProfileView;
   /** Whether this is an older page of the history. */
   readonly paged: boolean;
   /** The viewer's actions toward this member, if any. */
   readonly actions?: ReactNode;
+  /** The viewer's reports of this member's photo, display name and bio. */
+  readonly reports?: ReactNode;
   /** Published rating display composed by the request page. */
   readonly ratings?: ReactNode;
   /** The public Round they are live in, as the audience has reached it. */
@@ -202,7 +244,7 @@ export function ProfilePage({
   const base = profileHref(profile.username);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
-      <ProfileHeader profile={profile} actions={actions} />
+      <ProfileHeader profile={profile} actions={actions} reports={reports} />
       {liveRound ? (
         <p className="text-base">
           <Link href={liveRound.href} className="font-strong">

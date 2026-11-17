@@ -1,5 +1,6 @@
 import type { FilePolicy } from '@daisy/db/messaging-files';
-import type { ImageSanitizer, PrivateObjectStore, FileScanner } from './ports';
+import type { FileScanner, ImageSanitizer } from '../../image-intake/ports';
+import type { PrivateObjectStore } from './ports';
 /** Ports and approved budgets are explicitly injected at the deployment edge. */
 export type MessagingFileRuntime = {
   /** The deployment's file budgets; the day's upload count is DEC-251's. */

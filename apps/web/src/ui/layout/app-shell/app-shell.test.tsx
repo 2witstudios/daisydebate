@@ -8,7 +8,12 @@ import { occurrences, renderInStore } from '../../test-support/render-in-store';
 
 setupRitewayBun();
 
-const member: ShellAccount = { state: 'member', username: 'ada-byron' };
+const member: ShellAccount = {
+  state: 'member',
+  username: 'ada-byron',
+  displayName: null,
+  photoId: null,
+};
 
 const roomHref = `/rooms/${'a'.repeat(24)}`;
 
@@ -172,6 +177,26 @@ describe('AppShell', () => {
         foot.includes('action="/auth/sign-out"'),
       ],
       expected: [true, true, true, true, true, true, true],
+    });
+  });
+
+  test('a member who chose a display name and photo', () => {
+    const photoId = 'f'.repeat(24);
+    const html = render({ ...member, displayName: 'Ada Byron', photoId });
+    const [rail, bar] = navs(html);
+    const foot = rail.slice(rail.indexOf('<details'));
+    assert({
+      given: 'a member with a display name and published photo',
+      should:
+        'name the account menu and phone sheet by it, keep @username visible beside it, and show the photo',
+      actual: [
+        foot.includes('aria-label="Your account, Ada Byron (@ada-byron)"'),
+        /<span aria-hidden="true" class="[^"]*">Ada Byron<\/span>/.test(foot),
+        foot.includes('>@<!-- -->ada-byron<') || foot.includes('>@ada-byron<'),
+        foot.includes(`src="/api/profile-photos/${photoId}/128"`),
+        bar.includes('Ada Byron') && bar.includes('ada-byron'),
+      ],
+      expected: [true, true, true, true, true],
     });
   });
 
