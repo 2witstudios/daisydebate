@@ -54,8 +54,9 @@ export const readLimiterDecision = (decision: unknown) => {
 };
 
 /**
- * A limiter's wait as a Retry-After header: a valid hint (a finite number,
- * at least `minimum`) is rounded up to whole seconds. An invalid one omits
+ * A limiter's wait as a Retry-After header: a valid hint (a finite,
+ * non-negative number) is rounded up to whole seconds and kept if that is at
+ * least `minimum`. An invalid one omits
  * the header, or, given a `fallback`, advertises that instead, so a route
  * that must never say "retry now" passes its window.
  */
@@ -63,11 +64,13 @@ export const retryAfterHeaders = (
   retryAfterSeconds: unknown,
   { minimum = 0, fallback }: { minimum?: number; fallback?: number } = {},
 ): Record<string, string> => {
-  const valid =
+  const rounded =
     typeof retryAfterSeconds === 'number' &&
     Number.isFinite(retryAfterSeconds) &&
-    retryAfterSeconds >= minimum;
-  const seconds = valid ? retryAfterSeconds : fallback;
+    retryAfterSeconds >= 0
+      ? Math.ceil(retryAfterSeconds)
+      : null;
+  const seconds = rounded !== null && rounded >= minimum ? rounded : fallback;
   return seconds === undefined
     ? {}
     : { 'Retry-After': String(Math.ceil(seconds)) };

@@ -252,10 +252,11 @@ test('a refused image always advertises a positive wait', async () => {
     return [response.status, response.headers.get('retry-after')];
   };
   assert({
-    given: 'a refusal hinting 2.4 s, 0, Infinity, a string and nothing',
+    given: 'a refusal hinting 2.4 s, 0.3 s, 0, Infinity, a string and nothing',
     should: 'round a valid wait up, and advertise the 60 s window for the rest',
     actual: [
       await waitFor(2.4),
+      await waitFor(0.3),
       await waitFor(0),
       await waitFor(Infinity),
       await waitFor('17'),
@@ -263,6 +264,7 @@ test('a refused image always advertises a positive wait', async () => {
     ],
     expected: [
       [429, '3'],
+      [429, '1'],
       [429, '60'],
       [429, '60'],
       [429, '60'],

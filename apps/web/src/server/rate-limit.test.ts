@@ -99,6 +99,7 @@ test('retryAfterHeaders', () => {
       retryAfterHeaders(Number.NaN),
       retryAfterHeaders(-1),
       retryAfterHeaders(0, { minimum: 1, fallback: 60 }),
+      retryAfterHeaders(0.3, { minimum: 1, fallback: 60 }),
       retryAfterHeaders(Infinity, { fallback: 60 }),
     ],
     expected: [
@@ -106,6 +107,7 @@ test('retryAfterHeaders', () => {
       {},
       {},
       { 'Retry-After': '60' },
+      { 'Retry-After': '1' },
       { 'Retry-After': '60' },
     ],
   });
