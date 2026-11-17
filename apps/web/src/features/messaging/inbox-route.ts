@@ -91,9 +91,12 @@ export function composeMessagingInboxRoute(app: App) {
   };
 }
 
+/** The most conversations the badge reads: it says at most "9+". */
+const MESSAGES_BADGE_PAGE = 10;
+
 /**
- * GET /api/messaging/unread (ADR 0144): how many conversations on the first
- * inbox page wait on the member, for the Messages badge, under the same
+ * GET /api/messaging/unread (ADR 0144): how many of the member's newest
+ * conversations wait on them, for the Messages badge, under the same
  * fresh authority as the inbox itself.
  */
 export function composeMessagingUnreadRoute(app: App) {
@@ -106,7 +109,11 @@ export function composeMessagingUnreadRoute(app: App) {
       operation: async (_input, principal) => {
         await consumeBadgeRead(app, requireMemberActor(principal).actorId);
         const { entries } = await inboxOf(app, principal).read({
-          limit: app.messagingPolicy.bounds.pageItems,
+          // The badge shows up to "9+": ten entries answer it.
+          limit: Math.min(
+            MESSAGES_BADGE_PAGE,
+            app.messagingPolicy.bounds.pageItems,
+          ),
         });
         return messagingUnreadSchema.parse({
           version: 1,

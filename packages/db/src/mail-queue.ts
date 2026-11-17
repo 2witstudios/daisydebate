@@ -4,6 +4,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { requireLeaseMs } from './lease-policy';
 import { rowsOf } from './raw-rows';
+import { isUniqueViolation } from './unique-violation';
 import { agentLeaseDigest } from './round-agent-lease';
 import type { mailJobColumns } from './schema/columns';
 
@@ -177,4 +178,20 @@ export const mailQueue = (
         where state in ('queued', 'leased') and (${owed})`);
     },
   };
+};
+
+/**
+ * Runs a held job's postponement again once when it lost a race for its
+ * member's one queued place: putting a job back can meet a job owed while it
+ * was held, and the second attempt reads that job and joins it instead.
+ */
+export const retriedOnceIfQueuedMeanwhile = async <T>(
+  attempt: () => Promise<T>,
+): Promise<T> => {
+  try {
+    return await attempt();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    return attempt();
+  }
 };

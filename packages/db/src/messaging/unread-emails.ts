@@ -12,6 +12,7 @@ import {
 } from '../mail-queue';
 import { emailsMember } from '../notifications/presentation';
 import { rowsOf } from '../raw-rows';
+import { retriedOnceIfQueuedMeanwhile } from '../mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import {
   messagingUnreadEmails,
@@ -202,21 +203,25 @@ export function messagingUnreadEmailOperations({
       readonly until: string;
     }): Promise<boolean> =>
       instrumented(eventSink, 'postponeMessagingUnreadEmail', () =>
-        database.transaction(async (tx) => {
-          const [next] = await rowsOf<{ id: string }>(
-            tx,
-            sql`select q.id from messaging_unread_emails q
+        // A job owed while this one was held can take the one queued place
+        // first; the second attempt then sees it and joins it.
+        retriedOnceIfQueuedMeanwhile(() =>
+          database.transaction(async (tx) => {
+            const [next] = await rowsOf<{ id: string }>(
+              tx,
+              sql`select q.id from messaging_unread_emails q
               join messaging_unread_emails j on j.user_id=q.user_id and j.id=${input.id}
               where q.state='queued' for update of q`,
-          );
-          return next
-            ? queue.settle(tx, {
-                id: input.id,
-                token: input.token,
-                outcome: { kind: 'cancelled', errorCode: 'not-owed' },
-              })
-            : queue.postpone(tx, input);
-        }),
+            );
+            return next
+              ? queue.settle(tx, {
+                  id: input.id,
+                  token: input.token,
+                  outcome: { kind: 'cancelled', errorCode: 'not-owed' },
+                })
+              : queue.postpone(tx, input);
+          }),
+        ),
       ),
     /** Terminal jobs only, 30 days after they ended. */
     purgeExpiredMessagingUnreadEmails: (batch: RetentionBatch) =>

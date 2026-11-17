@@ -3,6 +3,7 @@
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
 import {
+  defaultNotificationPresentation,
   notificationShellSchema,
   type NotificationShell,
 } from '@daisy/protocol';
@@ -36,6 +37,14 @@ import { NotificationToast } from './notification-toast';
 type Recent = NotificationShell['recent'][number];
 
 const ShellContext = createContext<NotificationShell | null>(null);
+
+/** Nothing known yet: no count, nothing recent, everything on. */
+const emptyShell: NotificationShell = {
+  version: 1,
+  unread: 0,
+  recent: [],
+  presentation: defaultNotificationPresentation,
+};
 
 /** The member's notifications as the shell holds them; null for a visitor. */
 export const useNotificationShell = (): NotificationShell | null =>
@@ -128,12 +137,13 @@ export function NotificationShellProvider({
   socketUrl,
   children,
 }: {
-  readonly initialShell: NotificationShell;
+  /** The server's read, or null when it failed: the first browser read is then the baseline. */
+  readonly initialShell: NotificationShell | null;
   readonly actorId: string;
   readonly socketUrl: string | null;
   readonly children: ReactNode;
 }) {
-  const [seed] = useState(initialShell);
+  const [seed] = useState(initialShell ?? emptyShell);
   const start = useCallback(() => {
     const { connection, ...edges } = browserSyncEdges(socketUrl);
     return createNotificationShellSyncDriver({
@@ -156,6 +166,9 @@ export function NotificationShellProvider({
   const marked = useRef(new Set<string>());
 
   useEffect(() => {
+    // Without the server's read the seed says nothing about what was waiting:
+    // the first real read only learns it, so old rows never burst in as news.
+    if (initialShell === null && shell === seed) return;
     const arrivals = arrivalsOf({
       seen: seen.current,
       recent: shell.recent,
@@ -170,7 +183,7 @@ export function NotificationShellProvider({
     alertUrgent(arrivals.urgent, shell.presentation, (href) =>
       router.push(href),
     );
-  }, [shell, path, router]);
+  }, [shell, path, router, initialShell, seed]);
 
   // The page the member is on shows these: they are read.
   useEffect(() => {

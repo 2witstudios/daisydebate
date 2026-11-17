@@ -11,6 +11,7 @@ import {
   type MailJobOutcome,
 } from '../mail-queue';
 import { rowsOf } from '../raw-rows';
+import { retriedOnceIfQueuedMeanwhile } from '../mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import {
   notificationDigests,
@@ -193,24 +194,28 @@ export function notificationDigestOperations({
       readonly until: string;
     }): Promise<boolean> =>
       instrumented(eventSink, 'postponeNotificationDigest', () =>
-        database.transaction(async (tx) => {
-          const [next] = await rowsOf<{ id: string }>(
-            tx,
-            sql`select q.id from notification_digests q
+        // A job owed while this one was held can take the one queued place
+        // first; the second attempt then sees it and joins it.
+        retriedOnceIfQueuedMeanwhile(() =>
+          database.transaction(async (tx) => {
+            const [next] = await rowsOf<{ id: string }>(
+              tx,
+              sql`select q.id from notification_digests q
               join notification_digests d on d.user_id=q.user_id and d.id=${input.id}
               where q.state='queued' for update of q`,
-          );
-          if (!next) return queue.postpone(tx, input);
-          const ended = await queue.settle(tx, {
-            id: input.id,
-            token: input.token,
-            outcome: { kind: 'cancelled', errorCode: 'not-owed' },
-          });
-          if (ended)
-            await tx.execute(sql`update notifications set digest_id=${next.id}
+            );
+            if (!next) return queue.postpone(tx, input);
+            const ended = await queue.settle(tx, {
+              id: input.id,
+              token: input.token,
+              outcome: { kind: 'cancelled', errorCode: 'not-owed' },
+            });
+            if (ended)
+              await tx.execute(sql`update notifications set digest_id=${next.id}
               where digest_id=${input.id}`);
-          return ended;
-        }),
+            return ended;
+          }),
+        ),
       ),
     /** Terminal jobs only, 30 days after they ended: a live job has no `completed_at`. */
     purgeExpiredNotificationDigests: (batch: RetentionBatch) =>

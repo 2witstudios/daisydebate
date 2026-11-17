@@ -7,7 +7,7 @@ import {
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { AuthorizationTransaction } from '../authorization';
-import { appendOutboxEvent } from '../outbox';
+import { appendOutboxEvents } from '../outbox';
 import { rowsOf } from '../raw-rows';
 import { notificationSubjectColumns } from '../schema/notifications';
 import { oweDigests } from './digests';
@@ -107,8 +107,11 @@ async function tellMembers(
     readonly nextId: () => string;
   },
 ): Promise<void> {
-  for (const row of told.rows)
-    await appendOutboxEvent(tx, {
+  // One insert for the whole event: a fan-out to many followers stays one
+  // bounded statement, not one per member.
+  await appendOutboxEvents(
+    tx,
+    told.rows.map((row) => ({
       topic: buildUserInboxTopic(row.actor_id),
       kind: 'user.notification-delivered',
       version: 1,
@@ -119,7 +122,8 @@ async function tellMembers(
         notificationType: told.kind,
         occurredAt: told.at,
       },
-    });
+    })),
+  );
   if (isEmailedNotificationKind(told.kind))
     await oweDigests(tx, {
       kind: told.kind,

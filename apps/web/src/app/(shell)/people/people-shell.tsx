@@ -16,7 +16,6 @@ import { readChallenges } from '../challenges/read-challenges';
 import { readNotificationShell } from '../notifications/read-shell';
 import { NotificationShellProvider } from '../../../ui/notifications/notification-shell-provider';
 import { MessagesUnreadProvider } from '../../../ui/messaging/messages-unread-provider';
-import { defaultNotificationPresentation } from '@daisy/protocol';
 import { blockAction } from '../contacts/actions';
 import { messagePersonAction } from '../messages/new/actions';
 import { reportAction } from '../reports/actions';
@@ -46,13 +45,6 @@ const noChallenges = {
   incoming: [],
   outgoing: [],
   accepted: [],
-};
-
-const noNotifications = {
-  version: 1 as const,
-  unread: 0,
-  recent: [],
-  presentation: defaultNotificationPresentation,
 };
 
 /**
@@ -106,7 +98,7 @@ export async function PeopleShell({
       // The member's inbox rings on the same socket as their challenges.
       return challenges?.actorId ? (
         <NotificationShellProvider
-          initialShell={notifications ?? noNotifications}
+          initialShell={notifications}
           actorId={challenges.actorId}
           socketUrl={challenges.socketUrl}
         >
