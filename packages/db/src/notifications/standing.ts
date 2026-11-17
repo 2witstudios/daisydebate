@@ -24,7 +24,7 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
 
 /**
  * Whether a notification of this kind still stands at `now`: what the
- * subject's own feature publishes (ADR 0143). Notifications owns no status
+ * subject's own feature publishes (ADR 0144). Notifications owns no status
  * words of its own, so a new kind adds its owner's read here and nowhere else.
  */
 const subjectStands = (kind: NotificationKind, now: SQL): SQL => {

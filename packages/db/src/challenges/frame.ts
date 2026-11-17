@@ -29,7 +29,7 @@ export type ChallengeFrame = {
   /** Records a new offer; a repeat of the open one answers it unchanged. */
   readonly send: (input: {
     readonly id: string;
-    /** Mints the challenged member's notification ids (ADR 0143). */
+    /** Mints the challenged member's notification ids (ADR 0144). */
     readonly nextId: () => string;
     readonly mode: CompetitionType;
     readonly format: RatingLadder;
@@ -43,7 +43,7 @@ export type ChallengeFrame = {
     readonly now: string;
     /** How long the challenger is still sent to the room. */
     readonly followUntil: string;
-    /** Mints the challenger's notification ids (ADR 0143). */
+    /** Mints the challenger's notification ids (ADR 0144). */
     readonly nextId: () => string;
   }) => Promise<void>;
   /** The challenged member refuses, or the challenger withdraws. */
@@ -262,7 +262,7 @@ export function challengeFrame(
         .returning({ id: challenges.id });
       if (!updated[0]) throw createAppError('NOT_FOUND');
       await ring(owner, [input.actorId, other]);
-      // The challenger is waited for now: urgent, never emailed (ADR 0143).
+      // The challenger is waited for now: urgent, never emailed (ADR 0144).
       const recipients = await rowsOf<{ user_id: string }>(
         tx,
         sql`select user_id from actors where id=${other} and user_id is not null`,

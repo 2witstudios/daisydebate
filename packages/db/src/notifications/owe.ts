@@ -26,7 +26,7 @@ export type NotificationRecipient = {
   readonly about: string | null;
 };
 
-/** One event a producer just recorded, owed to each of its recipients (ADR 0143). */
+/** One event a producer just recorded, owed to each of its recipients (ADR 0144). */
 export type OwedNotifications<K extends NotificationKind> = {
   readonly kind: K;
   /** The subject the kind names: a Round, an invitation, a challenge, a friendship. */
@@ -131,7 +131,7 @@ async function tellMembers(
 
 /**
  * Brings members' existing notifications of one subject back to them, in the
- * producer's transaction (ADR 0143): something new about it happened (a
+ * producer's transaction (ADR 0144): something new about it happened (a
  * Round's analysis is ready beside its decision). Each comes back unread at
  * the top of the inbox and is told like a new one. Returns the rows moved.
  */

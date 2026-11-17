@@ -11,7 +11,7 @@ import { workerFailures } from './recoverable-failure';
 import { nextWorkerToken } from './worker-token';
 
 /**
- * The notification email worker (ADR 0124, ADR 0143): the notification
+ * The notification email worker (ADR 0124, ADR 0144): the notification
  * digest and Messaging's unread-messages email. Every web instance runs it,
  * and the job leases keep instances off each other's mail.
  */

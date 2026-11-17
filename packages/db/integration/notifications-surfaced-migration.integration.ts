@@ -17,7 +17,7 @@ const scratch = scratchDatabase(url, 'surfacedat');
 afterAll(() => scratch.drop());
 
 test(
-  'the migration dates every stored notification as surfacing when it was written (ADR 0143)',
+  'the migration dates every stored notification as surfacing when it was written (ADR 0144)',
   async () => {
     await scratch.create();
     await scratch.migrate((folder) => folder < migration);

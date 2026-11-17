@@ -72,7 +72,7 @@ const DIGEST_ITEMS = 20;
  * Gathers just-written notifications of an emailed kind into each member's
  * queued digest, in the producer's transaction: a member with none queued
  * gets one, and each owed notification pushes its send back to a quiet time
- * after `at`, never past the longest wait after its first (ADR 0143). A
+ * after `at`, never past the longest wait after its first (ADR 0144). A
  * member who turned this kind's email off, or all email, is owed none.
  */
 export async function oweDigests(
@@ -106,7 +106,7 @@ export async function oweDigests(
 }
 
 /**
- * The notification digest queue's store (ADR 0143). Claims take due jobs and
+ * The notification digest queue's store (ADR 0144). Claims take due jobs and
  * lapsed leases with `FOR UPDATE SKIP LOCKED`, so several web instances
  * never hold one job at once; only the current lease holder may settle it.
  * Provider calls happen outside any transaction.

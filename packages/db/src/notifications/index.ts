@@ -21,7 +21,7 @@ export {
 export { notificationPrivacyAdopter } from './privacy';
 
 /**
- * Notifications (WATCH-12, ADR 0124, ADR 0143): the inbox, choices and
+ * Notifications (WATCH-12, ADR 0124, ADR 0144): the inbox, choices and
  * presentation, Watch's fan-out and the batched email.
  */
 export const notificationOperations = (deps: {

@@ -129,7 +129,7 @@ export const roomInvitationOperations = ({
     readonly username: string;
     readonly seat: RoomSeatKind;
     readonly ids: { readonly invitation: string };
-    /** Mints the invitee's notification ids (ADR 0143). */
+    /** Mints the invitee's notification ids (ADR 0144). */
     readonly nextId: () => string;
     /** The participant admission rule over the invitee's locked account. */
     readonly admitted: (account: Account) => boolean;

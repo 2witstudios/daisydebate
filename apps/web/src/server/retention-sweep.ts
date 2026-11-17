@@ -295,7 +295,7 @@ export function retentionTargets({
           limit,
         }),
     },
-    /** ADR 0143: ended unread-messages emails are kept 30 days. */
+    /** ADR 0144: ended unread-messages emails are kept 30 days. */
     {
       name: 'retention.messaging_unread_emails',
       batchSize: 500,
@@ -306,7 +306,7 @@ export function retentionTargets({
           limit,
         }),
     },
-    /** ADR 0143: sent, failed and cancelled notification digests are kept 30 days. */
+    /** ADR 0144: sent, failed and cancelled notification digests are kept 30 days. */
     {
       name: 'retention.notification_digests',
       batchSize: 500,

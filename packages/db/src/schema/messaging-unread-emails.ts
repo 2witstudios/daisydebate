@@ -13,7 +13,7 @@ export const messagingUnreadEmailErrorCodes = [
 ] as const;
 
 /**
- * One member's email about messages they have not read (ADR 0143), owned by
+ * One member's email about messages they have not read (ADR 0144), owned by
  * Messaging: a message to them queues it, and each later one pushes its send
  * back to a quiet time after itself, never past a longest wait after the
  * first. At send time it counts the conversations still unread, and is

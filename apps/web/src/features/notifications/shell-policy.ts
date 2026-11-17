@@ -27,7 +27,7 @@ export const titleWith = (title: string, unread: number): string => {
 /**
  * Whether a toast of this kind waits for the member. A kind that needs them
  * now, or asks for an answer, stays until dismissed; one that only tells
- * them something goes after a while (ADR 0143).
+ * them something goes after a while (ADR 0144).
  */
 export const toastWaits = (kind: NotificationKind): boolean => {
   switch (kind) {

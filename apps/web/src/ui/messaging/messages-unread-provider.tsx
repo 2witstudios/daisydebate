@@ -38,7 +38,7 @@ const readUnread = async (): Promise<ResourceRead<MessagingUnread>> => {
     : { kind: 'unavailable' };
 };
 
-/** Messaging's own badge count for the tab (ADR 0143): it never toasts. */
+/** Messaging's own badge count for the tab (ADR 0144): it never toasts. */
 export function MessagesUnreadProvider({
   actorId,
   socketUrl,

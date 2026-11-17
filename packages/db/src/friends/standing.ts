@@ -1,7 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 
 /**
- * Friends' published reads (ADR 0143). `friendship` names the `friendships`
+ * Friends' published reads (ADR 0144). `friendship` names the `friendships`
  * row in the reader's query; a declined, removed or blocked pair has no row.
  */
 

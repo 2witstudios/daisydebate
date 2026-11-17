@@ -12,7 +12,7 @@ const digest = (value: string) =>
   createHash('sha3-256').update(value).digest('hex');
 
 /**
- * What an unsubscribe link does (ADR 0143): stops every notification email
+ * What an unsubscribe link does (ADR 0144): stops every notification email
  * for one member. Which kinds Daisy emails is chosen in Settings.
  */
 const PURPOSE = 'all-notification-email';

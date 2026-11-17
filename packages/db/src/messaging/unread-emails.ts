@@ -77,7 +77,7 @@ const wantsConversationEmail = (channel: SQL, actor: SQL) =>
 
 /**
  * Owes each other member of the conversation an unread-messages email, in
- * the send's transaction (ADR 0143): one queued per member, pushed back to a
+ * the send's transaction (ADR 0144): one queued per member, pushed back to a
  * quiet time after this message, never past the longest wait after the
  * first. A member who stopped all notification email, or this
  * conversation's, is owed none.
@@ -113,7 +113,7 @@ export async function oweUnreadMessageEmails(
       messaging_unread_emails.first_owed_at+${UNREAD_EMAIL_LONGEST_WAIT_MS}*interval '1 millisecond')`);
 }
 
-/** The unread-messages email queue's store (ADR 0143), on the shared mail recipe. */
+/** The unread-messages email queue's store (ADR 0144), on the shared mail recipe. */
 export function messagingUnreadEmailOperations({
   database,
   eventSink,

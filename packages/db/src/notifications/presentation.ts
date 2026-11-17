@@ -11,7 +11,7 @@ import { rowsOf } from '../raw-rows';
 export const emailsMember = (user: SQL) =>
   sql`coalesce((select p.email from notification_presentation p where p.user_id=${user}),true)`;
 
-/** A member's presentation choices and master email switch (ADR 0143). */
+/** A member's presentation choices and master email switch (ADR 0144). */
 export const notificationPresentationOperations = ({
   database,
   eventSink,

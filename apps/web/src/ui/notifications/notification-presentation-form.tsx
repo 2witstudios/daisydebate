@@ -36,7 +36,7 @@ const askForDesktopAlerts = (event: { readonly target: HTMLInputElement }) => {
 };
 
 /**
- * How Daisy tells the member, and whether it emails them at all (ADR 0143).
+ * How Daisy tells the member, and whether it emails them at all (ADR 0144).
  * The inbox keeps every notification whatever these say.
  */
 export function NotificationPresentationForm({

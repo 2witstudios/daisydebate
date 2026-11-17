@@ -30,7 +30,7 @@ export const roundDecisionAudience = async (
   ).map((row) => ({ userId: row.user_id, about: row.about }));
 
 /**
- * Tells `recipients` a Round's decision is in (ADR 0143). Finalization calls
+ * Tells `recipients` a Round's decision is in (ADR 0144). Finalization calls
  * it for a Round frozen `on_finalize`; a `held` Round's organizer calls it
  * when they release, with the audience they resolved.
  */

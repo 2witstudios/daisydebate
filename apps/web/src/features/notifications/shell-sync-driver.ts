@@ -59,7 +59,7 @@ export const seedNotificationShellSync = (
 ) => seedResourceSync(identity, shell, at);
 
 /**
- * Resource sync for the app shell's notifications (ADR 0143): the member's
+ * Resource sync for the app shell's notifications (ADR 0144): the member's
  * inbox doorbell and the shell read. A ring asks for a fresh read; the
  * backstop covers one that never comes.
  */

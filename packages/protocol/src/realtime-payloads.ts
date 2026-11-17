@@ -24,7 +24,7 @@ const challengeChangedPayloadSchema = z.strictObject({
 
 /**
  * A member's read state changed in one of their tabs: every other tab re-reads
- * its unread count (ADR 0143). It carries nothing, not even which row.
+ * its unread count (ADR 0144). It carries nothing, not even which row.
  */
 const notificationsReadPayloadSchema = z.strictObject({
   kind: z.literal('user.notifications-read'),

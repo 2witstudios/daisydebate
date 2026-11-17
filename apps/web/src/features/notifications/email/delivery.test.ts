@@ -90,7 +90,7 @@ const rejectingSender = (response: 'lost' | 'rejected') =>
     },
   });
 
-describe('notification digest delivery (ADR 0143)', () => {
+describe('notification digest delivery (ADR 0144)', () => {
   test('an owed digest is sent with its one-click unsubscribe', async () => {
     const { delivery, sent, settled } = scripted({ delivery: invitation });
     const count = await delivery.run(10);

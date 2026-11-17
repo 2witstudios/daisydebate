@@ -44,7 +44,7 @@ type Recipient = {
   readonly actor_id: string | null;
 };
 
-/** Writes one released event's notifications through the one writer (ADR 0143). */
+/** Writes one released event's notifications through the one writer (ADR 0144). */
 /** The kinds Watch's fan-out writes, both about a Round. */
 type WatchKind = 'followed_debater_live' | 'recording_ready';
 

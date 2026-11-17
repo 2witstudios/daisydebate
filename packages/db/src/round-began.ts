@@ -23,7 +23,7 @@ export const seatedMembers = async (
 /**
  * The Round just began (`roundBegan`): tells its seated members, in the
  * transaction that started its clock. Urgent and never emailed: it is now
- * or never (ADR 0143).
+ * or never (ADR 0144).
  */
 export async function oweRoundStarted(
   tx: AuthorizationTransaction,

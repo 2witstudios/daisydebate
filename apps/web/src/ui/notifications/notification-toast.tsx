@@ -25,7 +25,7 @@ type ToastLook = {
 };
 
 /**
- * Each kind's toast, after the designed canvas (ADR 0143): the hue says what
+ * Each kind's toast, after the designed canvas (ADR 0144): the hue says what
  * kind of thing it is before the words do, and a kind that needs the member
  * now sits on the stage colours.
  */

@@ -2,7 +2,7 @@ import { expect, openPage, test } from './fixtures';
 import { origin, resetRateLimits, signUpMember } from './accounts';
 
 /**
- * The notification shell (ADR 0143, NTF-14): a friend request reaches the
+ * The notification shell (ADR 0144, NTF-14): a friend request reaches the
  * other member's open tab without a reload, as a badge, a counted title and
  * a toast; opening the page it leads to reads it, and the badge clears.
  */

@@ -13,7 +13,7 @@ setupRitewayBun();
 
 test('notification kinds', () => {
   assert({
-    given: 'the accepted kinds (WATCH-12, ADR 0124, ADR 0143)',
+    given: 'the accepted kinds (WATCH-12, ADR 0124, ADR 0144)',
     should:
       'name Watch’s two released events, a Round starting and its decision, a Room invitation, a challenge and its acceptance, and a friend request and its acceptance',
     actual: notificationKinds,

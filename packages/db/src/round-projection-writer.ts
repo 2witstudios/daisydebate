@@ -124,7 +124,7 @@ export async function writeProjectionWithPhaseSignal(
     if (projection.round?.status === 'completed')
       await releaseFinalizedDecision(tx, { roundId, at: now });
   }
-  // An opening that ends starts the debate's clock (ADR 0143).
+  // An opening that ends starts the debate's clock (ADR 0144).
   if (projection.round && roundBegan(current.status, projection.round.status))
     await oweRoundStarted(tx, { roundId, at: now });
   // The engine rules when a Round stops holding its Room's members (ADR 0070).

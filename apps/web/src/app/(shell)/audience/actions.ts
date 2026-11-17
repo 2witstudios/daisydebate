@@ -216,7 +216,7 @@ export async function saveNotificationPreferencesAction(
   return done();
 }
 
-/** Stores how the member is told, and the email switch (ADR 0143). */
+/** Stores how the member is told, and the email switch (ADR 0144). */
 export async function saveNotificationPresentationAction(
   _previous: SaveFormState,
   form: FormData,

@@ -135,7 +135,7 @@ export const rounds = pgTable(
     version: versionColumn(),
     /** SHA3-256 of an unlisted Round's current link; the token is never stored. */
     audienceLinkHash: text('audience_link_hash'),
-    /** When participants are told the decision (ADR 0143), frozen at the Start. */
+    /** When participants are told the decision (ADR 0144), frozen at the Start. */
     decisionRelease: text('decision_release')
       .$type<RoundDecisionRelease>()
       .notNull()

@@ -1,7 +1,7 @@
 # 0124: Room invitations and notification email
 
 Status: accepted (point guard, 2026-11-10; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/wo00vsb8rvuper7tm86ly8ok)).
-Extended and partly superseded by [ADR 0143](0143-notification-catalogue-and-delivery.md): its per-notification email jobs and per-kind unsubscribe link give way to one digest per member and one unsubscribe for all notification email.
+Extended and partly superseded by [ADR 0144](0144-notification-catalogue-and-delivery.md): its per-notification email jobs and per-kind unsubscribe link give way to one digest per member and one unsubscribe for all notification email.
 Builds on [ADR 0075](0075-beta-access-gate.md) (durable mail intents),
 [ADR 0103](0103-whos-online.md) (challenges and seat holds),
 [ADR 0070](0070-one-active-room-per-user.md) and DEC-331 (a seated human judge

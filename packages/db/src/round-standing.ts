@@ -1,7 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 
 /**
- * Rounds' published reads for what a Round's notifications name (ADR 0143).
+ * Rounds' published reads for what a Round's notifications name (ADR 0144).
  * `round` names the `rounds` row in the reader's query.
  */
 

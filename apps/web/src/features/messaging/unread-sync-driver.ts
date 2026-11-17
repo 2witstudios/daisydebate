@@ -25,7 +25,7 @@ export const seedMessagesUnreadSync = (unread: MessagingUnread, at: number) =>
   seedResourceSync(identity, unread, at);
 
 /**
- * Resource sync for the Messages badge (ADR 0143): Messaging's own inbox
+ * Resource sync for the Messages badge (ADR 0144): Messaging's own inbox
  * doorbell and its unread count, never a notification's.
  */
 export function createMessagesUnreadSyncDriver(input: {

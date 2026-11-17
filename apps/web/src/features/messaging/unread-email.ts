@@ -29,7 +29,7 @@ const FOOTER_NOTE =
   'You get this email because of your Daisy Debate account. Daisy Debate never asks for a password by email.';
 
 /**
- * Messaging's unread-messages email (ADR 0143): how many conversations wait,
+ * Messaging's unread-messages email (ADR 0144): how many conversations wait,
  * and nothing about who wrote or what. Its one link opens Messages.
  */
 export function renderUnreadMessagesEmail(input: {
@@ -66,7 +66,7 @@ type Decision =
   | { readonly kind: 'postpone'; readonly until: string };
 
 /**
- * Sends the unread-messages emails that are due (ADR 0143), as the
+ * Sends the unread-messages emails that are due (ADR 0144), as the
  * notification digest does: re-read at send time, waited while the member
  * is in Daisy, sent under the job's own idempotency key with the one-click
  * unsubscribe that stops notification email, and settled.

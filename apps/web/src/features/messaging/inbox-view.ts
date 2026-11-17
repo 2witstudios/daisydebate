@@ -67,7 +67,7 @@ export function inboxPageHref(after: string, q: string | null): string {
 }
 
 /**
- * The Messages badge's count (ADR 0143): conversations on the page holding a
+ * The Messages badge's count (ADR 0144): conversations on the page holding a
  * message the reader has not read, and invitations, which wait on them too.
  */
 export const unreadConversationsOf = (

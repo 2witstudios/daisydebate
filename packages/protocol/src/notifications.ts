@@ -14,7 +14,7 @@ export const notificationSubjects = [
 export type NotificationSubjectKind = (typeof notificationSubjects)[number];
 
 /**
- * How a kind reaches a member (ADR 0143). An urgent kind needs the member now
+ * How a kind reaches a member (ADR 0144). An urgent kind needs the member now
  * (it may sound and raise a desktop alert while a tab is open) and is never
  * emailed: it would arrive after the moment. A durable kind can wait, and is
  * either in-app only or also gathered into the member's batched email.
@@ -200,7 +200,7 @@ export const notificationChoicePairs: readonly {
 
 /**
  * How a member is told while Daisy is open, and whether Daisy emails them at
- * all (ADR 0143): toasts, a sound and a desktop alert for urgent kinds, and
+ * all (ADR 0144): toasts, a sound and a desktop alert for urgent kinds, and
  * the one switch that stops every notification email whatever each kind's
  * own email choice says. None of these changes what the inbox stores.
  */
@@ -228,7 +228,7 @@ export const defaultNotificationPresentation: NotificationPresentation = {
 export const NOTIFICATIONS_SHELL_RECENT = 10;
 
 /**
- * What the app shell reads after its inbox rings (ADR 0143): the member's
+ * What the app shell reads after its inbox rings (ADR 0144): the member's
  * unread count for the badge, their newest unread notifications in the words
  * the inbox uses (for toasts and alerts), and how they chose to be told. A
  * toast is a view of a stored row; this never carries anything the inbox

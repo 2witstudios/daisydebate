@@ -71,7 +71,7 @@ export const createNotificationPreferencesRoute = (
 const SHELL_LIMIT = { max: 600, windowSeconds: 3600 };
 
 /**
- * GET /api/notifications/shell (ADR 0143): the badge's unread count, the
+ * GET /api/notifications/shell (ADR 0144): the badge's unread count, the
  * newest unread notifications in the inbox's words, and how the member
  * chose to be told. The shell reads it when its inbox rings.
  */

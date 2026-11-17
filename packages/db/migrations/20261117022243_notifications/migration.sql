@@ -44,7 +44,7 @@ CREATE TABLE "notification_presentation" (
 	"email" boolean NOT NULL
 );
 --> statement-breakpoint
---> Per-notification email jobs give way to one digest per member (ADR 0143); a job still queued is not carried over.
+--> Per-notification email jobs give way to one digest per member (ADR 0144); a job still queued is not carried over.
 DROP TABLE "notification_emails";--> statement-breakpoint
 ALTER TABLE "notifications" ADD COLUMN "friendship_low_actor_id" text;--> statement-breakpoint
 ALTER TABLE "notifications" ADD COLUMN "friendship_high_actor_id" text;--> statement-breakpoint

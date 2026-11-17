@@ -139,7 +139,7 @@ export const persistRoomMutation = async (
     );
     if (mutation.draw) await insertRoundDraw(tx, roundId, mutation.draw);
     await appendRoundPhaseChanged(tx, roundId, 1);
-    // A Round with nothing to run first begins at this click (ADR 0143).
+    // A Round with nothing to run first begins at this click (ADR 0144).
     if (roundBegan(null, opens ? 'opening' : 'active'))
       await oweRoundStarted(tx, { roundId, at: now });
   }

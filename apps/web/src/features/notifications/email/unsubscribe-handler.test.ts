@@ -44,7 +44,7 @@ const pageForm = (fields: Record<string, string>) => {
   });
 };
 
-describe('POST /api/notifications/unsubscribe (ADR 0124, ADR 0143)', () => {
+describe('POST /api/notifications/unsubscribe (ADR 0124, ADR 0144)', () => {
   test('a mail client’s one-click post', async () => {
     const { handle, turnedOff, events } = route();
     const response = await handle(

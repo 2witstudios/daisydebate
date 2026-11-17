@@ -92,7 +92,7 @@ export function composeMessagingInboxRoute(app: App) {
 }
 
 /**
- * GET /api/messaging/unread (ADR 0143): how many conversations on the first
+ * GET /api/messaging/unread (ADR 0144): how many conversations on the first
  * inbox page wait on the member, for the Messages badge, under the same
  * fresh authority as the inbox itself.
  */

@@ -21,7 +21,7 @@ const boundedForm = async (request: Request) => {
 };
 
 /**
- * POST /api/notifications/unsubscribe (ADR 0124, ADR 0143): stops every
+ * POST /api/notifications/unsubscribe (ADR 0124, ADR 0144): stops every
  * notification email for the member a keyed token names, with no session. A mail client's
  * RFC 8058 one-click POST names the member in the URL; the unsubscribe
  * page's native form posts the same fields and is sent back to the page.

@@ -1,4 +1,4 @@
-# 0143: The notification catalogue and its delivery
+# 0144: The notification catalogue and its delivery
 
 Status: accepted (owner, 2026-11-16;
 [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/vpy1crnd8v2r3qtixw5a0pv2)).

@@ -114,7 +114,7 @@ const alertUrgent = (
 };
 
 /**
- * The tab's one view of the member's notifications (ADR 0143). A ring on
+ * The tab's one view of the member's notifications (ADR 0144). A ring on
  * their inbox, or a backstop, re-reads the shell; each read sets the badge
  * count and the title, presents what is new (a toast; for an urgent kind a
  * chime, and a desktop alert while Daisy is in another tab), and marks read

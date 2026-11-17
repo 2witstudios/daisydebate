@@ -10,7 +10,7 @@ import type { EmailMessage } from '../../mail/types';
 import { renderNotificationDigest } from './templates';
 import { oneClickUnsubscribeUrl, unsubscribeUrl } from './unsubscribe-token';
 
-/** How long a digest waits again while its member is in Daisy (ADR 0143). */
+/** How long a digest waits again while its member is in Daisy (ADR 0144). */
 export const DIGEST_ONLINE_POSTPONE_MS = 15 * 60_000;
 
 type Store = Pick<
@@ -29,7 +29,7 @@ type Decision =
   | { readonly kind: 'postpone'; readonly until: string };
 
 /**
- * Sends the notification digests that are due (ADR 0143). Each claim reads
+ * Sends the notification digests that are due (ADR 0144). Each claim reads
  * what the digest should say now; one whose member is in Daisy waits again,
  * since they see it there. Otherwise it is rendered with its one-click
  * unsubscribe, sent under the job's own idempotency key and settled. A

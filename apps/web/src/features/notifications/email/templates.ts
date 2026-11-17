@@ -6,7 +6,7 @@ const FOOTER_NOTE =
   'You get this email because of your Daisy Debate account. Daisy Debate never asks for a password by email.';
 
 /**
- * A member's batched notification email (ADR 0143), through the shared Daisy
+ * A member's batched notification email (ADR 0144), through the shared Daisy
  * layout. Each line is the same words the inbox shows, so it names only
  * public usernames and carries no outcome; its one link opens the inbox,
  * where each line leads on. The footer link stops notification email.

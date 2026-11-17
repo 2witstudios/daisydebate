@@ -275,7 +275,7 @@ export function channelReadFrame(
           actorId: input.actorId,
           following: false,
           hidden: false,
-          // A member who never chose hears about their conversations (ADR 0143).
+          // A member who never chose hears about their conversations (ADR 0144).
           notificationLevel: 'all',
           readSequence: sequence,
         })

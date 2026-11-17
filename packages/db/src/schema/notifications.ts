@@ -32,7 +32,7 @@ import { users } from './users';
 
 /**
  * The stored columns that name each subject: the one place a subject meets
- * its columns, read by the subject check and by the writer (ADR 0143).
+ * its columns, read by the subject check and by the writer (ADR 0144).
  */
 export const notificationSubjectColumns = {
   round: ['round_id'],
@@ -206,7 +206,7 @@ export const notificationDigestErrorCodes = [
 ] as const;
 
 /**
- * One member's batched email (ADR 0143): every emailed notification owed
+ * One member's batched email (ADR 0144): every emailed notification owed
  * while it is queued links to it, and each one pushes its send back to a
  * quiet time after it, never past a longest wait after the first. An
  * auditable job on the shared mail recipe: claimed under a lease, retried
@@ -244,7 +244,7 @@ export const notificationDigests = pgTable(
 
 /**
  * How a member is told while Daisy is open, and whether Daisy emails them
- * at all (ADR 0143). A member with no row has everything on. The inbox and
+ * at all (ADR 0144). A member with no row has everything on. The inbox and
  * its badges never depend on it: these choose only how a stored notification
  * is presented, or whether any is emailed.
  */
