@@ -1,9 +1,5 @@
 import type { InboxRow } from '@daisy/db';
-import type {
-  CompetitionType,
-  RatingLadder,
-  SeatKind,
-} from '@daisy/protocol';
+import type { CompetitionType, RatingLadder, SeatKind } from '@daisy/protocol';
 import { ladderLabels } from '../ratings/ladder-labels';
 
 /** What one notification is about, with only the facts its words need. */
