@@ -89,6 +89,9 @@ export function retentionTargets({
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
     readonly purgeReadNotifications: (batch: Batch) => Promise<number>;
     readonly purgeExpiredNotificationDigests: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredMessagingUnreadEmails: (
+      batch: Batch,
+    ) => Promise<number>;
     readonly purgeEndedRoomInvitations: (batch: Batch) => Promise<number>;
     readonly purgeExpiredWatchHistory: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSpectatorChat: (batch: Batch) => Promise<number>;
@@ -289,6 +292,17 @@ export function retentionTargets({
       purge: ({ now, limit }) =>
         database.purgeReadNotifications({
           before: cutoff(now, 90 * DAY_MS),
+          limit,
+        }),
+    },
+    /** ADR 0143: ended unread-messages emails are kept 30 days. */
+    {
+      name: 'retention.messaging_unread_emails',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredMessagingUnreadEmails({
+          before: cutoff(now, 30 * DAY_MS),
           limit,
         }),
     },

@@ -89,6 +89,7 @@ import {
   spectatorChatOperations,
 } from './messaging/spectator-chat';
 import { notificationOperations } from './notifications';
+import { messagingUnreadEmailOperations } from './messaging/unread-emails';
 import { watchHistoryOperations } from './watch-history';
 import { preapprovalOperations } from './beta-preapprovals';
 import { operatorAccountOperations } from './operator-accounts';
@@ -99,6 +100,10 @@ import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { agreementSignatureOperations } from './agreement-signatures';
 export type { ContentWaiverStanding } from './agreement-signatures';
+export type {
+  MessagingUnreadEmailDelivery,
+  MessagingUnreadEmailOutcome,
+} from './messaging/unread-emails';
 export type {
   InboxCursor,
   InboxRow,
@@ -480,6 +485,7 @@ export function createDatabase({
     ...debaterFollowOperations({ database: social, eventSink }),
     ...watchHistoryOperations({ database: social, eventSink }),
     ...notificationOperations({ database: social, eventSink }),
+    ...messagingUnreadEmailOperations({ database: social, eventSink }),
     ...recordingRoundReadOperations({ database: browse }),
     ...roundAudienceLinkOperations({ viewers: audience, host: database }),
     ...recordingArchiveReadOperations({ database: browse }),

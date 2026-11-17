@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1efe7942-b17f-4721-b5b5-842513b05f36",
+  "id": "49ca60ee-883a-4fcb-b38f-7d9a6d93f4d6",
   "prevIds": [
     "5d9b2236-0dde-4f7f-a84f-98c8d15869f5"
   ],
@@ -387,6 +387,12 @@
     {
       "isRlsEnabled": false,
       "name": "messaging_social_commands",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "messaging_unread_emails",
       "entityType": "tables",
       "schema": "public"
     },
@@ -7256,6 +7262,149 @@
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_social_commands"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "first_owed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'queued'",
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_token_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "next_attempt_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_error_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_unread_emails"
     },
     {
       "type": "text",
@@ -18711,6 +18860,104 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"state\" = 'queued'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_unread_emails_one_queued",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "state",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "next_attempt_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_unread_emails_due_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "completed_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_unread_emails_user_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "completed_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_unread_emails_completed_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         },
         {
           "value": "starts_at",
@@ -24890,6 +25137,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "messaging_unread_emails_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "moderation_actions_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -28075,6 +28339,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "messaging_unread_emails_pkey",
+      "schema": "public",
+      "table": "messaging_unread_emails",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "moderation_actions_pkey",
       "schema": "public",
       "table": "moderation_actions",
@@ -30203,6 +30477,41 @@
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_social_commands"
+    },
+    {
+      "value": "\"state\" in ('queued', 'leased', 'sent', 'failed', 'cancelled')",
+      "name": "messaging_unread_emails_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "value": "\"attempts\" >= 0",
+      "name": "messaging_unread_emails_attempts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "value": "(\"state\" = 'leased') = (\"lease_token_digest\" is not null and \"lease_expires_at\" is not null) and (\"lease_token_digest\" is null or \"lease_token_digest\" ~ '^[0-9a-f]{64}$')",
+      "name": "messaging_unread_emails_lease_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "value": "(\"state\" in ('sent', 'failed', 'cancelled')) = (\"completed_at\" is not null)",
+      "name": "messaging_unread_emails_completed_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_unread_emails"
+    },
+    {
+      "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'recipient-gone', 'not-owed', 'unconfigured')",
+      "name": "messaging_unread_emails_error_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_unread_emails"
     },
     {
       "value": "\"kind\" in ('warning', 'suspension', 'ban')",

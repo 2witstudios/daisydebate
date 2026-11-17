@@ -57,6 +57,7 @@ describe('retention targets', () => {
         purgeExpiredSocialDeclines: record('social_declines'),
         purgeExpiredSocialRequests: record('social_requests'),
         purgeReadNotifications: record('notifications'),
+        purgeExpiredMessagingUnreadEmails: record('messaging_unread_emails'),
         purgeExpiredNotificationDigests: record('notification_digests'),
         purgeEndedRoomInvitations: record('room_invitations'),
         purgeExpiredWatchHistory: record('watch_history'),
@@ -214,6 +215,11 @@ describe('retention targets', () => {
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
           { name: 'retention.notifications', batchSize: 1000, maxBatches: 20 },
           {
+            name: 'retention.messaging_unread_emails',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
             name: 'retention.notification_digests',
             batchSize: 500,
             maxBatches: 20,
@@ -302,6 +308,9 @@ describe('retention targets', () => {
           social_declines: [{ before: now, limit: 500 }],
           social_requests: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           notifications: [{ before: '2026-06-22T12:00:00.000Z', limit: 1000 }],
+          messaging_unread_emails: [
+            { before: '2026-08-21T12:00:00.000Z', limit: 500 },
+          ],
           notification_digests: [
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
           ],
@@ -383,6 +392,7 @@ describe('retention targets', () => {
           ['retention.social_declines', false],
           ['retention.social_requests', false],
           ['retention.notifications', false],
+          ['retention.messaging_unread_emails', false],
           ['retention.notification_digests', false],
           ['retention.room_invitations', false],
           ['retention.watch_history', false],
@@ -401,7 +411,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 35,
+        failed: 36,
       },
     });
   });
