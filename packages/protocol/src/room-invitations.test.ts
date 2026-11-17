@@ -23,6 +23,8 @@ const seat = (actorId: string, role: 'judge' | 'negative') => ({
   kind: 'human' as const,
   role,
   slot: 0,
+  teamOpen: false,
+  positionOpen: false,
   eligible: true,
   consentVersion: 0,
   consentCommandId: null,

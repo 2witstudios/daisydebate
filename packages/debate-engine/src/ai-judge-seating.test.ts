@@ -18,6 +18,8 @@ const seat = {
   label: 'Daisy',
   role: 'judge' as const,
   slot: 0,
+  teamOpen: false,
+  positionOpen: false,
   consentVersion: 0,
   consentCommandId: null,
 };

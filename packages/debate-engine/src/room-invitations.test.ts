@@ -68,6 +68,8 @@ test('who may not be invited', () => {
         role: 'negative' as const,
         slot: 0,
         eligible: true,
+        teamOpen: false,
+        positionOpen: false,
         consentVersion: 0,
         consentCommandId: null,
       },

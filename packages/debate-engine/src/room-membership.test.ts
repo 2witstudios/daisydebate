@@ -14,6 +14,8 @@ const bot = {
   role: 'judge' as const,
   slot: 0,
   eligible: true,
+  teamOpen: false,
+  positionOpen: false,
   consentVersion: 0,
   consentCommandId: null,
 };
