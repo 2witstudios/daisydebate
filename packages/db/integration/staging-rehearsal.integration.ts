@@ -40,6 +40,7 @@ const parentFolders = new Set([
   '20261117122356_tab_room_seat_teams',
   '20261117134249_tab_notifications',
   '20261117134250_tab_seat_and_notification_checks_validated',
+  '20261117180901_tab_room_holds_host',
 ]);
 
 const oldRules = ({

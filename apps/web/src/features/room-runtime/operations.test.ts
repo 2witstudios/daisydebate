@@ -216,14 +216,18 @@ test('a Train practice holds its creator from create; any other Room holds only 
       },
       ...(practice ? { practice: true as const } : {}),
     });
-    return run.createInput()?.membersOf([]);
+    const input = run.createInput();
+    return { members: input?.membersOf([]), holdsHost: input?.room.holdsHost };
   };
   assert({
     given: 'a Train practice create, then an ordinary create, seating nobody',
     should:
-      'hold the practice creator, so a second Start practice returns to the Room, and hold no seatless host otherwise',
+      'hold the practice creator and store that the Room holds its host, so a second Start practice returns to it; hold no seatless host otherwise',
     actual: [await create(true), await create(false)],
-    expected: [[caller.actorId], []],
+    expected: [
+      { members: [caller.actorId], holdsHost: true },
+      { members: [], holdsHost: false },
+    ],
   });
 });
 

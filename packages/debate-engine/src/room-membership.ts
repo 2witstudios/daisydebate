@@ -51,20 +51,24 @@ const holdOf = (
  * every seated human while it assembles or its Round is live. A seat is what
  * holds a person; a host without one is not held, so a seatless host may host
  * several standing Rooms (TAB-6.16) and an organiser acting by grant is never
- * held. The one exception is `heldHost`: a Train practice's creator, held
- * from create so a second Start practice returns to it (decision 75). Bots
- * hold no membership. A closed Room and a finished Round hold no one, so
- * every terminal state frees its members for a new Room.
+ * held. The one exception is a Room that `holdsHost`: a Train practice, which
+ * holds its creator from create and through every later command, so a second
+ * Start practice returns to it (decision 75). Bots hold no membership. A
+ * closed Room and a finished Round hold no one, so every terminal state frees
+ * its members for a new Room.
  */
 export const activeRoomMembers = (
-  room: Holding & Pick<RoomAssemblyState, 'participants'>,
-  heldHost: string | null = null,
+  room: Holding &
+    Pick<RoomAssemblyState, 'participants'> &
+    Partial<Pick<RoomAssemblyState, 'hostActorId' | 'holdsHost'>>,
 ): readonly string[] =>
   holdOf(room) === null
     ? []
     : [
         ...new Set([
-          ...(heldHost === null ? [] : [heldHost]),
+          ...(room.holdsHost === true && room.hostActorId
+            ? [room.hostActorId]
+            : []),
           ...room.participants
             .filter((p) => p.kind === 'human')
             .map((p) => p.actorId),

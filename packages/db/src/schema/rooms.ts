@@ -105,6 +105,13 @@ export const rooms = pgTable(
      * Start round (ADR 0145). Team 1 sits in the affirmative seats.
      */
     teamOneSide: text('team_one_side').$type<TwoSideKey>(),
+    /**
+     * The Room holds its host as an active member, seated or not: a Train
+     * practice (decision 75), so a second Start practice returns to it. Set
+     * at create and never changed. Any other Room holds only its seated
+     * people (TAB-6.16).
+     */
+    holdsHost: boolean('holds_host').notNull().default(false),
     /** RoomConfig as chosen. */
     config: jsonbColumn('config', roomConfigSchema).notNull(),
     /** The casual host's broadcast and recording choice (WATCH-8); null is none. */

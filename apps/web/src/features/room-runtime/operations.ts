@@ -316,11 +316,14 @@ export function createRoomRuntimeOperations({
       // seat (TAB-6.16), save a Train practice's creator; another Room
       // holding one of them refuses it.
       membersOf: (participants) =>
-        activeRoomMembers(
-          { status: 'assembling', roundRef: null, participants },
+        activeRoomMembers({
+          status: 'assembling',
+          roundRef: null,
+          participants,
           // A Train practice holds its creator from create (decision 75).
-          body.practice === true ? caller.actorId : null,
-        ),
+          hostActorId: caller.actorId,
+          holdsHost: body.practice === true,
+        }),
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,
@@ -406,6 +409,8 @@ export function createRoomRuntimeOperations({
         presetVersion,
         basis,
         competitionType,
+        // The Room remembers it holds its host, through every command.
+        holdsHost: body.practice === true,
         teamOneSide: createdSides({
           competitionType,
           sides: body.sides,

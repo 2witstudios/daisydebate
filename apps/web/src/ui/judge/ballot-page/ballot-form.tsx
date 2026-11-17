@@ -172,6 +172,7 @@ export function BallotFields({
                 name="reason"
                 rows={4}
                 maxLength={reasonRule.max}
+                aria-required={reasonRule.required}
                 defaultValue={values['reason'] ?? ''}
                 aria-describedby="ballot-reason-helper"
                 className={textareaClass}
@@ -192,6 +193,7 @@ export function BallotFields({
                     name={feedbackField(subject.key)}
                     rows={3}
                     maxLength={feedbackRule.max}
+                    aria-required={feedbackRule.required}
                     defaultValue={values[feedbackField(subject.key)] ?? ''}
                     aria-describedby={`ballot-${feedbackField(subject.key)}-helper`}
                     className={textareaClass}

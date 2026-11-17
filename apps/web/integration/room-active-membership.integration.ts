@@ -97,6 +97,36 @@ test('a second create or join is refused while another Room holds the user, leav
   });
 });
 
+test('a Train practice holds its seatless creator through their own commands; a standing Room does not (decision 75, TAB-6.16)', async () => {
+  await withRoomRuntime(async (f) => {
+    const practice = (await f.create({ practice: true })).view;
+    await f.command(f.host, practice, {
+      type: 'set-visibility',
+      visibility: 'unlisted',
+    });
+    const heldAfterCommand = (await f.operations.activeRoom(f.host))?.id;
+    await assertRejects({
+      given: 'a practice creator who changed their Room before taking a seat',
+      should: 'refuse a second practice: the first still holds them',
+      actual: () => f.create({ practice: true }),
+      code: 'CONFLICT',
+    });
+    const standing = (await f.create({}, f.guest)).view;
+    await f.command(f.guest, standing, {
+      type: 'set-visibility',
+      visibility: 'unlisted',
+    });
+    assert({
+      given:
+        'a practice creator after their own command, and a seatless standing host after theirs',
+      should:
+        'hold the practice creator in their Room, and hold the standing host nowhere',
+      actual: [heldAfterCommand, await f.operations.activeRoom(f.guest)],
+      expected: [practice.id, null],
+    });
+  });
+});
+
 test('of two simultaneous creates or joins by one user exactly one wins', async () => {
   await withRoomRuntime(async (f) => {
     const creates = await Promise.allSettled([

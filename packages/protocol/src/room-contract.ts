@@ -435,6 +435,11 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly seatHolds: readonly RoomSeatHold[];
   /** Team 1's side, or null while the sides are open to the coin flip (ADR 0145). */
   readonly teamOneSide: TwoSideKey | null;
+  /**
+   * The Room holds its host as an active member, seated or not: a Train
+   * practice (decision 75). Absent or false: only its seated people.
+   */
+  readonly holdsHost?: boolean;
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;

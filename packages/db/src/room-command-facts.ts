@@ -276,6 +276,7 @@ const hydrateRoom = async (
     capture: row.capture,
     postRoundCall: row.postRoundCall,
     teamOneSide: row.teamOneSide,
+    holdsHost: row.holdsHost,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

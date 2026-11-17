@@ -50,13 +50,16 @@ describe('BallotFields', () => {
     assert({
       given: 'an empty ballot whose reason the definition requires',
       should:
-        'render the reason and feedback boxes without a required attribute, so the post reaches the server, which refuses it and keeps everything (ISSUE-348)',
+        'render the reason and feedback boxes without a required attribute, so the post reaches the server, which refuses it and keeps everything (ISSUE-348), while assistive tech still hears that the reason is required',
       actual: {
         boxes: textareas.length > 0,
         required: textareas.filter((tag) => /\srequired(=|\s|>)/.test(tag))
           .length,
+        announced: textareas.some((tag) =>
+          tag.includes('aria-required="true"'),
+        ),
       },
-      expected: { boxes: true, required: 0 },
+      expected: { boxes: true, required: 0, announced: true },
     });
   });
 
