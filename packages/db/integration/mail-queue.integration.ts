@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { cancelPreapprovalInvitations } from '../src/beta-preapproval-claim';
 import { mailIntentOperations } from '../src/mail-intents';
-import { notificationEmailOperations } from '../src/notifications/email-jobs';
+import { notificationDigestOperations } from '../src/notifications/digests';
 import { withFixture, type Fixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -24,7 +24,7 @@ type Outcome =
 /** One queue as its table's own operations expose it, and a job due long ago. */
 type Queue = {
   readonly name: string;
-  readonly table: 'mail_intents' | 'notification_emails';
+  readonly table: 'mail_intents' | 'notification_digests';
   /** Whether this job's lapsed lease may have reached the provider. */
   readonly unknownAfterLapse: boolean;
   readonly seed: (f: Fixture) => Promise<string>;
@@ -46,7 +46,7 @@ const withMail = (body: (f: Fixture) => Promise<void>) =>
     } finally {
       for (const table of [
         'mail_intents',
-        'notification_emails',
+        'notification_digests',
         'beta_preapprovals',
       ])
         for (const id of f.tracked.get(table) ?? [])
@@ -69,8 +69,8 @@ const intents = (f: Fixture) =>
     database: drizzle({ client: f.sql }),
     eventSink: undefined,
   });
-const emails = (f: Fixture) =>
-  notificationEmailOperations({ database: drizzle({ client: f.sql }) });
+const digests = (f: Fixture) =>
+  notificationDigestOperations({ database: drizzle({ client: f.sql }) });
 
 const claimInput = (maxAttempts: number) => ({
   limit: 50,
@@ -116,18 +116,18 @@ const queues: readonly Queue[] = [
     settle: (f, input) => intents(f).settleMailIntent(input),
   },
   {
-    name: 'a notification email',
-    table: 'notification_emails',
+    name: 'a notification digest',
+    table: 'notification_digests',
     unknownAfterLapse: true,
     seed: async (f) => {
       const id = createId();
-      await f.sql`insert into notification_emails (id, user_id, kind, state, attempts, next_attempt_at)
-        values (${id}, ${await member(f)}, 'room_invitation', 'queued', 0, ${LONG_AGO}::timestamptz)`;
-      f.track('notification_emails', id);
+      await f.sql`insert into notification_digests (id, user_id, first_owed_at, state, attempts, next_attempt_at)
+        values (${id}, ${await member(f)}, ${LONG_AGO}::timestamptz, 'queued', 0, ${LONG_AGO}::timestamptz)`;
+      f.track('notification_digests', id);
       return id;
     },
-    claim: (f, max) => emails(f).claimNotificationEmails(claimInput(max)),
-    settle: (f, input) => emails(f).settleNotificationEmail(input),
+    claim: (f, max) => digests(f).claimNotificationDigests(claimInput(max)),
+    settle: (f, input) => digests(f).settleNotificationDigest(input),
   },
 ];
 

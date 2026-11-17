@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "f63f6eea-2161-4d2c-a6e5-9462058a23e1",
+  "id": "ce5545c6-4fc8-44c9-aa2b-6f3900dfc5d5",
   "prevIds": [
     "5d9b2236-0dde-4f7f-a84f-98c8d15869f5"
   ],
@@ -416,7 +416,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "notification_emails",
+      "name": "notification_digests",
       "entityType": "tables",
       "schema": "public"
     },
@@ -429,6 +429,12 @@
     {
       "isRlsEnabled": false,
       "name": "notification_preferences",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "notification_presentation",
       "entityType": "tables",
       "schema": "public"
     },
@@ -7912,20 +7918,7 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "notification_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "text",
@@ -7938,20 +7931,20 @@
       "name": "user_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
-      "type": "text",
+      "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "kind",
+      "name": "first_owed_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "text",
@@ -7964,7 +7957,7 @@
       "name": "state",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "integer",
@@ -7977,7 +7970,7 @@
       "name": "attempts",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "text",
@@ -7990,7 +7983,7 @@
       "name": "lease_token_digest",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "timestamp with time zone",
@@ -8003,7 +7996,7 @@
       "name": "lease_expires_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "timestamp with time zone",
@@ -8016,7 +8009,7 @@
       "name": "next_attempt_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "text",
@@ -8029,7 +8022,7 @@
       "name": "last_error_code",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "timestamp with time zone",
@@ -8042,7 +8035,7 @@
       "name": "created_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "timestamp with time zone",
@@ -8055,7 +8048,7 @@
       "name": "completed_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "type": "text",
@@ -8156,6 +8149,71 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notification_presentation"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "toasts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notification_presentation"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sound",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notification_presentation"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "desktop_alerts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notification_presentation"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notification_presentation"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -8234,7 +8292,46 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "friendship_low_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "friendship_high_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "digest_id",
       "entityType": "columns",
       "schema": "public",
       "table": "notifications"
@@ -18743,6 +18840,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"state\" = 'queued'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notification_digests_one_queued",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notification_digests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "state",
           "isExpression": false,
           "asc": true,
@@ -18762,10 +18880,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "notification_emails_due_idx",
+      "name": "notification_digests_due_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "nameExplicit": true,
@@ -18790,10 +18908,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "notification_emails_user_idx",
+      "name": "notification_digests_user_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "nameExplicit": true,
@@ -18811,10 +18929,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "notification_emails_completed_idx",
+      "name": "notification_digests_completed_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "nameExplicit": true,
@@ -18897,6 +19015,20 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "challenge_id",
           "isExpression": false,
           "asc": true,
@@ -18905,7 +19037,7 @@
         }
       ],
       "isUnique": true,
-      "where": null,
+      "where": "\"challenge_id\" is not null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -18995,6 +19127,48 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "challenge_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_challenge_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "digest_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_digest_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "actor_id",
           "isExpression": false,
           "asc": true,
@@ -19008,6 +19182,76 @@
       "method": "btree",
       "concurrently": false,
       "name": "notifications_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "friendship_low_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "friendship_high_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"friendship_low_actor_id\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_friendship_once",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "friendship_low_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "friendship_high_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_friendship_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "notifications"
@@ -24675,23 +24919,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "notification_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "notifications",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "SET NULL",
-      "name": "notification_emails_notification_id_notifications_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "notification_emails"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "user_id"
       ],
       "schemaTo": "public",
@@ -24701,10 +24928,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "notification_emails_user_id_users_id_fkey",
+      "name": "notification_digests_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "nameExplicit": false,
@@ -24739,6 +24966,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "notification_preferences"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "notification_presentation_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "notification_presentation"
     },
     {
       "nameExplicit": false,
@@ -24821,6 +25065,42 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "notifications_debater_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "digest_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "notification_digests",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "notifications_digest_id_notification_digests_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "friendship_low_actor_id",
+        "friendship_high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "friendships",
+      "columnsTo": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "notifications_friendship_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "notifications"
@@ -27822,9 +28102,19 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "notification_emails_pkey",
+      "name": "notification_digests_pkey",
       "schema": "public",
-      "table": "notification_emails",
+      "table": "notification_digests",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "notification_presentation_pkey",
+      "schema": "public",
+      "table": "notification_presentation",
       "entityType": "pks"
     },
     {
@@ -28589,17 +28879,6 @@
       "name": "mail_intents_dedupe_key_key",
       "schema": "public",
       "table": "mail_intents",
-      "entityType": "uniques"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "notification_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "notification_emails_notification_id_key",
-      "schema": "public",
-      "table": "notification_emails",
       "entityType": "uniques"
     },
     {
@@ -30088,46 +30367,39 @@
       "table": "necessary_evidence"
     },
     {
-      "value": "\"kind\" in ('room_invitation', 'challenge_received')",
-      "name": "notification_emails_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "notification_emails"
-    },
-    {
       "value": "\"state\" in ('queued', 'leased', 'sent', 'failed', 'cancelled')",
-      "name": "notification_emails_state_check",
+      "name": "notification_digests_state_check",
       "entityType": "checks",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "value": "\"attempts\" >= 0",
-      "name": "notification_emails_attempts_check",
+      "name": "notification_digests_attempts_check",
       "entityType": "checks",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "value": "(\"state\" = 'leased') = (\"lease_token_digest\" is not null and \"lease_expires_at\" is not null) and (\"lease_token_digest\" is null or \"lease_token_digest\" ~ '^[0-9a-f]{64}$')",
-      "name": "notification_emails_lease_check",
+      "name": "notification_digests_lease_check",
       "entityType": "checks",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "value": "(\"state\" in ('sent', 'failed', 'cancelled')) = (\"completed_at\" is not null)",
-      "name": "notification_emails_completed_check",
+      "name": "notification_digests_completed_check",
       "entityType": "checks",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
-      "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'recipient-gone', 'not-owed', 'preference-off', 'rate-limited', 'unconfigured')",
-      "name": "notification_emails_error_check",
+      "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'recipient-gone', 'not-owed', 'unconfigured')",
+      "name": "notification_digests_error_check",
       "entityType": "checks",
       "schema": "public",
-      "table": "notification_emails"
+      "table": "notification_digests"
     },
     {
       "value": "\"kind\" in ('followed_debater_live', 'recording_ready')",
@@ -30137,21 +30409,21 @@
       "table": "notification_fanouts"
     },
     {
-      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_received', 'email'))",
+      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'))",
       "name": "notification_preferences_pair_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notification_preferences"
     },
     {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'room_invitation', 'challenge_received')",
+      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted')",
       "name": "notifications_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notifications"
     },
     {
-      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready')) = (\"round_id\" is not null)\n        and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null)\n        and (\"kind\" in ('challenge_received')) = (\"challenge_id\" is not null)",
+      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null)",
       "name": "notifications_subject_check",
       "entityType": "checks",
       "schema": "public",

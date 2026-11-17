@@ -1,15 +1,15 @@
 import { notificationKinds, type NotificationKind } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
-import { challengeOpen } from '../challenges/open';
+import { challengeAccepted, challengeOpen } from '../challenges/open';
+import { friendRequestOpen, friendshipAccepted } from '../friends/standing';
 import { broadcastOnAir } from '../live-broadcast-reads';
 import { recordingReady } from '../recording-round-reads';
 import { invitationOpen } from '../room-invitations/open';
-import { wants } from './preferences';
 
 /**
  * The rows the inbox read joins, by alias: `n` the notification, `r` its
  * Round, `u` the live account it is about, `rc` the Round's Recording, `i`
- * and `ro` the invitation and its Room, `c` the challenge.
+ * and `ro` the invitation and its Room, `c` the challenge, `fr` the friendship.
  */
 export const standingJoins = sql`left join rounds r on r.id=n.round_id
   left join actors a on a.id=n.actor_id
@@ -17,7 +17,9 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
   left join recordings rc on rc.round_id=n.round_id
   left join room_invitations i on i.id=n.room_invitation_id
   left join rooms ro on ro.id=i.room_id
-  left join challenges c on c.id=n.challenge_id`;
+  left join challenges c on c.id=n.challenge_id
+  left join friendships fr on fr.low_actor_id=n.friendship_low_actor_id
+    and fr.high_actor_id=n.friendship_high_actor_id`;
 
 /**
  * Whether a notification of this kind still stands at `now`: what the
@@ -36,18 +38,23 @@ const subjectStands = (kind: NotificationKind, now: SQL): SQL => {
       return invitationOpen(now, { invitation: sql`i`, room: sql`ro` });
     case 'challenge_received':
       return challengeOpen(now, sql`c`);
+    case 'challenge_accepted':
+      return challengeAccepted(now, sql`c`);
+    case 'friend_request_received':
+      return friendRequestOpen(sql`fr`);
+    case 'friend_request_accepted':
+      return friendshipAccepted(sql`fr`);
   }
 };
 
 /**
- * The one standing rule over every kind: a stored row is shown while its
- * subject stands and the member's in-app channel for its kind is on.
+ * The one standing rule over every kind: a stored row's subject still stands
+ * at `now`. The inbox also asks the in-app choice, a digest the email one.
  */
 export const notificationStands = (now: SQL): SQL =>
   sql`(${sql.join(
     notificationKinds.map(
-      (kind) =>
-        sql`(n.kind=${kind} and ${subjectStands(kind, now)} and ${wants(kind, 'in_app', sql`n.user_id`)})`,
+      (kind) => sql`(n.kind=${kind} and ${subjectStands(kind, now)})`,
     ),
     sql` or `,
   )})`;

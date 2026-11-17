@@ -13,7 +13,7 @@ import { validConfig, validRules } from './round-fixtures';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-/** One invited member, and what the inbox and the email job each say of the invitation. */
+/** One invited member, and what the inbox and their digest each say of the invitation. */
 const withInvitation = (
   body: (env: {
     readonly f: Fixture;
@@ -61,9 +61,8 @@ const withInvitation = (
             seat: 'judge',
           }),
       });
-      const [job] = await f.sql`select j.id from notification_emails j
-        join notifications n on n.id=j.notification_id
-        where n.room_invitation_id=${invitationId}`;
+      const [job] = await f.sql`select digest_id as id from notifications
+        where room_invitation_id=${invitationId}`;
       await body({
         f,
         roomId,
@@ -78,7 +77,7 @@ const withInvitation = (
               now,
             })
           ).rows.some((row) => row.kind === 'room_invitation'),
-          email: (await notifications.readNotificationEmailDelivery(job!.id))
+          email: (await notifications.readNotificationDigestDelivery(job!.id))
             .kind,
         }),
       });
@@ -110,9 +109,9 @@ test('an invitation is open while it is pending, unexpired and its Room is open'
         'stand in the inbox and the email alike only while pending on an open Room',
       actual: { open, roomClosed, roomReady, ended },
       expected: {
-        open: { inbox: true, email: 'room_invitation' },
+        open: { inbox: true, email: 'send' },
         roomClosed: { inbox: false, email: 'cancel' },
-        roomReady: { inbox: true, email: 'room_invitation' },
+        roomReady: { inbox: true, email: 'send' },
         ended: { inbox: false, email: 'cancel' },
       },
     });

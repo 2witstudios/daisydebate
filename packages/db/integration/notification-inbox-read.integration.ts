@@ -34,7 +34,7 @@ test('the inbox pages by cursor over what still stands', async () => {
       database.transaction((tx) =>
         oweNotifications(tx, {
           kind: 'followed_debater_live',
-          subjectId: roundId,
+          subject: { round_id: roundId },
           recipients: [{ userId: member.userId, about: debater.actorId }],
           // Pairs share a minute, so the id breaks ties.
           at: new Date(start + Math.floor(minute / 2) * 60_000).toISOString(),
@@ -97,7 +97,7 @@ test('marking read rings every tab once, and only when something changed', async
     await database.transaction((tx) =>
       oweNotifications(tx, {
         kind: 'followed_debater_live',
-        subjectId: roundId,
+        subject: { round_id: roundId },
         recipients: [{ userId: member.userId, about: debater.actorId }],
         at: new Date().toISOString(),
         nextId: createId,

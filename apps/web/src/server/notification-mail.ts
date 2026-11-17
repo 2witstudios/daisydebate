@@ -1,7 +1,7 @@
 import type { ErrorReporter } from '@daisy/observability';
 import { startMailQueueWorker } from '../features/mail/queue-worker';
 import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
-import { createNotificationEmailDelivery } from '../features/notifications/email/delivery';
+import { createNotificationDigestDelivery } from '../features/notifications/email/delivery';
 import { deriveUnsubscribeSubkey } from '../features/notifications/email/unsubscribe-token';
 import type { WorkerTimers } from '../lib/worker-timers';
 import type { App } from './app';
@@ -9,8 +9,8 @@ import { workerFailures } from './recoverable-failure';
 import { nextWorkerToken } from './worker-token';
 
 /**
- * The notification email worker (ADR 0124): every web instance runs it, and
- * the job leases keep instances off each other's mail.
+ * The notification digest worker (ADR 0124, ADR 0143): every web instance
+ * runs it, and the job leases keep instances off each other's mail.
  */
 export function startNotificationMail(input: {
   readonly app: App;
@@ -25,9 +25,22 @@ export function startNotificationMail(input: {
   );
   return startMailQueueWorker({
     run: (limit) =>
-      createNotificationEmailDelivery({
+      createNotificationDigestDelivery({
         store: app.database,
         deliver: (message) => app.deliverMail('notification')(message),
+        // A live connection in any tab means the member sees it in Daisy.
+        // Presence down reads as away: a late email beats a lost one.
+        isOnline: async (actorId) => {
+          try {
+            const { connections, nowMs } =
+              await app.redis.readActorConnections(actorId);
+            return connections.some(
+              (connection) => connection.expiresAtMs > nowMs,
+            );
+          } catch {
+            return false;
+          }
+        },
         appUrl: app.config.PUBLIC_APP_URL,
         unsubscribeSubkey: deriveUnsubscribeSubkey(
           app.mailConfig().RECIPIENT_HASH_SECRET,

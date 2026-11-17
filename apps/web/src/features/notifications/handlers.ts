@@ -1,14 +1,19 @@
 import type { Clock } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import {
+  NOTIFICATIONS_SHELL_RECENT,
   notificationPreferencesSchema,
+  notificationPresentationSchema,
+  notificationShellSchema,
   notificationsReadSchema,
 } from '@daisy/protocol';
 import {
+  accountRead,
   accountRoute,
   type AccountRouteDeps,
 } from '../../server/account-route';
 import { parseValidated } from '../../server/http';
+import { notificationWords } from './notification-words';
 
 const WRITE_LIMIT = { max: 120, windowSeconds: 3600 };
 
@@ -57,6 +62,84 @@ export const createNotificationPreferencesRoute = (
       await deps.store.writeNotificationPreferences({
         userId: identity.principal.userId,
         choices: choice.choices,
+      });
+      return Response.json({ received: true });
+    },
+  );
+
+/** The shell reads after every ring, from each open tab: generous, still bounded. */
+const SHELL_LIMIT = { max: 600, windowSeconds: 3600 };
+
+/**
+ * GET /api/notifications/shell (ADR 0143): the badge's unread count, the
+ * newest unread notifications in the inbox's words, and how the member
+ * chose to be told. The shell reads it when its inbox rings.
+ */
+export const createNotificationShellRoute = (
+  deps: AccountRouteDeps & {
+    readonly store: Pick<
+      Database,
+      'readNotifications' | 'readNotificationPresentation'
+    >;
+    readonly clock: Pick<Clock, 'now'>;
+  },
+) =>
+  accountRead(
+    deps,
+    { operation: 'notifications.shell', limit: SHELL_LIMIT },
+    async (identity) => {
+      const userId = identity.principal.userId;
+      const [inbox, presentation] = await Promise.all([
+        deps.store.readNotifications({
+          userId,
+          unreadOnly: true,
+          limit: NOTIFICATIONS_SHELL_RECENT,
+          now: deps.clock.now(),
+          after: null,
+        }),
+        deps.store.readNotificationPresentation({ userId }),
+      ]);
+      return Response.json(
+        notificationShellSchema.parse({
+          version: 1,
+          unread: inbox.unread,
+          recent: inbox.rows.map(
+            ({ id, readAt: _read, surfacedAt, ...subject }) => ({
+              id,
+              kind: subject.kind,
+              ...notificationWords(subject),
+              surfacedAt,
+            }),
+          ),
+          presentation,
+        }),
+        { headers: { 'cache-control': 'no-store' } },
+      );
+    },
+  );
+
+/** POST /api/notifications/presentation: how the member is told, and the email switch. */
+export const createNotificationPresentationRoute = (
+  deps: AccountRouteDeps & {
+    readonly store: Pick<Database, 'writeNotificationPresentation'>;
+  },
+) =>
+  accountRoute(
+    deps,
+    {
+      operation: 'notifications.presentation',
+      limit: WRITE_LIMIT,
+      maxBodyBytes: 256,
+      refusals: [],
+    },
+    async ({ identity, body }) => {
+      const { version: _version, ...presentation } = parseValidated(
+        notificationPresentationSchema,
+        body,
+      );
+      await deps.store.writeNotificationPresentation({
+        userId: identity.principal.userId,
+        presentation,
       });
       return Response.json({ received: true });
     },

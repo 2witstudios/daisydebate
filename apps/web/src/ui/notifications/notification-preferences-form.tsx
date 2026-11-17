@@ -24,6 +24,9 @@ const kindLabel: Record<NotificationKind, string> = {
   recording_ready: 'A recording is ready to watch',
   room_invitation: 'A host invites me to a room',
   challenge_received: 'Someone challenges me',
+  challenge_accepted: 'Someone accepts my challenge',
+  friend_request_received: 'Someone asks to be friends',
+  friend_request_accepted: 'Someone accepts my friend request',
 };
 const channelLabel: Record<NotificationChannel, string> = {
   in_app: 'In Daisy',

@@ -1,62 +1,41 @@
-import type { NotificationEmailDelivery } from '@daisy/db';
+import type { InboxRow } from '@daisy/db';
 import { renderEmailLayout } from '../../mail/layout';
-import { challengeWhat, invitedTo } from '../notification-words';
-
-type Sendable = Exclude<NotificationEmailDelivery, { kind: 'cancel' }>;
+import { notificationWords } from '../notification-words';
 
 const FOOTER_NOTE =
   'You get this email because of your Daisy Debate account. Daisy Debate never asks for a password by email.';
 
 /**
- * A notification's email (ADR 0124), through the shared Daisy layout. It
- * names only public usernames and the Room's title, links to where the
- * member acts, and carries a link that turns off only this kind of email.
+ * A member's batched notification email (ADR 0143), through the shared Daisy
+ * layout. Each line is the same words the inbox shows, so it names only
+ * public usernames and carries no outcome; its one link opens the inbox,
+ * where each line leads on. The footer link stops notification email.
  */
-export function renderNotificationEmail(input: {
-  readonly delivery: Sendable;
+export function renderNotificationDigest(input: {
+  /** Newest first; at least one. */
+  readonly items: readonly InboxRow[];
   readonly appUrl: string;
   readonly unsubscribeUrl: string;
 }) {
-  const { delivery } = input;
-  const unsubscribe = {
-    label:
-      delivery.kind === 'room_invitation'
-        ? 'Stop emails about room invitations'
-        : 'Stop emails about challenges',
-    url: input.unsubscribeUrl,
-  };
-  if (delivery.kind === 'room_invitation') {
-    const what = invitedTo(delivery.seat);
-    return renderEmailLayout({
-      subject: `@${delivery.host} invited you ${what} on Daisy`,
-      preheader: `“${delivery.roomTitle}” is holding a ${delivery.seat} seat for you.`,
-      eyebrow: 'Room invitation',
-      headline: `@${delivery.host} invited you ${what}.`,
-      paragraphs: [
-        `The room “${delivery.roomTitle}” is holding a ${delivery.seat} seat for you for 24 hours, or until the round starts.`,
-        delivery.seat === 'judge'
-          ? 'Open the room and take the judge seat. Nobody else can take it while you are invited.'
-          : 'Open the room and take a debater seat. The host arranges the sides.',
-      ],
-      linkLabel: 'Open the room',
-      url: new URL(`/rooms/${delivery.roomId}`, input.appUrl).toString(),
-      footerNote: FOOTER_NOTE,
-      unsubscribe,
-    });
-  }
-  const what = challengeWhat(delivery.mode, delivery.format);
+  const lines = input.items.map((item) => notificationWords(item).text);
+  const one = lines.length === 1;
+  const headline = one
+    ? lines[0]!
+    : `${lines.length} things are waiting for you.`;
   return renderEmailLayout({
-    subject: `@${delivery.challenger} challenged you on Daisy`,
-    preheader: `${what}. Challenges stay open for two minutes.`,
-    eyebrow: 'Challenge',
-    headline: `@${delivery.challenger} challenged you.`,
-    paragraphs: [
-      `They want ${what}. A challenge stays open for two minutes.`,
-      'If it has ended by the time you arrive, challenge them back from Friends.',
-    ],
-    linkLabel: 'Open Friends',
-    url: new URL('/friends', input.appUrl).toString(),
+    subject: one ? `${lines[0]!} · Daisy` : `${headline} · Daisy`,
+    preheader: one ? 'Open Daisy to answer.' : lines.slice(0, 2).join(' '),
+    eyebrow: 'While you were away',
+    headline,
+    paragraphs: one
+      ? ['It is waiting in your Daisy inbox.']
+      : [...lines, 'Each one is waiting in your Daisy inbox.'],
+    linkLabel: 'Open your inbox',
+    url: new URL('/notifications', input.appUrl).toString(),
     footerNote: FOOTER_NOTE,
-    unsubscribe,
+    unsubscribe: {
+      label: 'Stop notification emails',
+      url: input.unsubscribeUrl,
+    },
   });
 }

@@ -23,7 +23,7 @@ test('one owed event writes a row and a signal per recipient not yet told', asyn
       database.transaction((tx) =>
         oweNotifications(tx, {
           kind: 'followed_debater_live',
-          subjectId: roundId,
+          subject: { round_id: roundId },
           recipients: recipients.map(({ userId }) => ({
             userId,
             about: debater.actorId,
@@ -69,7 +69,7 @@ test('a recipient with no live account is owed nothing', async () => {
     const written = await database.transaction((tx) =>
       oweNotifications(tx, {
         kind: 'followed_debater_live',
-        subjectId: roundId,
+        subject: { round_id: roundId },
         recipients: [{ userId: gone.userId, about: debater.actorId }],
         at: new Date().toISOString(),
         nextId: createId,

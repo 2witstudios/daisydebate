@@ -45,10 +45,13 @@ type Recipient = {
 };
 
 /** Writes one released event's notifications through the one writer (ADR 0143). */
+/** The kinds Watch's fan-out writes, both about a Round. */
+type WatchKind = 'followed_debater_live' | 'recording_ready';
+
 const owe = (
   tx: Tx,
   input: {
-    readonly kind: NotificationKind;
+    readonly kind: WatchKind;
     readonly roundId: string;
     readonly at: string;
     readonly nextId: () => string;
@@ -57,7 +60,7 @@ const owe = (
 ) =>
   oweNotifications(tx, {
     kind: input.kind,
-    subjectId: input.roundId,
+    subject: { round_id: input.roundId },
     recipients: recipients.map((row) => ({
       userId: row.user_id,
       about: row.actor_id,

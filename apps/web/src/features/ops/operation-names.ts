@@ -20,6 +20,8 @@ const OPERATION_NAMES = [
   'notifications.read',
   'notifications.preferences',
   'notifications.unsubscribe',
+  'notifications.shell',
+  'notifications.presentation',
   'rooms.invitations.invite',
   'rooms.invitations.decline',
   'rooms.invitations.withdraw',

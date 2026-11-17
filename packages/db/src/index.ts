@@ -100,10 +100,12 @@ import { formatOperations } from './format-operations';
 import { agreementSignatureOperations } from './agreement-signatures';
 export type { ContentWaiverStanding } from './agreement-signatures';
 export type {
+  InboxCursor,
   InboxRow,
-  NotificationEmailDelivery,
-  NotificationEmailOutcome,
+  NotificationDigestDelivery,
+  NotificationDigestOutcome,
 } from './notifications';
+export { DIGEST_ONLINE_POSTPONE_MS } from './notifications';
 export type { SpectatorTimelineRead } from './spectator-timeline-reads';
 export type { LiveBroadcastPage } from './live-broadcast-reads';
 import { roomCommandOperations } from './room-command-operations';

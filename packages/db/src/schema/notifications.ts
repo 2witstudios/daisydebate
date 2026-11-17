@@ -1,13 +1,15 @@
 import {
-  emailedNotificationKinds,
   kindsAbout,
   notificationChoicePairs,
   notificationKinds,
+  notificationSubjects,
+  type NotificationSubjectKind,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  foreignKey,
   index,
   pgTable,
   primaryKey,
@@ -23,9 +25,35 @@ import {
 } from './columns';
 import { actors } from './actors';
 import { challenges } from './challenges';
+import { friendships } from './friends';
 import { roomInvitations } from './room-invitations';
 import { rounds } from './rounds';
 import { users } from './users';
+
+/**
+ * The stored columns that name each subject: the one place a subject meets
+ * its columns, read by the subject check and by the writer (ADR 0143).
+ */
+export const notificationSubjectColumns = {
+  round: ['round_id'],
+  room_invitation: ['room_invitation_id'],
+  challenge: ['challenge_id'],
+  friendship: ['friendship_low_actor_id', 'friendship_high_actor_id'],
+} as const satisfies Record<NotificationSubjectKind, readonly string[]>;
+
+/** A row names exactly the subject its kind requires, and no other. */
+const subjectCheck = sql.raw(
+  notificationSubjects
+    .flatMap((subject) =>
+      notificationSubjectColumns[subject].map(
+        (column) =>
+          `("kind" in (${kindsAbout(subject)
+            .map((kind) => `'${kind}'`)
+            .join(', ')})) = ("${column}" is not null)`,
+      ),
+    )
+    .join(' and '),
+);
 
 /** The kinds Watch's fan-out writes from released Round facts (WATCH-12). */
 const watchFanoutKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
@@ -56,8 +84,15 @@ export const notifications = pgTable(
     challengeId: text('challenge_id').references(() => challenges.id, {
       onDelete: 'cascade',
     }),
+    /** The friendship asked or accepted; it goes when the friendship does. */
+    friendshipLowActorId: text('friendship_low_actor_id'),
+    friendshipHighActorId: text('friendship_high_actor_id'),
     actorId: text('actor_id').references(() => actors.id, {
       onDelete: 'cascade',
+    }),
+    /** The member's batched email this one is gathered into, if any. */
+    digestId: text('digest_id').references(() => notificationDigests.id, {
+      onDelete: 'set null',
     }),
     readAt: timestampColumn('read_at'),
     createdAt: createdAtColumn(),
@@ -69,7 +104,9 @@ export const notifications = pgTable(
       .on(table.userId, table.kind, table.roundId)
       .where(sql`${table.roundId} is not null`),
     uniqueIndex('notifications_invitation_once').on(table.roomInvitationId),
-    uniqueIndex('notifications_challenge_once').on(table.challengeId),
+    uniqueIndex('notifications_challenge_once')
+      .on(table.userId, table.kind, table.challengeId)
+      .where(sql`${table.challengeId} is not null`),
     index('notifications_user_idx').on(
       table.userId,
       table.surfacedAt.desc(),
@@ -79,14 +116,28 @@ export const notifications = pgTable(
       .on(table.readAt)
       .where(sql`${table.readAt} is not null`),
     index('notifications_round_idx').on(table.roundId),
+    index('notifications_challenge_idx').on(table.challengeId),
+    index('notifications_digest_idx').on(table.digestId),
     index('notifications_actor_idx').on(table.actorId),
     check('notifications_kind_check', oneOf(table.kind, notificationKinds)),
-    check(
-      'notifications_subject_check',
-      sql`(${oneOf(table.kind, kindsAbout('round'))}) = (${table.roundId} is not null)
-        and (${oneOf(table.kind, kindsAbout('room_invitation'))}) = (${table.roomInvitationId} is not null)
-        and (${oneOf(table.kind, kindsAbout('challenge'))}) = (${table.challengeId} is not null)`,
+    uniqueIndex('notifications_friendship_once')
+      .on(
+        table.userId,
+        table.kind,
+        table.friendshipLowActorId,
+        table.friendshipHighActorId,
+      )
+      .where(sql`${table.friendshipLowActorId} is not null`),
+    index('notifications_friendship_idx').on(
+      table.friendshipLowActorId,
+      table.friendshipHighActorId,
     ),
+    foreignKey({
+      name: 'notifications_friendship_fk',
+      columns: [table.friendshipLowActorId, table.friendshipHighActorId],
+      foreignColumns: [friendships.lowActorId, friendships.highActorId],
+    }).onDelete('cascade'),
+    check('notifications_subject_check', subjectCheck),
     check(
       'notifications_actor_check',
       sql`(${table.kind} = 'recording_ready') = (${table.actorId} is null)`,
@@ -144,47 +195,64 @@ export const notificationFanouts = pgTable(
   ],
 );
 
-export const notificationEmailErrorCodes = [
+export const notificationDigestErrorCodes = [
   'delivery',
   'delivery-unknown',
   'suppressed',
   'recipient-gone',
   'not-owed',
-  'preference-off',
-  'rate-limited',
   'unconfigured',
 ] as const;
 
 /**
- * One notification's email, owed when the notification was written with the
- * member's email channel on (ADR 0124). An auditable job: claimed under a
- * lease, retried with backoff, ending sent, failed or cancelled. It holds no
- * address or body; both are read at send time, so a withdrawn invitation or
- * an erased member is cancelled, never sent. `id` is the provider
- * idempotency key. The notification may go first (a challenge ends); the
- * job keeps its kind and recipient until retention deletes it.
+ * One member's batched email (ADR 0143): every emailed notification owed
+ * while it is queued links to it, and each one pushes its send back to a
+ * quiet time after it, never past a longest wait after the first. An
+ * auditable job on the shared mail recipe: claimed under a lease, retried
+ * with backoff, ending sent, failed or cancelled. It holds no address or
+ * body; at send time it re-reads which of its notifications are unread,
+ * still stand and are still wanted by email, and is cancelled `not-owed`
+ * when none are. At most one is queued per member; one owed while another
+ * is being sent starts the next. `id` is the provider idempotency key.
  */
-export const notificationEmails = pgTable(
-  'notification_emails',
+export const notificationDigests = pgTable(
+  'notification_digests',
   {
     id: text('id').primaryKey(),
-    notificationId: text('notification_id')
-      .unique()
-      .references(() => notifications.id, { onDelete: 'set null' }),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
+    /** When its first notification was owed: the longest wait counts from here. */
+    firstOwedAt: timestampColumn('first_owed_at').notNull(),
     ...mailJobColumns(),
   },
   (table) => [
-    index('notification_emails_due_idx').on(table.state, table.nextAttemptAt),
-    index('notification_emails_user_idx').on(table.userId, table.completedAt),
-    index('notification_emails_completed_idx').on(table.completedAt),
-    check(
-      'notification_emails_kind_check',
-      oneOf(table.kind, emailedNotificationKinds),
+    uniqueIndex('notification_digests_one_queued')
+      .on(table.userId)
+      .where(sql`${table.state} = 'queued'`),
+    index('notification_digests_due_idx').on(table.state, table.nextAttemptAt),
+    index('notification_digests_user_idx').on(table.userId, table.completedAt),
+    index('notification_digests_completed_idx').on(table.completedAt),
+    ...mailJobChecks(
+      'notification_digests',
+      table,
+      notificationDigestErrorCodes,
     ),
-    ...mailJobChecks('notification_emails', table, notificationEmailErrorCodes),
   ],
 );
+
+/**
+ * How a member is told while Daisy is open, and whether Daisy emails them
+ * at all (ADR 0143). A member with no row has everything on. The inbox and
+ * its badges never depend on it: these choose only how a stored notification
+ * is presented, or whether any is emailed.
+ */
+export const notificationPresentation = pgTable('notification_presentation', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  toasts: boolean('toasts').notNull(),
+  sound: boolean('sound').notNull(),
+  desktopAlerts: boolean('desktop_alerts').notNull(),
+  email: boolean('email').notNull(),
+});

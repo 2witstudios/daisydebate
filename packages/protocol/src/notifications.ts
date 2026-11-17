@@ -9,6 +9,7 @@ export const notificationSubjects = [
   'round',
   'room_invitation',
   'challenge',
+  'friendship',
 ] as const;
 export type NotificationSubjectKind = (typeof notificationSubjects)[number];
 
@@ -48,10 +49,18 @@ export const notificationCatalogue = {
     urgency: 'durable',
     email: 'batched',
   },
-  challenge_received: {
-    subject: 'challenge',
+  // A challenge stands for two minutes: it needs the member now, or never.
+  challenge_received: { subject: 'challenge', urgency: 'urgent' },
+  challenge_accepted: { subject: 'challenge', urgency: 'urgent' },
+  friend_request_received: {
+    subject: 'friendship',
     urgency: 'durable',
     email: 'batched',
+  },
+  friend_request_accepted: {
+    subject: 'friendship',
+    urgency: 'durable',
+    email: 'none',
   },
 } as const satisfies Record<string, NotificationKindSpec>;
 
@@ -182,3 +191,57 @@ export const notificationChoicePairs: readonly {
 }[] = notificationKinds.flatMap((kind) =>
   notificationChannelsOf(kind).map((channel) => ({ kind, channel })),
 );
+
+/**
+ * How a member is told while Daisy is open, and whether Daisy emails them at
+ * all (ADR 0143): toasts, a sound and a desktop alert for urgent kinds, and
+ * the one switch that stops every notification email whatever each kind's
+ * own email choice says. None of these changes what the inbox stores.
+ */
+export const notificationPresentationSchema = z.strictObject({
+  version: z.literal(1),
+  toasts: z.boolean(),
+  sound: z.boolean(),
+  desktopAlerts: z.boolean(),
+  email: z.boolean(),
+});
+export type NotificationPresentation = Omit<
+  z.infer<typeof notificationPresentationSchema>,
+  'version'
+>;
+
+/** What a member who never chose is given: everything on. */
+export const defaultNotificationPresentation: NotificationPresentation = {
+  toasts: true,
+  sound: true,
+  desktopAlerts: true,
+  email: true,
+};
+
+/** The newest unread notifications the shell reads, for its toasts. */
+export const NOTIFICATIONS_SHELL_RECENT = 10;
+
+/**
+ * What the app shell reads after its inbox rings (ADR 0143): the member's
+ * unread count for the badge, their newest unread notifications in the words
+ * the inbox uses (for toasts and alerts), and how they chose to be told. A
+ * toast is a view of a stored row; this never carries anything the inbox
+ * does not.
+ */
+export const notificationShellSchema = z.strictObject({
+  version: z.literal(1),
+  unread: z.int().nonnegative(),
+  recent: z
+    .array(
+      z.strictObject({
+        id: idSchema,
+        kind: z.enum(notificationKinds),
+        text: z.string().min(1).max(300),
+        href: z.string().startsWith('/').max(300),
+        surfacedAt: z.iso.datetime(),
+      }),
+    )
+    .max(NOTIFICATIONS_SHELL_RECENT),
+  presentation: notificationPresentationSchema.omit({ version: true }),
+});
+export type NotificationShell = z.infer<typeof notificationShellSchema>;

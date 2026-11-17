@@ -13,15 +13,18 @@ setupRitewayBun();
 
 test('notification kinds', () => {
   assert({
-    given: 'the accepted kinds (WATCH-12, ADR 0124)',
+    given: 'the accepted kinds (WATCH-12, ADR 0124, ADR 0143)',
     should:
-      'name Watch’s two released events, a Room invitation and a received challenge',
+      'name Watch’s two released events, a Room invitation, a challenge and its acceptance, and a friend request and its acceptance',
     actual: notificationKinds,
     expected: [
       'followed_debater_live',
       'recording_ready',
       'room_invitation',
       'challenge_received',
+      'challenge_accepted',
+      'friend_request_received',
+      'friend_request_accepted',
     ],
   });
 });
@@ -29,7 +32,7 @@ test('notification kinds', () => {
 test('choice pairs', () => {
   assert({
     given: 'the channels each kind is sent on',
-    should: 'offer email only for invitations and challenges',
+    should: 'offer email only for the kinds gathered into email',
     actual: notificationChoicePairs.map(
       ({ kind, channel }) => `${kind}.${channel}`,
     ),
@@ -39,7 +42,10 @@ test('choice pairs', () => {
       'room_invitation.in_app',
       'room_invitation.email',
       'challenge_received.in_app',
-      'challenge_received.email',
+      'challenge_accepted.in_app',
+      'friend_request_received.in_app',
+      'friend_request_received.email',
+      'friend_request_accepted.in_app',
     ],
   });
 });
@@ -83,15 +89,20 @@ test('catalogue', () => {
     given: 'the catalogue',
     should: 'derive the emailed kinds from each entry',
     actual: emailedNotificationKinds,
-    expected: ['room_invitation', 'challenge_received'],
+    expected: ['room_invitation', 'friend_request_received'],
   });
   assert({
     given: 'a subject',
     should: 'name the kinds about it, in catalogue order',
-    actual: [kindsAbout('round'), kindsAbout('challenge')],
+    actual: [
+      kindsAbout('round'),
+      kindsAbout('challenge'),
+      kindsAbout('friendship'),
+    ],
     expected: [
       ['followed_debater_live', 'recording_ready'],
-      ['challenge_received'],
+      ['challenge_received', 'challenge_accepted'],
+      ['friend_request_received', 'friend_request_accepted'],
     ],
   });
 });

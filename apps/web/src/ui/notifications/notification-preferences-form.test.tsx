@@ -12,7 +12,7 @@ test('NotificationPreferencesForm', () => {
       action: async (previous) => previous,
       choices: {
         ...defaultNotificationChoices,
-        challenge_received: { in_app: true, email: false },
+        friend_request_received: { in_app: true, email: false },
       },
     }),
   );
@@ -30,13 +30,16 @@ test('NotificationPreferencesForm', () => {
       'A host invites me to a room | In Daisy',
       'A host invites me to a room | Email',
       'Someone challenges me | In Daisy',
-      'Someone challenges me | Email',
+      'Someone accepts my challenge | In Daisy',
+      'Someone asks to be friends | In Daisy',
+      'Someone asks to be friends | Email',
+      'Someone accepts my friend request | In Daisy',
     ],
   });
   assert({
-    given: 'challenge email turned off',
+    given: 'friend request email turned off',
     should: 'leave only that switch unchecked',
     actual: (html.match(/checked=""/g) ?? []).length,
-    expected: 5,
+    expected: 8,
   });
 });

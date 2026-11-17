@@ -91,7 +91,15 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
   const change = (
     previous: Parameters<typeof frame.commitFriendship>[0]['previous'],
     next: Parameters<typeof frame.commitFriendship>[0]['next'],
-  ) => frame.commitFriendship({ previous, next, requestId, now, limits });
+  ) =>
+    frame.commitFriendship({
+      previous,
+      next,
+      requestId,
+      now,
+      limits,
+      nextId: () => 'n'.repeat(24),
+    });
   await change(null, { state: 'pending', requesterActorId: high });
   await change(
     { state: 'pending', requesterActorId: low },
@@ -101,7 +109,7 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
   assert({
     given: 'a request, an acceptance and a removal',
     should:
-      'fence each write, spend the request on the ledger, clear declines on acceptance, and leave challenges alone when a friendship ends',
+      'fence each write, spend the request on the ledger, look up whom to tell of the request and the acceptance, clear declines on acceptance, and leave challenges alone when a friendship ends',
     actual: [fences, tables(queries), queries[1]?.params.at(-2)],
     expected: [
       3,
@@ -109,8 +117,10 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
         'select social_request_declines',
         'insert social_requests',
         'insert friendships',
+        'select actors',
         'delete social_request_declines',
         'update friendships',
+        'select actors',
         'delete friendships',
       ],
       true,
@@ -133,6 +143,7 @@ test('declining a friend request counts toward the DEC-251 decline block; cancel
       requestId,
       now,
       limits,
+      nextId: () => 'n'.repeat(24),
     });
     return queries
       .find((entry) =>

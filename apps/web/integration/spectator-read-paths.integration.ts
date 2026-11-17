@@ -100,7 +100,7 @@ test('every public and member read holds a ranked outcome until release', async 
         });
         return readNotificationItems(f.store, {
           userId: follower,
-          unreadOnly: false,
+          query: { unreadOnly: false, after: null },
           now,
         });
       };
@@ -264,7 +264,7 @@ test('every public and member read holds a ranked outcome until release', async 
         given: 'a follower of a seated debater, after a sweep, before release',
         should: 'store no notification, so none can say anything early',
         actual: await followerNotifications(),
-        expected: { items: [], unread: 0 },
+        expected: { items: [], unread: 0, next: null },
       });
       const round = await f.store.readLaunchedRound(
         roundId,

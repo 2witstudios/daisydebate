@@ -2,55 +2,66 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createResendSender } from '../../mail/resend-sender';
 import { MAIL_MAX_ATTEMPTS, mailRetryDelayMs } from '../../mail/retry-policy';
 import type { EmailMessage } from '../../mail/types';
-import { createNotificationEmailDelivery } from './delivery';
+import { createNotificationDigestDelivery } from './delivery';
 import { verifyUnsubscribe } from './unsubscribe-token';
 
 setupRitewayBun();
 
-type Store = Parameters<typeof createNotificationEmailDelivery>[0]['store'];
-type Delivery = Awaited<ReturnType<Store['readNotificationEmailDelivery']>>;
-type Settled = Parameters<Store['settleNotificationEmail']>[0];
+type Store = Parameters<typeof createNotificationDigestDelivery>[0]['store'];
+type Delivery = Awaited<ReturnType<Store['readNotificationDigestDelivery']>>;
+type Settled = Parameters<Store['settleNotificationDigest']>[0];
+type Postponed = Parameters<Store['postponeNotificationDigest']>[0];
 
 const NOW = '2026-11-10T12:00:00.000Z';
 const SUBKEY = 'a'.repeat(64);
 
 const invitation: Delivery = {
-  kind: 'room_invitation',
+  kind: 'send',
   to: 'judge@daisy.invalid',
   userId: 'judgeuser000000000000001',
-  host: 'coach',
-  roomId: 'room-1',
-  roomTitle: 'SMU practice',
-  seat: 'judge',
+  actorId: 'judgeactor00000000000001',
+  items: [
+    {
+      id: 'n1',
+      kind: 'room_invitation',
+      roomId: 'room-1',
+      seat: 'judge',
+      host: 'coach',
+      readAt: null,
+      surfacedAt: NOW,
+    },
+  ],
 };
 
 const scripted = (input: {
   delivery: Delivery | (() => Promise<Delivery>);
   attempts?: number;
   deliver?: (message: EmailMessage) => Promise<'sent' | 'suppressed'>;
+  online?: boolean;
 }) => {
   const sent: EmailMessage[] = [];
   const settled: Settled[] = [];
+  const postponed: Postponed[] = [];
   const failures: unknown[] = [];
-  const delivery = createNotificationEmailDelivery({
+  const delivery = createNotificationDigestDelivery({
     store: {
-      claimNotificationEmails: async () => [
-        {
-          id: 'job-1',
-          kind: 'room_invitation',
-          attempts: input.attempts ?? 1,
-          token: 'tok',
-        },
+      claimNotificationDigests: async () => [
+        { id: 'job-1', attempts: input.attempts ?? 1, token: 'tok' },
       ],
-      readNotificationEmailDelivery: async () =>
+      readNotificationDigestDelivery: async () =>
         typeof input.delivery === 'function'
           ? input.delivery()
           : input.delivery,
-      settleNotificationEmail: async (settle) => {
+      settleNotificationDigest: async (settle) => {
         settled.push(settle);
         return true;
       },
+      postponeNotificationDigest: async (postpone) => {
+        postponed.push(postpone);
+        return true;
+      },
     },
+    isOnline: async () => input.online ?? false,
     deliver:
       input.deliver ??
       (async (message) => {
@@ -63,7 +74,7 @@ const scripted = (input: {
     now: () => NOW,
     failed: (error) => failures.push(error),
   });
-  return { delivery, sent, settled, failures };
+  return { delivery, sent, settled, postponed, failures };
 };
 
 const rejectingSender = (response: 'lost' | 'rejected') =>
@@ -79,8 +90,8 @@ const rejectingSender = (response: 'lost' | 'rejected') =>
     },
   });
 
-describe('notification email delivery (ADR 0124)', () => {
-  test('an owed invitation is sent with its one-click unsubscribe', async () => {
+describe('notification digest delivery (ADR 0143)', () => {
+  test('an owed digest is sent with its one-click unsubscribe', async () => {
     const { delivery, sent, settled } = scripted({ delivery: invitation });
     const count = await delivery.run(10);
     const message = sent[0];
@@ -88,9 +99,9 @@ describe('notification email delivery (ADR 0124)', () => {
     const oneClick = new URL(header.slice(1, -1));
     const token = oneClick.searchParams.get('t') ?? '';
     assert({
-      given: 'a due invitation email whose member still wants it',
+      given: 'a due digest of one invitation, its member away',
       should:
-        'send it to their address under the job id, with RFC 8058 headers whose link verifies for that kind, and settle it sent',
+        'send the inbox’s words to their address under the job id, with RFC 8058 headers whose link verifies for that member, and settle it sent',
       actual: {
         count,
         to: message?.to,
@@ -100,11 +111,11 @@ describe('notification email delivery (ADR 0124)', () => {
         verified:
           verifyUnsubscribe(SUBKEY, {
             userId: oneClick.searchParams.get('u') ?? '',
-            kind: 'room_invitation',
             token,
           }) !== null,
-        roomLink: message?.text.includes(
-          'https://daisy.example.com/rooms/room-1',
+        subject: message?.subject,
+        inboxLink: message?.text.includes(
+          'https://daisy.example.com/notifications',
         ),
         settled: settled.map(({ id, token: lease, outcome }) => ({
           id,
@@ -119,19 +130,15 @@ describe('notification email delivery (ADR 0124)', () => {
         post: 'List-Unsubscribe=One-Click',
         path: '/api/notifications/unsubscribe',
         verified: true,
-        roomLink: true,
+        subject: '@coach invited you to judge. · Daisy',
+        inboxLink: true,
         settled: [{ id: 'job-1', lease: 'tok', outcome: { kind: 'sent' } }],
       },
     });
   });
 
   test('a job with nothing owed is cancelled unsent', async () => {
-    const reasons = [
-      'recipient-gone',
-      'not-owed',
-      'preference-off',
-      'rate-limited',
-    ] as const;
+    const reasons = ['recipient-gone', 'not-owed'] as const;
     const results = [];
     for (const errorCode of reasons) {
       const { delivery, sent, settled } = scripted({
@@ -142,13 +149,34 @@ describe('notification email delivery (ADR 0124)', () => {
     }
     assert({
       given:
-        'a job whose member is gone, whose subject ended, who turned email off or had the hour’s emails',
+        'a digest whose member is gone, or with nothing left unread, standing and wanted',
       should: 'cancel it with that reason and send nothing',
       actual: results,
       expected: reasons.map((errorCode) => ({
         sent: 0,
         outcome: { kind: 'cancelled' as const, errorCode },
       })),
+    });
+  });
+
+  test('a member in Daisy is not emailed yet', async () => {
+    const { delivery, sent, settled, postponed } = scripted({
+      delivery: invitation,
+      online: true,
+    });
+    const count = await delivery.run(1);
+    assert({
+      given: 'a due digest whose member has Daisy open',
+      should: 'send nothing and put it back for 15 minutes',
+      actual: { count, sent: sent.length, settled, postponed },
+      expected: {
+        count: 1,
+        sent: 0,
+        settled: [],
+        postponed: [
+          { id: 'job-1', token: 'tok', until: '2026-11-10T12:15:00.000Z' },
+        ],
+      },
     });
   });
 

@@ -17,8 +17,10 @@ import {
   clearWatchHistoryAction,
   forgetWatchedAction,
   saveNotificationPreferencesAction,
+  saveNotificationPresentationAction,
 } from '../audience/actions';
 import { NotificationPreferencesForm } from '../../../ui/notifications/notification-preferences-form';
+import { NotificationPresentationForm } from '../../../ui/notifications/notification-presentation-form';
 import { WatchHistoryList } from '../../../ui/watch-history/watch-history-list';
 import { ratingVisibilitySchema } from '@daisy/protocol';
 import { GET as readRatingVisibility } from '../../api/ratings/visibility/route';
@@ -29,13 +31,20 @@ export const metadata: Metadata = { title: 'Settings' };
 
 /** The member's stored notification choices and their watch history. */
 async function audienceSections(userId: string) {
-  const { preferences, history } = await requestAudienceSettings(userId);
+  const { preferences, presentation, history } =
+    await requestAudienceSettings(userId);
   return {
     notifications: (
-      <NotificationPreferencesForm
-        action={saveNotificationPreferencesAction}
-        choices={preferences}
-      />
+      <>
+        <NotificationPresentationForm
+          action={saveNotificationPresentationAction}
+          presentation={presentation}
+        />
+        <NotificationPreferencesForm
+          action={saveNotificationPreferencesAction}
+          choices={preferences}
+        />
+      </>
     ),
     watchHistory: (
       <WatchHistoryList

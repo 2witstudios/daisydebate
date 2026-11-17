@@ -11,10 +11,7 @@ setupRitewayBun();
 
 const SUBKEY = 'b'.repeat(64);
 const APP = 'https://daisy.example.com';
-const member: Unsubscribe = {
-  userId: 'memberuser0000000000001a',
-  kind: 'challenge_received',
-};
+const member: Unsubscribe = { userId: 'memberuser0000000000001a' };
 
 const recordingLogger = (events: unknown[]): Logger => ({
   log: (event) => {
@@ -28,7 +25,7 @@ const route = () => {
   const events: unknown[] = [];
   const handle = createUnsubscribeRoute({
     store: {
-      unsubscribeNotificationEmail: async (input) => {
+      stopNotificationEmail: async (input) => {
         turnedOff.push(input);
       },
     },
@@ -47,7 +44,7 @@ const pageForm = (fields: Record<string, string>) => {
   });
 };
 
-describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
+describe('POST /api/notifications/unsubscribe (ADR 0124, ADR 0143)', () => {
   test('a mail client’s one-click post', async () => {
     const { handle, turnedOff, events } = route();
     const response = await handle(
@@ -59,7 +56,7 @@ describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
     );
     assert({
       given: 'an RFC 8058 one-click post to the link an email named',
-      should: 'turn off only that member’s kind of email and answer 200',
+      should: 'stop that member’s notification email and answer 200',
       actual: { status: response.status, turnedOff, events },
       expected: {
         status: 200,
@@ -74,13 +71,12 @@ describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
     const response = await handle(
       pageForm({
         u: member.userId,
-        k: member.kind,
-        t: unsubscribeToken(SUBKEY, member.userId, member.kind),
+        t: unsubscribeToken(SUBKEY, member.userId),
       }),
     );
     assert({
       given: 'the page’s native form with a valid link',
-      should: 'turn the kind off and send the page back to say so',
+      should: 'stop the email and send the page back to say so',
       actual: {
         status: response.status,
         location: response.headers.get('location'),
@@ -88,24 +84,23 @@ describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
       },
       expected: {
         status: 303,
-        location: '/unsubscribe?done=challenge_received',
+        location: '/unsubscribe?done=1',
         turnedOff: [member],
       },
     });
   });
 
   test('a link that is not valid', async () => {
-    const forged = unsubscribeToken('c'.repeat(64), member.userId, member.kind);
+    const forged = unsubscribeToken('c'.repeat(64), member.userId);
     const results = [];
     for (const request of [
-      pageForm({ u: member.userId, k: member.kind, t: forged }),
+      pageForm({ u: member.userId, t: forged }),
       pageForm({
-        u: member.userId,
-        k: 'followed_debater_live',
-        t: unsubscribeToken(SUBKEY, member.userId, member.kind),
+        u: 'othermember0000000000001',
+        t: unsubscribeToken(SUBKEY, member.userId),
       }),
       new Request(
-        `${APP}/api/notifications/unsubscribe?u=${member.userId}&k=${member.kind}&t=${forged}`,
+        `${APP}/api/notifications/unsubscribe?u=${member.userId}&t=${forged}`,
         { method: 'POST' },
       ),
     ]) {
@@ -120,7 +115,7 @@ describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
     }
     assert({
       given:
-        'a token another key made, a kind sent on no email, or a forged one-click post',
+        'a token another key made, one made for another member, or a forged one-click post',
       should:
         'change nothing, log the refusal, and say only that the link is not valid',
       actual: results,

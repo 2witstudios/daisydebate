@@ -48,8 +48,15 @@ const harness = ({
             actorFriends: 0,
             otherFriends: 0,
           }),
-          commitFriendship: async (input: unknown) => {
+          commitFriendship: async ({
+            nextId,
+            ...input
+          }: {
+            readonly nextId: () => string;
+          }) => {
+            // The id minter is the app's own; the rest is the command.
             commits.push(input);
+            void nextId;
           },
         } as never);
       },

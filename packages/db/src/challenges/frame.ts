@@ -43,6 +43,8 @@ export type ChallengeFrame = {
     readonly now: string;
     /** How long the challenger is still sent to the room. */
     readonly followUntil: string;
+    /** Mints the challenger's notification ids (ADR 0143). */
+    readonly nextId: () => string;
   }) => Promise<void>;
   /** The challenged member refuses, or the challenger withdraws. */
   readonly remove: (input: {
@@ -176,7 +178,7 @@ export function challengeFrame(
         );
         await oweNotifications(tx, {
           kind: 'challenge_received',
-          subjectId: inserted[0].id,
+          subject: { challenge_id: inserted[0].id },
           recipients: recipients.map((row) => ({
             userId: row.user_id,
             about: input.actorId,
@@ -206,7 +208,7 @@ export function challengeFrame(
       await ring(owner, [input.actorId, other]);
       return { challengeId: open.id };
     },
-    async accept({ challengeId, roomId, now, followUntil }) {
+    async accept({ challengeId, roomId, now, followUntil, nextId }) {
       await authorize();
       requireId(roomId);
       requireId(challengeId);
@@ -260,6 +262,21 @@ export function challengeFrame(
         .returning({ id: challenges.id });
       if (!updated[0]) throw createAppError('NOT_FOUND');
       await ring(owner, [input.actorId, other]);
+      // The challenger is waited for now: urgent, never emailed (ADR 0143).
+      const recipients = await rowsOf<{ user_id: string }>(
+        tx,
+        sql`select user_id from actors where id=${other} and user_id is not null`,
+      );
+      await oweNotifications(tx, {
+        kind: 'challenge_accepted',
+        subject: { challenge_id: challengeId },
+        recipients: recipients.map((row) => ({
+          userId: row.user_id,
+          about: input.actorId,
+        })),
+        at: now,
+        nextId,
+      });
     },
     async remove({ challengeId, role }) {
       await authorize();

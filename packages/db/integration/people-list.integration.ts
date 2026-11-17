@@ -523,6 +523,7 @@ test('accepting names only a room made for the offer, and only for a free challe
           roomId,
           now: ctx.now,
           followUntil: expiresAt,
+          nextId: createId,
         }),
       )
       .then(

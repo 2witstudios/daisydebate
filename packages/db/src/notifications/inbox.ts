@@ -5,11 +5,12 @@ import {
   type RatingLadder,
   type RoomSeatKind,
 } from '@daisy/protocol';
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
 import { rowsOf } from '../raw-rows';
+import { wants } from './preferences';
 import { notificationStands, standingJoins } from './standing';
 
 /** A position in the inbox, newest first: the last row a page showed. */
@@ -40,6 +41,17 @@ export type InboxRow = {
       readonly mode: CompetitionType;
       readonly format: RatingLadder;
     }
+  | {
+      readonly kind: 'challenge_accepted';
+      readonly roomId: string;
+      /** Who accepted, or null once their account is gone. */
+      readonly opponent: string | null;
+    }
+  | {
+      readonly kind: 'friend_request_received' | 'friend_request_accepted';
+      /** The other member, or null once their account is gone. */
+      readonly friend: string | null;
+    }
 );
 
 type FlatRow = {
@@ -47,6 +59,7 @@ type FlatRow = {
   kind: NotificationKind;
   roundId: string | null;
   roomId: string | null;
+  challengeRoomId: string | null;
   seat: RoomSeatKind | null;
   about: string | null;
   mode: CompetitionType | null;
@@ -87,6 +100,16 @@ const inboxRow = (row: FlatRow): InboxRow => {
         mode: row.mode!,
         format: row.format!,
       };
+    case 'challenge_accepted':
+      return {
+        ...base,
+        kind: row.kind,
+        roomId: row.challengeRoomId!,
+        opponent: row.about,
+      };
+    case 'friend_request_received':
+    case 'friend_request_accepted':
+      return { ...base, kind: row.kind, friend: row.about };
   }
 };
 
@@ -94,6 +117,26 @@ const iso = (column: string) =>
   sql.raw(
     `to_char(${column} at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
   );
+
+/**
+ * Stored notifications as the inbox and the digest read them, newest first:
+ * `where` is over `n` and the standing joins.
+ */
+export const readInboxRows = async (
+  database: Pick<BunSQLDatabase, 'execute'>,
+  input: { readonly where: SQL; readonly limit: number },
+): Promise<readonly InboxRow[]> =>
+  (
+    await rowsOf<FlatRow>(
+      database,
+      sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",
+          c.room_id as "challengeRoomId",i.seat,
+          u.username as about,c.mode,c.format_id as format,
+          ${iso('n.read_at')} as "readAt",${iso('n.surfaced_at')} as "surfacedAt"
+        from notifications n ${standingJoins} where ${input.where}
+        order by n.surfaced_at desc,n.id desc limit ${input.limit}`,
+    )
+  ).map(inboxRow);
 
 /** The inbox: reads, read state and retention, over every kind. */
 export const notificationInboxOperations = ({
@@ -121,29 +164,26 @@ export const notificationInboxOperations = ({
     readonly next: InboxCursor | null;
   }> {
     return instrumented(eventSink, 'readNotifications', async () => {
-      const from = sql`from notifications n ${standingJoins}
-        where n.user_id=${input.userId}
-          and ${notificationStands(sql`${input.now}::timestamptz`)}`;
+      const shown = sql`n.user_id=${input.userId}
+        and ${notificationStands(sql`${input.now}::timestamptz`)}
+        and ${wants(sql`n.kind`, 'in_app', sql`n.user_id`)}`;
       const after =
         input.after === null
           ? sql``
           : sql`and (n.surfaced_at,n.id) < (${input.after.surfacedAt}::timestamptz,${input.after.id})`;
-      const rows = await rowsOf<FlatRow>(
-        database,
-        sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",i.seat,
-            u.username as about,c.mode,c.format_id as format,
-            ${iso('n.read_at')} as "readAt",${iso('n.surfaced_at')} as "surfacedAt"
-          ${from} ${input.unreadOnly ? sql`and n.read_at is null` : sql``} ${after}
-          order by n.surfaced_at desc,n.id desc limit ${input.limit + 1}`,
-      );
+      const rows = await readInboxRows(database, {
+        where: sql`${shown} ${input.unreadOnly ? sql`and n.read_at is null` : sql``} ${after}`,
+        limit: input.limit + 1,
+      });
       const [count] = await rowsOf<{ unread: number | string }>(
         database,
-        sql`select count(*) as unread ${from} and n.read_at is null`,
+        sql`select count(*) as unread from notifications n ${standingJoins}
+          where ${shown} and n.read_at is null`,
       );
       const page = rows.slice(0, input.limit);
       const last = page.at(-1);
       return {
-        rows: page.map(inboxRow),
+        rows: page,
         unread: Number(count?.unread ?? 0),
         next:
           rows.length > input.limit && last

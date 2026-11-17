@@ -141,6 +141,30 @@ export const mailQueue = (
       return settled.length === 1;
     },
     /**
+     * Puts a held job back in the queue until `until`, as if it had never
+     * been claimed: no attempt is spent and no error is recorded. Its holder
+     * chose to wait, not failed. False when the lease lapsed.
+     */
+    postpone: async (
+      database: Execute,
+      input: {
+        readonly id: string;
+        readonly token: string;
+        readonly until: string;
+      },
+    ): Promise<boolean> => {
+      const moved = await rowsOf(
+        database,
+        sql`update ${table} set state = 'queued', attempts = attempts - 1,
+            next_attempt_at = ${input.until}::timestamptz,
+            lease_token_digest = null, lease_expires_at = null
+          where id = ${input.id} and state = 'leased'
+            and lease_token_digest = ${agentLeaseDigest(input.token)}
+          returning id`,
+      );
+      return moved.length === 1;
+    },
+    /**
      * Cancels the jobs of `owed` that have not ended, held or not: what they
      * were for no longer stands. A provider request already in flight cannot
      * be recalled, so a held job ends `delivery-unknown`.

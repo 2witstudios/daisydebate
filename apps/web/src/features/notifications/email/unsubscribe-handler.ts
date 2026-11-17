@@ -21,14 +21,14 @@ const boundedForm = async (request: Request) => {
 };
 
 /**
- * POST /api/notifications/unsubscribe (ADR 0124): turns off one kind's email
- * for the member a keyed token names, with no session. A mail client's
+ * POST /api/notifications/unsubscribe (ADR 0124, ADR 0143): stops every
+ * notification email for the member a keyed token names, with no session. A mail client's
  * RFC 8058 one-click POST names the member in the URL; the unsubscribe
  * page's native form posts the same fields and is sent back to the page.
  * A wrong token changes nothing and says only that the link is not valid.
  */
 export function createUnsubscribeRoute(deps: {
-  readonly store: Pick<Database, 'unsubscribeNotificationEmail'>;
+  readonly store: Pick<Database, 'stopNotificationEmail'>;
   readonly subkey: () => string;
   readonly logger: Logger;
 }) {
@@ -41,7 +41,6 @@ export function createUnsubscribeRoute(deps: {
     const fromPage = form.get('from') === 'page';
     const unsubscribe = verifyUnsubscribe(deps.subkey(), {
       userId: field('u'),
-      kind: field('k'),
       token: field('t'),
     });
     if (!unsubscribe) {
@@ -54,14 +53,14 @@ export function createUnsubscribeRoute(deps: {
         ? seeOther('/unsubscribe?invalid=1')
         : new Response('This link is not valid.', { status: 400 });
     }
-    await deps.store.unsubscribeNotificationEmail(unsubscribe);
+    await deps.store.stopNotificationEmail(unsubscribe);
     deps.logger.log(
       'notifications.unsubscribed',
       { operation: 'notifications.unsubscribe' },
-      'Notification email turned off',
+      'Notification email stopped',
     );
     return fromPage
-      ? seeOther(`/unsubscribe?done=${unsubscribe.kind}`)
+      ? seeOther('/unsubscribe?done=1')
       : new Response('Unsubscribed.', { status: 200 });
   };
 }

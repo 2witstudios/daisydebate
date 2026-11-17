@@ -1,4 +1,4 @@
-import { and, count, eq, or } from 'drizzle-orm';
+import { and, count, eq, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { contactPairs } from '../schema/contacts';
@@ -11,6 +11,8 @@ import {
   spendSocialRequest,
 } from '../contacts/request-budget';
 import type { ContactReactions } from '../contacts/reactions';
+import { oweNotifications } from '../notifications/owe';
+import { rowsOf } from '../raw-rows';
 
 type FriendshipTransaction = Pick<
   BunSQLDatabase,
@@ -90,11 +92,34 @@ export function friendshipFrame(
         otherFriends: await countWhere(tx, accepted(otherActorId)),
       };
     },
-    async commitFriendship({ previous, next, requestId, now, limits }) {
+    async commitFriendship({ previous, next, requestId, now, limits, nextId }) {
       await authorize();
       const pair = pairOf();
       const otherActorId =
         pair.lowActorId === input.actorId ? pair.highActorId : pair.lowActorId;
+      /** Tells `actorId`'s member about the caller, through the one writer. */
+      const tell = async (
+        kind: 'friend_request_received' | 'friend_request_accepted',
+        actorId: string,
+      ) => {
+        const members = await rowsOf<{ user_id: string }>(
+          tx,
+          sql`select user_id from actors where id=${actorId} and user_id is not null`,
+        );
+        await oweNotifications(tx, {
+          kind,
+          subject: {
+            friendship_low_actor_id: pair.lowActorId,
+            friendship_high_actor_id: pair.highActorId,
+          },
+          recipients: members.map((member) => ({
+            userId: member.user_id,
+            about: input.actorId,
+          })),
+          at: now,
+          nextId,
+        });
+      };
       if (!next) {
         await tx.delete(friendships).where(where(pair));
         // Ending someone else's pending request is a decline (DEC-251).
@@ -136,6 +161,8 @@ export function friendshipFrame(
           requestedAt: new Date(now),
           acceptedAt: next.state === 'accepted' ? new Date(now) : null,
         });
+        if (next.state === 'pending')
+          await tell('friend_request_received', otherActorId);
         return;
       }
       await tx
@@ -146,6 +173,13 @@ export function friendshipFrame(
           acceptedAt: next.state === 'accepted' ? new Date(now) : null,
         })
         .where(where(pair));
+      // Answering someone else's request tells them it was accepted.
+      if (
+        previous.state === 'pending' &&
+        next.state === 'accepted' &&
+        previous.requesterActorId !== input.actorId
+      )
+        await tell('friend_request_accepted', previous.requesterActorId);
     },
   };
 }

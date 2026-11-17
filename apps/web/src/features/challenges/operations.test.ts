@@ -37,7 +37,7 @@ const harness = (overrides: Partial<ChallengeDependencies> = {}) => {
       return { challengeId: input.id };
     },
     accept: async (input) => {
-      calls.push(['accept', input]);
+      calls.push(['accept', { ...input, nextId: input.nextId() }]);
     },
     remove: async (input) => {
       calls.push(['remove', input]);
@@ -194,6 +194,7 @@ describe('acceptChallenge', () => {
             followUntil: new Date(
               Date.parse(now) + CHALLENGE_TTL_MS,
             ).toISOString(),
+            nextId: 'id0000000000000000000001',
           },
         ],
       },

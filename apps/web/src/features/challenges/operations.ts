@@ -140,6 +140,7 @@ export async function acceptChallenge(
             followUntil: new Date(
               Date.parse(now) + ROOM_SEAT_HOLD_MS,
             ).toISOString(),
+            nextId: dependencies.nextId,
           }),
       ),
   );
