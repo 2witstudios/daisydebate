@@ -101,6 +101,8 @@ test('retryAfterHeaders', () => {
       retryAfterHeaders(0, { minimum: 1, fallback: 60 }),
       retryAfterHeaders(0.3, { minimum: 1, fallback: 60 }),
       retryAfterHeaders(Infinity, { fallback: 60 }),
+      retryAfterHeaders(1e21, { minimum: 1, fallback: 60 }),
+      retryAfterHeaders(Number.MAX_VALUE),
     ],
     expected: [
       { 'Retry-After': '3' },
@@ -109,6 +111,8 @@ test('retryAfterHeaders', () => {
       { 'Retry-After': '60' },
       { 'Retry-After': '1' },
       { 'Retry-After': '60' },
+      { 'Retry-After': '60' },
+      {},
     ],
   });
 });

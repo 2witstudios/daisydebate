@@ -70,7 +70,12 @@ export const retryAfterHeaders = (
     retryAfterSeconds >= 0
       ? Math.ceil(retryAfterSeconds)
       : null;
-  const seconds = rounded !== null && rounded >= minimum ? rounded : fallback;
+  // A header carries plain digits (RFC 9110 delay-seconds): a value too large
+  // to print as one takes the fallback.
+  const seconds =
+    rounded !== null && Number.isSafeInteger(rounded) && rounded >= minimum
+      ? rounded
+      : fallback;
   return seconds === undefined
     ? {}
     : { 'Retry-After': String(Math.ceil(seconds)) };
