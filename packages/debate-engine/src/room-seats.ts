@@ -58,6 +58,12 @@ const isDebater = (p: Participant): boolean => placementOf(p) !== null;
 
 const placed = (p: Participant): Placement => placementOf(p)!;
 
+/**
+ * A Room no person hosts is a Tab event Room: its draw seated its teams on
+ * their sides (ADR 0145), so nobody moves a seat or flips its sides there.
+ */
+const isEventRoom = (room: RoomAssemblyState) => room.hostActorId === null;
+
 /** Whether `actorId` may change this debater's row: themselves, or the host. */
 const mayMove = (room: RoomAssemblyState, actorId: string, p: Participant) =>
   p.actorId === actorId || room.hostActorId === actorId;
@@ -76,6 +82,7 @@ export const setSeat = (
   _edges: Edges,
 ): RoomMutationOutcome => {
   if (!seatsTwoTeams(room.rules)) return refuse('illegal-config');
+  if (isEventRoom(room)) return refuse('host-required');
   const mover = room.participants.find((p) => p.id === command.participantId);
   if (!mover || !isDebater(mover)) return refuse('not-seated');
   if (!mayMove(room, actorId, mover)) return refuse('host-required');
@@ -134,6 +141,7 @@ export const setSides = (
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
+  if (isEventRoom(room)) return refuse('host-required');
   const seated = room.participants.find((p) => p.actorId === actorId);
   if (room.hostActorId !== actorId && (!seated || !isDebater(seated)))
     return refuse('host-required');

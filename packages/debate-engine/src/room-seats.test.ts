@@ -375,3 +375,32 @@ describe('Start round', () => {
     });
   });
 });
+
+describe('an event Room (ADR 0145, Tab)', () => {
+  test('seats and sides from the draw', () => {
+    const room = {
+      ...full(),
+      hostActorId: null,
+      teamOneSide: 'affirmative',
+    } as const;
+    const debater = room.participants[2]!;
+    assert({
+      given:
+        'an event Room no person hosts, its sides fixed by the draw, and a seated debater',
+      should: 'refuse moving a seat and changing the sides',
+      actual: [
+        run(room, debater.actorId, {
+          type: 'set-seat',
+          participantId: debater.id,
+          team: 1,
+          position: null,
+        }),
+        run(room, debater.actorId, { type: 'set-sides', teamOneSide: null }),
+      ],
+      expected: [
+        { ok: false, refusal: 'host-required' },
+        { ok: false, refusal: 'host-required' },
+      ],
+    });
+  });
+});
