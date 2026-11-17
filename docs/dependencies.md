@@ -126,9 +126,11 @@ one whose advisory reaches a package it does not list.
 | [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) (moderate) | `minimatch` 3.1.5, 10.2.6        | eslint, typescript-eslint, eslint-plugin-react, glob (build/lint tooling)                                                                                                                      | Never executes in a production process: it rides in through glob, which no runtime entrypoint requires, and dev-only lint chains; the amplification finding requires an attacker-controlled pattern, which no path passes (ADR 0093)                                                                                                                                                              | `2027-01-15` |
 | [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) (high)     | `picomatch` 2.3.2, 4.0.7         | `@sentry/nextjs` → @rollup/plugin-commonjs, @rollup/pluginutils; knip, fdir, tinyglobby (typescript-eslint, eslint-config-next), vitest/vite, fast-glob → micromatch (build/lint/test tooling) | Present in production installs via @sentry/nextjs but never executed there: plugin-commonjs is required only by its webpack wrapping loader inside `next build`; no Daisy source imports any matcher and the built web server traces none; Next's own vendored picomatch matches only the default `**` image pattern; the ReDoS needs an attacker-chosen pattern, which no path passes (ADR 0039) | `2026-12-23` |
 
-Remove an entry by upgrading past the fix (RITEway without a hard vitest
-dependency, which clears the vitest and tinypool entries together, an `@adobe/data` release off jsonpath's underscore pin, or dependents shipping patched glob above 14.0.1 and minimatch 11.0.1+, or a patched picomatch release);
-`bun policy` then fails until the stale entry is deleted.
+Remove an entry by upgrading past the fix: RITEway without a hard vitest
+dependency (clears the vitest and tinypool entries together); an `@adobe/data`
+release off jsonpath's underscore pin; dependents shipping patched glob above
+14.0.1 and minimatch 11.0.1+; or a patched picomatch release. `bun policy` then
+fails until the stale entry is deleted.
 
 ## Deliberately absent
 
