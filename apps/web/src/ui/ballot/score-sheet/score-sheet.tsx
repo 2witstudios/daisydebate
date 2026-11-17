@@ -165,7 +165,7 @@ export function ScoreSheet({
                       <span
                         aria-hidden="true"
                         className={cn(
-                          'w-4 text-right font-bold tabular-nums',
+                          'w-10 shrink-0 text-right font-bold tabular-nums',
                           sideTextClass(subject.tone),
                         )}
                       >
@@ -209,7 +209,7 @@ export function ScoreSheet({
               key={subject.key}
               className={cn(
                 ballotSideCellClass,
-                'flex flex-wrap items-baseline gap-x-1',
+                'flex flex-wrap items-baseline gap-x-1 @ballot-sheet:justify-end',
               )}
             >
               <span

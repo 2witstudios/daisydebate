@@ -44,4 +44,32 @@ describe('WinnerChoice', () => {
       expected: [1, true],
     });
   });
+
+  test('a narrow column', () => {
+    const name = 'Alexandria Montgomery-Fitzwilliam';
+    const html = renderToString(
+      h(WinnerChoice, {
+        sides: [
+          { ...sampleBallotPlan.decided[0]!, name, role: 'Affirmative' },
+          ...sampleBallotPlan.decided.slice(1),
+        ],
+        initial: null,
+        onPick: () => undefined,
+      }),
+    );
+    assert({
+      given: 'a long name in a column narrower than two cards',
+      should:
+        'lay the cards out by the group’s own width, keep the name on one truncated line, and draw the side label whole',
+      actual: [
+        /class="@container"><fieldset class="[^"]*grid-cols-1[^"]*@ballot-sides:grid-cols-2/.test(
+          html,
+        ),
+        html.includes('max-narrow:grid-cols-1'),
+        new RegExp(`title="${name}" class="[^"]*\\btruncate\\b`).test(html),
+        html.includes('>Affirmative</span>'),
+      ],
+      expected: [true, false, true, true],
+    });
+  });
 });

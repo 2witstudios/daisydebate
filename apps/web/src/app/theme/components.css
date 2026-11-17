@@ -19,6 +19,10 @@
   /* From this width the score comparison puts the category and both judges
      on one line; narrower, the category heads its row. */
   --container-ballot-compare: 26rem;
+  /* From this width the winner cards sit two to a line, each still wide
+     enough for its avatar, a name and a whole side label beside the check;
+     narrower, they stack. */
+  --container-ballot-sides: 28rem;
   /* A readable measure for long copy and single-column forms. */
   --spacing-reading: 44rem;
   --spacing-search-x: 2px;
