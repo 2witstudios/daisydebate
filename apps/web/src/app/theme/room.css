@@ -388,7 +388,7 @@ img.ProseMirror-separator {
   @container (min-width: 780px) {
     display: flex;
     flex-direction: column;
-    gap: calc(var(--spacing) * 4);
+    gap: var(--spacing-4);
     min-width: 0;
     grid-column: 1;
     grid-row: 1;
@@ -400,7 +400,7 @@ img.ProseMirror-separator {
   @container (min-width: 780px) {
     display: flex;
     flex-direction: column;
-    gap: calc(var(--spacing) * 4);
+    gap: var(--spacing-4);
     min-width: 0;
     grid-column: 2;
     grid-row: 1;
