@@ -194,7 +194,7 @@ export async function createProofRoom(
 }
 
 /**
- * Fixes a casual Room's sides as seated (ADR 0143): team 1, the Affirmative
+ * Fixes a casual Room's sides as seated (ADR 0145): team 1, the Affirmative
  * seats, argues the Affirmative, so Start round flips no coin. A Room the
  * UI creates leaves its sides open; journeys that play a given side fix
  * them first. Returns the durable Room.
@@ -234,7 +234,7 @@ export async function closeRoom(
 /**
  * The name the roster gives a seat placed as `seat` ("Affirmative 1" is team
  * 1's first seat). Before Start it is named by its side once the sides are
- * fixed and by its team while they are open (ADR 0143), as roomSeatLabel does.
+ * fixed and by its team while they are open (ADR 0145), as roomSeatLabel does.
  */
 export function rosterSeatName(view: RoomView, seat: string): string {
   const [word, number] = seat.split(' ');

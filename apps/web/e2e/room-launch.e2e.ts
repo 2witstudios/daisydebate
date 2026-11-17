@@ -351,7 +351,7 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
             expectedVersion: round.version,
             command: {
               type: 'strike_resolution',
-              // Practice flips for sides (ADR 0143): the host strikes as
+              // Practice flips for sides (ADR 0145): the host strikes as
               // whichever side its seat drew.
               participantId: round.participants
                 .filter(isNamedSeat)

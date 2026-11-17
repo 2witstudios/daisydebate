@@ -128,7 +128,7 @@ export function roomCommandOperation({
             });
         }
         // Every Start round mints the Round's one seed: the seat draw reads
-        // it (ADR 0143), and a draw Room's resolution draw shares it.
+        // it (ADR 0145), and a draw Room's resolution draw shares it.
         const seed = command.type === 'start-round' ? entropy() : null;
         const secrets =
           seed !== null && prepared.executionPlan.resolutionDraw.enabled

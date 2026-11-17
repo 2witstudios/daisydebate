@@ -65,7 +65,7 @@ test('the room name is the page title, with status and meta lines and no badges'
   });
 });
 
-test('the host has no seat to leave, and settings live off the header (ADR 0143)', () => {
+test('the host has no seat to leave, and settings live off the header (ADR 0145)', () => {
   const html = renderToStaticMarkup(
     header(assemblySnapshot, assemblySnapshot.hostActorId),
   );

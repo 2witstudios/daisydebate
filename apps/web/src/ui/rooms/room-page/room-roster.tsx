@@ -492,7 +492,7 @@ function invitationsBySeat(view: RoomView, seats: readonly Seat[]) {
 }
 
 /**
- * The Room's roster (ADR 0143): one row per declared seat, debaters then
+ * The Room's roster (ADR 0145): one row per declared seat, debaters then
  * judges. A debater row shows Ready, the debater, and the boxes that decide
  * their seat: Side always, Team and Position when a team seats more than
  * one. `?` is decided at Start round.

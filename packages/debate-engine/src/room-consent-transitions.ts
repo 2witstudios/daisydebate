@@ -86,7 +86,7 @@ export const startRound = (
       'INVARIANT',
       'A Start round carries its Round id and seed',
     );
-  // Every ? resolves before anything reads a side (ADR 0143): the draw's
+  // Every ? resolves before anything reads a side (ADR 0145): the draw's
   // strike order and automatic sides, bot admission and the frozen cast.
   const seats = resolveSeats(room, {
     seed: bytesOf(edges.seatSeed),

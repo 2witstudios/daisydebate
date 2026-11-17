@@ -144,7 +144,7 @@ export const drawCommitment = (input: {
     ),
   );
 
-/** The seat draw's own stream (ADR 0143), apart from the resolution draw's. */
+/** The seat draw's own stream (ADR 0145), apart from the resolution draw's. */
 export const seatStream = (seed: Uint8Array): WordStream =>
   wordStream('daisy-draw-v1/seats', seed, new Uint8Array());
 

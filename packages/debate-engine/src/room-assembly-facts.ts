@@ -44,7 +44,7 @@ export type Edges = {
   readonly drawStart: DrawStartFacts | null;
   /**
    * The Round's seed (hex), minted for every Start round: the seat draw
-   * resolves every ? from it (ADR 0143). Null on every other command.
+   * resolves every ? from it (ADR 0145). Null on every other command.
    */
   readonly seatSeed: string | null;
 };

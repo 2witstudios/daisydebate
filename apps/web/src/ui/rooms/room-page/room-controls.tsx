@@ -54,7 +54,7 @@ function Row({
   );
 }
 
-/** Who can join, posted alone (ADR 0143, D9). */
+/** Who can join, posted alone (ADR 0145, D9). */
 function WhoCanJoin({
   view,
   commandId,
@@ -202,7 +202,7 @@ function CaptureSwitch({
 }
 
 /**
- * The Room's controls on the page (ADR 0143): who can join, broadcast and
+ * The Room's controls on the page (ADR 0145): who can join, broadcast and
  * record, as switches for the host and plain values for everyone else.
  * The broadcast delay and the rest of the round are in Edit settings.
  */

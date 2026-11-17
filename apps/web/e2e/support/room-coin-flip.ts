@@ -48,7 +48,7 @@ async function readSidesCard(page: Page) {
 }
 
 /**
- * SEAT-13 (ADR 0143): a new Room's sides are open. Two debaters sit with
+ * SEAT-13 (ADR 0145): a new Room's sides are open. Two debaters sit with
  * their sides on ?, both Ready, and the host's Start round flips the coin:
  * each page's opening names that viewer's side, the two are opposite, and
  * both cards list the same debaters on the same sides as the Round itself.

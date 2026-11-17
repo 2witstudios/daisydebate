@@ -153,7 +153,7 @@ for (const ladder of ratingLadders)
                       (e) => e.id === f.host.actorId,
                     )!.rating,
                   ),
-                  // A ranked Room flips for sides (ADR 0143): find the host's row.
+                  // A ranked Room flips for sides (ADR 0145): find the host's row.
                   display!.rows.find(
                     (row) =>
                       row.label ===

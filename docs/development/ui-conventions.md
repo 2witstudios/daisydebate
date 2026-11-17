@@ -265,7 +265,7 @@ resolved ordered schedule. Settings are an acknowledged summary with explicit
 native Edit disclosures; a refused save opens its disclosure and retains the
 submitted draft and version.
 
-The page is two columns once there is room (ADR 0143). The left column is the
+The page is two columns once there is room (ADR 0145). The left column is the
 roster, then the Room chat, which takes the column's spare height and scrolls
 inside it. The right column is the viewer's own tile (a seated debater's camera
 preview and device rows, with I'm ready under it), then Room controls (Who can

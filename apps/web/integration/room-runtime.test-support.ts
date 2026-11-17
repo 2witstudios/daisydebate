@@ -163,7 +163,7 @@ async function fixture(
           : { kind: 'custom', text: 'Cities should make transit free' },
       visibility: 'public',
       selection: foundationSelection,
-      // Round proofs play known sides; the coin flip has its own proofs (ADR 0143).
+      // Round proofs play known sides; the coin flip has its own proofs (ADR 0145).
       sides: 'fixed',
       ...overrides,
     });

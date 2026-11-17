@@ -110,7 +110,7 @@ export const roundRow = (record: {
   null,
   false,
   null,
-  // seat_draw (ADR 0143)
+  // seat_draw (ADR 0145)
   null,
   record.rules,
   record.status,

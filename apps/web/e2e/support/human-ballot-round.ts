@@ -104,7 +104,7 @@ export async function createFoundationRoom(
       resolution: { kind: 'custom', text: 'Cities should fund transit' },
       visibility: 'public',
       selection: select(choice),
-      // Seats name sides: members[0] argues the Affirmative (ADR 0143).
+      // Seats name sides: members[0] argues the Affirmative (ADR 0145).
       sides: 'fixed',
     },
   });

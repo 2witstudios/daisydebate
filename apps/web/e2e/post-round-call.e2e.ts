@@ -40,7 +40,7 @@ test('after a Round with Post-round feedback, the debaters and a judge stay on t
         visibility: 'public',
         selection: humanRoundSelection(foundationChoice, 2, 0),
         postRoundCall: true,
-        // Seats name sides, so `aff` argues the Affirmative (ADR 0143).
+        // Seats name sides, so `aff` argues the Affirmative (ADR 0145).
         sides: 'fixed',
       },
     });

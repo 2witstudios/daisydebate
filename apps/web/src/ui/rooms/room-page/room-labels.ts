@@ -21,14 +21,14 @@ import { ordinalOf, showsTeams } from './roster-seat';
 type Role = RoomView['participants'][number]['role'];
 type Participant = RoomView['participants'][number];
 
-/** What a Room seat label needs to know (ADR 0143). */
+/** What a Room seat label needs to know (ADR 0145). */
 export type SeatNaming = Pick<RoomView, 'teamOneSide' | 'status'> & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
 };
 
 /**
  * A Room seat's name. Before Start a debater seat's role is its team's
- * placement, not its side (ADR 0143): it is named by its side once the sides
+ * placement, not its side (ADR 0145): it is named by its side once the sides
  * are fixed, and by its team (and position, when a team seats several) while
  * they are open. A judge seat, and every seat after Start, is named as is.
  * `single` drops the "1" from a role that seats one: "Judge", "Negative".

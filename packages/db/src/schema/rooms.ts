@@ -82,7 +82,7 @@ export const rooms = pgTable(
       .notNull(),
     /**
      * Team 1's side, or null while the sides are open to the coin flip at
-     * Start round (ADR 0143). Team 1 sits in the affirmative seats.
+     * Start round (ADR 0145). Team 1 sits in the affirmative seats.
      */
     teamOneSide: text('team_one_side').$type<DebateSide>(),
     /** RoomConfig as chosen. */
@@ -121,7 +121,7 @@ export const rooms = pgTable(
       'rooms_team_one_side_check',
       sql`${table.teamOneSide} is null or ${oneOf(table.teamOneSide, debateSides)}`,
     ),
-    // A ranked Room always flips for sides until Start (ADR 0143); at Start
+    // A ranked Room always flips for sides until Start (ADR 0145); at Start
     // its seats take the drawn sides and team 1's side reads Affirmative.
     check(
       'rooms_ranked_sides_open_check',
@@ -220,7 +220,7 @@ export const roomParticipants = pgTable(
     actorId: seatActorId(),
     role: seatRole(),
     slot: seatSlot(),
-    /** A debater whose team is ?, placed at random at Start round (ADR 0143). */
+    /** A debater whose team is ?, placed at random at Start round (ADR 0145). */
     teamOpen: boolean('team_open').notNull().default(false),
     /** A debater whose speaking position is ?, placed at random at Start round. */
     positionOpen: boolean('position_open').notNull().default(false),

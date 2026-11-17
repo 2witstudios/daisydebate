@@ -47,7 +47,7 @@ function commandFields(form: FormData): Record<string, unknown> | null {
   return 'format' in raw ? withFormatTuple(raw) : raw;
 }
 
-/** A seat move's empty team or position is ?, decided at Start round (ADR 0143). */
+/** A seat move's empty team or position is ?, decided at Start round (ADR 0145). */
 function withSeat(raw: Record<string, unknown>): Record<string, unknown> {
   const open = (value: unknown) => (value === '' ? null : Number(value));
   return {

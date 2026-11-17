@@ -66,7 +66,7 @@ test('non-host details remain visible but cannot submit an edit', () => {
   });
 });
 
-test('the details form keeps who can join as saved (ADR 0143)', () => {
+test('the details form keeps who can join as saved (ADR 0145)', () => {
   const html = renderToStaticMarkup(
     <AssemblyDetailsFields
       view={{ ...assemblySnapshot, visibility: 'unlisted' }}

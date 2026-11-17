@@ -250,7 +250,7 @@ const posted = async (fields: Record<string, string>) => {
   return sent;
 };
 
-test('seat and side forms post ? as null (ADR 0143)', async () => {
+test('seat and side forms post ? as null (ADR 0145)', async () => {
   const commandId = 'm'.repeat(24);
   const participantId = 'p'.repeat(24);
   assert({

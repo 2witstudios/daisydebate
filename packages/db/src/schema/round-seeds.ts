@@ -4,7 +4,7 @@ import { rounds } from './rounds';
 
 /**
  * The Round's one seed, minted at Start round: secret, immutable, never
- * deleted. Both the seat draw (ADR 0143) and the resolution draw (ADR 0076)
+ * deleted. Both the seat draw (ADR 0145) and the resolution draw (ADR 0076)
  * read their own domain-separated streams from it.
  */
 export const roundDrawSeeds = pgTable(

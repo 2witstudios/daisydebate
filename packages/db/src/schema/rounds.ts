@@ -108,7 +108,7 @@ export const rounds = pgTable(
       resolutionDrawEvidenceSchema,
     ),
     /**
-     * What Start round's seat draw did (ADR 0143): the coin, the open seats
+     * What Start round's seat draw did (ADR 0145): the coin, the open seats
      * placed and the commitment. Public, immutable once written, and null on
      * Rounds started before it existed.
      */

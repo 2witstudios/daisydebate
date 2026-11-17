@@ -20,7 +20,7 @@ import {
 import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
 
 /**
- * Room seats as teams (ADR 0143). A debater's Room role is their team's
+ * Room seats as teams (ADR 0145). A debater's Room role is their team's
  * placement (team 1 in the affirmative seats, team 2 in the negative ones),
  * and the Room's `teamOneSide` says which side team 1 argues, or null for a
  * coin flip. A team or position marked open is placed at random at Start
@@ -141,7 +141,7 @@ const placementOrder = (a: Participant, b: Participant) =>
   a.role === b.role ? a.slot - b.slot : a.role === 'affirmative' ? -1 : 1;
 
 /**
- * Resolve every ? in one draw (ADR 0143): debaters whose team is ? are
+ * Resolve every ? in one draw (ADR 0145): debaters whose team is ? are
  * shuffled over the seats they hold, then each team's debaters whose
  * position is ? over their slots, then a coin decides the sides when they
  * are open. Debaters are taken in canonical id order and seats in placement

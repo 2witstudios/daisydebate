@@ -104,7 +104,7 @@ describe('room lobby waiting list', () => {
     });
   });
 
-  test('open seats before the sides are decided (ADR 0143)', () => {
+  test('open seats before the sides are decided (ADR 0145)', () => {
     const twoVsTwo = {
       ...assemblySnapshot,
       definition: {

@@ -286,7 +286,7 @@ export type {
   RoomCatalogChoice,
 } from './room-contract';
 
-// Room teams and the Start round seat draw (ADR 0143).
+// Room teams and the Start round seat draw (ADR 0145).
 export {
   roomTeamSchema,
   seatDrawSchema,

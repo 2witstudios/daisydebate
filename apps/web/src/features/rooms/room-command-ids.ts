@@ -14,7 +14,7 @@ export type RoomCommandIds = {
   };
   readonly settings: string;
   readonly capture: string;
-  /** Team 1's side (ADR 0143). */
+  /** Team 1's side (ADR 0145). */
   readonly sides: string;
   /** Who can join, from the page's Room controls. */
   readonly visibility: string;
@@ -24,7 +24,7 @@ export type RoomCommandIds = {
     readonly assign: string;
     readonly remove: string;
     readonly ai: string;
-    /** The seated debater's team, and their position (ADR 0143). */
+    /** The seated debater's team, and their position (ADR 0145). */
     readonly team: string;
     readonly position: string;
   }[];

@@ -23,7 +23,7 @@ const setVisibility = (
     edges,
   );
 
-test('set-visibility (ADR 0143, D9)', () => {
+test('set-visibility (ADR 0145, D9)', () => {
   const room = state();
   const unlisted = setVisibility(room, room.hostActorId, 'unlisted');
   assert({

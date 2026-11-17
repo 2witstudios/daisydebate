@@ -299,7 +299,7 @@ export type RoundOpening = {
   /** Time a platform incident held the clock; strikes and prep owe it back. */
   readonly stops: readonly ClockStop[];
   /**
-   * What Start round's seat draw did (ADR 0143), frozen on the Round and
+   * What Start round's seat draw did (ADR 0145), frozen on the Round and
    * public; null when the Round predates it. Shown, never timed: no step or
    * anchor reads it.
    */

@@ -67,7 +67,7 @@ export function AssemblyDetailsFields({
           </p>
         </>
       )}
-      {/* Who can join is set from the page's Room controls (ADR 0143). */}
+      {/* Who can join is set from the page's Room controls (ADR 0145). */}
       <input
         type="hidden"
         name="visibility"

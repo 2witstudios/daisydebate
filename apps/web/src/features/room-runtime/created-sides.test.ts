@@ -10,7 +10,7 @@ const casual = {
   seats: { affirmative: 1, negative: 1 },
 };
 
-test('a new Room’s sides (ADR 0143)', () => {
+test('a new Room’s sides (ADR 0145)', () => {
   assert({
     given:
       'a casual Room, a ranked one asking for fixed sides, unequal teams asking for open sides, a Tab cast naming a debater, explicit open and fixed, and practice’s open sides with its bot seated',

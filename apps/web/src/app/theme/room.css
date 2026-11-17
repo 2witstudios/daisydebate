@@ -421,7 +421,7 @@ img.ProseMirror-separator {
   }
 }
 
-/* The roster's rows (ADR 0143): Ready, the debater, then the seat boxes and
+/* The roster's rows (ADR 0145): Ready, the debater, then the seat boxes and
    the row's one action. Team and Position show when a team seats several. */
 @theme {
   --spacing-roster-mark: 3rem;

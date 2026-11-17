@@ -84,7 +84,7 @@ function useSheetFocus(roomHref: string) {
 }
 
 /**
- * Edit settings (ADR 0143): the host's near-full-screen dialog for the
+ * Edit settings (ADR 0145): the host's near-full-screen dialog for the
  * Room's name and resolution, the round's format and settings, and the
  * broadcast's delay. Who can join, Broadcast and Record are also on the
  * page. Every form keeps its native post.

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { debateSideSchema, idSchema, type DebateSide } from './primitives';
 
 /**
- * A Room's two teams (ADR 0143). A Room seat's role names its team's
+ * A Room's two teams (ADR 0145). A Room seat's role names its team's
  * placement, not its side: team 1 sits in the `affirmative` seats and team 2
  * in the `negative` ones until Start round, when the Room's side rule decides
  * which side each team argues. A Round's role is always the side.
@@ -30,7 +30,7 @@ const placement = z.strictObject({
 });
 
 /**
- * What one Start round's seat draw did (ADR 0143), frozen on the Round and
+ * What one Start round's seat draw did (ADR 0145), frozen on the Round and
  * readable by anyone who may read it: nothing in it is secret. `coin` is the
  * flip's result when the sides were open, and null when the Room fixed them.
  * `moved` lists the debaters whose team or position was open, with the seat

@@ -15,7 +15,7 @@ const scratch = scratchDatabase(databaseUrl, 'seatteams');
 afterAll(() => scratch.drop());
 
 test(
-  'existing casual Rooms keep their sides and ranked open Rooms keep the flip (ADR 0143)',
+  'existing casual Rooms keep their sides and ranked open Rooms keep the flip (ADR 0145)',
   async () => {
     await scratch.create();
     await scratch.migrate((folder) => folder < seatTeams);

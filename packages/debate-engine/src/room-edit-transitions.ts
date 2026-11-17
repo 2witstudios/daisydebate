@@ -124,7 +124,7 @@ export const selectFormat = (
 };
 /**
  * Team 1's side under new rules: teams of different sizes keep the side
- * their seats were declared for (ADR 0143), so their sides cannot be open.
+ * their seats were declared for (ADR 0145), so their sides cannot be open.
  */
 const sidesAfter = (
   room: RoomAssemblyState,
@@ -330,7 +330,7 @@ export const claimSeat = (
         id: existing?.id ?? edges.participantId,
         role: command.role,
         slot: command.slot,
-        // A seat taken is the team and position chosen (ADR 0143).
+        // A seat taken is the team and position chosen (ADR 0145).
         teamOpen: false,
         positionOpen: false,
         consentCommandId: null,

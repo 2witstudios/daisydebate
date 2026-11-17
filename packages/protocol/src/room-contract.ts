@@ -119,7 +119,7 @@ export const roomCreateSchema = z
       .optional(),
     /**
      * Whether the sides are open (decided by a coin flip at Start round) or
-     * fixed to the cast's placements (ADR 0143). Omitted: open, unless the
+     * fixed to the cast's placements (ADR 0145). Omitted: open, unless the
      * cast names a debater, whose producer chose the sides (Tab, DEC 4909).
      * A ranked Room's sides are always open.
      */
@@ -210,7 +210,7 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ ...envelope, type: z.literal('leave-seat') }),
   /**
-   * Move one debater (ADR 0143): to a team (null = ?, placed at random at
+   * Move one debater (ADR 0145): to a team (null = ?, placed at random at
    * Start round) and a speaking position within it (null = ?). A member
    * moves themselves; the host moves anyone.
    */
@@ -230,7 +230,7 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('set-sides'),
     teamOneSide: debateSideSchema.nullable(),
   }),
-  /** Who can join, alone, from the page's Room controls (ADR 0143, D9). */
+  /** Who can join, alone, from the page's Room controls (ADR 0145, D9). */
   z.strictObject({
     ...envelope,
     type: z.literal('set-visibility'),
@@ -266,7 +266,7 @@ export type RoomParticipant = {
   readonly kind: 'human' | 'bot';
   readonly label: string;
   readonly consentVersion: number;
-  /** A debater's role is their team's placement until Start round (ADR 0143). */
+  /** A debater's role is their team's placement until Start round (ADR 0145). */
   readonly role: 'affirmative' | 'negative' | 'judge';
   readonly slot: number;
   /** A debater whose team is ?: placed on a team at random at Start round. */
@@ -438,7 +438,7 @@ export type RoomAssemblyState = RoomRoundLink & {
     readonly config: FormatSettings;
   } | null;
   readonly seatHolds: readonly RoomSeatHold[];
-  /** Team 1's side, or null while the sides are open to the coin flip (ADR 0143). */
+  /** Team 1's side, or null while the sides are open to the coin flip (ADR 0145). */
   readonly teamOneSide: DebateSide | null;
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
@@ -476,7 +476,7 @@ type RoomMutation = {
     readonly seed: string;
     readonly inputs: DrawPrivateInputs;
   } | null;
-  /** What a Start round's seat draw did, frozen on its Round (ADR 0143). */
+  /** What a Start round's seat draw did, frozen on its Round (ADR 0145). */
   readonly seatDraw: SeatDraw | null;
   /** The Round's secret seed (hex), stored with it and never delivered; null off Start round. */
   readonly roundSeed: string | null;

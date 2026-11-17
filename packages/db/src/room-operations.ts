@@ -22,7 +22,7 @@ export type NewRoom = {
     readonly presetVersion: number;
   } | null;
   readonly competitionType: CompetitionType;
-  /** Team 1's side, or null for a coin flip at Start round (ADR 0143). */
+  /** Team 1's side, or null for a coin flip at Start round (ADR 0145). */
   readonly teamOneSide: DebateSide | null;
   readonly config: RoomConfig;
   readonly executionPlan: RoomExecutionPlan;

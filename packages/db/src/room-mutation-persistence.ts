@@ -137,7 +137,7 @@ export const persistRoomMutation = async (
         slot: p.slot,
       })),
     );
-    // One seed per Round (ADR 0143): the draw's when it has one, else the seat draw's alone.
+    // One seed per Round (ADR 0145): the draw's when it has one, else the seat draw's alone.
     if (mutation.draw) await insertRoundDraw(tx, roundId, mutation.draw);
     else if (mutation.roundSeed)
       await tx

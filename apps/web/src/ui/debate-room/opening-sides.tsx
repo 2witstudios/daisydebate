@@ -19,7 +19,7 @@ export const speakerLabel = (slot: number) =>
   `${ordinals[slot] ?? `${slot + 1}th`} speaker`;
 
 /**
- * The sides result (ADR 0143), first in the opening and for everyone: who
+ * The sides result (ADR 0145), first in the opening and for everyone: who
  * argues each side, at which speaking position, and which seats were open.
  * Shown alongside the opening, never ahead of it: it times nothing.
  */

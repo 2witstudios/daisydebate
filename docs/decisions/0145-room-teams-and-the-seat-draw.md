@@ -1,4 +1,4 @@
-# 0143: Room teams, open seats and the seat draw
+# 0145: Room teams, open seats and the seat draw
 
 Status: accepted (owner, 2026-11-16). Extends
 [ADR 0058](0058-one-round-model.md)'s Room seats,

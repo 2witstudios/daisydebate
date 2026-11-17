@@ -188,7 +188,7 @@ export function testRoundFloorLive() {
               preRoundPrep: { enabled: true, durationMs: 30_000 },
             },
           },
-          // The host's Affirmative 1 seat argues the Affirmative (ADR 0143).
+          // The host's Affirmative 1 seat argues the Affirmative (ADR 0145).
           sides: 'fixed',
         },
       });

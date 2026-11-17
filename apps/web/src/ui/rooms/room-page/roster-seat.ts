@@ -9,7 +9,7 @@ import {
 } from '@daisy/protocol';
 
 /**
- * What one roster row shows and may change (ADR 0143), derived from the
+ * What one roster row shows and may change (ADR 0145), derived from the
  * Room view alone so the page and its tests read the same rules. A debater's
  * seat is their team's placement until Start round; `?` means open, decided
  * by the draw at Start round.
