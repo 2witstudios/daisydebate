@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { THEME_COOKIE } from '../../src/features/theme/theme-preference';
 import { closeRoom } from './room-launch-flow';
-import { roomViewSchema } from '@daisy/protocol';
+import { affirmativeSide, roomViewSchema } from '@daisy/protocol';
 import { expect, test } from './fixtures';
 import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import {
@@ -37,6 +37,21 @@ export function testMessagesLayout() {
         expect(response.ok()).toBe(true);
         const room = roomViewSchema.parse((await response.json()).view);
         roomId = room.id;
+        // Hosting holds no seat (TAB-6.16): the recipient is in the Room once
+        // they sit in it, and only then does the shell lead them back.
+        const seated = await journey.recipient.request.post(
+          `/api/rooms/${room.id}/commands`,
+          {
+            headers: { origin },
+            data: {
+              type: 'claim-seat',
+              seat: { kind: 'side', side: affirmativeSide, slot: 0 },
+              commandId: createId(),
+              expectedVersion: room.version,
+            },
+          },
+        );
+        expect(seated.status()).toBe(200);
         for (const width of [1440, 1024, 390]) {
           const height = width === 390 ? 844 : 900;
           await page.setViewportSize({ width, height });
