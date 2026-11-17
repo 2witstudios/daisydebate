@@ -3,7 +3,12 @@ import { validRules, publicLobbyId } from '@daisy/db/testing';
 import { foundationSettings } from '@daisy/db/reference-formats';
 import { SQL } from 'bun';
 import { z } from 'zod';
-import { affirmativeSide, idSchema, negativeSide } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  emptyRuntimeCheckpointFor,
+  idSchema,
+  negativeSide,
+} from '@daisy/protocol';
 import { betaAccessTarget } from './beta-access-target';
 
 const command = z
@@ -56,9 +61,12 @@ try {
       const [clock] =
         await tx`select clock_timestamp()-interval '10 minutes' as started,clock_timestamp()-interval '5 minutes' as ended`;
       await tx`insert into rooms ${tx({ id: roomId, lobby_id: publicLobbyId, host_actor_id: affirmative.actorId, title: 'Requested analysis proof', topic: 'Public transit improves access', visibility: 'public', format_id: format.id, format_version: format.version, competition_type: 'casual', config: foundationSettings, execution_plan: { preRoundPrep: { enabled: false }, resolutionDraw: { enabled: false } }, rules_snapshot: validRules, status: 'started' })}`;
-      await tx`insert into rounds ${tx({ id: roundId, room_id: roomId, created_by_actor_id: affirmative.actorId, resolution: 'Public transit improves access', visibility: 'public', format_id: format.id, format_version: format.version, competition_type: 'casual', room_config_snapshot: foundationSettings, rules_snapshot: validRules, status: 'completed', winning_side: affirmativeSide, started_at: clock.started, completed_at: clock.ended, final_segment_ended_at: clock.ended, transcript_admission_cutoff: new Date(clock.ended.getTime() + 120_000), attendance_resolution_cutoff_at: new Date(clock.ended.getTime() + 3_600_000) })}`;
+      await tx`insert into rounds ${tx({ id: roundId, room_id: roomId, created_by_actor_id: affirmative.actorId, resolution: 'Public transit improves access', visibility: 'public', format_id: format.id, format_version: format.version, competition_type: 'casual', room_config_snapshot: foundationSettings, rules_snapshot: validRules, runtime_state: emptyRuntimeCheckpointFor(validRules), status: 'active', current_stage: 'live', started_at: clock.started })}`;
       const affSeat = createId();
       await tx`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot) values (${affSeat},${roundId},${affirmative.actorId},'side',${affirmativeSide},0),(${createId()},${roundId},${negative.actorId},'side',${negativeSide},0)`;
+      // The cast is seated while the Round is constructed, then it completes
+      // (round_participants_fixed_cast).
+      await tx`update rounds set ${tx({ status: 'completed', current_stage: null, winning_side: affirmativeSide, completed_at: clock.ended, final_segment_ended_at: clock.ended, transcript_admission_cutoff: new Date(clock.ended.getTime() + 120_000), attendance_resolution_cutoff_at: new Date(clock.ended.getTime() + 3_600_000) })} where id=${roundId}`;
       const segmentId = createId();
       await tx`insert into round_segments(id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms) values (${segmentId},${roundId},0,'speech','AC',${clock.started},${clock.ended},300000)`;
       await tx`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values (${createId()},${roundId},${segmentId},${affSeat},0,'Free transit improves access.')`;

@@ -20,9 +20,9 @@ const seed = (username: string, ...options: readonly string[]) =>
         ...options,
       ],
       { timeout: 20000 },
-      (error, stdout) =>
+      (error, stdout, stderr) =>
         error
-          ? reject(new Error('Audience setup refused'))
+          ? reject(new Error(`Audience setup refused: ${stderr}`))
           : resolve(JSON.parse(stdout) as { roundId: string }),
     ),
   );
@@ -101,6 +101,7 @@ test('anyone in the live room is told why they cannot post, with no script', asy
     const { roundId } = await seed(
       debater.username,
       'held',
+      'judged',
       `host=${host.username}`,
     );
     const here = `/audience/${roundId}`;
@@ -112,7 +113,7 @@ test('anyone in the live room is told why they cannot post, with no script', asy
     // A form rendered before they took a seat is refused, and stores nothing.
     await debaterPage.goto(here);
     await debaterPage.getByLabel('Your message').fill('A draft');
-    await seed('seat', debater.username, roundId, 'affirmative');
+    await seed('seat', debater.username, roundId);
     await debaterPage.getByRole('button', { name: 'Post' }).click();
     await expect(debaterPage.getByText(LIVE_ROOM_COPY)).toBeVisible();
     await expect(debaterPage.getByRole('textbox')).toHaveCount(0);
