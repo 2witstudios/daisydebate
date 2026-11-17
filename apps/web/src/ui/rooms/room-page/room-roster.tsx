@@ -449,7 +449,7 @@ function Row({
               teams={teams}
             />
           ) : null}
-          <div className="flex justify-end">
+          <div className="flex justify-end room-roster-action empty:hidden">
             {named &&
             view.capabilities.host &&
             named.actorId !== props.viewer.actorId ? (
