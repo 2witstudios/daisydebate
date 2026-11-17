@@ -30,7 +30,11 @@ import {
   memberHttpBoundary,
   runEvaluatedRoute,
 } from '../../server/member-boundary';
-import { consumeOrThrow, readLimiterDecision } from '../../server/rate-limit';
+import {
+  consumeOrThrow,
+  readLimiterDecision,
+  retryAfterHeaders,
+} from '../../server/rate-limit';
 import { CLIENT_ID_HASH_HEADER } from '../auth/abuse/client-ip';
 import { intakeProfilePhoto, PHOTO_UPLOAD_RULE } from './photo/intake';
 import { photoObjectKey } from './photo/object-keys';
@@ -123,22 +127,16 @@ export function composePublicProfileRoutes(app: App) {
     request: Request,
   ): Promise<
     | { readonly allowed: true }
-    | { readonly allowed: false; readonly retryAfterSeconds: number }
+    | { readonly allowed: false; readonly retryAfterSeconds: unknown }
   > => {
     const client = request.headers.get(CLIENT_ID_HASH_HEADER) ?? 'unknown';
     try {
       const decision = readLimiterDecision(
         await app.limiter.consume(`profile-photo-image:${client}`, IMAGE_RULE),
       );
-      if (decision.allowed) return { allowed: true };
-      const retry = Number(decision.retryAfterSeconds);
-      return {
-        allowed: false,
-        retryAfterSeconds:
-          Number.isSafeInteger(retry) && retry > 0
-            ? retry
-            : IMAGE_RULE.windowSeconds,
-      };
+      return decision.allowed
+        ? { allowed: true }
+        : { allowed: false, retryAfterSeconds: decision.retryAfterSeconds };
     } catch {
       const at = Date.parse(app.clock.now());
       if (at - budgetOutageLoggedAt >= 60_000) {
@@ -316,7 +314,7 @@ export function composePublicProfileRoutes(app: App) {
           status: 429,
           headers: {
             'cache-control': 'no-store',
-            'retry-after': String(budget.retryAfterSeconds),
+            ...retryAfterHeaders(budget.retryAfterSeconds),
           },
         });
       try {

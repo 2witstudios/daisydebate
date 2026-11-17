@@ -25,7 +25,8 @@ export type PhotoDeletionStore = {
   }) => Promise<readonly PhotoDeletion[]>;
   readonly complete: (photoId: string) => Promise<void>;
   readonly defer: (photoId: string, retryAt: string) => Promise<void>;
-  readonly owed: () => Promise<number>;
+  /** The backlog at `now`, the pass's own clock, so due and owed agree. */
+  readonly owed: (now: string) => Promise<number>;
 };
 
 /**
@@ -57,7 +58,7 @@ export async function sweepPhotoDeletions(
       retried += 1;
     }
   }
-  return { deleted, retried, owed: await store.owed() };
+  return { deleted, retried, owed: await store.owed(now) };
 }
 
 /**

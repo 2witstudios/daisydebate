@@ -20,8 +20,13 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
     await tx.execute(
       sql`delete from member_profiles where actor_id = ${actorId}`,
     );
+    // An upload in flight keeps its reservation: its objects may still be
+    // landing, so the sweep must not delete the prefix before they have.
     await tx.execute(sql`update profile_photos set status = 'erased',
-        ended_at = ${now}::timestamptz, delete_after = ${now}::timestamptz,
+        ended_at = coalesce(ended_at, ${now}::timestamptz),
+        delete_after = case when status = 'uploading'
+          then greatest(delete_after, ${now}::timestamptz)
+          else ${now}::timestamptz end,
         version = version + 1
       where actor_id = ${actorId}
         and (ended_at is null or status = 'uploading')`);

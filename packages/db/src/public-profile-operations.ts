@@ -103,11 +103,13 @@ export async function lockLivePhotos(tx: Tx, actorId: string, alsoId?: string) {
 
 /**
  * When a field's text changed: the database clock at this statement, after
- * any lock it waited for (not the transaction's start), in milliseconds, the
- * precision a report's `resolved_at` has. A change committed after a
- * resolution is then always later than it.
+ * any lock it waited for (not the transaction's start), rounded up to the
+ * next millisecond, since a report's `resolved_at` is stored to the
+ * millisecond rounded down. A change committed after a resolution is then
+ * always later than it; one within the same millisecond before it may count
+ * as after, which only lets a repeat report through.
  */
-export const changedNow = sql`date_trunc('milliseconds', clock_timestamp())`;
+export const changedNow = sql`date_trunc('milliseconds', clock_timestamp()) + interval '1 millisecond'`;
 
 /** Ends live photos: their image is owed deletion from `now`. */
 const endPhotos = (
@@ -244,8 +246,9 @@ export const publicProfileOperations = ({
   /**
    * Makes a reserved photo live once its objects are stored. A photo in
    * review withdraws the member's earlier one in review and leaves the
-   * published one showing; a published photo withdraws both. A reservation
-   * the sweep already took, or someone else's, is a conflict.
+   * published one showing; a published photo withdraws both. A lapsed
+   * reservation (the sweep may be deleting its objects), one the sweep already
+   * took, or someone else's, is a conflict: the member uploads again.
    */
   recordProfilePhoto: (
     scope: Scope,
@@ -278,7 +281,7 @@ export const publicProfileOperations = ({
               decided_at = ${input.status === 'published' ? input.now : null}::timestamptz,
               version = version + 1
             where id = ${input.photoId} and actor_id = ${scope.actorId}
-              and status = 'uploading'
+              and status = 'uploading' and delete_after > ${input.now}::timestamptz
             returning id`,
         );
         if (made.length !== 1) throw createAppError('CONFLICT');
@@ -447,7 +450,7 @@ export const publicProfileOperations = ({
     }),
 
   /** How many image deletions are owed, due or not: the sweep's backlog. */
-  owedPhotoDeletions: () =>
+  owedPhotoDeletions: (now: string) =>
     instrumented(eventSink, 'owedPhotoDeletions', async () => {
       const [row] = await rowsOf<{ owed: number }>(
         database,
@@ -455,7 +458,7 @@ export const publicProfileOperations = ({
         // would hold the worker 'waiting' while members upload.
         sql`select count(*)::int as owed from profile_photos
           where ended_at is not null
-            and (status <> 'uploading' or delete_after <= now())`,
+            and (status <> 'uploading' or delete_after <= ${now}::timestamptz)`,
       );
       return row?.owed ?? 0;
     }),

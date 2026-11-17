@@ -637,15 +637,20 @@ test('a text change waiting on a lock is timed after the lock is released', asyn
     const holder = new SQL(databaseUrl, { max: 1 });
     try {
       let releasedAt = '';
+      let locked: () => void = () => undefined;
+      const hasLock = new Promise<void>((resolve) => {
+        locked = resolve;
+      });
       const held = holder.begin(async (tx) => {
         await tx`select 1 from member_profiles where actor_id = ${context.member.actorId} for update`;
+        locked();
         await Bun.sleep(150);
         const [row] = await tx`select clock_timestamp() as at`;
         releasedAt = new Date(row.at).toISOString();
       });
-      await Bun.sleep(30);
-      // Starts while the holder has the row: its transaction begins earlier
-      // than the holder's release, its statement runs after it.
+      // Only once the holder has the row does the write start: its
+      // transaction begins before the release, its statement runs after it.
+      await hasLock;
       const write = context.profiles.writePublicProfileText(
         context.member,
         { profileId: createId(), displayName: 'After', bio: null, now },
@@ -664,5 +669,58 @@ test('a text change waiting on a lock is timed after the lock is released', asyn
     } finally {
       await holder.close();
     }
+  });
+});
+
+test('an erased upload keeps its reservation, and a lapsed one never records', async () => {
+  await withProfiles(async (context) => {
+    const reserve = (photoId: string, deleteAfter: string) =>
+      context.profiles.reserveProfilePhoto(
+        context.member,
+        {
+          photoId,
+          objectPrefix: `profile-photos/${photoId}`,
+          checkVerdict: null,
+          now,
+          deleteAfter,
+        },
+        unfenced,
+      );
+    const lapsed = createId();
+    await reserve(lapsed, '2026-11-16T09:00:00.000Z');
+    await assertRejects({
+      given: 'a record of a reservation that already lapsed',
+      should:
+        'conflict, so a sweep deleting its objects cannot leave a live photo without an image',
+      actual: () =>
+        context.profiles.recordProfilePhoto(
+          context.member,
+          { photoId: lapsed, status: 'published', now },
+          unfenced,
+        ),
+      code: 'CONFLICT',
+    });
+    const inFlight = createId();
+    await reserve(inFlight, '2026-11-16T11:00:00.000Z');
+    await context.database.transaction((tx) =>
+      publicProfilePrivacyAdopter.erase(tx as never, context.member, { now }),
+    );
+    const due = async (at: string) =>
+      (await context.profiles.duePhotoDeletions({ now: at, limit: 500 }))
+        .map((photo) => photo.photoId)
+        .includes(inFlight);
+    const [row] =
+      await context.client`select status from profile_photos where id = ${inFlight}`;
+    assert({
+      given: 'an account erased while one of its uploads is in flight',
+      should:
+        'end it as erased but keep it from the sweep until its reservation lapses',
+      actual: {
+        status: row.status,
+        dueNow: await due(now),
+        dueAfter: await due('2026-11-16T11:00:00.000Z'),
+      },
+      expected: { status: 'erased', dueNow: false, dueAfter: true },
+    });
   });
 });

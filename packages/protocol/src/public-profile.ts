@@ -242,16 +242,20 @@ const operatorMoves = {
 /**
  * The photo lifecycle, total over status × event. A repeat of the command that
  * put a photo where it is answers `unchanged`; anything else from a terminal
- * status is refused, except erasure, which only ever ends a live photo.
+ * status is refused, except erasure, which ends a live photo or an upload in
+ * flight.
  */
 export function profilePhotoTransition(
   status: ProfilePhotoStatus,
   event: ProfilePhotoEvent,
 ): ProfilePhotoTransition {
-  if (event === 'withdraw' || event === 'erase')
-    return isProfilePhotoTerminal(status)
-      ? unchanged
-      : moved(event === 'withdraw' ? 'withdrawn' : 'erased');
+  // Erasure ends an upload in flight too; a withdrawal has none to end.
+  if (event === 'erase')
+    return status === 'uploading' || !isProfilePhotoTerminal(status)
+      ? moved('erased')
+      : unchanged;
+  if (event === 'withdraw')
+    return isProfilePhotoTerminal(status) ? unchanged : moved('withdrawn');
   const move = operatorMoves[event];
   if (status === move.from) return moved(move.to);
   return status === move.to ? unchanged : refused;

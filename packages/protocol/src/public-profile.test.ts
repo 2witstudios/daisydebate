@@ -179,7 +179,7 @@ describe('profilePhotoTransition', () => {
       should: 'move along the lifecycle, repeat as unchanged, refuse the rest',
       actual: table,
       expected: {
-        uploading: ['refused', 'refused', 'refused', 'unchanged', 'unchanged'],
+        uploading: ['refused', 'refused', 'refused', 'unchanged', 'erased'],
         in_review: ['published', 'rejected', 'refused', 'withdrawn', 'erased'],
         published: ['unchanged', 'refused', 'removed', 'withdrawn', 'erased'],
         rejected: ['refused', 'unchanged', 'refused', 'unchanged', 'unchanged'],

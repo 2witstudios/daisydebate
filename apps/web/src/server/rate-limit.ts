@@ -54,6 +54,18 @@ export const readLimiterDecision = (decision: unknown) => {
 };
 
 /**
+ * A limiter's wait as a Retry-After header: a valid hint is rounded up to
+ * whole seconds; an invalid one (NaN, negative, non-finite, not a number)
+ * omits the header rather than advertising a made-up wait.
+ */
+export const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
+  typeof retryAfterSeconds === 'number' &&
+  Number.isFinite(retryAfterSeconds) &&
+  retryAfterSeconds >= 0
+    ? { 'Retry-After': String(Math.ceil(retryAfterSeconds)) }
+    : {};
+
+/**
  * The single-bucket atomic-limit gate a route runs before its durable work:
  * consume one decision, fail closed with `INFRASTRUCTURE` on outage or a
  * malformed answer, and refuse with `RATE_LIMIT` when denied. Callers with
