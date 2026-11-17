@@ -5,7 +5,7 @@ import {
   drawOverrideSchema,
 } from '@daisy/protocol/lobby/draw-command';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import {
   formValues,
   refusedWith,

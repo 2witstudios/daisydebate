@@ -3,6 +3,7 @@ import type {
   EventBallotView,
   JudgeBallotView,
 } from '@daisy/protocol/lobby/ballot-read';
+import { isScoreOnScale } from '@daisy/protocol';
 import { linkTo, type TabAction } from './action';
 import { hostRoutes } from './routes';
 import { lockedSetting, type ResolvedSetting } from './settings';
@@ -181,8 +182,11 @@ function pinnedBallotParts(
   ];
 }
 
-/** The settings preview's prelim, drawn with sample names. */
-const preview: BallotSettings['preview'] = {
+/**
+ * The settings preview's prelim, drawn with sample names. Every ballot
+ * settings screen previews with these, the walk's and the stored event's.
+ */
+export const sampleBallotPreview: BallotSettings['preview'] = {
   lede: 'A prelim round, with sample names',
   subjects: [
     { id: 'jensen', name: 'Jensen', role: 'Affirmative' },
@@ -190,6 +194,28 @@ const preview: BallotSettings['preview'] = {
   ],
   draft: { winner: 'jensen', points: { jensen: 28.5, doyle: 27 }, reason: '' },
 };
+
+/**
+ * A preview's sample answers, fitted to the definition it draws: a sample
+ * score off that definition's scale or step reads as its default instead,
+ * so a 1 to 10 ballot never shows a 28.5.
+ */
+export function previewDraftOn(
+  definition: BallotDefinition,
+  draft: BallotDraft,
+): BallotDraft {
+  const points = definition.points;
+  if (points === null) return draft;
+  return {
+    ...draft,
+    points: Object.fromEntries(
+      Object.entries(draft.points).map(([key, value]) => [
+        key,
+        isScoreOnScale(value, points.scale) ? value : points.default,
+      ]),
+    ),
+  };
+}
 
 /** A host's ballot settings screen for one event. */
 export function ballotSettingsOf(
@@ -237,7 +263,7 @@ export function ballotSettingsOf(
       },
     ],
     definition,
-    preview,
+    preview: sampleBallotPreview,
   };
 }
 

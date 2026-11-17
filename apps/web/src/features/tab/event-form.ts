@@ -9,7 +9,7 @@ import {
   eventPinOptionSchema,
   eventResolutionChoiceSchema,
 } from '@daisy/protocol/lobby/host-events-read';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import {
   formValues,
   refusedWith,

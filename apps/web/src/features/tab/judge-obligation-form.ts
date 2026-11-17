@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import {
   field,
   idle,

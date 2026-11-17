@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { organizationCommandEnvelopeSchema } from '@daisy/protocol/lobby/organization-command';
 import { peopleCommandResult } from './people-command-result';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import {
   field,
   idle,

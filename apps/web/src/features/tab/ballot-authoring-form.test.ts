@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { postedForm } from '../../lib/testing/posted-form';
+import { ballotBodyFromForm } from './ballot-body-form';
 import {
-  ballotBodyFromForm,
   publishBallotEnvelope,
   pinBallotEnvelope,
   screeningBallotEnvelope,

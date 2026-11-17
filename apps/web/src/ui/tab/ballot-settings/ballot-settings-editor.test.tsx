@@ -64,7 +64,8 @@ describe('BallotSettingsEditor', () => {
 
   test('the settings sit in the right-hand column', () => {
     const html = render();
-    const form = /<form[^>]*class="([^"]*)"/.exec(html)?.[1] ?? '';
+    const column =
+      /<div class="([^"]*\bw-host-aside\b[^"]*)"><form/.exec(html)?.[1] ?? '';
     const preview =
       /<section aria-label="Preview of the judge&#x27;s ballot" class="([^"]*)"/.exec(
         html,
@@ -72,11 +73,11 @@ describe('BallotSettingsEditor', () => {
     assert({
       given: 'the two columns',
       should:
-        'give the ballot the flexible width and the settings the fixed side column, stacking below the rail breakpoint',
+        'give the ballot the flexible width and the settings form the fixed side column, stacking below the rail breakpoint',
       actual: [
         preview.includes('flex-1'),
-        form.includes('w-host-aside'),
-        form.includes('max-rail:w-full'),
+        column.includes('w-host-aside'),
+        column.includes('max-rail:w-full'),
       ],
       expected: [true, true, true],
     });
