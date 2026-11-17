@@ -650,7 +650,9 @@ test('a text change waiting on a lock is timed after the lock is released', asyn
       });
       // Only once the holder has the row does the write start: its
       // transaction begins before the release, its statement runs after it.
-      await hasLock;
+      // A holder that fails before taking the lock fails the test with its
+      // own error instead of leaving this wait hanging.
+      await Promise.race([hasLock, held]);
       const write = context.profiles.writePublicProfileText(
         context.member,
         { profileId: createId(), displayName: 'After', bio: null, now },
@@ -687,9 +689,11 @@ test('an erased upload keeps its reservation, and a lapsed one never records', a
         unfenced,
       );
     const lapsed = createId();
-    await reserve(lapsed, '2026-11-16T09:00:00.000Z');
+    // Four minutes left is inside the record margin: the sweep's clock may
+    // already be past the lapse.
+    await reserve(lapsed, '2026-11-16T10:04:00.000Z');
     await assertRejects({
-      given: 'a record of a reservation that already lapsed',
+      given: 'a record of a reservation within minutes of lapsing',
       should:
         'conflict, so a sweep deleting its objects cannot leave a live photo without an image',
       actual: () =>
@@ -700,6 +704,7 @@ test('an erased upload keeps its reservation, and a lapsed one never records', a
         ),
       code: 'CONFLICT',
     });
+    const owedBefore = await context.profiles.owedPhotoDeletions(now);
     const inFlight = createId();
     await reserve(inFlight, '2026-11-16T11:00:00.000Z');
     await context.database.transaction((tx) =>
@@ -718,9 +723,16 @@ test('an erased upload keeps its reservation, and a lapsed one never records', a
       actual: {
         status: row.status,
         dueNow: await due(now),
+        owedAdded:
+          (await context.profiles.owedPhotoDeletions(now)) - owedBefore,
         dueAfter: await due('2026-11-16T11:00:00.000Z'),
       },
-      expected: { status: 'erased', dueNow: false, dueAfter: true },
+      expected: {
+        status: 'erased',
+        dueNow: false,
+        owedAdded: 0,
+        dueAfter: true,
+      },
     });
   });
 });

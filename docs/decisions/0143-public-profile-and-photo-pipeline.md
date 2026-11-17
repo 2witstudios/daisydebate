@@ -54,7 +54,11 @@ pipeline, and no username change for now.
    writes its row first, as `uploading` and owing its deletion an hour later,
    then stores its objects, then is recorded live; an upload that fails at any
    step is deleted by the same sweep, so no stored object is ever without a
-   row, and no failure path deletes an image a live row may show. Member
+   row, and no failure path deletes an image a live row may show. Recording
+   stops five minutes before a reservation lapses, so a sweep on a clock that
+   runs ahead cannot delete the images of a photo just made live. One residual
+   is accepted: a single write that stalls for over an hour, past its
+   reservation and the sweep, could still land an object with no row. Member
    writes and operator commands lock a member's photos in the same order, so
    they never deadlock.
 5. **Photos are served through the application.** The bucket is private.

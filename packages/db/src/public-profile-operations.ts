@@ -111,6 +111,13 @@ export async function lockLivePhotos(tx: Tx, actorId: string, alsoId?: string) {
  */
 export const changedNow = sql`date_trunc('milliseconds', clock_timestamp()) + interval '1 millisecond'`;
 
+/**
+ * How close to its lapse a reservation may still be recorded: the web
+ * instance that records and the worker that sweeps read different clocks,
+ * so recording stops this far before the sweep may take the row.
+ */
+export const RECORD_MARGIN_SECONDS = 300;
+
 /** Ends live photos: their image is owed deletion from `now`. */
 const endPhotos = (
   tx: Tx,
@@ -281,7 +288,8 @@ export const publicProfileOperations = ({
               decided_at = ${input.status === 'published' ? input.now : null}::timestamptz,
               version = version + 1
             where id = ${input.photoId} and actor_id = ${scope.actorId}
-              and status = 'uploading' and delete_after > ${input.now}::timestamptz
+              and status = 'uploading'
+              and delete_after > ${input.now}::timestamptz + ${`${RECORD_MARGIN_SECONDS} seconds`}::interval
             returning id`,
         );
         if (made.length !== 1) throw createAppError('CONFLICT');
@@ -454,11 +462,12 @@ export const publicProfileOperations = ({
     instrumented(eventSink, 'owedPhotoDeletions', async () => {
       const [row] = await rowsOf<{ owed: number }>(
         database,
-        // An upload still within its reservation is not owed yet: counting it
-        // would hold the worker 'waiting' while members upload.
+        // Owed: due now, or already tried and deferred. A reservation not yet
+        // due (an upload in flight, or one its account's erasure ended) is
+        // not owed: counting it would hold the worker 'waiting' meanwhile.
         sql`select count(*)::int as owed from profile_photos
           where ended_at is not null
-            and (status <> 'uploading' or delete_after <= ${now}::timestamptz)`,
+            and (delete_after <= ${now}::timestamptz or delete_attempts > 0)`,
       );
       return row?.owed ?? 0;
     }),

@@ -10,9 +10,11 @@ const photo = (n: number) => ({
 });
 
 const fakeStore = () => {
+  const owedAt: string[] = [];
   const completed: string[] = [];
   const deferred: [string, string][] = [];
   return {
+    owedAt,
     completed,
     deferred,
     store: {
@@ -23,7 +25,10 @@ const fakeStore = () => {
       defer: async (id: string, at: string) => {
         deferred.push([id, at]);
       },
-      owed: async () => 7,
+      owed: async (at: string) => {
+        owedAt.push(at);
+        return 7;
+      },
     },
   };
 };
@@ -48,12 +53,14 @@ test('the sweep deletes images before rows and defers failures', async () => {
       removed,
       completed: fake.completed,
       deferred: fake.deferred,
+      owedAt: fake.owedAt,
     },
     expected: {
       result: { deleted: 1, retried: 1, owed: 7 },
       removed: [photo(2).objectPrefix],
       completed: [photo(2).photoId],
       deferred: [[photo(1).photoId, photoDeletionRetryAt(now, 1)]],
+      owedAt: [now],
     },
   });
 });

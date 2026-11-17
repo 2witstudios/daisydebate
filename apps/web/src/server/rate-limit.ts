@@ -58,7 +58,9 @@ export const readLimiterDecision = (decision: unknown) => {
  * whole seconds; an invalid one (NaN, negative, non-finite, not a number)
  * omits the header rather than advertising a made-up wait.
  */
-export const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
+export const retryAfterHeaders = (
+  retryAfterSeconds: unknown,
+): Record<string, string> =>
   typeof retryAfterSeconds === 'number' &&
   Number.isFinite(retryAfterSeconds) &&
   retryAfterSeconds >= 0

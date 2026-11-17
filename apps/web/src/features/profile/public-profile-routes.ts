@@ -125,18 +125,15 @@ export function composePublicProfileRoutes(app: App) {
    */
   const imageBudget = async (
     request: Request,
-  ): Promise<
-    | { readonly allowed: true }
-    | { readonly allowed: false; readonly retryAfterSeconds: unknown }
-  > => {
+  ): Promise<{
+    readonly allowed: boolean;
+    readonly retryAfterSeconds: unknown;
+  }> => {
     const client = request.headers.get(CLIENT_ID_HASH_HEADER) ?? 'unknown';
     try {
-      const decision = readLimiterDecision(
+      return readLimiterDecision(
         await app.limiter.consume(`profile-photo-image:${client}`, IMAGE_RULE),
       );
-      return decision.allowed
-        ? { allowed: true }
-        : { allowed: false, retryAfterSeconds: decision.retryAfterSeconds };
     } catch {
       const at = Date.parse(app.clock.now());
       if (at - budgetOutageLoggedAt >= 60_000) {
@@ -147,7 +144,7 @@ export function composePublicProfileRoutes(app: App) {
           'Profile photo budget unavailable; serving without it',
         );
       }
-      return { allowed: true };
+      return { allowed: true, retryAfterSeconds: null };
     }
   };
 
@@ -314,7 +311,13 @@ export function composePublicProfileRoutes(app: App) {
           status: 429,
           headers: {
             'cache-control': 'no-store',
-            ...retryAfterHeaders(budget.retryAfterSeconds),
+            // Never tell a refused client to retry at once.
+            ...retryAfterHeaders(
+              typeof budget.retryAfterSeconds === 'number' &&
+                budget.retryAfterSeconds > 0
+                ? budget.retryAfterSeconds
+                : IMAGE_RULE.windowSeconds,
+            ),
           },
         });
       try {
