@@ -58,6 +58,7 @@ export type RecordingCaptureEvent =
   | 'recording.egress.start_lost'
   | 'recording.verification_refused'
   | 'recording.egress.stop_failed'
+  | 'recording.egress.settled_absent'
   | 'recording.observer.restore_failed'
   | 'recording.observer.revoke_retry_failed'
   | 'recording.processing_delayed';
@@ -295,13 +296,20 @@ export const createRecordingCaptureSweep = (deps: {
             if (
               observation.kind === 'complete' ||
               observation.kind === 'failed'
-            )
-              await store.settleOwnEgressAttempt({
+            ) {
+              const settled = await store.settleOwnEgressAttempt({
                 recordingId,
                 generation: own.attempt,
                 egressId: own.egressId,
                 observation,
               });
+              if (
+                settled &&
+                observation.kind === 'failed' &&
+                observation.reason === 'not_found'
+              )
+                deps.report('recording.egress.settled_absent');
+            }
           },
           () => deps.report('recording.egress.stop_failed'),
         );

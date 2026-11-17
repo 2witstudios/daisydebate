@@ -15,7 +15,12 @@ const REVOCATION_AHEAD_MS = 0;
 export type StageEgressFact =
   | { readonly kind: 'none' }
   | { readonly kind: 'starting' | 'active'; readonly id: string }
-  | { readonly kind: 'failed'; readonly id: string }
+  | {
+      readonly kind: 'failed';
+      readonly id: string;
+      /** The vendor no longer knows this Egress: it ended long ago. */
+      readonly reason?: 'not_found';
+    }
   | { readonly kind: 'complete' }
   | { readonly kind: 'unresolved'; readonly id: string };
 
