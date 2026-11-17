@@ -139,18 +139,24 @@ describe('room lobby waiting list', () => {
 });
 
 describe('room lobby labels', () => {
-  test('the status line counts filled seats while the room sets up', () => {
+  test('the status line counts filled seats until Start', () => {
     assert({
       given:
-        'an assembling one-on-one room with nobody seated, then a started room',
+        'an assembling one-on-one room with nobody seated, the same room with every seat filled, then a started and a closed room',
       should:
-        'name the status in plain words and count seats only while setting up',
+        'count seats before Start, never say it is ready to start, and name the status after',
       actual: [
         roomStatus(oneOnOne),
+        roomStatus({ ...oneOnOne, status: 'ready' }),
         roomStatus({ ...assemblySnapshot, status: 'started' }),
         roomStatus({ ...assemblySnapshot, status: 'closed' }),
       ],
-      expected: ['Setting up · 0 of 3 seats filled', 'In progress', 'Closed'],
+      expected: [
+        '0 of 3 seats filled',
+        '0 of 3 seats filled',
+        'In progress',
+        'Closed',
+      ],
     });
   });
 
@@ -172,12 +178,8 @@ describe('room lobby labels', () => {
         }),
       ],
       expected: [
-        [
-          'Hosted by Maya',
-          'Anyone with the link',
-          'Casual · ratings don’t change',
-        ],
-        ['Listed in the lobby', 'Ranked · counts toward ratings'],
+        ['Hosted by Maya', 'Anyone with the link', 'Casual'],
+        ['Listed in the lobby', 'Ranked'],
       ],
     });
   });
@@ -282,10 +284,7 @@ describe('room lobby labels', () => {
       expected: [
         ['Interruptions', 'During any speech'],
         ['Protected end of each speech', '0:30'],
-        [
-          'Ending a speech early',
-          'On — unused time goes back to that side’s prep time, when prep time is on',
-        ],
+        ['Ending a speech early', 'On · time back to prep'],
       ],
     });
   });

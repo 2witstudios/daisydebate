@@ -53,8 +53,8 @@ test('the room name is the page title, with status and meta lines and no badges'
       'title the page with the room name, say status and meta in words, offer invite, and leave Leave seat to the roster row and settings to Edit settings (ADR 0145)',
     actual: [
       byText(tree, 'h1', seated.title)?.type,
-      html.includes('Setting up · 1 of 6 seats filled'),
-      html.includes('Casual · ratings don’t change'),
+      html.includes('1 of 6 seats filled'),
+      html.includes('Casual'),
       html.includes(seated.topic),
       findElements(tree, (element) => element.type === RoomInvite)[0]?.props
         .label,

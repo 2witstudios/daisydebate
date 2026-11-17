@@ -98,16 +98,18 @@ export function roomStatus(
     readonly definition: Pick<RoomView['definition'], 'seats'>;
   },
 ): string {
-  const status = roomStatusLabels[view.status];
-  if (view.status !== 'assembling') return status;
+  // Before Start, the seats say where the Room is; Start round is the host's
+  // button under their tile, not a status.
+  if (view.status !== 'assembling' && view.status !== 'ready')
+    return roomStatusLabels[view.status];
   const { affirmative, negative, judge } = view.definition.seats;
   const seats = affirmative + negative + judge;
-  return `${status} · ${view.participants.length} of ${seats} seats filled`;
+  return `${view.participants.length} of ${seats} seats filled`;
 }
 
 const competitionLabels = {
-  ranked: 'Ranked · counts toward ratings',
-  casual: 'Casual · ratings don’t change',
+  ranked: 'Ranked',
+  casual: 'Casual',
 } as const;
 
 /** Host, who can join, and whether the result is ranked: the header's meta line. */

@@ -4,7 +4,8 @@ export type ContextChatLabels = {
   readonly region: string;
   readonly heading: string;
   /** Who reads this chat, under the heading. */
-  readonly audience: string;
+  /** Who reads the thread, under its heading; null when the page says so already. */
+  readonly audience: string | null;
   /** The composer's accessible name and placeholder. */
   readonly composer: string;
   /**

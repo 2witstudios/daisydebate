@@ -12,7 +12,7 @@ export type RoomChatProps = Omit<ContextChatProps, 'ownerId'> & {
 const labels: ContextChatLabels = {
   region: 'Room chat',
   heading: 'Room chat',
-  audience: 'Everyone in the room',
+  audience: null,
   composer: 'Message everyone in the room',
   readOnly: {
     notice: 'Judges read this chat but don’t post in it.',

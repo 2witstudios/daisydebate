@@ -121,6 +121,12 @@ function LiveDevices({
     }
   };
   const own = ownSeat(props.view, props.actorId);
+  // Before the first Turn on there is nothing to pick: the tile is only the
+  // preview and its button.
+  const tried =
+    snapshot.camera.status !== 'unchecked' ||
+    snapshot.microphone.status !== 'unchecked' ||
+    inputs.length > 0;
   return (
     <GatheringLayout
       props={props}
@@ -138,24 +144,22 @@ function LiveDevices({
             snapshot={snapshot}
             label={own?.label ?? ''}
           />
-          <div className="grid grid-cols-2 gap-3 max-tiny:grid-cols-1">
-            {(['microphone', 'camera'] as const).map((kind) => (
-              <DeviceChoice
-                key={kind}
-                kind={kind}
-                devices={devices}
-                snapshot={snapshot}
-                inputs={inputs}
-                check={(next) => void check(next)}
-              />
-            ))}
-          </div>
+          {tried ? (
+            <div className="grid grid-cols-2 gap-2 max-tiny:grid-cols-1">
+              {(['camera', 'microphone'] as const).map((kind) => (
+                <DeviceChoice
+                  key={kind}
+                  kind={kind}
+                  devices={devices}
+                  snapshot={snapshot}
+                  inputs={inputs}
+                />
+              ))}
+            </div>
+          ) : null}
           {local.problem ? (
             <div role="alert" className="flex flex-wrap items-center gap-3">
-              <p className="text-sm text-live">
-                We couldn’t confirm that you’re ready, so the round can’t start
-                yet.
-              </p>
+              <p className="text-sm text-live">Ready didn’t go through.</p>
               <button
                 type="button"
                 onClick={() => void consent.retry()}
