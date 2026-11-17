@@ -231,8 +231,10 @@ function Who({
       >
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
-      <p className="flex min-w-0 items-baseline gap-x-2 font-semibold">
-        <span className="truncate" title={seat?.label ?? 'Judge'}>
+      {/* One line while it fits; a narrow column wraps the rating and tags
+          under the name instead of pushing them into the seat boxes. */}
+      <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 font-semibold">
+        <span className="max-w-full truncate" title={seat?.label ?? 'Judge'}>
           {seat?.label ?? 'Judge'}
         </span>
         {seat?.rating ? (
