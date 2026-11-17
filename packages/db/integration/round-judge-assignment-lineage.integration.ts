@@ -602,9 +602,10 @@ test(
   () =>
     withJudgedRound(async ({ sql, f, roundId, actorId }) => {
       await completeOrdinaryForfeit(sql, f, roundId, actorId);
-      // RI triggers fire in trigger-name order, which follows constraint OIDs,
-      // so each database can differ. Re-adding a constraint gives it the
-      // newest OID: its cascade then fires after every other one.
+      // RI triggers fire in trigger-name order (RI_ConstraintTrigger_a_<oid>,
+      // compared as text), so each database can differ. Re-adding a
+      // constraint gives it a new OID; the test reads back which cascade
+      // actually fires last rather than assuming it.
       const fireLast = async (table: string, name: string) => {
         const [constraint] =
           await sql`select pg_get_constraintdef(oid) d from pg_constraint where conname=${name}`;
@@ -629,14 +630,20 @@ test(
         ['round_finalizations', 'round_finalizations_round_id_rounds_id_fkey'],
       ] as const) {
         await fireLast(table, name);
-        orders.push(await deleted());
+        const [last] =
+          await sql`select c.conrelid::regclass::text rel from pg_trigger t join pg_constraint c on c.oid=t.tgconstraint where t.tgrelid='rounds'::regclass and c.conrelid::regclass::text in ('round_finalizations','round_judge_assignments') order by t.tgname desc limit 1`;
+        orders.push(`${last!.rel}: ${await deleted()}`);
       }
       assert({
         given:
           'a forfeited Round with a frozen judge panel, its finalization cascade firing last, then first, then last',
         should: 'delete the Round in every order',
         actual: orders,
-        expected: ['deleted', 'deleted', 'deleted'],
+        expected: [
+          'round_finalizations: deleted',
+          'round_judge_assignments: deleted',
+          'round_finalizations: deleted',
+        ],
       });
       assert({
         given: 'the same Round still present',
