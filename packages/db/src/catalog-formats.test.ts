@@ -28,15 +28,11 @@ describe('catalogFormats', () => {
     });
     assert({
       given: 'the standards',
-      should: 'be exactly Policy, Value and Freestyle (FMT-2b)',
+      should: 'be exactly Freestyle, the one standard (ADR 0142)',
       actual: catalogFormats
         .filter((entry) => entry.role === 'standard')
         .map((entry) => [entry.id, entry.family]),
-      expected: [
-        ['policy', null],
-        ['value', null],
-        ['freestyle', null],
-      ],
+      expected: [['freestyle', null]],
     });
     assert({
       given: 'every league template',

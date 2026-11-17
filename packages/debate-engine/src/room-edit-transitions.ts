@@ -61,8 +61,6 @@ export const updateConfig = (
     formatId: publishDefinition ? edges.formatId : room.formatId,
     formatVersion: publishDefinition ? 1 : room.formatVersion,
     topic,
-    publishedResolutionId:
-      topic === room.topic ? room.publishedResolutionId : null,
   };
   return acceptedRoomMutation(next, { publishDefinition });
 };
@@ -94,15 +92,11 @@ export const selectFormat = (
   const { rules, roomPlan } = decision.resolved;
   if (room.participants.some((p) => !seatExists(rules, p.seat)))
     return refuse('seat-unavailable');
-  const fixedStandard =
-    edges.formatFacts?.format.role === 'standard' &&
-    !roomPlan.resolutionDraw.enabled;
-  const publication = edges.resolutionPublication;
-  const topic = fixedStandard
-    ? publication?.kind === command.formatId && command.topic === undefined
-      ? publication.text
-      : undefined
-    : selectedTopic(room, roomPlan.resolutionDraw.enabled, command.topic);
+  const topic = selectedTopic(
+    room,
+    roomPlan.resolutionDraw.enabled,
+    command.topic,
+  );
   if (topic === undefined) return refuse('illegal-config');
   // The policy refuses role-null facts for `choose`; a reset to a retired
   // basis keeps its pinned provenance but is no longer a standard.
@@ -130,7 +124,6 @@ export const selectFormat = (
     rules,
     executionPlan: roomPlan,
     topic,
-    publishedResolutionId: fixedStandard ? publication!.id : null,
   });
 };
 export const updateDetails = (
@@ -155,7 +148,6 @@ export const updateDetails = (
       ...room,
       title: command.title,
       topic: command.topic ?? null,
-      publishedResolutionId: topicChanged ? null : room.publishedResolutionId,
       visibility: command.visibility,
       ...(publishDefinition
         ? { formatId: edges.formatId, formatVersion: 1 }

@@ -20,7 +20,7 @@ export const walkOnboarding = async (page: Page, destination = '/lobby') => {
   ).toBeVisible();
   await page.getByRole('link', { name: 'Next' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Ranked ladders and custom formats' }),
+    page.getByRole('heading', { name: 'Freestyle and Custom' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Next' }).click();
   await expect(

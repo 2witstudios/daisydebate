@@ -29,6 +29,12 @@ const config: NextConfig = {
       // larger is refused unread instead of at the 1 MB default (ISSUE-79).
       bodySizeLimit: '16kb',
     },
+    // Next 16.4 defaults to spawning `tsc --showConfig` and parsing its
+    // stdout. Under Bun on Linux a child that exits right after writing more
+    // than about 214 KB to a pipe loses the tail, and this project's config
+    // (its full file list) is past that, so CI's build cannot parse it. The
+    // compiler API checks in-process with the same TypeScript package.
+    useTypeScriptCli: false,
   },
   transpilePackages: [
     '@daisy/ai-voice',

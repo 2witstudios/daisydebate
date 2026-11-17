@@ -25,7 +25,7 @@ const ld: SetupEventFact = {
   id: id('ld'),
   name: 'Varsity LD',
   label: 'VLD',
-  formatId: 'value',
+  formatId: 'nsda-ld',
   formatVersion: 1,
   ballotDefinitionId: null,
   ballotDefinitionVersion: null,
@@ -129,7 +129,11 @@ const base: SetupFacts = {
     },
   ],
   formats: [
-    { formatId: 'value', formatVersion: 1, definition: oneOnOneFormatFixture },
+    {
+      formatId: 'nsda-ld',
+      formatVersion: 1,
+      definition: oneOnOneFormatFixture,
+    },
   ],
   ballotDefinitions: [
     {
@@ -149,7 +153,7 @@ const base: SetupFacts = {
   templates: [
     {
       id: id('tmpl'),
-      formatId: 'policy',
+      formatId: 'nsda-policy',
       formatVersion: 3,
       ballotDefinitionId: id('ballot'),
       ballotDefinitionVersion: 1,
@@ -254,7 +258,7 @@ describe('events', () => {
     entry: { kind: 'team', size: 2 },
     pin: {
       kind: 'format',
-      formatId: 'value',
+      formatId: 'nsda-ld',
       formatVersion: 1,
       ballotDefinition: { id: id('ballot'), version: 2 },
     },
@@ -285,7 +289,7 @@ describe('events', () => {
             op: 'insert',
             row: {
               ...row,
-              formatId: 'value',
+              formatId: 'nsda-ld',
               formatVersion: 1,
               ballotDefinitionId: id('ballot'),
               ballotDefinitionVersion: 2,
@@ -300,7 +304,7 @@ describe('events', () => {
             op: 'insert',
             row: {
               ...row,
-              formatId: 'policy',
+              formatId: 'nsda-policy',
               formatVersion: 3,
               ballotDefinitionId: id('ballot'),
               ballotDefinitionVersion: 1,
@@ -365,7 +369,7 @@ describe('events', () => {
             ...add,
             pin: {
               kind: 'format',
-              formatId: 'value',
+              formatId: 'nsda-ld',
               formatVersion: 1,
               ballotDefinition: { id: id('ballot'), version: 3 },
             },

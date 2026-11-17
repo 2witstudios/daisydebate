@@ -102,8 +102,10 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     const choices = (await catalogResponse.json()).choices.map(
       (value: unknown) => roomCatalogChoiceSchema.parse(value),
     );
+    // A league template debates the host's wording, so the Room has a topic
+    // and no strike (ADR 0142); this proof is about delivery, not the draw.
     const choice = choices.find(
-      (value: { formatId: string }) => value.formatId === 'value',
+      (value: { formatId: string }) => value.formatId === 'nsda-ld',
     );
     if (!choice) throw new Error('Canonical Room format producer unavailable');
     const created = await host.request.post('/api/rooms', {
@@ -111,7 +113,10 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
       data: roomCreateSchema.parse({
         commandId: createId(),
         title: 'Realtime isolated proof',
-        resolution: { kind: 'value', id: 'd3qrq2srlk8wpa3qhzefly0y' },
+        resolution: {
+          kind: 'custom',
+          text: 'Resolved: Civil disobedience is justified in a democracy.',
+        },
         visibility: 'unlisted',
         selection: {
           kind: 'catalog',

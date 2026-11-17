@@ -19,17 +19,16 @@ const families: readonly Family[] = ['policy', 'value', 'parli', 'other'];
 const bySortOrder = <T extends CatalogEntry>(entries: readonly T[]) =>
   [...entries].sort((a, b) => a.sortOrder - b.sortOrder);
 
-/** Room setup's first options: Daisy's standards, in catalog order. */
+/** Room setup's first options: Daisy's standard, Freestyle (ADR 0142). */
 export function standardOptions<T extends CatalogEntry>(
   catalog: readonly T[],
 ): readonly T[] {
   return bySortOrder(catalog.filter((entry) => entry.role === 'standard'));
 }
 
-/** A new room starts on Freestyle, Daisy's default standard (FMT-3). */
+/** A new room starts on Freestyle, Daisy's standard (FMT-3). */
 export const defaultChoice = <T extends CatalogEntry>(catalog: readonly T[]) =>
   catalog.find((entry) => entry.formatId === 'freestyle') ??
-  catalog.find((entry) => entry.formatId === 'value') ??
   standardOptions(catalog)[0] ??
   catalog[0];
 
@@ -103,7 +102,7 @@ export function catalogGroups<T extends CatalogEntry>(
   familyLabel: Readonly<Record<Family, string>>,
 ): readonly { readonly label: string; readonly options: readonly T[] }[] {
   return [
-    { label: 'Daisy standards', options: standardOptions(catalog) },
+    { label: 'Daisy standard', options: standardOptions(catalog) },
     ...familyOrder.map((family) => ({
       label: `League rules · ${familyLabel[family]}`,
       options: browseTemplates(catalog, { family, query: '' }).flatMap(
@@ -122,7 +121,7 @@ export function browserTabs(
 ): readonly { readonly key: BrowserTab; readonly label: string }[] {
   return [
     ...(standardOptions(catalog).length
-      ? [{ key: 'standard' as const, label: 'Daisy standards' }]
+      ? [{ key: 'standard' as const, label: 'Daisy standard' }]
       : []),
     ...familyOrder
       .filter((family) => catalog.some((entry) => entry.family === family))

@@ -12,7 +12,7 @@ import {
 import { integrationSuite } from './suite.test-support';
 const { databaseUrl } = integrationSuite();
 const scratch = scratchDatabase(databaseUrl, 'ballotsource');
-const migration = '20261116031500_tab_wiring';
+const migration = '20261116175854_tab_wiring';
 afterAll(() => scratch.drop());
 
 test(

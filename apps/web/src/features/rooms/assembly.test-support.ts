@@ -6,7 +6,25 @@ import {
   type RoomListEntry,
   type RoomView,
 } from '@daisy/protocol';
+import { catalogFormats } from '@daisy/db/catalog-formats';
 import type { RoomTemplate } from './read-catalog';
+
+const freestyle = catalogFormats.find((format) => format.id === 'freestyle')!;
+/** Freestyle, Daisy's one standard, as the catalog offers it (ADR 0142). */
+export const freestyleChoice: RoomTemplate = {
+  formatId: 'freestyle',
+  formatVersion: 1,
+  label: 'Freestyle',
+  role: 'standard',
+  family: null,
+  leagues: [],
+  searchTerms: freestyle.searchTerms,
+  sortOrder: freestyle.sortOrder,
+  rulesEdition: null,
+  sourceUrl: null,
+  definition: freestyle.definition,
+  preset: { version: 1, config: freestyle.preset, rankedEligible: true },
+};
 
 /** Explicit legal-choice fixture, never a production template or default. */
 export const unequalTemplate = {

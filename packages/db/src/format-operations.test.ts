@@ -96,8 +96,8 @@ describe('formatOperations', () => {
     const { database, queries } = createTestDatabase([
       [
         [
-          'value',
-          'Value',
+          'freestyle',
+          'Freestyle',
           [],
           null,
           'standard',
@@ -112,7 +112,7 @@ describe('formatOperations', () => {
       ],
     ]);
     const facts = await database.getFormatSelectionFacts({
-      formatId: 'value',
+      formatId: 'freestyle',
       formatVersion: 1,
       presetVersion: 3,
     });
@@ -123,8 +123,8 @@ describe('formatOperations', () => {
       actual: facts,
       expected: {
         format: {
-          id: 'value',
-          name: 'Value',
+          id: 'freestyle',
+          name: 'Freestyle',
           leagues: [],
           catalogOwned: true,
           role: 'standard',

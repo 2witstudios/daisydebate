@@ -27,13 +27,14 @@ describe('parseLadderQuery', () => {
   test('valid parameters', () => {
     assert({
       given:
-        'every parameter set to a valid value, plus retired band and region filters',
-      should: 'parse each one and read no band or region',
+        'every parameter set to a valid value, plus retired ladder, band and region filters',
+      should: 'parse each one and read no ladder, band or region',
       actual: parseLadderQuery({
         season: 'ssssssssssssssssssssssss',
         scope: 'around',
         q: '  @Debater-A ',
         status: 'everyone',
+        ladder: 'policy',
         band: 'bloom',
         region: 'europe',
         page: '4',
@@ -42,7 +43,6 @@ describe('parseLadderQuery', () => {
         step: '7',
       }),
       expected: {
-        ladder: 'freestyle',
         season: 'ssssssssssssssssssssssss',
         scope: 'around',
         q: '@Debater-A',

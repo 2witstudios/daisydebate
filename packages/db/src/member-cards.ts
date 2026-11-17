@@ -18,11 +18,6 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 
-type Visibility = {
-  readonly showPolicy: boolean;
-  readonly showValue: boolean;
-};
-
 type CardRatingRow = {
   readonly actorId: string;
   readonly ladder: RatingLadder;
@@ -78,10 +73,10 @@ type CardRecordRow = {
 };
 
 /**
- * What each person's card may show (ADR 0103): every rated ladder they turned
- * on, Freestyle always, in the active season, and the shape of their public
- * record, taken as a named read of Ratings and Rounds. One read for a page of
- * people. Ladders stay public regardless. Both wait for the spectator timeline,
+ * What each person's card may show (ADR 0103, ADR 0142): their rating on each
+ * Daisy ladder in the active season, and the shape of their public record,
+ * taken as a named read of Ratings and Rounds. One read for a page of people.
+ * Both wait for the spectator timeline,
  * so a card never tells the outcome of a Round still on its delay.
  */
 export const memberCardOperations = ({
@@ -93,15 +88,11 @@ export const memberCardOperations = ({
 }) => ({
   readMemberCards: (actorIds: readonly string[], clock: SpectatorClock) =>
     instrumented(eventSink, 'readMemberCards', async () => {
-      if (actorIds.length === 0)
-        return { ratings: [], records: [], visibility: [] };
+      if (actorIds.length === 0) return { ratings: [], records: [] };
       const ids = sql`array[${sql.join(
         actorIds.map((id) => sql`${id}`),
         sql`, `,
       )}]::text[]`;
-      const visibilityRead = database.execute(sql`
-        select actor_id as "actorId", show_policy as "showPolicy", show_value as "showValue"
-        from rating_visibility where actor_id = any(${ids})`);
       const postingReleased = factReleasedSql(
         sql`greatest(c.occurred_at, held_r.completed_at)`,
         postingRound,
@@ -130,17 +121,14 @@ export const memberCardOperations = ({
         where p.actor_id = any(${ids}) and r.room_id is not null and r.visibility = 'public'
           and ${outcomeReleasedSql(roundAliasR, clock)}
         group by p.actor_id, r.status, 3, p.seat_kind, p.side, p.slot`);
-      const [visibility, ratings, records] = (await Promise.all([
-        visibilityRead,
+      const [ratings, records] = (await Promise.all([
         ratingsRead,
         recordsRead,
       ])) as unknown as [
-        (Visibility & { actorId: string })[],
         CardRatingRead[],
         (Omit<CardRecordRow, 'seat'> & SeatColumns)[],
       ];
       return {
-        visibility: [...visibility],
         ratings: ratings
           .filter((row) => ratingLadders.includes(row.ladder))
           .flatMap((row) => releasedCardRating(row) ?? []),

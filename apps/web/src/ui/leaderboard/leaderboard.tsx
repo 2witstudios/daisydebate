@@ -67,10 +67,8 @@ export function Leaderboard({
           aria-label="About the ladder"
           className="flex gap-4 text-sm font-strong"
         >
-          <Link href={seasonsHref(view.season.id, query.ladder)}>Seasons</Link>
-          <Link
-            href={`${seasonsHref(view.season.id, query.ladder)}#how-rating-works`}
-          >
+          <Link href={seasonsHref(view.season.id)}>Seasons</Link>
+          <Link href={`${seasonsHref(view.season.id)}#how-rating-works`}>
             How ratings work
           </Link>
         </nav>

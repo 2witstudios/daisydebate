@@ -12,8 +12,8 @@ import { integrationSuite } from './suite.test-support';
 
 const { databaseUrl: url } = integrationSuite();
 
-const schema = '20261114051015_tab_schema';
-const validated = '20261114051016_tab_schema_checks_validated';
+const schema = '20261116175849_tab_schema';
+const validated = '20261116175850_tab_schema_checks_validated';
 const scratch = scratchDatabase(url, 'tabschema');
 afterAll(() => scratch.drop());
 
@@ -60,7 +60,7 @@ test(
         {
           actor_id: host,
           season_id: seasonId,
-          ladder: 'policy',
+          ladder: 'freestyle',
           rating: 1500,
           deviation: 350,
           volatility: 0.06,

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { buildDetail } from '../../../features/leaderboard/detail';
 import { buildLadder } from '../../../features/leaderboard/ladder';
+import { boardLadder } from '../../../features/leaderboard/board-ladder';
 import { parseLadderQuery } from '../../../features/leaderboard/query';
 import { requestLadder } from '../../../lib/request-session';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
@@ -19,7 +20,7 @@ export default async function LeaderboardPage({
   const now = systemClock.now();
   const read = await requestLadder({
     seasonId: query.season,
-    ladder: query.ladder,
+    ladder: boardLadder,
     now,
   });
   if (!read)

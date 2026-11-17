@@ -19,7 +19,6 @@ export function fixtureRestartRoom(
       hostActorId: null,
       title: room.title,
       topic: room.topic,
-      publishedResolutionId: room.publishedResolutionId,
       visibility: room.visibility,
       formatId: room.formatId,
       formatVersion: room.formatVersion,

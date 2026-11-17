@@ -234,25 +234,25 @@ describe('row words', () => {
       should: 'read as the account menu does',
       actual: [
         ratingText({
-          ladder: 'policy',
+          ladder: 'freestyle',
           rating: 1500,
           provisional: false,
           hidden: false,
         }),
         ratingText({
-          ladder: 'policy',
+          ladder: 'freestyle',
           rating: 1500,
           provisional: true,
           hidden: false,
         }),
         ratingText({
-          ladder: 'policy',
+          ladder: 'freestyle',
           rating: null,
           provisional: false,
           hidden: false,
         }),
         ratingText({
-          ladder: 'policy',
+          ladder: 'freestyle',
           rating: null,
           provisional: false,
           hidden: true,

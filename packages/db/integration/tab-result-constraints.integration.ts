@@ -313,7 +313,7 @@ test('a league sanctions an event once, naming its own template and season and s
       id: otherTemplate,
       organization_id: otherLeague,
       name: 'Their Policy',
-      format_id: 'policy',
+      format_id: 'nsda-policy',
       format_version: 1,
     });
     await insertRow(sql, 'seasons', {
@@ -662,7 +662,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
       given:
         "a season written without an organization, a second active season for one organization, a league's ladder, a league's format, and a tournament recording consent",
       should:
-        "refuse the unnamed season rather than make it Daisy's, keep one active season per organization, keep ratings on Daisy's ladders, and scope the consent to a lobby",
+        "refuse the unnamed season rather than make it Daisy's, keep one active season per organization, keep ratings on Daisy's ladder, and scope the consent to a lobby",
       actual: {
         unnamedSeason,
         daisySeason,
@@ -680,7 +680,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
           organization_id: daisyOrganizationId,
         }),
         secondActiveForLeague: await season({ organization_id: ids.league }),
-        ratingOnDaisysLadder: await rating('policy'),
+        ratingOnDaisysLadder: await rating('freestyle'),
         ratingOnLeagueLadder: await rating(leagueLadder),
         ratingOnNoLadder: await refusedBy(sql, () =>
           sql

@@ -19,27 +19,15 @@ const format = (formatId: string, label = formatId) => ({
   role: 'standard' as const,
 });
 
-const policyPublication = {
-  id: 'p'.repeat(24),
-  kind: 'policy' as const,
-  text: 'Resolved: the standard is worth it',
-  provenance: 'Daisy Beta Season 1',
-  publishedAt: '2026-09-01T00:00:00.000Z',
-  edition: null,
-  theme: null,
-};
-
 const catalog: PracticeCatalog = {
   bots: [debater('wren-actor-id-000000', { label: 'Wren' }), judge()],
   botDebateAiJudge: true,
-  formats: [format('freestyle', 'Freestyle'), format('policy', 'Policy')],
-  resolutions: [policyPublication],
+  choices: [format('freestyle', 'Freestyle')],
 };
 
-const form = (bot: string, extra: Record<string, string> = {}) => {
+const form = (bot: string) => {
   const data = new FormData();
   data.set('bot', bot);
-  for (const [name, value] of Object.entries(extra)) data.set(name, value);
   return data;
 };
 
@@ -50,7 +38,7 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
     'command-1',
   );
   assert({
-    given: 'a chosen eligible opponent with the judge and format available',
+    given: 'a chosen eligible opponent with the judge and Freestyle available',
     should:
       'build the create body: strike resolution, public, freestyle at its canonical preset, the bot at negative and the judge judging',
     actual:
@@ -88,47 +76,16 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
   });
 });
 
-test('Start practice names the published resolution the addressed format debates', () => {
-  const ready = preparePractice(
-    form('wren-actor-id-000000', { format: 'policy' }),
-    catalog,
-    'command-1',
-  );
-  assert({
-    given: 'a Policy practice with its publication present',
-    should: 'select Policy at its canonical preset against the publication',
-    actual:
-      ready.kind === 'ready'
-        ? [ready.body.resolution, ready.body.selection]
-        : ready,
-    expected: [
-      { kind: 'policy', id: policyPublication.id },
-      {
-        kind: 'catalog',
-        formatId: 'policy',
-        formatVersion: unequalTemplate.formatVersion,
-        presetVersion: unequalTemplate.preset.version,
-        competitionType: 'casual',
-      },
-    ],
-  });
-});
-
 test('Start practice refuses truthfully before any request', () => {
   const refusalOf = (
     bots: PracticeCatalog['bots'],
     bot: string,
     overrides: Partial<PracticeCatalog> = {},
-    extra: Record<string, string> = {},
   ) =>
-    preparePractice(
-      form(bot, extra),
-      { ...catalog, bots, ...overrides },
-      'command-1',
-    );
+    preparePractice(form(bot), { ...catalog, bots, ...overrides }, 'command-1');
   assert({
     given:
-      'an unknown opponent, an ineligible roster, a missing judge, a missing format, an unknown format and an unpublished format',
+      'an unknown opponent, an ineligible roster, a missing judge, a catalog without Freestyle, and Freestyle offered only as a template',
     should: 'refuse each with its own truthful message',
     actual: [
       refusalOf(catalog.bots, 'nobody').kind,
@@ -137,24 +94,12 @@ test('Start practice refuses truthfully before any request', () => {
         'wren-actor-id-000000',
       ).kind,
       refusalOf([debater('wren-actor-id-000000')], 'wren-actor-id-000000').kind,
-      refusalOf(catalog.bots, 'wren-actor-id-000000', { formats: [] }).kind,
-      refusalOf(catalog.bots, 'wren-actor-id-000000', {}, { format: 'parli' })
-        .kind,
-      refusalOf(
-        catalog.bots,
-        'wren-actor-id-000000',
-        { resolutions: [] },
-        { format: 'policy' },
-      ).kind,
+      refusalOf(catalog.bots, 'wren-actor-id-000000', { choices: [] }).kind,
+      refusalOf(catalog.bots, 'wren-actor-id-000000', {
+        choices: [{ ...format('freestyle'), role: 'template' as const }],
+      }).kind,
     ],
-    expected: [
-      'refused',
-      'refused',
-      'refused',
-      'refused',
-      'refused',
-      'refused',
-    ],
+    expected: ['refused', 'refused', 'refused', 'refused', 'refused'],
   });
 });
 

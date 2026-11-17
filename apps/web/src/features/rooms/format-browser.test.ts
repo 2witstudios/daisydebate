@@ -33,7 +33,7 @@ const catalog = [
     'pf crossfire',
     30,
   ),
-  entry('value', 'Value', 'standard', null, [], 'value daisy', 2),
+  entry('freestyle', 'Freestyle', 'standard', null, [], 'freestyle daisy', 3),
   entry(
     'nsda-ld',
     'NSDA Lincoln-Douglas',
@@ -52,7 +52,6 @@ const catalog = [
     'policy cx',
     20,
   ),
-  entry('policy', 'Policy', 'standard', null, [], 'policy daisy', 1),
   entry(
     'ncfca-ld',
     'NCFCA Lincoln-Douglas',
@@ -71,9 +70,9 @@ describe('standardOptions', () => {
   test('the standards', () => {
     assert({
       given: 'a catalog in any order',
-      should: 'offer only the standards, in catalog order',
+      should: 'offer only the standard, Freestyle',
       actual: ids(standardOptions(catalog)),
-      expected: ['policy', 'value'],
+      expected: ['freestyle'],
     });
   });
 });
@@ -81,18 +80,15 @@ describe('standardOptions', () => {
 describe('defaultChoice', () => {
   test('a new room’s format', () => {
     assert({
-      given: 'a catalog with Value, a catalog without it, and an empty one',
-      should:
-        'start on Value, else the first standard, else the first entry, else nothing',
+      given: 'a catalog with Freestyle, one without it, and an empty one',
+      should: 'start on Freestyle, else the first entry, else nothing',
       actual: [
         defaultChoice(catalog)?.formatId,
-        defaultChoice(catalog.filter((item) => item.formatId !== 'value'))
-          ?.formatId,
         defaultChoice(catalog.filter((item) => item.role === 'template'))
           ?.formatId,
         defaultChoice([]),
       ],
-      expected: ['value', 'policy', 'nsda-pf', undefined],
+      expected: ['freestyle', 'nsda-pf', undefined],
     });
   });
 });
@@ -170,13 +166,13 @@ describe('catalogGroups', () => {
   test('the native select', () => {
     assert({
       given: 'standards and templates in several families',
-      should: 'group Daisy standards first, then league rules by family',
+      should: 'group the Daisy standard first, then league rules by family',
       actual: catalogGroups(catalog, familyLabel).map((group) => [
         group.label,
         ids(group.options),
       ]),
       expected: [
-        ['Daisy standards', ['policy', 'value']],
+        ['Daisy standard', ['freestyle']],
         ['League rules · Policy', ['nsda-policy']],
         ['League rules · Value', ['nsda-ld', 'ncfca-ld']],
         ['League rules · Other formats', ['nsda-pf']],
@@ -197,13 +193,17 @@ describe('the browse dialog', () => {
           browserListing(catalog, { query: '', tab: 'standard' }),
         ),
         valueTab: ids(browserListing(catalog, { query: '', tab: 'value' })),
-        search: ids(browserListing(catalog, { query: 'policy', tab: 'value' })),
+        search: ids(browserListing(catalog, { query: 'daisy', tab: 'value' })),
+        templateSearch: ids(
+          browserListing(catalog, { query: 'policy', tab: 'value' }),
+        ),
       },
       expected: {
         tabs: ['standard', 'policy', 'value', 'other'],
-        standardTab: ['policy', 'value'],
+        standardTab: ['freestyle'],
         valueTab: ['nsda-ld', 'ncfca-ld'],
-        search: ['policy', 'nsda-policy'],
+        search: ['freestyle'],
+        templateSearch: ['nsda-policy'],
       },
     });
   });

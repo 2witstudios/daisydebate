@@ -14,7 +14,7 @@ setupRitewayBun();
 const id = (value: string) => value.repeat(24);
 const source = (): RoundCompetitionSource => ({
   version: 1,
-  format: { formatId: 'policy', formatVersion: 1 },
+  format: { formatId: 'nsda-policy', formatVersion: 1 },
   source: {
     roundId: id('r'),
     freezeRevision: 1,

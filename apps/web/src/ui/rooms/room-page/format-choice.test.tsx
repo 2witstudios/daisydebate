@@ -27,11 +27,6 @@ const standard = (
   sourceUrl: null,
   preset: { ...unequalTemplate.preset, version: 2 },
 });
-const choices: readonly RoomCatalogChoice[] = [
-  unequalTemplate,
-  standard('value', 'Value', 2),
-  standard('policy', 'Policy', 1),
-];
 const ids = {
   choose: 'c'.repeat(24),
   reset: 'r'.repeat(24),
@@ -54,6 +49,7 @@ const freestyle: RoomCatalogChoice = {
     config: { ...unequalTemplate.preset.config, resolutionDraw: strike },
   },
 };
+const choices: readonly RoomCatalogChoice[] = [unequalTemplate, freestyle];
 
 const render = (
   format: RoomView['format'],
@@ -83,35 +79,39 @@ const checked = (html: string, value: string) =>
       input.includes(`value="${value}"`) && input.includes('checked=""'),
   );
 
-const valueStandard: RoomView['format'] = {
-  name: 'Value',
+const freestyleStandard: RoomView['format'] = {
+  name: 'Freestyle',
   role: 'standard',
   leagues: [],
   basis: {
-    formatId: 'value',
-    name: 'Value',
+    formatId: 'freestyle',
+    name: 'Freestyle',
     formatVersion: 1,
-    presetVersion: 2,
-    strikes: false,
+    presetVersion: 1,
+    strikes: true,
   },
-  standing: { kind: 'standard', formatId: 'value' },
+  standing: { kind: 'standard', formatId: 'freestyle' },
+};
+/** A Room running a draw, as a Freestyle Room does until its reveal. */
+const drawView: Partial<RoomView> = {
+  topic: null,
+  executionPlan: { ...assemblySnapshot.executionPlan, resolutionDraw: strike },
 };
 
 describe('FormatChoice', () => {
-  test('a room on a standard', () => {
-    const html = render(valueStandard);
+  test('a room on the standard', () => {
+    const html = render(freestyleStandard, { view: drawView });
     assert({
-      given: 'a casual room still running the Value standard',
+      given: 'a casual room still running the Freestyle standard',
       should:
-        'offer the standards in catalog order plus Custom, check Value, and post select-format without JavaScript',
+        'offer Freestyle plus Custom, check Freestyle, and post select-format without JavaScript',
       actual: {
         order: [
           ...html.matchAll(
-            /<span class="[^"]*font-strong[^"]*">(Policy|Value|Custom)</g,
+            /<span class="[^"]*font-strong[^"]*">(Freestyle|Custom)</g,
           ),
         ].map((match) => match[1]),
-        valueChecked: checked(html, tuple('value', 2)),
-        policyOffered: html.includes(`value="${tuple('policy', 2)}"`),
+        freestyleChecked: checked(html, tuple('freestyle', 1)),
         command: html.includes('name="type" value="select-format"'),
         intent: html.includes('name="intent" value="choose"'),
         submit: html.includes('Use this format'),
@@ -122,9 +122,8 @@ describe('FormatChoice', () => {
         backOffered: html.includes('Back to'),
       },
       expected: {
-        order: ['Policy', 'Value', 'Custom'],
-        valueChecked: true,
-        policyOffered: true,
+        order: ['Freestyle', 'Custom'],
+        freestyleChecked: true,
         command: true,
         intent: true,
         submit: true,
@@ -135,16 +134,19 @@ describe('FormatChoice', () => {
   });
 
   test('a room edited away from its standard', () => {
-    const html = render({
-      ...valueStandard,
-      standing: {
-        kind: 'custom',
-        basis: { formatId: 'value', role: 'standard' },
-        changes: [{ kind: 'in-round-prep', fromMs: 240_000, toMs: 300_000 }],
+    const html = render(
+      {
+        ...freestyleStandard,
+        standing: {
+          kind: 'custom',
+          basis: { formatId: 'freestyle', role: 'standard' },
+          changes: [{ kind: 'in-round-prep', fromMs: 240_000, toMs: 300_000 }],
+        },
       },
-    });
+      { view: drawView },
+    );
     assert({
-      given: 'a standard room whose prep was edited',
+      given: 'a Freestyle room whose prep was edited',
       should:
         'check Custom, say what it is based on, list the change and offer Back to the pinned standard',
       actual: {
@@ -154,11 +156,11 @@ describe('FormatChoice', () => {
           (input) =>
             input.includes('value="custom"') && input.includes('disabled=""'),
         ),
-        basedOn: html.includes('Custom, based on Value'),
+        basedOn: html.includes('Custom, based on Freestyle'),
         change: html.includes('Prep per side 4:00 → 5:00'),
-        back: html.includes('Back to Value'),
+        back: html.includes('Back to Freestyle'),
         reset: html.includes('name="intent" value="reset"'),
-        pinned: html.includes(`value="${tuple('value', 2)}"`),
+        pinned: html.includes(`value="${tuple('freestyle', 1)}"`),
       },
       expected: {
         customChecked: true,
@@ -204,7 +206,7 @@ describe('FormatChoice', () => {
   });
 
   test('the league browser', () => {
-    const html = render(valueStandard);
+    const html = render(freestyleStandard, { view: drawView });
     assert({
       given: 'a catalog with one league template',
       should:
@@ -215,7 +217,7 @@ describe('FormatChoice', () => {
           `value="${tuple(unequalTemplate.formatId, 5, unequalTemplate.formatVersion)}"`,
         ),
         submit: html.includes('Start from this format'),
-        standardsExcluded: !/<option value="[^"]*policy/.test(html),
+        standardsExcluded: !/<option value="[^"]*freestyle/.test(html),
       },
       expected: {
         group: true,
@@ -226,50 +228,8 @@ describe('FormatChoice', () => {
     });
   });
 
-  test('Freestyle joins the standards (FMT-2b)', () => {
-    const standards = (html: string) =>
-      [
-        ...html.matchAll(
-          /<span class="[^"]*font-strong[^"]*">(Policy|Value|Freestyle|Custom)</g,
-        ),
-      ].map((match) => match[1]);
-    assert({
-      given: 'the catalog before and after Freestyle is published',
-      should: 'leave it out, then offer it third among the standards',
-      actual: [
-        standards(render(valueStandard)),
-        standards(render(valueStandard, { catalog: [...choices, freestyle] })),
-      ],
-      expected: [
-        ['Policy', 'Value', 'Custom'],
-        ['Policy', 'Value', 'Freestyle', 'Custom'],
-      ],
-    });
-  });
-
   test('a room that strikes its resolution', () => {
-    const html = render(
-      {
-        ...valueStandard,
-        name: 'Freestyle',
-        basis: {
-          ...valueStandard.basis!,
-          formatId: 'freestyle',
-          name: 'Freestyle',
-        },
-        standing: { kind: 'standard', formatId: 'freestyle' },
-      },
-      {
-        catalog: [...choices, freestyle],
-        view: {
-          topic: null,
-          executionPlan: {
-            ...assemblySnapshot.executionPlan,
-            resolutionDraw: strike,
-          },
-        },
-      },
-    );
+    const html = render(freestyleStandard, { view: drawView });
     assert({
       given: 'a room running a draw',
       should: 'ask for host text only in the league template form',
@@ -278,34 +238,23 @@ describe('FormatChoice', () => {
     });
   });
 
-  test('Back from a draw to a standard that sets its resolution', () => {
-    const fields = (strikes: boolean) =>
-      render(
-        {
-          ...valueStandard,
-          basis: { ...valueStandard.basis!, strikes },
-          standing: {
-            kind: 'custom',
-            basis: { formatId: 'value', role: 'standard' },
-            changes: [],
-          },
+  test('Back from a Custom draw to the standard', () => {
+    const html = render(
+      {
+        ...freestyleStandard,
+        standing: {
+          kind: 'custom',
+          basis: { formatId: 'freestyle', role: 'standard' },
+          changes: [],
         },
-        {
-          view: {
-            topic: null,
-            executionPlan: {
-              ...assemblySnapshot.executionPlan,
-              resolutionDraw: strike,
-            },
-          },
-        },
-      ).match(/name="topic"/g)?.length;
+      },
+      { view: drawView },
+    );
     assert({
-      given:
-        'a Value room whose host turned a strike on, and a room whose pinned basis itself strikes',
-      should: 'restore a standard publication without asking for host text',
-      actual: [fields(false), fields(true)],
-      expected: [1, 1],
+      given: 'a Custom room based on Freestyle, still running a draw',
+      should: 'go back to the striking standard without asking for host text',
+      actual: html.match(/name="topic"/g)?.length,
+      expected: 1,
     });
   });
 });

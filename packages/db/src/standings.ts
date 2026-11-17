@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import {
+  ratingLadders,
   twoSideKeys,
   type RatingLadder,
   type TwoSideKey,
@@ -126,7 +127,7 @@ export const standingsOperations = ({
             isNull(formatPresets.supersededAt),
             eq(formatPresets.rankedEligible, true),
             eq(formatPresets.formatVersion, formats.currentVersion),
-            inArray(formats.id, ['freestyle', 'policy', 'value']),
+            inArray(formats.id, [...ratingLadders]),
           ),
         )
         .orderBy(asc(formats.name)),

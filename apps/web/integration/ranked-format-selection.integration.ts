@@ -7,7 +7,7 @@ import { withRoomRuntime } from './room-runtime.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-test('only canonical ranked formats are creatable and generic One-on-one refuses', async () => {
+test('only Freestyle is creatable ranked: generic One-on-one and a league template refuse', async () => {
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
     try {
@@ -26,19 +26,34 @@ test('only canonical ranked formats are creatable and generic One-on-one refuses
         code: 'VALIDATION',
       });
       const catalog = (await f.operations.catalog(f.host)).choices;
-      const value = catalog.find((c) => c.formatId === 'value')!;
+      const template = catalog.find((c) => c.formatId === 'nsda-ld')!;
+      await assertRejects({
+        given: 'an active season and a league template asked for ranked',
+        should: 'refuse it: a template is a casual starting point',
+        actual: () =>
+          f.create({
+            selection: {
+              kind: 'ranked',
+              formatId: template.formatId,
+              formatVersion: template.formatVersion,
+              presetVersion: template.preset.version,
+            },
+          }),
+        code: 'VALIDATION',
+      });
+      const freestyle = catalog.find((c) => c.formatId === 'freestyle')!;
       const view = (
         await f.create({
           selection: {
             kind: 'ranked',
-            formatId: value.formatId,
-            formatVersion: value.formatVersion,
-            presetVersion: value.preset.version,
+            formatId: freestyle.formatId,
+            formatVersion: freestyle.formatVersion,
+            presetVersion: freestyle.preset.version,
           },
         })
       ).view;
       assert({
-        given: 'the current canonical Value preset after generic refusal',
+        given: 'the current canonical Freestyle preset after the refusals',
         should: 'create one ranked Room without a generic compatibility pool',
         actual: [
           view.competitionType,
@@ -46,7 +61,7 @@ test('only canonical ranked formats are creatable and generic One-on-one refuses
           view.format.basis,
           catalog.some((c) => c.formatId === 'one-on-one'),
         ],
-        expected: ['ranked', 'value', null, false],
+        expected: ['ranked', 'freestyle', null, false],
       });
     } finally {
       await f.sql`delete from seasons where id=${seasonId}`;

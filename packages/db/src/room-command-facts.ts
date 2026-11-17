@@ -257,7 +257,6 @@ const hydrateRoom = async (
     title: row.title,
     // A draw Room's resolution is its Round's, once revealed.
     topic: round?.resolution ?? row.topic,
-    publishedResolutionId: row.publishedResolutionId,
     visibility: row.visibility,
     hostActorId,
     hostInherited: row.hostInherited,

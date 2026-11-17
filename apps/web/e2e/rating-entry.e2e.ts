@@ -5,7 +5,7 @@ import { test, expect, openPage } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
 
-test('native no-JavaScript ranked entry preserves canonical ladder setup for all three ladders', async ({
+test('native no-JavaScript ranked entry preserves canonical setup for the one Freestyle ladder', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -34,37 +34,39 @@ test('native no-JavaScript ranked entry preserves canonical ladder setup for all
   try {
     await resetRateLimits(page.request);
     const member = await signUpMember(page.request);
-    const rooms: { ladder: string; id: string }[] = [];
-    for (const ladder of ['freestyle', 'policy', 'value']) {
-      await page.goto('/play/room');
+    // Freestyle is the one ranked ladder (ADR 0142).
+    const ladder = 'freestyle';
+    await page.goto('/play/room');
+    await expect(
+      page.getByRole('checkbox', { name: 'Ranked', exact: true }),
+    ).not.toBeChecked();
+    const room = await submitCreateRoom(
+      page,
+      `Ranked ${ladder} ${createId().slice(0, 8)}`,
+      ladder,
+      true,
+    );
+    const rooms = [{ ladder, id: room.id }];
+    try {
+      expect(room.competitionType).toBe('ranked');
+      expect(room.formatId).toBe(ladder);
+      // Ranked Freestyle always strikes its resolution before launch.
+      expect(room.executionPlan.resolutionDraw.enabled).toBe(true);
+      await expect(page.getByRole('heading').first()).toBeVisible();
+      // There is no ladder chooser: a stale ?ladder= still reads Freestyle.
+      await page.goto('/leaderboard?ladder=policy');
       await expect(
-        page.getByRole('checkbox', { name: 'Ranked', exact: true }),
-      ).not.toBeChecked();
-      const room = await submitCreateRoom(
-        page,
-        `Ranked ${ladder} ${createId().slice(0, 8)}`,
-        ladder,
-        true,
-      );
-      try {
-        rooms.push({ ladder, id: room.id });
-        expect(room.competitionType).toBe('ranked');
-        expect(room.formatId).toBe(ladder);
-        await expect(page.getByRole('heading').first()).toBeVisible();
-        await page.goto(`/leaderboard?ladder=${ladder}`);
-        await expect(
-          page.getByRole('heading', { name: 'Leaderboard', exact: true }),
-        ).toBeVisible();
-        await page.goto(`/leaderboard/seasons?ladder=${ladder}`);
-        await expect(
-          page.getByRole('heading', {
-            level: 2,
-            name: `${ladder[0]!.toUpperCase()}${ladder.slice(1)} · `,
-          }),
-        ).toBeVisible();
-      } finally {
-        await closeRoom(page.request, room.id);
-      }
+        page.getByRole('heading', { name: 'Leaderboard', exact: true }),
+      ).toBeVisible();
+      await page.goto('/leaderboard/seasons?ladder=value');
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Freestyle · ' }),
+      ).toBeVisible();
+      await expect(
+        page.getByText('One ladder per season', { exact: true }),
+      ).toBeVisible();
+    } finally {
+      await closeRoom(page.request, room.id);
     }
     const evidence = await new Promise<
       readonly {
@@ -90,9 +92,7 @@ test('native no-JavaScript ranked entry preserves canonical ladder setup for all
       child.stdin?.end(JSON.stringify({ username: member.username, rooms }));
     });
     for (const row of evidence) {
-      await page.goto(
-        `/leaderboard?ladder=${row.ladder}&status=everyone&q=${member.username}`,
-      );
+      await page.goto(`/leaderboard?status=everyone&q=${member.username}`);
       await expect(
         page.getByRole('link', {
           name: `@${member.username}, provisional, rating ${row.rating}`,

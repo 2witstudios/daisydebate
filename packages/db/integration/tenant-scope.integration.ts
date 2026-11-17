@@ -205,7 +205,7 @@ test("an event's settings chain reads across three tenants under one lobby scope
       expected: {
         scopes: ['event', 'lobby', 'organization', 'template'],
         template: 1,
-        daisyTemplates: 3,
+        daisyTemplates: 1,
         written: 0,
       },
     });

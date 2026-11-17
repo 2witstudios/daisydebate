@@ -239,7 +239,7 @@ export const loadSampleTournament = async (sql: SQL) => {
       name: 'League Policy',
       ballot_definition_id: awardBallotId,
       ballot_definition_version: 1,
-      format_id: 'policy',
+      format_id: 'nsda-policy',
       format_version: 1,
     });
     await write('settings', {
@@ -358,7 +358,7 @@ export const loadSampleTournament = async (sql: SQL) => {
       lobby_id: ids.lobby,
       name: 'Varsity Policy',
       label: 'VP',
-      format_id: 'policy',
+      format_id: 'nsda-policy',
       format_version: 1,
       template_id: ids.template,
       ballot_definition_id: awardBallotId,
@@ -380,7 +380,7 @@ export const loadSampleTournament = async (sql: SQL) => {
       id: ids.knockout,
       lobby_id: ids.lobby,
       name: 'Open Knockout',
-      format_id: 'value',
+      format_id: 'nsda-ld',
       format_version: 1,
       entry_kind: 'person',
     });
@@ -636,7 +636,7 @@ export const loadSampleTournament = async (sql: SQL) => {
         id: roomId,
         lobby_id: ids.lobby,
         lobby_kind: 'tournament',
-        ...(formatId === 'policy'
+        ...(formatId === 'nsda-policy'
           ? {
               template_id: ids.template,
               ballot_definition_id: awardBallotId,
@@ -657,7 +657,7 @@ export const loadSampleTournament = async (sql: SQL) => {
         capture: { broadcast: null, recordingPolicy: 'officials' },
         status: 'assembling',
       });
-    await eventRoom(ids.room, 'policy');
+    await eventRoom(ids.room, 'nsda-policy');
     await eventRoom(ids.sectionRoom, 'freestyle');
     const publish = (fixtureId: string, roomId: string | null) =>
       sql.unsafe(
@@ -755,7 +755,7 @@ export const loadSampleTournament = async (sql: SQL) => {
       visibility: 'unlisted',
       resolution: 'This house would abolish the sample.',
       competition_type: 'casual',
-      format_id: 'policy',
+      format_id: 'nsda-policy',
       format_version: 1,
       rules_snapshot: validRules,
       runtime_state: emptyRuntimeCheckpointFor(validRules),

@@ -1,4 +1,4 @@
-import type { RatingLadder } from '@daisy/protocol';
+import { ladderLabels } from '../../../../../features/ratings/ladder-labels';
 import type { MemberStanding } from '../../../../../features/ratings/read-member';
 import {
   markedRating,
@@ -6,12 +6,6 @@ import {
 } from '../../../../../features/ratings/provisional-mark';
 import type { ShellRatings } from '../../account';
 import { cn } from '../../../../cn';
-
-const ladderNames: Readonly<Record<RatingLadder, string>> = {
-  freestyle: 'Freestyle',
-  policy: 'Policy',
-  value: 'Value',
-};
 
 /** What a ladder row shows: the rating, or the state it is in. */
 export function ratingText(standing: MemberStanding): string {
@@ -59,7 +53,7 @@ export async function AccountRatings({
               className="flex items-baseline justify-between gap-3"
             >
               <dt className="text-sm text-ink-muted">
-                {ladderNames[standing.ladder]}
+                {ladderLabels[standing.ladder]}
               </dt>
               <dd
                 className={cn(
@@ -90,11 +84,7 @@ export function RatingsSkeleton() {
         Ranked
       </h2>
       <p className="sr-only">Loading your ratings</p>
-      <div aria-hidden="true" className="flex flex-col gap-2">
-        <span className="h-4 rounded-sm bg-surface-overlay" />
-        <span className="h-4 rounded-sm bg-surface-overlay" />
-        <span className="h-4 rounded-sm bg-surface-overlay" />
-      </div>
+      <span aria-hidden="true" className="h-4 rounded-sm bg-surface-overlay" />
     </section>
   );
 }

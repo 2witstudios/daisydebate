@@ -6,7 +6,7 @@ import { readStepEntry, stepRobots } from '../step-entry';
 import { readStepLinks } from '../step-links';
 
 export const metadata: Metadata = {
-  title: 'Ranked ladders and custom formats',
+  title: 'Freestyle and Custom',
   robots: stepRobots,
 };
 

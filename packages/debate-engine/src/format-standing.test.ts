@@ -12,7 +12,7 @@ import { drawRoom, drawSettings } from './round-opening.test-support';
 setupRitewayBun();
 
 const basis = (overrides: Partial<StandingBasis> = {}): StandingBasis => ({
-  formatId: 'value',
+  formatId: 'freestyle',
   presetVersion: 3,
   formatVersion: 1,
   role: 'standard',
@@ -29,7 +29,7 @@ const active = (
     readonly definition?: FormatDefinition;
   } = {},
 ) => ({
-  formatId: 'value',
+  formatId: 'freestyle',
   formatVersion: 1,
   definition: oneOnOneFormatFixture,
   config,
@@ -63,7 +63,7 @@ const withoutSegment = (key: string): FormatDefinition => ({
   },
 });
 
-/** A custom definition's standing against the Value basis. */
+/** A custom definition's standing against the Freestyle basis. */
 const customStanding = (definition: FormatDefinition) =>
   formatStanding({
     active: active(oneOnOneSettings, {
@@ -79,7 +79,7 @@ describe('formatStanding', () => {
       given: 'a room still running its standard basis unchanged',
       should: 'be Standard',
       actual: formatStanding({ active: active(), basis: basis() }),
-      expected: { kind: 'standard', formatId: 'value' },
+      expected: { kind: 'standard', formatId: 'freestyle' },
     });
     assert({
       given:
@@ -108,7 +108,7 @@ describe('formatStanding', () => {
       }),
       expected: {
         kind: 'custom',
-        basis: { formatId: 'value', role: 'standard' },
+        basis: { formatId: 'freestyle', role: 'standard' },
         changes: [
           {
             kind: 'segment-duration',
@@ -138,7 +138,7 @@ describe('formatStanding', () => {
       }),
       expected: {
         kind: 'custom',
-        basis: { formatId: 'value', role: 'standard' },
+        basis: { formatId: 'freestyle', role: 'standard' },
         changes: [
           {
             kind: 'countdown',
@@ -179,7 +179,7 @@ describe('formatStanding', () => {
       }),
       expected: {
         kind: 'custom',
-        basis: { formatId: 'value', role: 'standard' },
+        basis: { formatId: 'freestyle', role: 'standard' },
         changes: [],
       },
     });
@@ -203,7 +203,7 @@ describe('formatStanding', () => {
       actual: customStanding(definition),
       expected: {
         kind: 'custom',
-        basis: { formatId: 'value', role: 'standard' },
+        basis: { formatId: 'freestyle', role: 'standard' },
         changes: [
           {
             kind: 'seats',
@@ -265,7 +265,7 @@ describe('formatStanding', () => {
       actual: customStanding(withoutSegment(middle)),
       expected: {
         kind: 'custom',
-        basis: { formatId: 'value', role: 'standard' },
+        basis: { formatId: 'freestyle', role: 'standard' },
         changes: [
           { kind: 'segments', added: [], removed: [middle], changed: [] },
         ],

@@ -11,7 +11,7 @@ import { integrationSuite } from './suite.test-support';
 
 const { databaseUrl } = integrationSuite();
 const scratch = scratchDatabase(databaseUrl, 'roomtemplate');
-const migration = '20261116031500_tab_wiring';
+const migration = '20261116175854_tab_wiring';
 afterAll(() => scratch.drop());
 
 test(
@@ -26,8 +26,8 @@ test(
       const [offer] = await client`
         select t.id, t.format_id, t.format_version from templates t
         join lobby_templates o on o.template_id=t.id
-        where o.lobby_id=${publicLobbyId} and t.format_id='policy'`;
-      if (!offer) throw new Error('Missing seeded policy offer');
+        where o.lobby_id=${publicLobbyId} and t.format_id='freestyle'`;
+      if (!offer) throw new Error('Missing seeded Freestyle offer');
       const roomId = await fixture.room(host, offer.format_id, {
         template_id: offer.id,
         format_version: offer.format_version,

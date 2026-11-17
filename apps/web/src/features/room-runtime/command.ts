@@ -169,7 +169,6 @@ export function roomCommandOperation({
           account,
           draw,
           formatFacts,
-          resolutionPublication,
           grants,
           contentWaiver,
           maySeatCasualAiJudge,
@@ -219,7 +218,6 @@ export function roomCommandOperation({
                 state.hostActorId === caller.actorId &&
                 hostHoldsCasualCapture(grants, betaGrantsPremium, now),
               formatFacts,
-              resolutionPublication,
               target: target
                 ? {
                     ...target,

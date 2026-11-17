@@ -79,21 +79,64 @@ export const clockText = (ms: number) => {
     fraction ? `.${String(fraction).padStart(3, '0').replace(/0+$/, '')}` : ''
   }`;
 };
-/** Fills and submits the shared create-Room form, from /play/room or a fresh-Room page. */
+/**
+ * Fixed wording for a casual Room that launches without a strike. Freestyle,
+ * the one standard, always strikes its resolution (ADR 0142); host wording
+ * makes the Room Custom, based on Freestyle, and skips the draw.
+ */
+export const setResolution = 'Cities should fund public transit.';
+/**
+ * The league template a casual journey starts from when it needs prep
+ * during the round, which Freestyle does not have: Custom, based on it.
+ */
+export const ldTemplate = 'NSDA Lincoln-Douglas';
+
+/**
+ * Fills and submits the shared create-Room form, from /play/room or a
+ * fresh-Room page. `resolution` null keeps Freestyle's strike; a string is
+ * the host's own wording (see `setResolution`). `template` names a league
+ * template, chosen through Custom (see `ldTemplate`).
+ */
 export async function submitCreateRoom(
   page: Page,
   title: string,
-  formatId = 'value',
+  formatId = 'freestyle',
   ranked = false,
+  resolution: string | null = null,
+  template: string | null = null,
 ) {
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
-  await form.locator(`input[name="format"][value="${formatId}"]`).check();
+  await form
+    .locator(`input[name="format"][value="${template ? 'custom' : formatId}"]`)
+    .check();
   // Rendered only inside noscript, so it also says this browser runs no script.
   const apply = form.getByRole('button', { name: 'Apply format', exact: true });
   const scripted = (await apply.count()) === 0;
   if (!scripted) await apply.click();
+  if (template) {
+    await form
+      .getByText('Start from a league template', { exact: true })
+      .click();
+    const templates = form.locator('[name="template"]');
+    const option = templates.locator('option').filter({ hasText: template });
+    await templates.selectOption((await option.getAttribute('value'))!);
+    if (!scripted)
+      await form
+        .getByRole('button', { name: 'Apply template', exact: true })
+        .click();
+  }
   await form.getByLabel('Room name', { exact: true }).fill(title);
+  if (resolution !== null) {
+    await form.locator('[name="resolutionMethod"]').selectOption('custom');
+    if (!scripted)
+      await form
+        .getByRole('button', { name: 'Apply resolution', exact: true })
+        .click();
+    await form
+      .getByLabel('Custom resolution', { exact: true })
+      .fill(resolution);
+  }
   if (ranked) {
     await form.getByRole('checkbox', { name: 'Ranked', exact: true }).check();
     // A ranked Room is always public, so the form offers no choice (WATCH-5).
@@ -118,12 +161,14 @@ export async function createConfiguredRoom(page: Page) {
 export async function createFromPlay(
   page: Page,
   title: string,
-  formatId = 'value',
+  formatId = 'freestyle',
+  resolution: string | null = null,
+  template: string | null = null,
 ) {
   await page.goto('/play');
   await page.getByRole('link', { name: /^Open a room\b/ }).click();
   await expect(page).toHaveURL('/play/room');
-  return submitCreateRoom(page, title, formatId);
+  return submitCreateRoom(page, title, formatId, false, resolution, template);
 }
 
 /**
@@ -210,7 +255,8 @@ export async function prepareRoomAs(
   title: string,
   own: (typeof seats)[number],
 ) {
-  let view = await createFromPlay(page, title, 'value');
+  // Launched without a strike: the host's wording stands in for the draw.
+  let view = await createFromPlay(page, title, 'freestyle', setResolution);
   await turnOffPreRoundPrep(page);
   await expect(async () => {
     view = await reread(page.request, view.id);

@@ -4,6 +4,7 @@ import { origin, resetRateLimits, signUpMember } from './support/accounts';
 import {
   closeRoom,
   createFromPlay,
+  setResolution,
   createConfiguredRoom,
 } from './support/room-launch-flow';
 
@@ -25,13 +26,18 @@ test.describe('authenticated Room lobby', () => {
     const title = `Lobby ${createId().slice(0, 8)}`;
     let roomId: string | undefined;
     try {
-      const created = await createFromPlay(page, title);
+      const created = await createFromPlay(
+        page,
+        title,
+        'freestyle',
+        setResolution,
+      );
       roomId = created.id;
       await page.goto('/lobby');
       await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
       const item = roomRows(page).filter({ hasText: title });
       await expect(item).toHaveCount(1);
-      await expect(item).toContainText(created.topic ?? '');
+      await expect(item).toContainText(setResolution);
       await expect(item.getByRole('link')).toHaveAttribute(
         'href',
         `/rooms/${created.id}`,

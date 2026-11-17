@@ -22,7 +22,6 @@ export default async function OpenRoomPage({
       initialRanked={(await searchParams).ranked === '1'}
       initialState={await requestRoomDraftAnswer((await searchParams).draft)}
       choices={templates.choices}
-      resolutions={templates.resolutions}
       commandId={systemId.next()}
     />
   );
