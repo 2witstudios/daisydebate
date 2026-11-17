@@ -94,11 +94,7 @@ test(
       assert({
         given: 'pre-Tab captures of over Rounds before the settling folder',
         should: 'count every one as held, as staging did',
-        actual: [
-          await capacity(),
-          await admit(host),
-          await admit(stranger),
-        ],
+        actual: [await capacity(), await admit(host), await admit(stranger)],
         expected: [
           { running: 5, hosted: 5, sponsored: 0, tournament: 0 },
           'capture-host-limit',
@@ -118,7 +114,8 @@ test(
 
       assert({
         given: 'the settling folder applied, then its statements run again',
-        should: 'settle each at its own completion or end, and change nothing more',
+        should:
+          'settle each at its own completion or end, and change nothing more',
         actual: [
           repeated,
           ...(

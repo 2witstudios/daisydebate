@@ -88,9 +88,7 @@ test('an Egress LiveKit no longer knows settles; any other refusal still surface
     should: 'report it failed and not found, so its attempt settles',
     actual: [
       await read(new ServerError('not_found', 'egress does not exist', 404)),
-      await read(
-        new ServerError('x', 'egress does not exist', 0, 'not_found'),
-      ),
+      await read(new ServerError('x', 'egress does not exist', 0, 'not_found')),
     ],
     expected: [
       { kind: 'failed', id: 'EG_gone', reason: 'not_found' },
