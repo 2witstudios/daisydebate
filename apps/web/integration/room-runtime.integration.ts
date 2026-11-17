@@ -164,6 +164,7 @@ test('create replay survives catalog advancement and refuses a changed payload w
         text: 'Cities should make public transit free',
       },
       visibility: 'public' as const,
+      sides: 'fixed' as const,
       selection: {
         kind: 'catalog' as const,
         formatId: choice.formatId,
