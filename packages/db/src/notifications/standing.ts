@@ -23,13 +23,8 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
     and fr.high_actor_id=n.friendship_high_actor_id`;
 
 /**
- * Whether a notification of this kind still stands at `now`: what the
- * subject's own feature publishes (ADR 0144). Notifications owns no status
- * words of its own, so a new kind adds its owner's read here and nowhere else.
- */
-/**
- * The tournament notifications Tab's own read found standing, as a `text[]`
- * (NTF-15). Tab's rows are behind lobby-scoped row security, so Tab reads
+ * The tournament notifications Tab's own read found standing, as a `jsonb`
+ * array of ids (NTF-15). Tab's rows are behind lobby-scoped row security, so Tab reads
  * each lobby in its own scope before this query and hands over the ids;
  * a read that asked Tab nothing (a digest: no Tab kind is emailed) passes none.
  */
@@ -38,6 +33,11 @@ export const noTournamentStanding: TournamentStanding = sql`'[]'::jsonb`;
 export const tournamentStanding = (ids: Iterable<string>): TournamentStanding =>
   sql`${JSON.stringify([...ids])}::text::jsonb`;
 
+/**
+ * Whether a notification of this kind still stands at `now`: what the
+ * subject's own feature publishes (ADR 0144). Notifications owns no status
+ * words of its own, so a new kind adds its owner's read here and nowhere else.
+ */
 const subjectStands = (
   kind: NotificationKind,
   now: SQL,

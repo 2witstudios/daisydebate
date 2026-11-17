@@ -219,6 +219,7 @@ export const notificationInboxOperations = ({
       const tournament = await standingTournamentNotifications(database, {
         userId: input.userId,
         canReadTournament: input.canReadTournament,
+        unreadOnly: input.unreadOnly,
       });
       const shown = sql`n.user_id=${input.userId}
         and ${notificationStands(

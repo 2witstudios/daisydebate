@@ -18,15 +18,19 @@ export const roundDecisionAudience = async (
     await rowsOf<{ user_id: string; about: string }>(
       tx,
       // Tab's seats (TAB-6): across from a side is the first seat of another
-      // side; a judge or unsided seat reads about the first side's. A seat
+      // side, in the format's declared side order (the Round's frozen rules);
+      // a judge or unsided seat reads about the first declared side's. A seat
       // retired from the Round (a replaced judge) is told nothing.
       sql`select distinct on (u.id) u.id as user_id,
           coalesce((select o.actor_id from round_participants o
             where o.round_id=p.round_id and o.seat_kind='side'
               and o.side is distinct from p.side
               and public.daisy_round_participant_is_current(o.id)
-            order by o.side,o.slot limit 1),p.actor_id) as about
+            order by (select e.ord from jsonb_array_elements(r.rules_snapshot->'sides')
+                with ordinality as e(side,ord) where e.side->>'key'=o.side),o.slot
+            limit 1),p.actor_id) as about
         from round_participants p
+        join rounds r on r.id=p.round_id
         join actors a on a.id=p.actor_id
         join users u on u.id=a.user_id and u.deleted_at is null
         where p.round_id=${roundId}
