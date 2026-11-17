@@ -424,9 +424,9 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
       'Affirmative 1',
     );
     await uncheckedTab.goto(`/rooms/${roomId}`);
-    // The controller is mounted once its check control replaces the SSR notice.
+    // The controller is mounted once its Turn on button replaces the SSR notice.
     const checkControl = uncheckedTab.getByRole('button', {
-      name: 'Check camera',
+      name: 'Turn on camera and mic',
       exact: true,
     });
     await expect(checkControl).toBeVisible();
@@ -516,7 +516,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
     await page.goto(`/rooms/${view.id}`);
     await expect(
       page.getByLabel('Seat someone in Affirmative 2', { exact: true }),
-    ).toBeVisible();
+    ).toBeAttached();
     const settings = await openRoomSetup(page, true);
     await settings.locator('[name="duration.segment.A2"]').fill('0:59');
     await saveRoundSettings(page);

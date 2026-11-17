@@ -628,3 +628,55 @@ describe('RoomRoster in an event Room (ADR 0145, Tab)', () => {
     });
   });
 });
+
+describe('RoomRoster header count (main-sync-4)', () => {
+  const count = (html: string) =>
+    html
+      .match(/<p class="text-sm text-ink-muted tabular-nums">(.*?)<\/p>/)?.[1]
+      ?.replaceAll('<!-- -->', '') ?? null;
+
+  test('a two-sided Room with a judge', () => {
+    const seats = seatsOf(1, 1, 1);
+    const html = render({
+      ...sized(1, 1, [seated('v', 'affirmative', 0)]),
+      definition: { ...assemblySnapshot.definition, seats },
+      rules: { ...assemblySnapshot.rules, seats },
+    });
+    assert({
+      given: 'one of two debaters seated and the judge seat open',
+      should: 'count debaters and judges apart',
+      actual: count(html),
+      expected: '1 of 2 debaters · 0 of 1 judge',
+    });
+  });
+
+  test('a format with a moderator (TAB-6)', () => {
+    const seats = {
+      sides: {},
+      speakers: 3,
+      judges: 1,
+      moderators: 1 as const,
+    };
+    const html = render({
+      ...assemblySnapshot,
+      definition: { ...assemblySnapshot.definition, sides: [], seats },
+      rules: { ...assemblySnapshot.rules, sides: [], seats },
+      participants: [
+        {
+          ...(seated('v', 'judge', 0) as Extract<
+            Participant,
+            { actorId: string }
+          >),
+          seat: { kind: 'moderator', slot: 0 },
+        },
+      ],
+    });
+    assert({
+      given:
+        'three open speaker seats, an open judge seat and a seated moderator',
+      should: 'count the judge and the moderator together as officials',
+      actual: count(html),
+      expected: '0 of 3 debaters · 1 of 2 officials',
+    });
+  });
+});

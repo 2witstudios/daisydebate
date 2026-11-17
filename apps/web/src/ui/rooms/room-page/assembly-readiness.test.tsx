@@ -10,6 +10,7 @@ import {
 } from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
 import { twoSides } from '@daisy/protocol';
+import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 
 setupRitewayBun();
 const base = {
@@ -108,6 +109,106 @@ describe('native room readiness and Start round controls', () => {
     });
   });
 
+  test('I’m ready asks first only when there is something to agree to', () => {
+    const notice = { version: 'casual-draft-1', text: 'Exact notice words.' };
+    const opener = (view: Props['view']) =>
+      findElements(
+        ReadyControl({ ...props, view }),
+        (element) =>
+          element.type === 'button' &&
+          element.props.popoverTarget === 'ready-confirm' &&
+          element.props.popoverTargetAction === undefined,
+      ).length;
+    const popovers = (view: Props['view']) =>
+      findElements(
+        ReadyControl({ ...props, view }),
+        (element) => element.type === PopoverDialog,
+      ).length;
+    assert({
+      given:
+        'a Room with a capture notice, an unsigned ranked member, and a Room with neither',
+      should:
+        'open a confirmation from I’m ready for the first two, and submit Ready directly for the last',
+      actual: [
+        [
+          opener({ ...base, captureNotice: notice }),
+          popovers({ ...base, captureNotice: notice }),
+        ],
+        [
+          opener({ ...base, contentWaiver: 'unsigned' }),
+          popovers({ ...base, contentWaiver: 'unsigned' }),
+        ],
+        [
+          opener(base),
+          popovers(base),
+          byText(ReadyControl(props), 'button', 'I’m ready')?.props.type,
+        ],
+      ],
+      expected: [
+        [1, 1],
+        [1, 1],
+        [0, 0, 'submit'],
+      ],
+    });
+  });
+
+  test('a Ready standing from another tab still offers this tab’s Turn on', () => {
+    const view = {
+      ...base,
+      participants: [
+        {
+          ...base.participants[0]!,
+          seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+          ready: 'ready' as const,
+        },
+      ],
+      capabilities: { ...base.capabilities, canStart: true },
+    };
+    const tree = ReadyControl({ ...props, view, turnOnDevices: () => {} });
+    assert({
+      given: 'a ready debater host whose devices this tab has not turned on',
+      should:
+        'offer Turn on camera and mic in place of Start round, and keep Not ready',
+      actual: [
+        Boolean(byText(tree, 'button', 'Turn on camera and mic')),
+        Boolean(byText(tree, 'button', 'Start round')),
+        Boolean(byText(tree, 'button', 'Not ready')),
+      ],
+      expected: [true, false, true],
+    });
+  });
+
+  test('the host’s Start round sits under their tile once they are ready', () => {
+    const ready = { ...base.participants[0]!, ready: 'ready' as const };
+    const start = (participants: Props['view']['participants'], host = true) =>
+      Boolean(
+        byText(
+          ReadyControl({
+            ...props,
+            view: {
+              ...base,
+              participants,
+              capabilities: { ...base.capabilities, host },
+            },
+          }),
+          'button',
+          'Start round',
+        ),
+      );
+    assert({
+      given:
+        'a host not yet ready, the same host ready, a host with no seat, and a ready guest',
+      should: 'offer Start round to the ready host and the seatless host only',
+      actual: [
+        start([base.participants[0]!]),
+        start([ready]),
+        start([]),
+        start([ready], false),
+      ],
+      expected: [false, true, true, false],
+    });
+  });
+
   test('a Room with the post-round call says so before Ready, once two people are in it', () => {
     const one = base.participants[0]!;
     const other = { ...one, id: 'second-seat', actorId: 'second-actor' };
@@ -183,7 +284,7 @@ describe('native room readiness and Start round controls', () => {
     assert({
       given: 'the viewer is ready at consent revision eight',
       should:
-        'fence withdrawal using that participant revision without adding a readiness field to Start round',
+        'put Start round first with no readiness field, then fence withdrawal using that participant revision',
       actual: forms.map((form) =>
         findElements(
           form,
@@ -192,7 +293,7 @@ describe('native room readiness and Start round controls', () => {
             element.props.name === 'expectedConsentVersion',
         ).map((input) => input.props.value),
       ),
-      expected: [['8'], []],
+      expected: [[], ['8']],
     });
   });
 
@@ -201,6 +302,7 @@ describe('native room readiness and Start round controls', () => {
       ...props,
       view: {
         ...base,
+        participants: [{ ...base.participants[0]!, ready: 'ready' as const }],
         capabilities: { ...base.capabilities, canStart: true },
         startRefusal: null,
       },
@@ -305,7 +407,7 @@ describe('native room readiness and Start round controls', () => {
         byText(waiting, 'p', 'Waiting on')?.props.children,
         byText(clear, 'p', 'Waiting on'),
       ],
-      expected: ['Waiting on: Affirmative, Negative, You', undefined],
+      expected: ['Waiting on Affirmative, Negative, You', undefined],
     });
   });
 
@@ -355,21 +457,22 @@ describe('native room readiness and Start round controls', () => {
       given: 'a standing Ready in a tab that has not checked its devices',
       should: 'name the check to the host, whose Start it fences, and no other',
       actual: [notice(true), notice(false)],
-      expected: ['Waiting on: your camera and microphone check', undefined],
+      expected: ['Waiting on your camera and mic', undefined],
     });
   });
 });
 
 test('host Start round refuses unavailable admission without changing Ready or command authority', () => {
-  const tree = StartControl({
+  const tree = ReadyControl({
     ...props,
     view: {
       ...base,
+      participants: [{ ...base.participants[0]!, ready: 'ready' as const }],
       botAdmission: { kind: 'unavailable' },
       capabilities: { ...base.capabilities, canStart: true },
     },
   });
-  const button = findElements(tree, (element) => element.type === 'button')[0];
+  const button = byText(tree, 'button', 'Start round');
   assert({
     given: 'an otherwise startable host Room with unavailable bot admission',
     should: 'disable only the Start round submission',

@@ -268,11 +268,13 @@ submitted draft and version.
 The page is two columns once there is room (ADR 0145). The left column is the
 roster, then the Room chat, which takes the column's spare height and scrolls
 inside it. The right column is the viewer's own tile (a seated debater's camera
-preview and device rows, with I'm ready under it), then Room controls (Who can
-join, Broadcast, Record), then the settings preview. A viewer with no seat has
-no tile, with no banner explaining why. A device is one row: its name and state
-on one line, its select beside a short Check button on the next, and remedy
-text only when a check is refused. The video never expands a row.
+preview with one full-width button under it), then Room controls (Who can join,
+Broadcast, Record), then the settings preview. A viewer with no seat has no
+tile, with no banner explaining why. Until devices are turned on the tile is
+only the preview and Turn on camera and mic; then the camera and microphone
+pickers sit under the preview, each an icon and a select, with a reason and its
+remedy only when a device fails. There is no per-device Check button and no
+status text. The video never expands a row.
 
 The roster is one row per declared seat, debaters then judges, like a game
 lobby. A debater row is a Ready mark, the debater with their rating inline (a
@@ -285,11 +287,18 @@ Invite and, to the host, a Seat picker (and AI judge on a judge seat); a seat
 held for an invitation names the invitee, with Release for the host. The
 viewer's own row ends in Leave; the host removes anyone else with Remove
 before seating someone else. The roster
-ends with what Start waits on and the host's Start round.
+ends with what Start waits on, right-aligned.
 
-Ready belongs to the viewer, so I'm ready is one full-width button under their
-own tile, with the capture notice and the ranked waiver form above it while
-they apply. The roster shows only each seat's Ready mark.
+Ready belongs to the viewer, so the one button under their own tile is Turn on
+camera and mic, then I'm ready, then Not ready. The host's Start round sits
+there too, once they are ready (at once for a host with no seat), disabled
+until Start can go: that button, not a status line, is what says the Room can
+start. The roster's Ready column only shows each seat's mark, a check or a
+dashed dot, never a box that looks clickable. Nothing a seat agrees to is
+written on the page: when there is something (an unsigned ranked waiver, a
+casual capture notice, the post-round call), I'm ready opens a confirmation
+with it, and confirming readies. The header's status line counts filled seats
+until Start and never says the Room is ready to start.
 
 Who can join, Broadcast and Record post on change, as a select and two switches
 for the host and plain values for everyone else; the broadcast delay shows as

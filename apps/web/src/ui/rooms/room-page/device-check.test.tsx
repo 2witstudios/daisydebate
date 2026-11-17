@@ -40,7 +40,6 @@ const choice = (kind: Props['kind'], state: DeviceCheckSnapshot) =>
       devices={devices}
       snapshot={state}
       inputs={inputs}
-      check={() => undefined}
     />,
   );
 /** The words a reader hears: markup removed, entities kept. */
@@ -64,7 +63,7 @@ test('device choice lists only its own kind with a labelled fallback', () => {
   });
 });
 
-test('device choice reports its state and offers a retry only when unpassed', () => {
+test('device choice says only what failed, and has no Check button', () => {
   const failed = choice(
     'camera',
     snapshot(check('denied', 'permission-denied', 'cam-1')),
@@ -74,19 +73,15 @@ test('device choice reports its state and offers a retry only when unpassed', ()
   assert({
     given: 'a denied, a checking and a passed device',
     should:
-      'name the reason in words, disable the retry while checking, and hide it once passed',
+      'name the failure in words beside its selected device, and say nothing while checking or once passed',
     actual: [
       text(failed).includes('Camera: blocked by this site&#x27;s settings'),
-      failed.includes('Check camera'),
       /<option value="cam-1" selected="">/.test(failed),
-      text(checking).includes('Microphone: checking…'),
-      /<button[^>]*aria-label="Check microphone"[^>]*disabled=""[^>]*>Check<\/button>/.test(
-        checking,
-      ),
-      text(passed).includes('Camera: ✓ checked'),
-      passed.includes('Check camera'),
+      [failed, checking, passed].some((html) => html.includes('<button')),
+      checking.includes('role="alert"'),
+      passed.includes('role="alert"'),
     ],
-    expected: [true, true, true, true, true, true, false],
+    expected: [true, true, false, false, false],
   });
 });
 
@@ -130,13 +125,13 @@ test('a refused device check names who blocked it and the remedy', () => {
       busy.includes('Close the other app using your microphone'),
       text(missing).includes('Camera: no camera found'),
       missing.includes(
-        'Connect a camera or use Continuity Camera, then check again.',
+        'Connect a camera or use Continuity Camera, then try again.',
       ),
       text(missingMic).includes('Microphone: no microphone found'),
       text(silent).includes('Camera: opened but sent no video'),
       text(silentMic).includes('Microphone: opened but picked up no sound'),
-      silent.includes('role="note"'),
-      passed.includes('role="note"'),
+      silent.includes('role="alert"'),
+      passed.includes('role="alert"'),
     ],
     expected: [
       true,

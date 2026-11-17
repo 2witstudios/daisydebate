@@ -13,6 +13,7 @@ import {
   closeSettledLaunchContexts,
   settledLaunchAuth,
 } from './room-launch-settled';
+import { turnOnDevices } from './turn-on-devices';
 
 /** Actual getUserMedia/controller/UI over controlled Chromium inputs, not real-device qualification. */
 export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
@@ -61,19 +62,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       page.getByRole('button', { name: 'Turn on camera and mic', exact: true });
     for (const page of [host, guest]) {
       await expect(turnOn(page)).toBeVisible();
-      await page
-        .getByRole('button', { name: 'Check camera', exact: true })
-        .click();
-      await expect(
-        page.getByText('Camera: ✓ checked', { exact: true }),
-      ).toBeVisible();
-      await expect(turnOn(page)).toBeVisible();
-      await page
-        .getByRole('button', { name: 'Check microphone', exact: true })
-        .click();
-      await expect(
-        page.getByText('Microphone: ✓ checked', { exact: true }),
-      ).toBeVisible();
+      await turnOnDevices(page);
       await expect(page.getByLabel('Your local camera preview')).toBeVisible();
       await expect(
         page.getByRole('button', { name: 'I’m ready', exact: true }),
