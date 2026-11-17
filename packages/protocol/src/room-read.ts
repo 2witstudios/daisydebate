@@ -3,6 +3,7 @@ import { usageSourceSchema } from './billing';
 import { idSchema } from './primitives';
 import { aiRoleSchema } from './ai-roles';
 import { seatRefSchema } from './seats';
+import { teamSideSchema } from './seat-draw';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
 import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
@@ -20,6 +21,15 @@ const participant = z.strictObject({
   label: z.string(),
   consentVersion: z.int().nonnegative(),
   seat: seatRefSchema,
+  teamOpen: z.boolean(),
+  positionOpen: z.boolean(),
+  /**
+   * The seated human's rating as this viewer may see it (ADR 0142): one
+   * whole number, provisional until it is real. Null for a bot, or hidden.
+   */
+  rating: z
+    .strictObject({ value: z.int(), provisional: z.boolean() })
+    .nullable(),
 });
 const seatState = {
   needsReady: z.boolean(),
@@ -176,6 +186,8 @@ const roomViewFields = z.strictObject({
     .strictObject({ resolutions: z.array(z.string().min(1)).readonly() })
     .nullable(),
   rules: roundRulesSchema,
+  /** Team 1's side, or null while the sides are open to the coin flip (ADR 0145). */
+  teamOneSide: teamSideSchema.nullable(),
   /** Free seats of each kind this viewer may not take: held for named members (ADR 0103, ADR 0124). */
   seatsHeldFromViewer: z.strictObject({
     side: z.int().nonnegative(),

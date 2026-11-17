@@ -42,7 +42,13 @@ const hydrated = (
 
 const noDraw = (prepMs: number | null) => ({
   ...roundFacts,
-  opening: { startedAt: edges.now, draw: null, prepMs, stops: [] },
+  opening: {
+    startedAt: edges.now,
+    draw: null,
+    prepMs,
+    stops: [],
+    sides: null,
+  },
   seed: null,
 });
 
@@ -242,6 +248,7 @@ test('inPreRoundPrep is true only while prep runs', () => {
     draw: null,
     prepMs: PREP_MS,
     stops: [],
+    sides: null,
   };
   assert({
     given: 'the first minute, the last millisecond and the end of prep',

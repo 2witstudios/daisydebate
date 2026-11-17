@@ -19,6 +19,15 @@ export function declaredSeats(seating: FormatSeating): readonly SeatRef[] {
   return everySeatOf(seating);
 }
 
+/** The viewer's own named seat in the Room, if they hold one. */
+export const ownSeat = (
+  view: Pick<RoomView, 'participants'>,
+  actorId: string,
+) =>
+  view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === actorId);
+
 export type LocalReadiness = {
   readonly devicesPassed: boolean;
   readonly unreadyPending: boolean;
@@ -30,19 +39,25 @@ type ReadinessView = Pick<
   readonly capabilities: Pick<RoomView['capabilities'], 'canReady'>;
 };
 
-function readyRefusal(
+/** Why Ready is refused, in order: the first failing check wins. */
+type ReadyBlocker = 'unavailable' | 'ineligible' | 'waiver' | 'devices';
+const blockerText: Readonly<Record<ReadyBlocker, string>> = {
+  unavailable: 'Readiness is unavailable. Refresh the room and try again.',
+  ineligible: 'This seat is not eligible to ready.',
+  waiver: 'Sign the ranked content waiver before readying.',
+  devices: 'Check your camera and microphone before readying.',
+};
+
+function readyBlocker(
   view: ReadinessView,
   own: RoomView['participants'][number],
   local: LocalReadiness,
-): string | null {
+): ReadyBlocker | null {
   if (!view.readiness.available || view.readiness.version !== view.version)
-    return 'Readiness is unavailable. Refresh the room and try again.';
-  if (!own.eligible || !view.capabilities.canReady)
-    return 'This seat is not eligible to ready.';
-  if (view.contentWaiver === 'unsigned')
-    return 'Sign the ranked content waiver before readying.';
-  if (!isJudgeSeat(own.seat) && !local.devicesPassed)
-    return 'Check your camera and microphone before readying.';
+    return 'unavailable';
+  if (!own.eligible || !view.capabilities.canReady) return 'ineligible';
+  if (view.contentWaiver === 'unsigned') return 'waiver';
+  if (!isJudgeSeat(own.seat) && !local.devicesPassed) return 'devices';
   return null;
 }
 
@@ -55,10 +70,9 @@ export function readinessControl(
   type: 'ready' | 'unready';
   enabled: boolean;
   reason: string | null;
+  blocker: ReadyBlocker | null;
 } | null {
-  const own = view.participants
-    .filter(isNamedSeat)
-    .find((seat) => seat.actorId === actorId);
+  const own = ownSeat(view, actorId);
   if (
     !own ||
     own.kind === 'bot' ||
@@ -71,11 +85,17 @@ export function readinessControl(
       type: 'unready',
       enabled: true,
       reason: 'Not ready requested. Waiting for server confirmation.',
+      blocker: null,
     };
   if (own.ready === 'ready')
-    return { type: 'unready', enabled: true, reason: null };
-  const reason = readyRefusal(view, own, local);
-  return { type: 'ready', enabled: reason === null, reason };
+    return { type: 'unready', enabled: true, reason: null, blocker: null };
+  const blocker = readyBlocker(view, own, local);
+  return {
+    type: 'ready',
+    enabled: blocker === null,
+    reason: blocker ? blockerText[blocker] : null,
+    blocker,
+  };
 }
 
 /** "Negative 1", "Judge 2": a seat by its format's name, always numbered. */

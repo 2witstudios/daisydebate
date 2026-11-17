@@ -30,7 +30,7 @@ describe('judgeRoomStageOf', () => {
     ): RoundView => ({
       ...view,
       status: 'opening',
-      opening: { step, draw: null, canStrike: false },
+      opening: { step, draw: null, canStrike: false, sides: null },
     });
     const strike = stageAt(opening({ step: 'strike' }), origin);
     const prep = stageAt(

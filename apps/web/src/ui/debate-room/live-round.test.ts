@@ -330,6 +330,7 @@ describe('liveRoundOf during the round', () => {
           },
           draw: null,
           canStrike: false,
+          sides: null,
         },
       },
       aff.actorId,

@@ -8,6 +8,8 @@ import type {
   SeatRef,
 } from '@daisy/protocol';
 import {
+  affirmativeSide,
+  sidesSwappable,
   aiRoleFits,
   freeSeatsOf,
   isJudgeSeat,
@@ -61,6 +63,7 @@ export const updateConfig = (
     formatId: publishDefinition ? edges.formatId : room.formatId,
     formatVersion: publishDefinition ? 1 : room.formatVersion,
     topic,
+    teamOneSide: sidesAfter(room, resolved.rules),
   };
   return acceptedRoomMutation(next, { publishDefinition });
 };
@@ -124,8 +127,18 @@ export const selectFormat = (
     rules,
     executionPlan: roomPlan,
     topic,
+    teamOneSide: sidesAfter(room, rules),
   });
 };
+/**
+ * Team 1's side under new rules: teams of different sizes keep the side
+ * their seats were declared for (ADR 0145), so their sides cannot be open.
+ */
+const sidesAfter = (
+  room: RoomAssemblyState,
+  rules: RoomAssemblyState['rules'],
+): RoomAssemblyState['teamOneSide'] =>
+  sidesSwappable(rules) ? room.teamOneSide : affirmativeSide;
 export const updateDetails = (
   room: RoomAssemblyState,
   _actorId: string,
@@ -156,6 +169,18 @@ export const updateDetails = (
     { publishDefinition },
   );
 };
+
+/** Who can join, and nothing else; a ranked Room stays public. */
+export const setVisibility = (
+  room: RoomAssemblyState,
+  _actorId: string,
+  command: Extract<RoomCommand, { type: 'set-visibility' }>,
+  _consent: RoomConsent,
+  _edges: Edges,
+): RoomMutationOutcome =>
+  room.competitionType === 'ranked' && command.visibility !== 'public'
+    ? refuse('illegal-config')
+    : acceptedRoomMutation({ ...room, visibility: command.visibility });
 
 /**
  * The topic after a config change, or undefined when the command breaks the
@@ -304,6 +329,9 @@ export const claimSeat = (
         ...target,
         id: existing?.id ?? edges.participantId,
         seat: command.seat,
+        // A seat taken is the team and position chosen (ADR 0145).
+        teamOpen: false,
+        positionOpen: false,
         consentCommandId: null,
       },
     ],

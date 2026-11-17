@@ -7,6 +7,7 @@ import {
   twoSideKeys,
   type TwoSideKey,
 } from './seats';
+import type { SeatDraw } from './seat-draw';
 
 /**
  * The strike is a pair's (TAB-6.2): only a two-sided format has a draw, so
@@ -309,6 +310,12 @@ export type RoundOpening = {
   readonly prepMs: number | null;
   /** Time a platform incident held the clock; strikes and prep owe it back. */
   readonly stops: readonly ClockStop[];
+  /**
+   * What Start round's seat draw did (ADR 0145), frozen on the Round and
+   * public; null when the Round predates it. Shown, never timed: no step or
+   * anchor reads it.
+   */
+  readonly sides: SeatDraw | null;
 };
 
 const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);

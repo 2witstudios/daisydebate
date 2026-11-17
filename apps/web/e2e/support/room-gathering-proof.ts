@@ -61,7 +61,7 @@ async function visualStates(page: Page, info: TestInfo) {
       await page.setViewportSize({ width, height: 1000 });
       await page.reload();
       await expect(
-        page.getByRole('heading', { name: 'Seats', exact: true }),
+        page.getByRole('heading', { name: 'Players', exact: true }),
       ).toBeVisible();
       if (width !== 390) await assertNoSeriousFindings(page);
       await capture(page, info, `room-${theme}-${width}`);
@@ -105,13 +105,13 @@ export async function proveGathering(
     expect(new URL(room.url()).search).toBe('');
     // A refused save keeps the sheet open; closing it returns to the room.
     await room
-      .getByRole('link', { name: 'Close room setup', exact: true })
+      .getByRole('link', { name: 'Close settings', exact: true })
       .click();
     await expect(form).toBeHidden();
     await openRoomSetup(room, true);
     await form.locator('[name="duration.segment.A2"]').fill('0:43.456');
     await form.getByRole('button', { name: 'Save round settings' }).click();
-    // The accepted native save's redirect closes Room setup.
+    // The accepted native save's redirect closes Settings.
     await expect(form).toBeHidden();
     const saved = await reread(native.request, view.id);
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([

@@ -1,4 +1,5 @@
 import { activeRoomMembers, executeRoomCommand } from '@daisy/debate-engine';
+import { createdSides } from '../../room-runtime/created-sides';
 import { createAppError } from '@daisy/errors';
 import type {
   DrawRoomAssembly,
@@ -74,6 +75,14 @@ export const eventRoomAssemblies = (
           presetVersion: null,
           basis: null,
           competitionType: 'casual',
+          // An event Room takes its sides from the draw, never a coin (ADR 0145).
+          teamOneSide: createdSides({
+            competitionType: 'casual',
+            sides: 'fixed',
+            castNamesDebater: true,
+            seating: pins.rules,
+            eventRoom: true,
+          }),
           config: pins.config,
           executionPlan: pins.executionPlan,
           rules: pins.rules,
@@ -123,9 +132,12 @@ export const eventRoomAssemblies = (
                       id: seat.participantId,
                       consentVersion: 0,
                       seat: seat.seat,
+                      teamOpen: false,
+                      positionOpen: false,
                     }
                   : null,
                 drawStart: null,
+                seatSeed: null,
               },
             ),
         },

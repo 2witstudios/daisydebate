@@ -1,0 +1,1 @@
+ALTER TABLE "room_participants" ADD CONSTRAINT "room_participants_open_seat_check" CHECK (("seat_kind" = 'side' or not ("team_open" or "position_open")) and (not "team_open" or "position_open"));

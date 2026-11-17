@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ef824810-4b9d-4a7e-9032-4bebb7ac0673",
+  "id": "41ce7810-b95c-49fb-a990-5a9437819ca6",
   "prevIds": [
-    "3e73a6f1-e7ae-44c9-8694-03a2fb84dfd5"
+    "b250a20b-c759-4071-9f7a-a84844a6963b"
   ],
   "ddl": [
     {
@@ -824,7 +824,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "active_seats",
+      "name": "room_active_memberships",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2471,7 +2471,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -2486,19 +2486,6 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'win'",
-      "generated": null,
-      "identity": null,
-      "name": "decision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
@@ -2510,20 +2497,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ranking",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -5180,7 +5154,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "feedback_subject",
+      "name": "feedback_side",
       "entityType": "columns",
       "schema": "public",
       "table": "content_reports"
@@ -15360,7 +15334,7 @@
       "name": "actor_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "active_seats"
+      "table": "room_active_memberships"
     },
     {
       "type": "text",
@@ -15373,7 +15347,7 @@
       "name": "room_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "active_seats"
+      "table": "room_active_memberships"
     },
     {
       "type": "timestamp with time zone",
@@ -15386,7 +15360,7 @@
       "name": "created_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "active_seats"
+      "table": "room_active_memberships"
     },
     {
       "type": "text",
@@ -15435,20 +15409,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "seat_kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "room_participants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "side",
+      "name": "role",
       "entityType": "columns",
       "schema": "public",
       "table": "room_participants"
@@ -17281,20 +17242,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "seat_kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_participants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "side",
+      "name": "role",
       "entityType": "columns",
       "schema": "public",
       "table": "round_participants"
@@ -17986,33 +17934,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "winning_side",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ranking",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "judging",
+      "name": "outcome",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -18061,7 +17983,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "'{\"version\":1,\"prep_consumed_ms\":{\"affirmative\":0,\"negative\":0},\"active_prep\":null,\"floor\":null,\"incident\":{\"phase\":\"none\"},\"prep_ended_at\":null,\"start_gate\":null,\"clock_stops\":[]}'",
       "generated": null,
       "identity": null,
       "name": "runtime_state",
@@ -28548,10 +28470,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "active_seats_room_idx",
+      "name": "room_active_memberships_room_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "active_seats"
+      "table": "room_active_memberships"
     },
     {
       "nameExplicit": true,
@@ -28577,6 +28499,41 @@
       "method": "btree",
       "concurrently": false,
       "name": "room_participants_actor_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "room_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "role",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "slot",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "room_participants_seat_unique",
       "entityType": "indexes",
       "schema": "public",
       "table": "room_participants"
@@ -29963,6 +29920,41 @@
       "method": "btree",
       "concurrently": false,
       "name": "round_participants_actor_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_participants"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "role",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "slot",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_participants_seat_unique",
       "entityType": "indexes",
       "schema": "public",
       "table": "round_participants"
@@ -36508,10 +36500,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "active_seats_actor_id_actors_id_fkey",
+      "name": "room_active_memberships_actor_id_actors_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "active_seats"
+      "table": "room_active_memberships"
     },
     {
       "nameExplicit": false,
@@ -36525,10 +36517,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "active_seats_room_id_rooms_id_fkey",
+      "name": "room_active_memberships_room_id_rooms_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "active_seats"
+      "table": "room_active_memberships"
     },
     {
       "nameExplicit": false,
@@ -39897,9 +39889,9 @@
         "actor_id"
       ],
       "nameExplicit": false,
-      "name": "active_seats_pkey",
+      "name": "room_active_memberships_pkey",
       "schema": "public",
-      "table": "active_seats",
+      "table": "room_active_memberships",
       "entityType": "pks"
     },
     {
@@ -40834,20 +40826,6 @@
     {
       "nameExplicit": true,
       "columns": [
-        "room_id",
-        "seat_kind",
-        "side",
-        "slot"
-      ],
-      "nullsNotDistinct": true,
-      "name": "room_participants_seat_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "room_participants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
         "id",
         "lobby_id"
       ],
@@ -40868,20 +40846,6 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "seat_kind",
-        "side",
-        "slot"
-      ],
-      "nullsNotDistinct": true,
-      "name": "round_participants_seat_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "round_participants"
     },
     {
       "nameExplicit": true,
@@ -41200,35 +41164,14 @@
       "table": "ballots"
     },
     {
-      "value": "\"decision\" in ('win', 'tie', 'double_loss', 'ranking')",
-      "name": "ballots_decision_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "value": "(\"winner\" is not null) = (\"decision\" = 'win') and (\"winner\" is null or (\"winner\" ~ '^[a-z][a-z_]{0,23}$' and \"winner\" not in ('side', 'speaker', 'judge', 'moderator')))",
+      "value": "\"winner\" in ('affirmative', 'negative')",
       "name": "ballots_winner_check",
       "entityType": "checks",
       "schema": "public",
       "table": "ballots"
     },
     {
-      "value": "(\"ranking\" is not null) = (\"decision\" = 'ranking') and (\"ranking\" is null or jsonb_typeof(\"ranking\") = 'array')",
-      "name": "ballots_ranking_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "value": "(\"ballot_definition_id\" is null) = (\"rubric_version\" is not null)",
-      "name": "ballots_daisy_definition_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "value": "\"rubric_version\" is null or \"rubric_version\" in ('speaker-10@1', 'speaker-10@2', 'rank-sides@1', 'rank-speakers@1')",
+      "value": "\"rubric_version\" in ('speaker-10@1', 'speaker-10@2')",
       "name": "ballots_rubric_version_check",
       "entityType": "checks",
       "schema": "public",
@@ -41865,8 +41808,8 @@
       "table": "content_reports"
     },
     {
-      "value": "(\"target_kind\" = 'ballot_feedback') = (\"feedback_subject\" is not null) and (\"feedback_subject\" is null or (\"feedback_subject\" ~ '^[a-z][a-z_]{0,23}$' and \"feedback_subject\" not in ('side', 'speaker', 'judge', 'moderator')) or \"feedback_subject\" ~ '^[a-z0-9]{24}$')",
-      "name": "content_reports_feedback_subject_check",
+      "value": "(\"target_kind\" = 'ballot_feedback') = (\"feedback_side\" is not null) and (\"feedback_side\" is null or \"feedback_side\" in ('affirmative', 'negative'))",
+      "name": "content_reports_feedback_side_check",
       "entityType": "checks",
       "schema": "public",
       "table": "content_reports"
@@ -42180,8 +42123,8 @@
       "table": "fixture_entries"
     },
     {
-      "value": "\"side\" is null or (\"side\" ~ '^[a-z][a-z_]{0,23}$' and \"side\" not in ('side', 'speaker', 'judge', 'moderator'))",
-      "name": "fixture_entries_side_key",
+      "value": "\"side\" is null or length(trim(\"side\")) > 0",
+      "name": "fixture_entries_side_nonempty",
       "entityType": "checks",
       "schema": "public",
       "table": "fixture_entries"
@@ -44042,7 +43985,7 @@
       "table": "room_commands"
     },
     {
-      "value": "\"seat\" in ('side', 'speaker', 'judge', 'moderator')",
+      "value": "\"seat\" in ('debater', 'judge')",
       "name": "room_invitations_seat_check",
       "entityType": "checks",
       "schema": "public",
@@ -44070,15 +44013,8 @@
       "table": "room_invitations"
     },
     {
-      "value": "\"seat_kind\" in ('side', 'speaker', 'judge', 'moderator')",
-      "name": "room_participants_seat_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "room_participants"
-    },
-    {
-      "value": "(\"side\" is not null) = (\"seat_kind\" = 'side') and (\"side\" is null or (\"side\" ~ '^[a-z][a-z_]{0,23}$' and \"side\" not in ('side', 'speaker', 'judge', 'moderator')))",
-      "name": "room_participants_side_check",
+      "value": "\"role\" in ('affirmative', 'negative', 'judge')",
+      "name": "room_participants_role_check",
       "entityType": "checks",
       "schema": "public",
       "table": "room_participants"
@@ -44098,7 +44034,7 @@
       "table": "room_participants"
     },
     {
-      "value": "\"seat\" in ('side', 'speaker', 'judge', 'moderator')",
+      "value": "\"seat\" in ('debater', 'judge')",
       "name": "room_seat_holds_seat_check",
       "entityType": "checks",
       "schema": "public",
@@ -44107,13 +44043,6 @@
     {
       "value": "(\"host_actor_id\" is null) = (\"lobby_kind\" = 'tournament')",
       "name": "rooms_host_by_lobby_kind",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "value": "\"lobby_kind\" <> 'tournament' or (\"capture\" is not null and \"capture\"->>'recordingPolicy' in ('off', 'officials'))",
-      "name": "rooms_event_recording",
       "entityType": "checks",
       "schema": "public",
       "table": "rooms"
@@ -44385,7 +44314,7 @@
       "table": "round_commands"
     },
     {
-      "value": "\"type\" in ('start', 'strike_resolution', 'start_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'leave', 'complete', 'submit_ballot', 'check_in', 'adjudicate')",
+      "value": "\"type\" in ('start', 'strike_resolution', 'start_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'complete', 'submit_ballot', 'check_in', 'adjudicate')",
       "name": "round_commands_type_check",
       "entityType": "checks",
       "schema": "public",
@@ -44553,15 +44482,8 @@
       "table": "round_judging_jobs"
     },
     {
-      "value": "\"seat_kind\" in ('side', 'speaker', 'judge', 'moderator')",
-      "name": "round_participants_seat_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_participants"
-    },
-    {
-      "value": "(\"side\" is not null) = (\"seat_kind\" = 'side') and (\"side\" is null or (\"side\" ~ '^[a-z][a-z_]{0,23}$' and \"side\" not in ('side', 'speaker', 'judge', 'moderator')))",
-      "name": "round_participants_side_check",
+      "value": "\"role\" in ('affirmative', 'negative', 'judge')",
+      "name": "round_participants_role_check",
       "entityType": "checks",
       "schema": "public",
       "table": "round_participants"
@@ -44581,7 +44503,7 @@
       "table": "round_private_spans"
     },
     {
-      "value": "\"type\" in ('speech', 'cross_ex', 'open')",
+      "value": "\"type\" in ('speech', 'cross_ex')",
       "name": "round_segments_type_check",
       "entityType": "checks",
       "schema": "public",
@@ -44672,7 +44594,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" = 'completed' and \"winning_side\" is null and \"ranking\" is null)",
+      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" = 'completed' and \"outcome\" is null)",
       "name": "rounds_platform_ending_check",
       "entityType": "checks",
       "schema": "public",
@@ -44777,22 +44699,8 @@
       "table": "rounds"
     },
     {
-      "value": "(\"winning_side\" is null or \"ranking\" is null) and (\"winning_side\" is null or (\"winning_side\" ~ '^[a-z][a-z_]{0,23}$' and \"winning_side\" not in ('side', 'speaker', 'judge', 'moderator')))",
+      "value": "\"outcome\" is null or \"outcome\" in ('affirmative', 'negative')",
       "name": "rounds_outcome_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "value": "\"ranking\" is null or (jsonb_typeof(\"ranking\") = 'array' and jsonb_array_length(\"ranking\") > 0 and not jsonb_path_exists(\"ranking\", 'strict $[*] ? (@.type() != \"array\" || @.size() == 0)') and not jsonb_path_exists(\"ranking\", 'strict $[*][*] ? (@.type() != \"string\")'))",
-      "name": "rounds_ranking_shape_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "value": "jsonb_typeof(\"judging\") = 'object'",
-      "name": "rounds_judging_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"
@@ -44805,7 +44713,7 @@
       "table": "rounds"
     },
     {
-      "value": "(\"status\" = 'opening' and \"current_stage\" is null and \"winning_side\" is null and \"ranking\" is null and \"started_at\" is null and \"completed_at\" is null) or (\"status\" = 'active' and \"resolution\" is not null and \"current_stage\" is not null and \"winning_side\" is null and \"ranking\" is null and \"started_at\" is not null and \"completed_at\" is null) or (\"status\" = 'completed' and \"current_stage\" is null and \"started_at\" is not null and \"completed_at\" is not null) or (\"status\" = 'abandoned' and \"current_stage\" is null and \"winning_side\" is null and \"ranking\" is null and \"completed_at\" is not null)",
+      "value": "(\"status\" = 'opening' and \"current_stage\" is null and \"outcome\" is null and \"started_at\" is null and \"completed_at\" is null) or (\"status\" = 'active' and \"resolution\" is not null and \"current_stage\" is not null and \"outcome\" is null and \"started_at\" is not null and \"completed_at\" is null) or (\"status\" = 'completed' and \"current_stage\" is null and \"started_at\" is not null and \"completed_at\" is not null) or (\"status\" = 'abandoned' and \"current_stage\" is null and \"outcome\" is null and \"completed_at\" is not null)",
       "name": "rounds_lifecycle_check",
       "entityType": "checks",
       "schema": "public",
@@ -45837,6 +45745,86 @@
       "entityType": "checks",
       "schema": "public",
       "table": "users"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "team_open",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "position_open",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "team_one_side",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "seat_draw",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "(\"role\" <> 'judge' or not (\"team_open\" or \"position_open\")) and (not \"team_open\" or \"position_open\")",
+      "name": "room_participants_open_seat_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "value": "\"team_one_side\" is null or \"team_one_side\" in ('affirmative', 'negative')",
+      "name": "rooms_team_one_side_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "value": "\"competition_type\" <> 'ranked' or \"status\" not in ('assembling', 'ready') or \"team_one_side\" is null",
+      "name": "rooms_ranked_sides_open_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "value": "jsonb_typeof(\"seat_draw\") = 'object'",
+      "name": "rounds_seat_draw_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
     }
   ],
   "renames": []

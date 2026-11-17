@@ -15,6 +15,8 @@ const human = (actorId: string) => ({
   seat: sideSeat('negative'),
   eligible: true,
   aiRole: null,
+  teamOpen: false,
+  positionOpen: false,
   consentVersion: 0,
   consentCommandId: null,
 });

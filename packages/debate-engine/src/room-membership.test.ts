@@ -17,6 +17,8 @@ const bot = {
   kind: 'bot' as const,
   seat: judgeSeat(),
   eligible: true,
+  teamOpen: false,
+  positionOpen: false,
   consentVersion: 0,
   consentCommandId: null,
 };

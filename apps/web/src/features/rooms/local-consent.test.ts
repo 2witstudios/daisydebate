@@ -18,6 +18,9 @@ const consentView = (ready: boolean, revision = 1) => ({
       eligible: true,
       ready: ready ? ('ready' as const) : ('not-ready' as const),
       consentVersion: revision,
+      teamOpen: false,
+      positionOpen: false,
+      rating: null,
     },
   ],
 });

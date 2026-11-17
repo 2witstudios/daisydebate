@@ -4,7 +4,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { casualCaptureNotice } from '../src/features/legal/agreements';
 import { test, expect, openPage } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
-import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
+import {
+  submitCreateRoom,
+  closeRoom,
+  rosterSeatName,
+} from './support/room-launch-flow';
 
 test('a ranked seat signs the content waiver without JavaScript', async ({
   browser,
@@ -36,7 +40,10 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
     );
     try {
       await page
-        .getByRole('button', { name: 'Take Affirmative 1', exact: true })
+        .getByRole('button', {
+          name: `Take ${rosterSeatName(room, 'Affirmative 1')}`,
+          exact: true,
+        })
         .click();
       const waiver = page.getByRole('heading', {
         name: 'Sign the ranked content waiver',

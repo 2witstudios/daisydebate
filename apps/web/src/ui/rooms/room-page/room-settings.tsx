@@ -10,6 +10,7 @@ import {
   settingRows,
   speechGrow,
 } from './room-labels';
+import { ROOM_SETUP_HOME } from './room-setup-modal';
 
 const neutralTone = 'bg-surface-sunken text-ink-muted';
 
@@ -44,7 +45,7 @@ function SpeechBar({ view }: { readonly view: RoomView }) {
   );
 }
 
-/** The saved round as a read-only summary; the host changes it in Room setup. */
+/** The saved round as a read-only preview; the host changes it in Edit settings. */
 export function RoomSettings({ view }: { readonly view: RoomView }) {
   return (
     <section
@@ -53,14 +54,15 @@ export function RoomSettings({ view }: { readonly view: RoomView }) {
     >
       <div className="flex items-center justify-between gap-3">
         <h2 id="room-settings-title" className="text-md font-semibold">
-          Round setup
+          Settings
         </h2>
         {view.capabilities.canEdit ? (
           <a
             href={ROOM_SETUP_HREF}
+            {...{ [ROOM_SETUP_HOME]: '' }}
             className="inline-flex min-h-room-target items-center text-sm font-strong"
           >
-            Customize
+            Edit settings
           </a>
         ) : null}
       </div>

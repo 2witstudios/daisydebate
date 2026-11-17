@@ -159,6 +159,8 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
         kind: 'refuse',
         reason: 'free-judge-unbound',
       }),
+      readMemberCardRatings: async () => [],
+      readRatingBlindings: async () => [],
     } as unknown as Store,
     redis: {
       setRoomConsent: async () => undefined,

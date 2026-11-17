@@ -146,6 +146,8 @@ test('format publication updates the pinned definition and admits an eligible bo
     eligible: true,
     aiRole: 'judge' as const,
     consentVersion: 0,
+    teamOpen: false,
+    positionOpen: false,
   };
   const assigned = executeRoomCommand(
     expanded,
@@ -208,6 +210,8 @@ test('a bot debater never takes the judge seat and the AI judge never takes a si
           eligible: true,
           aiRole,
           consentVersion: 0,
+          teamOpen: false,
+          positionOpen: false,
         },
       },
     );
@@ -257,6 +261,8 @@ test('a bot debater takes an unsided speaker seat, never a moderator seat (TAB-6
           seat,
           eligible: true,
           aiRole,
+          teamOpen: false,
+          positionOpen: false,
           consentVersion: 0,
         },
       },

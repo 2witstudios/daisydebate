@@ -145,6 +145,7 @@ export function roomCommandOperation({
               hostHoldsCasualCapture: false,
               target: null,
               drawStart: null,
+              seatSeed: null,
             },
           );
           if (outcome.ok && outcome.mutation.consent?.type === 'ready')
@@ -156,11 +157,12 @@ export function roomCommandOperation({
               ttlMs: consentTtlMs(),
             });
         }
-        // Only a Start round draws, so only it mints a draw id and entropy.
+        // Every Start round mints the Round's one seed: the seat draw reads
+        // it (ADR 0145), and a draw Room's resolution draw shares it.
+        const seed = command.type === 'start-round' ? entropy() : null;
         const secrets =
-          command.type === 'start-round' &&
-          prepared.executionPlan.resolutionDraw.enabled
-            ? { drawId: ids.next(), seed: entropy(), salt: entropy() }
+          seed !== null && prepared.executionPlan.resolutionDraw.enabled
+            ? { drawId: ids.next(), seed, salt: entropy() }
             : null;
         return (
           raw,
@@ -224,6 +226,8 @@ export function roomCommandOperation({
                     id: '',
                     consentVersion: 0,
                     seat,
+                    teamOpen: false,
+                    positionOpen: false,
                     eligible:
                       target.eligible &&
                       (target.kind === 'human' ||
@@ -237,6 +241,7 @@ export function roomCommandOperation({
                     exclusions: draw.exclusions,
                   }
                 : null,
+              seatSeed: seed,
             },
           );
           if (outcome.ok && command.type === 'ready') {

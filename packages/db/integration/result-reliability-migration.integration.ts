@@ -34,6 +34,8 @@ test(
         // Today's decoder also sees the future nullable league selection. The
         // predecessor owns no such selection; remove the loan before migrating.
         await f.sql`alter table rounds add column league_ladder_id text`;
+        // ADR 0145's frozen seat draw, which the predecessor never wrote.
+        await f.sql`alter table rounds add column seat_draw jsonb`;
         // TAB-6's seat and outcome columns too, beside the role and outcome
         // columns it backfills them from.
         await f.sql`alter table rounds add column winning_side text, add column ranking jsonb, add column judging jsonb`;
@@ -84,6 +86,7 @@ test(
           const freezes =
             await f.sql`select round_id,revision,frontier,completeness from round_transcript_freezes order by round_id`;
           await f.sql`alter table rounds drop column post_round_call, drop column league_ladder_id`;
+          await f.sql`alter table rounds drop column seat_draw`;
           await f.sql`alter table rounds drop column winning_side, drop column ranking, drop column judging`;
           await removeAssignmentInterface();
           await f.sql`alter table round_participants drop column seat_kind, drop column side`;

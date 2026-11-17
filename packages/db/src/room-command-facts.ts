@@ -222,6 +222,8 @@ const hydrateRoom = async (
           (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
         id: row.id,
         seat,
+        teamOpen: row.teamOpen,
+        positionOpen: row.positionOpen,
         consentCommandId: row.readinessCommandId,
         consentVersion: row.readinessVersion,
       };
@@ -273,6 +275,7 @@ const hydrateRoom = async (
     competitionType: row.competitionType,
     capture: row.capture,
     postRoundCall: row.postRoundCall,
+    teamOneSide: row.teamOneSide,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

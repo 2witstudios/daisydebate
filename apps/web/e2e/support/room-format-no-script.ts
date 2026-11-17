@@ -7,7 +7,7 @@ import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { reread } from './room-launch-flow';
 
 /**
- * Room setup's format choice with scripts off (FMT-3, FMT-4, ADR 0142): a
+ * Edit settings' format choice with scripts off (FMT-3, FMT-4, ADR 0142): a
  * Freestyle room whose prep was edited reads Custom based on Freestyle, Back
  * to Freestyle restores the standard, and the league browser posts
  * select-format natively with the resolution a set-wording format needs.

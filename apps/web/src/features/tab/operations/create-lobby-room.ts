@@ -1,4 +1,5 @@
 import { settingRow } from './setting-facts';
+import { createdSides } from '../../room-runtime/created-sides';
 import { orderedWordings } from './resolution-wording-order';
 import type {
   AuthorizationDecision,
@@ -16,6 +17,7 @@ import {
   decideRoomResolution,
 } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
+import { isDebatingSeat } from '@daisy/protocol';
 import {
   commandReplay,
   type LobbyCommandAnswer,
@@ -376,6 +378,14 @@ export const createLobbyRoom =
                   presetVersion: selected.presetVersion,
                   basis: selected.basis,
                   competitionType: selected.competitionType,
+                  teamOneSide: createdSides({
+                    competitionType: selected.competitionType,
+                    sides: undefined,
+                    castNamesDebater: cast.some((seat) =>
+                      isDebatingSeat(seat.seat),
+                    ),
+                    seating: compiled.rules,
+                  }),
                   config,
                   executionPlan: compiled.roomPlan,
                   rules: compiled.rules,
@@ -433,9 +443,12 @@ export const createLobbyRoom =
                                   id: seat.participantId,
                                   consentVersion: 0,
                                   seat: seat.seat,
+                                  teamOpen: false,
+                                  positionOpen: false,
                                 }
                               : null,
                             drawStart: null,
+                            seatSeed: null,
                           },
                         ),
                     }

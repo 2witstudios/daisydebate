@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { systemId } from '@daisy/clock';
-import { isJudgeSeat, isNamedSeat, type RoomView } from '@daisy/protocol';
+import { isJudgeSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
 import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
 import { rememberCheckedDevices } from '../../../features/video/device-selection';
@@ -22,17 +22,16 @@ import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import { StartControl, ReadyControl } from './assembly-readiness';
 import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
 import { buttonClass } from '../../components/button/button-class';
-import type { LocalReadiness } from './assembly-controls';
+import { ownSeat, type LocalReadiness } from './assembly-controls';
 import { CameraPreview, DeviceChoice } from './device-check';
 import { RoomSyncContext } from './room-sync-context';
 
 type Props = {
-  /**
-   * Seats and the round setup summary: the right-hand column below Start. It
-   * is given the viewer's Ready control, which belongs in their own seat row.
-   */
-  readonly side: (ready: ReactNode) => ReactNode;
-  /** The Room chat, which fills the left column under any devices; null when the viewer has none. */
+  /** The roster, given the Start line that ends it. */
+  readonly main: (start: ReactNode) => ReactNode;
+  /** Room controls and the settings preview, under the viewer's own tile. */
+  readonly aside: ReactNode;
+  /** The Room chat, under the roster; null when the viewer has none. */
   readonly chat: ReactNode;
   readonly view: RoomView;
   readonly actorId: string;
@@ -51,32 +50,21 @@ function GatheringLayout({
   action,
   local,
   devices,
+  turnOnDevices,
 }: {
   readonly props: Props;
   readonly view: RoomView;
   readonly action: FormAction<RoomFormState>;
   readonly local: LocalReadiness;
   readonly devices: ReactNode;
+  readonly turnOnDevices?: () => void;
 }) {
-  const controls = { ...props, view, action, local };
-  const side = (
-    <div className="room-side flex min-w-0 flex-col gap-4">
-      {StartControl(controls)}
-      {props.side(ReadyControl(controls))}
-    </div>
-  );
-  if (!devices && !props.chat) return side;
+  const controls = { ...props, view, action, local, turnOnDevices };
+  const ready = ReadyControl(controls);
   return (
     <div className="grid room-gathering gap-6">
       <div className="room-main flex min-w-0 flex-col gap-4">
-        {devices ? (
-          <section
-            aria-label="Your devices"
-            className="flex min-w-0 flex-col gap-3"
-          >
-            {devices}
-          </section>
-        ) : null}
+        {props.main(StartControl(controls))}
         {props.chat ? (
           // The thread scrolls inside this box: it takes the column's spare
           // height and never stretches the page by its own length.
@@ -87,7 +75,18 @@ function GatheringLayout({
           </div>
         ) : null}
       </div>
-      {side}
+      <div className="room-side flex min-w-0 flex-col gap-4">
+        {devices || ready ? (
+          <section
+            aria-label="You"
+            className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-3"
+          >
+            {devices}
+            {ready}
+          </section>
+        ) : null}
+        {props.aside}
+      </div>
     </div>
   );
 }
@@ -111,17 +110,17 @@ function LiveDevices({
     consent.updateView(props.view);
   }, [consent, props.view]);
   const [inputs, setInputs] = useState<readonly MediaDeviceInfo[]>([]);
-  const check = async (kind: DeviceKind) => {
-    await devices.check(kind);
+  // Each check runs on its own stream, so both can start from one gesture;
+  // the input list is read once after them.
+  const check = async (...kinds: readonly DeviceKind[]) => {
+    await Promise.all(kinds.map((kind) => devices.check(kind)));
     try {
       setInputs(await navigator.mediaDevices.enumerateDevices());
     } catch {
       setInputs([]);
     }
   };
-  const own = props.view.participants
-    .filter(isNamedSeat)
-    .find((seat) => seat.actorId === props.actorId);
+  const own = ownSeat(props.view, props.actorId);
   return (
     <GatheringLayout
       props={props}
@@ -131,6 +130,7 @@ function LiveDevices({
         devicesPassed: snapshot.devicesPassed,
         unreadyPending: local.pending,
       }}
+      turnOnDevices={() => void check('microphone', 'camera')}
       devices={
         <>
           <CameraPreview
@@ -173,9 +173,7 @@ function LiveDevices({
 
 /** SSR remains failclosed for human devices; judge native forms need no JS. */
 export function AssemblyDeviceReadiness(props: Props) {
-  const own = props.view.participants
-    .filter(isNamedSeat)
-    .find((p) => p.actorId === props.actorId);
+  const own = ownSeat(props.view, props.actorId);
   const needsDevices = own?.kind === 'human' && !isJudgeSeat(own.seat);
   const latest = useRef(props);
   const sync = useContext(RoomSyncContext);

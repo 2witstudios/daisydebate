@@ -128,6 +128,8 @@ const withBotRoom = (
           consent: null,
           publishDefinition: false,
           draw: null,
+          seatDraw: null,
+          roundSeed: null,
           members: [caller.actorId],
         },
       }),

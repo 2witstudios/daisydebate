@@ -7,12 +7,15 @@ import type { FormAction } from '../../form-action/form-action';
 import {
   freezePostRoundCall,
   isJudgeSeat,
-  isNamedSeat,
   type RoomView,
 } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
-import { readinessControl, type LocalReadiness } from './assembly-controls';
+import {
+  ownSeat,
+  readinessControl,
+  type LocalReadiness,
+} from './assembly-controls';
 import { startRefusalText, waitingOn } from './room-labels';
 
 /**
@@ -34,6 +37,8 @@ type View = Pick<
   | 'captureNotice'
   | 'capture'
   | 'postRoundCall'
+  | 'teamOneSide'
+  | 'status'
 > & {
   readonly definition: Pick<RoomView['definition'], 'sides' | 'seats'>;
   readonly capabilities: Pick<
@@ -48,6 +53,12 @@ type Props = {
   readonly action: FormAction<RoomFormState>;
   readonly waiverAction: FormAction<RoomFormState>;
   readonly commandIds: Readonly<Record<Control, string>>;
+  /**
+   * Turns on this tab's camera and microphone. Given, a debater whose devices
+   * have not passed sees it as their one full-width button in place of a
+   * disabled I'm ready (ADR 0145).
+   */
+  readonly turnOnDevices?: (() => void) | undefined;
 };
 
 function startFence(
@@ -56,9 +67,7 @@ function startFence(
   local: LocalReadiness,
 ): boolean {
   if (local.unreadyPending) return true;
-  const own = view.participants
-    .filter(isNamedSeat)
-    .find((seat) => seat.actorId === actorId);
+  const own = ownSeat(view, actorId);
   return (
     own?.kind === 'human' && !isJudgeSeat(own.seat) && !local.devicesPassed
   );
@@ -107,8 +116,9 @@ function CommandForm({
 }
 
 /**
- * The viewer's own Ready or Not ready, laid out as items of their seat row;
- * null for bots, spectators and unseated members.
+ * The viewer's own Ready or Not ready, full width under their tile, with
+ * what they agree to by readying above it; null for bots, spectators and
+ * unseated members. The roster shows only each seat's Ready mark.
  */
 export function ReadyControl({
   view,
@@ -117,22 +127,42 @@ export function ReadyControl({
   action,
   waiverAction,
   commandIds,
+  turnOnDevices,
 }: Props) {
   const ready = readinessControl(view, actorId, local);
   if (!ready) return null;
-  const own = view.participants
-    .filter(isNamedSeat)
-    .find((seat) => seat.actorId === actorId);
-  const isReady = ready.type === 'unready' && !local.unreadyPending;
+  const own = ownSeat(view, actorId);
+  // The only refusal the viewer can clear from here is their own devices.
+  const turnOn = ready.blocker === 'devices' ? turnOnDevices : undefined;
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {isReady ? (
-          <span className="rounded-full bg-hue-teal-soft px-3 py-1 text-xs font-semibold text-hue-teal">
-            ✓ Ready
-          </span>
-        ) : null}
-        {CommandForm({
+    <div className="flex flex-col gap-2">
+      {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (
+        <ContentWaiverForm action={waiverAction} />
+      ) : null}
+      {ready.type === 'ready' && view.captureNotice ? (
+        <p role="note" className="text-sm text-ink-muted">
+          {view.captureNotice.text}
+        </p>
+      ) : null}
+      {ready.type === 'ready' ? (
+        <CaptureSummary capture={view.capture} />
+      ) : null}
+      {ready.type === 'ready' &&
+      freezePostRoundCall(view.postRoundCall, view.participants) ? (
+        <p role="note" className="text-sm font-strong">
+          {postRoundCallText}
+        </p>
+      ) : null}
+      {turnOn ? (
+        <button
+          type="button"
+          onClick={turnOn}
+          className={`${buttonClass('primary')} w-full`}
+        >
+          Turn on camera and mic
+        </button>
+      ) : (
+        CommandForm({
           type: ready.type,
           label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
           enabled: ready.enabled,
@@ -144,36 +174,15 @@ export function ReadyControl({
             ready.type === 'ready'
               ? (view.captureNotice?.version ?? null)
               : null,
-          className: buttonClass(
-            ready.type === 'ready' ? 'primary' : 'secondary',
-          ),
-        })}
-      </div>
-      {ready.reason ? (
-        <p role="status" className="basis-full text-sm text-ink-muted">
+          className: `${buttonClass(ready.type === 'ready' ? 'primary' : 'secondary')} w-full`,
+        })
+      )}
+      {ready.reason && !turnOn ? (
+        <p role="status" className="text-sm text-ink-muted">
           {ready.reason}
         </p>
       ) : null}
-      {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (
-        <div className="basis-full">
-          <ContentWaiverForm action={waiverAction} />
-        </div>
-      ) : null}
-      {ready.type === 'ready' && view.captureNotice ? (
-        <p role="note" className="basis-full text-sm text-ink-muted">
-          {view.captureNotice.text}
-        </p>
-      ) : null}
-      {ready.type === 'ready' ? (
-        <CaptureSummary capture={view.capture} />
-      ) : null}
-      {ready.type === 'ready' &&
-      freezePostRoundCall(view.postRoundCall, view.participants) ? (
-        <p role="note" className="basis-full text-sm font-strong">
-          {postRoundCallText}
-        </p>
-      ) : null}
-    </>
+    </div>
   );
 }
 
@@ -192,7 +201,7 @@ function startNotice(
   return 'Everyone is here and ready.';
 }
 
-/** The Start card: what it waits on for everyone, and Start round for the host. */
+/** The roster's last line: what Start waits on for everyone, and Start round for the host. */
 export function StartControl({
   view,
   actorId,
@@ -208,32 +217,27 @@ export function StartControl({
         view.botAdmission.refusal !== null));
   const notice = startNotice(view, actorId, blocked);
   return (
-    <section
-      aria-labelledby="room-start-title"
-      className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3"
-    >
-      <h2 id="room-start-title" className="text-md font-semibold">
-        Start the round
-      </h2>
-      <p role="status" className="text-sm text-ink-muted">
-        {notice}
-      </p>
+    <div className="flex min-w-0 flex-col gap-2">
       {view.capabilities.host ? (
         <BotAdmissionNotice admission={view.botAdmission} />
       ) : null}
-      {view.capabilities.host ? (
-        CommandForm({
-          type: 'start-round',
-          label: 'Start round',
-          enabled: view.capabilities.canStart && !blocked && !admissionBlocked,
-          version: view.version,
-          commandId: commandIds['start-round'],
-          action,
-          className: `${buttonClass('primary')} w-full`,
-        })
-      ) : (
-        <p className="text-sm text-ink-muted">The host starts the round.</p>
-      )}
-    </section>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-sm text-ink-muted">
+          {notice}
+        </p>
+        {view.capabilities.host
+          ? CommandForm({
+              type: 'start-round',
+              label: 'Start round',
+              enabled:
+                view.capabilities.canStart && !blocked && !admissionBlocked,
+              version: view.version,
+              commandId: commandIds['start-round'],
+              action,
+              className: buttonClass('primary'),
+            })
+          : null}
+      </div>
+    </div>
   );
 }

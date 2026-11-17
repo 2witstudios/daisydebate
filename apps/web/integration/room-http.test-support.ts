@@ -120,6 +120,7 @@ export async function withHumanJudgeHttpRound(
           resolution: { kind: 'custom', text: 'Cities should fund transit' },
           visibility: 'public',
           selection,
+          sides: 'fixed',
         },
         { cookie: host },
       ),

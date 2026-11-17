@@ -3,6 +3,7 @@ import { proveLobbyDiscovery } from './support/room-lobby-discovery';
 import { proveFormatPicker } from './support/room-launch-format';
 import { proveNoScriptFormatChoice } from './support/room-format-no-script';
 import { proveHumanLaunch } from './support/room-launch-human';
+import { proveCoinFlip } from './support/room-coin-flip';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
@@ -354,9 +355,11 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
             expectedVersion: round.version,
             command: {
               type: 'strike_resolution',
+              // Practice flips for sides (ADR 0145): the host strikes as
+              // whichever side its seat drew.
               participantId: round.participants
                 .filter(isNamedSeat)
-                .find((p) => sideOfSeat(p.seat) === affirmativeSide)!.id,
+                .find((p) => p.actorId === view.hostActorId)!.id,
               ordinal: draw.turn.ordinal,
               position,
             },
@@ -371,9 +374,12 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
       expect(round.topic).not.toBeNull();
       expect(round.status).toBe('active');
     }).toPass({ timeout: 30_000 });
-    expect(seated(view, opponent!.actorId)?.seat).toEqual(
-      sideSeat(negativeSide),
-    );
+    // The coin decided the sides: host and bot argue opposite ones.
+    const sides = [view.hostActorId!, opponent!.actorId].map((actorId) => {
+      const seat = seated(view, actorId)?.seat;
+      return seat ? sideOfSeat(seat) : null;
+    });
+    expect([...sides].sort()).toEqual([affirmativeSide, negativeSide]);
 
     // The member still holds this Room. A repeated Train create returns to
     // the same Round rather than opening another Room (ADR 0070).
@@ -439,7 +445,12 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
 
     await readyUp(readyTab);
     // The mounted tab reads the Ready through its own Room sync and keeps it.
-    const standingReady = uncheckedTab.getByText('✓ Ready', { exact: true });
+    const standingReady = uncheckedTab
+      .getByRole('listitem', {
+        name: accounts.members[0]!.username,
+        exact: true,
+      })
+      .getByRole('img', { name: 'Ready', exact: true });
     await expect(standingReady).toBeVisible();
     // Read only now: the checked tab's control moves before the Ready commits.
     const ready = await reread(readyTab.request, roomId);
@@ -503,9 +514,8 @@ test('canonical browser custom-create preserves declared unequal seats and order
       ['A1', { rights: 'one', seat: sideSeat(affirmativeSide) }, 47000],
     ]);
     await page.goto(`/rooms/${view.id}`);
-    await page.getByText('Manage seats', { exact: true }).click();
     await expect(
-      page.getByLabel('Assign Affirmative 2', { exact: true }),
+      page.getByLabel('Seat someone in Affirmative 2', { exact: true }),
     ).toBeVisible();
     const settings = await openRoomSetup(page, true);
     await settings.locator('[name="duration.segment.A2"]').fill('0:59');
@@ -539,13 +549,19 @@ test('human Ready and withdrawal gate Launch; both clients automatically enter t
   await proveHumanLaunch(browser, info);
 });
 
+test('two debaters on open sides Ready, Start round flips the coin, and both openings name opposite sides alike', async ({
+  browser,
+}) => {
+  await proveCoinFlip(browser);
+});
+
 test('Custom library previews real speech defaults and commits the selected template without JavaScript', async ({
   browser,
 }) => {
   await proveFormatPicker(browser);
 });
 
-test('Room setup chooses a standard, reads Custom after an edit and goes Back without JavaScript', async ({
+test('Edit settings chooses a standard, reads Custom after an edit and goes Back without JavaScript', async ({
   browser,
 }) => {
   await proveNoScriptFormatChoice(browser);

@@ -29,13 +29,13 @@ afterAll(() => scratch.drop());
 // Every feature-only folder, including the wiring migration. The initial
 // database runs every main folder; each sorts before the first Tab folder.
 const parentFolders = new Set([
-  '20261117003138_tab_schema',
-  '20261117003139_tab_schema_checks_validated',
-  '20261117003140_tab_seats',
-  '20261117003141_tab_seats_checks_validated',
-  '20261117003142_tab_casual_templates',
-  '20261117003143_tab_wiring',
-  '20261117003144_lethal_grey_gargoyle',
+  '20261117033251_tab_schema',
+  '20261117033252_tab_schema_checks_validated',
+  '20261117033253_tab_seats',
+  '20261117033254_tab_seats_checks_validated',
+  '20261117033255_tab_casual_templates',
+  '20261117033256_tab_wiring',
+  '20261117033257_lethal_grey_gargoyle',
   '20261117054407_tab_finalization_assignment_cascade',
 ]);
 

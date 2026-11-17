@@ -50470,6 +50470,79 @@
       "entityType": "checks",
       "schema": "public",
       "table": "utterances"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "team_open",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "position_open",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "team_one_side",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "seat_draw",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "\"team_one_side\" is null or \"team_one_side\" in ('affirmative', 'negative')",
+      "name": "rooms_team_one_side_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "value": "\"competition_type\" <> 'ranked' or \"status\" not in ('assembling', 'ready') or \"team_one_side\" is null",
+      "name": "rooms_ranked_sides_open_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "value": "jsonb_typeof(\"seat_draw\") = 'object'",
+      "name": "rounds_seat_draw_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
     }
   ],
   "renames": []

@@ -62,6 +62,8 @@ async function createDrawRoom(
           },
         },
       },
+      // Seats name sides: the Negative seat strikes first (ADR 0145).
+      sides: 'fixed',
     },
   });
   expect(created.status()).toBe(201);
@@ -247,6 +249,8 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
           presetVersion: freestyle.preset.version,
           competitionType: 'casual',
         },
+        // The host's Affirmative seat argues the Affirmative (ADR 0145).
+        sides: 'fixed',
       },
     });
     expect(created.status()).toBe(201);

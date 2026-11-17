@@ -1,6 +1,8 @@
 import { ladders } from './ladders';
 import {
   competitionTypes,
+  twoSideKeys,
+  type TwoSideKey,
   roomCaptureSchema,
   roomConfigSchema,
   seatKinds,
@@ -98,6 +100,11 @@ export const rooms = pgTable(
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
+    /**
+     * Team 1's side, or null while the sides are open to the coin flip at
+     * Start round (ADR 0145). Team 1 sits in the affirmative seats.
+     */
+    teamOneSide: text('team_one_side').$type<TwoSideKey>(),
     /** RoomConfig as chosen. */
     config: jsonbColumn('config', roomConfigSchema).notNull(),
     /** The casual host's broadcast and recording choice (WATCH-8); null is none. */
@@ -220,6 +227,16 @@ export const rooms = pgTable(
       table.createdAt,
     ),
     check(
+      'rooms_team_one_side_check',
+      sql`${table.teamOneSide} is null or ${oneOf(table.teamOneSide, twoSideKeys)}`,
+    ),
+    // A ranked Room always flips for sides until Start (ADR 0145); at Start
+    // its seats take the drawn sides and team 1's side reads Affirmative.
+    check(
+      'rooms_ranked_sides_open_check',
+      sql`${table.competitionType} <> 'ranked' or ${table.status} not in ('assembling', 'ready') or ${table.teamOneSide} is null`,
+    ),
+    check(
       'rooms_visibility_check',
       oneOf(table.visibility, ['public', 'unlisted', 'private']),
     ),
@@ -314,6 +331,10 @@ export const roomParticipants = pgTable(
     seatKind: seatKindColumn(),
     side: seatSideColumn(),
     slot: seatSlot(),
+    /** A debater whose team is ?, placed at random at Start round (ADR 0145). */
+    teamOpen: boolean('team_open').notNull().default(false),
+    /** A debater whose speaking position is ?, placed at random at Start round. */
+    positionOpen: boolean('position_open').notNull().default(false),
     /** Latest accepted readiness command; Redis consent must match this fence. */
     readinessCommandId: text('readiness_command_id'),
     readinessVersion: integer('readiness_version').notNull().default(0),
@@ -329,6 +350,10 @@ export const roomParticipants = pgTable(
       .nullsNotDistinct(),
     index('room_participants_actor_idx').on(table.actorId),
     ...seatChecks('room_participants', table),
+    check(
+      'room_participants_open_seat_check',
+      sql`(${table.seatKind} = 'side' or not (${table.teamOpen} or ${table.positionOpen})) and (not ${table.teamOpen} or ${table.positionOpen})`,
+    ),
     check(
       'room_participants_readiness_version_nonnegative',
       sql`${table.readinessVersion} >= 0`,

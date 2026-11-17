@@ -18,6 +18,8 @@ const room = {
       kind: 'human' as const,
       seat: judgeSeat(),
       eligible: true,
+      teamOpen: false,
+      positionOpen: false,
       consentVersion: 0,
       consentCommandId: 'r3',
     },

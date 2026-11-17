@@ -56,19 +56,18 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     } finally {
       await native.close();
     }
+    // With script, the tile's one button turns devices on until both pass (ADR 0145).
+    const turnOn = (page: typeof host) =>
+      page.getByRole('button', { name: 'Turn on camera and mic', exact: true });
     for (const page of [host, guest]) {
-      await expect(
-        page.getByRole('button', { name: 'I’m ready', exact: true }),
-      ).toBeDisabled();
+      await expect(turnOn(page)).toBeVisible();
       await page
         .getByRole('button', { name: 'Check camera', exact: true })
         .click();
       await expect(
         page.getByText('Camera: ✓ checked', { exact: true }),
       ).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: 'I’m ready', exact: true }),
-      ).toBeDisabled();
+      await expect(turnOn(page)).toBeVisible();
       await page
         .getByRole('button', { name: 'Check microphone', exact: true })
         .click();

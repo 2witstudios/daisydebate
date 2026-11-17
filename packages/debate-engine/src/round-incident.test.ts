@@ -541,6 +541,7 @@ test('opening strikes and prep obey the same stop', () => {
     draw: null,
     prepMs: 60_000,
     stops: [{ from: roundAt(10_000), to: null }],
+    sides: null,
   };
   assert({
     given: 'opening prep held by an open stop, long past its end',

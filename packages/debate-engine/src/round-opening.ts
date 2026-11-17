@@ -266,6 +266,7 @@ export function projectOpening(
         draw && projectDraw(draw, debater, viewerActorId, now, opening.stops),
       canStrike:
         viewerActorId !== null && mayStrike(step, seats, viewerActorId),
+      sides: opening.sides,
     },
   };
 }

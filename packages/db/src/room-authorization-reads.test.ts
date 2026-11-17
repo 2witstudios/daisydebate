@@ -258,6 +258,7 @@ test('Round read returns only the stored receipt and current participant identit
         step: { step: 'complete', at: now },
         draw: null,
         canStrike: false,
+        sides: null,
       },
       topic: null,
     }),
