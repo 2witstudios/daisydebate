@@ -380,6 +380,8 @@ export async function openSeatPicker(page: Page, seatName: string) {
     .getByRole('button', { name: 'Seat someone', exact: true })
     .click();
   await expect(select).toBeVisible();
+  // Opening it moves keyboard focus to the choice.
+  await expect(select).toBeFocused();
   return select;
 }
 

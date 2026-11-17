@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { freezePostRoundCall, type RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
+import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 import {
   ownSeat,
   readinessControl,
@@ -131,10 +132,8 @@ function ReadyConfirm({
   const call = freezePostRoundCall(view.postRoundCall, view.participants);
   if (!waiver && !view.captureNotice && !call) return null;
   return (
-    <div
+    <PopoverDialog
       id={confirmId}
-      popover="auto"
-      role="dialog"
       aria-labelledby={`${confirmId}-title`}
       className="m-auto w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex"
     >
@@ -165,7 +164,7 @@ function ReadyConfirm({
           </div>
         </>
       )}
-    </div>
+    </PopoverDialog>
   );
 }
 

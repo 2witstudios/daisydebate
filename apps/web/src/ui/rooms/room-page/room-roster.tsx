@@ -13,6 +13,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { initialsOf } from '../../../lib/initials';
 import { Icon } from '../../components/icon/icon';
+import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
@@ -322,10 +323,8 @@ function AssignSeat({
       >
         Seat someone
       </button>
-      <div
+      <PopoverDialog
         id={`${id}-menu`}
-        popover="auto"
-        role="dialog"
         aria-label="Seat someone"
         className="m-auto w-room-dialog max-w-full rounded-lg border border-border-strong bg-surface p-4 text-ink shadow-3 backdrop:bg-scrim/50"
       >
@@ -340,9 +339,12 @@ function AssignSeat({
           <label className="sr-only" htmlFor={id}>
             Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
           </label>
+          {/* Server-rendered autofocus lets the native popover focus the
+              choice before hydration and without script. */}
           <select
             id={id}
             name="actorId"
+            autoFocus
             required
             defaultValue=""
             className={`${controlClass} min-w-0 flex-1`}
@@ -365,7 +367,7 @@ function AssignSeat({
             Seat
           </button>
         </AssemblyCommandForm>
-      </div>
+      </PopoverDialog>
     </>
   );
 }

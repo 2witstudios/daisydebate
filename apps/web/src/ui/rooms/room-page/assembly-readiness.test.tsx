@@ -9,6 +9,7 @@ import {
   postRoundCallText,
 } from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
+import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 
 setupRitewayBun();
 const base = {
@@ -113,7 +114,7 @@ describe('native room readiness and Start round controls', () => {
     const popovers = (view: Props['view']) =>
       findElements(
         ReadyControl({ ...props, view }),
-        (element) => element.props.popover === 'auto',
+        (element) => element.type === PopoverDialog,
       ).length;
     assert({
       given:
