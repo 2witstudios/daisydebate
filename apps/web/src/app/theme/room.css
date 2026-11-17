@@ -251,6 +251,7 @@ img.ProseMirror-separator {
   :root {
     --spacing-dense-target: var(--spacing-room-target);
     --spacing-tab-strip: var(--spacing-room-target);
+    --spacing-roster-control: var(--spacing-room-target);
   }
 }
 
@@ -368,6 +369,11 @@ img.ProseMirror-separator {
   --spacing-room-avatar: 6rem;
   --aspect-room-preview: 16 / 9;
   --spacing-room-chat: 26rem;
+  /* The right column: the viewer's tile, Room controls and settings. The
+     roster takes everything else. */
+  --spacing-room-aside: 22rem;
+  /* A saved setting's label column. */
+  --spacing-room-setting-label: 9rem;
 }
 
 @utility room-page {
@@ -377,8 +383,14 @@ img.ProseMirror-separator {
 @utility room-gathering {
   grid-template-columns: minmax(0, 1fr);
   @container (min-width: 780px) {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) var(--spacing-room-aside);
   }
+}
+
+/* A saved setting: label and value in two straight columns. */
+@utility room-setting-row {
+  display: grid;
+  grid-template-columns: var(--spacing-room-setting-label) minmax(0, 1fr);
 }
 
 /* One column on a phone: the columns dissolve so the viewer's tile follows
@@ -434,19 +446,32 @@ img.ProseMirror-separator {
 }
 
 /* The roster's rows (ADR 0145): Ready, the debater, then the seat boxes and
-   the row's one action. Team and Position show when a team seats several. */
+   the row's one action. Team and Position show when a team seats several.
+   Every column is fixed but the debater's, and judges share the debaters'
+   columns, so each column runs in one straight line down the roster. The
+   roster is its own container: its column, not the page, decides narrow.
+   It is compact under a mouse: one line per seat, 32px controls that return
+   to the full touch target under a finger (the media rule above). */
 @theme {
-  --spacing-roster-mark: 3rem;
-  --spacing-roster-box: 3.5rem;
-  --spacing-roster-side: 4.5rem;
+  --spacing-roster-control: 2rem;
+  --spacing-roster-avatar: 1.75rem;
+  --spacing-roster-mark: 2.5rem;
+  --spacing-roster-box: 2.75rem;
+  --spacing-roster-side: 3.75rem;
+  --spacing-roster-action: var(--spacing-roster-control);
   --spacing-roster-mark-narrow: 2rem;
   --spacing-roster-box-narrow: 3rem;
+}
+
+@utility room-roster {
+  container-type: inline-size;
 }
 
 @utility room-roster-teams {
   grid-template-columns:
     var(--spacing-roster-mark) minmax(0, 1fr) var(--spacing-roster-box)
-    var(--spacing-roster-side) var(--spacing-roster-side) auto;
+    var(--spacing-roster-side) var(--spacing-roster-side)
+    var(--spacing-roster-action);
   @container (max-width: 520px) {
     grid-template-columns:
       var(--spacing-roster-mark-narrow) minmax(0, 1fr)
@@ -458,7 +483,7 @@ img.ProseMirror-separator {
 @utility room-roster-sides {
   grid-template-columns:
     var(--spacing-roster-mark) minmax(0, 1fr) var(--spacing-roster-side)
-    auto;
+    var(--spacing-roster-action);
   @container (max-width: 520px) {
     grid-template-columns:
       var(--spacing-roster-mark-narrow) minmax(0, 1fr)
@@ -466,15 +491,10 @@ img.ProseMirror-separator {
   }
 }
 
-@utility room-roster-judges {
-  grid-template-columns: var(--spacing-roster-mark) minmax(0, 1fr) auto;
-  @container (max-width: 520px) {
-    grid-template-columns: var(--spacing-roster-mark-narrow) minmax(0, 1fr);
-  }
-}
-
-/* On a phone a row's one action drops under its boxes. */
+/* A row's one action keeps the last column, a judge's too; on a phone it
+   drops under the boxes. */
 @utility room-roster-action {
+  grid-column: -2 / -1;
   @container (max-width: 520px) {
     grid-column: 1 / -1;
   }

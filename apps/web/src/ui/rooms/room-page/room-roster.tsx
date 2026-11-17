@@ -13,6 +13,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { initialsOf } from '../../../lib/initials';
 import { Icon } from '../../components/icon/icon';
+import type { IconName } from '../../components/icon/icons';
 import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 import { AssemblyCommandFields } from './assembly-command-fields';
@@ -56,7 +57,14 @@ const boxTone: Readonly<Record<SideMark, string>> = {
   '?': 'border-2 border-dashed border-gold-border bg-gold-soft text-ink',
 };
 const boxClass =
-  'flex min-h-room-target w-full items-center justify-center rounded-lg text-sm font-semibold';
+  'flex min-h-roster-control w-full items-center justify-center rounded-md text-sm font-semibold';
+/** A row's text action: compact under a mouse, the full target under a finger. */
+const rowButton =
+  'inline-flex min-h-roster-control cursor-pointer items-center justify-center gap-1 rounded-full border border-border-strong bg-transparent px-3 text-sm leading-tight font-strong whitespace-nowrap text-ink hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60';
+const iconButton =
+  'inline-flex size-roster-control cursor-pointer items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink';
+const menuItem =
+  'flex min-h-roster-control w-full cursor-pointer items-center rounded-sm px-2 text-left text-sm text-ink hover:bg-surface-sunken';
 
 /** One box of a row: a button that posts its next value, or the value alone. */
 function CycleBox({
@@ -179,7 +187,7 @@ function ReadyMark({ seat }: { readonly seat: Participant }) {
     <Icon
       name="check"
       label="Ready"
-      size={20}
+      size={18}
       className="justify-self-center text-online"
     />
   ) : (
@@ -216,31 +224,36 @@ function Who({
       ].filter((part) => part !== null)
     : [];
   return (
-    <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-w-0 items-center gap-2">
       <span
         aria-hidden="true"
-        className={`flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
+        className={`flex size-roster-avatar shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
       >
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
-      <div className="min-w-0">
-        <p className="flex min-w-0 items-baseline gap-x-2 font-semibold">
-          <span className="truncate" title={seat?.label ?? 'Judge'}>
-            {seat?.label ?? 'Judge'}
+      {/* One line while it fits; a narrow column wraps the rating and tags
+          under the name instead of pushing them into the seat boxes. */}
+      <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 font-semibold">
+        <span className="max-w-full truncate" title={seat?.label ?? 'Judge'}>
+          {seat?.label ?? 'Judge'}
+        </span>
+        {seat?.rating ? (
+          <span
+            className={`shrink-0 text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
+          >
+            {seat.rating.value}
+            {seat.rating.provisional ? '*' : ''}
           </span>
-          {seat?.rating ? (
-            <span
-              className={`shrink-0 text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
-            >
-              {seat.rating.value}
-              {seat.rating.provisional ? '*' : ''}
-            </span>
-          ) : null}
-        </p>
-        {meta.length > 0 ? (
-          <p className="text-xs text-ink-muted">{meta.join(' · ')}</p>
         ) : null}
-      </div>
+        {meta.map((part) => (
+          <span
+            key={part}
+            className="shrink-0 self-center rounded-sm bg-surface-sunken px-2 text-xs font-strong text-ink-muted"
+          >
+            {part}
+          </span>
+        ))}
+      </p>
     </div>
   );
 }
@@ -252,6 +265,8 @@ function CommandButton({
   fields,
   label,
   name = label,
+  icon,
+  className = rowButton,
 }: {
   readonly props: RosterProps;
   readonly type: 'claim-seat' | 'assign-seat' | 'remove-seat' | 'leave-seat';
@@ -260,6 +275,9 @@ function CommandButton({
   readonly label: string;
   /** The accessible name, when the visible label leans on its row. */
   readonly name?: string;
+  /** Shown instead of the label, which becomes its tooltip. */
+  readonly icon?: IconName;
+  readonly className?: string;
 }) {
   return (
     <AssemblyCommandForm action={props.action}>
@@ -273,24 +291,31 @@ function CommandButton({
       ))}
       <button
         type="submit"
-        aria-label={name === label ? undefined : name}
-        className={buttonClass('ghost')}
+        aria-label={name === label && !icon ? undefined : name}
+        title={icon ? label : undefined}
+        className={icon ? iconButton : className}
       >
-        {label}
+        {icon ? <Icon name={icon} size={16} /> : label}
       </button>
     </AssemblyCommandForm>
   );
 }
 
-/** The host's pick of who sits in an open seat: members first, then bots. */
-function AssignSeat({
+/**
+ * The host's Fill seat menu on an open seat: pick a member or a bot, or seat
+ * the AI judge. One button keeps the row to one line.
+ */
+function FillSeat({
   props,
   seat,
   ids,
+  aiJudge,
 }: {
   readonly props: RosterProps;
   readonly seat: Seat;
   readonly ids: SeatIds;
+  /** The AI judge this seat may take, when it is a judge seat. */
+  readonly aiJudge: RoomCastChoice | undefined;
 }) {
   const { view } = props;
   const seated = new Set(
@@ -311,62 +336,83 @@ function AssignSeat({
       !(bot.seatRole === 'judge' && !aiJudgeSeatable(view.aiJudgeSeating)) &&
       !(view.competitionType === 'ranked' && bot.seatRole === 'debater'),
   );
-  if (people.length + bots.length === 0) return null;
+  const choices = people.length + bots.length > 0;
+  if (!choices && !aiJudge) return null;
   const id = `assign-${seat.role}-${seat.slot}`;
-  // One button on the open seat's line; the choice opens over it, natively.
+  const seatName = roomSeatLabel(view, seat.role, seat.slot);
+  // The menu opens over the row, natively, with focus on its first choice.
   return (
     <>
       <button
         type="button"
         popoverTarget={`${id}-menu`}
-        className={buttonClass('ghost')}
+        aria-label={`Fill ${seatName}`}
+        className={rowButton}
       >
-        Seat someone
+        Fill seat
+        <Icon name="chevron-down" size={14} />
       </button>
       <PopoverDialog
         id={`${id}-menu`}
-        aria-label="Seat someone"
-        className="m-auto w-room-dialog max-w-full rounded-lg border border-border-strong bg-surface p-4 text-ink shadow-3 backdrop:bg-scrim/50"
+        aria-label={`Fill ${seatName}`}
+        className="m-auto flex w-room-dialog max-w-full flex-col gap-2 rounded-lg border border-border-strong bg-surface p-3 text-ink shadow-3 backdrop:bg-scrim/50"
       >
-        <AssemblyCommandForm action={props.action} className="flex gap-2">
-          <AssemblyCommandFields
+        {choices ? (
+          <AssemblyCommandForm action={props.action} className="flex gap-2">
+            <AssemblyCommandFields
+              type="assign-seat"
+              version={view.version}
+              commandId={ids.assign}
+            />
+            <input type="hidden" name="role" value={seat.role} />
+            <input type="hidden" name="slot" value={String(seat.slot)} />
+            <label className="sr-only" htmlFor={id}>
+              Seat someone in {seatName}
+            </label>
+            {/* Server-rendered autofocus lets the native popover focus the
+                choice before hydration and without script. */}
+            <select
+              id={id}
+              name="actorId"
+              autoFocus
+              data-initial-focus
+              required
+              defaultValue=""
+              className={`${controlClass} min-w-0 flex-1`}
+            >
+              <option value="" disabled>
+                Seat someone
+              </option>
+              {people.map((p) => (
+                <option key={p.actorId} value={p.actorId}>
+                  {p.label}
+                </option>
+              ))}
+              {bots.map((bot) => (
+                <option key={bot.actorId} value={bot.actorId}>
+                  {bot.label} · Bot
+                </option>
+              ))}
+            </select>
+            <button type="submit" className={buttonClass('primary')}>
+              Seat
+            </button>
+          </AssemblyCommandForm>
+        ) : null}
+        {aiJudge ? (
+          <CommandButton
+            props={props}
             type="assign-seat"
-            version={view.version}
-            commandId={ids.assign}
+            commandId={ids.ai}
+            fields={{
+              role: seat.role,
+              slot: String(seat.slot),
+              actorId: aiJudge.actorId,
+            }}
+            label="AI judge"
+            className={menuItem}
           />
-          <input type="hidden" name="role" value={seat.role} />
-          <input type="hidden" name="slot" value={String(seat.slot)} />
-          <label className="sr-only" htmlFor={id}>
-            Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
-          </label>
-          {/* Server-rendered autofocus lets the native popover focus the
-              choice before hydration and without script. */}
-          <select
-            id={id}
-            name="actorId"
-            autoFocus
-            required
-            defaultValue=""
-            className={`${controlClass} min-w-0 flex-1`}
-          >
-            <option value="" disabled>
-              Choose someone
-            </option>
-            {people.map((p) => (
-              <option key={p.actorId} value={p.actorId}>
-                {p.label}
-              </option>
-            ))}
-            {bots.map((bot) => (
-              <option key={bot.actorId} value={bot.actorId}>
-                {bot.label} · Bot
-              </option>
-            ))}
-          </select>
-          <button type="submit" className={buttonClass('primary')}>
-            Seat
-          </button>
-        </AssemblyCommandForm>
+        ) : null}
       </PopoverDialog>
     </>
   );
@@ -394,14 +440,15 @@ function OpenSeat({
 }) {
   const { view } = props;
   const position = { role: seat.role, slot: String(seat.slot) };
-  const aiJudge = aiJudgeSeatable(view.aiJudgeSeating)
-    ? props.bots.find((bot) => bot.seatRole === 'judge' && bot.eligible)
-    : undefined;
+  const aiJudge =
+    seat.role === 'judge' && aiJudgeSeatable(view.aiJudgeSeating)
+      ? props.bots.find((bot) => bot.seatRole === 'judge' && bot.eligible)
+      : undefined;
   return (
     <>
       <span aria-hidden="true" />
       <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <p className="text-ink-muted">
+        <p className="min-w-0 truncate text-ink-muted">
           {invited ? (
             <>
               {`Invited: ${invited.invitee}`}
@@ -428,6 +475,7 @@ function OpenSeat({
               roomId={view.id}
               visibility={view.visibility}
               label="Invite"
+              className={rowButton}
             />
           ) : view.capabilities.host ? (
             // The host releases the held seat by withdrawing its invitation (ADR 0124).
@@ -437,19 +485,11 @@ function OpenSeat({
               invitationId={invited.id}
               label="Release"
               focusAfterAnswer={ROOM_TITLE_ID}
-            />
-          ) : null}
-          {seat.role === 'judge' && view.capabilities.host && aiJudge ? (
-            <CommandButton
-              props={props}
-              type="assign-seat"
-              commandId={ids.ai}
-              fields={{ ...position, actorId: aiJudge.actorId }}
-              label="AI judge"
+              className={rowButton}
             />
           ) : null}
           {view.capabilities.host ? (
-            <AssignSeat props={props} seat={seat} ids={ids} />
+            <FillSeat props={props} seat={seat} ids={ids} aiJudge={aiJudge} />
           ) : null}
         </div>
       </div>
@@ -481,7 +521,7 @@ function Row({
   return (
     <li
       aria-label={named?.label ?? roomSeatLabel(view, seat.role, seat.slot)}
-      className={`grid items-center gap-x-3 border-t border-border py-2 first:border-t-0 ${seat.role === 'judge' ? 'room-roster-judges' : teams ? 'room-roster-teams' : 'room-roster-sides'}`}
+      className={`grid min-h-room-target items-center gap-x-3 border-t border-border py-1 first:border-t-0 ${teams ? 'room-roster-teams' : 'room-roster-sides'}`}
     >
       {!occupant ? (
         <OpenSeat props={props} seat={seat} ids={ids} invited={invited} />
@@ -505,8 +545,8 @@ function Row({
                 type="leave-seat"
                 commandId={props.commandIds.leave}
                 fields={{}}
-                label="Leave"
-                name="Leave seat"
+                label="Leave seat"
+                icon="leave"
               />
             ) : named && view.capabilities.host ? (
               <CommandButton
@@ -516,6 +556,7 @@ function Row({
                 fields={{ participantId: named.id }}
                 label="Remove"
                 name={`Remove ${named.label}`}
+                icon="close"
               />
             ) : null}
           </div>
@@ -581,7 +622,7 @@ export function RoomRoster(props: RosterProps) {
   return (
     <section
       aria-labelledby="room-roster-title"
-      className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-surface px-4 py-3"
+      className="room-roster flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-surface px-4 py-3"
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="room-roster-title" className="text-md font-semibold">
@@ -607,12 +648,14 @@ export function RoomRoster(props: RosterProps) {
       <ul className="flex flex-col">{debaters.map(row)}</ul>
       {judges.length > 0 ? (
         <>
-          <h3 className="mt-2 text-sm font-semibold text-ink-muted">Judges</h3>
+          <h3 className="mt-1 text-xs font-semibold tracking-wider text-ink-muted uppercase">
+            Judges
+          </h3>
           <ul className="flex flex-col">{judges.map(row)}</ul>
           <AiJudgeNotice view={view} />
         </>
       ) : null}
-      <div className="mt-2 border-t border-border pt-3">{props.footer}</div>
+      <div className="mt-1 border-t border-border pt-3">{props.footer}</div>
     </section>
   );
 }
