@@ -50,14 +50,16 @@ function GatheringLayout({
   action,
   local,
   devices,
+  turnOnDevices,
 }: {
   readonly props: Props;
   readonly view: RoomView;
   readonly action: FormAction<RoomFormState>;
   readonly local: LocalReadiness;
   readonly devices: ReactNode;
+  readonly turnOnDevices?: () => void;
 }) {
-  const controls = { ...props, view, action, local };
+  const controls = { ...props, view, action, local, turnOnDevices };
   const ready = ReadyControl(controls);
   return (
     <div className="grid room-gathering gap-6">
@@ -128,6 +130,7 @@ function LiveDevices({
         devicesPassed: snapshot.devicesPassed,
         unreadyPending: local.pending,
       }}
+      turnOnDevices={() => void check('microphone').then(() => check('camera'))}
       devices={
         <>
           <CameraPreview

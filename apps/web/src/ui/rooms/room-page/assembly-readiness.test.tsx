@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from 'react-dom/server';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -366,5 +367,67 @@ test('host Start round refuses unavailable admission without changing Ready or c
     should: 'disable only the Start round submission',
     actual: button?.props.disabled,
     expected: true,
+  });
+});
+
+describe('the tile’s one button (ADR 0145)', () => {
+  test('before and after a debater’s devices pass', () => {
+    const debater = {
+      ...base,
+      participants: base.participants.map((p) => ({
+        ...p,
+        role: 'affirmative' as const,
+      })),
+    };
+    let turnedOn = 0;
+    const turnOnDevices = () => {
+      turnedOn += 1;
+    };
+    const before = renderToStaticMarkup(
+      <>{ReadyControl({ ...props, view: debater, turnOnDevices })}</>,
+    );
+    const button = byText(
+      ReadyControl({ ...props, view: debater, turnOnDevices }),
+      'button',
+      'Turn on camera and mic',
+    );
+    (button?.props as { onClick?: () => void } | undefined)?.onClick?.();
+    const after = renderToStaticMarkup(
+      <>
+        {ReadyControl({
+          ...props,
+          view: debater,
+          local: { devicesPassed: true, unreadyPending: false },
+          turnOnDevices,
+        })}
+      </>,
+    );
+    const judge = renderToStaticMarkup(
+      <>{ReadyControl({ ...props, turnOnDevices })}</>,
+    );
+    assert({
+      given:
+        'a debater whose devices have not passed, the same debater after they pass, and a judge',
+      should:
+        'offer Turn on camera and mic in place of I’m ready, then I’m ready, and never ask a judge for devices',
+      actual: {
+        before: [
+          before.includes('Turn on camera and mic'),
+          before.includes('I’m ready'),
+        ],
+        turnedOn,
+        after: [
+          after.includes('Turn on camera and mic'),
+          after.includes('I’m ready'),
+        ],
+        judge: judge.includes('Turn on camera and mic'),
+      },
+      expected: {
+        before: [true, false],
+        turnedOn: 1,
+        after: [false, true],
+        judge: false,
+      },
+    });
   });
 });

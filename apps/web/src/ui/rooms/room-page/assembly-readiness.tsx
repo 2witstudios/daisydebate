@@ -49,6 +49,12 @@ type Props = {
   readonly action: FormAction<RoomFormState>;
   readonly waiverAction: FormAction<RoomFormState>;
   readonly commandIds: Readonly<Record<Control, string>>;
+  /**
+   * Turns on this tab's camera and microphone. Given, a debater whose devices
+   * have not passed sees it as their one full-width button in place of a
+   * disabled I'm ready (ADR 0145).
+   */
+  readonly turnOnDevices?: (() => void) | undefined;
 };
 
 function startFence(
@@ -117,12 +123,20 @@ export function ReadyControl({
   action,
   waiverAction,
   commandIds,
+  turnOnDevices,
 }: Props) {
   const ready = readinessControl(view, actorId, local);
   if (!ready) return null;
   const own = view.participants
     .filter(isNamedSeat)
     .find((seat) => seat.actorId === actorId);
+  const turnOn =
+    ready.type === 'ready' &&
+    own?.role !== 'judge' &&
+    !local.devicesPassed &&
+    turnOnDevices
+      ? turnOnDevices
+      : null;
   return (
     <div className="flex flex-col gap-2">
       {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (
@@ -142,19 +156,31 @@ export function ReadyControl({
           {postRoundCallText}
         </p>
       ) : null}
-      {CommandForm({
-        type: ready.type,
-        label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
-        enabled: ready.enabled,
-        version: view.version,
-        commandId: commandIds[ready.type],
-        action,
-        expectedConsentVersion: own?.consentVersion ?? null,
-        noticeVersion:
-          ready.type === 'ready' ? (view.captureNotice?.version ?? null) : null,
-        className: `${buttonClass(ready.type === 'ready' ? 'primary' : 'secondary')} w-full`,
-      })}
-      {ready.reason ? (
+      {turnOn ? (
+        <button
+          type="button"
+          onClick={turnOn}
+          className={`${buttonClass('primary')} w-full`}
+        >
+          Turn on camera and mic
+        </button>
+      ) : (
+        CommandForm({
+          type: ready.type,
+          label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
+          enabled: ready.enabled,
+          version: view.version,
+          commandId: commandIds[ready.type],
+          action,
+          expectedConsentVersion: own?.consentVersion ?? null,
+          noticeVersion:
+            ready.type === 'ready'
+              ? (view.captureNotice?.version ?? null)
+              : null,
+          className: `${buttonClass(ready.type === 'ready' ? 'primary' : 'secondary')} w-full`,
+        })
+      )}
+      {ready.reason && !turnOn ? (
         <p role="status" className="text-sm text-ink-muted">
           {ready.reason}
         </p>
