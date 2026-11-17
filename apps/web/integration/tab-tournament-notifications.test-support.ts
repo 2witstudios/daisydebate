@@ -76,7 +76,10 @@ export async function notificationsStage(world: World): Promise<void> {
     expected: [0, 0],
   });
   await withTournamentNotificationReader(world, async (store) => {
-    const input = { unreadOnly: false, now: new Date().toISOString() };
+    const input = {
+      query: { unreadOnly: false, after: null },
+      now: new Date().toISOString(),
+    };
     const competitor = world.bots['Debater 1']!;
     const result = await readNotificationItems(store, {
       ...input,

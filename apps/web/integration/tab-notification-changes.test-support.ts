@@ -51,7 +51,7 @@ export async function proveTournamentNotificationChanges(
     const read = () =>
       readNotificationItems(store, {
         userId: fixture.user_id,
-        unreadOnly: false,
+        query: { unreadOnly: false, after: null },
         now: new Date().toISOString(),
       });
     const before = await read();
