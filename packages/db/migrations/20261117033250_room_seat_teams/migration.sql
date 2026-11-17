@@ -5,7 +5,7 @@ ALTER TABLE "rounds" ADD COLUMN "seat_draw" jsonb;--> statement-breakpoint
 ALTER TABLE "room_participants" ADD CONSTRAINT "room_participants_open_seat_check" CHECK (("role" <> 'judge' or not ("team_open" or "position_open")) and (not "team_open" or "position_open"));--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_team_one_side_check" CHECK ("team_one_side" is null or "team_one_side" in ('affirmative', 'negative'));--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_ranked_sides_open_check" CHECK ("competition_type" <> 'ranked' or "status" not in ('assembling', 'ready') or "team_one_side" is null);--> statement-breakpoint
-ALTER TABLE "rounds" ADD CONSTRAINT "rounds_seat_draw_is_object" CHECK (jsonb_typeof("seat_draw") = 'object');;--> statement-breakpoint
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_seat_draw_is_object" CHECK (jsonb_typeof("seat_draw") = 'object');--> statement-breakpoint
 -- Existing Rooms keep the sides their seats were taken for (ADR 0143): only
 -- Rooms created from now on default to a coin flip. A ranked Room that has
 -- not started stays on the flip, as ranked play always does; a started or

@@ -75,7 +75,7 @@ Start.
 
 - `room_participants.team_open`, `position_open`; `rooms.team_one_side`;
   `rounds.seat_draw` with its immutability trigger
-  (migration `20261116205542_room_seat_teams`).
+  (migration `20261117033250_room_seat_teams`).
 - `round_draw_seeds` moves to its own Round-owned schema file
   (`schema/round-seeds.ts`): both draws read their own stream from its seed.
 - `RoomView` gains `teamOneSide` and each seat `teamOpen`, `positionOpen` and

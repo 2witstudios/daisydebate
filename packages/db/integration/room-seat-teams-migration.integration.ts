@@ -10,7 +10,7 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const seatTeams = '20261116205542_room_seat_teams';
+const seatTeams = '20261117033250_room_seat_teams';
 const scratch = scratchDatabase(databaseUrl, 'seatteams');
 afterAll(() => scratch.drop());
 
