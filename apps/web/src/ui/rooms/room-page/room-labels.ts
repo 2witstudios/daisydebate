@@ -125,7 +125,8 @@ export function roomMeta(
   view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
 ): readonly string[] {
   return [
-    ...(view.hostLabel === null ? [] : [`Hosted by ${view.hostLabel}`]),
+    // A Room no person hosts (a Tab event Room) names no host.
+    ...(view.hostLabel ? [`Hosted by ${view.hostLabel}`] : []),
     roomVisibilityLabels[view.visibility],
     competitionLabels[view.competitionType],
   ];

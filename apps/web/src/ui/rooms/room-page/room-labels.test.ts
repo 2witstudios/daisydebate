@@ -203,6 +203,19 @@ describe('room lobby labels', () => {
     });
   });
 
+  test('an event Room no person hosts (Tab)', () => {
+    assert({
+      given: 'a Room no person hosts, whose host label is empty',
+      should: 'name no host rather than an empty one',
+      actual: roomMeta({
+        hostLabel: '',
+        visibility: 'private',
+        competitionType: 'casual',
+      }),
+      expected: ['Invite only', 'Casual · ratings don’t change'],
+    });
+  });
+
   test('the format line reads NvN and a derived length', () => {
     assert({
       given: 'a one-on-one room with two short speeches and no prep',
