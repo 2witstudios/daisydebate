@@ -517,7 +517,8 @@ test(
         expected: reportsBefore,
       });
       assert({
-        given: "main's open seats, side rules and a frozen seat draw (ADR 0145)",
+        given:
+          "main's open seats, side rules and a frozen seat draw (ADR 0145)",
         should: 'keep every one through the Tab folders',
         actual: await seatModel(),
         expected: seatModelBefore,
