@@ -276,7 +276,7 @@ describe('RoomRoster rows', () => {
         ready: (html.match(/aria-label="Ready"/g) ?? []).length,
         rating: /class="[^"]*italic[^"]*">1500\*</.test(html),
         you: html.includes('>You<'),
-        bot: html.includes('Bot · Not eligible'),
+        bot: html.includes('>Bot<') && html.includes('>Not eligible<'),
       },
       expected: {
         rows: 6,
@@ -535,6 +535,84 @@ describe('RoomRoster with no two teams (TAB-6.2)', () => {
         formOf(html, 'sides'),
       ],
       expected: [false, false, false, null],
+    });
+  });
+
+  test('a four-team (BP) row in the compact layout (main-sync-5)', () => {
+    const html = render(
+      {
+        ...assemblySnapshot,
+        hostActorId: viewer.actorId,
+        teamOneSide: 'affirmative',
+        definition: {
+          ...assemblySnapshot.definition,
+          sides: benches,
+          seats: benchSeats,
+        },
+        rules: { ...assemblySnapshot.rules, sides: benches, seats: benchSeats },
+        participants: [
+          {
+            ...(seated('v', 'affirmative', 0) as Extract<
+              Participant,
+              { actorId: string }
+            >),
+            seat: { kind: 'side', side: 'opening_government', slot: 0 },
+          },
+          {
+            ...(seated('c', 'affirmative', 0) as Extract<
+              Participant,
+              { actorId: string }
+            >),
+            seat: { kind: 'side', side: 'closing_government', slot: 0 },
+          },
+        ],
+      },
+      [debaterBot],
+    );
+    const rowOf = (label: string) => {
+      const start = html.indexOf(`<li aria-label="${label}"`);
+      return html.slice(start, html.indexOf('</li>', start));
+    };
+    const own = rowOf('Member v');
+    const closing = rowOf('Member c');
+    const open = rowOf('Opening Opposition 1');
+    assert({
+      given:
+        'a BP Room, the host on Opening Government, a member on Closing Government, Opening Opposition open',
+      should:
+        'lay each bench out as one compact row in the sides columns, tone each avatar by its bench, tag the host beside the name, and give icon Leave, icon Remove and Fill seat',
+      actual: {
+        compact: [own, closing, open].map(
+          (row) =>
+            row.includes('min-h-room-target') &&
+            row.includes('room-roster-sides') &&
+            !row.includes('room-roster-teams'),
+        ),
+        avatars: [own, closing].map(
+          (row) => /size-roster-avatar[^"]*bg-hue-(\w+)-soft/.exec(row)?.[1],
+        ),
+        tags: own.includes('>You<') && own.includes('>Host<'),
+        leave: own.includes('aria-label="Leave seat" title="Leave seat"'),
+        remove: closing.includes('aria-label="Remove Member c" title="Remove"'),
+        fill: open.includes('aria-label="Fill Opening Opposition 1"'),
+        fillSeat: field(
+          formOf(open, seatIntents.commandIds[1]!.assign),
+          'seat',
+        ),
+      },
+      expected: {
+        compact: [true, true, true],
+        avatars: ['sky', 'plum'],
+        tags: true,
+        leave: true,
+        remove: true,
+        fill: true,
+        fillSeat: JSON.stringify({
+          kind: 'side',
+          side: 'opening_opposition',
+          slot: 0,
+        }).replaceAll('"', '&quot;'),
+      },
     });
   });
 

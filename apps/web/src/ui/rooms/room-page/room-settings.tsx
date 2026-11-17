@@ -68,14 +68,14 @@ export function RoomSettings({ view }: { readonly view: RoomView }) {
         {formatTitle(view.format)} · {formatLine(view)}
       </p>
       <SpeechBar view={view} />
-      <dl
-        aria-label="Saved round settings"
-        className="flex flex-col gap-2 text-sm"
-      >
+      <dl aria-label="Saved round settings" className="flex flex-col text-sm">
         {settingRows(view).map(([label, value]) => (
-          <div key={label} className="flex justify-between gap-3">
+          <div
+            key={label}
+            className="room-setting-row gap-3 border-t border-border py-2"
+          >
             <dt className="text-ink-muted">{label}</dt>
-            <dd className="text-right tabular-nums">{value}</dd>
+            <dd className="min-w-0 tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>

@@ -391,7 +391,7 @@ export async function assertFrozenLaunch(view: RoomView) {
   expect(proof.launchDoorbells).toBe(1);
   return proof;
 }
-/** The host's Seat someone on an open seat's row opens its picker (ADR 0145). */
+/** The host's Fill seat on an open seat's row opens its picker (ADR 0145). */
 export async function openSeatPicker(page: Page, seatName: string) {
   const select = page.getByLabel(`Seat someone in ${seatName}`, {
     exact: true,
@@ -399,7 +399,7 @@ export async function openSeatPicker(page: Page, seatName: string) {
   await page
     .getByRole('listitem')
     .filter({ has: select })
-    .getByRole('button', { name: 'Seat someone', exact: true })
+    .getByRole('button', { name: `Fill ${seatName}`, exact: true })
     .click();
   await expect(select).toBeVisible();
   // Opening it moves keyboard focus to the choice.
