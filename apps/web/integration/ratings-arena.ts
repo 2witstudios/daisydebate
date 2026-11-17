@@ -5,6 +5,7 @@ import { createDatabase } from '@daisy/db';
 import { validRules } from '@daisy/db/testing';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 /**
  * A rating arena for the real-decision suites (RATE-1.3): a format, an
@@ -153,6 +154,7 @@ export async function arena(
         await sql`delete from round_finalization_ballots where round_id=${id}`;
         await sql`delete from round_finalizations where round_id=${id}`;
         await sql`delete from rounds where id = ${id}`;
+        await deleteOrphanNotificationSignals(sql);
       }
       for (const id of actors)
         await sql`delete from ratings where actor_id=${id}`;

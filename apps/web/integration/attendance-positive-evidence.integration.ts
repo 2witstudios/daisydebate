@@ -5,6 +5,7 @@ import { attendanceTimingPolicy, buildRoundTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withAttendanceRound } from './attendance.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -50,6 +51,7 @@ const ageOpening = async (
 const cleanUp = async ({ f, roundId }: Input) => {
   await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
   await f.sql`delete from rounds where id=${roundId}`;
+  await deleteOrphanNotificationSignals(f.sql);
 };
 
 test('an on-time speaker is credited with no availability history, inventing no horizon', () =>

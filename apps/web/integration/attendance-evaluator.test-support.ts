@@ -1,6 +1,7 @@
 import { buildRoundTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import type { withAttendanceRound } from './attendance.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 /** Historical PG fixture only: tests settlement/rating, not live public-probe health. */
 export async function settleAttendanceFixture(
@@ -38,6 +39,7 @@ export async function settleAttendanceFixture(
       await f.sql`delete from availability_samples where at=${sample.at}::timestamptz`;
     await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
     await f.sql`delete from rounds where id=${roundId}`;
+    await deleteOrphanNotificationSignals(f.sql);
     await f.sql`delete from seasons where id=${seasonId}`;
   };
 }

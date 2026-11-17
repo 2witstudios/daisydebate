@@ -16,10 +16,10 @@ import {
 import { roundViewReader } from '../src/features/round-runtime/reads';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 import { foundationSelection } from './foundation-selection.test-support';
-import { deleteRoomNotificationSignals } from './notification-signals.test-support';
 import { aiAdmissionOptions } from '../src/server/round-worker-policy';
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
@@ -321,9 +321,10 @@ async function fixture(
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
           await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
-          await deleteRoomNotificationSignals(sql, id);
           await sql`delete from rounds where room_id=${id}`;
+          await deleteOrphanNotificationSignals(sql);
           await sql`delete from rooms where id=${id}`;
+          await deleteOrphanNotificationSignals(sql);
         }
         for (const actorId of bots)
           await sql`delete from actors where id=${actorId}`;

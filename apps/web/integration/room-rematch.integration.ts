@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 import {
   launchRuntimeRound,
   withRoomRuntime,
@@ -97,6 +98,7 @@ test('a fresh Room after an actual result preserves the original aggregate and r
     } finally {
       await f.sql`delete from outbox where topic=${`room:${created.view.id}`}`;
       await f.sql`delete from rooms where id=${created.view.id}`;
+      await deleteOrphanNotificationSignals(f.sql);
     }
   });
 });

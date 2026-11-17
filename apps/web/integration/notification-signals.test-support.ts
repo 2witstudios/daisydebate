@@ -4,17 +4,13 @@ type Sql = (
 ) => Promise<unknown>;
 
 /**
- * Removes the `user:inbox` signals for the notifications about a Room's
- * Rounds (ADR 0144): a Round going active or being decided rings its seated
- * members, and those rows outlive the Round they named unless the suite
- * that made them takes them back. Call before deleting the Rounds.
+ * Removes the `user:inbox` signals whose notification is gone (ADR 0144): a
+ * Round going active or being decided rings its seated members, and when a
+ * suite deletes the Round its notifications cascade away but their signals
+ * stay. Call after deleting Rounds or Rooms. Suites run one at a time per
+ * database, so this takes back only what the calling suite left.
  */
-export const deleteRoomNotificationSignals = async (
-  sql: Sql,
-  roomId: string | null,
-) => {
-  if (roomId === null) return;
-  await sql`delete from outbox where kind='user.notification-delivered'
-    and (payload->'ids'->>0) in (select n.id from notifications n
-      join rounds r on r.id=n.round_id where r.room_id=${roomId})`;
+export const deleteOrphanNotificationSignals = async (sql: Sql) => {
+  await sql`delete from outbox o where o.kind='user.notification-delivered'
+    and not exists(select 1 from notifications n where n.id=o.payload->'ids'->>0)`;
 };

@@ -36,6 +36,7 @@ import {
 } from './ranked-room.test-support';
 import { fixtureBallot, submitHumanBallot } from './round-judging.test-support';
 import { withRoomRuntime } from './round-runtime.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -420,6 +421,7 @@ test('every public and member read holds a ranked outcome until release', async 
         },
       });
       await f.sql`delete from rooms where id=${openRoomId}`;
+      await deleteOrphanNotificationSignals(f.sql);
     } finally {
       await f.sql`delete from users where id=${follower}`;
       if (roundId) {
