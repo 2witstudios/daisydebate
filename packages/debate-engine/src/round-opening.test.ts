@@ -1,7 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
+import type { SeatDraw } from '@daisy/protocol';
 import {
   openingStep,
+  projectOpening,
   settledOpeningTopic,
   settleOpening,
   type RoundOpening,
@@ -24,7 +26,13 @@ const windowMs = (draw: ResolutionDrawState) => draw.manifest.strikeWindowMs;
 const opening = (
   draw: ResolutionDrawState | null,
   prepMs: number | null,
-): RoundOpening => ({ startedAt: STARTED_AT, draw, prepMs, stops: [] });
+): RoundOpening => ({
+  startedAt: STARTED_AT,
+  draw,
+  prepMs,
+  stops: [],
+  sides: null,
+});
 
 describe('openingStep', () => {
   test('a Round with neither step opens at Start round', () => {
@@ -160,6 +168,69 @@ describe('settledOpeningTopic', () => {
       given: 'an opening with prep only',
       should: 'leave the Round its stored resolution',
       actual: settledOpeningTopic(opening(null, PREP_MS), null, after(1)),
+      expected: null,
+    });
+  });
+});
+
+describe('projectOpening sides', () => {
+  const sides: SeatDraw = {
+    algorithm: 'daisy-draw-v1/seats',
+    commitment: '0'.repeat(64),
+    coin: 'swapped',
+    teamOneSide: 'negative',
+    moved: [
+      {
+        participantId: 'p1',
+        open: ['team'],
+        from: { role: 'affirmative', slot: 1 },
+        to: { role: 'affirmative', slot: 0 },
+      },
+    ],
+  };
+  const seats = [
+    { actorId: 'aff', role: 'affirmative', kind: 'human', eligible: true },
+    { actorId: 'neg', role: 'negative', kind: 'human', eligible: true },
+    { actorId: 'judge', role: 'judge', kind: 'human', eligible: true },
+  ] as const;
+  const read = (stored: RoundOpening, viewer: string | null, now: string) =>
+    projectOpening(stored, null, seats, viewer, now).view;
+
+  test('every viewer reads the same sides result', () => {
+    const stored = { ...opening(humanDraw(), PREP_MS), sides };
+    assert({
+      given: 'a seat draw and a debater, a judge and a spectator',
+      should: 'give each of them the whole result',
+      actual: ['aff', 'judge', null].map(
+        (viewer) => read(stored, viewer, after(1)).sides,
+      ),
+      expected: [sides, sides, sides],
+    });
+  });
+
+  test('the sides result times nothing', () => {
+    const draw = humanDraw();
+    const at = after(windowMs(draw) * (draw.manifest.drawSize - 1) + 1);
+    const without = opening(draw, PREP_MS);
+    const withoutSides = (view: object) =>
+      Object.fromEntries(
+        Object.entries(view).filter(([key]) => key !== 'sides'),
+      );
+    const withSides = withoutSides(read({ ...without, sides }, 'aff', at));
+    const plain = withoutSides(read(without, 'aff', at));
+    assert({
+      given: 'the same opening with and without a seat draw',
+      should: 'leave its step, strikes and prep exactly as they were',
+      actual: withSides,
+      expected: plain,
+    });
+  });
+
+  test('a Round started before the seat draw', () => {
+    assert({
+      given: 'an opening with no stored seat draw',
+      should: 'carry none',
+      actual: read(opening(null, PREP_MS), 'aff', after(1)).sides,
       expected: null,
     });
   });

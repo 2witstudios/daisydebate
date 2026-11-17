@@ -178,6 +178,8 @@ test('an idle Room the engine expires is closed, released and announced', async 
         seatsBotDebater: false,
         publishDefinition: false,
         draw: null,
+        seatDraw: null,
+        roundSeed: null,
         members: [],
       },
     }),

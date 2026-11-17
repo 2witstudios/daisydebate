@@ -1,4 +1,3 @@
-import type { ClockStop } from '@daisy/protocol';
 import {
   drawCapableBounds,
   plainFormatSettings,
@@ -15,6 +14,7 @@ import {
   settleOpening,
   strikeOpening,
   type OpeningSeat,
+  type RoundOpening,
 } from './round-opening';
 
 export const SEED = '01'.repeat(32);
@@ -104,15 +104,14 @@ const seatsOf = (room: RoomAssemblyState): readonly OpeningSeat[] =>
 /** The opening a Start round leaves, with its seats. */
 export const opened = (room = drawRoom(), prepMs: number | null = null) => {
   const draw = begin(room).draw;
-  return {
-    seats: seatsOf(room),
-    opening: {
-      startedAt: edges.now,
-      draw: draw?.state ?? null,
-      prepMs,
-      stops: [] as readonly ClockStop[],
-    },
+  const opening: RoundOpening = {
+    startedAt: edges.now,
+    draw: draw?.state ?? null,
+    prepMs,
+    stops: [],
+    sides: null,
   };
+  return { seats: seatsOf(room), opening };
 };
 
 /** A debater's strike on the opening settled at `now`. */

@@ -129,6 +129,8 @@ describe('Room assembly authority', () => {
         role: 'affirmative' as const,
         slot: 1,
         eligible: true,
+        teamOpen: false,
+        positionOpen: false,
         consentVersion: 0,
         consentCommandId: 'r3',
       },

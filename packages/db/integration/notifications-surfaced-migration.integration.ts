@@ -11,7 +11,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261117033107_notifications';
+const migration = '20261117122347_notifications';
 const scratch = scratchDatabase(url, 'surfacedat');
 
 afterAll(() => scratch.drop());

@@ -10,6 +10,7 @@ import { createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
+import { roundDrawSeeds } from './schema/round-seeds';
 import { challenges } from './schema/challenges';
 import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
@@ -45,6 +46,7 @@ const roomRow = (
   config: next.config,
   capture: next.capture,
   postRoundCall: next.postRoundCall,
+  teamOneSide: next.teamOneSide,
   executionPlan: next.executionPlan,
   rulesSnapshot: next.rules,
   status: next.status,
@@ -88,6 +90,8 @@ export const persistRoomMutation = async (
         actorId: p.actorId,
         role: p.role,
         slot: p.slot,
+        teamOpen: p.teamOpen,
+        positionOpen: p.positionOpen,
         readinessCommandId: p.consentCommandId,
         readinessVersion: p.consentVersion,
       })),
@@ -120,6 +124,7 @@ export const persistRoomMutation = async (
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
+      seatDraw: mutation.seatDraw,
       status: opens ? 'opening' : 'active',
       ...(opens
         ? {}
@@ -137,7 +142,12 @@ export const persistRoomMutation = async (
         slot: p.slot,
       })),
     );
+    // One seed per Round (ADR 0145): the draw's when it has one, else the seat draw's alone.
     if (mutation.draw) await insertRoundDraw(tx, roundId, mutation.draw);
+    else if (mutation.roundSeed)
+      await tx
+        .insert(roundDrawSeeds)
+        .values({ roundId, seed: mutation.roundSeed });
     await appendRoundPhaseChanged(tx, roundId, 1);
     // A Round with nothing to run first begins at this click (ADR 0144).
     if (roundBegan(null, opens ? 'opening' : 'active'))
@@ -169,6 +179,8 @@ export const persistRoomOutsideCommands = async (
       seatsBotDebater: false,
       publishDefinition: false,
       draw: null,
+      seatDraw: null,
+      roundSeed: null,
       members: activeRoomMembers(state),
     },
     now,

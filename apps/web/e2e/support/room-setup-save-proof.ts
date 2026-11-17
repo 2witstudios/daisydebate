@@ -12,19 +12,17 @@ export async function proveSiblingSave(page: Page) {
   });
   await details.getByRole('button', { name: 'Save room', exact: true }).click();
   await expect(details.getByRole('alert')).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Room setup' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
   await saveRoundSettings(page);
   await expect(
-    page.getByRole('heading', { name: 'Seats', exact: true }),
+    page.getByRole('heading', { name: 'Players', exact: true }),
   ).toBeVisible();
   expect(
     await page
-      .getByRole('heading', { name: 'Seats', exact: true })
+      .getByRole('heading', { name: 'Players', exact: true })
       .evaluate((heading) => heading.closest('[inert]') === null),
   ).toBe(true);
   await openRoomSetup(page);
   await expect(details.getByRole('alert')).toHaveCount(0);
-  await page
-    .getByRole('link', { name: 'Close room setup', exact: true })
-    .click();
+  await page.getByRole('link', { name: 'Close settings', exact: true }).click();
 }

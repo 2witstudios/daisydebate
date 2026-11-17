@@ -174,6 +174,7 @@ export function projectRoom(
         ? { resolutions: source.resolutions }
         : null,
     rules: room.rules,
+    teamOneSide: room.teamOneSide,
     participants: room.participants.map((p) => {
       const state = {
         needsReady: p.kind === 'human',
@@ -196,6 +197,10 @@ export function projectRoom(
             consentVersion: p.consentVersion,
             role: p.role,
             slot: p.slot,
+            teamOpen: p.teamOpen,
+            positionOpen: p.positionOpen,
+            // The web adapter reads ratings under the viewer's blinding.
+            rating: null,
             ...state,
           };
     }),

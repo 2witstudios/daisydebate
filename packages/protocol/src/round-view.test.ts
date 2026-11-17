@@ -145,12 +145,56 @@ describe('roundViewSchema', () => {
     });
   });
 
+  test('the sides result an opening carries', () => {
+    const sides = {
+      algorithm: 'daisy-draw-v1/seats',
+      commitment: '0'.repeat(64),
+      coin: 'kept',
+      teamOneSide: 'affirmative',
+      moved: [
+        {
+          participantId: id('p'),
+          open: ['position'],
+          from: { role: 'negative', slot: 0 },
+          to: { role: 'negative', slot: 1 },
+        },
+      ],
+    };
+    const opening = (value: unknown) => ({
+      ...view,
+      status: 'opening',
+      startedAt: null,
+      opening: {
+        step: { step: 'strike' },
+        draw: null,
+        canStrike: false,
+        sides: value,
+      },
+    });
+    assert({
+      given: 'a seat draw, none, a missing one and one with a secret field',
+      should: 'accept the first two and refuse the rest',
+      actual: [
+        parses(opening(sides)),
+        parses(opening(null)),
+        parses(opening(undefined)),
+        parses(opening({ ...sides, seed: '0'.repeat(64) })),
+      ],
+      expected: [true, true, false, false],
+    });
+  });
+
   test('what only one status carries', () => {
     const opening = {
       ...view,
       status: 'opening',
       startedAt: null,
-      opening: { step: { step: 'strike' }, draw: null, canStrike: false },
+      opening: {
+        step: { step: 'strike' },
+        draw: null,
+        canStrike: false,
+        sides: null,
+      },
     };
     const completed = { ...view, status: 'completed', completedAt: at(9) };
     const waitingOn = { state: 'settling' };

@@ -9,6 +9,7 @@ import {
   roundOutcomeSchema,
 } from './primitives';
 import { frozenRoomConfigSchema } from './room';
+import { seatDrawSchema } from './seat-draw';
 import {
   resolutionAuditSchema,
   resolutionDrawViewSchema,
@@ -90,6 +91,11 @@ const roundOpeningViewSchema = z.strictObject({
   draw: resolutionDrawViewSchema.nullable(),
   /** The strike turn this viewer may take now. */
   canStrike: z.boolean(),
+  /**
+   * The sides result (ADR 0145): the coin and the open seats Start round
+   * placed, the same for every viewer. Null on a Round started before it.
+   */
+  sides: seatDrawSchema.nullable(),
 });
 
 /**

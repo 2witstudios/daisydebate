@@ -45,6 +45,8 @@ async function createProbeRoom(
     resolution: { kind: 'custom', text: 'Cities should fund transit' },
     visibility: 'public',
     selection: humanRoundSelection(foundationChoice, 1),
+    // Fixed sides: members[0] stays Affirmative and members[1] Negative (ADR 0145).
+    sides: 'fixed',
   });
   let room = roomViewSchema.parse(created.view);
   const roomCommand = async (

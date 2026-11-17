@@ -56,6 +56,7 @@ export const state = (): OpenRoom => ({
   hostInherited: false,
   hostLabel: 'Host',
   seatHolds: [],
+  teamOneSide: 'affirmative',
   status: 'ready',
   formatId: 'format',
   formatVersion: 1,
@@ -103,6 +104,8 @@ export const state = (): OpenRoom => ({
       kind: 'human',
       role: 'affirmative',
       slot: 0,
+      teamOpen: false,
+      positionOpen: false,
       eligible: true,
       consentVersion: 0,
       consentCommandId: 'r1',
@@ -114,6 +117,8 @@ export const state = (): OpenRoom => ({
       kind: 'human',
       role: 'negative',
       slot: 0,
+      teamOpen: false,
+      positionOpen: false,
       eligible: true,
       consentVersion: 0,
       consentCommandId: 'r2',
@@ -130,5 +135,6 @@ export const edges = {
   hostMaySeatCasualAiJudge: true,
   hostHoldsCasualCapture: true,
   drawStart: null,
+  seatSeed: '00'.repeat(32),
 };
 export const consent = { available: true, readyActorIds: ['host', 'other'] };

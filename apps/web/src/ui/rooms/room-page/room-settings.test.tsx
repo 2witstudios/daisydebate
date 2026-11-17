@@ -47,7 +47,7 @@ test('the summary reads in words and never shows the raw format id', () => {
   });
 });
 
-test('only the host is offered Customize, which opens Room setup', () => {
+test('only the host is offered Edit settings, where focus returns when it closes', () => {
   const customize = (canEdit: boolean) =>
     renderToStaticMarkup(
       <RoomSettings
@@ -56,10 +56,13 @@ test('only the host is offered Customize, which opens Room setup', () => {
           capabilities: { ...assemblySnapshot.capabilities, canEdit },
         }}
       />,
-    ).includes('href="#room-setup"');
+    ).match(
+      /<a href="#room-setup" data-room-setup-home=""[^>]*>Edit settings</,
+    ) !== null;
   assert({
     given: 'the host, then a guest',
-    should: 'link the host to Room setup and give the guest the summary alone',
+    should:
+      'link the host to Edit settings and give the guest the preview alone',
     actual: [customize(true), customize(false)],
     expected: [true, false],
   });

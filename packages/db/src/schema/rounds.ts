@@ -18,6 +18,7 @@ import {
   type RoundStage,
   type RoundStatus,
   type RatingLadder,
+  seatDrawSchema,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
@@ -108,6 +109,12 @@ export const rounds = pgTable(
       'resolution_evidence',
       resolutionDrawEvidenceSchema,
     ),
+    /**
+     * What Start round's seat draw did (ADR 0145): the coin, the open seats
+     * placed and the commitment. Public, immutable once written, and null on
+     * Rounds started before it existed.
+     */
+    seatDraw: jsonbColumn('seat_draw', seatDrawSchema),
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
@@ -200,6 +207,7 @@ export const rounds = pgTable(
       ),
       jsonbIsObject('rounds', table.roomConfigSnapshot),
       jsonbIsObject('rounds', table.resolutionEvidence),
+      jsonbIsObject('rounds', table.seatDraw),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
       jsonbIsObject('rounds', table.capture),

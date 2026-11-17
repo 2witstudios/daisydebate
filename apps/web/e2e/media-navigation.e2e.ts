@@ -3,7 +3,12 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
 import { enterLobbyRoom } from './support/room-gathering-proof';
-import { claim, closeRoom, createFromPlay } from './support/room-launch-flow';
+import {
+  claim,
+  closeRoom,
+  createFromPlay,
+  rosterSeatName,
+} from './support/room-launch-flow';
 
 // A media page's Permissions-Policy binds to the document it was loaded as,
 // so these journeys arrive by in-app navigation, never page.goto (ISSUE-564).
@@ -61,7 +66,10 @@ test('creating a Room lands on it with a working camera and microphone', async (
     );
     roomId = created.id;
     await page
-      .getByRole('button', { name: 'Take Affirmative 1', exact: true })
+      .getByRole('button', {
+        name: `Take ${rosterSeatName(created, 'Affirmative 1')}`,
+        exact: true,
+      })
       .click();
     await checkDevices(page);
   } finally {

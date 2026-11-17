@@ -41,7 +41,7 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
     .click();
   await expect(page).toHaveURL(/\/rooms\/[a-z0-9]{24}$/);
   const roomId = new URL(page.url()).pathname.split('/').at(-1)!;
-  await page.getByRole('link', { name: 'Room setup', exact: true }).click();
+  await page.getByRole('link', { name: 'Edit settings', exact: true }).click();
   await page
     .getByRole('checkbox', { name: 'Record this round', exact: true })
     .check();
@@ -89,7 +89,7 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
   expect(forged.status()).toBe(409);
   expect((await forged.json()).refusal).toBe('ai-judge-premium');
   expect((await reread(page.request, roomId)).version).toBe(view.version);
-  await page.getByRole('link', { name: 'Room setup', exact: true }).click();
+  await page.getByRole('link', { name: 'Edit settings', exact: true }).click();
   await expect(
     captureNotice.getByRole('link', { name: 'Explore Premium', exact: true }),
   ).toBeVisible();

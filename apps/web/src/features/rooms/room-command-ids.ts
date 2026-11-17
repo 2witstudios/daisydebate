@@ -4,7 +4,6 @@ import type { RoomView } from '@daisy/protocol';
 export type RoomCommandIds = {
   readonly header: {
     readonly details: string;
-    readonly leave: string;
     readonly close: string;
   };
   readonly readiness: {
@@ -14,12 +13,21 @@ export type RoomCommandIds = {
   };
   readonly settings: string;
   readonly capture: string;
+  /** Team 1's side (ADR 0145). */
+  readonly sides: string;
+  /** Who can join, from the page's Room controls. */
+  readonly visibility: string;
+  /** The viewer's own Leave seat, on their roster row. */
+  readonly leave: string;
   /** Per declared seat, in `declaredSeats` order. */
   readonly seats: readonly {
     readonly claim: string;
     readonly assign: string;
     readonly remove: string;
     readonly ai: string;
+    /** The seated debater's team, and their position (ADR 0145). */
+    readonly team: string;
+    readonly position: string;
   }[];
   /** Choosing a standard, Back to the basis, and starting from a league template (FMT-3). */
   readonly format: {
@@ -38,7 +46,7 @@ export function roomCommandIds(
   view: RoomView,
   nextId: () => string,
 ): RoomCommandIds {
-  const header = { details: nextId(), leave: nextId(), close: nextId() };
+  const header = { details: nextId(), close: nextId() };
   const readiness = {
     ready: nextId(),
     unready: nextId(),
@@ -51,8 +59,23 @@ export function roomCommandIds(
     assign: nextId(),
     remove: nextId(),
     ai: nextId(),
+    team: nextId(),
+    position: nextId(),
   }));
   const format = { choose: nextId(), reset: nextId(), template: nextId() };
   const capture = nextId();
-  return { header, readiness, settings, capture, seats, format };
+  const sides = nextId();
+  const visibility = nextId();
+  const leave = nextId();
+  return {
+    header,
+    readiness,
+    settings,
+    capture,
+    sides,
+    visibility,
+    leave,
+    seats,
+    format,
+  };
 }

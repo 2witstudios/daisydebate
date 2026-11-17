@@ -154,6 +154,8 @@ describe('select-format', () => {
           role: 'affirmative',
           slot: 1,
           eligible: true,
+          teamOpen: false,
+          positionOpen: false,
           consentVersion: 0,
           consentCommandId: null,
         },

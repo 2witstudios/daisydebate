@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "54668f64-edc5-4f70-ab7a-35bb995d75ec",
+  "id": "f7978f45-ecdb-40e2-948e-82e5c89d462e",
   "prevIds": [
-    "96d376bd-8bb3-44db-bb8e-3c44c33fe8df"
+    "b250a20b-c759-4071-9f7a-a84844a6963b"
   ],
   "ddl": [
     {
@@ -584,12 +584,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "round_draw_seeds",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "round_resolution_draw_items",
       "entityType": "tables",
       "schema": "public"
@@ -729,6 +723,12 @@
     {
       "isRlsEnabled": false,
       "name": "round_private_spans",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_draw_seeds",
       "entityType": "tables",
       "schema": "public"
     },
@@ -10625,32 +10625,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "seed",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "draw_id",
       "entityType": "columns",
       "schema": "public",
@@ -11320,6 +11294,32 @@
       "table": "room_participants"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "team_open",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "position_open",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
@@ -11575,6 +11575,19 @@
       "generated": null,
       "identity": null,
       "name": "competition_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "team_one_side",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -13147,6 +13160,32 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_draw_seeds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "seed",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_draw_seeds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -13710,6 +13749,19 @@
       "generated": null,
       "identity": null,
       "name": "resolution_evidence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "seat_draw",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -26011,23 +26063,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_draw_seeds_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "bank_entry_id"
       ],
       "schemaTo": "public",
@@ -27106,6 +27141,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_private_spans"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_draw_seeds_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_draw_seeds"
     },
     {
       "nameExplicit": false,
@@ -28742,16 +28794,6 @@
     },
     {
       "columns": [
-        "round_id"
-      ],
-      "nameExplicit": false,
-      "name": "round_draw_seeds_pkey",
-      "schema": "public",
-      "table": "round_draw_seeds",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -28918,6 +28960,16 @@
       "name": "round_participants_pkey",
       "schema": "public",
       "table": "round_participants",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_draw_seeds_pkey",
+      "schema": "public",
+      "table": "round_draw_seeds",
       "entityType": "pks"
     },
     {
@@ -31381,13 +31433,6 @@
       "table": "round_draw_private_inputs"
     },
     {
-      "value": "\"seed\" ~ '^[0-9a-f]{64}$'",
-      "name": "round_draw_seeds_seed_hex",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_draw_seeds"
-    },
-    {
       "value": "(\"source_kind\" = 'bank') = (\"bank_entry_id\" is not null)",
       "name": "round_resolution_draw_items_bank_entry_check",
       "entityType": "checks",
@@ -31542,6 +31587,13 @@
       "table": "room_participants"
     },
     {
+      "value": "(\"role\" <> 'judge' or not (\"team_open\" or \"position_open\")) and (not \"team_open\" or \"position_open\")",
+      "name": "room_participants_open_seat_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
       "value": "\"readiness_version\" >= 0",
       "name": "room_participants_readiness_version_nonnegative",
       "entityType": "checks",
@@ -31554,6 +31606,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "room_seat_holds"
+    },
+    {
+      "value": "\"team_one_side\" is null or \"team_one_side\" in ('affirmative', 'negative')",
+      "name": "rooms_team_one_side_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "value": "\"competition_type\" <> 'ranked' or \"status\" not in ('assembling', 'ready') or \"team_one_side\" is null",
+      "name": "rooms_ranked_sides_open_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
     },
     {
       "value": "\"visibility\" in ('public', 'unlisted', 'private')",
@@ -31997,6 +32063,13 @@
       "table": "round_private_spans"
     },
     {
+      "value": "\"seed\" ~ '^[0-9a-f]{64}$'",
+      "name": "round_draw_seeds_seed_hex",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_draw_seeds"
+    },
+    {
       "value": "\"type\" in ('speech', 'cross_ex')",
       "name": "round_segments_type_check",
       "entityType": "checks",
@@ -32132,6 +32205,13 @@
     {
       "value": "jsonb_typeof(\"resolution_evidence\") = 'object'",
       "name": "rounds_resolution_evidence_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "jsonb_typeof(\"seat_draw\") = 'object'",
+      "name": "rounds_seat_draw_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"

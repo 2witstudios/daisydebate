@@ -13,6 +13,7 @@ const room = {
   status: 'assembling' as const,
   participants: [],
   seatHolds: [],
+  teamOneSide: 'affirmative',
   rules: { ...base.rules, seats: { ...base.rules.seats, judge: 1 } },
 };
 const host = room.hostActorId;
@@ -67,6 +68,8 @@ test('who may not be invited', () => {
         role: 'negative' as const,
         slot: 0,
         eligible: true,
+        teamOpen: false,
+        positionOpen: false,
         consentVersion: 0,
         consentCommandId: null,
       },

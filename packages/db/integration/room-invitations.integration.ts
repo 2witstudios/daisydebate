@@ -186,6 +186,8 @@ test('an invitation ends: declined, then accepted by taking the seat, then expir
             slot: 0,
             eligible: true,
             consentVersion: 0,
+            teamOpen: false,
+            positionOpen: false,
             consentCommandId: null,
           },
         ],

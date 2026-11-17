@@ -334,7 +334,9 @@ test('Record match stays visible and Ranked shows automatic recording without lo
   try {
     expect(view.capture).toEqual({ broadcast: null, recording: true });
     await page.reload();
-    await page.getByRole('link', { name: 'Room setup', exact: true }).click();
+    await page
+      .getByRole('link', { name: 'Edit settings', exact: true })
+      .click();
     await expect(
       page.getByRole('checkbox', { name: 'Record this round', exact: true }),
     ).toBeChecked();

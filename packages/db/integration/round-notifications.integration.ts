@@ -293,6 +293,8 @@ test('a Round with nothing to run first tells its seated humans at the Start', a
             consent: null,
             publishDefinition: false,
             draw: null,
+            seatDraw: null,
+            roundSeed: null,
             members: [state.hostActorId],
           },
         }),
