@@ -603,7 +603,7 @@ test(
       };
       const retainedAfter = {
         rooms:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id'] as row from rooms r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host'] as row from rooms r order by id`,
         rounds:
           await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id'] as row from rounds r order by id`,
         roomParticipants:
@@ -617,6 +617,15 @@ test(
           'preserve exact identities, owners, configuration, consent, visibility, runtime checkpoints and timestamps',
         actual: retainedAfter,
         expected: retainedBefore,
+      });
+      assert({
+        given: 'every existing Room (decision 75)',
+        should:
+          'hold no seatless host: only a Train practice created from now on holds its host',
+        actual: (
+          await sql`select count(*)::int n from rooms where holds_host`
+        )[0]!.n,
+        expected: 0,
       });
       assert({
         given: 'ordinary Rooms and Rounds that predate league rating selection',
