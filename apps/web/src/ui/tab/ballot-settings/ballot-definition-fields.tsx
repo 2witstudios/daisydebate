@@ -1,5 +1,5 @@
 'use client';
-import { useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { FormField } from '../../components/form-field/form-field';
 import {
@@ -11,21 +11,75 @@ import {
 } from './ballot-authoring-fields';
 import { BallotCriteriaFields } from './ballot-criteria-fields';
 import { BallotSpeechWeights } from './ballot-speech-weights';
+import { focusLost } from '../../form-action/form-action';
+import {
+  useFormResets,
+  usePostedValues,
+} from '../../form-action/posted-values';
+/**
+ * The publish form's definition fields. Their selects are controlled (each
+ * mounts the fields it governs), so when a post resets the form, which puts
+ * every field back to its server-rendered default, they are mounted afresh:
+ * from the fields just posted while the answer gives them back (a refusal,
+ * or a retry awaiting its answer), else from the definition. No select can
+ * then show one choice while the fields under it follow another. Focus held
+ * in a field returns to the field of the same name.
+ */
 export function BallotDefinitionFields({
   view,
 }: {
   readonly view: EventBallotAuthoringView;
 }) {
-  const body = view.definition?.ballot;
-  const [kind, setKind] = useState(
-    body?.decision.kind === 'winner'
-      ? 'winner'
-      : body?.decision.kind === 'ranking'
-        ? `ranking-${body.decision.of}`
-        : '',
+  const anchor = useRef<HTMLSpanElement>(null);
+  const focused = useRef<string | null>(null);
+  const remember = useCallback((form: HTMLFormElement) => {
+    const active = form.ownerDocument.activeElement as {
+      readonly name?: unknown;
+    } | null;
+    focused.current =
+      active && form.contains(active as Node) && typeof active.name === 'string'
+        ? active.name
+        : null;
+  }, []);
+  const resets = useFormResets(anchor, remember);
+  useEffect(() => {
+    const name = focused.current;
+    const form = anchor.current?.closest('form');
+    // Only focus the remount left nowhere: a notice the answer focused keeps it.
+    if (resets === 0 || !name || !form || !focusLost()) return;
+    focused.current = null;
+    const field = form.elements.namedItem(name) as {
+      focus?: () => void;
+    } | null;
+    field?.focus?.();
+  }, [resets]);
+  return (
+    <>
+      <span ref={anchor} hidden />
+      <DefinitionFields key={resets} view={view} />
+    </>
   );
-  const [per, setPer] = useState(body ? (body.points?.per ?? 'none') : '');
-  const [target, setTarget] = useState('new');
+}
+
+function DefinitionFields({
+  view,
+}: {
+  readonly view: EventBallotAuthoringView;
+}) {
+  const body = view.definition?.ballot;
+  const posted = usePostedValues();
+  const [kind, setKind] = useState(
+    posted?.decision ??
+      (body?.decision.kind === 'winner'
+        ? 'winner'
+        : body?.decision.kind === 'ranking'
+          ? `ranking-${body.decision.of}`
+          : ''),
+  );
+  const [per, setPer] = useState(
+    posted?.['score-subject'] ?? (body ? (body.points?.per ?? 'none') : ''),
+  );
+  const [target, setTarget] = useState(posted?.['publish-target'] ?? 'new');
   const id = useId();
   return (
     <>
@@ -80,11 +134,13 @@ export function BallotDefinitionFields({
         <>
           <Toggle
             name="double-loss"
+            posted={posted?.decision === 'winner'}
             label="Allow a loss for both sides"
             value={body?.decision.kind === 'winner' && body.decision.doubleLoss}
           />
           <Toggle
             name="low-point-win"
+            posted={posted?.decision === 'winner'}
             label="Allow a winner with fewer points"
             value={
               body?.decision.kind === 'winner' && body.decision.lowPointWin
@@ -92,6 +148,7 @@ export function BallotDefinitionFields({
           />
           <Toggle
             name="speaker-ranks"
+            posted={posted?.decision === 'winner'}
             label="Also rank every speaker individually"
             value={body?.speakerRanks ?? false}
           />

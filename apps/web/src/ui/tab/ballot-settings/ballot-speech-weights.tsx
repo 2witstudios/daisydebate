@@ -3,6 +3,7 @@ import { useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { Button } from '../../components/button/button';
 import { FormField } from '../../components/form-field/form-field';
+import { postedCount, usePostedValues } from '../../form-action/posted-values';
 import {
   NumberField,
   authoringControlClass as control,
@@ -13,15 +14,25 @@ export function BallotSpeechWeights({
   readonly view: EventBallotAuthoringView;
 }) {
   const body = view.definition?.ballot;
-  const initialWeights = body?.points?.weights ?? {};
-  const [weights, setWeights] = useState(
-    Object.entries(initialWeights).map(([key, value], index) => ({
+  const posted = usePostedValues();
+  // The rows as posted (read by position once, while the names match), else
+  // the definition's; each row then carries its own key and multiplier.
+  const [weights, setWeights] = useState(() => {
+    const count = postedCount(posted, 'weight-count');
+    const rows =
+      count === null
+        ? Object.entries(body?.points?.weights ?? {})
+        : Array.from({ length: count }, (_, index) => [
+            posted?.[`weight-${index}-key`] ?? '',
+            posted?.[`weight-${index}-value`] ?? '',
+          ]);
+    return rows.map(([key, value], index) => ({
       id: index,
-      key,
+      key: String(key),
       value: String(value),
-    })),
-  );
-  const nextWeight = useRef(Object.keys(initialWeights).length);
+    }));
+  });
+  const nextWeight = useRef(weights.length);
   const id = useId();
   return (
     <>
@@ -65,7 +76,8 @@ export function BallotSpeechWeights({
           <NumberField
             name={`weight-${index}-value`}
             label="Scale multiplier"
-            value={weight.value === '' ? undefined : Number(weight.value)}
+            value={weight.value}
+            fromPost={false}
           />
           <Button
             type="button"
