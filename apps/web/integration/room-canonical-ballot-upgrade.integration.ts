@@ -54,6 +54,8 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     // real Daisy journey only, then remove it before the generated migrations run.
     await sql`alter table rounds add column ballot_definition_id text,add column ballot_definition_version integer`;
     await sql`alter table rooms add column league_ladder_id text`;
+    // A Train practice's hold (decision 75), which the create writes.
+    await sql`alter table rooms add column holds_host boolean not null default false`;
     await sql`alter table rounds add column league_ladder_id text`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
@@ -113,6 +115,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     const before = await read();
     await sql`alter table rounds drop column ballot_definition_id,drop column ballot_definition_version`;
     await sql`alter table rooms drop column league_ladder_id`;
+    await sql`alter table rooms drop column holds_host`;
     await sql`alter table rounds drop column league_ladder_id`;
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
