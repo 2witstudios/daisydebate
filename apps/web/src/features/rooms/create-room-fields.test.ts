@@ -3,6 +3,7 @@ import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import { createRoomDraft } from './create-room-draft';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
+import { prepareRoomDraft } from './prepare-room-draft';
 
 setupRitewayBun();
 /** The standard with the unequal fixture's seats and fractional timings. */
@@ -55,6 +56,23 @@ describe('native room draft fields', () => {
         interruptions: null,
         yielding: null,
       },
+    });
+    const form = new FormData();
+    for (const [name, value] of Object.entries({
+      ...fields,
+      format: 'custom',
+      title: 'A conversation',
+      visibility: 'public',
+      resolutionMethod: 'custom',
+      customResolution: 'Proof cities should fund transit',
+    }))
+      form.set(name, value);
+    assert({
+      given: 'the same Custom room submitted through the native create form',
+      should:
+        'reach the create: the definition it sends forbids what the template forbade',
+      actual: prepareRoomDraft(form, [template]).kind,
+      expected: 'submit',
     });
   });
   test('exact round trip', () => {
