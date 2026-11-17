@@ -132,9 +132,11 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
       // Written for each new Round by its own trigger, not by the seed.
       'spectator_fact_log_open_rounds',
     ]);
-    // Every Start round mints the Round's draw seed (ADR 0145). Only Start
-    // reads it, for the seat and resolution draws; no ending fact does.
-    const notEnding = new Set(['round_draw_seeds']);
+    // Rows a Round holds that no ending fact reads, so a clone needs none:
+    // the draw seed every Start round mints (ADR 0145), read only by Start's
+    // seat and resolution draws; and the notifications its start and decision
+    // owe its members (ADR 0144), which tell people and rate nothing.
+    const notEnding = new Set(['round_draw_seeds', 'notifications']);
     const uncopied = Object.keys(held).filter(
       (table) => !copied.has(table) && !notEnding.has(table),
     );
