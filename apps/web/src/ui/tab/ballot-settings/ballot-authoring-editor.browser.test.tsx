@@ -132,8 +132,11 @@ test('the preview reads fields a change reveals', async () => {
     places: read().places,
     doubleLossOffered: preview().textContent.includes('A loss for both'),
     doubleLossChecked:
-      container.querySelector<HTMLInputElement>('input[name="double-loss"]')
-        ?.checked ?? null,
+      (
+        container.querySelector('input[name="double-loss"]') as {
+          readonly checked?: boolean;
+        } | null
+      )?.checked ?? null,
   });
   try {
     await act(async () =>
@@ -243,7 +246,13 @@ test('a reset form takes the preview back with it', async () => {
   } = await mountEditor();
   /** Resets the form holding `selector`, as React does after a refused post. */
   const reset = (selector: string) =>
-    act(async () => container.querySelector(selector)!.closest('form')!.reset());
+    act(async () =>
+      (
+        container.querySelector(selector)!.closest('form') as unknown as {
+          reset(): void;
+        }
+      ).reset(),
+    );
   try {
     await act(async () =>
       root.render(createElement(EditorHarness, { view: authoringView() })),
@@ -261,7 +270,8 @@ test('a reset form takes the preview back with it', async () => {
     assert({
       given:
         'version 3 picked and its form reset, then the maximum set to 40 and the publish form reset',
-      should: 'draw the saved ballot again, then the reset form’s maximum of 30',
+      should:
+        'draw the saved ballot again, then the reset form’s maximum of 30',
       actual: { pinReset, publishReset: publishReset.max },
       expected: {
         pinReset: {

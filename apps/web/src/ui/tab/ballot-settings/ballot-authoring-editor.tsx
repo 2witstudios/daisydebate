@@ -36,8 +36,7 @@ const formOf = (event: SyntheticEvent): HTMLFormElement | null =>
  * a criterion), not its submit button, which disables the form while it posts.
  */
 const fromFieldButton = (event: SyntheticEvent): boolean =>
-  (event.target as Partial<Element>).closest?.('button[type="button"]') !=
-  null;
+  (event.target as Partial<Element>).closest?.('button[type="button"]') != null;
 
 /**
  * Host edits the canonical body through explicit business fields; publication
