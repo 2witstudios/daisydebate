@@ -266,7 +266,7 @@ describe('RoomRoster rows', () => {
         ready: (html.match(/aria-label="Ready"/g) ?? []).length,
         rating: /class="[^"]*italic[^"]*">1500\*</.test(html),
         you: html.includes('>You<'),
-        bot: html.includes('Bot · Not eligible'),
+        bot: html.includes('>Bot<') && html.includes('>Not eligible<'),
       },
       expected: {
         rows: 6,
