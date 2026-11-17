@@ -121,6 +121,12 @@ export const rooms = pgTable(
       'rooms_team_one_side_check',
       sql`${table.teamOneSide} is null or ${oneOf(table.teamOneSide, debateSides)}`,
     ),
+    // A ranked Room always flips for sides until Start (ADR 0143); at Start
+    // its seats take the drawn sides and team 1's side reads Affirmative.
+    check(
+      'rooms_ranked_sides_open_check',
+      sql`${table.competitionType} <> 'ranked' or ${table.status} not in ('assembling', 'ready') or ${table.teamOneSide} is null`,
+    ),
     check(
       'rooms_visibility_check',
       oneOf(table.visibility, ['public', 'unlisted', 'private']),

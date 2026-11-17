@@ -121,6 +121,7 @@ describe('competitive schema rules', () => {
             'rooms_fixed_topic_present',
             'rooms_ranked_has_preset_check',
             'rooms_ranked_public_check',
+            'rooms_ranked_sides_open_check',
             'rooms_rules_snapshot_is_object',
             'rooms_status_check',
             'rooms_team_one_side_check',

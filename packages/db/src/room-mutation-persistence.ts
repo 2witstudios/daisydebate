@@ -6,7 +6,7 @@ import { createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
-import { roundDrawSeeds } from './schema/resolution-draws';
+import { roundDrawSeeds } from './schema/round-seeds';
 import { challenges } from './schema/challenges';
 import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';

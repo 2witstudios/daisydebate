@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "77c3530a-a502-4933-b824-58c40a7ea94f",
+  "id": "a946beaf-e09c-4a94-81d5-0428f3f5af57",
   "prevIds": [
     "a3680d44-ffd5-4e93-adb4-19817ff77a13"
   ],
@@ -30473,6 +30473,13 @@
     {
       "value": "\"team_one_side\" is null or \"team_one_side\" in ('affirmative', 'negative')",
       "name": "rooms_team_one_side_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "value": "\"competition_type\" <> 'ranked' or \"status\" not in ('assembling', 'ready') or \"team_one_side\" is null",
+      "name": "rooms_ranked_sides_open_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rooms"
