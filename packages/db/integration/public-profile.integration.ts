@@ -736,3 +736,36 @@ test('an erased upload keeps its reservation, and a lapsed one never records', a
     });
   });
 });
+
+test('a reservation the sweep already tried never records, whatever its retry time', async () => {
+  await withProfiles(async (context) => {
+    const photoId = createId();
+    await context.profiles.reserveProfilePhoto(
+      context.member,
+      {
+        photoId,
+        objectPrefix: `profile-photos/${photoId}`,
+        checkVerdict: null,
+        now,
+        deleteAfter: '2026-11-16T09:00:00.000Z',
+      },
+      unfenced,
+    );
+    // The sweep took it, storage refused, and the retry is far off.
+    await context.profiles.deferPhotoDeletion(
+      photoId,
+      '2026-11-16T12:00:00.000Z',
+    );
+    await assertRejects({
+      given: 'a deferred reservation whose retry time is an hour away',
+      should: 'conflict, since its objects may be half deleted',
+      actual: () =>
+        context.profiles.recordProfilePhoto(
+          context.member,
+          { photoId, status: 'published', now },
+          unfenced,
+        ),
+      code: 'CONFLICT',
+    });
+  });
+});

@@ -312,12 +312,10 @@ export function composePublicProfileRoutes(app: App) {
           headers: {
             'cache-control': 'no-store',
             // Never tell a refused client to retry at once.
-            ...retryAfterHeaders(
-              typeof budget.retryAfterSeconds === 'number' &&
-                budget.retryAfterSeconds > 0
-                ? budget.retryAfterSeconds
-                : IMAGE_RULE.windowSeconds,
-            ),
+            ...retryAfterHeaders(budget.retryAfterSeconds, {
+              minimum: 1,
+              fallback: IMAGE_RULE.windowSeconds,
+            }),
           },
         });
       try {

@@ -54,18 +54,24 @@ export const readLimiterDecision = (decision: unknown) => {
 };
 
 /**
- * A limiter's wait as a Retry-After header: a valid hint is rounded up to
- * whole seconds; an invalid one (NaN, negative, non-finite, not a number)
- * omits the header rather than advertising a made-up wait.
+ * A limiter's wait as a Retry-After header: a valid hint (a finite number,
+ * at least `minimum`) is rounded up to whole seconds. An invalid one omits
+ * the header, or, given a `fallback`, advertises that instead, so a route
+ * that must never say "retry now" passes its window.
  */
 export const retryAfterHeaders = (
   retryAfterSeconds: unknown,
-): Record<string, string> =>
-  typeof retryAfterSeconds === 'number' &&
-  Number.isFinite(retryAfterSeconds) &&
-  retryAfterSeconds >= 0
-    ? { 'Retry-After': String(Math.ceil(retryAfterSeconds)) }
-    : {};
+  { minimum = 0, fallback }: { minimum?: number; fallback?: number } = {},
+): Record<string, string> => {
+  const valid =
+    typeof retryAfterSeconds === 'number' &&
+    Number.isFinite(retryAfterSeconds) &&
+    retryAfterSeconds >= minimum;
+  const seconds = valid ? retryAfterSeconds : fallback;
+  return seconds === undefined
+    ? {}
+    : { 'Retry-After': String(Math.ceil(seconds)) };
+};
 
 /**
  * The single-bucket atomic-limit gate a route runs before its durable work:

@@ -15,6 +15,7 @@ const appWith = (
   status: ProfilePhotoStatus | null,
   signedInActor: string | null = null,
   limited: boolean | 'outage' = false,
+  hint: unknown = 17,
 ) => {
   const reads: string[] = [];
   const dbReads: string[] = [];
@@ -24,7 +25,7 @@ const appWith = (
     limiter: {
       consume: async () => {
         if (limited === 'outage') throw new Error('redis down');
-        return { allowed: !limited, retryAfterSeconds: 17 };
+        return { allowed: !limited, retryAfterSeconds: hint };
       },
     },
     reporter: { capture: () => undefined },
@@ -237,6 +238,35 @@ test('the image budget is spent before any read, and fails open on an outage', a
       [429, '17', 0, 0],
       [429, '17', 0, 0],
       [200, null, 1, 1],
+    ],
+  });
+});
+
+test('a refused image always advertises a positive wait', async () => {
+  const waitFor = async (hint: unknown) => {
+    const { routes } = appWith('published', null, true, hint);
+    const response = await routes.image(
+      new Request(`http://daisy.test/api/profile-photos/${photoId}/128`),
+      { photoId, size: '128' },
+    );
+    return [response.status, response.headers.get('retry-after')];
+  };
+  assert({
+    given: 'a refusal hinting 2.4 s, 0, Infinity, a string and nothing',
+    should: 'round a valid wait up, and advertise the 60 s window for the rest',
+    actual: [
+      await waitFor(2.4),
+      await waitFor(0),
+      await waitFor(Infinity),
+      await waitFor('17'),
+      await waitFor(null),
+    ],
+    expected: [
+      [429, '3'],
+      [429, '60'],
+      [429, '60'],
+      [429, '60'],
+      [429, '60'],
     ],
   });
 });

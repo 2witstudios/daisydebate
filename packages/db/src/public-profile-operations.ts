@@ -254,8 +254,10 @@ export const publicProfileOperations = ({
    * Makes a reserved photo live once its objects are stored. A photo in
    * review withdraws the member's earlier one in review and leaves the
    * published one showing; a published photo withdraws both. A lapsed
-   * reservation (the sweep may be deleting its objects), one the sweep already
-   * took, or someone else's, is a conflict: the member uploads again.
+   * reservation (the sweep may be deleting its objects), one the sweep has
+   * already tried to delete (its later retry time does not revive it), one
+   * the sweep already took, or someone else's, is a conflict: the member
+   * uploads again.
    */
   recordProfilePhoto: (
     scope: Scope,
@@ -288,7 +290,7 @@ export const publicProfileOperations = ({
               decided_at = ${input.status === 'published' ? input.now : null}::timestamptz,
               version = version + 1
             where id = ${input.photoId} and actor_id = ${scope.actorId}
-              and status = 'uploading'
+              and status = 'uploading' and delete_attempts = 0
               and delete_after > ${input.now}::timestamptz + ${`${RECORD_MARGIN_SECONDS} seconds`}::interval
             returning id`,
         );

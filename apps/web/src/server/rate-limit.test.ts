@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createRateLimiter } from './rate-limit';
+import { createRateLimiter, retryAfterHeaders } from './rate-limit';
 
 setupRitewayBun();
 
@@ -85,5 +85,28 @@ describe('createRateLimiter', () => {
     await expect(
       limiter.consume('k', { windowSeconds: 60, max: 1 }),
     ).rejects.toBe(outage);
+  });
+});
+
+test('retryAfterHeaders', () => {
+  assert({
+    given:
+      'a valid hint, invalid hints, and invalid hints with a floor and a fallback',
+    should:
+      'round the valid one up, omit the header for the rest, or use the fallback',
+    actual: [
+      retryAfterHeaders(2.1),
+      retryAfterHeaders(Number.NaN),
+      retryAfterHeaders(-1),
+      retryAfterHeaders(0, { minimum: 1, fallback: 60 }),
+      retryAfterHeaders(Infinity, { fallback: 60 }),
+    ],
+    expected: [
+      { 'Retry-After': '3' },
+      {},
+      {},
+      { 'Retry-After': '60' },
+      { 'Retry-After': '60' },
+    ],
   });
 });
