@@ -7,7 +7,8 @@ import { exportRows } from './privacy/export-rows';
  * The public profile's subject rights (ADR 0143). Export: the display name,
  * the bio and each photo's record (the image itself is the member's to
  * download from Settings; an adopter calls no storage). Erasure deletes the
- * text and ends every photo as `erased`: the storage sweep then deletes each
+ * text and ends every photo, an upload in flight included, as `erased`: the
+ * storage sweep then deletes each
  * image and its row, so erasure commits locally even while storage is down.
  * The username and the record stay (ADR 0087).
  */
@@ -22,7 +23,8 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
     await tx.execute(sql`update profile_photos set status = 'erased',
         ended_at = ${now}::timestamptz, delete_after = ${now}::timestamptz,
         version = version + 1
-      where actor_id = ${actorId} and ended_at is null`);
+      where actor_id = ${actorId}
+        and (ended_at is null or status = 'uploading')`);
   },
   async export(tx, subject): Promise<PrivacyExport> {
     const actorId = idSchema.parse(subject.actorId);

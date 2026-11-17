@@ -1,9 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  photoDeletionRetryAt,
-  reconcileOrphans,
-  sweepPhotoDeletions,
-} from './deletion-sweep';
+import { photoDeletionRetryAt, sweepPhotoDeletions } from './deletion-sweep';
 setupRitewayBun();
 
 const now = '2026-11-16T00:00:00.000Z';
@@ -28,7 +24,6 @@ const fakeStore = () => {
         deferred.push([id, at]);
       },
       owed: async () => 7,
-      existing: async () => new Set<string>(),
     },
   };
 };
@@ -43,7 +38,6 @@ test('the sweep deletes images before rows and defers failures', async () => {
       if (prefix.includes('1')) throw new Error('storage refused');
       removed.push(prefix);
     },
-    list: async () => [],
   });
   assert({
     given: 'two due photos, the first refused by storage',
@@ -96,44 +90,6 @@ test('backoff doubles from a minute to at most an hour', () => {
   });
 });
 
-test('the reconcile deletes aged objects no row names, and walks on', async () => {
-  const orphan = 'o'.repeat(24);
-  const kept = 'k'.repeat(24);
-  const fresh = 'f'.repeat(24);
-  const old = '2026-11-15T22:00:00.000Z';
-  const removed: string[] = [];
-  const page = [
-    { key: `profile-photos/${kept}/128.webp`, writtenAt: old },
-    { key: `profile-photos/${orphan}/128.webp`, writtenAt: old },
-    { key: `profile-photos/${orphan}/512.webp`, writtenAt: old },
-    { key: `profile-photos/${fresh}/512.webp`, writtenAt: now },
-  ];
-  const result = await reconcileOrphans(
-    now,
-    null,
-    { existing: async (ids) => new Set(ids.filter((id) => id === kept)) },
-    {
-      put: async () => undefined,
-      read: async () => new Uint8Array(),
-      removePrefix: async (prefix) => {
-        removed.push(prefix);
-      },
-      list: async () => page,
-    },
-  );
-  assert({
-    given:
-      'an aged photo with a row, an aged orphan, and an orphan written a moment ago',
-    should:
-      'delete only the aged orphan once, and restart the walk after a short page',
-    actual: { result, removed },
-    expected: {
-      result: { next: null, orphans: 1 },
-      removed: [`profile-photos/${orphan}`],
-    },
-  });
-});
-
 test('a failed defer never stops the pass', async () => {
   const fake = fakeStore();
   const removed: string[] = [];
@@ -152,7 +108,6 @@ test('a failed defer never stops the pass', async () => {
         if (prefix.includes('1')) throw new Error('storage refused');
         removed.push(prefix);
       },
-      list: async () => [],
     },
   );
   assert({
@@ -163,45 +118,5 @@ test('a failed defer never stops the pass', async () => {
       result: { deleted: 1, retried: 1, owed: 7 },
       removed: [photo(2).objectPrefix],
     },
-  });
-});
-
-test('an object with no write time ages from when it was first seen', async () => {
-  const key = `profile-photos/${'n'.repeat(24)}/512.webp`;
-  const run = async (firstSeen: Map<string, string>) => {
-    const removed: string[] = [];
-    const result = await reconcileOrphans(
-      now,
-      null,
-      { existing: async () => new Set<string>() },
-      {
-        put: async () => undefined,
-        read: async () => new Uint8Array(),
-        removePrefix: async (prefix) => {
-          removed.push(prefix);
-        },
-        list: async () => [{ key, writtenAt: null }],
-      },
-      firstSeen,
-    );
-    return { orphans: result.orphans, removed, remembered: firstSeen.has(key) };
-  };
-  assert({
-    given:
-      'an unnamed object storage gave no write time, seen for the first time, then first seen two hours ago',
-    should:
-      'keep it the first time and remember when, and delete it once that sighting is an hour old',
-    actual: [
-      await run(new Map()),
-      await run(new Map([[key, '2026-11-15T22:00:00.000Z']])),
-    ],
-    expected: [
-      { orphans: 0, removed: [], remembered: true },
-      {
-        orphans: 1,
-        removed: [`profile-photos/${'n'.repeat(24)}`],
-        remembered: false,
-      },
-    ],
   });
 });

@@ -17,12 +17,14 @@ const appWith = (
   limited: boolean | 'outage' = false,
 ) => {
   const reads: string[] = [];
+  const dbReads: string[] = [];
   const app = {
+    clock: { now: () => '2026-11-16T00:00:00.000Z' },
     logger: silentLogger,
     limiter: {
       consume: async () => {
         if (limited === 'outage') throw new Error('redis down');
-        return { allowed: !limited, retryAfterSeconds: 60 };
+        return { allowed: !limited, retryAfterSeconds: 17 };
       },
     },
     reporter: { capture: () => undefined },
@@ -33,7 +35,6 @@ const appWith = (
         return new Uint8Array(bytes);
       },
       removePrefix: async () => undefined,
-      list: async () => [],
     },
     imageScanner: null,
     profilePhotoClassifier: null,
@@ -61,8 +62,9 @@ const appWith = (
       }),
     }),
     database: {
-      readProfilePhoto: async (id: string) =>
-        status && id === photoId
+      readProfilePhoto: async (id: string) => {
+        dbReads.push(id);
+        return status && id === photoId
           ? {
               photoId,
               actorId: 'a'.repeat(24),
@@ -70,10 +72,11 @@ const appWith = (
               objectPrefix: `profile-photos/${photoId}`,
               version: 1,
             }
-          : null,
+          : null;
+      },
     },
   } as unknown as App;
-  return { routes: composePublicProfileRoutes(app), reads };
+  return { routes: composePublicProfileRoutes(app), reads, dbReads };
 };
 
 const get = (
@@ -195,40 +198,45 @@ test('a photo in review is its owner’s alone, and never cached', async () => {
   });
 });
 
-test('the image budget charges storage reads per client, and fails open', async () => {
+test('the image budget is spent before any read, and fails open on an outage', async () => {
   const fetch = async (
     limited: boolean | 'outage',
     headers: Record<string, string>,
   ) => {
-    const { routes, reads } = appWith('published', null, limited);
+    const { routes, reads, dbReads } = appWith('published', null, limited);
     const response = await routes.image(
       new Request(`http://daisy.test/api/profile-photos/${photoId}/128`, {
         headers,
       }),
       { photoId, size: '128' },
     );
-    return [response.status, reads.length];
+    return [
+      response.status,
+      response.headers.get('retry-after'),
+      dbReads.length,
+      reads.length,
+    ];
   };
   const client = { [CLIENT_ID_HASH_HEADER]: 'c'.repeat(64) };
   assert({
     given:
-      'a client past its budget, the same revalidating, a limiter outage, and a client the ingress could not name',
+      'a client past its budget, the same revalidating, an unnamed client past the shared bucket, and a limiter outage',
     should:
-      'refuse the storage read with 429, answer the 304 free, and serve the last two',
+      'refuse the first three before any database or storage read, with the limiter’s own wait, and serve during the outage',
     actual: [
       await fetch(true, client),
       await fetch(true, {
         ...client,
         'if-none-match': `"${photoId}-128-published"`,
       }),
-      await fetch('outage', client),
       await fetch(true, {}),
+      await fetch('outage', client),
     ],
     expected: [
-      [429, 0],
-      [304, 0],
-      [200, 1],
-      [200, 1],
+      [429, '17', 0, 0],
+      [429, '17', 0, 0],
+      [429, '17', 0, 0],
+      [200, null, 1, 1],
     ],
   });
 });

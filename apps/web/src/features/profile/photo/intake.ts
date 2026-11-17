@@ -51,17 +51,30 @@ export type PhotoIntakeDependencies = {
     sizes: readonly number[],
     limits: DecodeLimits,
   ) => Promise<readonly SquareRendition[]>;
-  readonly record: (
+  /** Writes the photo's row, owing its objects' deletion, before any is stored. */
+  readonly reserve: (
     scope: { readonly userId: string; readonly actorId: string },
     input: {
       readonly photoId: string;
       readonly objectPrefix: string;
-      readonly status: 'published' | 'in_review';
       readonly checkVerdict: PhotoCheckVerdict | null;
+      readonly now: string;
+      readonly deleteAfter: string;
+    },
+  ) => Promise<void>;
+  /** Makes the reserved photo live once its objects are stored. */
+  readonly record: (
+    scope: { readonly userId: string; readonly actorId: string },
+    input: {
+      readonly photoId: string;
+      readonly status: 'published' | 'in_review';
       readonly now: string;
     },
   ) => Promise<OwnPublicProfile>;
 };
+
+/** How long a reservation waits for its upload before the sweep deletes it. */
+export const PHOTO_RESERVATION_MS = 3_600_000;
 
 const refuse = (
   code: 'VALIDATION' | 'PAYLOAD_TOO_LARGE' | 'INFRASTRUCTURE',
@@ -171,13 +184,24 @@ export async function intakeProfilePhoto(
   const photoId = dependencies.ids.next();
   const objectPrefix = photoObjectPrefix(photoId);
   const status = decision.kind === 'publish' ? 'published' : 'in_review';
+  const sized = profilePhotoSizes.map((size) => ({
+    key: photoObjectKey(objectPrefix, size),
+    bytes: renditionOf(renditions, size).bytes,
+  }));
+  const now = dependencies.clock.now();
   try {
-    const sized = profilePhotoSizes.map((size) => ({
-      key: photoObjectKey(objectPrefix, size),
-      bytes: renditionOf(renditions, size).bytes,
-    }));
-    // Both writes settle before any cleanup runs, so no write lands after
-    // its prefix was removed; then the first failure, if any, is the answer.
+    // The row first, owing the deletion: whatever fails after this, the
+    // sweep removes what was stored, and nothing here deletes an image a
+    // row may already show.
+    await dependencies.reserve(scope, {
+      photoId,
+      objectPrefix,
+      checkVerdict: verdict,
+      now,
+      deleteAfter: new Date(
+        new Date(now).getTime() + PHOTO_RESERVATION_MS,
+      ).toISOString(),
+    });
     const written = await Promise.allSettled(
       sized.map(({ key, bytes }) => storage.objects.put(key, bytes)),
     );
@@ -185,15 +209,11 @@ export async function intakeProfilePhoto(
     if (failed) throw failed.reason;
     const profile = await dependencies.record(scope, {
       photoId,
-      objectPrefix,
       status,
-      checkVerdict: verdict,
       now: dependencies.clock.now(),
     });
     return { status, profile };
   } catch (error) {
-    // Nothing records this photo, so nothing else would delete its objects.
-    await storage.objects.removePrefix(objectPrefix).catch(() => undefined);
     throw isAppError(error)
       ? error
       : refuse('INFRASTRUCTURE', 'photo-unavailable');

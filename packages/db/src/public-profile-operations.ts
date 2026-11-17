@@ -101,6 +101,14 @@ export async function lockLivePhotos(tx: Tx, actorId: string, alsoId?: string) {
     order by id for update`);
 }
 
+/**
+ * When a field's text changed: the database clock at this statement, after
+ * any lock it waited for (not the transaction's start), in milliseconds, the
+ * precision a report's `resolved_at` has. A change committed after a
+ * resolution is then always later than it.
+ */
+export const changedNow = sql`date_trunc('milliseconds', clock_timestamp())`;
+
 /** Ends live photos: their image is owed deletion from `now`. */
 const endPhotos = (
   tx: Tx,
@@ -185,15 +193,15 @@ export const publicProfileOperations = ({
               (actor_id, id, display_name, bio, display_name_changed_at,
                bio_changed_at, updated_at)
             values (${scope.actorId}, ${input.profileId}, ${input.displayName},
-              ${input.bio}, now(), now(), ${input.now}::timestamptz)
+              ${input.bio}, ${changedNow}, ${changedNow}, ${input.now}::timestamptz)
             on conflict (actor_id) do update set
               display_name = excluded.display_name, bio = excluded.bio,
               display_name_changed_at = case
                 when excluded.display_name is distinct from member_profiles.display_name
-                then now() else member_profiles.display_name_changed_at end,
+                then ${changedNow} else member_profiles.display_name_changed_at end,
               bio_changed_at = case
                 when excluded.bio is distinct from member_profiles.bio
-                then now() else member_profiles.bio_changed_at end,
+                then ${changedNow} else member_profiles.bio_changed_at end,
               updated_at = excluded.updated_at,
               version = member_profiles.version + 1`);
           return ownProfile(tx, scope.actorId);
@@ -203,17 +211,47 @@ export const publicProfileOperations = ({
   },
 
   /**
-   * Records a checked, stored photo. A photo in review withdraws the member's
-   * earlier one in review and leaves the published one showing; a published
-   * photo withdraws both.
+   * Reserves a checked photo's row before any object is stored: `uploading`,
+   * already owing deletion of its prefix at `deleteAfter`. An upload that
+   * never finishes, however it fails, is then cleaned up by the ordinary
+   * sweep, and no stored object is ever without a row.
+   */
+  reserveProfilePhoto: (
+    scope: Scope,
+    input: {
+      readonly photoId: string;
+      readonly objectPrefix: string;
+      readonly checkVerdict: PhotoCheckVerdict | null;
+      readonly now: string;
+      readonly deleteAfter: string;
+    },
+    authorize: OwnCollectionFence<Scope>,
+  ) => {
+    requireOwnScope(scope);
+    idSchema.parse(input.photoId);
+    return instrumented(eventSink, 'reserveProfilePhoto', () =>
+      readOwnCollection(database, scope, authorize, async (tx) => {
+        await tx.execute(sql`insert into profile_photos
+            (id, actor_id, status, check_verdict, object_prefix, created_at,
+             ended_at, delete_after)
+          values (${input.photoId}, ${scope.actorId}, 'uploading',
+            ${input.checkVerdict}, ${input.objectPrefix}, ${input.now}::timestamptz,
+            ${input.now}::timestamptz, ${input.deleteAfter}::timestamptz)`);
+      }),
+    );
+  },
+
+  /**
+   * Makes a reserved photo live once its objects are stored. A photo in
+   * review withdraws the member's earlier one in review and leaves the
+   * published one showing; a published photo withdraws both. A reservation
+   * the sweep already took, or someone else's, is a conflict.
    */
   recordProfilePhoto: (
     scope: Scope,
     input: {
       readonly photoId: string;
-      readonly objectPrefix: string;
       readonly status: 'published' | 'in_review';
-      readonly checkVerdict: PhotoCheckVerdict | null;
       readonly now: string;
     },
     authorize: OwnCollectionFence<Scope>,
@@ -222,7 +260,7 @@ export const publicProfileOperations = ({
     idSchema.parse(input.photoId);
     return instrumented(eventSink, 'recordProfilePhoto', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
-        await lockLivePhotos(tx, scope.actorId);
+        await lockLivePhotos(tx, scope.actorId, input.photoId);
         const replaced =
           input.status === 'published'
             ? sql`status in ('published', 'in_review')`
@@ -233,11 +271,17 @@ export const publicProfileOperations = ({
           'withdrawn',
           input.now,
         );
-        await tx.execute(sql`insert into profile_photos
-            (id, actor_id, status, check_verdict, object_prefix, created_at, decided_at)
-          values (${input.photoId}, ${scope.actorId}, ${input.status},
-            ${input.checkVerdict}, ${input.objectPrefix}, ${input.now}::timestamptz,
-            ${input.status === 'published' ? input.now : null}::timestamptz)`);
+        const made = await rowsOf<{ id: string }>(
+          tx,
+          sql`update profile_photos set status = ${input.status},
+              ended_at = null, delete_after = null,
+              decided_at = ${input.status === 'published' ? input.now : null}::timestamptz,
+              version = version + 1
+            where id = ${input.photoId} and actor_id = ${scope.actorId}
+              and status = 'uploading'
+            returning id`,
+        );
+        if (made.length !== 1) throw createAppError('CONFLICT');
         return ownProfile(tx, scope.actorId);
       }),
     );
@@ -402,30 +446,16 @@ export const publicProfileOperations = ({
         where id = ${photoId} and ended_at is not null`);
     }),
 
-  /** Which of these photo ids still have a row: the reconcile's orphan test. */
-  existingPhotoIds: (photoIds: readonly string[]) =>
-    instrumented(eventSink, 'existingPhotoIds', async () => {
-      const ids = [...new Set(photoIds)].filter(
-        (id) => idSchema.safeParse(id).success,
-      );
-      if (ids.length === 0) return new Set<string>();
-      if (ids.length > 500) throw createAppError('VALIDATION');
-      const found = await rowsOf<{ id: string }>(
-        database,
-        sql`select id from profile_photos where id in (${sql.join(
-          ids.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
-      );
-      return new Set(found.map((row) => row.id));
-    }),
-
   /** How many image deletions are owed, due or not: the sweep's backlog. */
   owedPhotoDeletions: () =>
     instrumented(eventSink, 'owedPhotoDeletions', async () => {
       const [row] = await rowsOf<{ owed: number }>(
         database,
-        sql`select count(*)::int as owed from profile_photos where ended_at is not null`,
+        // An upload still within its reservation is not owed yet: counting it
+        // would hold the worker 'waiting' while members upload.
+        sql`select count(*)::int as owed from profile_photos
+          where ended_at is not null
+            and (status <> 'uploading' or delete_after <= now())`,
       );
       return row?.owed ?? 0;
     }),

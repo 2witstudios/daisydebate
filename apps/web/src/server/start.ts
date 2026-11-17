@@ -287,7 +287,6 @@ const photoDeletions = startPhotoDeletions({
     complete: app.database.completePhotoDeletion,
     defer: app.database.deferPhotoDeletion,
     owed: app.database.owedPhotoDeletions,
-    existing: app.database.existingPhotoIds,
   },
   objects: app.profilePhotoObjects,
   clock: app.clock,

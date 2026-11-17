@@ -130,7 +130,7 @@ export const eventRegistry = {
   'db.query.failed': 'error',
   'db.capacity.refused': 'warn',
   'profile.photo.image.failed': 'warn',
-  'profile.photo.orphans_deleted': 'warn',
+  'profile.photo.budget_unavailable': 'warn',
   'db.capacity.holder': 'warn',
   'db.lane.gauge': 'info',
   'db.lane.hold': 'info',

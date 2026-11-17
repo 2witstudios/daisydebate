@@ -11,7 +11,7 @@ import {
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rowsOf } from './raw-rows';
-import { lockLivePhotos } from './public-profile-operations';
+import { changedNow, lockLivePhotos } from './public-profile-operations';
 
 /**
  * Moderation of public profiles (ADR 0143): what a report of a photo, a
@@ -265,7 +265,7 @@ export const publicProfileModeration = {
         ? sql.raw('display_name_changed_at')
         : sql.raw('bio_changed_at');
     await tx.execute(sql`update member_profiles set ${column} = null,
-        ${changedAt} = now(),
+        ${changedAt} = ${changedNow},
         updated_at = ${input.now.toISOString()}::timestamptz, version = version + 1
       where id = ${input.profileId}`);
     return 'applied';

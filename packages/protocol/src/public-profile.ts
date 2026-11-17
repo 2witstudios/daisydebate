@@ -118,7 +118,9 @@ export const profileTextRefusalOfIssues = (
 
 /**
  * A profile photo's lifecycle. A photo is stored only once it is scanned,
- * sanitized and checked. `in_review`: the check was unsure or unavailable, so
+ * sanitized and checked. `uploading`: its row is written before its objects,
+ * already owing their deletion, so an upload that never finishes is cleaned
+ * up by the ordinary sweep; recording it makes it live. `in_review`: the check was unsure or unavailable, so
  * an operator decides, and only its owner sees it. `published`: shown to
  * everyone. Terminal, with the stored image then deleted: `rejected` (by an
  * operator, from review), `removed` (by an operator, once published),
@@ -127,6 +129,7 @@ export const profileTextRefusalOfIssues = (
  * published photo stays while its replacement is in review.
  */
 export const profilePhotoStatuses = [
+  'uploading',
   'in_review',
   'published',
   'rejected',

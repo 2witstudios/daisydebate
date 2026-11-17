@@ -1,6 +1,5 @@
 import { S3Client } from 'bun';
 import { createAppError } from '@daisy/errors';
-import { photoObjectsRoot } from './object-keys';
 import type { ProfilePhotoObjects } from './ports';
 
 export type ProfilePhotoBucketConfig = {
@@ -44,19 +43,6 @@ export const createProfilePhotoBucket = (
       );
       if (bytes.byteLength > maxBytes) throw createAppError('INFRASTRUCTURE');
       return bytes;
-    },
-    list: async (after, limit) => {
-      const listed = await client.list({
-        prefix: photoObjectsRoot,
-        maxKeys: limit,
-        ...(after ? { startAfter: after } : {}),
-      });
-      return (listed.contents ?? []).map((entry) => ({
-        key: entry.key,
-        writtenAt: entry.lastModified
-          ? new Date(entry.lastModified).toISOString()
-          : null,
-      }));
     },
     removePrefix: async (prefix) => {
       const listed = await client.list({

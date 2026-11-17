@@ -25,6 +25,7 @@ function harness(
   const stored: string[] = [];
   const removed: string[] = [];
   const recorded: unknown[] = [];
+  const reserved: unknown[] = [];
   const verdict = overrides.verdict ?? 'allow';
   const dependencies: PhotoIntakeDependencies = {
     clock: { now: () => '2026-11-16T00:00:00.000Z' },
@@ -39,7 +40,6 @@ function harness(
         removePrefix: async (prefix) => {
           removed.push(prefix);
         },
-        list: async () => [],
       },
       scanner: {
         scan: async () => {
@@ -59,6 +59,9 @@ function harness(
           },
     renditions: async (_bytes, _mime, sizes) =>
       sizes.map((size) => ({ size, bytes: new Uint8Array([size % 256]) })),
+    reserve: async (_scope, input) => {
+      reserved.push(input);
+    },
     record: async (_scope, input) => {
       recorded.push(input);
       return {
@@ -71,7 +74,7 @@ function harness(
     },
     ...overrides,
   };
-  return { dependencies, stored, removed, recorded };
+  return { dependencies, stored, removed, recorded, reserved };
 }
 
 test('an allowed photo is stored and published', async () => {
@@ -80,27 +83,31 @@ test('an allowed photo is stored and published', async () => {
   assert({
     given: 'a clean JPEG the check allows',
     should:
-      'spend the budget, store both renditions under the photo prefix and publish it',
+      'reserve the row owing its deletion, then store both renditions, then publish it',
     actual: {
       status: result.status,
+      reserved: run.reserved,
       stored: run.stored,
       recorded: run.recorded,
       removed: run.removed,
     },
     expected: {
       status: 'published',
+      reserved: [
+        {
+          photoId,
+          objectPrefix: `profile-photos/${photoId}`,
+          checkVerdict: 'allow',
+          now: '2026-11-16T00:00:00.000Z',
+          deleteAfter: '2026-11-16T01:00:00.000Z',
+        },
+      ],
       stored: [
         `profile-photos/${photoId}/512.webp`,
         `profile-photos/${photoId}/128.webp`,
       ],
       recorded: [
-        {
-          photoId,
-          objectPrefix: `profile-photos/${photoId}`,
-          status: 'published',
-          checkVerdict: 'allow',
-          now: '2026-11-16T00:00:00.000Z',
-        },
+        { photoId, status: 'published', now: '2026-11-16T00:00:00.000Z' },
       ],
       removed: [],
     },
@@ -188,14 +195,19 @@ test('refused uploads store nothing', async () => {
     );
     assert({
       given,
-      should: `refuse with ${reason}, storing and recording nothing`,
-      actual: { refused, stored: run.stored, recorded: run.recorded },
-      expected: { refused: reason, stored: [], recorded: [] },
+      should: `refuse with ${reason}, reserving, storing and recording nothing`,
+      actual: {
+        refused,
+        reserved: run.reserved,
+        stored: run.stored,
+        recorded: run.recorded,
+      },
+      expected: { refused: reason, reserved: [], stored: [], recorded: [] },
     });
   }
 });
 
-test('a storage failure cleans up what it stored', async () => {
+test('a storage failure leaves the cleanup to the reservation', async () => {
   const run = harness({ failPut: true });
   await assertRejects({
     given: 'storage that refuses the write',
@@ -205,8 +217,13 @@ test('a storage failure cleans up what it stored', async () => {
   });
   assert({
     given: 'the refused write',
-    should: 'delete the photo prefix and record nothing',
-    actual: { removed: run.removed, recorded: run.recorded },
-    expected: { removed: [`profile-photos/${photoId}`], recorded: [] },
+    should:
+      'record nothing and delete nothing here: the reserved row owes the deletion, which the sweep pays',
+    actual: {
+      reserved: run.reserved.length,
+      removed: run.removed,
+      recorded: run.recorded,
+    },
+    expected: { reserved: 1, removed: [], recorded: [] },
   });
 });

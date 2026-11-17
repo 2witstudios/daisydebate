@@ -75,7 +75,6 @@ function appFor(world: World = {}) {
           put: async () => undefined,
           read: async () => new Uint8Array(),
           removePrefix: async () => undefined,
-          list: async () => [],
         }
       : null,
     imageScanner: world.storage ? { scan: async () => 'clean' as const } : null,

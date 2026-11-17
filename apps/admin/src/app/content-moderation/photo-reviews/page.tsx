@@ -64,7 +64,7 @@ export default async function PhotoReviewsPage({
     }),
   );
   const waiting = read.value.items.length - shown.length;
-  // The store lists at most 100, so a full list means there may be more.
+  // A full list (PROFILE_PHOTO_REVIEWS_MAX) means there may be more.
   const atLeast =
     read.value.items.length >= PROFILE_PHOTO_REVIEWS_MAX ? '+' : '';
   return (

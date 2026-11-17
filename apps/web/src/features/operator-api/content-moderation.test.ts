@@ -280,7 +280,6 @@ const photoStore = (bytes: Uint8Array<ArrayBuffer> = photoBytes) => {
     removePrefix: async () => {
       throw new Error('Unexpected removal');
     },
-    list: async () => [],
   };
   return { objects, reads };
 };

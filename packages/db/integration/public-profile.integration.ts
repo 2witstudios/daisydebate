@@ -56,24 +56,29 @@ const withProfiles = async (run: (context: Context) => Promise<void>) => {
   }
 };
 
-const record = (
+const record = async (
   context: Context,
   status: 'published' | 'in_review',
   photoId = createId(),
-) =>
-  context.profiles
-    .recordProfilePhoto(
-      context.member,
-      {
-        photoId,
-        objectPrefix: `profile-photos/${photoId}`,
-        status,
-        checkVerdict: status === 'published' ? 'allow' : null,
-        now,
-      },
-      unfenced,
-    )
-    .then((profile) => ({ photoId, profile }));
+) => {
+  await context.profiles.reserveProfilePhoto(
+    context.member,
+    {
+      photoId,
+      objectPrefix: `profile-photos/${photoId}`,
+      checkVerdict: status === 'published' ? 'allow' : null,
+      now,
+      deleteAfter: '2026-11-16T11:00:00.000Z',
+    },
+    unfenced,
+  );
+  const profile = await context.profiles.recordProfilePhoto(
+    context.member,
+    { photoId, status, now },
+    unfenced,
+  );
+  return { photoId, profile };
+};
 
 const statuses = async (context: Context) =>
   (
@@ -210,7 +215,7 @@ test('moderation: approve, reject, remove; stale versions conflict', async () =>
       command({
         action: 'profile_photo.review',
         photoId: pending.photoId,
-        expectedVersion: 1,
+        expectedVersion: 2,
         outcome: 'approve',
       }),
     );
@@ -218,7 +223,7 @@ test('moderation: approve, reject, remove; stale versions conflict', async () =>
       command({
         action: 'profile_photo.review',
         photoId: pending.photoId,
-        expectedVersion: 2,
+        expectedVersion: 3,
         outcome: 'approve',
       }),
     );
@@ -230,7 +235,7 @@ test('moderation: approve, reject, remove; stale versions conflict', async () =>
           command({
             action: 'profile_photo.remove',
             photoId: pending.photoId,
-            expectedVersion: 1,
+            expectedVersion: 2,
             reason: 'policy_violation',
           }),
         ),
@@ -240,7 +245,7 @@ test('moderation: approve, reject, remove; stale versions conflict', async () =>
       command({
         action: 'profile_photo.remove',
         photoId: pending.photoId,
-        expectedVersion: 2,
+        expectedVersion: 3,
         reason: 'policy_violation',
       }),
     );
@@ -249,7 +254,7 @@ test('moderation: approve, reject, remove; stale versions conflict', async () =>
       command({
         action: 'profile_photo.review',
         photoId: rejected.photoId,
-        expectedVersion: 1,
+        expectedVersion: 2,
         outcome: 'reject',
       }),
     );
@@ -571,5 +576,93 @@ test('two first uploads at once queue, and the later one replaces the earlier', 
         withdrawn: 1,
       },
     });
+  });
+});
+
+test('an upload that never finishes is owed only once its reservation lapses', async () => {
+  await withProfiles(async (context) => {
+    const photoId = createId();
+    await context.profiles.reserveProfilePhoto(
+      context.member,
+      {
+        photoId,
+        objectPrefix: `profile-photos/${photoId}`,
+        checkVerdict: null,
+        now,
+        deleteAfter: '2026-11-16T11:00:00.000Z',
+      },
+      unfenced,
+    );
+    const due = async (at: string) =>
+      (await context.profiles.duePhotoDeletions({ now: at, limit: 500 }))
+        .map((photo) => photo.photoId)
+        .includes(photoId);
+    const shown = await context.profiles.readOwnPublicProfile(
+      context.member,
+      unfenced,
+    );
+    assert({
+      given: 'a reserved photo whose objects never finished storing',
+      should:
+        'show nowhere, not be due before its reservation lapses, and be due after',
+      actual: {
+        shown: [shown.published, shown.inReview],
+        before: await due('2026-11-16T10:30:00.000Z'),
+        after: await due('2026-11-16T11:00:00.000Z'),
+      },
+      expected: { shown: [null, null], before: false, after: true },
+    });
+    await context.profiles.completePhotoDeletion(photoId);
+    await assertRejects({
+      given: 'a record of a reservation the sweep already took',
+      should: 'conflict and publish nothing',
+      actual: () =>
+        context.profiles.recordProfilePhoto(
+          context.member,
+          { photoId, status: 'published', now },
+          unfenced,
+        ),
+      code: 'CONFLICT',
+    });
+  });
+});
+
+test('a text change waiting on a lock is timed after the lock is released', async () => {
+  await withProfiles(async (context) => {
+    await context.profiles.writePublicProfileText(
+      context.member,
+      { profileId: createId(), displayName: 'Before', bio: null, now },
+      () => unfenced,
+    );
+    const holder = new SQL(databaseUrl, { max: 1 });
+    try {
+      let releasedAt = '';
+      const held = holder.begin(async (tx) => {
+        await tx`select 1 from member_profiles where actor_id = ${context.member.actorId} for update`;
+        await Bun.sleep(150);
+        const [row] = await tx`select clock_timestamp() as at`;
+        releasedAt = new Date(row.at).toISOString();
+      });
+      await Bun.sleep(30);
+      // Starts while the holder has the row: its transaction begins earlier
+      // than the holder's release, its statement runs after it.
+      const write = context.profiles.writePublicProfileText(
+        context.member,
+        { profileId: createId(), displayName: 'After', bio: null, now },
+        () => unfenced,
+      );
+      await held;
+      await write;
+      const [row] = await context.client`select display_name_changed_at as at
+        from member_profiles where actor_id = ${context.member.actorId}`;
+      assert({
+        given: 'a name change that waited on a row another transaction held',
+        should: 'carry a change time after that transaction released the row',
+        actual: new Date(row.at).getTime() >= new Date(releasedAt).getTime(),
+        expected: true,
+      });
+    } finally {
+      await holder.close();
+    }
   });
 });
