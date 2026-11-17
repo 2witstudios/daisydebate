@@ -157,9 +157,9 @@ for (const ladder of ratingLadders)
                   display!.rows.find(
                     (row) =>
                       row.label ===
-                      roundView.participants.find(
-                        (p) => 'actorId' in p && p.actorId === f.host.actorId,
-                      )?.label,
+                      roundView.participants
+                        .filter((p) => 'actorId' in p)
+                        .find((p) => p.actorId === f.host.actorId)?.label,
                   )?.rating,
                 ],
                 expected: [expectedRating, expectedRating, expectedRating],
