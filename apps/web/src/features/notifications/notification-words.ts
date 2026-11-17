@@ -4,6 +4,7 @@ import type {
   SeatKind,
   TournamentNotificationKind,
 } from '@daisy/protocol';
+import { ladderLabels } from '../ratings/ladder-labels';
 
 /** What one notification is about, with only the facts its words need. */
 export type NotificationSubject =
@@ -33,9 +34,6 @@ export type NotificationSubject =
       readonly format: RatingLadder;
     };
 
-const ladderName = (format: RatingLadder) =>
-  format.charAt(0).toUpperCase() + format.slice(1);
-
 /** "to judge", "to moderate" or "to debate": what the invitation asks of the member. */
 export const invitedTo = (seat: SeatKind): string => {
   switch (seat) {
@@ -51,7 +49,7 @@ export const invitedTo = (seat: SeatKind): string => {
 
 /** "a casual Freestyle debate". */
 export const challengeWhat = (mode: CompetitionType, format: RatingLadder) =>
-  `a ${mode} ${ladderName(format)} debate`;
+  `a ${mode} ${ladderLabels[format]} debate`;
 
 /**
  * The words and the destination, from the kind and the names read now, so a

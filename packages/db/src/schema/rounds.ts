@@ -19,7 +19,6 @@ import {
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { publishedResolutions } from './published-resolutions';
 import {
   check,
   foreignKey,
@@ -94,10 +93,6 @@ export const rounds = pgTable(
     resolution: text('resolution'),
     /** Pre-round prep's full length, or null when the Round has none. */
     preRoundPrepMs: integer('pre_round_prep_ms'),
-    publishedResolutionId: text('published_resolution_id').references(
-      () => publishedResolutions.id,
-      { onDelete: 'restrict' },
-    ),
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
@@ -199,7 +194,6 @@ export const rounds = pgTable(
         'rounds_league_ladder_source_check',
         sql`${table.leagueLadderId} is null or (${table.roomId} is not null and ${table.ladderId} is null and ${table.competitionType} = 'casual')`,
       ),
-      index('rounds_published_resolution_idx').on(table.publishedResolutionId),
       /** Lets `rating_changes` pin a change to the round's own format. */
       unique('rounds_id_format_unique').on(table.id, table.formatId),
       index('rounds_status_competition_created_idx').on(

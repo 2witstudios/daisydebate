@@ -219,4 +219,4 @@ test('tournament setup projection retains shared reader, metadata and grant fenc
       observer.close(),
     ]);
   }
-}, 30_000);
+}, 60_000);

@@ -21,7 +21,6 @@ const heading = 'font-display text-xl font-bold text-ink';
 
 const nav = [
   ['profile', 'Profile'],
-  ['ratings', 'Your card'],
   ['notifications', 'Notifications'],
   ['watch-history', 'Watch history'],
   ['privacy', 'Privacy and data'],
@@ -49,8 +48,6 @@ function Section({
 }
 
 export type SettingsPageProps = {
-  /** Which ratings the member's card shows, when it could be read. */
-  readonly ratingCard?: ReactNode;
   /** What is stored for the member, when it could be read (ISSUE-1045). */
   readonly notifications?: ReactNode;
   /** What the member has watched, which they alone see and can clear. */
@@ -82,7 +79,6 @@ export function SettingsPage({
   analytics,
   dataRightsNotices,
   onboarding,
-  ratingCard,
   notifications,
   watchHistory,
 }: SettingsPageProps) {
@@ -150,11 +146,6 @@ export function SettingsPage({
             </p>
             <DataRights notices={dataRightsNotices} />
           </Section>
-          {ratingCard ? (
-            <Section id="ratings" title="Your card">
-              {ratingCard}
-            </Section>
-          ) : null}
           {notifications ? (
             <Section id="notifications" title="Notifications">
               {notifications}

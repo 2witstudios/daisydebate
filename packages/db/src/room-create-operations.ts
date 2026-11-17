@@ -29,7 +29,6 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readEntitlementGrants } from './entitlement-grants';
 
 import type { NewRoom } from './room-operations';
-import { readPublishedResolution } from './published-resolutions';
 
 import {
   type Caller,
@@ -64,10 +63,6 @@ export const roomCreateOperations = ({
     readonly commandId: string;
     readonly payloadDigest: string;
     readonly definition: FormatDefinition | null;
-    readonly resolutionPublication?: {
-      readonly id: string;
-      readonly kind: 'policy' | 'value';
-    } | null;
     /**
      * A catalog selection rechecked against the facts read FOR SHARE in this
      * transaction, so a publication that lands after the decision refuses the
@@ -135,19 +130,6 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
-        if (input.resolutionPublication) {
-          const resolution = await readPublishedResolution(
-            tx,
-            input.resolutionPublication.id,
-            input.resolutionPublication.kind,
-          );
-          if (
-            !resolution ||
-            resolution.text !== input.room.topic ||
-            resolution.id !== input.room.publishedResolutionId
-          )
-            throw createRefusal('CONFLICT', 'format-unavailable');
-        }
         if (input.room.competitionType === 'ranked') {
           const active = await tx.execute(
             sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} for share`,

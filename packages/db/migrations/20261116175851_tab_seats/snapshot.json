@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "a438b937-6633-4a68-adb0-cd7811c6ad26",
+  "id": "ef824810-4b9d-4a7e-9032-4bebb7ac0673",
   "prevIds": [
-    "0d6bb0bc-a9d5-4f53-99ef-61c65000839a"
+    "3e73a6f1-e7ae-44c9-8694-03a2fb84dfd5"
   ],
   "ddl": [
     {
@@ -332,12 +332,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "fixture_room_sources",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "fixture_entries",
       "entityType": "tables",
       "schema": "public"
@@ -423,12 +417,6 @@
     {
       "isRlsEnabled": false,
       "name": "restrictions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "account_hosting_versions",
       "entityType": "tables",
       "schema": "public"
     },
@@ -698,19 +686,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "published_resolutions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "rating_changes",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "rating_visibility",
       "entityType": "tables",
       "schema": "public"
     },
@@ -908,12 +884,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "round_finalization_judge_assignments",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "round_finalization_ballots",
       "entityType": "tables",
       "schema": "public"
@@ -933,18 +903,6 @@
     {
       "isRlsEnabled": false,
       "name": "round_incidents",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "round_judge_assignments",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "round_judge_slots",
       "entityType": "tables",
       "schema": "public"
     },
@@ -975,12 +933,6 @@
     {
       "isRlsEnabled": false,
       "name": "round_segments",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "round_source_voids",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1064,12 +1016,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "tournament_capture_admissions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "judge_availability",
       "entityType": "tables",
       "schema": "public"
@@ -1089,12 +1035,6 @@
     {
       "isRlsEnabled": false,
       "name": "tournament_judges",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "tournament_sponsorship_versions",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2250,32 +2190,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "copied_from_ballot_definition_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballot_definition_versions"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "copied_from_ballot_definition_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballot_definition_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "organization_id",
       "entityType": "columns",
       "schema": "public",
@@ -2442,19 +2356,6 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "rule_set_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballot_screenings"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
       "default": "'pending'",
       "generated": null,
       "identity": null,
@@ -2570,7 +2471,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -2635,25 +2536,12 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "reason",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "speaker_ranks",
       "entityType": "columns",
       "schema": "public",
       "table": "ballots"
@@ -3941,32 +3829,6 @@
       "generated": null,
       "identity": null,
       "name": "egress_started_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "broadcasts"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "egress_dispatched_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "broadcasts"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "egress_settled_at",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -6172,32 +6034,6 @@
       "table": "account_entitlement_grants"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "hosting_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revoked_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -6258,19 +6094,6 @@
       "generated": null,
       "identity": null,
       "name": "name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "entries"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "submitted_by_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "entries"
@@ -7135,58 +6958,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "time_slots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "room_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "fixture_room_sources"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "fixture_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "fixture_room_sources"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lobby_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "fixture_room_sources"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "fixture_room_sources"
     },
     {
       "type": "text",
@@ -8184,33 +7955,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "subject_person_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "action_history"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "actor_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "action_history"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "confirmed_by_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "action_history"
@@ -8844,188 +8589,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "restrictions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "starts_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "issuer_service_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "issuer_operator_ref",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "decision_reference",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "subscription_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "subscription_observed_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "subscription_evidence",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "coverage",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_hosting_versions"
     },
     {
       "type": "text",
@@ -13350,110 +12913,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "text",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "provenance",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "edition",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "theme",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "published_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "retired_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "rating_changes"
     },
     {
@@ -13624,58 +13083,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "rating_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "show_policy",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "show_value",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
     },
     {
       "type": "text",
@@ -13959,32 +13366,6 @@
       "generated": null,
       "identity": null,
       "name": "egress_started_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "recording_captures"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "egress_dispatched_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "recording_captures"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "egress_settled_at",
       "entityType": "columns",
       "schema": "public",
       "table": "recording_captures"
@@ -14297,22 +13678,6 @@
       "generated": null,
       "identity": null,
       "name": "eligibility",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "recordings"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "case when eligibility->>'kind'='tournament_admission' then eligibility->>'admissionId' else null end",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "tournament_admission_id",
       "entityType": "columns",
       "schema": "public",
       "table": "recordings"
@@ -15673,19 +15038,6 @@
       "table": "results"
     },
     {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "competition_record",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "results"
-    },
-    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -16260,19 +15612,6 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "published_resolution_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -16539,22 +15878,6 @@
       "generated": null,
       "identity": null,
       "name": "template_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "case when lobby_kind = 'standing' then template_id else null end",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "standing_template_id",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -17191,71 +16514,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "slot",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "assignment_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "participant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ballot_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_finalization_ballots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "ballot_id",
       "entityType": "columns",
       "schema": "public",
@@ -17481,191 +16739,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "round_incidents"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "slot",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "case when version>1 then version-1 else null end",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "previous_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "participant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "command_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "recorded_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "slot",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "current_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "participant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judge_slots"
     },
     {
       "type": "text",
@@ -18240,35 +17313,6 @@
       "table": "round_participants"
     },
     {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "legacy_rating_participant",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_participants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "case when seat_kind in ('side','speaker') or legacy_rating_participant then actor_id else null end",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "rating_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_participants"
-    },
-    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -18452,45 +17496,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "round_segments"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_source_voids"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "command_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_source_voids"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "recorded_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_source_voids"
     },
     {
       "type": "text",
@@ -18833,19 +17838,6 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "published_resolution_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -19021,38 +18013,6 @@
       "generated": null,
       "identity": null,
       "name": "judging",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "case when judging->'source'->>'kind' = 'stored' then judging->'source'->>'id' else null end",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "ballot_definition_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "case when judging->'source'->>'kind' = 'stored' then (judging->'source'->>'version')::integer else null end",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "ballot_definition_version",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -20111,201 +19071,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "room_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lobby_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "fixture_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "sponsor_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "hosting_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "sponsorship_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "official_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "official_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "command_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "admission",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "deadline_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "settled_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "tournament_judge_id",
       "entityType": "columns",
       "schema": "public",
@@ -20599,149 +19364,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "tournament_judges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lobby_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "sponsor_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "acted_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "authority",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "previous_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "hosting_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "reason",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
     },
     {
       "type": "text",
@@ -22711,34 +21333,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "copied_from_ballot_definition_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "copied_from_ballot_definition_version",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "ballot_definition_versions_copy_source_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "ballot_definition_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "ballot_definition_id",
           "isExpression": false,
           "asc": true,
@@ -23837,27 +22431,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "broadcasts_feed_up_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "broadcasts"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "(\"egress_id\" is not null or \"egress_dispatched_at\" is not null) and (\"egress_settled_at\" is null or \"observer_revoked_at\" is null)",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "broadcasts_physical_unsettled_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "broadcasts"
@@ -25028,41 +23601,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "hosting_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "source",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "account_entitlement_grants_hosting_version_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "event_id",
           "isExpression": false,
           "asc": true,
@@ -25132,27 +23670,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "entries_guardian_link_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "entries"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "submitted_by_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "entries_submitted_by_user_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "entries"
@@ -25555,83 +24072,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "time_slots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "fixture_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "fixture_room_sources_fixture_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "fixture_room_sources"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "room_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "fixture_room_sources_room_lobby_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "fixture_room_sources"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "fixture_room_sources_lobby_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "fixture_room_sources"
     },
     {
       "nameExplicit": true,
@@ -26323,34 +24763,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "subject_person_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "applied_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "action_history_subject_person_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "action_history"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "actor_user_id",
           "isExpression": false,
           "asc": true,
@@ -26364,27 +24776,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "action_history_actor_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "action_history"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "confirmed_by_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "action_history_confirmed_by_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "action_history"
@@ -26829,76 +25220,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "restrictions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "account_hosting_versions_subject_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "issuer_service_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "issuer_operator_ref",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "account_hosting_versions_issuer_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "subscription_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "account_hosting_versions_subscription_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "account_hosting_versions"
     },
     {
       "nameExplicit": true,
@@ -28759,27 +27080,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "kind",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"retired_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "published_resolutions_current_kind",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "round_id",
           "isExpression": false,
           "asc": true,
@@ -29102,27 +27402,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "(\"egress_id\" is not null or \"egress_dispatched_at\" is not null) and (\"egress_settled_at\" is null or \"observer_revoked_at\" is null)",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "recording_captures_physical_unsettled_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "recording_captures"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "due_at",
           "isExpression": false,
           "asc": true,
@@ -29160,34 +27439,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "recording_processing_jobs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "tournament_admission_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "recordings_tournament_admission_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "recordings"
     },
     {
       "nameExplicit": true,
@@ -30474,55 +28725,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "template_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rooms_template_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "standing_template_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rooms_standing_template_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "ballot_definition_id",
           "isExpression": false,
           "asc": true,
@@ -30543,27 +28745,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "rooms_ballot_definition_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "published_resolution_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rooms_published_resolution_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "rooms"
@@ -31363,48 +29544,6 @@
           "opclass": null
         },
         {
-          "value": "slot",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "assignment_version",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "participant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_finalization_judge_assignments_version_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "freeze_revision",
           "isExpression": false,
           "asc": true,
@@ -31582,237 +29721,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_incidents"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "participant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "slot",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judge_assignments_participant_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "slot",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "previous_version",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judge_assignments_previous_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judge_assignments_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "command_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judge_assignments_command_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "slot",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "current_version",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "participant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judge_slots_assignment_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"actor_id\" is not null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judge_slots_current_actor_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "participant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"participant_id\" is not null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judge_slots_current_participant_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judge_slots"
     },
     {
       "nameExplicit": true,
@@ -32050,109 +29958,11 @@
         }
       ],
       "isUnique": true,
-      "where": "\"seat_kind\"<>'judge'",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_participants_fixed_actor_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_participants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "rating_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
       "where": null,
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "round_participants_rating_actor_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_participants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_participants_round_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_participants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "seat_kind",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "coalesce(\"side\",'')",
-          "isExpression": true,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "slot",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"seat_kind\"<>'judge'",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_participants_fixed_seat_unique",
+      "name": "round_participants_actor_unique",
       "entityType": "indexes",
       "schema": "public",
       "table": "round_participants"
@@ -32364,34 +30174,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "command_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_source_voids_command_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_source_voids"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "segment_id",
           "isExpression": false,
           "asc": true,
@@ -32574,27 +30356,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "published_resolution_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rounds_published_resolution_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "status",
           "isExpression": false,
           "asc": true,
@@ -32755,34 +30516,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "rounds_preset_provenance_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "ballot_definition_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "ballot_definition_version",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "rounds_ballot_definition_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "rounds"
@@ -33323,286 +31056,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_round_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "room_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_room_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_lobby_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "fixture_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_fixture_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "sponsor_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_sponsor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "hosting_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_hosting_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "sponsorship_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_sponsorship_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "official_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_official_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "official_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_official_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "command_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_command_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "deadline_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"settled_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_expired_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "sponsor_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"settled_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_capture_admissions_unsettled_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "tournament_judge_id",
           "isExpression": false,
           "asc": true,
@@ -33822,97 +31275,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "tournament_judges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "sponsor_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_sponsorship_versions_sponsor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "acted_by_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_sponsorship_versions_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "previous_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "lobby_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_sponsorship_versions_previous_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "hosting_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tournament_sponsorship_versions_hosting_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
     },
     {
       "nameExplicit": true,
@@ -34914,25 +32276,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "session"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "copied_from_ballot_definition_id",
-        "copied_from_ballot_definition_version"
-      ],
-      "schemaTo": "public",
-      "tableTo": "ballot_definition_versions",
-      "columnsTo": [
-        "ballot_definition_id",
-        "version"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "ballot_definition_versions_copy_source_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ballot_definition_versions"
     },
     {
       "nameExplicit": true,
@@ -36089,44 +33432,6 @@
       "table": "account_entitlement_grants"
     },
     {
-      "nameExplicit": true,
-      "columns": [
-        "hosting_version_id",
-        "user_id",
-        "source"
-      ],
-      "schemaTo": "public",
-      "tableTo": "account_hosting_versions",
-      "columnsTo": [
-        "id",
-        "user_id",
-        "source"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "account_entitlement_grants_hosting_version_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "submitted_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "entries_submitted_by_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "entries"
-    },
-    {
       "nameExplicit": false,
       "columns": [
         "guardian_link_id"
@@ -36425,44 +33730,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "time_slots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "fixture_id",
-        "lobby_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "fixtures",
-      "columnsTo": [
-        "id",
-        "lobby_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "fixture_room_sources_fixture_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "fixture_room_sources"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "room_id",
-        "lobby_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rooms",
-      "columnsTo": [
-        "id",
-        "lobby_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "fixture_room_sources_room_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "fixture_room_sources"
     },
     {
       "nameExplicit": true,
@@ -36824,23 +34091,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "subject_person_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "action_history_subject_person_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "action_history"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "actor_user_id"
       ],
       "schemaTo": "public",
@@ -36851,23 +34101,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "action_history_actor_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "action_history"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "confirmed_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "action_history_confirmed_by_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "action_history"
@@ -37125,40 +34358,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "restrictions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "account_hosting_versions_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "subscription_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "billing_subscriptions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "account_hosting_versions_1oapR8KN1xKl_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "account_hosting_versions"
     },
     {
       "nameExplicit": true,
@@ -38494,7 +35693,7 @@
       "tableTo": "round_participants",
       "columnsTo": [
         "round_id",
-        "rating_actor_id"
+        "actor_id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
@@ -38521,23 +35720,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "rating_changes"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "rating_visibility_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rating_visibility"
     },
     {
       "nameExplicit": false,
@@ -38671,25 +35853,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "recordings_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "recordings"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "tournament_admission_id",
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tournament_capture_admissions",
-      "columnsTo": [
-        "id",
-        "round_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "recordings_tournament_admission_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "recordings"
@@ -39455,23 +36618,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "published_resolution_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "published_resolutions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "rooms_published_resolution_id_published_resolutions_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "format_id"
       ],
       "schemaTo": "public",
@@ -39508,25 +36654,8 @@
     {
       "nameExplicit": true,
       "columns": [
-        "template_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "templates",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "rooms_template_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
         "lobby_id",
-        "standing_template_id"
+        "template_id"
       ],
       "schemaTo": "public",
       "tableTo": "lobby_templates",
@@ -39967,67 +37096,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_finalizations",
-      "columnsTo": [
-        "round_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_finalization_judge_assignments_0bD8W7xwSyhz_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot",
-        "assignment_version"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_judge_assignments",
-      "columnsTo": [
-        "round_id",
-        "slot",
-        "version"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_finalization_judge_assignments_version_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot",
-        "assignment_version",
-        "participant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_judge_assignments",
-      "columnsTo": [
-        "round_id",
-        "slot",
-        "version",
-        "participant_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_finalization_judge_assignments_occupant_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "ballot_id"
       ],
       "schemaTo": "public",
@@ -40172,168 +37240,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_incidents"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_judge_assignments_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_judge_slots",
-      "columnsTo": [
-        "round_id",
-        "slot"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_judge_assignments_slot_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot",
-        "previous_version"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_judge_assignments",
-      "columnsTo": [
-        "round_id",
-        "slot",
-        "version"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_judge_assignments_previous_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "participant_id",
-        "round_id",
-        "slot",
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_participants",
-      "columnsTo": [
-        "id",
-        "round_id",
-        "slot",
-        "actor_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_judge_assignments_identity_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "command_id",
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_commands",
-      "columnsTo": [
-        "command_id",
-        "round_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_judge_assignments_command_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_judge_slots_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot",
-        "current_version"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_judge_assignments",
-      "columnsTo": [
-        "round_id",
-        "slot",
-        "version"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_judge_slots_assignment_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot",
-        "current_version",
-        "participant_id",
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_judge_assignments",
-      "columnsTo": [
-        "round_id",
-        "slot",
-        "version",
-        "participant_id",
-        "actor_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_judge_slots_occupant_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judge_slots"
     },
     {
       "nameExplicit": true,
@@ -40518,42 +37424,6 @@
       "table": "round_segments"
     },
     {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_source_voids_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_source_voids"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "command_id",
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_commands",
-      "columnsTo": [
-        "command_id",
-        "round_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_source_voids_command_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_source_voids"
-    },
-    {
       "nameExplicit": true,
       "columns": [
         "segment_id",
@@ -40683,23 +37553,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "published_resolution_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "published_resolutions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "rounds_published_resolution_id_published_resolutions_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "format_id"
       ],
       "schemaTo": "public",
@@ -40710,25 +37563,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "rounds_format_id_formats_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "ballot_definition_id",
-        "ballot_definition_version"
-      ],
-      "schemaTo": "public",
-      "tableTo": "ballot_definition_versions",
-      "columnsTo": [
-        "ballot_definition_id",
-        "version"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "rounds_ballot_definition_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "rounds"
@@ -41066,178 +37900,6 @@
       "table": "templates"
     },
     {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "room_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rooms",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_room_id_rooms_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "lobby_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tournaments",
-      "columnsTo": [
-        "lobby_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_Hp6ysWVwtZpm_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "fixture_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "fixtures",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_fixture_id_fixtures_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "sponsor_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_sponsor_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "hosting_version_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "account_hosting_versions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_ntoOcmJYNT6m_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "official_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_official_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "official_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_official_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "command_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "room_commands",
-      "columnsTo": [
-        "command_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_O09rYLhl39Tq_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "sponsorship_version_id",
-        "lobby_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tournament_sponsorship_versions",
-      "columnsTo": [
-        "id",
-        "lobby_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_capture_admissions_sponsorship_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
       "nameExplicit": true,
       "columns": [
         "tournament_judge_id",
@@ -41405,93 +38067,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "tournament_judges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "lobby_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tournaments",
-      "columnsTo": [
-        "lobby_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_sponsorship_versions_7deek4FeAvin_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "sponsor_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_sponsorship_versions_sponsor_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "acted_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_sponsorship_versions_acted_by_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "hosting_version_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "account_hosting_versions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_sponsorship_versions_7Mf0YBGm6Mtn_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "previous_version_id",
-        "lobby_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tournament_sponsorship_versions",
-      "columnsTo": [
-        "id",
-        "lobby_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "tournament_sponsorship_versions_previous_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
     },
     {
       "nameExplicit": false,
@@ -42248,40 +38823,6 @@
     {
       "columns": [
         "round_id",
-        "slot"
-      ],
-      "nameExplicit": false,
-      "name": "round_finalization_judge_assignments_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "columns": [
-        "round_id",
-        "slot",
-        "version"
-      ],
-      "nameExplicit": false,
-      "name": "round_judge_assignments_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "columns": [
-        "round_id",
-        "slot"
-      ],
-      "nameExplicit": false,
-      "name": "round_judge_slots_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "columns": [
-        "round_id",
         "judge_participant_id"
       ],
       "nameExplicit": false,
@@ -42823,16 +39364,6 @@
     },
     {
       "columns": [
-        "room_id"
-      ],
-      "nameExplicit": false,
-      "name": "fixture_room_sources_pkey",
-      "schema": "public",
-      "table": "fixture_room_sources",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -42909,16 +39440,6 @@
       "name": "restrictions_pkey",
       "schema": "public",
       "table": "restrictions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "account_hosting_versions_pkey",
-      "schema": "public",
-      "table": "account_hosting_versions",
       "entityType": "pks"
     },
     {
@@ -43206,29 +39727,9 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "published_resolutions_pkey",
-      "schema": "public",
-      "table": "published_resolutions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "rating_changes_pkey",
       "schema": "public",
       "table": "rating_changes",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "rating_visibility_pkey",
-      "schema": "public",
-      "table": "rating_visibility",
       "entityType": "pks"
     },
     {
@@ -43543,16 +40044,6 @@
     },
     {
       "columns": [
-        "round_id"
-      ],
-      "nameExplicit": false,
-      "name": "round_source_voids_pkey",
-      "schema": "public",
-      "table": "round_source_voids",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -43666,29 +40157,9 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "tournament_capture_admissions_pkey",
-      "schema": "public",
-      "table": "tournament_capture_admissions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "tournament_judges_pkey",
       "schema": "public",
       "table": "tournament_judges",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "tournament_sponsorship_versions_pkey",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions",
       "entityType": "pks"
     },
     {
@@ -44085,32 +40556,6 @@
     {
       "nameExplicit": true,
       "columns": [
-        "user_id",
-        "source",
-        "version"
-      ],
-      "nullsNotDistinct": false,
-      "name": "account_hosting_versions_subject_source_version_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "id",
-        "user_id",
-        "source"
-      ],
-      "nullsNotDistinct": false,
-      "name": "account_hosting_versions_grant_identity_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
         "id",
         "kind"
       ],
@@ -44428,53 +40873,12 @@
       "nameExplicit": true,
       "columns": [
         "round_id",
-        "participant_id"
+        "seat_kind",
+        "side",
+        "slot"
       ],
-      "nullsNotDistinct": false,
-      "name": "round_finalization_judge_assignments_participant_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot",
-        "version",
-        "participant_id",
-        "actor_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "round_judge_assignments_occupant_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "slot",
-        "version",
-        "participant_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "round_judge_assignments_participant_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "id",
-        "round_id",
-        "slot",
-        "actor_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "round_participants_assignment_identity_unique",
+      "nullsNotDistinct": true,
+      "name": "round_participants_seat_unique",
       "entityType": "uniques",
       "schema": "public",
       "table": "round_participants"
@@ -44543,18 +40947,6 @@
       "nameExplicit": true,
       "columns": [
         "id",
-        "round_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "tournament_capture_admissions_id_round_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "id",
         "lobby_id"
       ],
       "nullsNotDistinct": false,
@@ -44574,30 +40966,6 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "tournament_judges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "id",
-        "lobby_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "tournament_sponsorship_versions_id_lobby_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "lobby_id",
-        "version"
-      ],
-      "nullsNotDistinct": false,
-      "name": "tournament_sponsorship_versions_lobby_version_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
     },
     {
       "nameExplicit": true,
@@ -44755,13 +41123,6 @@
       "table": "audience_reactions"
     },
     {
-      "value": "(\"copied_from_ballot_definition_id\" is null) = (\"copied_from_ballot_definition_version\" is null)",
-      "name": "ballot_definition_versions_copy_source_complete",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballot_definition_versions"
-    },
-    {
       "value": "num_nonnulls(\"organization_id\", \"lobby_id\") = 1",
       "name": "ballot_definition_versions_one_tenant_key",
       "entityType": "checks",
@@ -44802,13 +41163,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "ballot_definitions"
-    },
-    {
-      "value": "length(\"rule_set_version\") > 0",
-      "name": "ballot_screenings_rule_set_version_nonempty",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballot_screenings"
     },
     {
       "value": "\"status\" in ('pending', 'clear', 'held')",
@@ -44867,22 +41221,15 @@
       "table": "ballots"
     },
     {
-      "value": "\"ballot_definition_id\" is not null or \"rubric_version\" in ('speaker-10@1', 'speaker-10@2', 'rank-sides@1', 'rank-speakers@1')",
+      "value": "(\"ballot_definition_id\" is null) = (\"rubric_version\" is not null)",
       "name": "ballots_daisy_definition_check",
       "entityType": "checks",
       "schema": "public",
       "table": "ballots"
     },
     {
-      "value": "\"rubric_version\" ~ '^[a-z][a-z0-9-]{0,39}@[1-9][0-9]*$'",
+      "value": "\"rubric_version\" is null or \"rubric_version\" in ('speaker-10@1', 'speaker-10@2', 'rank-sides@1', 'rank-speakers@1')",
       "name": "ballots_rubric_version_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "value": "\"speaker_ranks\" is null or (jsonb_typeof(\"speaker_ranks\") = 'array' and jsonb_array_length(\"speaker_ranks\") > 0 and not jsonb_path_exists(\"speaker_ranks\", 'strict $[*] ? (@.type() != \"array\" || @.size() == 0)') and not jsonb_path_exists(\"speaker_ranks\", 'strict $[*][*] ? (@.type() != \"string\")'))",
-      "name": "ballots_speaker_ranks_check",
       "entityType": "checks",
       "schema": "public",
       "table": "ballots"
@@ -45322,7 +41669,7 @@
       "table": "challenges"
     },
     {
-      "value": "\"format_id\" in ('freestyle', 'policy', 'value')",
+      "value": "\"format_id\" in ('freestyle')",
       "name": "challenges_format_check",
       "entityType": "checks",
       "schema": "public",
@@ -45623,28 +41970,21 @@
       "table": "email_suppression"
     },
     {
-      "value": "\n      (\"entitlement\" = 'tournament_hosting' and \"source\" in ('administrative', 'subscription') and \"hosting_version_id\" is not null and \"starts_at\" is null and \"expires_at\" is null)\n      or (\"entitlement\" <> 'tournament_hosting' and \"hosting_version_id\" is null and (( \"source\" = 'beta' and \"starts_at\" is null and \"expires_at\" is null)\n      or (\"source\" = 'subscription' and \"starts_at\" is not null and \"expires_at\" is not null\n        and isfinite(\"starts_at\") and isfinite(\"expires_at\") and \"starts_at\" < \"expires_at\")))\n    ",
+      "value": "\n      (\"source\" = 'beta' and \"starts_at\" is null and \"expires_at\" is null)\n      or (\"source\" = 'subscription' and \"starts_at\" is not null and \"expires_at\" is not null\n        and isfinite(\"starts_at\") and isfinite(\"expires_at\") and \"starts_at\" < \"expires_at\")\n    ",
       "name": "account_entitlement_grants_validity_check",
       "entityType": "checks",
       "schema": "public",
       "table": "account_entitlement_grants"
     },
     {
-      "value": "\"revoked_at\" is null or isfinite(\"revoked_at\")",
-      "name": "account_entitlement_grants_revocation_finite",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "value": "\"entitlement\" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture', 'recording_download', 'tournament_hosting')",
+      "value": "\"entitlement\" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture', 'recording_download')",
       "name": "account_entitlement_grants_entitlement_check",
       "entityType": "checks",
       "schema": "public",
       "table": "account_entitlement_grants"
     },
     {
-      "value": "\"source\" in ('beta', 'subscription', 'administrative')",
+      "value": "\"source\" in ('beta', 'subscription')",
       "name": "account_entitlement_grants_source_check",
       "entityType": "checks",
       "schema": "public",
@@ -46001,7 +42341,7 @@
       "table": "formats"
     },
     {
-      "value": "\"catalog_role\" is distinct from 'standard' or \"id\" in ('policy', 'value', 'freestyle')",
+      "value": "\"catalog_role\" is distinct from 'standard' or \"id\" in ('freestyle')",
       "name": "formats_standard_ids",
       "entityType": "checks",
       "schema": "public",
@@ -46050,15 +42390,8 @@
       "table": "friendships"
     },
     {
-      "value": "\"confirmed_by_user_id\" is null or (\"actor_user_id\" is not null and \"confirmed_by_user_id\"<>\"actor_user_id\" and \"conflict_id\" is not null)",
-      "name": "action_history_second_person_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "action_history"
-    },
-    {
-      "value": "num_nonnulls(\"organization_id\", \"lobby_id\", \"subject_person_user_id\") = 1",
-      "name": "action_history_one_scope",
+      "value": "num_nonnulls(\"organization_id\", \"lobby_id\") = 1",
+      "name": "action_history_one_tenant_key",
       "entityType": "checks",
       "schema": "public",
       "table": "action_history"
@@ -46223,62 +42556,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "restrictions"
-    },
-    {
-      "value": "\"version\" > 0",
-      "name": "account_hosting_versions_version_positive",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "value": "isfinite(\"starts_at\") and isfinite(\"expires_at\") and \"starts_at\" < \"expires_at\"",
-      "name": "account_hosting_versions_validity_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "value": "\n    (\"source\" = 'administrative' and \"issuer_service_id\" is not null and length(btrim(\"issuer_service_id\")) between 1 and 80 and \"issuer_operator_ref\" is not null and \"issuer_operator_ref\" ~ '^[a-z0-9]{24}$'\n      and \"decision_reference\" is not null and length(btrim(\"decision_reference\")) between 1 and 500\n      and \"subscription_id\" is null and \"subscription_observed_at\" is null and \"subscription_evidence\" is null)\n    or (\"source\" = 'subscription' and \"subscription_id\" is not null and \"subscription_observed_at\" is not null and isfinite(\"subscription_observed_at\") and \"subscription_evidence\" is not null\n      and \"issuer_service_id\" is null and \"issuer_operator_ref\" is null and \"decision_reference\" is null)",
-      "name": "account_hosting_versions_source_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "value": "\"source\" <> 'subscription' or coalesce(\n    jsonb_typeof(\"subscription_evidence\") = 'object'\n    and \"subscription_evidence\"->'settlement'->>'kind' = 'paid'\n    and \"subscription_evidence\"->'settlement'->'period'->>'subscriptionId' = \"subscription_id\"\n    and (\"subscription_evidence\"->'settlement'->'period'->>'startsAt')::timestamptz <= \"starts_at\"\n    and \"expires_at\" <= (\"subscription_evidence\"->'settlement'->'period'->>'endsAt')::timestamptz,false)",
-      "name": "account_hosting_versions_paid_evidence",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "value": "jsonb_typeof(\"coverage\") = 'object'",
-      "name": "account_hosting_versions_coverage_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "value": "jsonb_typeof(\"subscription_evidence\") = 'object'",
-      "name": "account_hosting_versions_subscription_evidence_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "value": "coalesce(jsonb_typeof(\"coverage\"->'sponsorConcurrencyLimit') = 'number' and (\"coverage\"->>'sponsorConcurrencyLimit')::numeric > 0 and trunc((\"coverage\"->>'sponsorConcurrencyLimit')::numeric) = (\"coverage\"->>'sponsorConcurrencyLimit')::numeric and jsonb_typeof(\"coverage\"->'tournamentConcurrencyLimit') = 'number' and (\"coverage\"->>'tournamentConcurrencyLimit')::numeric > 0 and trunc((\"coverage\"->>'tournamentConcurrencyLimit')::numeric) = (\"coverage\"->>'tournamentConcurrencyLimit')::numeric,false)",
-      "name": "account_hosting_versions_capacity_positive",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
-    },
-    {
-      "value": "coalesce(jsonb_typeof(\"coverage\"->'tournamentIds') = 'array',false)",
-      "name": "account_hosting_versions_tournaments_array",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_hosting_versions"
     },
     {
       "value": "length(trim(\"name\")) > 0",
@@ -47093,7 +43370,7 @@
       "table": "memberships"
     },
     {
-      "value": "case \"status\"\n        when 'active' then \"joined_at\" is not null\n        when 'ended' then true\n        else \"joined_at\" is null end",
+      "value": "(\"status\" in ('active', 'ended')) = (\"joined_at\" is not null)",
       "name": "memberships_joined_once_accepted",
       "entityType": "checks",
       "schema": "public",
@@ -47261,49 +43538,7 @@
       "table": "privacy_jobs"
     },
     {
-      "value": "\"kind\" in ('policy', 'value')",
-      "name": "published_resolutions_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "length(trim(\"text\")) between 1 and 300",
-      "name": "published_resolutions_text_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "length(trim(\"provenance\")) > 0",
-      "name": "published_resolutions_provenance_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"edition\" is null or length(trim(\"edition\")) between 1 and 100",
-      "name": "published_resolutions_edition_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"theme\" is null or length(trim(\"theme\")) between 1 and 200",
-      "name": "published_resolutions_theme_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"retired_at\" is null or \"retired_at\" >= \"published_at\"",
-      "name": "published_resolutions_retirement_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "published_resolutions"
-    },
-    {
-      "value": "\"ladder\" in ('freestyle', 'policy', 'value')",
+      "value": "\"ladder\" in ('freestyle')",
       "name": "rating_changes_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -47331,7 +43566,7 @@
       "table": "rating_changes"
     },
     {
-      "value": "\"ladder\" in ('freestyle', 'policy', 'value')",
+      "value": "\"ladder\" in ('freestyle')",
       "name": "ratings_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -47445,13 +43680,6 @@
     {
       "value": "jsonb_typeof(\"eligibility\") = 'object'",
       "name": "recordings_eligibility_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "recordings"
-    },
-    {
-      "value": "coalesce(\"eligibility\"->>'kind'<>'tournament_admission' or jsonb_typeof(\"eligibility\"->'deadlineAt')='string',false)",
-      "name": "recordings_tournament_deadline_shape",
       "entityType": "checks",
       "schema": "public",
       "table": "recordings"
@@ -47763,13 +43991,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "result_speakers"
-    },
-    {
-      "value": "jsonb_typeof(\"competition_record\") = 'object'",
-      "name": "results_competition_record_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "results"
     },
     {
       "value": "\"kind\" in ('decided', 'administrative')",
@@ -48171,7 +44392,7 @@
       "table": "round_commands"
     },
     {
-      "value": "\"type\" in ('start', 'strike_resolution', 'start_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'leave', 'complete', 'submit_ballot', 'change_judge', 'stop', 'void_source', 'check_in', 'adjudicate')",
+      "value": "\"type\" in ('start', 'strike_resolution', 'start_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'leave', 'complete', 'submit_ballot', 'check_in', 'adjudicate')",
       "name": "round_commands_type_check",
       "entityType": "checks",
       "schema": "public",
@@ -48183,20 +44404,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "round_commands"
-    },
-    {
-      "value": "\"slot\">=0 and (\"assignment_version\" is null or \"assignment_version\">0) and (\"assignment_version\" is not null or \"participant_id\" is null)",
-      "name": "round_finalization_judge_assignments_slot_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_finalization_judge_assignments"
-    },
-    {
-      "value": "\"ballot_digest\" ~ '^[a-f0-9]{64}$'",
-      "name": "round_finalization_ballots_digest_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_finalization_ballots"
     },
     {
       "value": "\"resulting_version\" > 0",
@@ -48225,48 +44432,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "round_incidents"
-    },
-    {
-      "value": "\"slot\">=0 and \"version\">0",
-      "name": "round_judge_assignments_version_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "value": "(\"participant_id\" is null)=(\"actor_id\" is null)",
-      "name": "round_judge_assignments_occupant_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "value": "\"source\" in ('initial','observed','command') and (\"command_id\" is not null)=(\"source\"='command') and (\"source\"='command' or \"version\"=1) and isfinite(\"recorded_at\")",
-      "name": "round_judge_assignments_source_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judge_assignments"
-    },
-    {
-      "value": "\"slot\">=0",
-      "name": "round_judge_slots_slot_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "value": "\"current_version\" is null or \"current_version\">0",
-      "name": "round_judge_slots_version_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judge_slots"
-    },
-    {
-      "value": "(\"participant_id\" is null)=(\"actor_id\" is null) and (\"current_version\" is not null or \"participant_id\" is null)",
-      "name": "round_judge_slots_occupant_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judge_slots"
     },
     {
       "value": "jsonb_typeof(\"diagnostic\") = 'object'",
@@ -48332,7 +44497,7 @@
       "table": "round_judging_jobs"
     },
     {
-      "value": "(\"status\" = 'failed') = (\"terminal_reason\" is not null) and (\"terminal_reason\" is null or \"terminal_reason\" in ('assignment_retired', 'attempts_exhausted', 'ballot_discarded', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
+      "value": "(\"status\" = 'failed') = (\"terminal_reason\" is not null) and (\"terminal_reason\" is null or \"terminal_reason\" in ('attempts_exhausted', 'ballot_discarded', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
       "name": "round_judging_jobs_terminal_reason_check",
       "entityType": "checks",
       "schema": "public",
@@ -48449,13 +44614,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "round_segments"
-    },
-    {
-      "value": "isfinite(\"recorded_at\")",
-      "name": "round_source_voids_time_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_source_voids"
     },
     {
       "value": "\"ended_at\" is null or \"ended_at\" >= \"started_at\"",
@@ -48647,14 +44805,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"judging\" is null or coalesce(\n        jsonb_typeof(\"judging\"->'source') = 'object' and\n        case \"judging\"->'source'->>'kind'\n          when 'daisy' then\n            \"judging\"->'source'->>'key' = \"judging\"->'ballot'->>'key' and\n            \"judging\"->'source'->'revision' = \"judging\"->'ballot'->'revision' and\n            ((\"judging\"->'source'->>'key') || '@' || (\"judging\"->'source'->>'revision')) in ('speaker-10@1', 'speaker-10@2', 'rank-sides@1', 'rank-speakers@1')\n          when 'stored' then\n            \"judging\"->'source'->>'id' ~ '^[a-z0-9]{24}$' and\n            jsonb_typeof(\"judging\"->'source'->'version') = 'number' and\n            \"judging\"->'source'->'version' = \"judging\"->'ballot'->'revision' and\n            \"ballot_definition_version\" > 0\n          else false end, false)",
-      "name": "rounds_judging_source_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "value": "\"ladder_id\" is null or \"ladder_id\" in ('freestyle', 'policy', 'value')",
+      "value": "\"ladder_id\" is null or \"ladder_id\" in ('freestyle')",
       "name": "rounds_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -48843,27 +44994,6 @@
       "table": "templates"
     },
     {
-      "value": "jsonb_typeof(\"admission\") = 'object'",
-      "name": "tournament_capture_admissions_admission_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "value": "isfinite(\"created_at\") and isfinite(\"deadline_at\") and \"created_at\"<\"deadline_at\" and (\"settled_at\" is null or (isfinite(\"settled_at\") and \"settled_at\">=\"created_at\"))",
-      "name": "tournament_capture_admissions_deadline_finite",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
-      "value": "coalesce(\"admission\"->>'id'=\"id\" and \"admission\"->>'roundId'=\"round_id\" and \"admission\"->>'roomId'=\"room_id\" and \"admission\"->>'lobbyId'=\"lobby_id\" and \"admission\"->>'fixtureId'=\"fixture_id\" and \"admission\"->>'commandId'=\"command_id\" and \"admission\"->'grant'->'hosting'->>'id'=\"hosting_version_id\" and \"admission\"->'grant'->'hosting'->>'userId'=\"sponsor_user_id\" and \"admission\"->'official'->>'userId'=\"official_user_id\" and \"admission\"->'official'->>'actorId'=\"official_actor_id\" and (\"admission\"->>'admittedAt')::timestamptz=\"created_at\" and (\"admission\"->>'deadlineAt')::timestamptz=\"deadline_at\" and case \"admission\"->'funding'->>'kind' when 'personal-owner' then \"sponsorship_version_id\" is null and \"admission\"->'funding'->>'ownerUserId'=\"sponsor_user_id\" when 'organization-sponsor' then \"sponsorship_version_id\" is not null and \"admission\"->'funding'->>'sponsorshipVersionId'=\"sponsorship_version_id\" else false end,false)",
-      "name": "tournament_capture_admissions_identity",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tournament_capture_admissions"
-    },
-    {
       "value": "\"source\" in ('entry', 'judge', 'tab')",
       "name": "judge_strikes_source_check",
       "entityType": "checks",
@@ -48883,27 +45013,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "tournament_judges"
-    },
-    {
-      "value": "jsonb_typeof(\"authority\") = 'object'",
-      "name": "tournament_sponsorship_versions_authority_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "value": "\"version\">0",
-      "name": "tournament_sponsorship_versions_version_positive",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
-    },
-    {
-      "value": "\n  (\"kind\"='proposed' and \"hosting_version_id\" is null and \"reason\" is null)\n  or (\"kind\"='active' and \"previous_version_id\" is not null and \"hosting_version_id\" is not null and \"reason\" is null and \"acted_by_user_id\"=\"sponsor_user_id\")\n  or (\"kind\"='revoked' and \"previous_version_id\" is not null and \"hosting_version_id\" is null and \"reason\" is not null and length(btrim(\"reason\")) between 1 and 500)",
-      "name": "tournament_sponsorship_versions_shape",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tournament_sponsorship_versions"
     },
     {
       "value": "\"epoch\" > 0",

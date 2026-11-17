@@ -48,7 +48,7 @@ const facts = (overrides: Partial<LobbyFacts> = {}): LobbyFacts => ({
     offeredTemplates: [
       {
         id: id('p'),
-        formatId: 'value',
+        formatId: 'freestyle',
         formatVersion: 1,
         ballotDefinitionId: id('b'),
         ballotDefinitionVersion: 2,
@@ -578,11 +578,11 @@ describe('create-lobby-room', () => {
   const room = {
     commandId: id('c'),
     title: 'Friday practice',
-    resolution: { kind: 'policy', id: id('q') },
+    resolution: { kind: 'strike' },
     visibility: 'public',
     selection: {
       kind: 'catalog',
-      formatId: 'value',
+      formatId: 'freestyle',
       formatVersion: 1,
       presetVersion: 1,
       competitionType: 'casual',
@@ -660,7 +660,7 @@ describe('create-lobby-room', () => {
           ...withTemplate,
           room: {
             ...room,
-            selection: { ...room.selection, formatId: 'policy' },
+            selection: { ...room.selection, formatId: 'nsda-ld' },
           },
         }),
         refusalOf(

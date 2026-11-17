@@ -3,7 +3,8 @@
 Status: accepted; owner-authorized implementation 2026-10-26 (FMT-7 brief),
 plan approved by the orchestrator after independent review (plan rev 5).
 Extends [ADR 0058](0058-one-round-model.md) §§4–7 and
-[ADR 0070](0070-one-active-room-per-user.md).
+[ADR 0070](0070-one-active-room-per-user.md). Under [ADR 0142](0142-freestyle-the-one-standard-and-ladder.md), Freestyle is the
+one standard, and Policy and Value (named in the Context) are deleted.
 
 ## Context
 

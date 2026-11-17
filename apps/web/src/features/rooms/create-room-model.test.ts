@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { unequalTemplate } from './assembly.test-support';
+import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import {
   changeRoomValue,
   chooseRoomChoice,
@@ -8,15 +8,8 @@ import {
 
 setupRitewayBun();
 
-const choice = (formatId: string, label = formatId) => ({
-  ...unequalTemplate,
-  formatId,
-  label,
-  role: 'standard' as const,
-});
-const catalog = [choice('freestyle', 'Freestyle'), choice('policy', 'Policy')];
-const freestyle = catalog[0]!;
-const policy = catalog[1]!;
+const catalog = [freestyleChoice, unequalTemplate];
+const freestyle = freestyleChoice;
 
 describe('the create-room model', () => {
   test('a Room opens public, and a kept host choice stands', () => {
@@ -25,8 +18,8 @@ describe('the create-room model', () => {
       should:
         'open public (never unlisted) and keep the host’s explicit choice',
       actual: [
-        initialRoomModel(policy, catalog, {}, false).values.visibility,
-        initialRoomModel(policy, catalog, { visibility: 'unlisted' }, false)
+        initialRoomModel(freestyle, catalog, {}, false).values.visibility,
+        initialRoomModel(freestyle, catalog, { visibility: 'unlisted' }, false)
           .values.visibility,
       ],
       expected: ['public', 'unlisted'],
@@ -34,38 +27,38 @@ describe('the create-room model', () => {
   });
 
   test('an edit and its revert both follow the decoded draft, not a forced format', () => {
-    let model = initialRoomModel(policy, catalog, {}, false);
+    let model = initialRoomModel(freestyle, catalog, {}, false);
     assert({
-      given: 'a Policy standard chosen',
+      given: 'the Freestyle standard chosen',
       should: 'run the standard, not Custom',
       actual: [
         model.values.format,
         model.draft.custom,
         model.draft.basis.formatId,
       ],
-      expected: ['policy', false, 'policy'],
+      expected: ['freestyle', false, 'freestyle'],
+    });
+    model = changeRoomValue(model, 'resolutionMethod', 'custom', catalog);
+    assert({
+      given: 'the resolution changed away from the standard’s strike',
+      should: 'decode as Custom while the basis stays Freestyle',
+      actual: [
+        model.draft.custom,
+        model.draft.basis.formatId,
+        model.draft.ranked,
+      ],
+      expected: [true, 'freestyle', false],
     });
     model = changeRoomValue(model, 'resolutionMethod', 'strike', catalog);
     assert({
-      given: 'the resolution changed away from the standard',
-      should: 'decode as Custom while the basis stays Policy',
-      actual: [
-        model.draft.custom,
-        model.draft.basis.formatId,
-        model.draft.ranked,
-      ],
-      expected: [true, 'policy', false],
-    });
-    model = changeRoomValue(model, 'resolutionMethod', 'policy', catalog);
-    assert({
       given: 'the edit reverted to the standard resolution',
-      should: 'read as the Policy standard again',
+      should: 'read as the Freestyle standard again',
       actual: [
         model.draft.custom,
         model.draft.basis.formatId,
         model.draft.ranked,
       ],
-      expected: [false, 'policy', false],
+      expected: [false, 'freestyle', false],
     });
   });
 
@@ -82,7 +75,7 @@ describe('the create-room model', () => {
 
   test('the editor opens on the catalog default with kept values re-read', () => {
     const kept = initialRoomModel(
-      policy,
+      freestyle,
       catalog,
       { title: 'Kept', intent: 'format' },
       true,
@@ -92,14 +85,9 @@ describe('the create-room model', () => {
       should:
         'keep the title, stay on the named format, and drop the consumed intent',
       actual: [kept.values.title, kept.values.format, kept.values.intent],
-      expected: ['Kept', 'policy', ''],
+      expected: ['Kept', 'freestyle', ''],
     });
-    const fresh = initialRoomModel(
-      { ...policy, preset: { ...policy.preset, rankedEligible: true } },
-      catalog,
-      {},
-      true,
-    );
+    const fresh = initialRoomModel(freestyle, catalog, {}, true);
     assert({
       given: 'a ranked-eligible standard with no kept values',
       should: 'open ranked',
@@ -118,18 +106,18 @@ describe('the create-room model', () => {
     assert({
       given: 'the editor reopened from a refused Apply format post',
       should: 'apply the next edit instead of resetting to the preset',
-      actual: changeRoomValue(model, 'resolutionMethod', 'strike', catalog)
+      actual: changeRoomValue(model, 'resolutionMethod', 'custom', catalog)
         .draft.custom,
       expected: true,
     });
-    model = changeRoomValue(model, 'resolutionMethod', 'policy', catalog);
+    model = changeRoomValue(model, 'resolutionMethod', 'custom', catalog);
     model = chooseRoomChoice(model, freestyle);
     assert({
       given: 'choosing a choice over a retained intent',
       should: 'clear the intent so later edits keep landing',
       actual: [
         model.values.intent,
-        changeRoomValue(model, 'resolutionMethod', 'policy', catalog).draft
+        changeRoomValue(model, 'resolutionMethod', 'custom', catalog).draft
           .custom,
       ],
       expected: ['', true],

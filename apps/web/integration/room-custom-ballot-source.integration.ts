@@ -57,7 +57,7 @@ test('DEC408 actual Start freezes the exact stored pin after currentVersion move
             {
               selection: {
                 kind: 'catalog',
-                formatId: 'policy',
+                formatId: 'nsda-ld',
                 formatVersion: 1,
                 presetVersion: 1,
                 competitionType: 'casual',

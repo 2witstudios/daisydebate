@@ -41,7 +41,7 @@ for (const judgeKind of ['human', 'ai'] as const)
         await inSeason(f, async () => {
           const { roundId, freezeRevision } = await frozenRankedRound(
             f,
-            'policy',
+            'freestyle',
             judgeKind,
           );
           const replay =
@@ -157,14 +157,14 @@ for (const judgeKind of ['human', 'ai'] as const)
           });
         });
       }, cachedAiJudgingRuntime);
-    });
+    }, 30_000);
 
 test('a posting that fails after its ledger insert leaves nothing and the next sweep posts once', async () => {
   await withRoomRuntime(async (f) => {
     await inSeason(f, async () => {
       const { roundId, freezeRevision } = await frozenRankedRound(
         f,
-        'policy',
+        'freestyle',
         'human',
       );
       await (

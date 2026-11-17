@@ -49,23 +49,18 @@ describe('catalogFormats', () => {
       ],
     });
     assert({
-      given: 'Policy and Value',
-      should:
-        'let a host turn on a strike, while their presets keep the resolution set in advance',
-      actual: ['policy', 'value'].map((id) => [
-        strike(id).capable,
-        strike(id).draw.enabled,
-      ]),
-      expected: [
-        [true, false],
-        [true, false],
-      ],
-    });
-    assert({
       given: 'Freestyle',
       should: 'run the shared standard 1v1 schedule',
       actual: schedule('freestyle'),
-      expected: schedule('value'),
+      expected: [
+        'AC A0 5',
+        'CX1 N0 2',
+        'NC N0 6',
+        'CX2 A0 2',
+        '1AR A0 3',
+        'NR N0 5',
+        '2AR A0 3',
+      ],
     });
     assert({
       given: 'IPDA',

@@ -8,7 +8,6 @@ import type {
 import { lockAuthorizationActors } from '../authorization';
 import { readDatabaseTime } from '../database-clock';
 import { readFormatSelectionFacts } from '../format-operations';
-import { readPublishedResolution } from '../published-resolutions';
 import { readEntitlementGrants } from '../entitlement-grants';
 import { assembleRoom } from '../room-assembly';
 import { recordCaptureNotice } from '../agreement-signatures';
@@ -42,10 +41,6 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
       readonly selectionFacts: (
         tuple: Parameters<typeof readFormatSelectionFacts>[1],
       ) => ReturnType<typeof readFormatSelectionFacts>;
-      readonly publication: (
-        id: string,
-        kind: 'policy' | 'value',
-      ) => ReturnType<typeof readPublishedResolution>;
       readonly now: () => Promise<string>;
       readonly stored: (id: string) => ReturnType<typeof storedCommand>;
       readonly apply: (
@@ -90,7 +85,6 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
             lobbyId: input.command.lobbyId,
           }),
         selectionFacts: (tuple) => readFormatSelectionFacts(tx, tuple),
-        publication: (id, kind) => readPublishedResolution(tx, id, kind),
         now: async () => (await readDatabaseTime(tx)).toISOString(),
         stored: (id) => storedCommand(tx, id),
         apply: async (

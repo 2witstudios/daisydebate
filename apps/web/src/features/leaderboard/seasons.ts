@@ -1,6 +1,7 @@
-import type { RatingLadder } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
+import { ladderLabels } from '../ratings/ladder-labels';
 import { rankRatingEntries } from '../ratings/rank';
+import { boardLadder } from './board-ladder';
 import { toRow } from './ladder-rows';
 import type { LadderData, LadderRow, LadderViewer } from './ladder-view';
 import { defaultQuery, ladderHref } from './query';
@@ -19,15 +20,10 @@ export function parseSeasonsQuery(params: SearchParams): string | null {
   return value !== undefined && /^[a-z0-9]{24}$/.test(value) ? value : null;
 }
 
-export const seasonsHref = (
-  season: string | null,
-  ladder: RatingLadder = 'freestyle',
-): string => {
-  const params = new URLSearchParams();
-  if (season !== null) params.set('season', season);
-  if (ladder !== 'freestyle') params.set('ladder', ladder);
-  return `/leaderboard/seasons${params.size ? `?${params}` : ''}`;
-};
+export const seasonsHref = (season: string | null): string =>
+  season === null
+    ? '/leaderboard/seasons'
+    : `/leaderboard/seasons?${new URLSearchParams({ season })}`;
 
 /** Rows in a season's snapshot. */
 const SNAPSHOT_SIZE = 10;
@@ -65,11 +61,10 @@ export function buildSeasonsView(
   data: LadderData,
   now: string,
   viewer: LadderViewer | null = null,
-  ladder: RatingLadder = 'freestyle',
 ): SeasonsView {
   const { season } = data;
   const closed = isClosed(season);
-  const query = { ...defaultQuery, season: season.id, ladder };
+  const query = { ...defaultQuery, season: season.id };
   const context = { season, query, viewer, mine: undefined };
   const top = rankRatingEntries(data.entries)
     .filter((entry) => !entry.provisional)
@@ -78,7 +73,7 @@ export function buildSeasonsView(
   const { day, length, percent } = seasonProgress(season, now);
   return {
     season,
-    ladderLabel: ladder[0]!.toUpperCase() + ladder.slice(1),
+    ladderLabel: ladderLabels[boardLadder],
     label: seasonLabel(season),
     state: !closed
       ? 'running'
@@ -95,7 +90,7 @@ export function buildSeasonsView(
     percent: closed ? 100 : percent,
     chips: data.seasons.map((item) => ({
       label: `${seasonLabel(item)}${isClosed(item) ? '' : ' · current'}`,
-      href: seasonsHref(item.id, ladder),
+      href: seasonsHref(item.id),
       selected: item.id === season.id,
     })),
     championLabel: closed ? 'Champion' : 'Leading now',
@@ -105,11 +100,3 @@ export function buildSeasonsView(
     ladderHref: ladderHref(query),
   };
 }
-
-/**
- * Publications have no link to a season (ADR 0092), so the page lists them
- * unless the viewer picked a closed season while another runs. Null is no
- * season at all.
- */
-export const listsPublishedResolutions = (view: SeasonsView | null): boolean =>
-  view?.state !== 'past';

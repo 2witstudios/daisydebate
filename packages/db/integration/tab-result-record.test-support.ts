@@ -29,7 +29,7 @@ export const administrativeFixtureRecord = (
   return resultCompetitionRecordSchema.parse({
     version: 1,
     kind: 'administrative',
-    format: { formatId: 'policy', formatVersion: 1 },
+    format: { formatId: 'nsda-policy', formatVersion: 1 },
     ballotSource: options.source ?? daisyBallotSource(definition),
     definition,
     pointUnit: {

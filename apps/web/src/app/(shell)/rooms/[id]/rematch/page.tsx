@@ -36,7 +36,6 @@ export default async function FreshRoomPage({
         id,
       )}
       choices={templates.choices}
-      resolutions={templates.resolutions}
       commandId={systemId.next()}
     />
   );

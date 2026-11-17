@@ -268,7 +268,7 @@ test("erasure keeps a ranked Round's transcript lines and its pending judgment",
       // A real seeded ladder format, so the ranked constraints hold.
       const [preset] = await fixture.sql`
         select format_id,version,format_version from format_presets
-        where format_id='value' order by version desc limit 1`;
+        where format_id='freestyle' order by version desc limit 1`;
       const [original] = await fixture.sql`
         select format_id,format_version from rounds where id=${roundId}`;
       await fixture.sql`update rounds set competition_type='ranked',

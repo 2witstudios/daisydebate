@@ -22,6 +22,7 @@ import {
   reread,
   deniedCommand,
   createFromPlay,
+  setResolution,
   claim,
   prepareJudgeRoom,
   assertFrozenLaunch,
@@ -59,6 +60,8 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     let view = await createFromPlay(
       host,
       `Launch proof ${createId().slice(0, 8)}`,
+      'freestyle',
+      setResolution,
     );
     expect(view.formatVersion).toBeGreaterThan(0);
     expect(view.rules.segments.length).toBeGreaterThan(1);
@@ -103,8 +106,14 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     const settings = await openRoomSetup(host, true);
     const first = view.rules.segments[0]!;
     const second = view.rules.segments[1]!;
-    const firstMs =
-      view.definition.configurable.timing.segmentDurationMs[first.key]!.min;
+    // A Custom room advertises 1 s minimums, but a speech must still cover
+    // the attendance grace, so the proof starts from a minute in bounds.
+    const firstBounds =
+      view.definition.configurable.timing.segmentDurationMs[first.key]!;
+    const firstMs = Math.max(
+      firstBounds.min,
+      Math.min(firstBounds.max, 60_000),
+    );
     const secondBounds =
       view.definition.configurable.timing.segmentDurationMs[second.key]!;
     const secondMs = Math.max(

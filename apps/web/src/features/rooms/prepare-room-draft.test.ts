@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { unequalTemplate } from './assembly.test-support';
+import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import { createRoomDraft } from './create-room-draft';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
 import { prepareRoomDraft, changeDraftSchedule } from './prepare-room-draft';
@@ -13,7 +13,7 @@ test('native structural editing previews without creating a room', () => {
   );
   form.set('intent', 'add-side:affirmative');
   form.set('title', 'Retained title');
-  const result = prepareRoomDraft(form, [unequalTemplate], []);
+  const result = prepareRoomDraft(form, [unequalTemplate]);
   assert({
     given: 'a native add-speech submission',
     should:
@@ -33,7 +33,7 @@ test('Custom submission carries its basis and exact settings', () => {
     ([key, value]) => form.set(key, value),
   );
   form.set('customResolution', 'A host resolution');
-  const result = prepareRoomDraft(form, [unequalTemplate], []);
+  const result = prepareRoomDraft(form, [unequalTemplate]);
   const selection =
     result.kind === 'submit'
       ? JSON.parse(String(result.form.get('selection')))
@@ -80,12 +80,7 @@ test('schedule additions stay valid through the maximum schedule', () => {
 });
 
 test('native Apply format restores the same standard after a Custom preview', () => {
-  const value = {
-    ...unequalTemplate,
-    formatId: 'value',
-    role: 'standard' as const,
-  };
-  const original = draftFormValues(createRoomDraft(value));
+  const original = draftFormValues(createRoomDraft(freestyleChoice));
   const customize = new FormData();
   Object.entries({
     ...original,
@@ -94,18 +89,18 @@ test('native Apply format restores the same standard after a Custom preview', ()
     'duration.inRound': '0:00',
     intent: 'configure',
   }).forEach(([key, text]) => customize.set(key, text));
-  const preview = prepareRoomDraft(customize, [value], []);
+  const preview = prepareRoomDraft(customize, [freestyleChoice]);
   const restore = new FormData();
   Object.entries({
     ...(preview.kind === 'preview' ? preview.values : {}),
-    format: 'value',
+    format: 'freestyle',
     ranked: 'on',
     intent: 'format',
   }).forEach(([key, text]) => restore.set(key, text));
-  const restored = prepareRoomDraft(restore, [value], []);
+  const restored = prepareRoomDraft(restore, [freestyleChoice]);
   assert({
     given:
-      'a native Custom preview based on Value, then Apply format for Value again',
+      'a native Custom preview based on Freestyle, then Apply format for Freestyle again',
     should: 'restore the full preset, preserve metadata and leave Ranked off',
     actual: restored.kind === 'preview' && [
       restored.values.format,
@@ -115,7 +110,7 @@ test('native Apply format restores the same standard after a Custom preview', ()
       restored.values.ranked,
     ],
     expected: [
-      'value',
+      'freestyle',
       original['duration.inRound'],
       'Keep my room',
       'private',
@@ -124,71 +119,16 @@ test('native Apply format restores the same standard after a Custom preview', ()
   });
 });
 
-test('creation never substitutes a publication that changed after the form was rendered', () => {
-  const value = {
-    ...unequalTemplate,
-    formatId: 'value',
-    role: 'standard' as const,
-  };
-  const form = new FormData();
-  Object.entries(draftFormValues(createRoomDraft(value))).forEach(
-    ([key, text]) => form.set(key, text),
-  );
-  form.set('valueResolutionId', 'o'.repeat(24));
-  const result = prepareRoomDraft(
-    form,
-    [value],
-    [
-      {
-        id: 'n'.repeat(24),
-        kind: 'value',
-        text: 'New published wording',
-        provenance: 'Test',
-        edition: null,
-        theme: null,
-        publishedAt: '2026-10-29T00:00:00.000Z',
-      },
-    ],
-  );
-  assert({
-    given: 'the displayed Value publication retired before submission',
-    should: 'refuse instead of silently creating with its replacement',
-    actual: result.kind,
-    expected: 'invalid',
-  });
-});
-
 test('a ranked submission is always public and needs no notice', () => {
-  const value = {
-    ...unequalTemplate,
-    formatId: 'value',
-    role: 'standard' as const,
-    preset: { ...unequalTemplate.preset, rankedEligible: true },
-  };
   const form = new FormData();
   Object.entries({
-    ...draftFormValues(createRoomDraft(value)),
+    ...draftFormValues(createRoomDraft(freestyleChoice)),
     title: 'A ranked room',
     visibility: 'unlisted',
     ranked: 'on',
-    valueResolutionId: 'published',
     intent: 'create',
   }).forEach(([key, text]) => form.set(key, text));
-  const result = prepareRoomDraft(
-    form,
-    [value],
-    [
-      {
-        id: 'published',
-        kind: 'value',
-        text: 'A published resolution',
-        provenance: 'Test',
-        edition: null,
-        theme: null,
-        publishedAt: '2026-10-29T00:00:00.000Z',
-      },
-    ],
-  );
+  const result = prepareRoomDraft(form, [freestyleChoice]);
   assert({
     given:
       'a ranked submission still carrying an unlisted choice and stating no notice',
@@ -213,7 +153,7 @@ test('a native casual recording selection never claims an unseen capture notice'
   form.set('recording', 'on');
   form.set('title', 'Record this match');
   form.set('customResolution', 'A host resolution');
-  const result = prepareRoomDraft(form, [unequalTemplate], []);
+  const result = prepareRoomDraft(form, [unequalTemplate]);
   assert({
     given: 'recording selected before its notice was shown',
     should: 'carry recording without synthesizing notice acknowledgement',
@@ -233,7 +173,7 @@ test('a casual recording form stating a superseded notice previews the current o
   form.set('recording', 'on');
   form.set('noticeVersion', 'casual-draft-0');
   form.set('customResolution', 'A host resolution');
-  const result = prepareRoomDraft(form, [unequalTemplate], []);
+  const result = prepareRoomDraft(form, [unequalTemplate]);
   assert({
     given: 'a casual recording form that showed an older notice',
     should:

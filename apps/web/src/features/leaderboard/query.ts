@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ratingLadders, idSchema, type RatingLadder } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 
 const scopes = ['top', 'around'] as const;
@@ -13,7 +13,6 @@ export type HistoryView = (typeof views)[number];
 export type LadderQuery = {
   /** Null is the current season. */
   readonly season: string | null;
-  readonly ladder: RatingLadder;
   readonly scope: LadderScope;
   readonly q: string;
   readonly status: LadderStatus;
@@ -27,7 +26,6 @@ export type LadderQuery = {
 
 export const defaultQuery: LadderQuery = {
   season: null,
-  ladder: 'freestyle',
   scope: 'top',
   q: '',
   status: 'established',
@@ -49,7 +47,6 @@ const count = z
 // parameters can never make parsing throw.
 const querySchema = z.object({
   season: idSchema.nullable().catch(defaultQuery.season),
-  ladder: z.enum(ratingLadders).catch(defaultQuery.ladder),
   scope: z.enum(scopes).catch(defaultQuery.scope),
   q: z
     .string()

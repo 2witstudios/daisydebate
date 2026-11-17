@@ -1,13 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  affirmativeSide,
-  judgeSeat,
-  negativeSide,
-  roomCreateSchema,
-  sideSeat,
-} from '@daisy/protocol';
+import { roomCreateSchema } from '@daisy/protocol';
 import { createRoomDraft } from '../src/features/rooms/create-room-draft';
 import { draftFormValues } from '../src/features/rooms/create-room-fields';
 import { prepareRoomDraft } from '../src/features/rooms/prepare-room-draft';
@@ -17,68 +11,53 @@ import { withRoomRuntime } from './room-runtime.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
-type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
-async function createPublishedValueRoom(f: Fixture) {
-  const catalog = await f.operations.catalog(f.host);
-  const choice = catalog.choices.find((entry) => entry.formatId === 'value')!;
-  const publication = catalog.resolutions.find(
-    (entry) => entry.kind === 'value',
-  )!;
-  const created = await f.create({
-    resolution: { kind: 'value', id: publication.id },
-    selection: {
-      kind: 'catalog',
-      formatId: choice.formatId,
-      formatVersion: choice.formatVersion,
-      presetVersion: choice.preset.version,
-      competitionType: 'casual',
-    },
-  });
-  return { publication, created };
-}
-
-test('published creation pins authoritative text; metadata preserves the standard and custom text leaves it', async () => {
+test('a Freestyle Room keeps its standard through a metadata edit and refuses host-written text', async () => {
   await withRoomRuntime(async (f) => {
-    const { publication, created } = await createPublishedValueRoom(f);
+    const catalog = await f.operations.catalog(f.host);
+    const choice = catalog.choices.find(
+      (entry) => entry.formatId === 'freestyle',
+    )!;
+    const created = await f.create({
+      selection: {
+        kind: 'catalog',
+        formatId: choice.formatId,
+        formatVersion: choice.formatVersion,
+        presetVersion: choice.preset.version,
+        competitionType: 'casual',
+      },
+    });
     const renamed = (
       await f.command(f.host, created.view, {
         type: 'update-details',
         title: 'A social room',
         visibility: 'unlisted',
-        topic: publication.text,
       })
     ).view;
-    const [pinned] =
-      await f.sql`select published_resolution_id from rooms where id=${renamed.id}`;
-    const custom = (
-      await f.command(f.host, renamed, {
+    const before = await f.snapshot(renamed.id);
+    const refusal = await f
+      .command(f.host, renamed, {
         type: 'update-details',
         title: renamed.title,
         visibility: renamed.visibility,
         topic: 'Cities should make public transit free.',
       })
-    ).view;
-    const [changed] =
-      await f.sql`select published_resolution_id from rooms where id=${custom.id}`;
+      .catch((error: { reason?: string }) => error.reason);
     assert({
-      given: 'a standard room, a metadata edit and then a custom resolution',
+      given:
+        'a casual Freestyle Room, a metadata edit, then host-written resolution text',
       should:
-        'pin published wording, preserve the standard for metadata and clear the publication reference for Custom',
+        'strike from the bank, stay Standard through the metadata edit and refuse the text leaving the Room unchanged',
       actual: [
         created.view.topic,
-        pinned?.published_resolution_id,
-        renamed.format.standing.kind,
-        custom.format.standing.kind,
-        custom.format.basis?.formatId,
-        changed?.published_resolution_id,
+        renamed.format.standing,
+        refusal,
+        await f.snapshot(renamed.id),
       ],
       expected: [
-        publication.text,
-        publication.id,
-        'standard',
-        'custom',
-        'value',
         null,
+        { kind: 'standard', formatId: 'freestyle' },
+        'illegal-config',
+        before,
       ],
     });
   });
@@ -87,7 +66,9 @@ test('published creation pins authoritative text; metadata preserves the standar
 test('the native Custom editor persists exact settings, POI and its template basis through canonical creation', async () => {
   await withRoomRuntime(async (f) => {
     const catalog = await f.operations.catalog(f.host);
-    const choice = catalog.choices.find((entry) => entry.formatId === 'value')!;
+    const choice = catalog.choices.find(
+      (entry) => entry.formatId === 'nsda-ld',
+    )!;
     const form = new FormData();
     Object.entries(draftFormValues(createRoomDraft(choice))).forEach(
       ([key, value]) => form.set(key, value),
@@ -100,11 +81,7 @@ test('the native Custom editor persists exact settings, POI and its template bas
     form.set('customResolution', 'Cities should make public transit free.');
     form.set('duration.segment.0', '4:32.123');
     form.set('ranked', 'on');
-    const prepared = prepareRoomDraft(
-      form,
-      catalog.choices,
-      catalog.resolutions,
-    );
+    const prepared = prepareRoomDraft(form, catalog.choices);
     if (prepared.kind !== 'submit')
       throw new Error('Custom draft must compile');
     const result = await createAssembly(
@@ -122,7 +99,7 @@ test('the native Custom editor persists exact settings, POI and its template bas
     assert({
       given: 'native edited timing, POI and a checked Ranked field',
       should:
-        'persist the exact timing and open speaking policy as unranked Custom based on Value',
+        'persist the exact timing and open speaking policy as unranked Custom based on NSDA Lincoln-Douglas',
       actual: [
         view.competitionType,
         view.format.standing.kind,
@@ -130,65 +107,7 @@ test('the native Custom editor persists exact settings, POI and its template bas
         view.rules.segments[0]?.durationMs,
         view.rules.interaction.interruptions?.allowed,
       ],
-      expected: ['casual', 'custom', 'value', 272_123, 'open'],
-    });
-  });
-});
-
-test('publication replacement cannot alter existing Room or frozen Round wording and provenance', async () => {
-  await withRoomRuntime(async (f) => {
-    const { publication, created } = await createPublishedValueRoom(f);
-    let room = created.view;
-    const judge = await f.member();
-    const seats = [
-      { caller: f.host, seat: sideSeat(affirmativeSide) },
-      { caller: f.guest, seat: sideSeat(negativeSide) },
-      { caller: judge, seat: judgeSeat() },
-    ] as const;
-    for (const seat of seats)
-      room = (
-        await f.command(seat.caller, room, {
-          type: 'claim-seat',
-          seat: seat.seat,
-        })
-      ).view;
-    for (const seat of seats)
-      room = (
-        await f.consent(
-          seat.caller,
-          await f.operations.view(seat.caller, room.id),
-          'ready',
-        )
-      ).view;
-    room = (await f.command(f.host, room, { type: 'start-round' })).view;
-    let pins: unknown;
-    const rollback = new Error('Rollback publication replacement proof');
-    try {
-      await f.sql.begin(async (transaction) => {
-        await transaction`update published_resolutions set retired_at=clock_timestamp() where id=${publication.id}`;
-        await transaction`insert into published_resolutions(id,kind,text,provenance,edition,theme) values (${createId()},'value','Replacement wording','Test replacement','Test edition','Test theme')`;
-        const [row] =
-          await transaction`select rm.topic,rm.published_resolution_id as room_pin,rd.resolution,rd.published_resolution_id as round_pin,p.provenance,p.edition,p.theme from rooms rm join rounds rd on rd.room_id=rm.id join published_resolutions p on p.id=rd.published_resolution_id where rm.id=${room.id}`;
-        pins = row;
-        throw rollback;
-      });
-    } catch (error) {
-      if (error !== rollback) throw error;
-    }
-    assert({
-      given: 'a Room and new Round pinned before a publication replacement',
-      should:
-        'retain their exact wording, IDs and owner provenance independently of current publication',
-      actual: pins,
-      expected: {
-        topic: publication.text,
-        room_pin: publication.id,
-        resolution: publication.text,
-        round_pin: publication.id,
-        provenance: 'Owner-confirmed Daisy Beta Season 1 (2026-10-29)',
-        edition: 'Beta Season 1',
-        theme: 'Culture and social priorities',
-      },
+      expected: ['casual', 'custom', 'nsda-ld', 272_123, 'open'],
     });
   });
 });

@@ -353,7 +353,6 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly title: string;
   /** Null exactly for a draw Room: its resolution belongs to the Round. */
   readonly topic: string | null;
-  readonly publishedResolutionId: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   /** Null for a Room no person hosts: host-only commands are refused for it. */
   readonly hostActorId: string | null;

@@ -107,7 +107,7 @@ const postedBody = async (form: FormData) => {
 };
 
 test('a native format choice posts its catalog tuple as select-format (FMT-3)', async () => {
-  const form = formatForm('policy');
+  const form = formatForm('freestyle');
   const sent = await postedBody(form);
   assert({
     given: 'a format radio whose value names one catalog tuple',
@@ -118,14 +118,17 @@ test('a native format choice posts its catalog tuple as select-format (FMT-3)', 
       intent: 'choose',
       commandId: 's'.repeat(24),
       expectedVersion: 3,
-      formatId: 'policy',
+      formatId: 'freestyle',
       formatVersion: 1,
       presetVersion: 2,
     },
   });
   const forged = new FormData();
   for (const [key, value] of form) forged.set(key, value);
-  forged.set('format', JSON.stringify({ formatId: 'policy', type: 'close' }));
+  forged.set(
+    'format',
+    JSON.stringify({ formatId: 'freestyle', type: 'close' }),
+  );
   const refused = await submitAssembly(
     async () => {
       throw new Error('must not send');
@@ -143,7 +146,7 @@ test('a native format choice posts its catalog tuple as select-format (FMT-3)', 
 
 test('a draw room’s format choice sends its resolution only when typed (FMT-2b)', async () => {
   const posted = async (topic: string) => {
-    const sent = await postedBody(formatForm('value', { topic }));
+    const sent = await postedBody(formatForm('nsda-ld', { topic }));
     return [sent.type, sent.topic];
   };
   assert({

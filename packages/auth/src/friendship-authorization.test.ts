@@ -186,13 +186,11 @@ test('each social concept authorizes on its own resource, never Friends', () => 
     capability:
       | 'social.challenge.list'
       | 'social.people.list'
-      | 'social.rating_visibility.read'
       | 'social.moderation_notice.read',
     kind:
       | 'friend_collection'
       | 'challenge_collection'
       | 'people_list'
-      | 'rating_visibility'
       | 'moderation_notice',
   ) =>
     authorize({
@@ -207,11 +205,10 @@ test('each social concept authorizes on its own resource, never Friends', () => 
     actual: [
       allowed('social.challenge.list', 'challenge_collection'),
       allowed('social.people.list', 'people_list'),
-      allowed('social.rating_visibility.read', 'rating_visibility'),
       allowed('social.moderation_notice.read', 'moderation_notice'),
       allowed('social.challenge.list', 'friend_collection'),
       allowed('social.moderation_notice.read', 'friend_collection'),
     ],
-    expected: [true, true, true, true, false, false],
+    expected: [true, true, true, false, false],
   });
 });

@@ -222,14 +222,6 @@ export const createLobbyRoom =
                 (row) => row.id === command.poolResolutionId,
               )
             : undefined;
-          const publication =
-            command.room.resolution.kind === 'policy' ||
-            command.room.resolution.kind === 'value'
-              ? await session.publication(
-                  command.room.resolution.id,
-                  command.room.resolution.kind,
-                )
-              : null;
           const poolChoice =
             rule.method === 'draw'
               ? orderedWordings(
@@ -242,8 +234,6 @@ export const createLobbyRoom =
             selection: poolChoice
               ? { kind: 'custom', text: poolChoice.text }
               : command.room.resolution,
-            publication,
-            formatId: selected.formatId,
             standard: false,
             strikes: rule.method === 'strike',
           });
@@ -380,7 +370,6 @@ export const createLobbyRoom =
                   hostActorId: actorId,
                   title: command.room.title,
                   topic: resolution.topic,
-                  publishedResolutionId: resolution.publishedResolutionId,
                   visibility: command.room.visibility,
                   formatId: selected.formatId,
                   formatVersion: selected.formatVersion,

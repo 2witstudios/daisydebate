@@ -11,7 +11,7 @@ export type ShellAccount =
   | { readonly state: 'member'; readonly username: string };
 
 /**
- * A member's standing on each ladder, read once per request for the account
+ * A member's standing on each Daisy ladder, read once per request for the account
  * menu. `unavailable` when the read fails, so the menu says so instead of
  * blocking the page.
  */

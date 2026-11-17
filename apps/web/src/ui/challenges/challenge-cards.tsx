@@ -9,6 +9,7 @@ import {
   initialChallengeForm,
 } from '../../features/challenges/forms';
 import { destinationOf } from '../../features/forms/form-state';
+import { ladderLabels } from '../../features/ratings/ladder-labels';
 import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
 import { announceShellNavigation } from '../layout/app-shell/shell-link';
@@ -16,17 +17,11 @@ import { useMovedOn } from '../form-action/use-moved-on';
 import type { PersonActions } from '../people/person-actions';
 import { useChallenges } from './challenge-provider';
 
-const labels = {
-  freestyle: 'Freestyle',
-  policy: 'Policy',
-  value: 'Value',
-  ranked: 'Ranked',
-  casual: 'Casual',
-} as const;
+const modeLabels = { ranked: 'Ranked', casual: 'Casual' } as const;
 
 const summaryOf = (
   offer: Pick<ChallengeList['outgoing'][number], 'format' | 'mode'>,
-) => `${labels[offer.format]} · ${labels[offer.mode]}`;
+) => `${ladderLabels[offer.format]} · ${modeLabels[offer.mode]}`;
 
 const stageAccept =
   'min-h-nav-target rounded-sm bg-stage-accent px-4 text-sm font-bold text-stage-accent-ink disabled:opacity-60';

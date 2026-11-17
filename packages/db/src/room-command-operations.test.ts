@@ -67,8 +67,8 @@ test('Room create rechecks its catalog selection under the create transaction (P
   const account = accountRow();
   // Positional columns, as readFormatSelectionFacts selects them.
   const factsRow = [
-    'value',
-    'Value',
+    'freestyle',
+    'Freestyle',
     [],
     null,
     'standard',
@@ -100,7 +100,7 @@ test('Room create rechecks its catalog selection under the create transaction (P
         payloadDigest: 'a'.repeat(64),
         definition: null,
         selection: {
-          tuple: { formatId: 'value', formatVersion: 1, presetVersion: 3 },
+          tuple: { formatId: 'freestyle', formatVersion: 1, presetVersion: 3 },
           admits: (facts) => {
             judged.push(facts);
             return false;

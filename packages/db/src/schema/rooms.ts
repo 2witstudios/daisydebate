@@ -50,7 +50,6 @@ import {
 import { formats } from './formats';
 import { actors } from './actors';
 import { lobbies } from './lobbies';
-import { publishedResolutions } from './published-resolutions';
 import { lobbyTemplates, templates } from './templates';
 import { bothOrNeither } from './tenant-keys';
 
@@ -78,10 +77,6 @@ export const rooms = pgTable(
     title: text('title').notNull(),
     /** Null exactly while a draw Room has not revealed its resolution. */
     topic: text('topic'),
-    publishedResolutionId: text('published_resolution_id').references(
-      () => publishedResolutions.id,
-      { onDelete: 'restrict' },
-    ),
     visibility: text('visibility').$type<RoomView['visibility']>().notNull(),
     version: versionColumn(),
     changeVersion: integer('change_version').notNull().default(1),
@@ -219,7 +214,6 @@ export const rooms = pgTable(
       table.ballotDefinitionId,
       table.ballotDefinitionVersion,
     ),
-    index('rooms_published_resolution_idx').on(table.publishedResolutionId),
     index('rooms_lobby_idx').on(
       table.visibility,
       table.status,

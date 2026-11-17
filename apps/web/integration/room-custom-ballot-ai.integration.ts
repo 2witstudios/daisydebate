@@ -121,7 +121,7 @@ for (const per of ['side', 'seat', 'speech'] as const)
                   }
                 : {
                     kind: 'catalog',
-                    formatId: 'policy',
+                    formatId: 'nsda-ld',
                     formatVersion: 1,
                     presetVersion: 1,
                     competitionType: 'casual',

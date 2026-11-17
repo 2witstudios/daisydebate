@@ -756,7 +756,7 @@ CREATE TABLE "tournament_judges" (
 -- between the new tables and the foreign keys below, because rows that
 -- already exist reference them the moment those keys are added: every Room
 -- takes Daisy's public lobby and every season Daisy by column default, and
--- every rating names one of Daisy's three ladders. Each INSERT targets a
+-- every rating names Daisy's one ladder (ADR 0142). Each INSERT targets a
 -- table this migration created, so no existing row is rewritten.
 --
 -- Daisy is organization number one. It alone has no owner row: its owner is
@@ -768,18 +768,14 @@ INSERT INTO "lobbies" ("id", "kind", "owner_organization_id", "name", "handle") 
   ('rhkgl9vjor1cmyr855wb62ku', 'standing', 'fo05z182lha0a3usciy9wr2r', 'Daisy', 'daisy');
 --> statement-breakpoint
 INSERT INTO "ladders" ("id", "lobby_id", "organization_id", "name") VALUES
-  ('freestyle', 'rhkgl9vjor1cmyr855wb62ku', 'fo05z182lha0a3usciy9wr2r', 'Freestyle'),
-  ('policy', 'rhkgl9vjor1cmyr855wb62ku', 'fo05z182lha0a3usciy9wr2r', 'Policy'),
-  ('value', 'rhkgl9vjor1cmyr855wb62ku', 'fo05z182lha0a3usciy9wr2r', 'Value');
+  ('freestyle', 'rhkgl9vjor1cmyr855wb62ku', 'fo05z182lha0a3usciy9wr2r', 'Freestyle');
 --> statement-breakpoint
--- Daisy's three templates, one per ladder, each pinning its standard format
--- at the revision current when this migration runs, with the Daisy ballot.
+-- Daisy's template for its one ladder, pinning the Freestyle standard at the
+-- revision current when this migration runs, with the Daisy ballot.
 INSERT INTO "templates" ("id", "organization_id", "name", "format_id", "format_version")
 SELECT seed.id, 'fo05z182lha0a3usciy9wr2r', f.name, f.id, f.current_version
 FROM (VALUES
-  ('s3tw1srulgcs6y2xhbog8gps', 'freestyle'),
-  ('sp9twlusmhjkfsfuz0frjpv5', 'policy'),
-  ('ctx489trsi8rxckjn6r9foi9', 'value')
+  ('s3tw1srulgcs6y2xhbog8gps', 'freestyle')
 ) AS seed(id, format_id)
 JOIN "formats" f ON f.id = seed.format_id;
 --> statement-breakpoint

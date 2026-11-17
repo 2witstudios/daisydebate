@@ -210,8 +210,7 @@ export function readRoomDraft(
     }),
   );
   const method = decoded.resolutionMethod;
-  if (!['policy', 'value', 'strike', 'custom'].includes(method ?? ''))
-    return invalid;
+  if (!['strike', 'custom'].includes(method ?? '')) return invalid;
   const strike = strikeFor(source.definition);
   if (method === 'strike' && strike === null) return invalid;
   const poi = decoded.questionStyle === 'poi';

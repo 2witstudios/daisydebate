@@ -3,6 +3,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
 import {
+  ratingLadders,
   recordingLifecycleSchema,
   roundRulesSchema,
   type RoundRules,
@@ -28,13 +29,13 @@ afterAll(() => scratch.drop());
 // Every feature-only folder, including the wiring migration. The initial
 // database runs all main folders, including main history newer than Tab.
 const parentFolders = new Set([
-  '20261114051015_tab_schema',
-  '20261114051016_tab_schema_checks_validated',
-  '20261114151541_tab_seats',
-  '20261114152055_tab_seats_checks_validated',
-  '20261114172122_tab_casual_templates',
-  '20261116031500_tab_wiring',
-  '20261116144904_lethal_grey_gargoyle',
+  '20261116175849_tab_schema',
+  '20261116175850_tab_schema_checks_validated',
+  '20261116175851_tab_seats',
+  '20261116175852_tab_seats_checks_validated',
+  '20261116175853_tab_casual_templates',
+  '20261116175854_tab_wiring',
+  '20261116175855_lethal_grey_gargoyle',
 ]);
 
 const oldRules = ({
@@ -179,7 +180,7 @@ test(
       }
       // Main accepted these stored snapshots and seat positions. Migration must
       // observe their actual identities without inventing a repaired grammar.
-      const baseFormat = catalog.find(({ id }) => id === 'policy')!;
+      const baseFormat = catalog.find(({ id }) => id === 'freestyle')!;
       const compiledLegacy = resolveRoomConfiguration(
         baseFormat.definition,
         baseFormat.config,
@@ -214,9 +215,10 @@ test(
           legacyJudges.push({ roundId: round, slot, participantId, actorId });
         }
       }
-      // Rated history on every existing ladder, with human and bot seats and
-      // its actual ledger FK chain. The format corpus above also keeps every
-      // lifecycle, including winnerless abandoned and unstarted Rounds.
+      // Rated history on Daisy's one ladder (ADR 0142: Freestyle), with human
+      // and bot seats and its actual ledger FK chain. The format corpus above
+      // also keeps every lifecycle, including winnerless abandoned and
+      // unstarted Rounds.
       const [bot] =
         await sql`select id from actors where kind = 'bot' order by id limit 1`;
       if (!bot) throw new Error('Main reference seed must include a bot actor');
@@ -227,7 +229,7 @@ test(
         starts_at: at,
         status: 'active',
       });
-      for (const ladder of ['freestyle', 'policy', 'value']) {
+      for (const ladder of ratingLadders) {
         const format = catalog.find(({ id }) => id === ladder)!;
         const compiled = resolveRoomConfiguration(
           format.definition,
