@@ -72,14 +72,15 @@ test('the runtime role with no scope reads no row of any scoped table and writes
       should:
         'see no row of any scoped table the sample filled, and insert, update and delete none',
       actual: {
-        // Of the 36 such tables; the rest are the closed guardian tables
+        // Membership periods follow the sample memberships. Of the scoped
+        // tables, the rest are the closed guardian tables
         // and ballot screenings, which the sample does not fill.
         filledBySample: Object.values(asOwner).filter((count) => count > 0)
           .length,
         ...unscoped,
       },
       expected: {
-        filledBySample: 33,
+        filledBySample: 34,
         visible: [],
         insert: '42501',
         updated: 0,

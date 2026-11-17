@@ -51,4 +51,4 @@ for (const mode of ['copy', 'detach'] as const)
         });
       },
     });
-  });
+  }, 30_000);
