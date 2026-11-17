@@ -29,6 +29,8 @@ test('social messaging remains outside contextual retention (DEC-126, DEC-251)',
     expected: [
       'retention.social_declines',
       'retention.social_requests',
+      // Ended unread-messages email jobs: no message content (ADR 0143).
+      'retention.messaging_unread_emails',
       'retention.spectator_chat',
       'retention.audience_reactions',
       'retention.round_floor_receipts',
