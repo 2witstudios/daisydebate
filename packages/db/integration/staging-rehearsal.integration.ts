@@ -37,6 +37,7 @@ const parentFolders = new Set([
   '20261117033256_tab_wiring',
   '20261117033257_lethal_grey_gargoyle',
   '20261117054407_tab_finalization_assignment_cascade',
+  '20261117124154_tab_room_seat_teams',
 ]);
 
 const oldRules = ({
@@ -428,6 +429,28 @@ test(
           queue: 'safety',
           created_at: at,
         });
+      // Main's seat model (ADR 0145, #766): open seats, each side rule and a
+      // frozen seat draw exist before any Tab folder rewrites the seats.
+      await sql`update room_participants set team_open = true, position_open = true where role = 'negative'`;
+      await sql`update room_participants set position_open = true where id = (select id from room_participants where role = 'affirmative' order by id limit 1)`;
+      await sql`update rooms set team_one_side = null where id = (select id from rooms where competition_type = 'casual' order by id limit 1)`;
+      await sql`update rooms set team_one_side = 'negative' where id = (select id from rooms where competition_type = 'casual' order by id offset 1 limit 1)`;
+      const seatDraw = {
+        algorithm: 'daisy-draw-v1/seats',
+        commitment: '0'.repeat(64),
+        coin: 'swapped',
+        teamOneSide: 'negative',
+        moved: [],
+      };
+      await sql`update rounds set seat_draw = ${seatDraw}::jsonb where id = ${round}`;
+      const seatModel = async () => ({
+        seats:
+          await sql`select id, team_open, position_open from room_participants order by id`,
+        sides: await sql`select id, team_one_side from rooms order by id`,
+        draws:
+          await sql`select id, seat_draw from rounds where seat_draw is not null order by id`,
+      });
+      const seatModelBefore = await seatModel();
       await sql`insert into room_active_memberships (actor_id, room_id)
         select actor_id, room_id from room_participants order by id limit 1`;
       const activeSeatsBefore =
@@ -492,6 +515,12 @@ test(
         actual:
           await sql`select to_jsonb(c) - 'feedback_subject' as row, feedback_subject as subject from content_reports c order by id`,
         expected: reportsBefore,
+      });
+      assert({
+        given: "main's open seats, side rules and a frozen seat draw (ADR 0145)",
+        should: 'keep every one through the Tab folders',
+        actual: await seatModel(),
+        expected: seatModelBefore,
       });
       assert({
         given: 'old side and judge seats',
