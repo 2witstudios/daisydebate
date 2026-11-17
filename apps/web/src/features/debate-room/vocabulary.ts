@@ -42,9 +42,7 @@ export function yieldLabel(
   } | null,
 ): string {
   if (!yielding?.allowed) return 'Off';
-  return yielding.returnsTime
-    ? 'On — unused time goes back to that side’s prep time, when prep time is on'
-    : 'On — unused time is dropped';
+  return yielding.returnsTime ? 'On · time back to prep' : 'On';
 }
 
 /** A draw Room's resolution before its reveal, wherever a topic is shown. */

@@ -17,16 +17,16 @@ const props = {
   reportAction: action,
 };
 
-test('Room chat names itself and its audience', () => {
+test('Room chat names itself and nothing more', () => {
   const html = renderToString(h(RoomChat, props));
   assert({
     given: 'the Room chat a Room page mounts',
     should:
-      'render one labelled region with its heading and who reads it, under none of the floor’s words',
+      'render one labelled region with its heading and no audience line, under none of the floor’s words',
     actual: [
       (html.match(/aria-label="Room chat"/g) ?? []).length,
       html.includes('<h2 class="font-strong">Room chat</h2>'),
-      html.includes('Everyone in the room'),
+      !html.includes('Everyone in the room'),
       html.includes('Loading Room chat…'),
       /Round|floor|Debaters and host/.test(html),
     ],

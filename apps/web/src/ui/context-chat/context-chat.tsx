@@ -64,7 +64,9 @@ function BoundContextChat({
     >
       <header className="shrink-0 border-b border-border px-4 py-3">
         <h2 className="font-strong">{labels.heading}</h2>
-        <p className="text-xs text-ink-muted">{labels.audience}</p>
+        {labels.audience ? (
+          <p className="text-xs text-ink-muted">{labels.audience}</p>
+        ) : null}
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         {pending ? <p role="status">{`Loading ${context.name}…`}</p> : null}

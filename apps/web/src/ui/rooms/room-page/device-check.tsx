@@ -3,8 +3,7 @@
 import { useEffect, useRef } from 'react';
 import type { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
-import { controlClass } from '../../components/form-field/form-field-class';
-import { buttonClass } from '../../components/button/button-class';
+import { Icon } from '../../components/icon/icon';
 import { MicLevel } from './mic-level';
 import { initialsOf } from '../../../lib/initials';
 
@@ -37,11 +36,11 @@ const remedy: Partial<Record<Reason, (kind: DeviceKind) => string>> = {
   'permission-denied': (kind) =>
     `Allow the ${kind} in your browser's site settings, then reload the page.`,
   'device-in-use': (kind) =>
-    `Close the other app using your ${kind}, then check again.`,
+    `Close the other app using your ${kind}, then try again.`,
   'device-missing': (kind) =>
-    `Connect a ${kind} or use Continuity Camera, then check again.`,
+    `Connect a ${kind} or use Continuity Camera, then try again.`,
   'no-signal': (kind) =>
-    `Make sure nothing covers or mutes your ${kind}, or choose another, then check again.`,
+    `Make sure nothing covers or mutes your ${kind}, or choose another, then try again.`,
 };
 
 const statusLabel: Readonly<
@@ -110,42 +109,32 @@ export function CameraPreview({
   );
 }
 
+/** A device's picker under the preview: its icon and choice, and what to do only when it failed. */
 export function DeviceChoice({
   kind,
   devices,
   snapshot,
   inputs,
-  check,
 }: {
   readonly kind: DeviceKind;
   readonly devices: Devices;
   readonly snapshot: Snapshot;
   readonly inputs: readonly MediaDeviceInfo[];
-  readonly check: (kind: DeviceKind) => void;
 }) {
   const state = snapshot[kind];
-  const id = `device-${kind}`;
+  const failed = state.status === 'denied' || state.status === 'unavailable';
   const { words, help } = statusText(kind, state);
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-        <label htmlFor={id} className="font-semibold">
-          {kindLabel[kind]}
-        </label>
-        <p
-          role="status"
-          className={
-            state.status === 'passed' ? 'text-online' : 'text-ink-muted'
-          }
-        >
-          <span className="sr-only">{kindLabel[kind]}: </span>
-          {words}
-        </p>
-      </div>
-      <div className="flex min-w-0 items-center gap-2">
+    <div className="flex min-w-0 flex-col gap-1">
+      <label className="flex min-w-0 items-center gap-2 rounded-sm bg-surface-sunken px-3">
+        <Icon
+          name={kind === 'camera' ? 'camera' : 'mic'}
+          size={16}
+          className={failed ? 'shrink-0 text-live' : 'shrink-0 text-ink-muted'}
+        />
+        <span className="sr-only">{kindLabel[kind]}</span>
         <select
-          id={id}
-          className={`${controlClass} min-w-0 flex-1`}
+          className="min-h-room-target min-w-0 flex-1 bg-transparent text-sm"
           value={state.selectedDeviceId ?? ''}
           onChange={(event) => devices.select(kind, event.target.value || null)}
         >
@@ -162,21 +151,11 @@ export function DeviceChoice({
               </option>
             ))}
         </select>
-        {state.status === 'passed' ? null : (
-          <button
-            type="button"
-            aria-label={`Check ${kind}`}
-            className={`${buttonClass('secondary')} shrink-0`}
-            onClick={() => check(kind)}
-            disabled={state.status === 'checking'}
-          >
-            Check
-          </button>
-        )}
-      </div>
-      {help ? (
-        <p role="note" className="text-sm text-ink-muted">
-          {help}
+      </label>
+      {failed ? (
+        <p role="alert" className="text-sm text-live">
+          {`${kindLabel[kind]}: ${words}.`}
+          {help ? ` ${help}` : null}
         </p>
       ) : null}
     </div>

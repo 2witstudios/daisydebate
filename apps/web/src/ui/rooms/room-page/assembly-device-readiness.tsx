@@ -63,29 +63,31 @@ function GatheringLayout({
   const ready = ReadyControl(controls);
   return (
     <div className="grid room-gathering gap-6">
-      <div className="room-main flex min-w-0 flex-col gap-4">
-        {props.main(StartControl(controls))}
+      <div className="room-main">
+        <div className="order-1 min-w-0">
+          {props.main(StartControl(controls))}
+        </div>
         {props.chat ? (
           // The thread scrolls inside this box: it takes the column's spare
           // height and never stretches the page by its own length.
-          <div className="relative min-h-room-chat flex-1">
+          <div className="relative order-3 min-h-room-chat flex-1">
             <div className="absolute inset-0 flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
               {props.chat}
             </div>
           </div>
         ) : null}
       </div>
-      <div className="room-side flex min-w-0 flex-col gap-4">
+      <div className="room-side">
         {devices || ready ? (
           <section
             aria-label="You"
-            className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-3"
+            className="order-2 flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-3"
           >
             {devices}
             {ready}
           </section>
         ) : null}
-        {props.aside}
+        <div className="order-4 flex min-w-0 flex-col gap-4">{props.aside}</div>
       </div>
     </div>
   );
@@ -121,6 +123,12 @@ function LiveDevices({
     }
   };
   const own = ownSeat(props.view, props.actorId);
+  // Before the first Turn on there is nothing to pick: the tile is only the
+  // preview and its button.
+  const tried =
+    snapshot.camera.status !== 'unchecked' ||
+    snapshot.microphone.status !== 'unchecked' ||
+    inputs.length > 0;
   return (
     <GatheringLayout
       props={props}
@@ -138,24 +146,22 @@ function LiveDevices({
             snapshot={snapshot}
             label={own?.label ?? ''}
           />
-          <div className="grid grid-cols-2 gap-3 max-tiny:grid-cols-1">
-            {(['microphone', 'camera'] as const).map((kind) => (
-              <DeviceChoice
-                key={kind}
-                kind={kind}
-                devices={devices}
-                snapshot={snapshot}
-                inputs={inputs}
-                check={(next) => void check(next)}
-              />
-            ))}
-          </div>
+          {tried ? (
+            <div className="grid grid-cols-2 gap-2 max-tiny:grid-cols-1">
+              {(['camera', 'microphone'] as const).map((kind) => (
+                <DeviceChoice
+                  key={kind}
+                  kind={kind}
+                  devices={devices}
+                  snapshot={snapshot}
+                  inputs={inputs}
+                />
+              ))}
+            </div>
+          ) : null}
           {local.problem ? (
             <div role="alert" className="flex flex-wrap items-center gap-3">
-              <p className="text-sm text-live">
-                We couldn’t confirm that you’re ready, so the round can’t start
-                yet.
-              </p>
+              <p className="text-sm text-live">Ready didn’t go through.</p>
               <button
                 type="button"
                 onClick={() => void consent.retry()}

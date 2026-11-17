@@ -11,13 +11,15 @@ type CaptureFacts = CompetitionFact & Pick<RoomAssemblyState, 'capture'>;
 
 /**
  * The notice this Room shows before Ready: a casual Room whose host chose a
- * broadcast or a recording (WATCH-8). A ranked Room has none; its Ready is
+ * broadcast or a recording (WATCH-8); none when both are off. A ranked Room has none; its Ready is
  * fenced by the signed content waiver.
  */
 export const roomCaptureNotice = (
   room: CaptureFacts,
 ): RoundCaptureNotice | null =>
-  room.competitionType !== 'ranked' && room.capture
+  room.competitionType !== 'ranked' &&
+  room.capture &&
+  (room.capture.broadcast || room.capture.recordingPolicy !== 'off')
     ? casualCaptureNotice
     : null;
 

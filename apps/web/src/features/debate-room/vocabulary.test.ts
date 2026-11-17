@@ -63,8 +63,8 @@ test('rules read in plain words, never as raw values', () => {
       'During any speech',
       'Off',
       'Off',
-      'On — unused time is dropped',
-      'On — unused time goes back to that side’s prep time, when prep time is on',
+      'On',
+      'On · time back to prep',
     ],
   });
 });

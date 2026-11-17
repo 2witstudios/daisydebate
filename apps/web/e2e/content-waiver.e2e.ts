@@ -48,6 +48,11 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
       const waiver = page.getByRole('heading', {
         name: 'Sign the ranked content waiver',
       });
+      // The waiver waits behind I'm ready, in its confirmation (ADR 0145).
+      await expect(waiver).toBeHidden();
+      await page
+        .getByRole('button', { name: 'I’m ready', exact: true })
+        .click();
       await expect(waiver).toBeVisible();
       await expect(
         page.getByText('has not been reviewed by counsel').first(),
