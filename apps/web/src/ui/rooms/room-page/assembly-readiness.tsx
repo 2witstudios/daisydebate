@@ -1,5 +1,6 @@
 import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { CaptureSummary } from './capture-choice';
 import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
@@ -145,7 +146,10 @@ function ReadyConfirm({
       ) : (
         <>
           {view.captureNotice ? (
-            <p className="text-sm">{view.captureNotice.text}</p>
+            <>
+              <CaptureSummary capture={view.capture} />
+              <p className="text-sm">{view.captureNotice.text}</p>
+            </>
           ) : null}
           {call ? <p className="text-sm">{postRoundCallText}</p> : null}
           <div className="flex flex-wrap justify-end gap-2">
