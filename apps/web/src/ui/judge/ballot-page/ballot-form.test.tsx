@@ -44,6 +44,22 @@ const inputFor = (html: string, name: string, value: string) =>
   )?.[0] ?? '';
 
 describe('BallotFields', () => {
+  test('a missing written part is refused by the server, not the browser', () => {
+    const html = render({});
+    const textareas = html.match(/<textarea[^>]*>/g) ?? [];
+    assert({
+      given: 'an empty ballot whose reason the definition requires',
+      should:
+        'render the reason and feedback boxes without a required attribute, so the post reaches the server, which refuses it and keeps everything (ISSUE-348)',
+      actual: {
+        boxes: textareas.length > 0,
+        required: textareas.filter((tag) => /\srequired(=|\s|>)/.test(tag))
+          .length,
+      },
+      expected: { boxes: true, required: 0 },
+    });
+  });
+
   test('a refusal keeps everything posted', () => {
     const html = render(refused, 'Write the reason for your decision.');
     assert({

@@ -265,12 +265,28 @@ export function readRoomDraft(
         config: source.preset.config,
       },
     }).kind !== 'standard';
+  // A Custom room's definition offers interruptions and yielding (see
+  // customRoomDefinition), so a template that forbade them (a null choice)
+  // runs them off rather than leaving a choice its definition requires.
+  const config = custom
+    ? {
+        ...parsedConfig.data,
+        interruptions: parsedConfig.data.interruptions ?? {
+          mode: 'disabled' as const,
+          minRemainingMs: 0,
+        },
+        yielding: parsedConfig.data.yielding ?? {
+          allowed: false,
+          returnsTime: false,
+        },
+      }
+    : parsedConfig.data;
   return {
     ok: true,
     draft: {
       ...original,
       definition: custom ? customRoomDefinition(definition) : definition,
-      config: parsedConfig.data,
+      config,
       custom,
       ranked:
         decoded.ranked === 'on' && source.preset.rankedEligible && !custom,

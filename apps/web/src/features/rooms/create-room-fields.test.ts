@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import { createRoomDraft } from './create-room-draft';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
 
 setupRitewayBun();
@@ -12,6 +13,50 @@ const choice = () => ({
 });
 
 describe('native room draft fields', () => {
+  test('a template that forbids interruptions and yielding, made Custom', () => {
+    // Tab's Open conversation forbids both, so its preset holds null for each.
+    const template = {
+      ...unequalTemplate,
+      definition: {
+        ...unequalTemplate.definition,
+        configurable: {
+          ...unequalTemplate.definition.configurable,
+          interaction: { interruptions: null, yield: null },
+        },
+      },
+      preset: {
+        ...unequalTemplate.preset,
+        config: {
+          ...unequalTemplate.preset.config,
+          interruptions: null,
+          yielding: null,
+        },
+      },
+    };
+    const fields = draftFormValues(createRoomDraft(template));
+    const read = readRoomDraft({ ...fields, format: 'custom' }, [template]);
+    const compiled =
+      read.ok &&
+      resolveRoomConfiguration(read.draft.definition, read.draft.config);
+    assert({
+      given:
+        'a template whose preset forbids interruptions and yielding, posted as a Custom room',
+      should:
+        'compile: a Custom room offers both, so it chooses them off rather than leaving them null',
+      actual: read.ok && {
+        custom: read.draft.custom,
+        compiled: compiled && compiled.ok,
+        interruptions: read.draft.config.interruptions,
+        yielding: read.draft.config.yielding,
+      },
+      expected: {
+        custom: true,
+        compiled: true,
+        interruptions: { mode: 'disabled', minRemainingMs: 0 },
+        yielding: { allowed: false, returnsTime: false },
+      },
+    });
+  });
   test('exact round trip', () => {
     const draft = createRoomDraft(choice());
     const read = readRoomDraft(draftFormValues(draft), [choice()]);
