@@ -1,4 +1,5 @@
-import type { MatchHistoryEntry, MemberProfile } from '@daisy/protocol';
+import type { MatchHistoryEntry } from '@daisy/protocol';
+import type { ProfileView } from '../../../features/profile/read-profile';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -19,7 +20,14 @@ const entry = (overrides: Partial<MatchHistoryEntry>): MatchHistoryEntry => ({
   ...overrides,
 });
 
-const profile = (overrides: Partial<MemberProfile> = {}): MemberProfile => ({
+const nothingShown = {
+  profileId: null,
+  displayName: null,
+  bio: null,
+  photoId: null,
+};
+
+const profile = (overrides: Partial<ProfileView> = {}): ProfileView => ({
   version: 1,
   username: 'debater-a',
   memberSince: '2026-09-14T00:00:00.000Z',
@@ -28,10 +36,11 @@ const profile = (overrides: Partial<MemberProfile> = {}): MemberProfile => ({
   record: { wins: 3, losses: 1 },
   history: [entry({})],
   nextBefore: null,
+  shown: nothingShown,
   ...overrides,
 });
 
-const render = (value: MemberProfile, paged = false) =>
+const render = (value: ProfileView, paged = false) =>
   renderToString(h(ProfilePage, { profile: value, paged }));
 
 describe('ProfilePage', () => {
@@ -67,7 +76,7 @@ describe('ProfilePage', () => {
         html.includes('href="/profile/debater-b"'),
         html.includes('>Won<'),
         html.includes('AI judge'),
-        html.includes('>Settings<'),
+        html.includes('>Edit profile<'),
         /rating|elo/i.test(html),
       ],
       expected: [
@@ -96,10 +105,10 @@ describe('ProfilePage', () => {
     assert({
       given: 'the owner, with a private Round nobody ruled on',
       should:
-        'mark it as theirs, offer Settings, and show the Round as private with no ruling',
+        'mark it as theirs, offer Edit profile, and show the Round as private with no ruling',
       actual: [
         html.includes('>You<'),
-        html.includes('>Settings<'),
+        html.includes('href="/settings#profile"'),
         html.includes('>private<'),
         html.includes('>No ruling<'),
       ],
@@ -146,12 +155,67 @@ describe('ProfilePage', () => {
     });
   });
 
+  test('the public profile', () => {
+    const photoId = 'f'.repeat(24);
+    const html = render(
+      profile({
+        shown: {
+          profileId: 'p'.repeat(24),
+          displayName: 'Ada Byron',
+          bio: 'Negative, always.',
+          photoId,
+        },
+      }),
+    );
+    assert({
+      given: 'a member with a display name, bio and published photo',
+      should:
+        'head the page with the display name, keep @username beneath it, and show the bio and the large photo',
+      actual: [
+        /<h1[^>]*>Ada Byron<\/h1>/.test(html),
+        html.indexOf('Ada Byron') < html.indexOf('>@debater-a<'),
+        html.includes('>@debater-a<'),
+        html.includes('Negative, always.'),
+        html.includes(`src="/api/profile-photos/${photoId}/512"`),
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
+
+  test('reports', () => {
+    const reports = h('p', null, 'REPORTS');
+    const shows = (value: ProfileView) =>
+      renderToString(
+        h(ProfilePage, { profile: value, paged: false, reports }),
+      ).includes('REPORTS');
+    assert({
+      given: 'report controls for someone else, the owner and a closed account',
+      should: 'show them only toward a live account that is not the viewer’s',
+      actual: [
+        shows(profile()),
+        shows(profile({ me: true })),
+        shows(profile({ closed: true })),
+      ],
+      expected: [true, false, false],
+    });
+  });
+
   test('a closed account', () => {
-    const html = render(profile({ closed: true }));
+    const html = render(
+      profile({
+        closed: true,
+        shown: {
+          profileId: 'p'.repeat(24),
+          displayName: 'Ada Byron',
+          bio: 'Negative, always.',
+          photoId: 'f'.repeat(24),
+        },
+      }),
+    );
     assert({
       given: 'a closed account seen by anyone',
       should:
-        'keep its name and public record, mark it closed and offer no actions',
+        'keep its username and public record, mark it closed, and show no display name, bio or photo',
       actual: [
         html.includes('>@debater-a<'),
         html.includes('>Closed<'),
@@ -159,8 +223,11 @@ describe('ProfilePage', () => {
         html.includes('Member since'),
         html.includes('aria-label="Record"'),
         html.includes(`href="/watch/${'r'.repeat(24)}"`),
+        html.includes('Ada Byron'),
+        html.includes('Negative, always.'),
+        html.includes('/api/profile-photos/'),
       ],
-      expected: [true, true, true, false, true, true],
+      expected: [true, true, true, false, true, true, false, false, false],
     });
   });
 

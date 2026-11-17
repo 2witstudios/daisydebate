@@ -29,13 +29,13 @@ afterAll(() => scratch.drop());
 // Every feature-only folder, including the wiring migration. The initial
 // database runs all main folders, including main history newer than Tab.
 const parentFolders = new Set([
-  '20261116175849_tab_schema',
-  '20261116175850_tab_schema_checks_validated',
-  '20261116175851_tab_seats',
-  '20261116175852_tab_seats_checks_validated',
-  '20261116175853_tab_casual_templates',
-  '20261116175854_tab_wiring',
-  '20261116175855_lethal_grey_gargoyle',
+  '20261117003138_tab_schema',
+  '20261117003139_tab_schema_checks_validated',
+  '20261117003140_tab_seats',
+  '20261117003141_tab_seats_checks_validated',
+  '20261117003142_tab_casual_templates',
+  '20261117003143_tab_wiring',
+  '20261117003144_lethal_grey_gargoyle',
 ]);
 
 const oldRules = ({

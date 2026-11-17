@@ -19,6 +19,8 @@ import {
   contentModerationCommandResultSchema,
   contentReportDetailSchema,
   contentReportsPageSchema,
+  operatorProfilePhotoSchema,
+  profilePhotoReviewsSchema,
   rebuildableRecordingsSchema,
   type ContentModerationQueue,
   type ContentReport,
@@ -341,6 +343,27 @@ export function createOperatorClient(deps: {
           query: [],
         },
         rebuildableRecordingsSchema,
+      ),
+    listProfilePhotoReviews: (operatorRef: string) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/profile-photos/in-review',
+          query: [],
+        },
+        profilePhotoReviewsSchema,
+      ),
+    /** A live photo's 512px rendition, base64 WebP, for an operator to look at. */
+    readProfilePhoto: (operatorRef: string, photoId: string) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: `/operator/v1/profile-photos/${photoId}`,
+          query: [],
+        },
+        operatorProfilePhotoSchema,
       ),
     /** One content moderation command at its own path; the body is already closed. */
     moderate: (operatorRef: string, path: string, body: object) =>

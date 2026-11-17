@@ -65,6 +65,9 @@ const withdrawals: readonly AuthorizationCapability[] = [
   'social.challenge.cancel',
   // Leaving an organization only ends the caller's own membership.
   'organization.membership.leave',
+  // ADR 0143: reading, clearing and taking down your own public profile.
+  'profile.public.read',
+  'profile.public.withdraw',
 ];
 /** A withdrawal: kept without admission, and never bounded for a minor. */
 export const isWithdrawal = (capability: AuthorizationCapability): boolean =>

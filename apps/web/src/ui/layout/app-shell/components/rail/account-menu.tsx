@@ -13,6 +13,7 @@ import type { ShellAccount, ShellRatings } from '../../account';
 import { profileHref, wayIn } from '../destinations';
 import { AccountRatings, RatingsSkeleton } from './account-ratings';
 import { DismissibleDetails } from '../../../../components/dismissible-details/dismissible-details';
+import { profilePhotoSrc } from '../../../../profile/photo-src';
 
 /**
  * The foot's account control. A member's avatar, with the username beside it
@@ -44,22 +45,23 @@ export function AccountMenu({
       </Link>
     );
   }
-  const { username } = account;
+  const { username, displayName, photoId } = account;
+  const shown = displayName ?? username;
   return (
     <DismissibleDetails
       className="relative w-full"
       summaryClassName={cn(navItemClass(false, extended), 'list-none')}
-      summaryAriaLabel={`Your account, ${username}`}
+      summaryAriaLabel={`Your account, ${displayName === null ? username : `${displayName} (@${username})`}`}
       summaryTitle="Account"
       summary={
         <>
-          <SelfAvatar username={username} />
+          <SelfAvatar name={shown} photoId={photoId} />
           {extended ? (
             <span
               aria-hidden="true"
               className="min-w-0 flex-1 truncate text-sm font-semibold text-ink icon-rail:hidden"
             >
-              {username}
+              {shown}
             </span>
           ) : null}
         </>
@@ -67,9 +69,21 @@ export function AccountMenu({
     >
       <div className="absolute bottom-0 left-full z-30 ml-2 flex w-flyout flex-col gap-1 rounded-md border border-border bg-surface-raised p-2 shadow-3">
         <div className="flex items-center gap-3 p-2">
-          <Avatar name={username} size="md" />
-          <span className="min-w-0 truncate text-sm font-semibold text-ink">
-            {username}
+          <Avatar
+            name={shown}
+            src={profilePhotoSrc(photoId, 128)}
+            size="md"
+            nameVisible
+          />
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold text-ink">
+              {shown}
+            </span>
+            {displayName === null ? null : (
+              <span className="truncate text-xs text-ink-muted">
+                @{username}
+              </span>
+            )}
           </span>
         </div>
         <div className="rounded-sm bg-background p-2">

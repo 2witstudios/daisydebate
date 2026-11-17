@@ -52,7 +52,12 @@ const world = () => {
     ],
   });
   const workers = (
-    ['observation_purges', 'privacy_jobs', 'billing_cleanup'] as const
+    [
+      'observation_purges',
+      'privacy_jobs',
+      'billing_cleanup',
+      'profile_photo_deletions',
+    ] as const
   ).map((name) =>
     createScheduledWorker({
       name,

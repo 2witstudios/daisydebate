@@ -5,6 +5,8 @@ setupRitewayBun();
 test('a row on the list always shows at least one rating', () => {
   const member = {
     username: 'ada',
+    displayName: null,
+    photoId: null,
     status: 'online',
     relation: 'none',
     wins: 1,

@@ -3,6 +3,7 @@
 import {
   broadcastStopReasons,
   chatSlowModeSchema,
+  profileContentRemovalReasons,
   recordingLegalRemovalReasons,
   recordingTakedownReasons,
 } from '@daisy/protocol/content-moderation';
@@ -10,6 +11,7 @@ import { idSchema } from '@daisy/protocol';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { submitModeration } from '../../features/content-moderation/commands';
+import { photoReviewsHref } from '../../features/content-moderation/view';
 import { currentOperator, requireSameOrigin } from '../../server/operator-gate';
 import { adminRuntime } from '../../server/runtime';
 
@@ -65,6 +67,25 @@ const requestSchema = z.discriminatedUnion('action', [
   }),
   z.strictObject({ action: z.literal('chat_message.remove'), ...target }),
   z.strictObject({
+    action: z.literal('profile_photo.review'),
+    ...target,
+    expectedVersion,
+    outcome: z.enum(['approve', 'reject']),
+  }),
+  z.strictObject({
+    action: z.literal('profile_photo.remove'),
+    ...target,
+    expectedVersion,
+    reason: z.enum(profileContentRemovalReasons),
+  }),
+  z.strictObject({
+    action: z.literal('profile_text.remove'),
+    ...target,
+    expectedVersion,
+    field: z.enum(['display_name', 'bio']),
+    reason: z.enum(profileContentRemovalReasons),
+  }),
+  z.strictObject({
     action: z.literal('account.audience_ban.update'),
     ...target,
     state: z.enum(['banned', 'lifted']),
@@ -77,12 +98,15 @@ export async function contentModerationAction(form: FormData): Promise<never> {
   if (!operator) redirect('/sign-in');
   const reportId = idSchema.safeParse(form.get('reportId'));
   const commandId = idSchema.safeParse(form.get('commandId'));
-  // A rebuild from the failed Recordings page has no report to go back to.
+  // A rebuild from the failed Recordings page, or a review from the in-review
+  // photos queue, has no report to go back to.
   const back = reportId.success
     ? `/content-moderation/${reportId.data}`
     : form.get('action') === 'recording.rebuild'
       ? '/content-moderation/failed-recordings'
-      : '/content-moderation';
+      : form.get('action') === 'profile_photo.review'
+        ? photoReviewsHref
+        : '/content-moderation';
   const { commands } = adminRuntime();
   if (!commands) redirect(`${back}?notice=unconfigured`);
   const fields = Object.fromEntries(

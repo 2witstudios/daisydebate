@@ -7,6 +7,7 @@ export const SCHEDULED_WORKERS = [
   'privacy_jobs',
   'billing_cleanup',
   'messaging_file_maintenance',
+  'profile_photo_deletions',
 ] as const;
 export type ScheduledWorkerName = (typeof SCHEDULED_WORKERS)[number];
 

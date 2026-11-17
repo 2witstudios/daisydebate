@@ -1,12 +1,15 @@
 import { insertContentReport } from './content-report-write';
+import { publicProfileModeration } from './public-profile-moderation';
 import { createAppError } from '@daisy/errors';
 import type {
   ContentModerationCommandResult,
   ContentReport,
   ContentReportDetail,
   ContentModerationSubject,
+  ProfileContentRemovalReason,
 } from '@daisy/protocol/content-moderation';
 import {
+  PROFILE_PHOTO_REVIEWS_MAX,
   contentModerationCommandResultSchema,
   contentReportSchema,
   type broadcastStopReasons,
@@ -197,6 +200,25 @@ export type ContentModerationChange =
       readonly expectedVersion: number;
     }
   | { readonly action: 'chat_message.remove'; readonly messageId: string }
+  | {
+      readonly action: 'profile_photo.review';
+      readonly photoId: string;
+      readonly expectedVersion: number;
+      readonly outcome: 'approve' | 'reject';
+    }
+  | {
+      readonly action: 'profile_photo.remove';
+      readonly photoId: string;
+      readonly expectedVersion: number;
+      readonly reason: ProfileContentRemovalReason;
+    }
+  | {
+      readonly action: 'profile_text.remove';
+      readonly profileId: string;
+      readonly expectedVersion: number;
+      readonly field: 'display_name' | 'bio';
+      readonly reason: ProfileContentRemovalReason;
+    }
   | {
       readonly action: 'account.audience_ban.update';
       readonly userId: string;
@@ -406,6 +428,12 @@ const applyChange = (
             ? ports.roomChat.remove(tx, { messageId: change.messageId, now })
             : result,
         );
+    case 'profile_photo.review':
+      return publicProfileModeration.reviewPhoto(tx, { ...change, now });
+    case 'profile_photo.remove':
+      return publicProfileModeration.removePhoto(tx, { ...change, now });
+    case 'profile_text.remove':
+      return publicProfileModeration.removeText(tx, { ...change, now });
     case 'account.audience_ban.update':
       return setAudienceBan(tx, change, operatorRef);
   }
@@ -482,6 +510,20 @@ const subjectOf = async (
           }
         : null;
     }
+    case 'profile_photo':
+      return publicProfileModeration.readPhotoSubject(tx, report.targetId);
+    case 'profile_display_name':
+      return publicProfileModeration.readTextSubject(
+        tx,
+        report.targetId,
+        'display_name',
+      );
+    case 'profile_bio':
+      return publicProfileModeration.readTextSubject(
+        tx,
+        report.targetId,
+        'bio',
+      );
   }
 };
 
@@ -545,6 +587,19 @@ export function contentModerationOperations({
                   actorId,
                 )) !== null,
             } as const;
+          case 'profile_photo':
+            return publicProfileModeration.readPhotoReportFacts(database, {
+              photoId: report.targetId,
+              reporterActorId: actorId,
+            });
+          case 'profile_display_name':
+          case 'profile_bio':
+            return publicProfileModeration.readTextReportFacts(database, {
+              profileId: report.targetId,
+              field:
+                report.targetKind === 'profile_bio' ? 'bio' : 'display_name',
+              reporterActorId: actorId,
+            });
         }
       }),
     /** One report per reporter and target: a repeat keeps the first. */
@@ -670,6 +725,19 @@ export function contentModerationOperations({
           if (!input.live()) throw createAppError('CONFLICT');
           return contentModerationCommandResultSchema.parse(receipt.result);
         }),
+      ),
+    /** Photos an operator must decide, oldest first. */
+    listProfilePhotoReviews: () =>
+      instrumented(eventSink, 'listProfilePhotoReviews', () =>
+        publicProfileModeration.listInReview(
+          database,
+          PROFILE_PHOTO_REVIEWS_MAX,
+        ),
+      ),
+    /** Where a live photo's image is, for the operator's view of it. */
+    readOperatorProfilePhoto: (photoId: string) =>
+      instrumented(eventSink, 'readOperatorProfilePhoto', () =>
+        publicProfileModeration.readOperatorPhoto(database, photoId),
       ),
     listRebuildableRecordings: () =>
       instrumented(eventSink, 'listRebuildableRecordings', () =>

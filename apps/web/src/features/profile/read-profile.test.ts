@@ -82,12 +82,25 @@ const accountOf = (
  * A store over the owner's profile that, like the database, reads the
  * caller's account in its snapshot and asks `decide` for the scope.
  */
+const shown = {
+  profileId: 'p'.repeat(24),
+  displayName: 'Ada Byron',
+  bio: 'Negative, always.',
+  photoId: 'f'.repeat(24),
+};
+
 const storeFor = (
   found: boolean,
   account: ReturnType<typeof accountOf> | null = null,
+  closed = false,
 ) => {
   const reads: unknown[] = [];
+  const publicReads: string[] = [];
   const store: ProfileStore = {
+    readPublicProfile: async (actorId) => {
+      publicReads.push(actorId);
+      return shown;
+    },
     readMemberProfile: async (input) => {
       reads.push({
         caller: input.caller,
@@ -104,7 +117,7 @@ const storeFor = (
           ...owner,
           username: 'debater-a',
           memberSince: '2026-09-01T00:00:00.000Z',
-          closed: false,
+          closed,
         },
         scope,
         groups: [
@@ -126,7 +139,7 @@ const storeFor = (
       };
     },
   };
-  return { store, reads };
+  return { store, reads, publicReads };
 };
 
 const profileFor = (
@@ -175,6 +188,61 @@ describe('readProfile', () => {
         },
         nextBefore: roundId,
       },
+    });
+  });
+
+  test('the public profile', async () => {
+    const live = await profileFor(visitor);
+    const closed = storeFor(true, null, true);
+    const gone = await readProfile(
+      { store: closed.store, limiter },
+      {
+        identity: visitor,
+        username: 'debater-a',
+        query: {},
+        now: '2026-11-02T00:00:00.000Z',
+      },
+    );
+    assert({
+      given:
+        'a live member with a display name, bio and photo, then a closed one',
+      should:
+        'show what the live member chose, and read nothing public for the closed account',
+      actual: [live.profile?.shown, gone?.shown, closed.publicReads],
+      expected: [
+        shown,
+        { profileId: null, displayName: null, bio: null, photoId: null },
+        [],
+      ],
+    });
+  });
+
+  test('a failed public read still shows the record', async () => {
+    const { store } = storeFor(true);
+    const failing: ProfileStore = {
+      ...store,
+      readPublicProfile: async () => {
+        throw new Error('pool exhausted');
+      },
+    };
+    const profile = await readProfile(
+      { store: failing, limiter },
+      {
+        identity: visitor,
+        username: 'debater-a',
+        query: {},
+        now: '2026-11-02T00:00:00.000Z',
+      },
+    );
+    assert({
+      given: 'a live member whose display name, bio and photo cannot be read',
+      should:
+        'show the username and record with nothing public, not fail the page',
+      actual: [profile?.username, profile?.shown],
+      expected: [
+        'debater-a',
+        { profileId: null, displayName: null, bio: null, photoId: null },
+      ],
     });
   });
 

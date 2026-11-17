@@ -23,6 +23,7 @@ import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRunSchedule } from './run-schedule';
 import { startObservationPurges } from './observation-purges';
 import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
+import { startPhotoDeletions } from '../features/profile/photo/deletion-sweep';
 import { startBillingCleanup } from './billing-cleanup';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
@@ -278,6 +279,20 @@ const recordingDeletions = startRecordingDeletions({
   logger: app.logger,
   timers: workerTimers,
 });
+// ADR 0143: a rejected, removed, withdrawn or erased profile photo's image is
+// deleted here, then its row; storage outages leave the obligation owed.
+const photoDeletions = startPhotoDeletions({
+  store: {
+    due: app.database.duePhotoDeletions,
+    complete: app.database.completePhotoDeletion,
+    defer: app.database.deferPhotoDeletion,
+    owed: app.database.owedPhotoDeletions,
+  },
+  objects: app.profilePhotoObjects,
+  clock: app.clock,
+  logger: app.logger,
+  timers: workerTimers,
+});
 const broadcastSweep = startBroadcastSweep(app, workerTimers);
 const strayEgressSweep = startStrayEgressSweep(app, workerTimers);
 const notificationSweep = startNotificationSweep(app, workerTimers);
@@ -299,6 +314,7 @@ async function shutdown() {
   const filesStopped = fileMaintenance?.stop();
   const observationPurgesStopped = observationPurges.stop();
   const privacyJobsStopped = privacyJobs.stop();
+  const photoDeletionsStopped = photoDeletions.stop();
   const recordingDeletionsStopped = recordingDeletions.stop();
   const broadcastSweepStopped = broadcastSweep?.stop();
   const strayEgressSweepStopped = strayEgressSweep?.stop();
@@ -348,6 +364,7 @@ async function shutdown() {
         recordingCaptureStopped,
         observationPurgesStopped,
         privacyJobsStopped,
+        photoDeletionsStopped,
         recordingDeletionsStopped,
         availabilityStopped,
         workersStopped,

@@ -1,5 +1,8 @@
 import { followOfferedTo } from '../../../../features/following/follow-offer';
-import { setDebaterFollowAction } from '../../audience/actions';
+import {
+  reportFromPageAction,
+  setDebaterFollowAction,
+} from '../../audience/actions';
 import { FollowButton } from '../../../../ui/following/follow-button';
 import {
   requestDebaterFollow,
@@ -28,6 +31,8 @@ import { ProfilePersonActions } from '../../../../ui/people/profile-person-actio
 import { readFriends } from '../../friends/read-friends';
 import { MessageUserButton } from '../../../../ui/messaging/message-user-button';
 import { createConversationAction } from '../../messages/new/actions';
+import { reportNotice } from '../../../../features/content-moderation/submit-report';
+import { ProfileReports } from '../../../../ui/profile/profile-reports/profile-reports';
 
 export const metadata: Metadata = { title: 'Profile' };
 
@@ -53,17 +58,27 @@ export default async function ProfileRoute({
   if (profile === null) notFound();
   const standings = await requestMemberStandings(profile.username);
   const live = await requestLiveRoundsOf([profile.username]);
+  const toward = !profile.me && !profile.closed;
+  const member = (await requestIdentity()).state === 'member';
   return (
     <ProfilePage
       ratings={<MemberStandings standings={standings} />}
       profile={profile}
       liveRound={live.get(profile.username) ?? null}
       paged={query.data.before !== undefined}
-      actions={
-        profile.me || profile.closed
-          ? null
-          : await friendActionsFor(profile.username)
+      reports={
+        toward && member ? (
+          <ProfileReports
+            shown={profile.shown}
+            notice={reportNotice(raw.report)}
+            action={reportFromPageAction.bind(
+              null,
+              `/profile/${profile.username}`,
+            )}
+          />
+        ) : null
       }
+      actions={toward ? await friendActionsFor(profile.username) : null}
     />
   );
 }

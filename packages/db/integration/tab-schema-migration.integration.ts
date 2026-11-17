@@ -12,8 +12,8 @@ import { integrationSuite } from './suite.test-support';
 
 const { databaseUrl: url } = integrationSuite();
 
-const schema = '20261116175849_tab_schema';
-const validated = '20261116175850_tab_schema_checks_validated';
+const schema = '20261117003138_tab_schema';
+const validated = '20261117003139_tab_schema_checks_validated';
 const scratch = scratchDatabase(url, 'tabschema');
 afterAll(() => scratch.drop());
 
