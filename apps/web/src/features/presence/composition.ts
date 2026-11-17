@@ -86,6 +86,10 @@ export function composePresenceRoutes(app: App) {
             spectatorClockAt(app.clock.now()),
           ),
         blinded: (actorId) => app.database.readRatingBlindings(actorId),
+        // Names and photos decorate the list; without them it shows usernames
+        // and initials, never an error (the failed read is logged by the store).
+        profiles: (actorIds) =>
+          app.database.readPublicProfileCards(actorIds).catch(() => new Map()),
       }),
   });
 }

@@ -364,6 +364,7 @@ function resolveMemberResource(
     case 'people_list':
     case 'moderation_notice':
     case 'presence_setting':
+    case 'public_profile':
       return decision(resource.actorId === actorId);
     case 'room_collection':
       return allow;

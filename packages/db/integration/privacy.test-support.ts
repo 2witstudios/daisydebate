@@ -25,7 +25,7 @@ export async function withPrivacySubject(
     const otherId = await fixture.user();
     const email = `${userId}@privacy.invalid`;
     await fixture.sql.unsafe(
-      "update users set email=$1, name='Private name', image='private-image', email_verified=true where id=$2",
+      "update users set email=$1, name='Private name', email_verified=true where id=$2",
       [email, userId],
     );
     const verificationIds: string[] = [];

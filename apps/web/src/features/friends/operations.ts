@@ -1,7 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { DiscoverActor } from '../account/username-discovery';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { SocialRequestLimits } from '@daisy/db';
+import type { PublicProfileCard, SocialRequestLimits } from '@daisy/db';
 import type { FriendshipRow, FriendStore } from '@daisy/db/friends';
 import { createAppError, isAppError } from '@daisy/errors';
 import type {
@@ -117,6 +117,14 @@ export type FriendReadDependencies = {
   ) => Promise<ReadonlyMap<string, PresenceActivity | null>>;
 };
 
+/** The list page's reads: the badge's, and what each friend chose to show. */
+export type FriendListDependencies = FriendReadDependencies & {
+  /** Each friend's display name and published photo (ADR 0143), in one read. */
+  readonly profiles: (
+    actorIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, PublicProfileCard>>;
+};
+
 const statusRank: Record<MemberStatus, number> = {
   online: 0,
   busy: 1,
@@ -127,14 +135,19 @@ const statusRank: Record<MemberStatus, number> = {
 };
 
 /** How many of a friend list's friends the badge counts: away is still here. */
-export const friendsOnlineOf = (friends: FriendList['friends']): number =>
-  friends.filter((friend) => friend.presence !== 'offline').length;
+export const friendsOnlineOf = (
+  friends: readonly { readonly presence: MemberStatus }[],
+): number => friends.filter((friend) => friend.presence !== 'offline').length;
 
-/** The principal's friends, online first, and their pending requests. */
-export async function readFriendList(
+/** The principal's rows and each accepted friend's presence, online first. */
+async function friendsWithPresence(
   principal: AuthorizationPrincipal,
   dependencies: FriendReadDependencies,
-): Promise<Omit<FriendList, 'version'>> {
+  /** The friends' cards, read beside their presence rather than after it. */
+  cards?: (
+    actorIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, PublicProfileCard>>,
+) {
   const { actorId, userId } = requireMemberActor(principal);
   const rows = await dependencies.list({ userId, actorId });
   const accepted = rows.filter((row) => row.state === 'accepted');
@@ -143,9 +156,52 @@ export async function readFriendList(
   const visible = accepted.filter(
     (row) => row.otherChosen !== 'appearing_offline',
   );
-  const activity = visible.length
-    ? await dependencies.presence(visible.map((row) => row.otherActorId))
-    : new Map<string, PresenceActivity | null>();
+  const [activity, profiles] = await Promise.all([
+    visible.length
+      ? dependencies.presence(visible.map((row) => row.otherActorId))
+      : new Map<string, PresenceActivity | null>(),
+    cards && accepted.length
+      ? cards(accepted.map((row) => row.otherActorId))
+      : new Map<string, PublicProfileCard>(),
+  ]);
+  const friends = accepted
+    .map((row) => ({
+      actorId: row.otherActorId,
+      username: row.username,
+      presence: displayStatus({
+        chosen: row.otherChosen,
+        activity: activity.get(row.otherActorId) ?? null,
+        placement: row.otherPlacement,
+      }),
+    }))
+    .sort(
+      (a, b) =>
+        statusRank[a.presence] - statusRank[b.presence] ||
+        a.username.localeCompare(b.username),
+    );
+  return { actorId, rows, friends, profiles };
+}
+
+/** The shell badge: friends online or away, with no profile read. */
+export async function countFriendsOnline(
+  principal: AuthorizationPrincipal,
+  dependencies: FriendReadDependencies,
+): Promise<number> {
+  return friendsOnlineOf(
+    (await friendsWithPresence(principal, dependencies)).friends,
+  );
+}
+
+/** The principal's friends, online first, and their pending requests. */
+export async function readFriendList(
+  principal: AuthorizationPrincipal,
+  dependencies: FriendListDependencies,
+): Promise<Omit<FriendList, 'version'>> {
+  const { actorId, rows, friends, profiles } = await friendsWithPresence(
+    principal,
+    dependencies,
+    dependencies.profiles,
+  );
   const pending = (incoming: boolean) =>
     rows
       .filter(
@@ -155,20 +211,12 @@ export async function readFriendList(
       )
       .map(({ username, requestedAt }) => ({ username, requestedAt }));
   return {
-    friends: accepted
-      .map((row) => ({
-        username: row.username,
-        presence: displayStatus({
-          chosen: row.otherChosen,
-          activity: activity.get(row.otherActorId) ?? null,
-          placement: row.otherPlacement,
-        }),
-      }))
-      .sort(
-        (a, b) =>
-          statusRank[a.presence] - statusRank[b.presence] ||
-          a.username.localeCompare(b.username),
-      ),
+    friends: friends.map(({ actorId: friendId, username, presence }) => ({
+      username,
+      presence,
+      displayName: profiles.get(friendId)?.displayName ?? null,
+      photoId: profiles.get(friendId)?.photoId ?? null,
+    })),
     incoming: pending(true),
     outgoing: pending(false),
   };

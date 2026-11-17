@@ -1,6 +1,6 @@
-import { createClamdScanner } from '../src/features/messaging/files/clamd';
+import { createClamdScanner } from '../src/features/image-intake/clamd';
 import { createLocalPrivateObjectStore } from '../src/features/messaging/files/local-object-store';
-import { sanitizeMessagingImage } from '../src/features/messaging/files/image-sanitizer';
+import { sanitizeImage } from '../src/features/image-intake/image-sanitizer';
 import type { MessagingFileRuntime } from '../src/features/messaging/files/runtime';
 /** Explicit isolated mounted/browser budgets and real vendors, never deploy-time defaults. */
 export function messagingFileProofRuntime(
@@ -22,6 +22,6 @@ export function messagingFileProofRuntime(
     },
     objects: createLocalPrivateObjectStore(directory),
     scanner: createClamdScanner({ host: '127.0.0.1', port }),
-    sanitizeImage: sanitizeMessagingImage,
+    sanitizeImage: sanitizeImage,
   };
 }
