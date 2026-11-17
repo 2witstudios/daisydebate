@@ -41,6 +41,7 @@ const parentFolders = new Set([
   '20261117134249_tab_notifications',
   '20261117134250_tab_seat_and_notification_checks_validated',
   '20261117180901_tab_room_holds_host',
+  '20261117195735_tab_legacy_egress_settled',
 ]);
 
 const oldRules = ({
@@ -364,6 +365,25 @@ test(
         status: 'ready',
         lifecycle: ready,
       });
+      // Staging's pre-Tab capture: Egress recorded, nothing dispatched under
+      // Tab's protocol. Finished ones of over Rounds settle at their own end;
+      // anything still live, or of a running Round, is left to the reconciler.
+      const ended = new Date('2026-11-01T11:00:00Z');
+      const legacyBroadcasts = {
+        completed: { id: createId(), round: roundIds[6]!, done: true },
+        abandoned: { id: createId(), round: roundIds[3]!, done: true },
+        live: { id: createId(), round: roundIds[1]!, done: false },
+        runningRound: { id: createId(), round: roundIds[5]!, done: true },
+      };
+      for (const { id, round: on, done } of Object.values(legacyBroadcasts))
+        await sql`insert into broadcasts (id, round_id, feed_key, release_policy, egress_id, egress_generation, egress_started_at, observer_revoked_at, stream_ended_at, completed_at, feed_withdrawn_at)
+          values (${id}, ${on}, ${createId()}, ${JSON.stringify({ kind: 'delay', seconds: 60 })}::text::jsonb, ${`EG_${id}`}, 1, ${at}, ${done ? ended : null}, ${done ? ended : null}, ${done ? ended : null}, ${done ? ended : null})`;
+      await sql`insert into recording_captures (recording_id, round_id, egress_id, egress_generation, egress_started_at, observer_revoked_at, ended_at)
+        values (${recording}, ${roundIds[2]!}, 'EG_ended_capture', 1, ${at}, ${ended}, ${ended})`;
+      const [requested] =
+        await sql`select id from recordings where round_id = ${round}`;
+      await sql`insert into recording_captures (recording_id, round_id, egress_id, egress_generation, egress_started_at)
+        values (${requested!.id}, ${round}, 'EG_live_capture', 1, ${at})`;
       const channel = createId();
       await f.insert('messaging_channels', {
         id: channel,
@@ -617,6 +637,37 @@ test(
           'preserve exact identities, owners, configuration, consent, visibility, runtime checkpoints and timestamps',
         actual: retainedAfter,
         expected: retainedBefore,
+      });
+      assert({
+        given: 'pre-Tab Broadcasts and captures with a recorded Egress',
+        should:
+          'settle a finished one of an over Round at its own end, and leave a live one or one of a running Round unsettled',
+        actual: {
+          broadcasts: Object.fromEntries(
+            await Promise.all(
+              Object.entries(legacyBroadcasts).map(async ([name, { id }]) => [
+                name,
+                (
+                  await sql`select egress_settled_at from broadcasts where id = ${id}`
+                )[0]!.egress_settled_at,
+              ]),
+            ),
+          ),
+          captures:
+            await sql`select egress_id, egress_settled_at from recording_captures order by egress_id`,
+        },
+        expected: {
+          broadcasts: {
+            completed: ended,
+            abandoned: ended,
+            live: null,
+            runningRound: null,
+          },
+          captures: [
+            { egress_id: 'EG_ended_capture', egress_settled_at: ended },
+            { egress_id: 'EG_live_capture', egress_settled_at: null },
+          ],
+        },
       });
       assert({
         given: 'every existing Room (decision 75)',
