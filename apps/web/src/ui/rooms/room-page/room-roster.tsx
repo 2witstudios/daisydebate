@@ -223,11 +223,13 @@ function Who({
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
       <div className="min-w-0">
-        <p className="flex flex-wrap items-baseline gap-x-2 font-semibold wrap-anywhere">
-          {seat?.label ?? 'Judge'}
+        <p className="flex min-w-0 items-baseline gap-x-2 font-semibold">
+          <span className="truncate" title={seat?.label ?? 'Judge'}>
+            {seat?.label ?? 'Judge'}
+          </span>
           {seat?.rating ? (
             <span
-              className={`text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
+              className={`shrink-0 text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
             >
               {seat.rating.value}
               {seat.rating.provisional ? '*' : ''}
@@ -310,43 +312,61 @@ function AssignSeat({
   );
   if (people.length + bots.length === 0) return null;
   const id = `assign-${seat.role}-${seat.slot}`;
+  // One button on the open seat's line; the choice opens over it, natively.
   return (
-    <AssemblyCommandForm action={props.action} className="flex gap-2">
-      <AssemblyCommandFields
-        type="assign-seat"
-        version={view.version}
-        commandId={ids.assign}
-      />
-      <input type="hidden" name="role" value={seat.role} />
-      <input type="hidden" name="slot" value={String(seat.slot)} />
-      <label className="sr-only" htmlFor={id}>
-        Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
-      </label>
-      <select
-        id={id}
-        name="actorId"
-        required
-        defaultValue=""
-        className={controlClass}
+    <>
+      <button
+        type="button"
+        popoverTarget={`${id}-menu`}
+        className={buttonClass('ghost')}
       >
-        <option value="" disabled>
-          Seat…
-        </option>
-        {people.map((p) => (
-          <option key={p.actorId} value={p.actorId}>
-            {p.label}
-          </option>
-        ))}
-        {bots.map((bot) => (
-          <option key={bot.actorId} value={bot.actorId}>
-            {bot.label} · Bot
-          </option>
-        ))}
-      </select>
-      <button type="submit" className={buttonClass('secondary')}>
-        Seat
+        Seat someone
       </button>
-    </AssemblyCommandForm>
+      <div
+        id={`${id}-menu`}
+        popover="auto"
+        role="dialog"
+        aria-label="Seat someone"
+        className="m-auto w-room-dialog max-w-full rounded-lg border border-border-strong bg-surface p-4 text-ink shadow-3 backdrop:bg-scrim/50"
+      >
+        <AssemblyCommandForm action={props.action} className="flex gap-2">
+          <AssemblyCommandFields
+            type="assign-seat"
+            version={view.version}
+            commandId={ids.assign}
+          />
+          <input type="hidden" name="role" value={seat.role} />
+          <input type="hidden" name="slot" value={String(seat.slot)} />
+          <label className="sr-only" htmlFor={id}>
+            Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
+          </label>
+          <select
+            id={id}
+            name="actorId"
+            required
+            defaultValue=""
+            className={`${controlClass} min-w-0 flex-1`}
+          >
+            <option value="" disabled>
+              Choose someone
+            </option>
+            {people.map((p) => (
+              <option key={p.actorId} value={p.actorId}>
+                {p.label}
+              </option>
+            ))}
+            {bots.map((bot) => (
+              <option key={bot.actorId} value={bot.actorId}>
+                {bot.label} · Bot
+              </option>
+            ))}
+          </select>
+          <button type="submit" className={buttonClass('primary')}>
+            Seat
+          </button>
+        </AssemblyCommandForm>
+      </div>
+    </>
   );
 }
 
@@ -378,7 +398,7 @@ function OpenSeat({
   return (
     <>
       <span aria-hidden="true" />
-      <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+      <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <p className="text-ink-muted">
           {invited ? (
             <>
@@ -389,7 +409,7 @@ function OpenSeat({
             'Open'
           )}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           {view.capabilities.canClaimSeat &&
           !heldFromViewer(view, seat.role) ? (
             <CommandButton

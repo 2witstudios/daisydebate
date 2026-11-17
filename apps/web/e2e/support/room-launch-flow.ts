@@ -319,10 +319,7 @@ export async function prepareRoomAs(
   for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
     const actor = ofRole(seat)[index % ofRole(seat).length]!;
     // The host seats anyone in an open seat from that seat's own row.
-    const select = page.getByLabel(
-      `Seat someone in ${rosterSeatName(view, seat)}`,
-      { exact: true },
-    );
+    const select = await openSeatPicker(page, rosterSeatName(view, seat));
     const form = page.locator('form').filter({ has: select });
     // The page has caught up with the last seat before this one is posted.
     await expect(form.locator('[name="expectedVersion"]')).toHaveValue(
@@ -372,6 +369,20 @@ export async function assertFrozenLaunch(view: RoomView) {
   expect(proof.launchDoorbells).toBe(1);
   return proof;
 }
+/** The host's Seat someone on an open seat's row opens its picker (ADR 0145). */
+export async function openSeatPicker(page: Page, seatName: string) {
+  const select = page.getByLabel(`Seat someone in ${seatName}`, {
+    exact: true,
+  });
+  await page
+    .getByRole('listitem')
+    .filter({ has: select })
+    .getByRole('button', { name: 'Seat someone', exact: true })
+    .click();
+  await expect(select).toBeVisible();
+  return select;
+}
+
 /** The member's own device checks, then Ready, through the Room page. */
 export async function readyUp(page: Page, devices = true) {
   if (devices) await turnOnDevices(page);

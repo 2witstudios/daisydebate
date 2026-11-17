@@ -381,15 +381,27 @@ img.ProseMirror-separator {
   }
 }
 
+/* One column on a phone: the columns dissolve so the viewer's tile follows
+   the roster, ahead of the chat (ADR 0145). Two columns side by side above. */
 @utility room-main {
+  display: contents;
   @container (min-width: 780px) {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--spacing) * 4);
+    min-width: 0;
     grid-column: 1;
     grid-row: 1;
   }
 }
 
 @utility room-side {
+  display: contents;
   @container (min-width: 780px) {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--spacing) * 4);
+    min-width: 0;
     grid-column: 2;
     grid-row: 1;
   }

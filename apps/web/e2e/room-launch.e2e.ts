@@ -512,7 +512,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
     await page.goto(`/rooms/${view.id}`);
     await expect(
       page.getByLabel('Seat someone in Affirmative 2', { exact: true }),
-    ).toBeVisible();
+    ).toBeAttached();
     const settings = await openRoomSetup(page, true);
     await settings.locator('[name="duration.segment.A2"]').fill('0:59');
     await saveRoundSettings(page);
