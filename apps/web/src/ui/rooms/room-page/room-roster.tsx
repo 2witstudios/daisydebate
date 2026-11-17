@@ -19,6 +19,7 @@ import { declaredSeats } from './assembly-controls';
 import { roomSeatLabel } from './room-labels';
 import { RoomInvite } from './room-invite';
 import { EndInvitationForm } from './end-invitation-form';
+import { HeldUntil } from './held-until';
 import { ROOM_TITLE_ID } from './room-setup-modal';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import {
@@ -378,7 +379,14 @@ function OpenSeat({
       />
       <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
         <p className="text-ink-muted">
-          {invited ? `Invited: ${invited.invitee}` : 'Open'}
+          {invited ? (
+            <>
+              {`Invited: ${invited.invitee}`}
+              <HeldUntil expiresAt={invited.expiresAt} />
+            </>
+          ) : (
+            'Open'
+          )}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {view.capabilities.canClaimSeat &&
