@@ -42,8 +42,18 @@ describe('FriendsPage', () => {
     const html = render({
       version: 1,
       friends: [
-        { username: 'ada', presence: 'online' },
-        { username: 'cat', presence: 'offline' },
+        {
+          username: 'ada',
+          presence: 'online',
+          displayName: null,
+          photoId: null,
+        },
+        {
+          username: 'cat',
+          presence: 'offline',
+          displayName: null,
+          photoId: null,
+        },
       ],
       incoming: [{ username: 'dan', requestedAt: at }],
       outgoing: [{ username: 'eve', requestedAt: at }],
@@ -78,6 +88,34 @@ describe('FriendsPage', () => {
         true,
         false,
       ],
+    });
+  });
+
+  test('a friend who chose a display name and photo', () => {
+    const photoId = 'f'.repeat(24);
+    const html = render({
+      version: 1,
+      friends: [
+        {
+          username: 'ada',
+          presence: 'online',
+          displayName: 'Ada Byron',
+          photoId,
+        },
+      ],
+      incoming: [],
+      outgoing: [],
+    });
+    assert({
+      given: 'a friend with a display name and published photo',
+      should:
+        'name them by it, keep @username and their status beside it, and show the small photo',
+      actual: [
+        /href="\/profile\/ada"[^>]*>Ada Byron</.test(html),
+        html.includes('@ada · Online'),
+        html.includes(`src="/api/profile-photos/${photoId}/128"`),
+      ],
+      expected: [true, true, true],
     });
   });
 
@@ -120,8 +158,18 @@ describe('FriendsPage', () => {
       {
         version: 1,
         friends: [
-          { username: 'ada', presence: 'online' },
-          { username: 'cat', presence: 'offline' },
+          {
+            username: 'ada',
+            presence: 'online',
+            displayName: null,
+            photoId: null,
+          },
+          {
+            username: 'cat',
+            presence: 'offline',
+            displayName: null,
+            photoId: null,
+          },
         ],
         incoming: [],
         outgoing: [],

@@ -23,6 +23,7 @@ import { restrictionRules } from '../moderation/restriction-rules';
 import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
 import { changeFlag } from './flags';
+import type { ProfilePhotoObjects } from '../profile/photo/ports';
 import {
   contentModerationRoute,
   type ContentModerationStore,
@@ -71,6 +72,10 @@ const operatorService = {
     'recording.rebuild',
     'recording.rebuildable.read',
     'chat_message.remove',
+    'profile_photo.review.read',
+    'profile_photo.review',
+    'profile_photo.remove',
+    'profile_text.remove',
     'account.audience_ban.update',
     'report.collection.read',
     'report.resolve',
@@ -107,6 +112,8 @@ export type OperatorApiDependencies = {
   }) => Promise<boolean>;
   readonly store: Store;
   readonly contentModeration: ContentModerationStore;
+  /** The private profile photo bucket, or null when none is configured. */
+  readonly profilePhotos: ProfilePhotoObjects | null;
   readonly nextId: () => string;
   readonly logger: Pick<Logger, 'log'>;
   /**
@@ -251,6 +258,7 @@ function dispatch(
       return contentModerationRoute(
         {
           store: deps.contentModeration,
+          profilePhotos: deps.profilePhotos,
           crypto: deps.crypto,
           nowMs: deps.nowMs,
           logger: deps.logger,

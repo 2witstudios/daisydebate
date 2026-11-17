@@ -41,6 +41,8 @@ const actions = {
 };
 const person = (over: Partial<Person> = {}): Person => ({
   username: 'ada',
+  displayName: null,
+  photoId: null,
   status: 'online',
   relation: 'none',
   ratings: [
@@ -186,6 +188,32 @@ describe('the people rail', () => {
       should: 'name only that rating',
       actual: ratingsLabel(person()),
       expected: 'Freestyle Provisional',
+    });
+  });
+});
+
+describe('a member who chose a display name and photo', () => {
+  const photoId = 'f'.repeat(24);
+  const html = inProvider(
+    h(PeopleRail, {
+      preference: 'auto',
+      actions,
+      setRail: async () => {},
+      activeRoomId: null,
+    }),
+    [person({ displayName: 'Ada Byron', photoId })],
+  );
+  test('their row', () => {
+    assert({
+      given: 'a member with a display name and published photo on the list',
+      should:
+        'name them by it with @username kept beside it, and show the small photo',
+      actual: [
+        html.indexOf('>Ada Byron<') < html.indexOf('@ada · Online'),
+        html.includes('aria-label="Ada Byron (@ada), Online,'),
+        html.includes(`src="/api/profile-photos/${photoId}/128"`),
+      ],
+      expected: [true, true, true],
     });
   });
 });

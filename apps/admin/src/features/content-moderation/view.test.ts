@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { contentModerationHref, contentModerationQuery } from './view';
+import {
+  contentModerationHref,
+  contentModerationQuery,
+  profilePhotoSrc,
+} from './view';
 
 setupRitewayBun();
 
@@ -41,6 +45,36 @@ describe('The moderation queue’s URL', () => {
         cursor: 'abc',
         notice: null,
       },
+    });
+  });
+});
+
+describe('A profile photo shown to an operator', () => {
+  const photo = (imageWebpBase64: string) => ({
+    photoId: 'p'.repeat(24),
+    status: 'in_review' as const,
+    version: 1,
+    imageWebpBase64,
+  });
+
+  test('well-formed base64 becomes a WebP data URL', () => {
+    assert({
+      given: 'a base64 rendition',
+      should: 'be shown as a WebP image source',
+      actual: profilePhotoSrc(photo('UklGRg==')),
+      expected: 'data:image/webp;base64,UklGRg==',
+    });
+  });
+
+  test('anything else shows no image', () => {
+    assert({
+      given: 'an empty rendition, and one carrying markup',
+      should: 'give no image source for either',
+      actual: [
+        profilePhotoSrc(photo('')),
+        profilePhotoSrc(photo('"><script>alert(1)</script>')),
+      ],
+      expected: [null, null],
     });
   });
 });

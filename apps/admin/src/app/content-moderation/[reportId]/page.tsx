@@ -1,20 +1,25 @@
 import {
   broadcastStopReasons,
+  profileContentRemovalReasons,
   recordingLegalRemovalReasons,
   recordingTakedownReasons,
   type ContentModerationSubject,
 } from '@daisy/protocol/content-moderation';
 import { idSchema } from '@daisy/protocol';
+import { isProfilePhotoTerminal } from '@daisy/protocol/public-profile';
 import type { ReactNode } from 'react';
 import {
   contentModerationNoticeText,
   contentModerationQuery,
+  profilePhotoSrc,
+  profileTextFieldLabels,
   statusLabels,
 } from '../../../features/content-moderation/view';
 import { requireOperator } from '../../../server/operator-gate';
 import { adminRuntime } from '../../../server/runtime';
 import { NotPermitted, OperatorNav } from '../../operator-nav';
 import { contentModerationAction } from '../actions';
+import { ProfilePhoto } from '../profile-photo';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,8 +50,8 @@ function ActionForm({
   );
 }
 
-/** A command on a Recording names the version this page read. */
-function RecordingForm({
+/** A command on a versioned subject names the version this page read. */
+function VersionedForm({
   version,
   children,
   ...form
@@ -78,10 +83,13 @@ function ReasonSelect({ reasons }: { readonly reasons: readonly string[] }) {
 function SubjectActions({
   reportId,
   subject,
+  photoSrc,
   nextId,
 }: {
   readonly reportId: string;
   readonly subject: ContentModerationSubject;
+  /** A reported photo's image, read with the page; null for anything else. */
+  readonly photoSrc: string | null;
   readonly nextId: () => string;
 }) {
   const form = { reportId };
@@ -152,33 +160,33 @@ function SubjectActions({
             </p>
           ) : null}
           {subject.restorable ? (
-            <RecordingForm {...recordingForm} action="recording.restore">
+            <VersionedForm {...recordingForm} action="recording.restore">
               <button type="submit">Restore recording</button>
-            </RecordingForm>
+            </VersionedForm>
           ) : null}
           {subject.rebuildable ? (
-            <RecordingForm {...recordingForm} action="recording.rebuild">
+            <VersionedForm {...recordingForm} action="recording.rebuild">
               <button type="submit">Rebuild recording</button>
-            </RecordingForm>
+            </VersionedForm>
           ) : null}
           {subject.status === 'taken_down' && subject.removable ? (
-            <RecordingForm {...recordingForm} action="recording.remove">
+            <VersionedForm {...recordingForm} action="recording.remove">
               <button type="submit">Delete recording for good</button>
-            </RecordingForm>
+            </VersionedForm>
           ) : null}
           {subject.status !== 'taken_down' &&
           subject.status !== 'removing' &&
           subject.status !== 'removed' ? (
-            <RecordingForm {...recordingForm} action="recording.takedown">
+            <VersionedForm {...recordingForm} action="recording.takedown">
               <ReasonSelect reasons={recordingTakedownReasons} />
               <button type="submit">Take down recording</button>
-            </RecordingForm>
+            </VersionedForm>
           ) : null}
           {subject.status !== 'removing' && subject.status !== 'removed' ? (
-            <RecordingForm {...recordingForm} action="recording.legal_remove">
+            <VersionedForm {...recordingForm} action="recording.legal_remove">
               <ReasonSelect reasons={recordingLegalRemovalReasons} />
               <button type="submit">Remove for a legal reason</button>
-            </RecordingForm>
+            </VersionedForm>
           ) : null}
         </>
       );
@@ -212,6 +220,74 @@ function SubjectActions({
       );
     case 'ballot_feedback':
       return <blockquote>{subject.text ?? 'No feedback text.'}</blockquote>;
+    case 'profile_photo': {
+      const photoForm = {
+        ...form,
+        targetId: subject.photoId,
+        version: subject.version,
+      };
+      return (
+        <>
+          <p>
+            Member {subject.username} · status {subject.status}
+          </p>
+          <ProfilePhoto
+            src={photoSrc}
+            username={subject.username}
+            live={!isProfilePhotoTerminal(subject.status)}
+          />
+          {subject.status === 'in_review'
+            ? (['approve', 'reject'] as const).map((outcome) => (
+                <VersionedForm
+                  key={outcome}
+                  {...photoForm}
+                  action="profile_photo.review"
+                  commandId={nextId()}
+                >
+                  <input type="hidden" name="outcome" value={outcome} />
+                  <button type="submit">
+                    {outcome === 'approve' ? 'Publish photo' : 'Reject photo'}
+                  </button>
+                </VersionedForm>
+              ))
+            : null}
+          {subject.status === 'published' ? (
+            <VersionedForm
+              {...photoForm}
+              action="profile_photo.remove"
+              commandId={nextId()}
+            >
+              <ReasonSelect reasons={profileContentRemovalReasons} />
+              <button type="submit">Remove photo</button>
+            </VersionedForm>
+          ) : null}
+        </>
+      );
+    }
+    case 'profile_text':
+      return (
+        <>
+          <p>
+            {profileTextFieldLabels[subject.field]} of {subject.username}
+          </p>
+          <blockquote>{subject.text ?? 'Cleared.'}</blockquote>
+          {subject.text !== null ? (
+            <VersionedForm
+              {...form}
+              action="profile_text.remove"
+              targetId={subject.profileId}
+              commandId={nextId()}
+              version={subject.version}
+            >
+              <input type="hidden" name="field" value={subject.field} />
+              <ReasonSelect reasons={profileContentRemovalReasons} />
+              <button type="submit">
+                Clear {profileTextFieldLabels[subject.field].toLowerCase()}
+              </button>
+            </VersionedForm>
+          ) : null}
+        </>
+      );
   }
 }
 
@@ -256,6 +332,11 @@ export default async function ContentReportPage({
     );
   const { report, subject } = read.value;
   const nextId = () => commands.ids.next();
+  const photo =
+    subject?.kind === 'profile_photo' && !isProfilePhotoTerminal(subject.status)
+      ? await commands.client.readProfilePhoto(operator.id, subject.photoId)
+      : null;
+  const photoSrc = photo?.kind === 'ok' ? profilePhotoSrc(photo.value) : null;
   return (
     <>
       {nav}
@@ -278,6 +359,7 @@ export default async function ContentReportPage({
           <SubjectActions
             reportId={report.reportId}
             subject={subject}
+            photoSrc={photoSrc}
             nextId={nextId}
           />
         </section>

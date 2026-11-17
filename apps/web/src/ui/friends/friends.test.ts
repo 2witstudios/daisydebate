@@ -4,9 +4,24 @@ import { friendsAround, friendsLede, relationTo } from './friends';
 setupRitewayBun();
 
 const friends = [
-  { username: 'ada', presence: 'online' as const },
-  { username: 'bea', presence: 'away' as const },
-  { username: 'cat', presence: 'offline' as const },
+  {
+    username: 'ada',
+    presence: 'online' as const,
+    displayName: null,
+    photoId: null,
+  },
+  {
+    username: 'bea',
+    presence: 'away' as const,
+    displayName: null,
+    photoId: null,
+  },
+  {
+    username: 'cat',
+    presence: 'offline' as const,
+    displayName: null,
+    photoId: null,
+  },
 ];
 
 describe('friendsAround', () => {

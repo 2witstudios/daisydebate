@@ -255,19 +255,20 @@ The conditions, and the durable Redis marker each reads
 (`apps/web/src/features/ops/alert-recorder.ts` writes them by tapping the
 existing event stream — no new call sites):
 
-| Condition                   | Fires when                                                                                      | Marker                                                 |
-| --------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `storage_unavailable`       | `auth.session.unavailable` persists 2+ minutes                                                  | `alert-unavailable-storage`                            |
-| `limiter_unavailable`       | `auth.rate_limit.unavailable` persists 2+ minutes                                               | `alert-unavailable-limiter`                            |
-| `delivery_failures`         | 3+ consecutive `mail.failed` of any purpose (provider health), reset by `mail.sent`             | `alert-mail-consecutive-failures`                      |
-| `auth_5xx_rate`             | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*`     |
-| `cleanup_missed`            | no retention run has succeeded and drained on every target in 3+ hours, or ever                 | `alert-retention-last-success`                         |
-| `observation_purges_missed` | the observation purge worker has had no healthy run in 15+ minutes, or ever                     | `alert-worker-last-success-observation_purges`         |
-| `billing_cleanup_missed`    | Stripe cleanup has had no healthy run in 2+ hours, or ever                                      | `alert-worker-last-success-billing_cleanup`            |
-| `privacy_jobs_missed`       | the vendor deletion worker has had no healthy run in 2+ hours, or ever                          | `alert-worker-last-success-privacy_jobs`               |
-| `file_maintenance_missed`   | file maintenance, when configured, has had no healthy run in 2+ hours or 3 intervals            | `alert-worker-last-success-messaging_file_maintenance` |
-| `mail_shed`                 | 20+ `mail.shed` over the trailing 10 minutes (ISSUE-220)                                        | per-minute `alert-mail-shed-*`                         |
-| `network_limited`           | 300+ `auth.rate_limit.network_denied` over the trailing 10 minutes (AUTH-3.10)                  | per-minute `alert-network-denied-*`                    |
+| Condition                        | Fires when                                                                                      | Marker                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `storage_unavailable`            | `auth.session.unavailable` persists 2+ minutes                                                  | `alert-unavailable-storage`                            |
+| `limiter_unavailable`            | `auth.rate_limit.unavailable` persists 2+ minutes                                               | `alert-unavailable-limiter`                            |
+| `delivery_failures`              | 3+ consecutive `mail.failed` of any purpose (provider health), reset by `mail.sent`             | `alert-mail-consecutive-failures`                      |
+| `auth_5xx_rate`                  | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*`     |
+| `cleanup_missed`                 | no retention run has succeeded and drained on every target in 3+ hours, or ever                 | `alert-retention-last-success`                         |
+| `observation_purges_missed`      | the observation purge worker has had no healthy run in 15+ minutes, or ever                     | `alert-worker-last-success-observation_purges`         |
+| `billing_cleanup_missed`         | Stripe cleanup has had no healthy run in 2+ hours, or ever                                      | `alert-worker-last-success-billing_cleanup`            |
+| `privacy_jobs_missed`            | the vendor deletion worker has had no healthy run in 2+ hours, or ever                          | `alert-worker-last-success-privacy_jobs`               |
+| `file_maintenance_missed`        | file maintenance, when configured, has had no healthy run in 2+ hours or 3 intervals            | `alert-worker-last-success-messaging_file_maintenance` |
+| `profile_photo_deletions_missed` | the profile photo deletion sweep has had no healthy run in 2+ hours, or ever                    | `alert-worker-last-success-profile_photo_deletions`    |
+| `mail_shed`                      | 20+ `mail.shed` over the trailing 10 minutes (ISSUE-220)                                        | per-minute `alert-mail-shed-*`                         |
+| `network_limited`                | 300+ `auth.rate_limit.network_denied` over the trailing 10 minutes (AUTH-3.10)                  | per-minute `alert-network-denied-*`                    |
 
 `GET /api/ops/metrics` (same bearer token) exposes the bounded-cardinality
 Prometheus counters behind AUTH-7.7's dashboard criterion: auth HTTP

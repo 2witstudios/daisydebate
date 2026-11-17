@@ -33,6 +33,25 @@ const requests: readonly ContentModerationRequest[] = [
   },
   { action: 'recording.rebuild', targetId, expectedVersion: 3 },
   { action: 'chat_message.remove', targetId },
+  {
+    action: 'profile_photo.review',
+    targetId,
+    expectedVersion: 2,
+    outcome: 'reject',
+  },
+  {
+    action: 'profile_photo.remove',
+    targetId,
+    expectedVersion: 2,
+    reason: 'impersonation',
+  },
+  {
+    action: 'profile_text.remove',
+    targetId,
+    expectedVersion: 2,
+    field: 'display_name',
+    reason: 'policy_violation',
+  },
   { action: 'account.audience_ban.update', targetId, state: 'banned' },
 ];
 
@@ -58,6 +77,42 @@ describe('auditedIntent', () => {
       expected: [
         `recording.legal_remove:${targetId}:court_order`,
         `recording.takedown:${targetId}`,
+      ],
+    });
+  });
+});
+
+describe('auditedIntent on a profile', () => {
+  test('records which way a review went and which field was cleared', () => {
+    assert({
+      given: 'a photo rejection, a photo removal and a bio removal',
+      should:
+        'record the closed outcome, and each removal with its closed reason (and field)',
+      actual: [
+        auditedIntent({
+          action: 'profile_photo.review',
+          targetId,
+          expectedVersion: 2,
+          outcome: 'reject',
+        }),
+        auditedIntent({
+          action: 'profile_photo.remove',
+          targetId,
+          expectedVersion: 2,
+          reason: 'impersonation',
+        }),
+        auditedIntent({
+          action: 'profile_text.remove',
+          targetId,
+          expectedVersion: 2,
+          field: 'bio',
+          reason: 'policy_violation',
+        }),
+      ],
+      expected: [
+        `profile_photo.review:${targetId}:reject`,
+        `profile_photo.remove:${targetId}:impersonation`,
+        `profile_text.remove:${targetId}:bio:policy_violation`,
       ],
     });
   });

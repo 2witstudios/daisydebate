@@ -14,7 +14,8 @@ import { parseValidated } from '../../../server/http';
 import { requireFileSignature } from './content';
 import { requireFileAttempt } from './attempt';
 import { sameFileBytes } from './same-bytes';
-import type { FileScanner, ImageSanitizer, PrivateObjectStore } from './ports';
+import type { FileScanner, ImageSanitizer } from '../../image-intake/ports';
+import type { PrivateObjectStore } from './ports';
 import { requireMemberActor } from '../../access/actor';
 export type FileDependencies = {
   readonly policy: FilePolicy | undefined;

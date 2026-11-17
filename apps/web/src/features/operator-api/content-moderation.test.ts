@@ -1,9 +1,11 @@
+import { PROFILE_PHOTO_RENDITION_MAX_BYTES } from '@daisy/protocol/public-profile';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorize } from '@daisy/auth/authorization';
 import type {
   ContentModerationChange,
   ContentModerationStore,
 } from './content-moderation';
+import type { ProfilePhotoObjects } from '../profile/photo/ports';
 import { api, keyOf, signed, status } from './router.test-support';
 
 setupRitewayBun();
@@ -24,10 +26,14 @@ const fields = {
   adminAuditHead: 'a'.repeat(64),
 };
 
-const withStore = (overrides: Partial<ContentModerationStore> = {}) => {
+const withStore = (
+  overrides: Partial<ContentModerationStore> = {},
+  profilePhotos: ProfilePhotoObjects | null = null,
+) => {
   const changes: ContentModerationChange[] = [];
   const digests: string[] = [];
   const { handle } = api({
+    profilePhotos,
     contentModeration: {
       listModerationReports: async () => [
         report,
@@ -35,6 +41,8 @@ const withStore = (overrides: Partial<ContentModerationStore> = {}) => {
       ],
       readModerationReport: async () => ({ report, subject: null }),
       listRebuildableRecordings: async () => [],
+      listProfilePhotoReviews: async () => [],
+      readOperatorProfilePhoto: async () => null,
       runModerationCommand: async (input) => {
         changes.push(input.change);
         digests.push(input.requestDigest);
@@ -254,6 +262,187 @@ describe('operator moderation (WATCH-7)', () => {
       should: 'answer 404',
       actual: await status(response),
       expected: [404, 'NOT_FOUND'],
+    });
+  });
+});
+
+const photoBytes = new Uint8Array([82, 73, 70, 70, 1, 2, 3]);
+const photoStore = (bytes: Uint8Array<ArrayBuffer> = photoBytes) => {
+  const reads: [string, number][] = [];
+  const objects: ProfilePhotoObjects = {
+    put: async () => {
+      throw new Error('Unexpected put');
+    },
+    read: async (key, maxBytes) => {
+      reads.push([key, maxBytes]);
+      return bytes;
+    },
+    removePrefix: async () => {
+      throw new Error('Unexpected removal');
+    },
+  };
+  return { objects, reads };
+};
+const livePhoto = async () => ({
+  status: 'in_review' as const,
+  version: 2,
+  objectPrefix: `profile-photos/${id}`,
+});
+
+describe('operator profile moderation (ADR 0143)', () => {
+  test('each profile command reaches the store as its own named change', async () => {
+    const { handle, changes } = withStore();
+    const answers = [
+      await handle(
+        put(`/operator/v1/profile-photos/${id}/review`, {
+          expectedVersion: 2,
+          outcome: 'approve',
+        }),
+      ),
+      await handle(
+        put(`/operator/v1/profile-photos/${id}/removal`, {
+          expectedVersion: 3,
+          reason: 'impersonation',
+        }),
+      ),
+      await handle(
+        put(`/operator/v1/profiles/${id}/text-removal`, {
+          expectedVersion: 4,
+          field: 'bio',
+          reason: 'policy_violation',
+        }),
+      ),
+    ];
+    assert({
+      given: 'a signed photo review, photo removal and text removal',
+      should: 'apply each with its target, its version and its closed value',
+      actual: [answers.map((answer) => answer.status), changes],
+      expected: [
+        [200, 200, 200],
+        [
+          {
+            action: 'profile_photo.review',
+            photoId: id,
+            expectedVersion: 2,
+            outcome: 'approve',
+          },
+          {
+            action: 'profile_photo.remove',
+            photoId: id,
+            expectedVersion: 3,
+            reason: 'impersonation',
+          },
+          {
+            action: 'profile_text.remove',
+            profileId: id,
+            expectedVersion: 4,
+            field: 'bio',
+            reason: 'policy_violation',
+          },
+        ],
+      ],
+    });
+  });
+
+  test('a profile command it cannot read changes nothing', async () => {
+    const { handle, changes } = withStore();
+    const answers = await Promise.all(
+      [
+        put(`/operator/v1/profile-photos/${id}/review`, { outcome: 'approve' }),
+        put(`/operator/v1/profile-photos/${id}/review`, {
+          expectedVersion: 2,
+          outcome: 'publish',
+        }),
+        put(`/operator/v1/profile-photos/${id}/removal`, {
+          expectedVersion: 3,
+          reason: 'I dislike it',
+        }),
+        put(`/operator/v1/profiles/${id}/text-removal`, {
+          expectedVersion: 4,
+          field: 'username',
+          reason: 'policy_violation',
+        }),
+      ].map(handle),
+    );
+    assert({
+      given:
+        'a review without its version, an unknown outcome, an open reason and an unknown field',
+      should: 'refuse each, and reach no store',
+      actual: [answers.map((answer) => answer.status), changes],
+      expected: [Array(4).fill(400), []],
+    });
+  });
+
+  test('the in-review queue answers what the store holds', async () => {
+    const item = {
+      photoId: id,
+      username: 'ada',
+      checkVerdict: 'review' as const,
+      uploadedAt: '2026-11-16T10:00:00.000Z',
+      version: 1,
+    };
+    const { handle } = withStore({
+      listProfilePhotoReviews: async () => [item],
+    });
+    const response = await handle(
+      signed({ method: 'GET', path: '/operator/v1/profile-photos/in-review' }),
+    );
+    assert({
+      given: 'one photo waiting for an operator',
+      should: 'answer it',
+      actual: [response.status, await response.json()],
+      expected: [200, { items: [item] }],
+    });
+  });
+
+  test('a photo read answers its 512px rendition, bounded', async () => {
+    const { objects, reads } = photoStore();
+    const { handle } = withStore(
+      { readOperatorProfilePhoto: livePhoto },
+      objects,
+    );
+    const response = await handle(
+      signed({ method: 'GET', path: `/operator/v1/profile-photos/${id}` }),
+    );
+    assert({
+      given: 'a live photo and a configured bucket',
+      should: 'read its 512 rendition within a bound and answer it as base64',
+      actual: [response.status, await response.json(), reads],
+      expected: [
+        200,
+        {
+          photoId: id,
+          status: 'in_review',
+          version: 2,
+          imageWebpBase64: Buffer.from(photoBytes).toString('base64'),
+        },
+        [[`profile-photos/${id}/512.webp`, PROFILE_PHOTO_RENDITION_MAX_BYTES]],
+      ],
+    });
+  });
+
+  test('a photo read without a bucket, or of no photo, refuses', async () => {
+    const unconfigured = withStore({ readOperatorProfilePhoto: livePhoto });
+    const missing = withStore({}, photoStore().objects);
+    const oversized = withStore(
+      { readOperatorProfilePhoto: livePhoto },
+      photoStore(new Uint8Array(PROFILE_PHOTO_RENDITION_MAX_BYTES + 1)).objects,
+    );
+    const read = () =>
+      signed({ method: 'GET', path: `/operator/v1/profile-photos/${id}` });
+    assert({
+      given: 'no configured bucket, an ended photo, and an oversized object',
+      should: 'answer unavailable, not found, and unavailable',
+      actual: [
+        await status(await unconfigured.handle(read())),
+        await status(await missing.handle(read())),
+        await status(await oversized.handle(read())),
+      ],
+      expected: [
+        [503, 'INFRASTRUCTURE'],
+        [404, 'NOT_FOUND'],
+        [503, 'INFRASTRUCTURE'],
+      ],
     });
   });
 });
