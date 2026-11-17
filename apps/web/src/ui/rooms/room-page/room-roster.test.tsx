@@ -517,9 +517,12 @@ describe('RoomRoster with no two teams (TAB-6.2)', () => {
         seats: benchSeats,
       },
       rules: { ...assemblySnapshot.rules, sides: benches, seats: benchSeats },
-      participants: benches.map((side, i) => ({
-        ...seated(String.fromCharCode(118 + i), 'affirmative', 0),
-        seat: { kind: 'side' as const, side: side.key, slot: 0 },
+      participants: benches.map((side, i): Participant => ({
+        ...(seated(String.fromCharCode(118 + i), 'affirmative', 0) as Extract<
+          Participant,
+          { actorId: string }
+        >),
+        seat: { kind: 'side', side: side.key, slot: 0 },
       })),
     });
     assert({

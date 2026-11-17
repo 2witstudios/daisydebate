@@ -415,7 +415,7 @@ describe('a Room with no two teams (TAB-6.2)', () => {
       teamOneSide: affirmativeSide,
       rules: {
         ...room.rules,
-        sides: fourTeams,
+        sides: [...fourTeams],
         seats: {
           ...room.rules.seats,
           sides: Object.fromEntries(benches.map((key) => [key, 1])),
