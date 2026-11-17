@@ -1,3 +1,4 @@
+import { rooms } from '../schema/rooms';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import { storedCreationCommand } from './creation-replay';
 import { lockTabCommandAccounts } from './command-accounts';
@@ -148,6 +149,13 @@ const load = async (
         .from(ladders)
         .where(eq(ladders.lobbyId, row.id))
     : [];
+  const [referencedRoom] = ladder
+    ? await tx
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(eq(rooms.leagueLadderId, ladder.id))
+        .limit(1)
+    : [];
   const [taken] =
     command.type === 'create-lobby'
       ? await tx
@@ -187,7 +195,7 @@ const load = async (
         }
       : null,
     activeSeasonId: active?.id ?? null,
-    ladder: ladder ?? null,
+    ladder: ladder ? { ...ladder, inUse: referencedRoom !== undefined } : null,
     handleTaken: taken !== undefined,
     activity,
     scope,

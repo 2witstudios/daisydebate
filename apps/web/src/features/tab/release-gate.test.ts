@@ -53,7 +53,7 @@ describe('the Tab release', () => {
     const pages = groups.flatMap((group) =>
       [...new Glob(`${group}/**/page.tsx`).scanSync(app)].filter(
         (page) =>
-          !/requestSampleScene\(|requireGrant\(|await requireTabRelease\(\)|StoredDrawOverview|StoredHostEvents|StoredRoster|StoredHostRound/.test(
+          !/requestSampleScene\(|requestLeaguePage\(|requestStandingRoomPage\(|requireGrant\(|await requireTabRelease\(\)|StoredDrawOverview|StoredHostEvents|StoredRoster|StoredHostRound/.test(
             readFileSync(join(app, page), 'utf8'),
           ),
       ),
@@ -70,6 +70,25 @@ describe('the Tab release', () => {
         pages,
       ],
       expected: [true, []],
+    });
+  });
+
+  test('stored league request readers refuse a closed release before database reads', () => {
+    const source = readFileSync(join(app, '../lib/request-session.ts'), 'utf8');
+    assert({
+      given: 'the stored league and standing Room request readers',
+      should: 'check the member release before acquiring their database store',
+      actual: ['requestLeaguePage', 'requestStandingRoomPage'].map((name) => {
+        const reader = source.slice(source.indexOf(`export const ${name} =`));
+        const release = reader.indexOf("requestReleaseEnabled('daisy-tab'");
+        const database = reader.indexOf('processApp()');
+        return (
+          release >= 0 &&
+          release < database &&
+          reader.slice(release, database).includes('return null;')
+        );
+      }),
+      expected: [true, true],
     });
   });
 

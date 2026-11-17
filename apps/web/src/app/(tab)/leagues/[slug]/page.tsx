@@ -1,18 +1,15 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { leagueViewOf, readLeagueLobby } from '../../../../features/tab/league';
-import { requestSampleScene } from '../../../../features/tab/sample/request-scene';
+import { leagueViewOf } from '../../../../features/tab/league-view';
+import { storedLeagueLobbyOf } from '../../../../features/tab/stored-league';
+import { tabRoutes } from '../../../../features/tab/routes';
+import { requestLeaguePage } from '../../../../lib/request-session';
+import { requireAccess } from '../../../../lib/access';
 import { LeagueLobby } from '../../../../ui/tab/league-lobby/league-lobby';
-
 export const metadata: Metadata = { title: 'League' };
-
 type Query = Readonly<Record<string, string | string[] | undefined>>;
-
-const one = (query: Query, key: string): string | null => {
-  const value = query[key];
-  return typeof value === 'string' ? value : null;
-};
-
+const one = (query: Query, key: string) =>
+  typeof query[key] === 'string' ? query[key] : null;
 export default async function Page({
   params,
   searchParams,
@@ -21,17 +18,39 @@ export default async function Page({
   readonly searchParams: Promise<Query>;
 }) {
   const { slug } = await params;
+  await requireAccess(tabRoutes.league(slug), searchParams);
   const query = await searchParams;
-  const lobby = readLeagueLobby(
-    slug,
-    leagueViewOf({
-      tab: one(query, 'tab'),
-      scope: one(query, 'scope'),
-      search: one(query, 'q'),
-      event: one(query, 'event'),
-    }),
-    await requestSampleScene(),
+  const view = leagueViewOf({
+    tab: one(query, 'tab'),
+    scope: one(query, 'scope'),
+    search: one(query, 'q'),
+    event: one(query, 'event'),
+  });
+  const pageNumber = Number(one(query, 'page') ?? '1');
+  const read = await requestLeaguePage(slug, {
+    addressKind: 'standing',
+    ...(one(query, 'season') ? { seasonId: one(query, 'season')! } : {}),
+    ...(view.tab === 'season' && view.event ? { templateId: view.event } : {}),
+    ...(view.tab === 'ladder'
+      ? {
+          ladder: {
+            scope: view.scope,
+            search: view.search,
+            page: Number.isSafeInteger(pageNumber) ? pageNumber : 1,
+          },
+        }
+      : {}),
+  });
+  if (!read || (view.tab === 'rooms' && !read.season.rooms)) notFound();
+  return (
+    <LeagueLobby
+      lobby={storedLeagueLobbyOf(
+        slug,
+        read.season,
+        view,
+        read.ladder,
+        read.season.rooms,
+      )}
+    />
   );
-  if (lobby === null) notFound();
-  return <LeagueLobby lobby={lobby} />;
 }

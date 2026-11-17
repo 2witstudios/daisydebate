@@ -124,7 +124,8 @@ const subjectPredicates: Record<TenantSubject, string> = {
 /**
  * The policies a table's manifest entry stands for, from a closed set of
  * shapes: the scope policy (reads and writes need the row's key in scope),
- * a read of the subject's own rows, and an open read.
+ * a read of the subject's own rows, a counterpart organization's read, and
+ * an open read.
  */
 export const tenantPolicies = (entry: TenantTable): readonly TenantPolicy[] => {
   const scope = scopePredicate(entry);
@@ -146,6 +147,16 @@ export const tenantPolicies = (entry: TenantTable): readonly TenantPolicy[] => {
             name: `${entry.table}_subject`,
             command: 'select' as const,
             using: subjectPredicates[entry.subject],
+            withCheck: null,
+          },
+        ]),
+    ...(entry.counterpart === undefined
+      ? []
+      : [
+          {
+            name: `${entry.table}_counterpart`,
+            command: 'select' as const,
+            using: organizationScope(entry.counterpart),
             withCheck: null,
           },
         ]),

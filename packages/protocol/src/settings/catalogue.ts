@@ -127,6 +127,7 @@ const rows: { readonly [Key in SettingKey]: Row<Key> } = {
     enforceable: false,
   },
   'entry.approval': daisy(everywhere, { value: 'host' }),
+  'entry.judge_obligation': daisy(everywhere, { kind: 'unconfigured' }),
   'entry.cap': daisy(everywhere, { perEvent: null, perSchool: null }),
   'conflict.handling': daisy(aboveEvents, { value: 'second_confirms' }),
   'recording.capture': daisy(aboveEvents, { value: 'on' }, 'both'),

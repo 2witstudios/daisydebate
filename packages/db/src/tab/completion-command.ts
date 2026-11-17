@@ -1,3 +1,4 @@
+import { notifyTournamentRelease } from '../notifications/tournament';
 import { fixtureRoomSources } from '../schema/fixture-room-sources';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -29,6 +30,7 @@ type Command =
     >
   | BreakCommand;
 type Input = {
+  readonly notificationIds: () => string;
   readonly senderUserId: string;
   readonly lobbyId: string;
   readonly command: Command;
@@ -196,6 +198,11 @@ export const createCompletionCommandStore = (database: TabDatabase) => ({
                   ...write.row,
                   openedAt: new Date(write.row.openedAt),
                 });
+                await notifyTournamentRelease(
+                  tx,
+                  write.row,
+                  input.notificationIds,
+                );
                 break;
             }
           }

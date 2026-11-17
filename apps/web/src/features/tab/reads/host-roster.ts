@@ -11,6 +11,8 @@ import {
 } from '@daisy/protocol/lobby/entry-read';
 import { hostLobbyResource } from '../operations/host-lobby-resource';
 import { eligibleTournamentActors } from '../operations/tournament-participant-admission';
+import { judgesOwed } from '../judge-obligation';
+import { eventSettingResolution } from '../operations/event-setting-resolution';
 import type { TabPrincipal } from '../tab-principal';
 
 function project(
@@ -18,9 +20,27 @@ function project(
   eventId: string | null,
   manage: boolean,
 ): HostRosterView {
+  const policy = f.configuration
+    ? eventSettingResolution(f.configuration).settings['entry.judge_obligation']
+        .value
+    : { kind: 'unconfigured' as const };
+  const owed = (rows: typeof f.entries) =>
+    judgesOwed(
+      policy,
+      rows.filter(
+        (e) => e.status === 'accepted' && e.responsibleKind === 'school',
+      ).length,
+    );
   const eligible = eligibleTournamentActors(f.accounts);
   const judges = f.judges.filter(
-    (j) => j.status === 'accepted' && eligible.has(j.actorId),
+    (j) =>
+      j.status === 'accepted' &&
+      eligible.has(j.actorId) &&
+      (eventId === null ||
+        !f.clearances.some((c) => c.tournamentJudgeId === j.id) ||
+        f.clearances.some(
+          (c) => c.tournamentJudgeId === j.id && c.eventId === eventId,
+        )),
   );
   const entries = f.entries.filter(
     (e) => eventId === null || e.eventId === eventId,
@@ -156,7 +176,7 @@ function project(
               e.submittedByUserId === null ||
               !f.makers.some((m) => m.userId === e.submittedByUserId),
           ).length,
-          judgesOwed: null,
+          judgesOwed: owed(rows),
           judgesNamed:
             first.responsibleKind === 'school'
               ? judges.filter(
@@ -201,7 +221,11 @@ function project(
                 name: schoolName(schoolId),
               }
             : { kind: 'unaffiliated' },
-          judgesOwed: null,
+          judgesOwed: schoolId
+            ? owed(entries.filter((e) => e.schoolOrganizationId === schoolId))
+            : policy.kind === 'unconfigured'
+              ? null
+              : 0,
           judgesNamed: judges.filter((j) => j.schoolOrganizationId === schoolId)
             .length,
           judges: judges
@@ -246,7 +270,11 @@ export const readHostRoster =
   ): Promise<HostRosterView | null> => {
     if (!idSchema.safeParse(input.lobbyId).success) return null;
     return dependencies.store.hostRoster(
-      { viewerUserId: principal.userId, lobbyId: input.lobbyId },
+      {
+        viewerUserId: principal.userId,
+        lobbyId: input.lobbyId,
+        eventId: input.eventId,
+      },
       async (f) => {
         if (
           !f ||
@@ -266,7 +294,7 @@ export const readHostRoster =
           }).allow
         )
           return null;
-        const eventId = input.eventId ?? f.events[0]?.id ?? null;
+        const eventId = input.eventId ?? f.configuration?.event.id ?? null;
         if (eventId !== null && !f.events.some((e) => e.id === eventId))
           return null;
         return project(

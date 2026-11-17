@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type {
   EntryStatus,
   HostEntries as Read,
@@ -25,11 +26,13 @@ export function HostEntries({
   entries,
   entriesHref,
   judgesHref,
+  obligationEditor,
 }: {
   readonly rail: TimelineRail;
   readonly entries: Read;
   readonly entriesHref: string;
   readonly judgesHref: string;
+  readonly obligationEditor?: ReactNode;
 }) {
   return (
     <HostShell rail={rail} current="entries">
@@ -99,6 +102,7 @@ export function HostEntries({
         </ListCard>
       )}
       <p className="text-sm text-ink-muted">{entries.note}</p>
+      {obligationEditor}
     </HostShell>
   );
 }

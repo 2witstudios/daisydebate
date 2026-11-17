@@ -262,14 +262,14 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
         -- ADR 0075 / ADR 0090 / ADR 0118: audit and terminal provenance are append-only.
         -- The action history and the tab record's facts are append-only too.
         when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots', 'flag_change_events',
-          'ballots', 'action_history', 'results', 'result_entries', 'result_speakers', 'certifications', 'certification_results', 'releases', 'conflicts', 'ballot_definition_versions', 'tournament_sponsorship_versions', 'tournament_capture_admissions') then
+          'ballots', 'action_history', 'results', 'result_entries', 'result_speakers', 'certifications', 'certification_results', 'releases', 'conflicts', 'ballot_definition_versions', 'tournament_sponsorship_versions', 'tournament_capture_admissions', 'tournament_rating_snapshots') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         -- Flag, analysis-request and original refund-action identities cannot be reset by runtime DELETE.
-        -- A grant is revoked and a held command settled, never deleted.
-        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations', 'grants', 'pending_commands') then
+        -- A grant is revoked and a held command settled, never deleted; a membership period is closed, never deleted.
+        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations', 'grants', 'pending_commands', 'membership_periods') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')

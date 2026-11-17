@@ -281,3 +281,102 @@ in doctor and integration tests. The release runner maintains read-only
 journal provenance for the web role; startup has no DDL or grants. This does
 not make destructive schema or contract rewrites reversible. Details and role
 permissions are in [database operations](../operations/database.md#tenant-isolation).
+
+### School judge obligations
+
+`entry.judge_obligation` uses the canonical organization → template → lobby →
+event settings chain and its settings-version command guard. Its catalogue
+default is explicitly unconfigured. A configured ratio owes `judgesPerGroup`
+judges for each `entriesPerJudge` accepted school entries, rounding each school's
+partial group up independently. Zero judges per group explicitly means no
+obligation. Pending and withdrawn entries do not contribute.
+
+The host Entries editor writes that setting through the existing setting command;
+inherited enforced values stay locked. The roster reads the fenced event chain
+and shows each school's obligation alongside its accepted, eligible judges
+cleared for the selected event. Affiliation identifies the school group; it does
+not assert who furnished a judge. These obligations are distinct from panel
+demand and carry no payment behavior.
+
+## Tournament inbox notifications
+
+Tournament assignments and publication use the existing Notifications inbox,
+preferences and content-free `user:inbox` signals. A notification references its
+actual fixture, lobby and applied command; it stores no result, score, wording
+or recipient snapshot. Composite foreign keys preserve tenant provenance, and
+one `(user, kind, fixture, command)` subject makes replay harmless. Direct and
+confirmed officiating share the same writer, so a pending proposal owes no
+notification until its original command is applied. Publication, Room assembly,
+panel changes, result availability and recorded audience openings write their
+notifications in the owner's transaction. Failure of any notification or signal
+rolls the command back too.
+
+Recipients come from accepted entry members and accepted fixture judges. An
+assignment or removal tells only its affected judge; a published draw change or
+ready Room tells that fixture's actual cast. Result openings tell only affected
+people in the recorded audience; an opening before any result exists owes no
+result notification until the result writer records one. Wider audiences never
+turn delivery into a tournament-wide broadcast. These kinds use in-app delivery
+and its existing per-kind switches, with no email channel.
+
+The inbox reassembles current canonical account and guardian-boundary facts
+under the ordinary Tab read fences. It also checks the current accepted fixture
+relationship, Room readiness, recorded release and saved preference. Removed
+judges receive a generic removal linked to the tournament, with no former Room
+or result access. Notification destinations are protected reads; inbox text and
+signals contain no outcome. Privacy export and erasure include these subjects,
+and the existing read-retention policy applies.
+
+### Membership periods
+
+A person's `memberships` row is reopened when they rejoin, so its times
+describe only the latest period. `membership_periods` keeps every period an
+account was an active member (organization, account, joined and ended
+instants). A trigger on `memberships` writes it: a period opens when a
+membership becomes active and closes when it ends, so no writer can skip one.
+The runtime never deletes a period. League seasons count a person's membership
+as it stood when each event ran.
+
+### League member schools
+
+`league_schools` is the explicit relation between a league and a school.
+`organization_id` is the league's isolation key; composite foreign keys prove
+that its two organizations have kinds `league` and `school`. It grants no
+person permissions and is never inferred from a person's membership. Each
+period is its own row: a re-invitation after an end opens a new one, and the
+member school reads its own periods under its own scope.
+
+The league controller invites through `invite-league-school`; only a school
+controller can activate that invitation through `accept-league-school`. Both
+commands evaluate `organization.manage` at their own organization. An invitation
+is not active membership. Either controller can explicitly end the relation or
+cancel an invitation through `end-league-school`, naming their side. Rejoining
+requires a fresh invitation and fresh school assent.
+
+All commands run through `/api/tab/league-school-command`, the canonical command
+runner and the single action history. Invitations carry the league's displayed
+organization version; acceptance and ending carry the relation's membership
+version. Account fences precede both organization fences in sorted id order.
+Every accepted transition increments the relation and league versions atomically
+with a journal entry identifying the exact `league_school` aggregate, acting
+account and evaluated authority. The relation retains invitation, joining and
+ending times and acting accounts; only `status = 'active'` supplies member-school
+ids to the season fold.
+
+### Certified league season inputs
+
+A sanction is requested by the current tournament controller and accepted by
+the league controller. Both decisions recheck the pinned format, ballot and
+every enforced template value inside the fenced transaction; the approval
+does not grant tournament authority. Reads fold received certified result ids,
+so a later correction stays local until a certification names it.
+
+A membership-counting season admits events owned by the league or an active
+personal league member, only when the event follows a league template. Only
+direct league members and entrants whose responsible school has an active
+two-sided league relation score. Invited/ended schools and unrelated hosts do
+not qualify. The same pure season fold computes both admission modes; no
+standings projection is stored. `standings.read` on the actual league
+organization authorizes active members and organization managers through the
+evaluator and its minor boundary; public organization identity is not season
+read authority.

@@ -84,6 +84,12 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
             where user_id = ${subject.userId} order by organization_id`,
         )) as unknown as Rows,
       ),
+      membershipPeriods: exportRows(
+        (await tx.execute(
+          sql`select organization_id, joined_at, ended_at from membership_periods
+            where user_id = ${subject.userId} order by organization_id, joined_at`,
+        )) as unknown as Rows,
+      ),
       grants: exportRows(
         (await tx.execute(
           sql`select id, role_id, scope_kind, organization_id, lobby_id,

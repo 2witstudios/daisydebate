@@ -35,6 +35,7 @@ const parentFolders = new Set([
   '20261116175852_tab_seats_checks_validated',
   '20261116175853_tab_casual_templates',
   '20261116175854_tab_wiring',
+  '20261116175855_lethal_grey_gargoyle',
 ]);
 
 const oldRules = ({
@@ -483,9 +484,9 @@ test(
       };
       const retainedAfter = {
         rooms:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version'] as row from rooms r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id'] as row from rooms r order by id`,
         rounds:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version'] as row from rounds r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id'] as row from rounds r order by id`,
         roomParticipants:
           await sql`select to_jsonb(p) - array['seat_kind','side'] as row from room_participants p order by id`,
         roundParticipants:
@@ -497,6 +498,20 @@ test(
           'preserve exact identities, owners, configuration, consent, visibility, runtime checkpoints and timestamps',
         actual: retainedAfter,
         expected: retainedBefore,
+      });
+      assert({
+        given: 'ordinary Rooms and Rounds that predate league rating selection',
+        should:
+          'leave their league selection absent rather than silently rating old play',
+        actual: [
+          (
+            await sql`select count(*)::int n from rooms where league_ladder_id is not null`
+          )[0]!.n,
+          (
+            await sql`select count(*)::int n from rounds where league_ladder_id is not null`
+          )[0]!.n,
+        ],
+        expected: [0, 0],
       });
       const rulesAfter =
         await sql`select id, rules_snapshot from rooms union all select id, rules_snapshot from rounds`;

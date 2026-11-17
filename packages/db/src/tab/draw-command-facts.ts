@@ -3,6 +3,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
+import { tournamentRatingSnapshots } from '../schema/tournament-rating-snapshots';
 import { events, stages, tabRounds, timeSlots } from '../schema/events';
 import { entries, entryMembers } from '../schema/entries';
 import { draws, drawFixtures, drawResultInputs } from '../schema/draws';
@@ -208,7 +209,33 @@ export const loadDrawContext = async (
         : null,
     });
   const eventId = configuration.event.id;
+  const [tournament] = await tx
+    .select({ ratingSnapshot: tournamentRatingSnapshots.snapshot })
+    .from(tournamentRatingSnapshots)
+    .where(eq(tournamentRatingSnapshots.lobbyId, input.lobbyId));
+  const ratingConfigurations = [];
+  if (!tournament?.ratingSnapshot && input.strength === 'update') {
+    const eventRows = await tx
+      .select()
+      .from(events)
+      .where(eq(events.lobbyId, input.lobbyId))
+      .orderBy(asc(events.id));
+    for (const row of eventRows) {
+      const context =
+        row.id === eventId
+          ? configuration
+          : await lockEventSettingContext(tx, {
+              lobbyId: input.lobbyId,
+              eventId: row.id,
+              subjectUserId: input.senderUserId,
+              strength: input.strength,
+            });
+      if (context) ratingConfigurations.push(context);
+    }
+  }
   return {
+    ratingSnapshot: tournament?.ratingSnapshot ?? null,
+    ratingConfigurations,
     configuration,
     authorization,
     ownerActorId: owner?.id ?? null,

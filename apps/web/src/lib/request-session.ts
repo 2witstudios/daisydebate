@@ -1,4 +1,8 @@
+import { leaguePageAddress } from '../features/tab/reads/league-address';
+import { readStandingRoomDraft } from '../features/tab/reads/standing-room-draft';
 import { authorize } from '@daisy/auth/authorization';
+import { readLeagueSeason } from '../features/tab/reads/league-season';
+import { readLeagueLadder } from '../features/ratings/read-league-ladder';
 import { appDiscoverActor } from '../features/account/username-discovery';
 import {
   resolveLobbyGrantTarget,
@@ -474,6 +478,79 @@ export async function requestRoomDraftAnswer(
   );
 }
 
+/** Live league page binding with this request's durable principal and account-targeted release gate. */
+export const requestLeaguePage = async (
+  handle: string,
+  input: {
+    readonly addressKind: 'standing' | 'organization';
+    readonly seasonId?: string | undefined;
+    readonly templateId?: string | undefined;
+    readonly ladder?:
+      | {
+          readonly scope: 'top' | 'around';
+          readonly search: string;
+          readonly page?: number | undefined;
+        }
+      | undefined;
+  },
+) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const address = await leaguePageAddress(store, {
+    kind: input.addressKind,
+    handle,
+  });
+  if (!address) return null;
+  const organizationId = address.organizationId;
+  const principal = identity.principal;
+  const season = await readLeagueSeason({ store, authorize })(principal, {
+    organizationId,
+    ...(address.lobbyId ? { lobbyId: address.lobbyId } : {}),
+    ...(input.seasonId ? { seasonId: input.seasonId } : {}),
+    ...(input.templateId ? { templateId: input.templateId } : {}),
+  });
+  if (!season) return null;
+  const ladder =
+    input.ladder && season.standingLobby
+      ? await readLeagueLadder({ store, authorize })(principal, {
+          lobbyId: season.standingLobby.id,
+          scope: input.ladder.scope,
+          search: input.ladder.search,
+          ...(input.ladder.page !== undefined
+            ? { page: input.ladder.page }
+            : {}),
+        })
+      : null;
+  if (input.ladder && !ladder) return null;
+  return { season, ladder };
+};
+
+/** Native draft addressing uses the actual standing-lobby handle and never depends on a season. */
+export const requestStandingRoomPage = async (
+  handle: string,
+  templateId?: string,
+) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const lobbyId = await store.lobbyIdOfHandle(handle);
+  if (!lobbyId) return null;
+  return readStandingRoomDraft({ store, authorize, now: app.clock.now })(
+    identity.principal,
+    { lobbyId, ...(templateId ? { templateId } : {}) },
+  );
+};
 /** A server action's budgeted username resolution, behind its real request boundary. */
 export async function requestLobbyGrantTarget(
   input: LobbyGrantTargetInput,

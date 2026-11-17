@@ -63,3 +63,30 @@ longer describes the system.
   lobby command surface; their contracts are in `@daisy/protocol/lobby/*`.
 - Whether a tournament on a Daisy template counts toward a Daisy ladder is
   answered: it does not.
+
+## League rating wiring (2026-11-16)
+
+The league rating feature replays immutable competitive inputs instead of
+maintaining a second stored standing: its standing lobby's selected Rooms and
+certified results received through approved sanctions. `ladderInput` owns
+selection and ordering; the existing debate engine owns Glicko-2 calculation,
+inactivity widening and monotonic posting time. Every teammate receives one
+update against the opposing side's mean pre-game state (including widened
+individual deviations); singleton games retain the existing policy. Team
+updates are authorized for league ladders only (point-guard ruling,
+Delivery 4871). Daisy's ledger receives neither source.
+
+A casual league Room freezes its actual own lobby ladder from the resolved
+`standings.rating_ladder` setting at creation, and Start copies that selection
+to Round. This is the league's existing setting, not an additional per-Room
+Ranked opt-in. Foreign ladders are refused as selections. Daisy Ranked
+admission remains confined to Daisy's public lobby.
+
+There is no distinct tournament Start command. The first accepted generated
+draw therefore freezes one private `tournament_rating_snapshots` row, in the
+same transaction as the draw and its receipt. All events present at that
+boundary keep their ladder selection and actor rating input. Subsequent draws,
+standings and breaks consume that retained snapshot; later certifications,
+corrections, setting changes and newly introduced actors cannot refresh it.
+The snapshot is a retained tournament input, not another stored league standing.
+It has lobby-scoped RLS; identity metadata's open-read policy does not expose it.

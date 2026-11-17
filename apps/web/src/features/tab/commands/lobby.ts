@@ -62,6 +62,10 @@ type LobbyRoomFacts = {
   readonly ownFormat: SettingValues['room.own_format']['value'];
   readonly ownText: SettingValues['resolution.own_text']['value'];
   /** The `room.visibility` value where it is enforced; null where it is not. */
+  readonly poolResolutions?: readonly {
+    readonly id: string;
+    readonly text: string;
+  }[];
   readonly enforcedVisibility: SettingValues['room.visibility']['value'] | null;
 };
 
@@ -91,7 +95,7 @@ export type LobbyFacts = {
   readonly activeSeasonId: string | null;
   readonly season: SeasonFact | null;
   /** The lobby's ladder, if it has one. */
-  readonly ladder: { readonly id: string } | null;
+  readonly ladder: { readonly id: string; readonly inUse: boolean } | null;
   readonly room: LobbyRoomFacts;
 };
 
@@ -428,6 +432,8 @@ const setLadder = (
         change,
         bump(lobby, version),
       ]);
+    if (!command.ladder.enabled && ladder?.inUse)
+      return refuse('ladder-in-use');
     if (!command.ladder.enabled)
       return ladder === null
         ? refuse('ladder-unchanged')
@@ -494,7 +500,22 @@ const createLobbyRoom = (
     room.enforcedVisibility !== command.room.visibility
   )
     return refuse('setting-enforced');
-  if (command.room.resolution.kind === 'custom' && room.ownText === 'off')
+  if (
+    command.poolResolutionId &&
+    (command.room.resolution.kind !== 'custom' ||
+      !room.poolResolutions?.some(
+        (row) =>
+          row.id === command.poolResolutionId &&
+          command.room.resolution.kind === 'custom' &&
+          row.text === command.room.resolution.text,
+      ))
+  )
+    return refuse('pool-resolution-required');
+  if (
+    command.room.resolution.kind === 'custom' &&
+    !command.poolResolutionId &&
+    room.ownText === 'off'
+  )
     return refuse('pool-resolution-required');
   // The receipt names the Room it made, at its first version.
   return accepted({ kind: 'room', id: facts.newId }, 1, [

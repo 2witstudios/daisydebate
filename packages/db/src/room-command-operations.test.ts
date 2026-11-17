@@ -23,6 +23,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
     [],
     [],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }],
+    [], // public lobby has no league ladder selection
     [],
     [],
     [],
@@ -227,6 +228,7 @@ const startRows = (changeVersion = 1) => [
   [],
   [],
   [[readyRoom.id]], // the host's active membership is this Room's
+  [[null]], // the source Room has no league ladder selection to freeze
   [],
   [],
   [[2n, '42']], // Round phase signal for the frozen Round

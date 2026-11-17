@@ -46,11 +46,15 @@ export { resolveRoomConfiguration } from './resolve-room-configuration';
 export { ratePeriod } from './glicko2';
 export {
   rateDebate,
+  postingInstant,
+  RATING_CALCULATION_VERSION,
+  type DebaterRating,
   ratingPolicy,
   inflateDeviation,
   isProvisional,
 } from './rating';
 export {
+  endingRating,
   planRating,
   ratingAwaited,
   ratingEligibility,

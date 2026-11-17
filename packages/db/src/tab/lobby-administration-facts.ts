@@ -40,7 +40,7 @@ export type LobbyAdministrationFacts = {
     readonly version: number;
   } | null;
   readonly activeSeasonId: string | null;
-  readonly ladder: { readonly id: string } | null;
+  readonly ladder: { readonly id: string; readonly inUse: boolean } | null;
   readonly handleTaken: boolean;
   readonly activity: {
     readonly liveRoundCount: number;

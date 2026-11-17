@@ -59,6 +59,7 @@ export async function playTournamentRound(
           roundId,
           { version: 1, commandId: createId(), segmentId: open.id },
         );
+        await f.store.renewServiceInstance({ instanceId, role: 'web' });
         const evaluated = await attendance.evaluate(roundId);
         if (open.rulesSegmentKey === finalSpeechKey(round.rules.segments)) {
           assert({

@@ -454,3 +454,15 @@ describe('enforced values in one chain', () => {
     });
   });
 });
+
+describe('non-format setting resolution', () => {
+  test('resolves a standing posting audience without inventing a pinned format', () => {
+    assert({
+      given: 'a standing lobby and no pinned Room format',
+      should: 'use the canonical posting default',
+      actual: resolveSetting('audience.posting', [], []).value,
+      expected: resolveSetting('audience.posting', [], [], formatDefaults)
+        .value,
+    });
+  });
+});

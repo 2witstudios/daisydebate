@@ -1,3 +1,4 @@
+import { notifyFixtureChanges } from '../notifications/tournament-fixture';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { fixtures, fixtureJudges } from '../schema/fixtures';
@@ -88,9 +89,10 @@ export async function applyFixtureWrites(
       case 'results':
       case 'result_entries':
       case 'result_speakers':
-        await applyResultWrites(tx, input.lobbyId, [write]);
+        await applyResultWrites(tx, input.lobbyId, [write], effects.newId);
         break;
     }
   }
+  await notifyFixtureChanges(tx, loaded, input, writes, effects.newId);
   effects.authorize((await readDatabaseTime(tx)).toISOString());
 }

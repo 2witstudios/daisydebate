@@ -6,7 +6,19 @@ import { idSchema } from './primitives';
  * first two from released facts (WATCH-12); a Room invitation and a received
  * challenge are written in the transaction that produced them.
  */
+export const tournamentNotificationKinds = [
+  'judge_assigned',
+  'judge_replaced',
+  'judge_unassigned',
+  'tournament_draw_changed',
+  'tournament_room_ready',
+  'tournament_results_released',
+] as const;
+export type TournamentNotificationKind =
+  (typeof tournamentNotificationKinds)[number];
+
 export const notificationKinds = [
+  ...tournamentNotificationKinds,
   'followed_debater_live',
   'recording_ready',
   'room_invitation',
@@ -23,6 +35,12 @@ export type NotificationChannel = (typeof notificationChannels)[number];
  * channel it is really sent on, so no switch controls nothing.
  */
 export const notificationChannelsOf = {
+  judge_assigned: ['in_app'],
+  judge_replaced: ['in_app'],
+  judge_unassigned: ['in_app'],
+  tournament_draw_changed: ['in_app'],
+  tournament_room_ready: ['in_app'],
+  tournament_results_released: ['in_app'],
   followed_debater_live: ['in_app'],
   recording_ready: ['in_app'],
   room_invitation: ['in_app', 'email'],
@@ -58,6 +76,12 @@ const inAppAndEmail = z.strictObject({
 
 /** Every channel of every kind, on or off. A missing stored choice is on. */
 export const notificationChoicesSchema = z.strictObject({
+  judge_assigned: inAppOnly,
+  judge_replaced: inAppOnly,
+  judge_unassigned: inAppOnly,
+  tournament_draw_changed: inAppOnly,
+  tournament_room_ready: inAppOnly,
+  tournament_results_released: inAppOnly,
   followed_debater_live: inAppOnly,
   recording_ready: inAppOnly,
   room_invitation: inAppAndEmail,
@@ -76,6 +100,12 @@ export type NotificationPreferences = z.infer<
 
 /** Every channel on: what a member who never chose receives. */
 export const defaultNotificationChoices: NotificationChoices = {
+  judge_assigned: { in_app: true },
+  judge_replaced: { in_app: true },
+  judge_unassigned: { in_app: true },
+  tournament_draw_changed: { in_app: true },
+  tournament_room_ready: { in_app: true },
+  tournament_results_released: { in_app: true },
   followed_debater_live: { in_app: true },
   recording_ready: { in_app: true },
   room_invitation: { in_app: true, email: true },

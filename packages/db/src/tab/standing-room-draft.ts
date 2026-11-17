@@ -1,3 +1,6 @@
+import { ladders } from '../schema/ladders';
+import { poolResolutions } from '../schema/resolution-pools';
+import { formatRevisions } from '../schema/format-revisions';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { fenceTabAccountRead } from './account-read-fence';
 import { lobbies } from '../schema/lobbies';
@@ -24,7 +27,10 @@ const offeredTemplates = (tx: TabTransaction, lobbyId: string) =>
     .orderBy(asc(lobbyTemplates.templateId));
 
 /** Only the addressed standing lobby and its actually offered definitions, under shared fences. */
-const load = async (tx: TabTransaction, input: Input) => {
+export const loadStandingRoomDraft = async (
+  tx: TabTransaction,
+  input: Input,
+) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
   await fenceTabAccountRead(tx, input.viewerUserId);
   const [found] = await tx
@@ -133,6 +139,41 @@ const load = async (tx: TabTransaction, input: Input) => {
     authorization,
     offered: currentOffers,
     templateAuthorizations,
+    ladder:
+      (
+        await tx
+          .select({ id: ladders.id })
+          .from(ladders)
+          .where(eq(ladders.lobbyId, lobby.id))
+      )[0] ?? null,
+    resolutions: await tx
+      .select()
+      .from(poolResolutions)
+      .where(
+        and(
+          isNull(poolResolutions.retiredAt),
+          or(
+            eq(poolResolutions.organizationId, lobby.ownerOrganizationId),
+            eq(poolResolutions.lobbyId, lobby.id),
+          ),
+        ),
+      )
+      .orderBy(asc(poolResolutions.id)),
+    definitions: currentTemplates.length
+      ? await tx
+          .select()
+          .from(formatRevisions)
+          .where(
+            or(
+              ...currentTemplates.map((template) =>
+                and(
+                  eq(formatRevisions.formatId, template.formatId),
+                  eq(formatRevisions.version, template.formatVersion),
+                ),
+              ),
+            ),
+          )
+      : [],
     graph: {
       templates: currentTemplates,
       organizations: await tx
@@ -162,12 +203,14 @@ const load = async (tx: TabTransaction, input: Input) => {
   };
 };
 export type StandingRoomDraftFacts = NonNullable<
-  Awaited<ReturnType<typeof load>>
+  Awaited<ReturnType<typeof loadStandingRoomDraft>>
 >;
 export const createStandingRoomDraftStore = (database: TabDatabase) => ({
   standingRoomDraft: <Answer>(
     input: Input,
     work: (facts: StandingRoomDraftFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    database.transaction(async (tx) =>
+      work(await loadStandingRoomDraft(tx, input)),
+    ),
 });

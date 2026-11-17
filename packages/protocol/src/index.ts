@@ -280,6 +280,9 @@ export type { CaseMap } from './case-map';
 export type { BallotCategory, BallotRubricVersion } from './ballot';
 export type {
   DebaterStanding,
+  EndingRating,
+  EndingRatingFacts,
+  EndingUnrated,
   PlannedRatingChange,
   RatingEligibility,
   RatingEligibilityFacts,
@@ -744,6 +747,8 @@ export {
   notificationChoicePairs,
   notificationChoicesSchema,
   notificationKinds,
+  tournamentNotificationKinds,
+  type TournamentNotificationKind,
   notificationPreferencesSchema,
   notificationsReadSchema,
   type EmailedNotificationKind,

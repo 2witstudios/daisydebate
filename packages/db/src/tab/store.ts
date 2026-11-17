@@ -1,7 +1,25 @@
+import { createLobbyRoomStore } from './create-lobby-room';
+export type {
+  CreateLobbyRoomCommand,
+  LobbyRoomAssembly,
+} from './create-lobby-room';
+import { and, eq, sql } from 'drizzle-orm';
+import { lobbies } from '../schema/lobbies';
+import { createLeagueSeasonStore } from './league-season';
+export type { LeagueSeasonFacts } from './league-season';
+import { createLeagueRatingStore } from './league-rating-inputs';
+export type { LeagueRatingInputs } from './league-rating-inputs';
+import { createLeagueSchoolCommandStore } from './league-school-command';
+export type {
+  LoadedLeagueSchoolCommand,
+  LeagueSchoolWrite,
+} from './league-school-command';
 import { createLobbyPeopleStore } from './lobby-people';
 export type { LobbyPeopleFacts } from './lobby-people';
 export { roleAuthorityOf } from './authority-facts';
 import { createHostRosterStore } from './host-roster';
+import { createSanctionCommandStore } from './sanction-command';
+export type { SanctionCommandFacts } from './sanction-command';
 export type { HostRosterFacts } from './host-roster';
 import { createHostEventsStore } from './host-events';
 export type { HostEventsFacts } from './host-events';
@@ -197,6 +215,9 @@ const roleNamedOf = (
  * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TabDatabase) => ({
+  ...createSanctionCommandStore(database),
+  ...createLeagueSeasonStore(database),
+  ...createLeagueSchoolCommandStore(database),
   ...createResultCommandStore(database),
   ...createFixtureCommandStore(database),
   ...createConfirmationCommandStore(database),
@@ -214,6 +235,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createHostResultsStore(database),
   ...createHostRoundStore(database),
   ...createHostEventsStore(database),
+  ...createLeagueRatingStore(database),
   ...createHostRosterStore(database),
   ...createLobbyAdministrationStore(database),
   ...createSettingCommandStore(database),
@@ -221,6 +243,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createJudgeRegistrationStore(database),
   ...createEntryEnrollmentStore(database),
   ...createStandingRoomDraftStore(database),
+  ...createLobbyRoomStore(database),
   ...createTournamentSetupReadStore(database),
   ...createTournamentEventSettingReadStore(database),
   ...createEventBallotReadStore(database),
@@ -279,6 +302,27 @@ export const createTabStore = (database: TabDatabase) => ({
     database.transaction(async (tx) => {
       const scope = await fenceOrganizationRead(tx, input);
       return work(await loadOrganizationPeople(tx, input, scope));
+    }),
+  standingLobbyAddressOfHandle: (
+    handle: string,
+  ): Promise<{ lobbyId: string; organizationId: string } | null> =>
+    database.transaction(async (tx) => {
+      const [row] = await tx
+        .select({
+          lobbyId: lobbies.id,
+          organizationId: lobbies.ownerOrganizationId,
+        })
+        .from(lobbies)
+        .where(
+          and(
+            eq(lobbies.kind, 'standing'),
+            eq(sql`lower(${lobbies.handle})`, handle.toLowerCase()),
+          ),
+        )
+        .limit(1);
+      return row?.organizationId
+        ? { lobbyId: row.lobbyId, organizationId: row.organizationId }
+        : null;
     }),
   lobbyIdOfHandle: (handle: string): Promise<string | null> =>
     database.transaction((tx) => findLobbyByHandle(tx, handle)),

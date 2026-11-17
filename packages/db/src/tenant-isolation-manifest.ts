@@ -44,6 +44,11 @@ export type TenantTable = {
   readonly subject?: TenantSubject;
   /** Any tenant may read the rows; writing still needs the key in scope. */
   readonly openRead?: true;
+  /**
+   * A second organization the row is about reads it under its own scope;
+   * writing still needs the key in scope.
+   */
+  readonly counterpart?: 'school_id';
 };
 
 export type TenantExemption = {
@@ -84,7 +89,9 @@ const either = (
 export const tenantIsolationManifest: TenantIsolationManifest = {
   tables: [
     organization('organizations', { keyColumn: 'id', openRead: true }),
+    organization('league_schools', { counterpart: 'school_id' }),
     organization('memberships', { subject: 'user' }),
+    organization('membership_periods', { subject: 'user' }),
     organization('roles', { openRead: true }),
     organization('role_permissions', { openRead: true }),
     either('grants', { subject: 'user' }),
@@ -98,6 +105,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     either('settings', { openRead: true }),
     organization('ladders', { openRead: true }),
     lobby('tournaments', { openRead: true }),
+    lobby('tournament_rating_snapshots'),
     lobby('tournament_sponsorship_versions', {
       subject: 'tournament-sponsorship',
     }),
@@ -136,6 +144,11 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     organization('season_standing_rules'),
   ],
   exempt: [
+    {
+      table: 'notifications',
+      reason:
+        'The existing inbox is owned and read by its recipient account. Fixture, lobby and command references provide notification provenance only; reads recheck current account, boundary and relationship authority before exposing a subject. They confer no tenant read authority.',
+    },
     {
       table: 'rooms',
       reason:

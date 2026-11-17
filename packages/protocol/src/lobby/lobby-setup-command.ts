@@ -1,3 +1,4 @@
+import { roomConfigSchema } from '../room';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import {
@@ -152,6 +153,13 @@ const createLobbyRoom = z.strictObject({
   lobbyId: idSchema,
   templateId: idSchema.nullable(),
   room: roomCreateSchema,
+  /**
+   * Exact displayed Room settings, validated against the actual offered pin
+   * and chain; required, so a stale form is always refused, never re-applied.
+   */
+  config: roomConfigSchema,
+  /** A named league/lobby pool wording, never inferred from matching custom text. */
+  poolResolutionId: idSchema.optional(),
 });
 
 const lobbyCommandSchema = z.discriminatedUnion('type', [
@@ -386,11 +394,13 @@ export const lobbySetupRefusals = [
   'season-closed',
   'ladder-foreign',
   'ladder-unchanged',
+  'ladder-in-use',
   'setting-enforced',
   'template-not-offered',
   'template-required',
   'template-format-mismatch',
   'pool-resolution-required',
+  'rating-format-unsupported',
   'format-unavailable',
   'template-unavailable',
   'enforced-conflict',
@@ -475,7 +485,12 @@ export const lobbySetupCommandCatalogue = {
     aggregate: 'lobby',
     gate: ['organization.manage'],
     versions: ['lobby'],
-    refusals: ['ladder-foreign', 'lobby-not-standing', 'ladder-unchanged'],
+    refusals: [
+      'ladder-foreign',
+      'lobby-not-standing',
+      'ladder-unchanged',
+      'ladder-in-use',
+    ],
     history: 'entry',
   },
   'create-lobby-room': {
@@ -489,6 +504,7 @@ export const lobbySetupCommandCatalogue = {
       'template-required',
       'template-format-mismatch',
       'pool-resolution-required',
+      'rating-format-unsupported',
     ],
     history: 'entry',
   },

@@ -114,6 +114,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'season_standing_rules.rule',
         'settings.value',
         'tournament_capture_admissions.admission',
+        'tournament_rating_snapshots.snapshot',
         'tournament_sponsorship_versions.authority',
         'usage_reservations.source',
         'usage_reservations.state',

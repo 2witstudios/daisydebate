@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { HostLeague as Read } from '../../../features/tab/league';
 import { holdLabel } from '../../../features/tab/settings';
 import type { TimelineRail } from '../../../features/tab/tournament';
@@ -15,16 +16,22 @@ import { SettingRow } from '../setting-row/setting-row';
 export function HostLeague({
   rail,
   league,
+  requestControls,
 }: {
   readonly rail: TimelineRail;
   readonly league: Read;
+  readonly requestControls?: (request: Read['requests'][number]) => ReactNode;
 }) {
   return (
     <HostShell rail={rail} current="league">
       <PageHeader
         title={league.name}
         lede={league.lede}
-        actions={<ActionButton size="small" action={league.lobbyView} />}
+        actions={
+          league.lobbyView ? (
+            <ActionButton size="small" action={league.lobbyView} />
+          ) : null
+        }
       />
       {league.requests.length === 0 ? null : (
         <ListCard>
@@ -32,21 +39,25 @@ export function HostLeague({
           <ul>
             {league.requests.map((request) => (
               <ListRow
-                key={request.event}
+                key={request.id ?? request.event}
                 title={request.event}
                 facts={request.facts}
                 detail={request.meets}
                 trailing={
-                  <>
-                    <ActionButton
-                      action={request.decline}
-                      about={request.event}
-                    />
-                    <ActionButton
-                      action={request.sanction}
-                      about={request.event}
-                    />
-                  </>
+                  requestControls ? (
+                    requestControls(request)
+                  ) : (
+                    <>
+                      <ActionButton
+                        action={request.decline}
+                        about={request.event}
+                      />
+                      <ActionButton
+                        action={request.sanction}
+                        about={request.event}
+                      />
+                    </>
+                  )
                 }
               />
             ))}
@@ -54,49 +65,59 @@ export function HostLeague({
         </ListCard>
       )}
       <div className="grid grid-cols-2 items-start gap-5 max-rail:grid-cols-1">
-        <ListCard>
-          <ListHeading>{league.template.name}</ListHeading>
-          <ul>
-            {league.template.settings.map((setting) => (
-              <ListRow
-                key={setting.label}
-                title={setting.label}
-                detail={setting.value}
-                trailing={
-                  <span className="text-sm text-ink-muted">
-                    {holdLabel(setting)}
-                  </span>
-                }
-              />
-            ))}
-            <li className="flex items-center gap-3 px-4 py-3 text-sm text-ink-muted">
-              <ActionButton size="small" action={league.template.edit} />
-              <span>{league.template.note}</span>
-            </li>
-          </ul>
-        </ListCard>
+        {league.template ? (
+          <ListCard>
+            <ListHeading>{league.template.name}</ListHeading>
+            <ul>
+              {league.template.settings.map((setting) => (
+                <ListRow
+                  key={setting.label}
+                  title={setting.label}
+                  detail={setting.value}
+                  trailing={
+                    <span className="text-sm text-ink-muted">
+                      {holdLabel(setting)}
+                    </span>
+                  }
+                />
+              ))}
+              <li className="flex items-center gap-3 px-4 py-3 text-sm text-ink-muted">
+                {league.template.edit ? (
+                  <ActionButton size="small" action={league.template.edit} />
+                ) : null}
+                <span>{league.template.note}</span>
+              </li>
+            </ul>
+          </ListCard>
+        ) : null}
         <ListCard>
           <ListHeading>{league.season.heading}</ListHeading>
           <SeasonStandings rows={league.season.rows} />
           <div className="flex flex-col items-start gap-2 border-t border-border px-4 py-3 text-sm text-ink-muted">
             <p>{league.season.note}</p>
-            <ActionButton size="small" action={league.season.rule} />
+            {league.season.rule ? (
+              <ActionButton size="small" action={league.season.rule} />
+            ) : null}
           </div>
           <ListHeading>League ladder</ListHeading>
           <div className="flex flex-col items-start gap-2 px-4 py-3 text-sm">
             <p>{league.ladder.detail}</p>
-            <ActionButton size="small" action={league.ladder.open} />
+            {league.ladder.open ? (
+              <ActionButton size="small" action={league.ladder.open} />
+            ) : null}
           </div>
         </ListCard>
       </div>
-      <ListCard>
-        <ListHeading>The lobby</ListHeading>
-        <ul>
-          {league.lobby.map((setting) => (
-            <SettingRow key={setting.label} setting={setting} />
-          ))}
-        </ul>
-      </ListCard>
+      {league.lobby.length ? (
+        <ListCard>
+          <ListHeading>The lobby</ListHeading>
+          <ul>
+            {league.lobby.map((setting) => (
+              <SettingRow key={setting.label} setting={setting} />
+            ))}
+          </ul>
+        </ListCard>
+      ) : null}
     </HostShell>
   );
 }

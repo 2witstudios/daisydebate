@@ -1,4 +1,4 @@
-import { foreignKey, index, pgTable, text } from 'drizzle-orm/pg-core';
+import { foreignKey, index, pgTable, text, unique } from 'drizzle-orm/pg-core';
 import { createdAtColumn } from './columns';
 import { lobbies } from './lobbies';
 import { constantText, nonEmpty } from './tenant-keys';
@@ -7,9 +7,9 @@ import { constantText, nonEmpty } from './tenant-keys';
  * A rating over one standing lobby's rated Rooms. It belongs to exactly one
  * standing lobby and to that lobby's organization; a tournament lobby never
  * owns one. Daisy's one ladder keeps the id `freestyle` (ADR 0142).
- * Ratings stay Daisy-only by the ladder CHECKs on `ratings` and
- * `rating_changes`, so a league's ladder row may exist while nothing can be
- * posted to it.
+ * Daisy's rating ledger stays Daisy-only by the ladder CHECKs on `ratings`
+ * and `rating_changes`; league ratings replay their own immutable Room
+ * selection and received tournament results.
  */
 export const ladders = pgTable(
   'ladders',
@@ -22,6 +22,7 @@ export const ladders = pgTable(
     createdAt: createdAtColumn(),
   },
   (table) => [
+    unique('ladders_id_lobby_unique').on(table.id, table.lobbyId),
     index('ladders_lobby_organization_idx').on(
       table.lobbyId,
       table.organizationId,

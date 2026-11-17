@@ -13,6 +13,7 @@ import { idSchema } from '../primitives';
 /** What a command changes. A settings command's aggregate is the scope it writes. */
 export const lobbyAggregateKinds = [
   'organization',
+  'league_school',
   'guardian_link',
   'template',
   'lobby',

@@ -1,3 +1,6 @@
+import { ratingStage } from './tab-tournament-rating.test-support';
+import { notificationsStage } from './tab-tournament-notifications.test-support';
+import { seasonStage } from './tab-tournament-season.test-support';
 import { completionStage } from './tab-tournament-completion.test-support';
 import { resultsStage } from './tab-tournament-results.test-support';
 import { standingsStage } from './tab-tournament-standings.test-support';
@@ -86,13 +89,13 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'sanction and season standings',
-    pending: 'league and notifications slice',
+    run: seasonStage,
   },
   {
     name: 'rating-seeded single elimination',
-    pending: 'league and notifications slice',
+    run: ratingStage,
   },
-  { name: 'notifications', pending: 'league and notifications slice' },
+  { name: 'notifications', run: notificationsStage },
 ];
 
 const names = [
@@ -133,20 +136,18 @@ test('the scripted tournament', async () => {
   }
   process.stdout.write(`${reportLines(reports)}\n`);
   assert({
-    given:
-      'the point-guard-approved nine-stage wiring gate and three explicitly deferred stages',
-    should:
-      'execute all nine required stages and retain exactly three pending records',
+    given: 'the complete league-and-notifications tournament journey',
+    should: 'execute every stage with no pending record',
     actual: [
       reports.filter((report) => report.outcome === 'passed').length,
       reports.filter((report) => report.outcome === 'pending').length,
     ],
-    expected: [9, 3],
+    expected: [12, 0],
   });
   assert({
     given: 'a tournament scripted from an empty database',
     should:
-      'pass all nine required stages through certification and retain the three later-slice stages as pending',
+      'pass all twelve real stages through league standings, rating seeding and notifications',
     actual: reportLines(reports).replace(/ \(\d+ ms\)/g, ''),
     expected: stages
       .map((stage) =>

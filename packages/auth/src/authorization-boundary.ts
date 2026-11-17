@@ -157,6 +157,10 @@ export function boundaryAdmits(
   if (!boundary || reach === null || wayOut(capability, context)) return true;
   if (reach === 'lobby') {
     const organization = organizationOf(resource);
+    if (organization && capability === 'standings.read')
+      return organization.standingLobbyIds.some((lobbyId) =>
+        boundary.allowedLobbyIds.includes(lobbyId),
+      );
     if (organization) return organizationInside(boundary, organization);
     const scope = lobbyScopeOf(resource);
     return scope !== null && insideBoundary(boundary, scope);

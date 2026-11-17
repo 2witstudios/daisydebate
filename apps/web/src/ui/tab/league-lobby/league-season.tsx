@@ -18,6 +18,9 @@ export function LeagueSeason({ season }: { readonly season: Season }) {
           className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3"
         >
           <input type="hidden" name="tab" value="season" />
+          {season.seasonId ? (
+            <input type="hidden" name="season" value={season.seasonId} />
+          ) : null}
           <strong className="font-strong">{season.season}</strong>
           <FilterSelect
             name="event"
@@ -29,9 +32,11 @@ export function LeagueSeason({ season }: { readonly season: Season }) {
           />
         </AutoSubmitForm>
         <SeasonStandings rows={season.rows} />
-        <div className="border-t border-border px-4 py-3">
-          <ActionButton size="small" action={season.all} />
-        </div>
+        {season.all ? (
+          <div className="border-t border-border px-4 py-3">
+            <ActionButton size="small" action={season.all} />
+          </div>
+        ) : null}
       </ListCard>
       <ListCard>
         <ListHeading>How points count</ListHeading>

@@ -1,3 +1,4 @@
+import { ladders } from './ladders';
 import {
   competitionTypes,
   roomCaptureSchema,
@@ -92,6 +93,8 @@ export const rooms = pgTable(
      */
     basisFormatId: text('basis_format_id'),
     basisPresetVersion: integer('basis_preset_version'),
+    /** The league lobby rating selection at creation; Daisy uses ladder_id on Round. */
+    leagueLadderId: text('league_ladder_id'),
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
@@ -139,6 +142,20 @@ export const rooms = pgTable(
     ballotDefinitionVersion: integer('ballot_definition_version'),
   },
   (table) => [
+    unique('rooms_id_league_ladder_unique').on(table.id, table.leagueLadderId),
+    index('rooms_league_ladder_lobby_idx').on(
+      table.leagueLadderId,
+      table.lobbyId,
+    ),
+    foreignKey({
+      name: 'rooms_own_league_ladder_fk',
+      columns: [table.leagueLadderId, table.lobbyId],
+      foreignColumns: [ladders.id, ladders.lobbyId],
+    }).onDelete('restrict'),
+    check(
+      'rooms_league_ladder_is_casual_standing',
+      sql`${table.leagueLadderId} is null or (${table.lobbyKind} = 'standing' and ${table.competitionType} = 'casual')`,
+    ),
     index('rooms_discovery_assembly_idx')
       .on(sql`${table.id} collate "C"`)
       .where(sql`${table.status} in ('assembling', 'ready')`),

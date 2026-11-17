@@ -1,3 +1,4 @@
+import { tournamentEntryRatings } from '../../ratings/tournament-entry-ratings';
 import type { EventCompetitionFacts } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import { formatDefinitionSchema } from '@daisy/protocol';
@@ -17,6 +18,7 @@ import { eventFormatDescriptor } from './draw-facts';
 export function eventCompetition(
   facts: Pick<
     EventCompetitionFacts,
+    | 'ratingSnapshot'
     | 'configuration'
     | 'entries'
     | 'members'
@@ -136,7 +138,14 @@ export function eventCompetition(
     history: { fixtures, results },
     settings: engineSettings(chain, rows, defaults),
     cutoff: input.cutoff,
-    ratings: null,
+    ratings: tournamentEntryRatings(
+      facts.ratingSnapshot,
+      facts.configuration.event.id,
+      facts.entries.filter(
+        (row) => row.eventId === facts.configuration.event.id,
+      ),
+      facts.members,
+    ),
     division: input.division,
     seed: input.seed,
   } as StandingsInput;

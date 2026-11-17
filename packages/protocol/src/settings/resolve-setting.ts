@@ -1,3 +1,4 @@
+export { presetSettingDefaults } from './preset-setting-defaults';
 import {
   settingsCatalogue,
   type SettingHold,
@@ -105,7 +106,7 @@ function fallback<Key extends SettingKey>(
   key: Key,
   chain: SettingChain,
   rows: readonly SettingRow[],
-  format: FormatSettingDefaults,
+  format: Partial<FormatSettingDefaults>,
 ): Pick<ResolvedSetting<Key>, 'value' | 'source'> {
   const byDefault = settingsCatalogue[key].default;
   if (byDefault.kind === 'value')
@@ -115,8 +116,7 @@ function fallback<Key extends SettingKey>(
       value: format[key as keyof FormatSettingDefaults] as SettingValues[Key],
       source: { kind: 'format' },
     };
-  const preset = resolveSetting('pairing.preset', chain, rows, format).value
-    .value;
+  const preset = resolveSetting('pairing.preset', chain, rows).value.value;
   return {
     value: pairingPresets[preset][key as PresetKey] as SettingValues[Key],
     source: { kind: 'preset', preset },
@@ -130,11 +130,24 @@ function fallback<Key extends SettingKey>(
  * `room.floor` what the pinned format gives. Rows outside the chain are not
  * read.
  */
+export function resolveSetting<
+  Key extends Exclude<SettingKey, keyof FormatSettingDefaults>,
+>(
+  key: Key,
+  chain: SettingChain,
+  rows: readonly SettingRow[],
+): ResolvedSetting<Key>;
 export function resolveSetting<Key extends SettingKey>(
   key: Key,
   chain: SettingChain,
   rows: readonly SettingRow[],
   format: FormatSettingDefaults,
+): ResolvedSetting<Key>;
+export function resolveSetting<Key extends SettingKey>(
+  key: Key,
+  chain: SettingChain,
+  rows: readonly SettingRow[],
+  format: Partial<FormatSettingDefaults> = {},
 ): ResolvedSetting<Key> {
   const set = rowsFor(key, chain, rows);
   const row =
