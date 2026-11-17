@@ -3,6 +3,7 @@ import {
   signOperatorRequest,
   verifyOperatorRequest,
 } from '@daisy/auth/operator-signature';
+import { matchOperatorRoute } from '@daisy/protocol/operator';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createOperatorClient, type OperatorFetch } from './client';
 import { bunOperatorCrypto } from './bun-crypto';
@@ -287,6 +288,42 @@ describe('operator response outcomes', () => {
         { kind: 'ok', value: stored },
         `/operator/v1/commands/${commandId}`,
         'GET',
+      ],
+    });
+  });
+});
+
+describe('profile photo reads (ADR 0143)', () => {
+  test('the queue and one photo are read from their own routes', async () => {
+    const photoId = 'p'.repeat(24);
+    const photo = {
+      photoId,
+      status: 'in_review',
+      version: 2,
+      imageWebpBase64: 'UklGRg==',
+    };
+    const answers = [json(200, { items: [] }), json(200, photo)];
+    const { client, sent } = clientWith(() => answers.shift()!);
+    const queue = await client.listProfilePhotoReviews(operatorRef);
+    const read = await client.readProfilePhoto(operatorRef, photoId);
+    assert({
+      given: 'a queue read and a photo read',
+      should: 'GET each at the route the participant app answers',
+      actual: [
+        queue,
+        read,
+        sent.map(({ url, init }) => {
+          const path = new URL(url).pathname;
+          return [init.method, matchOperatorRoute('GET', path)];
+        }),
+      ],
+      expected: [
+        { kind: 'ok', value: { items: [] } },
+        { kind: 'ok', value: photo },
+        [
+          ['GET', { route: 'listProfilePhotoReviews', id: null }],
+          ['GET', { route: 'readProfilePhoto', id: photoId }],
+        ],
       ],
     });
   });

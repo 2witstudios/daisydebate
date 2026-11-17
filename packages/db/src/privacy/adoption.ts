@@ -20,6 +20,7 @@ import { billingPrivacyAdopter } from '../billing-privacy';
 import { flagsPrivacyAdopter } from '../flags-privacy';
 import { contentModerationPrivacyAdopter } from '../content-moderation-privacy';
 import { onboardingPrivacyAdopter } from '../onboarding-privacy';
+import { publicProfilePrivacyAdopter } from '../public-profile-privacy';
 import {
   createRoomAccountClosureAdopter,
   type RoomClosureTransitions,
@@ -43,6 +44,7 @@ export const subjectRightsAdoption = (
   createRoomAccountClosureAdopter(rooms),
   ...socialPrivacyAdoption(),
   onboardingPrivacyAdopter,
+  publicProfilePrivacyAdopter,
   analyticsConsentPrivacyAdopter,
   accountAgePrivacyAdopter,
   accountTermsPrivacyAdopter,

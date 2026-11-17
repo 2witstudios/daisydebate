@@ -57,7 +57,7 @@ export function requireFileScannerPort(value: string | undefined): number {
 
 /** Pauses only completion of an actual daemon scan; no classification is fabricated. */
 export function controlledFileScan(
-  scanner: import('../src/features/messaging/files/ports').FileScanner,
+  scanner: import('../src/features/image-intake/ports').FileScanner,
 ) {
   let enter!: () => void, release!: () => void;
   const entered = new Promise<void>((done) => {

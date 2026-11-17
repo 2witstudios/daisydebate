@@ -160,6 +160,33 @@ describe('Who may report what', () => {
     });
   });
 
+  test('a public profile is reportable by anyone but its owner (ADR 0143)', () => {
+    const photo: ContentReportCreate = {
+      targetKind: 'profile_photo',
+      targetId: id,
+      reason: 'sexual_content',
+    };
+    assert({
+      given: 'someone else’s published photo, their own, and a missing one',
+      should:
+        'accept the first, refuse the owner, and answer not found for the missing',
+      actual: [
+        reportRefusal(
+          photo,
+          { kind: 'profile', ownedByReporter: false },
+          noLink,
+        ),
+        reportRefusal(
+          photo,
+          { kind: 'profile', ownedByReporter: true },
+          noLink,
+        ),
+        reportRefusal(photo, { kind: 'missing' }, noLink),
+      ],
+      expected: [null, 'report-not-eligible', 'report-not-found'],
+    });
+  });
+
   test('nobody reports their own chat message', () => {
     assert({
       given: 'their own message and someone else’s',

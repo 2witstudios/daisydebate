@@ -58,6 +58,7 @@ const deps = (
   }),
   cards: async () => ({ ratings: [], records: [] }),
   blinded: async () => [],
+  profiles: async () => new Map(),
   ...overrides,
 });
 
@@ -86,6 +87,33 @@ describe('readPeopleList', () => {
         ],
         self: 'busy',
         counts: { everyone: 2, friends: 1, online: 2 },
+      },
+    });
+  });
+
+  test('each row carries what its member chose to show, from one read', async () => {
+    const asked: (readonly string[])[] = [];
+    const photoId = 'f'.repeat(24);
+    const list = await read({
+      profiles: async (actorIds) => {
+        asked.push(actorIds);
+        return new Map([[ada, { displayName: 'Ada Byron', photoId }]]);
+      },
+    });
+    assert({
+      given: 'a page where one member set a display name and photo',
+      should:
+        'read every row’s profile in one call, show it on that row and nothing on the other',
+      actual: {
+        asked,
+        rows: list.people.map((m) => [m.username, m.displayName, m.photoId]),
+      },
+      expected: {
+        asked: [[ada, bea]],
+        rows: [
+          ['ada', 'Ada Byron', photoId],
+          ['bea', null, null],
+        ],
       },
     });
   });

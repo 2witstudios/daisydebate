@@ -18,6 +18,7 @@ test('server-render profile reads consume a real shared Redis budget before Post
       reads += 1;
       return app.database.readMemberProfile(input);
     },
+    readPublicProfile: app.database.readPublicProfile,
   };
   const input = {
     identity: { state: 'anonymous', principal: { kind: 'anonymous' } },

@@ -5,6 +5,7 @@ import type { Logger } from '@daisy/logger';
 import { recipientKey } from '../../mail/recipient-key';
 import {
   readLimiterDecision,
+  retryAfterHeaders,
   type RateLimiter,
   type RateRule,
 } from '../../../server/rate-limit';
@@ -159,15 +160,6 @@ const globalBuckets = (
     rule: { windowSeconds: 86_400, max: ceilings.perDay },
   },
 ];
-
-// A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
-// non-finite) omits the header rather than advertising a made-up wait.
-const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
-  typeof retryAfterSeconds === 'number' &&
-  Number.isFinite(retryAfterSeconds) &&
-  retryAfterSeconds >= 0
-    ? { 'Retry-After': String(Math.ceil(retryAfterSeconds)) }
-    : {};
 
 const logDenial = (
   logger: Logger,

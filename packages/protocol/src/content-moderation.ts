@@ -7,12 +7,14 @@ import {
   recordingStatuses,
   recordingTakedownReasons,
 } from './recording';
+import { profilePhotoStatuses } from './public-profile';
 
 export { recordingLegalRemovalReasons, recordingTakedownReasons };
 
 /**
  * Reporting and moderation (WATCH-7): one report for a Round, a Recording, a
- * chat message or abusive ballot feedback. Reasons are closed per target, so a
+ * chat message, abusive ballot feedback, or a member's public profile photo,
+ * display name or bio (ADR 0143). Reasons are closed per target, so a
  * report cannot carry free text or a reason its target does not have. Dispute
  * and integrity review is a reason on a Round or Recording, in the same queue.
  */
@@ -60,6 +62,23 @@ export const contentReportCreateSchema = z.discriminatedUnion('targetKind', [
     targetId: idSchema,
     reason: z.literal(feedbackReason),
   }),
+  /** The photo's id, as its image URL names it. */
+  z.strictObject({
+    targetKind: z.literal('profile_photo'),
+    targetId: idSchema,
+    reason: z.enum(safetyReasons),
+  }),
+  /** The public profile's id: the text as it stands when an operator reads it. */
+  z.strictObject({
+    targetKind: z.literal('profile_display_name'),
+    targetId: idSchema,
+    reason: z.enum(safetyReasons),
+  }),
+  z.strictObject({
+    targetKind: z.literal('profile_bio'),
+    targetId: idSchema,
+    reason: z.enum(safetyReasons),
+  }),
 ]);
 export type ContentReportCreate = z.infer<typeof contentReportCreateSchema>;
 export type ContentReportTargetKind = ContentReportCreate['targetKind'];
@@ -69,6 +88,9 @@ export const contentReportTargetKinds = [
   'recording',
   'chat_message',
   'ballot_feedback',
+  'profile_photo',
+  'profile_display_name',
+  'profile_bio',
 ] as const satisfies readonly ContentReportTargetKind[];
 
 /** The reasons a report form offers for a target, in display order. */
@@ -80,6 +102,9 @@ export const reasonsForTarget = (
     case 'recording':
       return [...safetyReasons, ...reviewReasons];
     case 'chat_message':
+    case 'profile_photo':
+    case 'profile_display_name':
+    case 'profile_bio':
       return safetyReasons;
     case 'ballot_feedback':
       return [feedbackReason];
@@ -184,6 +209,23 @@ export const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
     subject: feedbackSubjectSchema,
     text: z.string().nullable(),
   }),
+  /** The image itself is read separately, from the operator photo route. */
+  z.strictObject({
+    kind: z.literal('profile_photo'),
+    photoId: idSchema,
+    username: z.string(),
+    status: z.enum(profilePhotoStatuses),
+    version: z.int().positive(),
+  }),
+  /** Null once cleared, by its owner or an operator. */
+  z.strictObject({
+    kind: z.literal('profile_text'),
+    profileId: idSchema,
+    username: z.string(),
+    field: z.enum(['display_name', 'bio']),
+    text: z.string().nullable(),
+    version: z.int().positive(),
+  }),
 ]);
 export type ContentModerationSubject = z.infer<
   typeof contentModerationSubjectSchema
@@ -224,6 +266,43 @@ export const broadcastStopReasons = [
   'participant_safety',
   'technical',
 ] as const;
+/** Why an operator took profile content down; audited with the command. */
+export const profileContentRemovalReasons = [
+  'policy_violation',
+  'impersonation',
+  'legal_request',
+] as const;
+export type ProfileContentRemovalReason =
+  (typeof profileContentRemovalReasons)[number];
+
+/** The most photos in review one listing names, oldest first. */
+export const PROFILE_PHOTO_REVIEWS_MAX = 100;
+
+/** A photo waiting for an operator because its automated check was unsure. */
+export const profilePhotoReviewsSchema = z.strictObject({
+  items: z
+    .array(
+      z.strictObject({
+        photoId: idSchema,
+        username: z.string(),
+        checkVerdict: z.enum(['review']).nullable(),
+        uploadedAt: instant,
+        version: z.int().positive(),
+      }),
+    )
+    .max(PROFILE_PHOTO_REVIEWS_MAX),
+});
+export type ProfilePhotoReviews = z.infer<typeof profilePhotoReviewsSchema>;
+
+/** The operator's view of a photo: its 512px rendition, base64 WebP. */
+export const operatorProfilePhotoSchema = z.strictObject({
+  photoId: idSchema,
+  status: z.enum(profilePhotoStatuses),
+  version: z.int().positive(),
+  imageWebpBase64: z.string().max(1_000_000),
+});
+export type OperatorProfilePhoto = z.infer<typeof operatorProfilePhotoSchema>;
+
 /** The Recording's version the operator read: a changed one is refused. */
 const recordingVersion = z.int().positive();
 
@@ -265,6 +344,25 @@ export const contentModerationCommands = {
     expectedVersion: recordingVersion,
   }),
   'chat_message.remove': z.strictObject({ ...commandFields }),
+  /** An in-review photo: publish it, or reject it and delete its image. */
+  'profile_photo.review': z.strictObject({
+    ...commandFields,
+    expectedVersion: z.int().positive(),
+    outcome: z.enum(['approve', 'reject']),
+  }),
+  /** A published photo comes down and its image is deleted. */
+  'profile_photo.remove': z.strictObject({
+    ...commandFields,
+    expectedVersion: z.int().positive(),
+    reason: z.enum(profileContentRemovalReasons),
+  }),
+  /** One field of a public profile is cleared. */
+  'profile_text.remove': z.strictObject({
+    ...commandFields,
+    expectedVersion: z.int().positive(),
+    field: z.enum(['display_name', 'bio']),
+    reason: z.enum(profileContentRemovalReasons),
+  }),
   'account.audience_ban.update': z.strictObject({
     ...commandFields,
     state: z.enum(['banned', 'lifted']),
@@ -299,6 +397,9 @@ export const contentModerationCommandStateSchema = z.strictObject({
     'recording.legal_remove',
     'recording.rebuild',
     'chat_message.remove',
+    'profile_photo.review',
+    'profile_photo.remove',
+    'profile_text.remove',
     'account.audience_ban.update',
   ] satisfies ContentModerationAction[]),
   result: contentModerationCommandResultSchema,
@@ -364,6 +465,31 @@ export const contentModerationOperatorRoutes = {
   removeChatMessage: {
     method: 'PUT',
     path: /^\/operator\/v1\/chat-messages\/([a-z0-9]{24})\/removal$/,
+    query: [],
+  },
+  listProfilePhotoReviews: {
+    method: 'GET',
+    path: /^\/operator\/v1\/profile-photos\/in-review$/,
+    query: [],
+  },
+  readProfilePhoto: {
+    method: 'GET',
+    path: /^\/operator\/v1\/profile-photos\/([a-z0-9]{24})$/,
+    query: [],
+  },
+  reviewProfilePhoto: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/profile-photos\/([a-z0-9]{24})\/review$/,
+    query: [],
+  },
+  removeProfilePhoto: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/profile-photos\/([a-z0-9]{24})\/removal$/,
+    query: [],
+  },
+  removeProfileText: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/profiles\/([a-z0-9]{24})\/text-removal$/,
     query: [],
   },
   setAudienceBan: {

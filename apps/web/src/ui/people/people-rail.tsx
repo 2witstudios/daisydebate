@@ -2,6 +2,8 @@
 
 import { useRef } from 'react';
 import { Avatar } from '../components/avatar/avatar';
+import { profilePhotoSrc } from '../profile/photo-src';
+import { publicNameLabel } from '../profile/public-name';
 import { statusLabels } from '../components/presence-dot/status-labels';
 import { Icon } from '../components/icon/icon';
 import { cn } from '../cn';
@@ -169,14 +171,15 @@ export function PeopleRail({
                   overlay.open(member.username, event.currentTarget)
                 }
                 aria-haspopup="dialog"
-                aria-label={`@${member.username}, ${statusLabels[member.status]}, ${ratingsLabel(member)}`}
+                aria-label={`${publicNameLabel(member)}, ${statusLabels[member.status]}, ${ratingsLabel(member)}`}
                 className={cn(
                   'flex size-nav-target items-center justify-center rounded-md hover:bg-surface-overlay',
                   overlay.menuName === member.username && 'bg-surface-overlay',
                 )}
               >
                 <Avatar
-                  name={member.username}
+                  name={member.displayName ?? member.username}
+                  src={profilePhotoSrc(member.photoId, 128)}
                   presence={member.status}
                   size="sm"
                   nameVisible

@@ -138,6 +138,7 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
       'observation_purges',
       'privacy_jobs',
       'billing_cleanup',
+      'profile_photo_deletions',
     ])
       testApp.app.logger.log(
         'worker.run.completed',

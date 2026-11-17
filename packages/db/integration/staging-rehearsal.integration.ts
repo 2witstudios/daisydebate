@@ -27,15 +27,16 @@ const scratch = scratchDatabase(databaseUrl, 'stagingrehearsal');
 afterAll(() => scratch.drop());
 
 // Every feature-only folder, including the wiring migration. The initial
-// database runs all main folders, including main history newer than Tab.
+// database runs every main folder; each sorts before the first Tab folder.
 const parentFolders = new Set([
-  '20261116175849_tab_schema',
-  '20261116175850_tab_schema_checks_validated',
-  '20261116175851_tab_seats',
-  '20261116175852_tab_seats_checks_validated',
-  '20261116175853_tab_casual_templates',
-  '20261116175854_tab_wiring',
-  '20261116175855_lethal_grey_gargoyle',
+  '20261117003138_tab_schema',
+  '20261117003139_tab_schema_checks_validated',
+  '20261117003140_tab_seats',
+  '20261117003141_tab_seats_checks_validated',
+  '20261117003142_tab_casual_templates',
+  '20261117003143_tab_wiring',
+  '20261117003144_lethal_grey_gargoyle',
+  '20261117054407_tab_finalization_assignment_cascade',
 ]);
 
 const oldRules = ({
@@ -389,6 +390,44 @@ test(
         },
         'user_id',
       );
+      // Main's public profile rows (ADR 0143) and a report of each profile
+      // kind, plus ballot feedback: Tab renames feedback_side and replaces its
+      // check after these exist.
+      const profile = createId();
+      const photo = createId();
+      await f.insert('member_profiles', {
+        actor_id: host,
+        id: profile,
+        display_name: 'Retained Host',
+        bio: 'A retained bio.',
+        display_name_changed_at: at,
+        bio_changed_at: at,
+      });
+      await f.insert('profile_photos', {
+        id: photo,
+        actor_id: host,
+        status: 'published',
+        check_verdict: 'allow',
+        object_prefix: `profile-photos/${photo}`,
+        decided_at: at,
+      });
+      const reporter = await f.user();
+      for (const [targetKind, targetId, feedbackSide, reason] of [
+        ['profile_display_name', profile, null, 'harassment'],
+        ['profile_bio', profile, null, 'hate'],
+        ['profile_photo', photo, null, 'sexual_content'],
+        ['ballot_feedback', round, 'affirmative', 'abusive_feedback'],
+      ] as const)
+        await f.insert('content_reports', {
+          id: createId(),
+          reporter_user_id: reporter,
+          target_kind: targetKind,
+          target_id: targetId,
+          feedback_side: feedbackSide,
+          reason,
+          queue: 'safety',
+          created_at: at,
+        });
       await sql`insert into room_active_memberships (actor_id, room_id)
         select actor_id, room_id from room_participants order by id limit 1`;
       const activeSeatsBefore =
@@ -403,6 +442,7 @@ test(
         'room_participants',
         'seasons',
         'room_active_memberships',
+        'content_reports',
       ];
       const unchanged: string[] = (
         await sql`select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r', 'p') order by relname`
@@ -433,6 +473,8 @@ test(
       const roundParticipantsBefore =
         await sql`select to_jsonb(p) - 'role' as row from round_participants p order by id`;
 
+      const reportsBefore =
+        await sql`select to_jsonb(c) - 'feedback_side' as row, feedback_side as subject from content_reports c order by id`;
       const seatsBefore =
         await sql`select id, role, slot from round_participants order by id`;
       const roundsBefore =
@@ -443,6 +485,13 @@ test(
         should: 'keep every unrelated row byte-identical',
         actual: await snapshot(sql, unchanged, columns),
         expected: before,
+      });
+      assert({
+        given: "main's profile and ballot feedback reports",
+        should: 'keep every report, its side now its feedback subject',
+        actual:
+          await sql`select to_jsonb(c) - 'feedback_subject' as row, feedback_subject as subject from content_reports c order by id`,
+        expected: reportsBefore,
       });
       assert({
         given: 'old side and judge seats',

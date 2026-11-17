@@ -54,6 +54,27 @@ export const readLimiterDecision = (decision: unknown) => {
 };
 
 /**
+ * A limiter's wait as a Retry-After header (RFC 9110 delay-seconds: plain
+ * digits). A hint is kept when it is a finite, non-negative number whose
+ * rounded-up whole seconds are a safe integer of at least `minimum`;
+ * otherwise `fallback` is used, held to the same rule, and with neither the
+ * header is omitted rather than advertising a made-up wait.
+ */
+export const retryAfterHeaders = (
+  retryAfterSeconds: unknown,
+  { minimum = 0, fallback }: { minimum?: number; fallback?: number } = {},
+): Record<string, string> => {
+  const usable = (value: unknown): number | null => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
+      return null;
+    const seconds = Math.ceil(value);
+    return Number.isSafeInteger(seconds) && seconds >= minimum ? seconds : null;
+  };
+  const seconds = usable(retryAfterSeconds) ?? usable(fallback);
+  return seconds === null ? {} : { 'Retry-After': String(seconds) };
+};
+
+/**
  * The single-bucket atomic-limit gate a route runs before its durable work:
  * consume one decision, fail closed with `INFRASTRUCTURE` on outage or a
  * malformed answer, and refuse with `RATE_LIMIT` when denied. Callers with

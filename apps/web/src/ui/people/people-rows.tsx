@@ -12,6 +12,8 @@ import { outgoingTo, PersonMenu } from './person-menu';
 import { useChallenges } from '../challenges/challenge-provider';
 import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
+import { profilePhotoSrc } from '../profile/photo-src';
+import { publicNameLabel } from '../profile/public-name';
 
 const LONG_PRESS_MS = 500;
 /** About the tallest the menu grows, so it never opens past the rail's foot. */
@@ -156,14 +158,15 @@ function PersonRow({
       )}
     >
       <Avatar
-        name={member.username}
+        name={member.displayName ?? member.username}
+        src={profilePhotoSrc(member.photoId, 128)}
         presence={member.status}
         size="sm"
         nameVisible
       />
       <Link
         href={href}
-        aria-label={`@${member.username}, ${detail}, ${ratingsLabel(member)}`}
+        aria-label={`${publicNameLabel(member)}, ${detail}, ${ratingsLabel(member)}`}
         onClick={(event) => {
           event.preventDefault();
           overlay.open(member.username, event.currentTarget);
@@ -176,10 +179,12 @@ function PersonRow({
             member.status === 'offline' ? 'text-ink-muted' : 'text-ink',
           )}
         >
-          @{member.username}
+          {member.displayName ?? `@${member.username}`}
         </span>
         <span className="truncate text-xs leading-tight text-ink-muted">
-          {detail}
+          {member.displayName === null
+            ? detail
+            : `@${member.username} · ${detail}`}
         </span>
       </Link>
       <Link

@@ -16,6 +16,7 @@ import type {
   RoundOutcome,
   SeatRef,
 } from '@daisy/protocol';
+import type { PublicProfileCard } from '@daisy/db';
 import { ratingLadders } from '@daisy/protocol';
 import type {
   PeopleListCursor,
@@ -74,6 +75,10 @@ export type PeopleListDependencies = {
   }>;
   /** Actors whose ratings a judge may not see before their ballot. */
   readonly blinded: (viewerActorId: string) => Promise<readonly string[]>;
+  /** Each actor's display name and published photo (ADR 0143), in one read. */
+  readonly profiles: (
+    actorIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, PublicProfileCard>>;
 };
 
 /** An opaque keyset position; a tampered one is a refusal, never a probe. */
@@ -158,10 +163,11 @@ export async function readPeopleList(
   );
   const rows = page.rows.slice(0, PEOPLE_PAGE);
   const ids = rows.map((row) => row.actorId);
-  const [activity, cards, blinded] = await Promise.all([
+  const [activity, cards, blinded, profiles] = await Promise.all([
     dependencies.activity([...ids, actorId]),
     dependencies.cards(ids),
     dependencies.blinded(actorId),
+    dependencies.profiles(ids),
   ]);
   const hidden = new Set(blinded);
   const people: Person[] = [];
@@ -181,8 +187,11 @@ export async function readPeopleList(
           rounds: group.rounds,
         })),
     );
+    const profile = profiles.get(row.actorId);
     people.push({
       username: row.username,
+      displayName: profile?.displayName ?? null,
+      photoId: profile?.photoId ?? null,
       status,
       relation: relationOf(row, actorId),
       ratings: ratingLadders.map((ladder) => {

@@ -6,6 +6,8 @@ setupRitewayBun();
 
 const person = (username: string, status: Person['status']): Person => ({
   username,
+  displayName: null,
+  photoId: null,
   status,
   relation: 'none',
   ratings: [

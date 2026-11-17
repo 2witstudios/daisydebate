@@ -26,8 +26,11 @@ export function MemberCardBody({ member }: { readonly member: Person }) {
     <>
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-ink">
-          @{member.username}
+          {member.displayName ?? `@${member.username}`}
         </p>
+        {member.displayName === null ? null : (
+          <p className="truncate text-xs text-ink-muted">@{member.username}</p>
+        )}
         <p className="text-xs text-ink-muted">
           {statusLabels[member.status]} · {member.wins}–{member.losses}
         </p>

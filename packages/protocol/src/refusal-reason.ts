@@ -2,6 +2,7 @@ import type { ConfirmationCommandRefusal } from './lobby/confirmation-command';
 import type { AttendanceRefusal } from './attendance';
 import type { BillingEconomicsRefusal } from './billing-economics';
 import type { CaptureRefusal } from './capture-refusal';
+import type { ProfilePhotoRefusal, ProfileTextRefusal } from './public-profile';
 import type { RoomRefusal } from './room-contract';
 import type { RoomInvitationRefusal } from './room-invitations';
 import type { RoundRefusal } from './round-command';
@@ -50,6 +51,8 @@ export type RefusalReason =
   | BillingEconomicsRefusal
   | TranscriptRefusal
   | CaptureRefusal
+  | ProfilePhotoRefusal
+  | ProfileTextRefusal
   | ReportRefusal
   | AudienceRefusal
   | RoomRefusal
