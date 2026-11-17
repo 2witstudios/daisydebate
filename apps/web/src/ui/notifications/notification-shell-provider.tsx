@@ -6,13 +6,13 @@ import {
   notificationShellSchema,
   type NotificationShell,
 } from '@daisy/protocol';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -182,19 +182,36 @@ export function NotificationShellProvider({
     void markRead(here).then(() => driver?.signal());
   }, [shell, path, driver]);
 
+  // Next sets the title on each navigation, after this renders: keep the
+  // count on it. Writing only a changed title cannot loop.
   useEffect(() => {
-    document.title = titleWith(document.title, shell.unread);
-  }, [shell.unread, path]);
+    const counted = () => {
+      const next = titleWith(document.title, shell.unread);
+      if (next !== document.title) document.title = next;
+    };
+    counted();
+    const title = document.querySelector('title');
+    if (!title) return;
+    const observer = new MutationObserver(counted);
+    observer.observe(title, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [shell.unread]);
 
   const dismiss = useCallback(
     (id: string) => setToasts((shown) => shown.filter((row) => row.id !== id)),
     [],
   );
-  const visible = toasts.slice(0, TOASTS_SHOWN);
-  const more = toasts.length - visible.length;
-  const value = useMemo(() => shell, [shell]);
+  // A toast whose row was read elsewhere (another tab) is no longer news.
+  const unread = new Set(shell.recent.map((row) => row.id));
+  const live = toasts.filter((row) => unread.has(row.id));
+  const visible = live.slice(0, TOASTS_SHOWN);
+  const more = live.length - visible.length;
   return (
-    <ShellContext.Provider value={value}>
+    <ShellContext.Provider value={shell}>
       {children}
       <section
         aria-label="New notifications"
@@ -214,12 +231,12 @@ export function NotificationShellProvider({
               <strong className="font-semibold">{more} more</strong> in your
               inbox
             </span>
-            <a
+            <Link
               href="/notifications"
               className="inline-flex min-h-toast-target items-center px-3 font-semibold"
             >
               Open inbox
-            </a>
+            </Link>
           </p>
         ) : null}
       </section>
