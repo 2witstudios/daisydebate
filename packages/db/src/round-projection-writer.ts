@@ -1,6 +1,7 @@
 import { freezeRoundFinalization } from './round-finalization-writer';
 import {
   isRoundOver,
+  isRoundCompleted,
   roundBegan,
   attendanceTimingPolicy,
   TRANSCRIPT_ADMISSION_WINDOW_MS,
@@ -121,7 +122,7 @@ export async function writeProjectionWithPhaseSignal(
   if (endsRound(current, projection)) {
     await refundUnservedPracticeLocked(tx, roundId);
     await settleCasualJudgeUsageLocked(tx, roundId);
-    if (projection.round?.status === 'completed')
+    if (projection.round && isRoundCompleted(projection.round.status))
       await releaseFinalizedDecision(tx, { roundId, at: now });
   }
   // An opening that ends starts the debate's clock (ADR 0144).
