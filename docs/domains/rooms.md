@@ -113,8 +113,13 @@ Room says which side team 1 argues, or `?` for a coin flip. A debater may set
 their own team and position to `?` as well. Start round resolves every `?` in
 one public draw, frozen on the Round as its seat draw and shown first in the
 opening. Ranked Rooms always flip; a Tab cast and teams of different sizes keep
-fixed sides. Consent
-lives in expiring Redis behind a durable revision fence.
+fixed sides. Teams exist only in a format that seats the two-sided preset's
+sides and no unsided speakers (TAB-6.2): a team's placement is its side seat,
+and any other format's seats are its sides, with no `?` and no coin. A Tab
+event Room (no host person) takes its sides from the published draw: it is
+created with fixed sides, the engine refuses `set-seat` and `set-sides` there,
+and its roster says the organiser seated it and offers no seat changes.
+Consent lives in expiring Redis behind a durable revision fence.
 
 A host can also **invite** a member by username, as a debater (either side) or
 as the judge (ADR 0124). The invitation holds a seat of that kind for them, so
