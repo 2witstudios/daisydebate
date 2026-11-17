@@ -150,3 +150,63 @@ export const draftedPreview = (
     return unfinished;
   }
 };
+
+/**
+ * The editor's two pending choices, kept apart so neither discards the
+ * other: the version picked for the event and the publish form's draft. The
+ * preview shows the one touched last while it draws something other than the
+ * saved ballot, else the other.
+ */
+export type BallotPreviewChoices = {
+  readonly picked: BallotPreviewSource;
+  readonly drafted: BallotPreviewSource;
+  readonly latest: 'picked' | 'drafted';
+};
+
+export const unchangedChoices: BallotPreviewChoices = {
+  picked: savedPreview,
+  drafted: savedPreview,
+  latest: 'picked',
+};
+
+/** The source the preview draws for the editor's choices. */
+export const shownSource = ({
+  picked,
+  drafted,
+  latest,
+}: BallotPreviewChoices): BallotPreviewSource => {
+  const [first, second] =
+    latest === 'picked' ? [picked, drafted] : [drafted, picked];
+  return drawsSaved(first) && !drawsSaved(second) ? second : first;
+};
+
+/** Whether a source draws the saved ballot (a draft never yet complete does). */
+const drawsSaved = (source: BallotPreviewSource): boolean =>
+  source.kind === 'saved' ||
+  (source.kind === 'unfinished-draft' && source.lastComplete === null);
+
+/**
+ * The choices once a settings form reads `form`: the picker's form by the
+ * version it would post (a replay's hidden field while a retry is pending),
+ * the publish form by its draft.
+ */
+export const readChoice = (
+  view: EventBallotAuthoringView,
+  choices: BallotPreviewChoices,
+  which: 'picked' | 'drafted',
+  form: FormData,
+): BallotPreviewChoices => {
+  if (which === 'picked') {
+    const value = form.get('ballot-version');
+    return {
+      ...choices,
+      latest: which,
+      picked: pickedPreview(view, typeof value === 'string' ? value : ''),
+    };
+  }
+  return {
+    ...choices,
+    latest: which,
+    drafted: draftedPreview(view, form, choices.drafted),
+  };
+};

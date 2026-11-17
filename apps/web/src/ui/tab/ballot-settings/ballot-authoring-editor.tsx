@@ -2,20 +2,14 @@
 import { authoringControlClass as control } from './ballot-authoring-fields';
 import { BallotDefinitionSummary } from './ballot-definition-summary';
 import { BallotDefinitionFields } from './ballot-definition-fields';
-import {
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type SyntheticEvent,
-} from 'react';
+import { useEffect, useId, useRef, useState, type SyntheticEvent } from 'react';
 import { sampleBallotPreview } from '../../../features/tab/ballot-definition';
 import {
-  draftedPreview,
-  pickedPreview,
   previewDefinition,
   previewStatus,
-  savedPreview,
+  readChoice,
+  shownSource,
+  unchangedChoices,
 } from '../../../features/tab/ballot-preview-source';
 import { BallotPreview, BallotPreviewLayout } from './ballot-preview';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
@@ -61,24 +55,29 @@ export function BallotAuthoringEditor({
   readonly saved: string | null;
 }) {
   const id = useId();
-  const [source, setSource] = useState(savedPreview);
+  const [choices, setChoices] = useState(unchangedChoices);
   // A change can reveal or remove fields (a decision kind's toggles, a score
-  // scale, a criterion), which mount only once it renders. So an edit, or a
-  // reset after a refused publish, marks the form, and the form is read after
-  // that render commits.
-  const edited = useRef<HTMLFormElement | null>(null);
+  // scale, a criterion), which mount only once it renders, and a reset after
+  // a post leaves the form only once it has run. So an edit or a reset marks
+  // its form, and the form is read after that render commits.
+  const edited = useRef<{
+    readonly which: 'picked' | 'drafted';
+    readonly form: HTMLFormElement;
+  } | null>(null);
   const [edits, setEdits] = useState(0);
-  const markEdited = (form: HTMLFormElement | null) => {
+  const markEdited = (which: 'picked' | 'drafted', event: SyntheticEvent) => {
+    const form = formOf(event);
     if (!form) return;
-    edited.current = form;
+    edited.current = { which, form };
     setEdits((count) => count + 1);
   };
-  useLayoutEffect(() => {
-    const form = edited.current;
-    if (edits === 0 || !form) return;
-    const values = new FormData(form);
-    setSource((previous) => draftedPreview(view, values, previous));
+  useEffect(() => {
+    const mark = edited.current;
+    if (edits === 0 || !mark) return;
+    const values = new FormData(mark.form);
+    setChoices((previous) => readChoice(view, previous, mark.which, values));
   }, [edits, view]);
+  const source = shownSource(choices);
   return (
     <div className="flex flex-col gap-6">
       <header>
@@ -118,14 +117,10 @@ export function BallotAuthoringEditor({
         ) : null}
         <section
           className={section}
-          // A refused pin resets the picker to the saved version.
-          onReset={() =>
-            setSource((previous) =>
-              previous.kind === 'version' || previous.kind === 'daisy-unshown'
-                ? savedPreview
-                : previous,
-            )
-          }
+          onChange={(event) => markEdited('picked', event)}
+          // A post resets the picker: to the saved version once refused, or
+          // to the version a retry would post once unacknowledged.
+          onReset={(event) => markEdited('picked', event)}
         >
           <h2 className="font-display text-xl font-bold">
             Ballot for this event
@@ -140,9 +135,6 @@ export function BallotAuthoringEditor({
                 <select
                   id={`${id}-pin`}
                   name="ballot-version"
-                  onChange={(event) =>
-                    setSource(pickedPreview(view, event.target.value))
-                  }
                   className={control}
                   defaultValue={
                     view.definition?.source.kind === 'stored'
@@ -181,11 +173,11 @@ export function BallotAuthoringEditor({
         {view.capabilities.publish ? (
           <section
             className={section}
-            onChange={(event) => markEdited(formOf(event))}
-            onReset={(event) => markEdited(formOf(event))}
+            onChange={(event) => markEdited('drafted', event)}
+            onReset={(event) => markEdited('drafted', event)}
             onClick={(event) => {
               // Adding or removing a criterion is a click, not a change.
-              if (fromFieldButton(event)) markEdited(formOf(event));
+              if (fromFieldButton(event)) markEdited('drafted', event);
             }}
           >
             <h2 className="font-display text-xl font-bold">

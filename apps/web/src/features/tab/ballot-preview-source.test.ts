@@ -5,7 +5,10 @@ import {
   pickedPreview,
   previewDefinition,
   previewStatus,
+  readChoice,
   savedPreview,
+  shownSource,
+  unchangedChoices,
 } from './ballot-preview-source';
 import {
   authoringView,
@@ -187,6 +190,68 @@ describe('ballot preview source', () => {
       should: 'show the saved setting, not a pending change',
       actual: pickedPreview(view, 'daisy'),
       expected: savedPreview,
+    });
+  });
+});
+
+describe("the editor's two choices", () => {
+  const view = authoringView();
+  const shown = (choices: Parameters<typeof shownSource>[0]) =>
+    previewStatus(view, shownSource(choices));
+  const pick = (choices: Parameters<typeof shownSource>[0], value: string) =>
+    readChoice(
+      view,
+      choices,
+      'picked',
+      publishForm({ 'ballot-version': value }),
+    );
+  const draft = (
+    choices: Parameters<typeof shownSource>[0],
+    fields: Readonly<Record<string, string>>,
+  ) => readChoice(view, choices, 'drafted', publishForm(fields));
+
+  test('a draft kept while the picker returns to the saved version', () => {
+    const drafted = draft(unchangedChoices, completeDraft);
+    const repicked = pick(drafted, `${leagueDefinitionId}@2`);
+    assert({
+      given: 'a complete draft, then the picker set back to the saved version',
+      should: 'keep drawing the draft',
+      actual: shown(repicked),
+      expected:
+        'An unpublished draft. Judges get it only once it is published and selected.',
+    });
+  });
+
+  test('a picked version kept while a draft has never been complete', () => {
+    const picked = pick(unchangedChoices, `${leagueDefinitionId}@3`);
+    const unfinished = draft(picked, { ...completeDraft, 'score-max': '' });
+    const finished = draft(unfinished, completeDraft);
+    assert({
+      given:
+        'version 3 picked, then an unfinished draft, then the draft completed',
+      should: 'keep drawing version 3, then draw the draft',
+      actual: [shown(unfinished), shown(finished)],
+      expected: [
+        "League ballot, version 3: not yet this event's ballot.",
+        'An unpublished draft. Judges get it only once it is published and selected.',
+      ],
+    });
+  });
+
+  test('a pin awaiting retry', () => {
+    const picked = pick(unchangedChoices, `${leagueDefinitionId}@3`);
+    const reset = pick(picked, `${leagueDefinitionId}@3`);
+    const refused = pick(picked, `${leagueDefinitionId}@2`);
+    assert({
+      given:
+        "the pin form reset with a retry's hidden version 3, and reset to the saved version 2",
+      should:
+        'draw version 3 for the retry, and the saved ballot after a refusal',
+      actual: [shown(reset), shown(refused)],
+      expected: [
+        "League ballot, version 3: not yet this event's ballot.",
+        'The saved ballot, version 2. Changes you make here show before you save.',
+      ],
     });
   });
 });

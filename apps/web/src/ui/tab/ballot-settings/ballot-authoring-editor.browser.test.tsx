@@ -175,6 +175,7 @@ test('the preview follows a removed criterion', async () => {
     act,
     createElement,
     root,
+    container,
     EditorHarness,
     authoringView,
     leagueDefinitionId,
@@ -185,6 +186,10 @@ test('the preview follows a removed criterion', async () => {
   const criteria = () => ({
     reasoning: preview().textContent.includes('Reasoning'),
     delivery: preview().textContent.includes('Delivery'),
+    // What a server-rendered field shows until it is typed in.
+    firstSeed: container
+      .querySelector('input[name="group-0-criterion-0-name"]')
+      ?.getAttribute('value'),
   });
   try {
     await act(async () =>
@@ -220,11 +225,12 @@ test('the preview follows a removed criterion', async () => {
     assert({
       given:
         'a saved ballot scored on Reasoning and Delivery, its first criterion removed in the publish form',
-      should: 'draw both criteria, then only Delivery',
+      should:
+        'draw both criteria, then only Delivery, its row still seeded with Delivery',
       actual: { saved, removed },
       expected: {
-        saved: { reasoning: true, delivery: true },
-        removed: { reasoning: false, delivery: true },
+        saved: { reasoning: true, delivery: true, firstSeed: 'Reasoning' },
+        removed: { reasoning: false, delivery: true, firstSeed: 'Delivery' },
       },
     });
   } finally {
@@ -262,6 +268,11 @@ test('a reset form takes the preview back with it', async () => {
       `${leagueDefinitionId}@3`,
       'change',
     );
+    // The server renders the saved option `selected`, which a reset restores
+    // (happy-dom ignores the defaultSelected a client render sets instead).
+    container
+      .querySelector(`option[value="${leagueDefinitionId}@2"]`)!
+      .setAttribute('selected', '');
     await reset('select[name="ballot-version"]');
     const pinReset = read();
     await enter('input[name="score-max"]', '40', 'input');

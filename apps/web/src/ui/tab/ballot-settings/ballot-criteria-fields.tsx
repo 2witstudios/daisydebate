@@ -72,8 +72,10 @@ export function BallotCriteriaFields({
                 value={group.categories.length}
               />
               {group.categories.map((categoryKey, categoryIndex) => {
+                // Seeded by the row's own keys, never its position: a removed
+                // row before it must not hand it another criterion's values.
                 const category =
-                  initialGroups[groupIndex]?.categories[categoryIndex];
+                  initialGroups[group.key]?.categories[categoryKey];
                 const prefix = `group-${groupIndex}-criterion-${categoryIndex}`;
                 return (
                   <fieldset

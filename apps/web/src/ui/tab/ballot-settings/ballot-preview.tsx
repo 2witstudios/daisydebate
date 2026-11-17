@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import {
   previewDraftOn,
   type BallotDefinition,
@@ -10,6 +10,24 @@ import { ConfiguredBallot } from '../ballot/configured-ballot';
 
 /** Who reads a previewed reason for decision. */
 const previewReasonReaders = 'Both debaters and their coaches read this.';
+
+/**
+ * What the drawn ballot's fields depend on: a change here must seed them
+ * afresh, while a criterion's wording only relabels them.
+ */
+const fieldsKey = (definition: BallotDefinition): string =>
+  JSON.stringify({
+    ...definition,
+    points: definition.points && {
+      ...definition.points,
+      criteria:
+        definition.points.criteria.kind === 'grid'
+          ? definition.points.criteria.groups.map((group) =>
+              group.categories.map((category) => category.id),
+            )
+          : 'holistic',
+    },
+  });
 
 /**
  * A ballot settings page: the judge's ballot as the main column and the
@@ -51,6 +69,10 @@ export function BallotPreview({
   readonly preview: BallotSettings['preview'];
   readonly status?: ReactNode;
 }) {
+  const draft = useMemo(
+    () => definition && previewDraftOn(definition, preview.draft),
+    [definition, preview.draft],
+  );
   return (
     <section
       aria-label="Preview of the judge's ballot"
@@ -65,12 +87,12 @@ export function BallotPreview({
           </p>
         ) : null}
       </div>
-      {definition ? (
+      {definition && draft ? (
         <ConfiguredBallot
-          key={JSON.stringify(definition)}
+          key={fieldsKey(definition)}
           definition={definition}
           subjects={preview.subjects}
-          draft={previewDraftOn(definition, preview.draft)}
+          draft={draft}
           reasonReaders={previewReasonReaders}
           preview
         />
