@@ -58,7 +58,7 @@ const sideMarkOf = (
 /**
  * An event Room (no host person; a Tab draw seated it) takes its teams,
  * sides and positions from the draw, never from the roster: nobody's row
- * opens there, and the organiser reseats through the Room controls.
+ * opens there. The organiser changes a fixture from the host round page.
  */
 export const isEventRoom = (view: Pick<RoomView, 'hostActorId'>) =>
   view.hostActorId === null;

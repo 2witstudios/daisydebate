@@ -39,6 +39,7 @@ const parentFolders = new Set([
   '20261117122355_tab_finalization_assignment_cascade',
   '20261117122356_tab_room_seat_teams',
   '20261117134249_tab_notifications',
+  '20261117134250_tab_seat_and_notification_checks_validated',
 ]);
 
 const oldRules = ({

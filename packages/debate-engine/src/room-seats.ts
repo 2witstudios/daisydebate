@@ -141,6 +141,8 @@ export const setSides = (
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
+  // A Room with no two teams has no sides to set: its seats are its sides.
+  if (!seatsTwoTeams(room.rules)) return refuse('illegal-config');
   if (isEventRoom(room)) return refuse('host-required');
   const seated = room.participants.find((p) => p.actorId === actorId);
   if (room.hostActorId !== actorId && (!seated || !isDebater(seated)))

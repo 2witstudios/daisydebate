@@ -35,8 +35,8 @@ export function fixtureRestartRoom(
       // A restarted event Room keeps the draw's sides (ADR 0145).
       teamOneSide: createdSides({
         competitionType: room.competitionType,
-        sides: 'fixed',
-        castNamesDebater: true,
+        sides: undefined,
+        castNamesDebater: false,
         seating: room.rulesSnapshot,
         eventRoom: true,
       }),

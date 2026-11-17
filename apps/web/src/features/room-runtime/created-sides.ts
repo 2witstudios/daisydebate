@@ -19,8 +19,10 @@ export const createdSides = (input: {
   readonly seating: FormatSeating;
   readonly eventRoom?: boolean;
 }): typeof affirmativeSide | null => {
+  // A Tab event Room's draw already gave each team its side: always fixed.
+  if (input.eventRoom) return affirmativeSide;
   if (input.competitionType === 'ranked') return null;
-  if (input.eventRoom || !sidesSwappable(input.seating)) return affirmativeSide;
+  if (!sidesSwappable(input.seating)) return affirmativeSide;
   const sides = input.sides ?? (input.castNamesDebater ? 'fixed' : 'open');
   return sides === 'fixed' ? affirmativeSide : null;
 };

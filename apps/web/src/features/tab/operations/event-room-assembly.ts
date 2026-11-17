@@ -78,8 +78,8 @@ export const eventRoomAssemblies = (
           // An event Room takes its sides from the draw, never a coin (ADR 0145).
           teamOneSide: createdSides({
             competitionType: 'casual',
-            sides: 'fixed',
-            castNamesDebater: true,
+            sides: undefined,
+            castNamesDebater: false,
             seating: pins.rules,
             eventRoom: true,
           }),

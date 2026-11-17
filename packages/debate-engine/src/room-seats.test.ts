@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
-import { sideSeat } from '@daisy/protocol';
+import { affirmativeSide, fourTeams, sideSeat } from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { resolveSeats } from './room-seats';
@@ -401,6 +401,72 @@ describe('an event Room (ADR 0145, Tab)', () => {
         { ok: false, refusal: 'host-required' },
         { ok: false, refusal: 'host-required' },
       ],
+    });
+  });
+});
+
+describe('a Room with no two teams (TAB-6.2)', () => {
+  // Four one-seat benches: every seat is its side, so nothing is `?`.
+  const benches = fourTeams.map((side) => side.key);
+  const fourSides = (): RoomAssemblyState => {
+    const room = state();
+    return {
+      ...room,
+      teamOneSide: affirmativeSide,
+      rules: {
+        ...room.rules,
+        sides: fourTeams,
+        seats: {
+          ...room.rules.seats,
+          sides: Object.fromEntries(benches.map((key) => [key, 1])),
+          judges: 0,
+        },
+      },
+      participants: benches.map((key, i) => ({
+        ...debater(`b${i}`, 'affirmative', 0),
+        actorId: i === 0 ? 'host' : `actor-b${i}`,
+        seat: sideSeat(key),
+      })),
+    };
+  };
+
+  test('moving a seat and setting sides', () => {
+    const room = fourSides();
+    const own = room.participants[0]!;
+    assert({
+      given:
+        'a four-bench Room and its host moving their own seat, then setting the sides',
+      should: 'refuse both: the format has no teams and no coin',
+      actual: [
+        run(room, 'host', {
+          type: 'set-seat',
+          participantId: own.id,
+          team: null,
+          position: null,
+        }),
+        run(room, 'host', { type: 'set-sides', teamOneSide: 'affirmative' }),
+      ],
+      expected: [
+        { ok: false, refusal: 'illegal-config' },
+        { ok: false, refusal: 'illegal-config' },
+      ],
+    });
+  });
+
+  test('Start round', () => {
+    const room = fourSides();
+    const resolved = resolveSeats(room, { seed: seed(5), roundId: 'r1' });
+    assert({
+      given: 'a four-bench Room at Start round',
+      should: 'keep every seat as it is and freeze no seat draw',
+      actual: {
+        seats: resolved.participants.map(at),
+        seatDraw: resolved.seatDraw,
+      },
+      expected: {
+        seats: room.participants.map(at),
+        seatDraw: null,
+      },
     });
   });
 });

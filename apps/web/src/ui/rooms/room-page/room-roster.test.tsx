@@ -492,6 +492,88 @@ describe('RoomRoster in any format (TAB-6)', () => {
   });
 });
 
+describe('RoomRoster with no two teams (TAB-6.2)', () => {
+  const benches = [
+    { key: 'opening_government', label: 'Opening Government', short: 'OG' },
+    { key: 'opening_opposition', label: 'Opening Opposition', short: 'OO' },
+    { key: 'closing_government', label: 'Closing Government', short: 'CG' },
+    { key: 'closing_opposition', label: 'Closing Opposition', short: 'CO' },
+  ];
+  const benchSeats = {
+    sides: Object.fromEntries(benches.map((side) => [side.key, 1])),
+    speakers: 0,
+    judges: 0,
+    moderators: 0 as const,
+  };
+
+  test('seated benches', () => {
+    const html = render({
+      ...assemblySnapshot,
+      hostActorId: viewer.actorId,
+      teamOneSide: 'affirmative',
+      definition: {
+        ...assemblySnapshot.definition,
+        sides: benches,
+        seats: benchSeats,
+      },
+      rules: { ...assemblySnapshot.rules, sides: benches, seats: benchSeats },
+      participants: benches.map((side, i) => ({
+        ...seated(String.fromCharCode(118 + i), 'affirmative', 0),
+        seat: { kind: 'side' as const, side: side.key, slot: 0 },
+      })),
+    });
+    assert({
+      given: 'four benches, each seated, seen by the host on their own bench',
+      should: 'show no Team, Side or Position box: every seat is its side',
+      actual: [
+        html.includes('&#x27;s team:'),
+        html.includes('&#x27;s side:'),
+        html.includes('&#x27;s position:'),
+        formOf(html, 'sides'),
+      ],
+      expected: [false, false, false, null],
+    });
+  });
+
+  test('a speaker seat kept for an invitation', () => {
+    const speakers = {
+      sides: {},
+      speakers: 3,
+      judges: 0,
+      moderators: 0 as const,
+    };
+    const html = render({
+      ...assemblySnapshot,
+      definition: {
+        ...assemblySnapshot.definition,
+        sides: [],
+        seats: speakers,
+      },
+      rules: { ...assemblySnapshot.rules, sides: [], seats: speakers },
+      participants: [],
+      invitations: [
+        {
+          id: 'i'.repeat(24),
+          seat: 'speaker',
+          invitee: 'ana',
+          inviter: 'Host',
+          expiresAt: '2026-11-16T12:00:00.000Z',
+        },
+      ],
+    });
+    assert({
+      given: 'a speakers-only Room with a pending speaker invitation',
+      should:
+        'name the invitee on the first open speaker seat, for the host to release',
+      actual: [
+        (html.match(/Invited: ana/g) ?? []).length,
+        html.includes('>Release<'),
+      ],
+      expected: [1, true],
+    });
+  });
+});
+
 describe('RoomRoster in an event Room (ADR 0145, Tab)', () => {
   // A published event Room: the organiser seated it from the draw and
   // nobody hosts it; its sides are fixed as drawn.

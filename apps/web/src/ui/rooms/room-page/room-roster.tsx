@@ -10,6 +10,7 @@ import {
   negativeSide,
   sameSeat,
   seatKey,
+  seatKinds,
   type RoomCastChoice,
   type RoomView,
   type SeatRef,
@@ -540,7 +541,8 @@ function invitationsBySeat(view: RoomView, seats: readonly Seat[]) {
     (seat) => !view.participants.some((p) => sameSeat(p.seat, seat)),
   );
   const kept = new Map<string, RoomView['invitations'][number]>();
-  for (const kind of ['side', 'judge'] as const) {
+  // Every kind an invitation may hold: a side's seat, a speaker's, a judge's.
+  for (const kind of seatKinds) {
     const pending = view.invitations.filter((i) => i.seat === kind);
     open
       .filter((seat) => seat.kind === kind)

@@ -55,12 +55,13 @@ test('a new Room’s sides (ADR 0145)', () => {
 test('an event Room’s sides (ADR 0145, Tab)', () => {
   assert({
     given:
-      'a Tab event Room asking for nothing and for open sides, and a casual Room whose format seats four teams',
+      'a Tab event Room asking for nothing, for open sides and stored as ranked, and a casual Room whose format seats four teams',
     should:
       'fix the event Room’s sides as its draw seated them, and fix a Room with no two teams',
     actual: [
       createdSides({ ...casual, eventRoom: true }),
       createdSides({ ...casual, eventRoom: true, sides: 'open' }),
+      createdSides({ ...casual, eventRoom: true, competitionType: 'ranked' }),
       createdSides({
         ...casual,
         sides: 'open',
@@ -75,6 +76,6 @@ test('an event Room’s sides (ADR 0145, Tab)', () => {
         },
       }),
     ],
-    expected: ['affirmative', 'affirmative', 'affirmative'],
+    expected: ['affirmative', 'affirmative', 'affirmative', 'affirmative'],
   });
 });
