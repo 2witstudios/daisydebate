@@ -33,6 +33,8 @@ type View = Pick<
   | 'captureNotice'
   | 'capture'
   | 'postRoundCall'
+  | 'teamOneSide'
+  | 'status'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly capabilities: Pick<

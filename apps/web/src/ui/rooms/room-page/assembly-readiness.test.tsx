@@ -17,6 +17,8 @@ const base = {
   capture: null,
   resolutionDraw: null,
   botAdmission: null,
+  teamOneSide: 'affirmative' as const,
+  status: 'assembling' as const,
   version: 7,
   participants: [
     {

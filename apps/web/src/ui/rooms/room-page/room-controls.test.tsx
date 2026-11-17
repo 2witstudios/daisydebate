@@ -12,7 +12,6 @@ const render = (view: RoomView) =>
     <RoomControls
       view={view}
       commandIds={{ visibility: 'visibility-id', capture: 'capture-id' }}
-      detailsAction={async () => idle()}
       commandAction={async () => idle()}
     />,
   );
@@ -45,7 +44,7 @@ test('who can join', () => {
   assert({
     given: 'the host of an unlisted Room with a fixed topic',
     should:
-      'offer public then unlisted, never private, posting the saved name and topic unchanged (ISSUE-443)',
+      'offer public then unlisted, never private, posting who can join alone (ISSUE-443, D9)',
     actual: {
       options: [...(form ?? '').matchAll(/<option value="(\w+)"/g)].map(
         ([, value]) => value,
@@ -54,11 +53,7 @@ test('who can join', () => {
     },
     expected: {
       options: ['public', 'unlisted'],
-      fields: [
-        'type=update-details',
-        `title=${assemblySnapshot.title}`,
-        'topic=Saved topic',
-      ],
+      fields: ['type=set-visibility'],
     },
   });
 });

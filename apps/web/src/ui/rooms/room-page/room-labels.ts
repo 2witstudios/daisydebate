@@ -1,4 +1,11 @@
-import { isNamedSeat, type RoomRefusal, type RoomView } from '@daisy/protocol';
+import {
+  isNamedSeat,
+  isOpenRoomStatus,
+  sideOfTeam,
+  teamOfPlacement,
+  type RoomRefusal,
+  type RoomView,
+} from '@daisy/protocol';
 import {
   strikeSummary,
   roundLength,
@@ -9,18 +16,41 @@ import {
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { roomVisibilityLabels } from '../../../features/rooms/room-visibility';
 import { declaredSeats, seatLabel } from './assembly-controls';
+import { ordinalOf, showsTeams } from './roster-seat';
 
 type Role = RoomView['participants'][number]['role'];
 type Participant = RoomView['participants'][number];
 
-/** "Judge" when the role has one seat, "Negative 2" when it has several. */
-function seatName(
-  seats: RoomView['definition']['seats'],
+/** What a Room seat label needs to know (ADR 0143). */
+export type SeatNaming = Pick<RoomView, 'teamOneSide' | 'status'> & {
+  readonly definition: Pick<RoomView['definition'], 'seats'>;
+};
+
+/**
+ * A Room seat's name. Before Start a debater seat's role is its team's
+ * placement, not its side (ADR 0143): it is named by its side once the sides
+ * are fixed, and by its team (and position, when a team seats several) while
+ * they are open. A judge seat, and every seat after Start, is named as is.
+ * `single` drops the "1" from a role that seats one: "Judge", "Negative".
+ */
+export function roomSeatLabel(
+  view: SeatNaming,
   role: Role,
   slot: number,
+  single = false,
 ): string {
-  const label = seatLabel(role, slot);
-  return seats[role] === 1 ? label.replace(/ 1$/, '') : label;
+  const seats = view.definition.seats;
+  const named = (side: Role) => {
+    const label = seatLabel(side, slot);
+    return single && seats[role] === 1 ? label.replace(/ 1$/, '') : label;
+  };
+  if (role === 'judge' || !isOpenRoomStatus(view.status)) return named(role);
+  const team = teamOfPlacement(role);
+  if (view.teamOneSide !== null)
+    return named(sideOfTeam(team, view.teamOneSide));
+  return showsTeams(seats)
+    ? `Team ${team} · ${ordinalOf(slot)}`
+    : `Team ${team}`;
 }
 
 /**
@@ -29,14 +59,14 @@ function seatName(
  * anonymous judge (DEC-174) read the same.
  */
 export function chatAuthorSeat(
-  view: Pick<RoomView, 'participants' | 'hostActorId'>,
+  view: Pick<RoomView, 'participants' | 'hostActorId'> & SeatNaming,
   actorId: string,
 ): string | null {
   const seat = view.participants
     .filter(isNamedSeat)
     .find((member) => member.actorId === actorId);
   const parts = [
-    ...(seat ? [seatLabel(seat.role, seat.slot)] : []),
+    ...(seat ? [roomSeatLabel(view, seat.role, seat.slot)] : []),
     ...(view.hostActorId === actorId ? ['host'] : []),
   ];
   return parts.length > 0 ? parts.join(' · ') : null;
@@ -44,16 +74,14 @@ export function chatAuthorSeat(
 
 /** Who and what Launch still waits on, in seat order; empty once nothing does. */
 export function waitingOn(
-  view: Pick<RoomView, 'participants'> & {
-    readonly definition: Pick<RoomView['definition'], 'seats'>;
-  },
+  view: Pick<RoomView, 'participants'> & SeatNaming,
   actorId: string,
 ): readonly string[] {
   return declaredSeats(view.definition.seats).flatMap(({ role, slot }) => {
     const occupant = view.participants.find(
       (seat) => seat.role === role && seat.slot === slot,
     );
-    if (!occupant) return [seatName(view.definition.seats, role, slot)];
+    if (!occupant) return [roomSeatLabel(view, role, slot, true)];
     if (!occupant.needsReady || occupant.ready === 'ready') return [];
     if (!isNamedSeat(occupant)) return ['Judge'];
     return [occupant.actorId === actorId ? 'You' : occupant.label];

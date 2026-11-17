@@ -230,6 +230,12 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('set-sides'),
     teamOneSide: debateSideSchema.nullable(),
   }),
+  /** Who can join, alone, from the page's Room controls (ADR 0143, D9). */
+  z.strictObject({
+    ...envelope,
+    type: z.literal('set-visibility'),
+    visibility: roomVisibilitySchema,
+  }),
   z.strictObject({
     ...envelope,
     type: z.literal('remove-seat'),

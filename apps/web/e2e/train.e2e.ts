@@ -11,6 +11,7 @@ import {
   createFromPlay,
   deniedCommand,
   reread,
+  rosterSeatName,
   submitCreateRoom,
 } from './support/room-launch-flow';
 
@@ -167,7 +168,9 @@ for (const javaScriptEnabled of [true, false]) {
       );
       // Each open seat's row carries the host's own Seat picker.
       const picker = (seat: string) =>
-        host.getByLabel(`Seat someone in ${seat}`, { exact: true });
+        host.getByLabel(`Seat someone in ${rosterSeatName(view, seat)}`, {
+          exact: true,
+        });
       const row = (name: string) =>
         host.getByRole('listitem', { name, exact: true });
       await expect(picker('Negative 1')).toHaveValue('');
@@ -189,7 +192,7 @@ for (const javaScriptEnabled of [true, false]) {
         await row(label)
           .getByRole('button', { name: `Remove ${label}`, exact: true })
           .click();
-        await expect(row(seat)).toBeVisible();
+        await expect(row(rosterSeatName(view, seat))).toBeVisible();
         await expect(async () => {
           view = await reread(host.request, view.id);
           expect(

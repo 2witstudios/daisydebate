@@ -164,6 +164,18 @@ export const updateDetails = (
   );
 };
 
+/** Who can join, and nothing else; a ranked Room stays public. */
+export const setVisibility = (
+  room: RoomAssemblyState,
+  _actorId: string,
+  command: Extract<RoomCommand, { type: 'set-visibility' }>,
+  _consent: RoomConsent,
+  _edges: Edges,
+): RoomMutationOutcome =>
+  room.competitionType === 'ranked' && command.visibility !== 'public'
+    ? refuse('illegal-config')
+    : acceptedRoomMutation({ ...room, visibility: command.visibility });
+
 /**
  * The topic after a config change, or undefined when the command breaks the
  * rule: turning a draw on carries `topic: null`, turning it off carries the

@@ -172,7 +172,6 @@ export function RoomLive(props: Props) {
             <RoomControls
               view={view}
               commandIds={{ visibility: ids.visibility, capture: ids.capture }}
-              detailsAction={props.detailsAction}
               commandAction={props.commandAction}
             />
             <RoomSettings view={view} />

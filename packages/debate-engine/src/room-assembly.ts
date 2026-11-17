@@ -21,6 +21,7 @@ import {
   selectFormat,
   updateConfig,
   updateDetails,
+  setVisibility,
   claimSeat,
   leaveSeat,
 } from './room-edit-transitions';
@@ -57,6 +58,7 @@ const roomCommandPolicies: RoomCommandPolicies = {
   'update-format': { ...hostEdit, transition: updateConfig },
   'select-format': { ...hostEdit, transition: selectFormat },
   'update-details': { ...hostEdit, transition: updateDetails },
+  'set-visibility': { ...hostEdit, transition: setVisibility },
   'set-capture': { ...hostEdit, transition: setCapture },
   'assign-seat': { ...hostEdit, transition: claimSeat },
   'remove-seat': { ...hostEdit, transition: leaveSeat },

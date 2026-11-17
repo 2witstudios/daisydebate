@@ -182,9 +182,9 @@ const roomViewFields = z.strictObject({
     .strictObject({ resolutions: z.array(z.string().min(1)).readonly() })
     .nullable(),
   rules: roundRulesSchema,
-  /** Free seats of each kind this viewer may not take: held for named members (ADR 0103, ADR 0124). */
   /** Team 1's side, or null while the sides are open to the coin flip (ADR 0143). */
   teamOneSide: debateSideSchema.nullable(),
+  /** Free seats of each kind this viewer may not take: held for named members (ADR 0103, ADR 0124). */
   seatsHeldFromViewer: z.strictObject({
     debater: z.int().nonnegative(),
     judge: z.int().nonnegative(),

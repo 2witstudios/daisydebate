@@ -18,13 +18,7 @@ import { AssemblyCommandForm } from './assembly-command-form';
 
 type View = Pick<
   RoomView,
-  | 'version'
-  | 'title'
-  | 'topic'
-  | 'visibility'
-  | 'capture'
-  | 'captureOffer'
-  | 'capabilities'
+  'version' | 'visibility' | 'capture' | 'captureOffer' | 'capabilities'
 >;
 
 /** A choice posts as soon as it changes: the page needs script (ADR 0114). */
@@ -60,7 +54,7 @@ function Row({
   );
 }
 
-/** Who can join, posted with the saved name and topic unchanged. */
+/** Who can join, posted alone (ADR 0143, D9). */
 function WhoCanJoin({
   view,
   commandId,
@@ -84,14 +78,10 @@ function WhoCanJoin({
   return (
     <AssemblyCommandForm action={action}>
       <AssemblyCommandFields
-        type="update-details"
+        type="set-visibility"
         version={view.version}
         commandId={commandId}
       />
-      <input type="hidden" name="title" value={view.title} />
-      {view.topic === null ? null : (
-        <input type="hidden" name="topic" value={view.topic} />
-      )}
       <Row
         label="Who can join"
         htmlFor="room-visibility"
@@ -219,7 +209,6 @@ function CaptureSwitch({
 export function RoomControls({
   view,
   commandIds,
-  detailsAction,
   commandAction,
 }: {
   readonly view: View;
@@ -227,7 +216,6 @@ export function RoomControls({
     readonly visibility: string;
     readonly capture: string;
   };
-  readonly detailsAction: FormAction<RoomFormState>;
   readonly commandAction: FormAction<RoomFormState>;
 }) {
   return (
@@ -238,7 +226,7 @@ export function RoomControls({
       <WhoCanJoin
         view={view}
         commandId={commandIds.visibility}
-        action={detailsAction}
+        action={commandAction}
       />
       {view.captureOffer === null && view.capture === null ? null : (
         <>

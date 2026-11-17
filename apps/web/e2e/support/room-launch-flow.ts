@@ -231,9 +231,31 @@ export async function closeRoom(
   expect(response.status()).toBe(200);
 }
 
+/**
+ * The name the roster gives a seat placed as `seat` ("Affirmative 1" is team
+ * 1's first seat). Before Start it is named by its side once the sides are
+ * fixed and by its team while they are open (ADR 0143), as roomSeatLabel does.
+ */
+export function rosterSeatName(view: RoomView, seat: string): string {
+  const [word, number] = seat.split(' ');
+  if (word === 'Judge') return seat;
+  const team = word === 'Affirmative' ? 1 : 2;
+  if (view.teamOneSide !== null) {
+    const affirmative = (team === 1) === (view.teamOneSide === 'affirmative');
+    return `${affirmative ? 'Affirmative' : 'Negative'} ${number}`;
+  }
+  const { affirmative, negative } = view.definition.seats;
+  if (affirmative === 1 && negative === 1) return `Team ${team}`;
+  const n = Number(number);
+  const ordinal =
+    n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+  return `Team ${team} · ${ordinal}`;
+}
+
 export async function claim(page: Page, view: RoomView, seat: string) {
   await page.goto(`/rooms/${view.id}`);
-  await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();
+  const name = rosterSeatName(await reread(page.request, view.id), seat);
+  await page.getByRole('button', { name: `Take ${name}`, exact: true }).click();
   const [role, number] = seat.toLowerCase().split(' ');
   await expect(async () => {
     view = await reread(page.request, view.id);
@@ -296,7 +318,10 @@ export async function prepareRoomAs(
   for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
     const actor = ofRole(seat)[index % ofRole(seat).length]!;
     // The host seats anyone in an open seat from that seat's own row.
-    const select = page.getByLabel(`Seat someone in ${seat}`, { exact: true });
+    const select = page.getByLabel(
+      `Seat someone in ${rosterSeatName(view, seat)}`,
+      { exact: true },
+    );
     const form = page.locator('form').filter({ has: select });
     // The page has caught up with the last seat before this one is posted.
     await expect(form.locator('[name="expectedVersion"]')).toHaveValue(

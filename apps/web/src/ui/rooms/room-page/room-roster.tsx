@@ -15,7 +15,8 @@ import { initialsOf } from '../../../lib/initials';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
-import { declaredSeats, seatLabel } from './assembly-controls';
+import { declaredSeats } from './assembly-controls';
+import { roomSeatLabel } from './room-labels';
 import { RoomInvite } from './room-invite';
 import {
   ordinalOf,
@@ -306,7 +307,7 @@ function AssignSeat({
       <input type="hidden" name="role" value={seat.role} />
       <input type="hidden" name="slot" value={String(seat.slot)} />
       <label className="sr-only" htmlFor={id}>
-        Seat someone in {seatLabel(seat.role, seat.slot)}
+        Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
       </label>
       <select
         id={id}
@@ -380,7 +381,7 @@ function OpenSeat({
               commandId={ids.claim}
               fields={position}
               label="Take seat"
-              name={`Take ${seatLabel(seat.role, seat.slot)}`}
+              name={`Take ${roomSeatLabel(view, seat.role, seat.slot)}`}
             />
           ) : null}
           {invited ? null : (
@@ -431,7 +432,7 @@ function Row({
     : null;
   return (
     <li
-      aria-label={named?.label ?? seatLabel(seat.role, seat.slot)}
+      aria-label={named?.label ?? roomSeatLabel(view, seat.role, seat.slot)}
       className={`grid items-center gap-x-3 border-t border-border py-2 first:border-t-0 ${seat.role === 'judge' ? 'room-roster-judges' : teams ? 'room-roster-teams' : 'room-roster-sides'}`}
     >
       {!occupant ? (
