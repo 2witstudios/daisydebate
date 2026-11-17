@@ -11,6 +11,7 @@ import { humanRoundSelection } from './human-round-selection';
 import type { ProofChoice } from './human-round-selection';
 import { origin } from './accounts';
 import type { createRoomLaunchAccounts } from './room-launch-accounts';
+import { turnOnDevices } from './turn-on-devices';
 
 /** Real decoded frames over the launch fixture's TLS edge can take seconds to arrive. */
 export const MEDIA_POLL = { timeout: 20_000 };
@@ -228,19 +229,7 @@ export async function openCheckedMediaRound(
   for (const [index, page] of pages.entries()) {
     await prepare(page, index);
     await page.goto(`/rooms/${room.id}`);
-    for (const kind of ['camera', 'microphone']) {
-      await page
-        .getByRole('button', { name: `Check ${kind}`, exact: true })
-        .click();
-      await expect(
-        page.getByText(
-          `${kind === 'camera' ? 'Camera' : 'Microphone'}: ✓ checked`,
-          {
-            exact: true,
-          },
-        ),
-      ).toBeVisible(MEDIA_POLL);
-    }
+    await turnOnDevices(page, MEDIA_POLL.timeout);
     await page.getByRole('button', { name: 'I’m ready', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Not ready', exact: true }),

@@ -12,6 +12,8 @@ import type { FormAction } from '../../form-action/form-action';
 import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { initialsOf } from '../../../lib/initials';
+import { Icon } from '../../components/icon/icon';
+import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
@@ -170,16 +172,22 @@ function SeatBoxes({
   );
 }
 
+/** Display only: everyone readies with the button under their own tile. */
 function ReadyMark({ seat }: { readonly seat: Participant }) {
   const ready = !seat.needsReady || seat.ready === 'ready';
-  return (
+  return ready ? (
+    <Icon
+      name="check"
+      label="Ready"
+      size={20}
+      className="justify-self-center text-online"
+    />
+  ) : (
     <span
       role="img"
-      aria-label={ready ? 'Ready' : 'Not ready'}
-      className={`flex size-8 items-center justify-center justify-self-center rounded-md border-2 text-sm font-bold ${ready ? 'border-accent bg-accent text-accent-ink' : 'border-border-strong'}`}
-    >
-      {ready ? '✓' : null}
-    </span>
+      aria-label="Not ready"
+      className="size-4 justify-self-center rounded-full border-2 border-dashed border-border-strong"
+    />
   );
 }
 
@@ -216,11 +224,13 @@ function Who({
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
       <div className="min-w-0">
-        <p className="flex flex-wrap items-baseline gap-x-2 font-semibold wrap-anywhere">
-          {seat?.label ?? 'Judge'}
+        <p className="flex min-w-0 items-baseline gap-x-2 font-semibold">
+          <span className="truncate" title={seat?.label ?? 'Judge'}>
+            {seat?.label ?? 'Judge'}
+          </span>
           {seat?.rating ? (
             <span
-              className={`text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
+              className={`shrink-0 text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
             >
               {seat.rating.value}
               {seat.rating.provisional ? '*' : ''}
@@ -303,43 +313,62 @@ function AssignSeat({
   );
   if (people.length + bots.length === 0) return null;
   const id = `assign-${seat.role}-${seat.slot}`;
+  // One button on the open seat's line; the choice opens over it, natively.
   return (
-    <AssemblyCommandForm action={props.action} className="flex gap-2">
-      <AssemblyCommandFields
-        type="assign-seat"
-        version={view.version}
-        commandId={ids.assign}
-      />
-      <input type="hidden" name="role" value={seat.role} />
-      <input type="hidden" name="slot" value={String(seat.slot)} />
-      <label className="sr-only" htmlFor={id}>
-        Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
-      </label>
-      <select
-        id={id}
-        name="actorId"
-        required
-        defaultValue=""
-        className={controlClass}
+    <>
+      <button
+        type="button"
+        popoverTarget={`${id}-menu`}
+        className={buttonClass('ghost')}
       >
-        <option value="" disabled>
-          Seat…
-        </option>
-        {people.map((p) => (
-          <option key={p.actorId} value={p.actorId}>
-            {p.label}
-          </option>
-        ))}
-        {bots.map((bot) => (
-          <option key={bot.actorId} value={bot.actorId}>
-            {bot.label} · Bot
-          </option>
-        ))}
-      </select>
-      <button type="submit" className={buttonClass('secondary')}>
-        Seat
+        Seat someone
       </button>
-    </AssemblyCommandForm>
+      <PopoverDialog
+        id={`${id}-menu`}
+        aria-label="Seat someone"
+        className="m-auto w-room-dialog max-w-full rounded-lg border border-border-strong bg-surface p-4 text-ink shadow-3 backdrop:bg-scrim/50"
+      >
+        <AssemblyCommandForm action={props.action} className="flex gap-2">
+          <AssemblyCommandFields
+            type="assign-seat"
+            version={view.version}
+            commandId={ids.assign}
+          />
+          <input type="hidden" name="role" value={seat.role} />
+          <input type="hidden" name="slot" value={String(seat.slot)} />
+          <label className="sr-only" htmlFor={id}>
+            Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
+          </label>
+          {/* Server-rendered autofocus lets the native popover focus the
+              choice before hydration and without script. */}
+          <select
+            id={id}
+            name="actorId"
+            autoFocus
+            required
+            defaultValue=""
+            className={`${controlClass} min-w-0 flex-1`}
+          >
+            <option value="" disabled>
+              Choose someone
+            </option>
+            {people.map((p) => (
+              <option key={p.actorId} value={p.actorId}>
+                {p.label}
+              </option>
+            ))}
+            {bots.map((bot) => (
+              <option key={bot.actorId} value={bot.actorId}>
+                {bot.label} · Bot
+              </option>
+            ))}
+          </select>
+          <button type="submit" className={buttonClass('primary')}>
+            Seat
+          </button>
+        </AssemblyCommandForm>
+      </PopoverDialog>
+    </>
   );
 }
 
@@ -370,11 +399,8 @@ function OpenSeat({
     : undefined;
   return (
     <>
-      <span
-        aria-hidden="true"
-        className="size-8 justify-self-center rounded-md border-2 border-dashed border-border"
-      />
-      <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+      <span aria-hidden="true" />
+      <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <p className="text-ink-muted">
           {invited ? (
             <>
@@ -385,7 +411,7 @@ function OpenSeat({
             'Open'
           )}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           {view.capabilities.canClaimSeat &&
           !heldFromViewer(view, seat.role) ? (
             <CommandButton
@@ -533,7 +559,11 @@ export function RoomRoster(props: RosterProps) {
   const invited = invitationsBySeat(view, seats);
   const debaters = seats.filter((seat) => seat.role !== 'judge');
   const judges = seats.filter((seat) => seat.role === 'judge');
-  const seated = view.participants.filter((p) => p.role !== 'judge').length;
+  const filled = (role: 'debater' | 'judge') =>
+    view.participants.filter((p) => (p.role === 'judge') === (role === 'judge'))
+      .length;
+  const plural = (n: number, word: string) =>
+    `${n} ${word}${n === 1 ? '' : 's'}`;
   const row = (seat: Seat) => {
     const ids = props.commandIds.seats[seats.indexOf(seat)];
     if (!ids) throw new Error('Missing Room seat command identities');
@@ -558,7 +588,10 @@ export function RoomRoster(props: RosterProps) {
           Players
         </h2>
         <p className="text-sm text-ink-muted tabular-nums">
-          {seated} / {debaters.length}
+          {`${filled('debater')} of ${plural(debaters.length, 'debater')}`}
+          {judges.length > 0
+            ? ` · ${filled('judge')} of ${plural(judges.length, 'judge')}`
+            : null}
         </p>
       </div>
       <div

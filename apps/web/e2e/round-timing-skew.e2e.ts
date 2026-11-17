@@ -25,6 +25,7 @@ import {
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { displayDeltaMs } from './support/round-clock';
 import { roundMediaStateSchema, roundViewSchema } from '@daisy/protocol';
+import { turnOnDevices } from './support/turn-on-devices';
 
 const TWO_MINUTE_SKEW_MS = 120_000;
 /** m:ss reads whole seconds; this journey allows one sweep of the clock face. */
@@ -65,18 +66,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await claim(guest, seed, 'Negative 1');
     await host.reload();
     for (const page of [host, guest]) {
-      await page
-        .getByRole('button', { name: 'Check camera', exact: true })
-        .click();
-      await expect(
-        page.getByText('Camera: ✓ checked', { exact: true }),
-      ).toBeVisible();
-      await page
-        .getByRole('button', { name: 'Check microphone', exact: true })
-        .click();
-      await expect(
-        page.getByText('Microphone: ✓ checked', { exact: true }),
-      ).toBeVisible();
+      await turnOnDevices(page);
       await page
         .getByRole('button', { name: 'I’m ready', exact: true })
         .click();

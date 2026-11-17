@@ -10,7 +10,7 @@ import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import { ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
 
-/** The resolution, labelled as such: the statement the two sides debate. */
+/** The resolution, with what each side argues. */
 export function RoomResolution({
   view,
 }: {
@@ -28,9 +28,6 @@ export function RoomResolution({
         >
           Resolution
         </h2>
-        <span className="text-sm text-ink-muted">
-          The statement the two sides debate
-        </span>
         {view.capabilities.canEdit ? (
           <a
             href={ROOM_SETUP_HREF}

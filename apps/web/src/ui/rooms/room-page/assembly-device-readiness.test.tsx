@@ -72,21 +72,35 @@ test('the Room chat sits under the roster for a viewer with no devices (RCHAT-9)
     <AssemblyDeviceReadiness
       {...nativeProps}
       chat={chat}
+      view={{
+        ...assemblySnapshot,
+        capabilities: { ...assemblySnapshot.capabilities, host: false },
+      }}
+    />,
+  );
+  const seatlessHost = renderToStaticMarkup(
+    <AssemblyDeviceReadiness
+      {...nativeProps}
+      chat={chat}
       view={assemblySnapshot}
     />,
   );
   assert({
-    given: 'a viewer without a seat, with the Room chat',
+    given: 'a viewer without a seat, with the Room chat, and a seatless host',
     should:
-      'show the roster then the chat, then the controls, with no tile of their own or Ready',
+      'show the roster then the chat, then the controls, with no tile or Ready; the host gets only Start round there',
     actual: [
       visitor.indexOf('data-roster') <
         visitor.indexOf('aria-label="Room chat"'),
       visitor.indexOf('aria-label="Room chat"') < visitor.indexOf('data-aside'),
       visitor.includes('aria-label="You"'),
       visitor.includes('I’m ready'),
+      [
+        seatlessHost.includes('Start round'),
+        seatlessHost.includes('I’m ready'),
+      ],
     ],
-    expected: [true, true, false, false],
+    expected: [true, true, false, false, [true, false]],
   });
 });
 

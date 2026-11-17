@@ -10,6 +10,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';
+import { turnOnDevices } from './turn-on-devices';
 /** The host's Start round, then the Round room it opens; returns the Round id. */
 export async function startRoundInBrowser(page: Page): Promise<string> {
   await page.getByRole('button', { name: 'Start round', exact: true }).click();
@@ -318,10 +319,7 @@ export async function prepareRoomAs(
   for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
     const actor = ofRole(seat)[index % ofRole(seat).length]!;
     // The host seats anyone in an open seat from that seat's own row.
-    const select = page.getByLabel(
-      `Seat someone in ${rosterSeatName(view, seat)}`,
-      { exact: true },
-    );
+    const select = await openSeatPicker(page, rosterSeatName(view, seat));
     const form = page.locator('form').filter({ has: select });
     // The page has caught up with the last seat before this one is posted.
     await expect(form.locator('[name="expectedVersion"]')).toHaveValue(
@@ -371,15 +369,25 @@ export async function assertFrozenLaunch(view: RoomView) {
   expect(proof.launchDoorbells).toBe(1);
   return proof;
 }
+/** The host's Seat someone on an open seat's row opens its picker (ADR 0145). */
+export async function openSeatPicker(page: Page, seatName: string) {
+  const select = page.getByLabel(`Seat someone in ${seatName}`, {
+    exact: true,
+  });
+  await page
+    .getByRole('listitem')
+    .filter({ has: select })
+    .getByRole('button', { name: 'Seat someone', exact: true })
+    .click();
+  await expect(select).toBeVisible();
+  // Opening it moves keyboard focus to the choice.
+  await expect(select).toBeFocused();
+  return select;
+}
+
 /** The member's own device checks, then Ready, through the Room page. */
-export async function readyUp(
-  page: Page,
-  devices: readonly string[] = ['camera', 'microphone'],
-) {
-  for (const device of devices)
-    await page
-      .getByRole('button', { name: `Check ${device}`, exact: true })
-      .click();
+export async function readyUp(page: Page, devices = true) {
+  if (devices) await turnOnDevices(page);
   await page.getByRole('button', { name: 'I’m ready', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Not ready', exact: true }),

@@ -19,6 +19,7 @@ import {
 } from './round-floor-pagination';
 import { proveFloorControlFocus } from './round-floor-controls';
 import { proveFloorResilience } from './round-floor-resilience';
+import { turnOnDevices } from './turn-on-devices';
 
 const floor = (page: Page) =>
   page.getByRole('region', { name: 'Round floor chat', exact: true });
@@ -34,21 +35,11 @@ const message = (page: Page, text: string) =>
     .filter({ hasText: text });
 
 async function readyFloorDebater(page: Page) {
-  for (const kind of ['camera', 'microphone'] as const) {
-    await page
-      .getByRole('button', { name: `Check ${kind}`, exact: true })
-      .click({ timeout: 15_000 });
-    try {
-      await expect(
-        page.getByText(
-          kind === 'camera' ? 'Camera: ✓ checked' : 'Microphone: ✓ checked',
-          {
-            exact: true,
-          },
-        ),
-      ).toBeVisible({ timeout: 15_000 });
-    } catch (cause) {
-      const diagnostic = await page.evaluate(async (kind) => {
+  try {
+    await turnOnDevices(page);
+  } catch (cause) {
+    const diagnose = (kind: 'camera' | 'microphone') =>
+      page.evaluate(async (kind) => {
         const policy = (
           document as Document & {
             featurePolicy?: { allowsFeature(name: string): boolean };
@@ -106,11 +97,13 @@ async function readyFloorDebater(page: Page) {
           };
         }
       }, kind);
-      throw new Error(
-        `Native ${kind} check failed: ${JSON.stringify(diagnostic)}`,
-        { cause },
-      );
-    }
+    throw new Error(
+      `Native device check failed: ${JSON.stringify({
+        camera: await diagnose('camera'),
+        microphone: await diagnose('microphone'),
+      })}`,
+      { cause },
+    );
   }
   await page
     .getByRole('button', { name: 'I’m ready', exact: true })

@@ -61,14 +61,18 @@ describe('Ready agreements', () => {
   test('the notice a Room shows', () => {
     assert({
       given:
-        'a ranked Room, a ranked Room carrying a capture choice, and a casual Room with no opt-in',
+        'a ranked Room, a ranked Room carrying a capture choice, a casual Room with no opt-in, and one whose broadcast and recording are both off',
       should: 'show no notice on any of them',
       actual: [
         roomCaptureNotice(ranked),
         roomCaptureNotice({ ...ranked, capture: optedIn.capture }),
         roomCaptureNotice(casual),
+        roomCaptureNotice({
+          ...casual,
+          capture: { broadcast: null, recording: false },
+        }),
       ],
-      expected: [null, null, null],
+      expected: [null, null, null, null],
     });
   });
 

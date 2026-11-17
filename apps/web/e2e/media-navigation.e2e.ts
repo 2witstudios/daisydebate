@@ -9,6 +9,7 @@ import {
   createFromPlay,
   rosterSeatName,
 } from './support/room-launch-flow';
+import { turnOnDevices } from './support/turn-on-devices';
 
 // A media page's Permissions-Policy binds to the document it was loaded as,
 // so these journeys arrive by in-app navigation, never page.goto (ISSUE-564).
@@ -21,19 +22,7 @@ test.beforeEach(async ({ page }) => {
   await page.context().grantPermissions(['camera', 'microphone'], { origin });
 });
 
-async function checkDevices(page: Page) {
-  for (const [kind, label] of [
-    ['camera', 'Camera'],
-    ['microphone', 'Microphone'],
-  ] as const) {
-    await page
-      .getByRole('button', { name: `Check ${kind}`, exact: true })
-      .click();
-    await expect(
-      page.getByRole('status').filter({ hasText: `${label}: ✓ checked` }),
-    ).toBeVisible();
-  }
-}
+const checkDevices = (page: Page) => turnOnDevices(page);
 
 test('a lobby click into a Room reaches a working camera and microphone', async ({
   page,
