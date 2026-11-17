@@ -14,6 +14,7 @@ import { createRoomHttpFixture } from './room-http.test-support';
 import { foundationSelection } from './foundation-selection.test-support';
 import { withSql } from './fixtures';
 import { createAccountFlows } from './auth-account-helpers';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 setupRitewayBun();
 const h = createRoomHttpFixture();
@@ -39,6 +40,7 @@ const removeRoom = (roomId: string) =>
       await sql`delete from outbox where topic=${buildRoundTopic(round.id)}`;
     await sql`delete from rounds where room_id=${roomId}`;
     await sql`delete from rounds where room_id=${roomId}`;
+    await deleteOrphanNotificationSignals(sql);
     await sql`delete from room_commands where room_id=${roomId}`;
     await sql`delete from room_participants where room_id=${roomId}`;
     await sql`delete from outbox where topic=${`room:${roomId}`}`;
@@ -46,6 +48,7 @@ const removeRoom = (roomId: string) =>
       select format_id from rooms where id=${roomId}
     `;
     await sql`delete from rooms where id=${roomId}`;
+    await deleteOrphanNotificationSignals(sql);
     if (stored) {
       await sql`delete from formats where id=${stored.format_id}`;
       await sql`delete from format_revisions where format_id=${stored.format_id}`;

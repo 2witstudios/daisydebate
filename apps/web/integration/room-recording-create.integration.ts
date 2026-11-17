@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomHttpFixture } from './room-http.test-support';
 import { withSql } from './fixtures';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -112,6 +113,7 @@ test('recording create HTTP binds the receipt to its payload and member and refu
       await withSql(async (sql) => {
         await sql`delete from outbox where topic=${`room:${roomId}`}`;
         await sql`delete from rooms where id=${roomId}`;
+        await deleteOrphanNotificationSignals(sql);
       });
   }
 });

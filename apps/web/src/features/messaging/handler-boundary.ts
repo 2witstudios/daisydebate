@@ -41,6 +41,17 @@ export const consumeMessagingRead = (app: App, actorId: string) =>
   );
 
 /**
+ * The Messages badge's count: read by every tab on each inbox ring, so it
+ * spends its own bucket (same windows) and never starves content reads.
+ */
+export const consumeBadgeRead = (app: App, actorId: string) =>
+  consumeWindowsOrThrow(
+    app.limiter,
+    `messaging:badge:${actorId}`,
+    app.messagingPolicy.limits.read,
+  );
+
+/**
  * Typing reads and writes: polled every few seconds per open conversation,
  * so they spend their own bucket (same windows) and never starve content
  * reads. Signals additionally spend DEC-251's one-per-3-s rule.

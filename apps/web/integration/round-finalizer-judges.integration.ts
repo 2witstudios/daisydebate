@@ -10,6 +10,7 @@ import {
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -84,10 +85,12 @@ for (const revoked of [false, true])
         if (roundId) {
           await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
           await f.sql`delete from rounds where id=${roundId}`;
+          await deleteOrphanNotificationSignals(f.sql);
         }
         if (roomId) {
           await f.sql`delete from outbox where topic=${`room:${roomId}`}`;
           await f.sql`delete from rooms where id=${roomId}`;
+          await deleteOrphanNotificationSignals(f.sql);
         }
         for (const actorId of bots) {
           await f.sql`delete from ai_judge_profiles where actor_id=${actorId}`;

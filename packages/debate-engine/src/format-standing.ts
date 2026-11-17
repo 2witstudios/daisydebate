@@ -1,3 +1,4 @@
+import { canonicalJson } from '@daisy/seeded-random';
 import type {
   FormatChange,
   FormatDefinition,
@@ -41,8 +42,12 @@ const compile = (
   return outcome.ok ? { rules: outcome.rules, plan: outcome.roomPlan } : null;
 };
 
-const same = (a: unknown, b: unknown) =>
-  JSON.stringify(a) === JSON.stringify(b);
+/**
+ * Equal values, whatever their key order: a basis read back from jsonb lists
+ * an object's keys shortest first, and a record (TAB-6.2's side counts) keeps
+ * that order through its schema, so only canonical JSON compares them.
+ */
+const same = (a: unknown, b: unknown) => canonicalJson(a) === canonicalJson(b);
 
 type SeatGroup = Extract<FormatChange, { kind: 'seats' }>['of'];
 

@@ -18,7 +18,7 @@ import { inRolledBackTransaction } from './tab.test-support';
 
 const { databaseUrl: url } = integrationSuite();
 
-const schema = '20261117003138_tab_schema';
+const schema = '20261117122348_tab_schema';
 const scratch = scratchDatabase(url, 'tenantisolation');
 afterAll(() => scratch.drop());
 

@@ -29,6 +29,7 @@ import {
 } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import { spectatorClockAt } from '../spectating/spectator-clock';
+import { withSeatRatings } from '../ratings/room-seat-ratings';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
@@ -41,6 +42,7 @@ import type {
   RoomCreate,
 } from '@daisy/protocol';
 import { isDebatingSeat, isOpenRoomStatus } from '@daisy/protocol';
+import { createdSides } from './created-sides';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
 
@@ -68,6 +70,8 @@ export type Store = Pick<
   | 'listHostedRooms'
   | 'readContentWaiverStanding'
   | 'readWatchableRoundOfRoom'
+  | 'readMemberCardRatings'
+  | 'readRatingBlindings'
 >;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
@@ -165,12 +169,21 @@ export function createRoomRuntimeOperations({
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
     return {
-      ...projectRoom(
-        state,
-        caller.actorId,
-        currentRoomConsent(consent, now),
+      ...(await withSeatRatings(
+        projectRoom(
+          state,
+          caller.actorId,
+          currentRoomConsent(consent, now),
+          now,
+        ),
+        {
+          // A seat's rating waits for the spectator timeline, as a card's does.
+          ratings: (actorIds) =>
+            store.readMemberCardRatings(actorIds, spectatorClockAt(now)),
+          blinded: () => store.readRatingBlindings(caller.actorId),
+        },
         now,
-      ),
+      )),
       aiJudgeSeating: await roomAiJudgeSeating(state, caller.actorId, () =>
         store.readOwnCasualJudgeAllowance(
           caller,
@@ -300,12 +313,16 @@ export function createRoomRuntimeOperations({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
       // A new Room holds the humans its cast seats, never a host without a
-      // seat; another Room holding one of them refuses it.
+      // seat (TAB-6.16), save a Train practice's creator; another Room
+      // holding one of them refuses it.
       membersOf: (participants) =>
         activeRoomMembers({
           status: 'assembling',
           roundRef: null,
           participants,
+          // A Train practice holds its creator from create (decision 75).
+          hostActorId: caller.actorId,
+          holdsHost: body.practice === true,
         }),
       commandId: body.commandId,
       payloadDigest: digest(body),
@@ -365,6 +382,8 @@ export function createRoomRuntimeOperations({
                         id: seat.participantId,
                         consentVersion: 0,
                         seat: seat.seat,
+                        teamOpen: false,
+                        positionOpen: false,
                         // Match the ordinary assign-seat command: profile
                         // eligibility is not enough while this seat cannot
                         // run (including direct create requests).
@@ -374,6 +393,7 @@ export function createRoomRuntimeOperations({
                       }
                     : null,
                   drawStart: null,
+                  seatSeed: null,
                 },
               ),
           }
@@ -389,6 +409,14 @@ export function createRoomRuntimeOperations({
         presetVersion,
         basis,
         competitionType,
+        // The Room remembers it holds its host, through every command.
+        holdsHost: body.practice === true,
+        teamOneSide: createdSides({
+          competitionType,
+          sides: body.sides,
+          castNamesDebater: cast.some((seat) => isDebatingSeat(seat.seat)),
+          seating: resolved.rules,
+        }),
         config,
         executionPlan: resolved.roomPlan,
         rules: resolved.rules,

@@ -8,6 +8,7 @@ import {
   uniformIndex,
   utf8,
   wordStream,
+  type WordStream,
 } from '@daisy/seeded-random';
 
 /**
@@ -63,6 +64,31 @@ export const drawCommitment = (input: {
         utf8(input.drawId),
         new Uint8Array([0]),
         bytesOf(input.manifestDigest),
+        input.seed,
+      ),
+    ),
+  );
+
+/** The seat draw's own stream (ADR 0145), apart from the resolution draw's. */
+export const seatStream = (seed: Uint8Array): WordStream =>
+  wordStream('daisy-draw-v1/seats', seed, new Uint8Array());
+
+/** The seat draw commitment: Room, Round, the seats before the draw, and seed. */
+export const seatCommitment = (input: {
+  readonly roomId: string;
+  readonly roundId: string;
+  readonly seatsDigest: string;
+  readonly seed: Uint8Array;
+}) =>
+  hexOf(
+    sha3_256(
+      concat(
+        utf8('daisy-draw-v1/seats-commit'),
+        utf8(input.roomId),
+        new Uint8Array([0]),
+        utf8(input.roundId),
+        new Uint8Array([0]),
+        bytesOf(input.seatsDigest),
         input.seed,
       ),
     ),

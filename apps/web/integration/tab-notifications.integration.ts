@@ -116,7 +116,7 @@ for (const immediate of [false, true])
           await withTournamentNotificationReader(world, async (store) => {
             const actual = await readNotificationItems(store, {
               userId: world.bots['Judge C']!.userId,
-              unreadOnly: false,
+              query: { unreadOnly: false, after: null },
               now: new Date().toISOString(),
             });
             assert({

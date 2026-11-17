@@ -10,9 +10,10 @@ import {
   roundAliasR,
   type SpectatorClock,
 } from '../spectator-release-sql';
+import { oweNotifications } from './owe';
 import { wants } from './preferences';
 
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 
 const spectatorMargin = sql.raw(
   `interval '${SPECTATOR_MARGIN_MS} milliseconds'`,
@@ -44,33 +45,30 @@ type Recipient = {
   readonly actor_id: string | null;
 };
 
-const writeAll = async (
+/** The kinds Watch's fan-out writes, both about a Round. */
+type WatchKind = 'followed_debater_live' | 'recording_ready';
+
+/** Writes one released event's notifications through the one writer (ADR 0144). */
+const owe = (
   tx: Tx,
   input: {
-    readonly kind: NotificationKind;
+    readonly kind: WatchKind;
     readonly roundId: string;
     readonly at: string;
     readonly nextId: () => string;
   },
   recipients: readonly Recipient[],
-) => {
-  if (recipients.length === 0) return 0;
-  const rows = JSON.stringify(
-    recipients.map((recipient) => ({
-      id: input.nextId(),
-      user_id: recipient.user_id,
-      actor_id: recipient.actor_id,
+) =>
+  oweNotifications(tx, {
+    kind: input.kind,
+    subject: { round_id: input.roundId },
+    recipients: recipients.map((row) => ({
+      userId: row.user_id,
+      about: row.actor_id,
     })),
-  );
-  const written = await rowsOf(
-    tx,
-    sql`insert into notifications(id,user_id,kind,round_id,actor_id,created_at)
-      select w.id,w.user_id,${input.kind},${input.roundId},w.actor_id,${input.at}::timestamptz
-      from jsonb_to_recordset(${rows}::text::jsonb) as w(id text,user_id text,actor_id text)
-      on conflict do nothing returning id`,
-  );
-  return written.length;
-};
+    at: input.at,
+    nextId: input.nextId,
+  });
 
 const claimFanout = async (
   tx: Tx,
@@ -101,7 +99,8 @@ export const watchNotificationOperations = ({
    * One pass. `followed_debater_live` follows the Broadcast's first released
    * speech, so it never sends a follower to a debate that has not begun; `recording_ready` a ready Recording once any Broadcast is complete,
    * and its outcome released. Each event claims itself in its own transaction, so
-   * a repeat or a second instance tells no one twice. Returns rows written.
+   * a repeat or a second instance tells no one twice, and each row rings its
+   * member's inbox. Returns rows written.
    */
   sweepNotificationFanouts(input: {
     readonly clock: SpectatorClock;
@@ -145,7 +144,7 @@ export const watchNotificationOperations = ({
           if (!(await claimFanout(tx, kind, event.round_id))) return 0;
           // Only a public Round reaches a follower, and only while on air.
           if (event.visibility !== 'public' || !event.on_air) return 0;
-          return writeAll(
+          return owe(
             tx,
             { kind, roundId: event.round_id, at, nextId: input.nextId },
             await rowsOf<Recipient>(tx, followersOf(event.round_id, kind)),
@@ -163,7 +162,7 @@ export const watchNotificationOperations = ({
             event.visibility === 'public'
               ? await rowsOf<Recipient>(tx, followersOf(event.round_id, kind))
               : [];
-          return writeAll(
+          return owe(
             tx,
             { kind, roundId: event.round_id, at, nextId: input.nextId },
             [

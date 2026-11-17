@@ -1,6 +1,6 @@
 import { currentRoundParticipant } from './round-current-participant';
 import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
 import type { SpectatorClock } from './spectator-release-sql';
@@ -17,6 +17,13 @@ import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
+
+/**
+ * Recording's published read: the `recordings` row named by `recording` in the
+ * reader's query is ready to watch.
+ */
+export const recordingReady = (recording: SQL) =>
+  sql`(${recording}.status='ready')`;
 
 /**
  * The Round as Recording reads it: named, read-only inputs (ADR 0107). Recording

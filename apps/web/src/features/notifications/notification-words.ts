@@ -1,38 +1,13 @@
-import type {
-  CompetitionType,
-  RatingLadder,
-  SeatKind,
-  TournamentNotificationKind,
-} from '@daisy/protocol';
+import type { InboxRow } from '@daisy/db';
+import type { CompetitionType, RatingLadder, SeatKind } from '@daisy/protocol';
 import { ladderLabels } from '../ratings/ladder-labels';
 
 /** What one notification is about, with only the facts its words need. */
-export type NotificationSubject =
-  | {
-      readonly kind: TournamentNotificationKind;
-      readonly handle: string;
-      readonly eventId: string;
-      readonly tabRoundId: string;
-      readonly roomId: string | null;
-    }
-  | {
-      readonly kind: 'followed_debater_live';
-      readonly roundId: string;
-      readonly debater: string | null;
-    }
-  | { readonly kind: 'recording_ready'; readonly roundId: string }
-  | {
-      readonly kind: 'room_invitation';
-      readonly roomId: string;
-      readonly seat: SeatKind;
-      readonly host: string | null;
-    }
-  | {
-      readonly kind: 'challenge_received';
-      readonly challenger: string | null;
-      readonly mode: CompetitionType;
-      readonly format: RatingLadder;
-    };
+export type NotificationSubject = InboxRow extends infer Row
+  ? Row extends unknown
+    ? Omit<Row, 'id' | 'readAt' | 'surfacedAt'>
+    : never
+  : never;
 
 /** "to judge", "to moderate" or "to debate": what the invitation asks of the member. */
 export const invitedTo = (seat: SeatKind): string => {
@@ -91,13 +66,23 @@ export const notificationWords = (
       };
     case 'followed_debater_live':
       return {
-        text: `@${subject.debater ?? 'A debater you follow'} is on air.`,
+        text: `${subject.debater ? `@${subject.debater}` : 'A debater you follow'} is on air.`,
         href: `/watch/${subject.roundId}`,
       };
     case 'recording_ready':
       return {
         text: 'A recording is ready to watch.',
         href: `/recordings/${subject.roundId}`,
+      };
+    case 'round_started':
+      return {
+        text: 'Your Round has started.',
+        href: `/rounds/${subject.roundId}`,
+      };
+    case 'round_decision_released':
+      return {
+        text: `The decision is in for your Round${subject.opponent ? ` with @${subject.opponent}` : ''}.`,
+        href: `/rounds/${subject.roundId}`,
       };
     case 'room_invitation':
       return {
@@ -107,6 +92,21 @@ export const notificationWords = (
     case 'challenge_received':
       return {
         text: `${subject.challenger ? `@${subject.challenger}` : 'A member'} challenged you to ${challengeWhat(subject.mode, subject.format)}.`,
+        href: '/friends',
+      };
+    case 'challenge_accepted':
+      return {
+        text: `${subject.opponent ? `@${subject.opponent}` : 'A member'} accepted your challenge. Your room is ready.`,
+        href: `/rooms/${subject.roomId}`,
+      };
+    case 'friend_request_received':
+      return {
+        text: `${subject.friend ? `@${subject.friend}` : 'A member'} wants to be friends.`,
+        href: '/friends',
+      };
+    case 'friend_request_accepted':
+      return {
+        text: `${subject.friend ? `@${subject.friend}` : 'A member'} accepted your friend request.`,
         href: '/friends',
       };
   }

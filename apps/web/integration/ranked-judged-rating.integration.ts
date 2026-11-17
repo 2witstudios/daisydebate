@@ -156,7 +156,14 @@ for (const ladder of ratingLadders)
                       (e) => e.id === f.host.actorId,
                     )!.rating,
                   ),
-                  display!.rows[0]?.rating,
+                  // A ranked Room flips for sides (ADR 0145): find the host's row.
+                  display!.rows.find(
+                    (row) =>
+                      row.label ===
+                      roundView.participants
+                        .filter((p) => 'actorId' in p)
+                        .find((p) => p.actorId === f.host.actorId)?.label,
+                  )?.rating,
                 ],
                 expected: [expectedRating, expectedRating, expectedRating],
               });

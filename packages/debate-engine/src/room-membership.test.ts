@@ -17,6 +17,8 @@ const bot = {
   kind: 'bot' as const,
   seat: judgeSeat(),
   eligible: true,
+  teamOpen: false,
+  positionOpen: false,
   consentVersion: 0,
   consentCommandId: null,
 };
@@ -95,6 +97,69 @@ describe('Launch', () => {
         true,
         ['host', 'other'],
       ],
+    });
+  });
+});
+
+describe('a Train practice (decision 75)', () => {
+  test('its creator is held from create; a seatless standing host is not', () => {
+    const practice = {
+      ...state(),
+      hostActorId: 'creator',
+      holdsHost: true,
+      participants: [bot],
+    };
+    assert({
+      given:
+        'a new Room seating only a bot, as a Train practice and as any other standing Room',
+      should:
+        'hold the practice creator, so a second Start practice returns to it, and hold no seatless host otherwise (TAB-6.16)',
+      actual: [
+        activeRoomMembers(practice),
+        activeRoomMembers({ ...practice, holdsHost: false }),
+        activeRoomMembers({ ...practice, status: 'closed' }),
+      ],
+      expected: [['creator'], [], []],
+    });
+  });
+
+  test('its creator stays held through their own commands', () => {
+    const room = { ...state(), holdsHost: true };
+    const unseated = { ...room, participants: [state().participants[1]!] };
+    const changed = executeRoomCommand(
+      unseated,
+      'host',
+      {
+        type: 'set-visibility',
+        commandId: 'visibility',
+        expectedVersion: unseated.version,
+        visibility: 'unlisted',
+      },
+      consent,
+      edges,
+    );
+    const ordinary = executeRoomCommand(
+      { ...unseated, holdsHost: false },
+      'host',
+      {
+        type: 'set-visibility',
+        commandId: 'visibility',
+        expectedVersion: unseated.version,
+        visibility: 'unlisted',
+      },
+      consent,
+      edges,
+    );
+    assert({
+      given:
+        'a seatless host changing who can join, in a Train practice and in an ordinary standing Room',
+      should:
+        'keep the practice host held after the command, and hold only the seated in the ordinary Room',
+      actual: [
+        changed.ok && changed.mutation.members,
+        ordinary.ok && ordinary.mutation.members,
+      ],
+      expected: [['host', 'other'], ['other']],
     });
   });
 });

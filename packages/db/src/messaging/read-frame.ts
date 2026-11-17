@@ -275,7 +275,8 @@ export function channelReadFrame(
           actorId: input.actorId,
           following: false,
           hidden: false,
-          notificationLevel: 'none',
+          // A member who never chose hears about their conversations (ADR 0144).
+          notificationLevel: 'all',
           readSequence: sequence,
         })
         .onConflictDoUpdate({

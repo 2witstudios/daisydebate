@@ -13,9 +13,12 @@ import {
   daisyBallotDefinitionIds,
   type RoundPlatformEnding,
   type SideKey,
+  roundDecisionReleases,
+  type RoundDecisionRelease,
   type RoundStage,
   type RoundStatus,
   type RatingLadder,
+  seatDrawSchema,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -117,6 +120,12 @@ export const rounds = pgTable(
       'resolution_evidence',
       resolutionDrawEvidenceSchema,
     ),
+    /**
+     * What Start round's seat draw did (ADR 0145): the coin, the open seats
+     * placed and the commitment. Public, immutable once written, and null on
+     * Rounds started before it existed.
+     */
+    seatDraw: jsonbColumn('seat_draw', seatDrawSchema),
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
@@ -168,6 +177,11 @@ export const rounds = pgTable(
     version: versionColumn(),
     /** SHA3-256 of an unlisted Round's current link; the token is never stored. */
     audienceLinkHash: text('audience_link_hash'),
+    /** When participants are told the decision (ADR 0144), frozen at the Start. */
+    decisionRelease: text('decision_release')
+      .$type<RoundDecisionRelease>()
+      .notNull()
+      .default('on_finalize'),
   },
   (table) => {
     const noOutcome = sql`${table.winningSide} is null and ${table.ranking} is null`;
@@ -246,6 +260,7 @@ export const rounds = pgTable(
       ),
       jsonbIsObject('rounds', table.roomConfigSnapshot),
       jsonbIsObject('rounds', table.resolutionEvidence),
+      jsonbIsObject('rounds', table.seatDraw),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
       jsonbIsObject('rounds', table.capture),
@@ -268,6 +283,10 @@ export const rounds = pgTable(
       check(
         'rounds_competition_type_check',
         oneOf(table.competitionType, competitionTypes),
+      ),
+      check(
+        'rounds_decision_release_check',
+        oneOf(table.decisionRelease, roundDecisionReleases),
       ),
       check(
         'rounds_outcome_check',

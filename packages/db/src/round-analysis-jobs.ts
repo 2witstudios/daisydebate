@@ -19,6 +19,8 @@ import {
   type AnalysisSeat,
 } from './round-analysis-authority';
 import { readDatabaseTime } from './database-clock';
+import { rowsOf } from './raw-rows';
+import { resurfaceRoundDecision } from './round-decision-release';
 import { roundAnalyses } from './schema/round-analyses';
 import {
   countAnalysisDispatch,
@@ -258,6 +260,19 @@ export function createRoundAnalysisJobs(input: {
         );
         if (decision.kind !== 'changed')
           throw createAppError('CONFLICT', 'Round analysis authority changed');
+        // Published: the member's decision comes back to read it beside.
+        if (decision.state.kind === 'succeeded') {
+          const members = await rowsOf<{ user_id: string }>(
+            tx,
+            sql`select user_id from actors
+              where id=${context.access.seat.actorId} and user_id is not null`,
+          );
+          await resurfaceRoundDecision(tx, {
+            roundId: context.row.roundId,
+            userIds: members.map((member) => member.user_id),
+            at: (await readDatabaseTime(tx)).toISOString(),
+          });
+        }
       });
     },
     retry: (seat: AnalysisSeat, callId: string, token: string) =>

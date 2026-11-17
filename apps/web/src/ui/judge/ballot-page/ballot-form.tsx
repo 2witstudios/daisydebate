@@ -165,12 +165,14 @@ export function BallotFields({
               label="Reason for decision"
               helper={`${reasonAudienceLabel ?? reasonReaders(plan)} ${limitHelper(reasonRule)}`}
             >
+              {/* No required attribute: a missing reason posts, and the
+                  server refuses it keeping everything entered (ISSUE-348). */}
               <textarea
                 id="ballot-reason"
                 name="reason"
                 rows={4}
                 maxLength={reasonRule.max}
-                required={reasonRule.required}
+                aria-required={reasonRule.required}
                 defaultValue={values['reason'] ?? ''}
                 aria-describedby="ballot-reason-helper"
                 className={textareaClass}
@@ -191,7 +193,7 @@ export function BallotFields({
                     name={feedbackField(subject.key)}
                     rows={3}
                     maxLength={feedbackRule.max}
-                    required={feedbackRule.required}
+                    aria-required={feedbackRule.required}
                     defaultValue={values[feedbackField(subject.key)] ?? ''}
                     aria-describedby={`ballot-${feedbackField(subject.key)}-helper`}
                     className={textareaClass}

@@ -99,7 +99,10 @@ test('subject export removes other-direction private state and serializes dates/
       [],
     ],
   });
-  const fileQuery = queries.at(-1);
+  // The file projection, wherever Messaging reads it among its own tables.
+  const fileQuery = queries.find((query) =>
+    query.query.includes('from messaging_files'),
+  );
   assert({
     given: 'the dedicated export projections',
     should:

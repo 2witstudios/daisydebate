@@ -1,10 +1,17 @@
 import {
   isNamedSeat,
+  isOpenRoomStatus,
   sameSeat,
   seatTotalOf,
+  seatsTwoTeams,
+  sideOfTeam,
+  sideSeat,
+  teamOfPlacement,
   type RoomRefusal,
   type RoomView,
+  type SeatRef,
   type Side,
+  type TwoSideKey,
 } from '@daisy/protocol';
 import {
   strikeSummary,
@@ -16,9 +23,46 @@ import { seatName, shapeLabel } from '../../../features/debate-room/seat-names';
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { roomVisibilityLabels } from '../../../features/rooms/room-visibility';
 import { declaredSeats, seatLabel } from './assembly-controls';
+import { ordinalOf, showsTeams } from './roster-seat';
 
 type Participant = RoomView['participants'][number];
 type Definition = Pick<RoomView['definition'], 'sides' | 'seats'>;
+
+/** What a Room seat label needs to know (ADR 0145). */
+export type SeatNaming = Pick<RoomView, 'teamOneSide' | 'status'> & {
+  readonly definition: Definition;
+};
+
+/**
+ * A Room seat's name. Before Start a debater seat's side is its team's
+ * placement, not its side (ADR 0145): it is named by its side once the sides
+ * are fixed, and by its team (and position, when a team seats several) while
+ * they are open. A judge seat, a seat in a Room with no two teams, and every
+ * seat after Start, is named as is. `single` drops the "1" from a seat its
+ * kind (or side) declares once: "Judge", "Negative".
+ */
+export function roomSeatLabel(
+  view: SeatNaming,
+  seat: SeatRef,
+  single = false,
+): string {
+  const named = (shown: SeatRef) =>
+    single
+      ? seatName(view.definition, shown)
+      : seatLabel(view.definition.sides, shown);
+  if (
+    seat.kind !== 'side' ||
+    !isOpenRoomStatus(view.status) ||
+    !seatsTwoTeams(view.definition)
+  )
+    return named(seat);
+  const team = teamOfPlacement(seat.side as TwoSideKey);
+  if (view.teamOneSide !== null)
+    return named(sideSeat(sideOfTeam(team, view.teamOneSide), seat.slot));
+  return showsTeams(view.definition)
+    ? `Team ${team} · ${ordinalOf(seat.slot)}`
+    : `Team ${team}`;
+}
 
 /**
  * The seat a Room chat author holds, as this viewer may know it: "Negative 1 ·
@@ -26,16 +70,14 @@ type Definition = Pick<RoomView['definition'], 'sides' | 'seats'>;
  * anonymous judge (DEC-174) read the same.
  */
 export function chatAuthorSeat(
-  view: Pick<RoomView, 'participants' | 'hostActorId'> & {
-    readonly rules: { readonly sides: readonly Side[] };
-  },
+  view: Pick<RoomView, 'participants' | 'hostActorId'> & SeatNaming,
   actorId: string,
 ): string | null {
   const seat = view.participants
     .filter(isNamedSeat)
     .find((member) => member.actorId === actorId);
   const parts = [
-    ...(seat ? [seatLabel(view.rules.sides, seat.seat)] : []),
+    ...(seat ? [roomSeatLabel(view, seat.seat)] : []),
     ...(view.hostActorId === actorId ? ['host'] : []),
   ];
   return parts.length > 0 ? parts.join(' · ') : null;
@@ -43,14 +85,14 @@ export function chatAuthorSeat(
 
 /** Who and what Launch still waits on, in seat order; empty once nothing does. */
 export function waitingOn(
-  view: Pick<RoomView, 'participants'> & { readonly definition: Definition },
+  view: Pick<RoomView, 'participants'> & SeatNaming,
   actorId: string,
 ): readonly string[] {
   return declaredSeats(view.definition).flatMap((seat) => {
     const occupant = view.participants.find((member) =>
       sameSeat(member.seat, seat),
     );
-    if (!occupant) return [seatName(view.definition, seat)];
+    if (!occupant) return [roomSeatLabel(view, seat, true)];
     if (!occupant.needsReady || occupant.ready === 'ready') return [];
     if (!isNamedSeat(occupant)) return ['Judge'];
     return [occupant.actorId === actorId ? 'You' : occupant.label];
@@ -83,7 +125,8 @@ export function roomMeta(
   view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
 ): readonly string[] {
   return [
-    ...(view.hostLabel === null ? [] : [`Hosted by ${view.hostLabel}`]),
+    // A Room no person hosts (a Tab event Room) names no host.
+    ...(view.hostLabel ? [`Hosted by ${view.hostLabel}`] : []),
     roomVisibilityLabels[view.visibility],
     competitionLabels[view.competitionType],
   ];

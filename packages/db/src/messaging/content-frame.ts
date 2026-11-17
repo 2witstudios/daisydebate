@@ -1,4 +1,5 @@
 import { invalidateChannelInboxes } from './inbox-change';
+import { oweUnreadMessageEmails } from './unread-emails';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -132,6 +133,11 @@ export function messagingContentFrame(
         ...plan.receipt,
       });
       await invalidateChannelInboxes(tx, input.channelId);
+      await oweUnreadMessageEmails(tx, {
+        channelId: input.channelId,
+        authorActorId: input.actorId,
+        at: plan.message.createdAt,
+      });
       counters.messageSequence = plan.message.sequence;
       counters.changeVersion = plan.message.changeVersion;
     },

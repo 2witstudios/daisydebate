@@ -23,16 +23,16 @@ export default async function Notifications({
   await requireAccess('/notifications', searchParams);
   const params = await searchParams;
   const identity = await requestIdentity();
-  const { items, unread } =
+  const { items, unread, next } =
     'principal' in identity && identity.principal.kind === 'user'
       ? await requestNotifications(
           identity.principal.userId,
-          parseNotificationsQuery(params).unreadOnly,
+          parseNotificationsQuery(params),
         )
-      : { items: [], unread: 0 };
+      : { items: [], unread: 0, next: null };
   return (
     <NotificationsPage
-      {...getNotifications(params, items, unread)}
+      {...getNotifications(params, items, unread, next)}
       markRead={(id) => markNotificationReadAction.bind(null, id)}
       markAllRead={markAllNotificationsReadAction}
     />

@@ -23,6 +23,9 @@ const seated = (
   kind: 'human' as const,
   label: 'Maya Okafor',
   seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+  teamOpen: false,
+  positionOpen: false,
+  rating: null,
   needsReady: true,
   eligible: true,
   ready: 'not-ready' as const,
@@ -97,7 +100,10 @@ describe('room lobby waiting list', () => {
     assert({
       given: 'two affirmative and three negative seats, all open',
       should: 'number each open seat and keep the single judge seat unnumbered',
-      actual: waitingOn(assemblySnapshot, 'v'.repeat(24)),
+      actual: waitingOn(
+        { ...assemblySnapshot, teamOneSide: 'affirmative' },
+        'v'.repeat(24),
+      ),
       expected: [
         'Affirmative 1',
         'Affirmative 2',
@@ -105,6 +111,49 @@ describe('room lobby waiting list', () => {
         'Negative 2',
         'Negative 3',
         'Judge',
+      ],
+    });
+  });
+
+  test('open seats before the sides are decided (ADR 0145)', () => {
+    const twoVsTwo = {
+      ...assemblySnapshot,
+      definition: {
+        ...assemblySnapshot.definition,
+        seats: {
+          sides: { affirmative: 2, negative: 2 },
+          speakers: 0,
+          judges: 0,
+          moderators: 0 as const,
+        },
+      },
+    };
+    const oneVsOne = {
+      ...assemblySnapshot,
+      definition: {
+        ...assemblySnapshot.definition,
+        seats: {
+          sides: { affirmative: 1, negative: 1 },
+          speakers: 0,
+          judges: 0,
+          moderators: 0 as const,
+        },
+      },
+    };
+    assert({
+      given:
+        'a 2 v 2 Room on the coin flip, the same with team 1 on Negative, and a 1 v 1 on the coin flip',
+      should:
+        'name each seat by team and position, then by the side its team argues, then by team alone',
+      actual: [
+        waitingOn({ ...twoVsTwo, teamOneSide: null }, 'v'.repeat(24)),
+        waitingOn({ ...twoVsTwo, teamOneSide: 'negative' }, 'v'.repeat(24)),
+        waitingOn({ ...oneVsOne, teamOneSide: null }, 'v'.repeat(24)),
+      ],
+      expected: [
+        ['Team 1 · 1st', 'Team 1 · 2nd', 'Team 2 · 1st', 'Team 2 · 2nd'],
+        ['Negative 1', 'Negative 2', 'Affirmative 1', 'Affirmative 2'],
+        ['Team 1', 'Team 2'],
       ],
     });
   });
@@ -151,6 +200,19 @@ describe('room lobby labels', () => {
         ],
         ['Listed in the lobby', 'Ranked · counts toward ratings'],
       ],
+    });
+  });
+
+  test('an event Room no person hosts (Tab)', () => {
+    assert({
+      given: 'a Room no person hosts, whose host label is empty',
+      should: 'name no host rather than an empty one',
+      actual: roomMeta({
+        hostLabel: '',
+        visibility: 'private',
+        competitionType: 'casual',
+      }),
+      expected: ['Invite only', 'Casual · ratings don’t change'],
     });
   });
 
@@ -310,6 +372,9 @@ describe('chatAuthorSeat', () => {
     const view = {
       hostActorId: host,
       rules: assemblySnapshot.rules,
+      teamOneSide: 'affirmative' as const,
+      status: 'assembling' as const,
+      definition: assemblySnapshot.definition,
       participants: [
         seated({
           actorId: debater,
@@ -324,6 +389,9 @@ describe('chatAuthorSeat', () => {
           seat: { kind: 'judge' as const, slot: 0 },
           kind: 'human' as const,
           anonymous: true as const,
+          teamOpen: false,
+          positionOpen: false,
+          rating: null,
           needsReady: true,
           eligible: true,
           ready: 'not-ready' as const,
@@ -342,6 +410,29 @@ describe('chatAuthorSeat', () => {
         chatAuthorSeat(view, 'v'.repeat(24)),
       ],
       expected: ['Negative 1', 'Affirmative 2 · host', 'host', null],
+    });
+    const equal = {
+      ...view,
+      definition: {
+        ...assemblySnapshot.definition,
+        seats: {
+          sides: { affirmative: 2, negative: 2 },
+          speakers: 0,
+          judges: 1,
+          moderators: 0 as const,
+        },
+      },
+    };
+    assert({
+      given: 'the same seats on the coin flip, then with team 1 on Negative',
+      should:
+        'name each seat as the roster shows it, never a side it may not play',
+      actual: [
+        chatAuthorSeat({ ...equal, teamOneSide: null }, host),
+        chatAuthorSeat({ ...equal, teamOneSide: 'negative' }, host),
+        chatAuthorSeat({ ...equal, teamOneSide: 'negative' }, debater),
+      ],
+      expected: ['Team 1 · 2nd · host', 'Negative 2 · host', 'Affirmative 1'],
     });
   });
 });

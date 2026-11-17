@@ -76,7 +76,10 @@ export async function notificationsStage(world: World): Promise<void> {
     expected: [0, 0],
   });
   await withTournamentNotificationReader(world, async (store) => {
-    const input = { unreadOnly: false, now: new Date().toISOString() };
+    const input = {
+      query: { unreadOnly: false, after: null },
+      now: new Date().toISOString(),
+    };
     const competitor = world.bots['Debater 1']!;
     const result = await readNotificationItems(store, {
       ...input,
@@ -128,6 +131,44 @@ export async function notificationsStage(world: World): Promise<void> {
         hidden.unread < result.unread,
       ],
       expected: [false, true],
+    });
+    // The shell's read (badge and toasts) asks for unread rows only, and
+    // Tab's standing then visits only lobbies with an unread row (NTF-15).
+    const unreadOnly = (now: string) =>
+      readNotificationItems(store, {
+        query: { unreadOnly: true, after: null },
+        now,
+        userId: competitor.userId,
+      });
+    const released = (items: readonly { readonly text: string }[]) =>
+      items.some(
+        (item) => item.text === 'Your tournament results have been released.',
+      );
+    const unreadBefore = await unreadOnly(new Date().toISOString());
+    await store.markNotificationsRead({
+      userId: competitor.userId,
+      notificationIds: 'all',
+      at: new Date().toISOString(),
+    });
+    const unreadAfter = await unreadOnly(new Date().toISOString());
+    const everything = await readNotificationItems(store, {
+      ...input,
+      now: new Date().toISOString(),
+      userId: competitor.userId,
+    });
+    assert({
+      given:
+        'the competitor’s unread-only read (the shell’s), before and after marking everything read',
+      should:
+        'list and count the unread results notice, then show and count no tournament notice while the full read still holds it',
+      actual: [
+        released(unreadBefore.items),
+        unreadBefore.unread > 0,
+        released(unreadAfter.items),
+        unreadAfter.unread,
+        released(everything.items),
+      ],
+      expected: [true, true, false, 0, true],
     });
   });
 }

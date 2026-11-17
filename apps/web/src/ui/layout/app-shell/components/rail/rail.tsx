@@ -7,9 +7,11 @@ import { navItemClass } from '../../../../components/nav-item/nav-item-class';
 import { cn } from '../../../../cn';
 import type { RailPreference } from '../../rail-preference';
 import type { ShellAccount, ShellRatings } from '../../account';
-import { memberDestinations, primaryDestinations } from '../destinations';
+import { primaryDestinations } from '../destinations';
 import { AccountMenu } from './account-menu';
 import { FriendsLink } from './friends-link';
+import { MessagesLink } from './messages-link';
+import { NotificationsLink } from './notifications-link';
 
 /** A member's own places: their notifications, inbox and friends. */
 function MemberPlaces({
@@ -23,10 +25,10 @@ function MemberPlaces({
   return (
     <>
       <li>
-        <NavItem {...memberDestinations.notifications} extended={extended} />
+        <NotificationsLink extended={extended} />
       </li>
       <li>
-        <NavItem {...memberDestinations.messages} extended={extended} />
+        <MessagesLink extended={extended} />
       </li>
       <li>
         <FriendsLink extended={extended} />

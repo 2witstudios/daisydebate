@@ -68,7 +68,10 @@ export function changeDraftSchedule(
   } else return draft;
   const keys = new Set(segments.map((segment) => segment.key));
   return editRoomDraft(draft, {
-    definition: customRoomDefinition({ ...draft.definition, segments }),
+    definition: customRoomDefinition(
+      { ...draft.definition, segments },
+      draft.config,
+    ),
     config: {
       ...draft.config,
       speechTiming: {
@@ -95,7 +98,7 @@ function selectionOf(draft: CreateRoomDraft): RoomCreate['selection'] {
       : { kind: 'catalog', ...tuple, competitionType: 'casual' };
   return {
     kind: 'custom',
-    definition: customRoomDefinition(draft.definition),
+    definition: customRoomDefinition(draft.definition, draft.config),
     config: draft.config,
     competitionType: 'casual',
     basis: tuple,

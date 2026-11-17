@@ -36,7 +36,8 @@ import { RoomSetup } from './room-setup';
 import { InvitedNotice } from './invited-notice';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
-import { AssemblySeats } from './assembly-seats';
+import { RoomRoster } from './room-roster';
+import { RoomControls } from './room-controls';
 import { RoomSettings } from './room-settings';
 import { RoomChat, type RoomChatProps } from '../../room-chat/room-chat';
 import { chatAuthorSeat } from './room-labels';
@@ -156,19 +157,27 @@ export function RoomLive(props: Props) {
             />
           ) : null
         }
-        side={(ready) => (
+        main={(start) => (
+          <RoomRoster
+            view={view}
+            viewer={{ actorId: props.actorId, label: props.viewerLabel }}
+            bots={props.bots}
+            action={props.commandAction}
+            commandIds={ids}
+            footer={start}
+            invitationAction={props.invitationAction}
+          />
+        )}
+        aside={
           <>
-            <AssemblySeats
-              ready={ready}
+            <RoomControls
               view={view}
-              viewer={{ actorId: props.actorId, label: props.viewerLabel }}
-              bots={props.bots}
-              action={props.commandAction}
-              commandIds={ids.seats}
+              commandIds={{ visibility: ids.visibility, capture: ids.capture }}
+              commandAction={props.commandAction}
             />
             <RoomSettings view={view} />
           </>
-        )}
+        }
         view={view}
         actorId={props.actorId}
         read={read}

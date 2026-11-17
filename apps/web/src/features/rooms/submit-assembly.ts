@@ -23,6 +23,13 @@ function commandFields(form: FormData): Record<string, unknown> | null {
     if (form.getAll(key).length !== 1) return null;
     raw[key] = value;
   }
+  if (raw.type === 'set-seat') return withSeat(raw);
+  if (raw.type === 'set-sides')
+    return {
+      ...raw,
+      expectedVersion: Number(raw.expectedVersion),
+      teamOneSide: raw.teamOneSide === '' ? null : raw.teamOneSide,
+    };
   for (const key of [
     'expectedVersion',
     'expectedConsentVersion',
@@ -37,6 +44,17 @@ function commandFields(form: FormData): Record<string, unknown> | null {
   }
   if (raw.type === 'set-capture') return withCapture(raw);
   return 'format' in raw ? withFormatTuple(raw) : raw;
+}
+
+/** A seat move's empty team or position is ?, decided at Start round (ADR 0145). */
+function withSeat(raw: Record<string, unknown>): Record<string, unknown> {
+  const open = (value: unknown) => (value === '' ? null : Number(value));
+  return {
+    ...raw,
+    expectedVersion: Number(raw.expectedVersion),
+    team: open(raw.team),
+    position: open(raw.position),
+  };
 }
 
 /** The plain capture fields become the command's one closed value. */

@@ -88,7 +88,10 @@ export function retentionTargets({
     readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
     readonly purgeReadNotifications: (batch: Batch) => Promise<number>;
-    readonly purgeExpiredNotificationEmails: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredNotificationDigests: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredMessagingUnreadEmails: (
+      batch: Batch,
+    ) => Promise<number>;
     readonly purgeEndedRoomInvitations: (batch: Batch) => Promise<number>;
     readonly purgeExpiredWatchHistory: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSpectatorChat: (batch: Batch) => Promise<number>;
@@ -292,13 +295,24 @@ export function retentionTargets({
           limit,
         }),
     },
-    /** ADR 0124: sent, failed and cancelled notification emails are kept 30 days. */
+    /** ADR 0144: ended unread-messages emails are kept 30 days. */
     {
-      name: 'retention.notification_emails',
+      name: 'retention.messaging_unread_emails',
       batchSize: 500,
       maxBatches: 20,
       purge: ({ now, limit }) =>
-        database.purgeExpiredNotificationEmails({
+        database.purgeExpiredMessagingUnreadEmails({
+          before: cutoff(now, 30 * DAY_MS),
+          limit,
+        }),
+    },
+    /** ADR 0144: sent, failed and cancelled notification digests are kept 30 days. */
+    {
+      name: 'retention.notification_digests',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredNotificationDigests({
           before: cutoff(now, 30 * DAY_MS),
           limit,
         }),

@@ -181,7 +181,7 @@ describe('observedRoundOf, the opening and the judging window', () => {
   ): RoundView => ({
     ...view,
     status: 'opening',
-    opening: { step, draw: null, canStrike: false },
+    opening: { step, draw: null, canStrike: false, sides: null },
   });
 
   test('the strike and the prep before the round', () => {

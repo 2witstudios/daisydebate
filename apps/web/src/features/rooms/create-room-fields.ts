@@ -269,7 +269,9 @@ export function readRoomDraft(
     ok: true,
     draft: {
       ...original,
-      definition: custom ? customRoomDefinition(definition) : definition,
+      definition: custom
+        ? customRoomDefinition(definition, parsedConfig.data)
+        : definition,
       config: parsedConfig.data,
       custom,
       ranked:

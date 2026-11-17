@@ -16,6 +16,8 @@ type NotificationsPageProps = {
   readonly query: NotificationsQuery;
   readonly rows: readonly NotificationRow[];
   readonly unread: number;
+  /** The next page's address, or null on the last page. */
+  readonly olderHref: string | null;
   /** Marks one read, from its id; a native post. */
   readonly markRead: (id: string) => FormStateAction;
   readonly markAllRead: FormStateAction;
@@ -26,6 +28,7 @@ export function NotificationsPage({
   query,
   rows,
   unread,
+  olderHref,
   markRead,
   markAllRead,
 }: NotificationsPageProps) {
@@ -41,13 +44,13 @@ export function NotificationsPage({
           {
             id: 'all',
             label: 'All',
-            href: notificationsHref({ unreadOnly: false }),
+            href: notificationsHref({ unreadOnly: false, after: null }),
             selected: !query.unreadOnly,
           },
           {
             id: 'unread',
             label: 'Unread',
-            href: notificationsHref({ unreadOnly: true }),
+            href: notificationsHref({ unreadOnly: true, after: null }),
             selected: query.unreadOnly,
           },
         ]}
@@ -82,6 +85,11 @@ export function NotificationsPage({
             ))}
           </ul>
         )}
+        {olderHref ? (
+          <Link href={olderHref} className="mt-4 inline-block text-base">
+            Older notifications
+          </Link>
+        ) : null}
       </Panel>
     </ReadingPage>
   );

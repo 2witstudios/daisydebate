@@ -161,6 +161,8 @@ const startInput: Parameters<
       seatsBotDebater: false,
       publishDefinition: false,
       draw: null,
+      seatDraw: null,
+      roundSeed: null,
       members: [caller.actorId],
     },
   }),
@@ -233,6 +235,7 @@ const startRows = (changeVersion = 1) => [
   [],
   [[2n, '42']], // Round phase signal for the frozen Round
   [],
+  [], // the seated members its start tells: none in this fake (ADR 0144)
   [], // command receipt insert follows the Round phase signal
   [[1n, '42']],
   [],

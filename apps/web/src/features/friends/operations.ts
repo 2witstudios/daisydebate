@@ -91,6 +91,7 @@ export async function changeFriendship(
               requestId: dependencies.ids.next(),
               now: dependencies.clock.now(),
               limits: dependencies.limits,
+              nextId: () => dependencies.ids.next(),
             });
           return {
             username,

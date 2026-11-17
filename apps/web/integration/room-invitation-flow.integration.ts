@@ -5,7 +5,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createResendSender } from '../src/features/mail/resend-sender';
 import { resendRequest } from '../src/features/mail/resend-capture.test-support';
-import { createNotificationEmailDelivery } from '../src/features/notifications/email/delivery';
+import { createNotificationDigestDelivery } from '../src/features/notifications/email/delivery';
 import { inviteToRoom } from '../src/features/room-invitations/operations';
 import { withRoomRuntime } from './room-runtime.test-support';
 
@@ -59,6 +59,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
       const inboxOf = async (userId: string) =>
         (
           await f.store.readNotifications({
+            after: null,
             userId,
             unreadOnly: true,
             limit: 10,
@@ -83,8 +84,12 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
           });
         },
       });
-      await createNotificationEmailDelivery({
+      // The quiet time has passed and both members are away.
+      await f.sql`update notification_digests set next_attempt_at=clock_timestamp()
+        where user_id in (${judge.userId},${debater.userId})`;
+      await createNotificationDigestDelivery({
         store: f.store,
+        isOnline: async () => false,
         deliver: async (message) => {
           await sender.send(message);
           return 'sent';
@@ -101,14 +106,14 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
         captured
           .filter((mail) => mail.to === emailOf(userId))
           .map((mail) => ({
-            judge: mail.text.includes('judge'),
-            room: mail.text.includes(`${APP}/rooms/${view.id}`),
+            judge: mail.text.includes('invited you to judge'),
+            inbox: mail.text.includes(`${APP}/notifications`),
             unsubscribe: mail.text.includes(`${APP}/unsubscribe?`),
           }));
       assert({
         given: 'a host inviting one member to judge and another to debate',
         should:
-          'give each an unread inbox row and one email naming the Room, the seat and how to unsubscribe',
+          'give each an unread inbox row and one digest in the inbox’s words, linking the inbox and how to unsubscribe',
         actual: {
           judgeInbox: await inboxOf(judge.userId),
           debaterInbox: await inboxOf(debater.userId),
@@ -122,8 +127,8 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
           debaterInbox: [
             { kind: 'room_invitation', roomId: view.id, seat: 'side' },
           ],
-          judgeMail: [{ judge: true, room: true, unsubscribe: true }],
-          debaterMail: [{ judge: false, room: true, unsubscribe: true }],
+          judgeMail: [{ judge: true, inbox: true, unsubscribe: true }],
+          debaterMail: [{ judge: false, inbox: true, unsubscribe: true }],
         },
       });
 

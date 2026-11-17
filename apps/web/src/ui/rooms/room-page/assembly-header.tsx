@@ -3,15 +3,12 @@ import Link from 'next/link';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
-import { AssemblyCommandFields } from './assembly-command-fields';
-import { AssemblyCommandForm } from './assembly-command-form';
 import { ROOM_SETUP_HREF, roomMeta, roomStatus } from './room-labels';
 import { CloseRoom } from './close-room';
 import { InvitePeople } from './invite-people';
 import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
-import { ROOM_SETUP_HOME, ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
+import { ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
 
 /** The resolution, labelled as such: the statement the two sides debate. */
 export function RoomResolution({
@@ -81,7 +78,7 @@ export function AssemblyHeader({
   readonly view: RoomView;
   readonly actorId: string;
   readonly roomNumber?: number;
-  readonly commandIds: { readonly leave: string; readonly close: string };
+  readonly commandIds: { readonly close: string };
   readonly commandAction: FormAction<RoomFormState>;
   readonly invitationAction: FormAction<InvitationFormState>;
 }) {
@@ -134,33 +131,12 @@ export function AssemblyHeader({
               competitor={view.rules.sides.length > 0 ? 'side' : 'speaker'}
             />
           ) : null}
-          {view.capabilities.canEdit ? (
-            <a
-              href={ROOM_SETUP_HREF}
-              {...{ [ROOM_SETUP_HOME]: '' }}
-              className={buttonClass('secondary')}
-            >
-              Room setup
-            </a>
-          ) : null}
           {hostOfOpenRoom ? (
             <CloseRoom
               version={view.version}
               commandId={commandIds.close}
               action={commandAction}
             />
-          ) : null}
-          {seated ? (
-            <AssemblyCommandForm action={commandAction}>
-              <AssemblyCommandFields
-                type="leave-seat"
-                version={view.version}
-                commandId={commandIds.leave}
-              />
-              <button type="submit" className={buttonClass('secondary')}>
-                Leave seat
-              </button>
-            </AssemblyCommandForm>
           ) : null}
         </div>
       </div>

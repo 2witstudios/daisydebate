@@ -3,8 +3,14 @@ import type { RoomView, roomRefusalSchema } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import { seatRefSchema, type SeatKind, type SeatRef } from './seats';
+import {
+  seatRefSchema,
+  type SeatKind,
+  type SeatRef,
+  type TwoSideKey,
+} from './seats';
 import { seatsOfKind, type FormatSeating } from './format-seating';
+import { roomTeamSchema, teamSideSchema, type SeatDraw } from './seat-draw';
 import {
   formatDefinitionSchema,
   type FormatDefinition,
@@ -117,6 +123,19 @@ export const roomCreateSchema = z
         message: 'A hold names an actor at most once',
       })
       .optional(),
+    /**
+     * Whether the sides are open (decided by a coin flip at Start round) or
+     * fixed to the cast's placements (ADR 0145). Omitted: open, unless the
+     * cast names a debater, whose producer chose the sides (Tab, DEC 4909).
+     * A ranked Room's sides are always open.
+     */
+    sides: z.enum(['open', 'fixed']).optional(),
+    /**
+     * A Train practice (decision 75): its creator is held as an active
+     * member from create, seated or not, so a second Start practice returns
+     * to this Room. Any other Room holds only its seated people (TAB-6.16).
+     */
+    practice: z.literal(true).optional(),
     /** The capture notice the create form showed its host, to be recorded; only a casual create with capture states one. */
     noticeVersion: z.string().min(1).max(64).optional(),
   })
@@ -203,6 +222,33 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     ...seat,
   }),
   z.strictObject({ ...envelope, type: z.literal('leave-seat') }),
+  /**
+   * Move one debater (ADR 0145): to a team (null = ?, placed at random at
+   * Start round) and a speaking position within it (null = ?). A member
+   * moves themselves; the host moves anyone.
+   */
+  z.strictObject({
+    ...envelope,
+    type: z.literal('set-seat'),
+    participantId: idSchema,
+    team: roomTeamSchema.nullable(),
+    position: z.int().min(0).nullable(),
+  }),
+  /**
+   * Team 1's side; team 2 argues the other. Null opens both to a coin flip
+   * at Start round. A debater sets their own team's, the host either.
+   */
+  z.strictObject({
+    ...envelope,
+    type: z.literal('set-sides'),
+    teamOneSide: teamSideSchema.nullable(),
+  }),
+  /** Who can join, alone, from the page's Room controls (ADR 0145, D9). */
+  z.strictObject({
+    ...envelope,
+    type: z.literal('set-visibility'),
+    visibility: roomVisibilitySchema,
+  }),
   z.strictObject({
     ...envelope,
     type: z.literal('remove-seat'),
@@ -234,6 +280,10 @@ export type RoomParticipant = {
   readonly label: string;
   readonly consentVersion: number;
   readonly seat: SeatRef;
+  /** A debater whose team is ?: placed on a team at random at Start round (ADR 0145). */
+  readonly teamOpen: boolean;
+  /** A debater whose position is ?: given a speaking position at random at Start round. */
+  readonly positionOpen: boolean;
 };
 type RoomRoundRef = {
   readonly id: string;
@@ -383,6 +433,13 @@ export type RoomAssemblyState = RoomRoundLink & {
     readonly config: FormatSettings;
   } | null;
   readonly seatHolds: readonly RoomSeatHold[];
+  /** Team 1's side, or null while the sides are open to the coin flip (ADR 0145). */
+  readonly teamOneSide: TwoSideKey | null;
+  /**
+   * The Room holds its host as an active member, seated or not: a Train
+   * practice (decision 75). Absent or false: only its seated people.
+   */
+  readonly holdsHost?: boolean;
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
@@ -419,6 +476,10 @@ type RoomMutation = {
     readonly seed: string;
     readonly inputs: DrawPrivateInputs;
   } | null;
+  /** What a Start round's seat draw did, frozen on its Round (ADR 0145). */
+  readonly seatDraw: SeatDraw | null;
+  /** The Round's secret seed (hex), stored with it and never delivered; null off Start round. */
+  readonly roundSeed: string | null;
   /** The human actors the next state holds as active members (ADR 0070). */
   readonly members: readonly string[];
 };

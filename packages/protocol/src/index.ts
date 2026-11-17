@@ -164,6 +164,9 @@ export {
   roundStatusSchema,
   runningRoundStatuses,
   isRoundRunning,
+  roundBegan,
+  roundDecisionReleases,
+  type RoundDecisionRelease,
   isRoundOver,
   isRoundCompleted,
   roundStageSchema,
@@ -384,6 +387,19 @@ export type {
   RoomCatalogChoice,
 } from './room-contract';
 
+// Room teams and the Start round seat draw (ADR 0145).
+export {
+  roomTeamSchema,
+  seatDrawSchema,
+  seatsTwoTeams,
+  sideOfTeam,
+  sidesSwappable,
+  teamOfPlacement,
+  teamPlacementOf,
+  teamSideSchema,
+} from './seat-draw';
+export type { RoomTeam, SeatDraw } from './seat-draw';
+
 // Persistent messaging contracts; bounds come from the owning policy.
 export {
   createMessagingCoreSchemas,
@@ -457,6 +473,8 @@ export {
   messagingInboxSearchLine,
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
+  messagingUnreadSchema,
+  type MessagingUnread,
 } from './messaging/inbox';
 
 export {
@@ -742,6 +760,9 @@ export {
   defaultNotificationChoices,
   emailedNotificationKinds,
   isEmailedNotificationKind,
+  isUrgentNotificationKind,
+  kindsAbout,
+  notificationCatalogue,
   notificationChannels,
   notificationChannelsOf,
   notificationChoicePairs,
@@ -750,12 +771,24 @@ export {
   tournamentNotificationKinds,
   type TournamentNotificationKind,
   notificationPreferencesSchema,
+  notificationSubjects,
+  NOTIFICATIONS_READ_AT_ONCE,
   notificationsReadSchema,
+  notificationPresentationSchema,
+  notificationShellSchema,
+  NOTIFICATIONS_SHELL_RECENT,
+  type NotificationShell,
+  defaultNotificationPresentation,
+  type NotificationPresentation,
+  subjectOf,
   type EmailedNotificationKind,
   type NotificationChannel,
   type NotificationChoices,
   type NotificationKind,
+  type NotificationKindSpec,
   type NotificationPreferences,
+  type NotificationSubjectKind,
+  type SubjectOf,
 } from './notifications';
 export {
   RECORDING_EVIDENCE_HOLD_MS,

@@ -11,7 +11,7 @@ import { integrationSuite } from './suite.test-support';
 
 const { databaseUrl } = integrationSuite();
 const scratch = scratchDatabase(databaseUrl, 'roomtemplate');
-const migration = '20261117003143_tab_wiring';
+const migration = '20261117122353_tab_wiring';
 afterAll(() => scratch.drop());
 
 test(
@@ -38,7 +38,7 @@ test(
         await client`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
       await scratch.migrate(() => true);
       const after =
-        await client`select to_jsonb(r)-'standing_template_id'-'league_ladder_id' as room from rooms r where id=${roomId}`;
+        await client`select to_jsonb(r)-'standing_template_id'-'league_ladder_id'-'holds_host' as room from rooms r where id=${roomId}`;
       const offersAfter =
         await client`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
       const [pin] =

@@ -1,6 +1,5 @@
 import {
   defaultNotificationChoices,
-  type EmailedNotificationKind,
   notificationChoicePairs,
   type NotificationChannel,
   type NotificationChoices,
@@ -13,7 +12,8 @@ import { rowsOf } from '../raw-rows';
 
 /** Whether `user` wants `kind` on `channel`: on unless they turned it off. */
 export const wants = (
-  kind: NotificationKind,
+  /** A kind, or the column that holds one in the reader's query. */
+  kind: NotificationKind | SQL,
   channel: NotificationChannel,
   user: SQL,
 ) =>
@@ -65,20 +65,5 @@ export const notificationPreferenceOperations = ({
         }
       }),
     );
-  },
-  /**
-   * Turns one kind's email off for a member, from the email's own
-   * unsubscribe (ADR 0124). An erased or unknown member changes nothing.
-   */
-  unsubscribeNotificationEmail(input: {
-    readonly userId: string;
-    readonly kind: EmailedNotificationKind;
-  }) {
-    return instrumented(eventSink, 'unsubscribeNotificationEmail', async () => {
-      await database.execute(sql`insert into notification_preferences(user_id,kind,channel,enabled)
-        select u.id,${input.kind},'email',false from users u
-        where u.id=${input.userId} and u.deleted_at is null
-        on conflict (user_id,kind,channel) do update set enabled=false`);
-    });
   },
 });

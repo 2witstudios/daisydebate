@@ -162,6 +162,7 @@ export const assemblySnapshot = {
   seatsHeldFromViewer: { side: 0, speaker: 0, judge: 0, moderator: 0 },
   invitations: [],
   rules: compiled.rules,
+  teamOneSide: null,
   participants: [],
   readiness: { available: true, version: 3, readyActorIds: [] },
   capabilities: {

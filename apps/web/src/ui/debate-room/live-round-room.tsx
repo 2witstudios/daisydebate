@@ -29,6 +29,7 @@ import {
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import type { FormAction } from '../form-action/form-action';
 import { OpeningChosen, OpeningStrike } from './opening-strike';
+import { OpeningSides } from './opening-sides';
 import {
   CALL_RESULT_LINK_ID,
   RoundCommandActions,
@@ -191,6 +192,13 @@ export function LiveRoundRoom({
           };
   const notices = (
     <>
+      {view.opening?.sides ? (
+        <OpeningSides
+          view={view}
+          sides={view.opening.sides}
+          actorId={actorId}
+        />
+      ) : null}
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <ConversationHeldNotice view={view} nowMs={now} />
       <RoundTimeNotice roundTime={roundTime} />

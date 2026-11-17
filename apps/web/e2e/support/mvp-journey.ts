@@ -4,7 +4,12 @@ import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage } from './fixtures';
 import { origin, signUpWaitlisted } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
-import { createFromPlay, ldTemplate, setResolution } from './room-launch-flow';
+import {
+  createFromPlay,
+  fixSides,
+  ldTemplate,
+  setResolution,
+} from './room-launch-flow';
 import { expectRoundResult } from './round-result-proof';
 import {
   assemble,
@@ -94,6 +99,8 @@ export async function proveMvpJourney(browser: Browser) {
       { page: judge, seat: 'Judge 1' },
     ];
     room = await skipPreRoundPrep(aff, room);
+    // Each seat plays its own side: the journey's turns follow the seats.
+    room = await fixSides(aff.request, room);
     room = await assemble(players, room);
     const { roundId } = await launch(aff);
     await expectAutomaticRoundEntry(players, room, roundId);

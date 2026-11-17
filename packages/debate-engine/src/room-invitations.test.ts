@@ -13,6 +13,7 @@ const room = {
   status: 'assembling' as const,
   participants: [],
   seatHolds: [],
+  teamOneSide: 'affirmative',
   rules: { ...base.rules, seats: { ...base.rules.seats, judges: 1 } },
 };
 const host = 'host';
@@ -66,6 +67,8 @@ test('who may not be invited', () => {
         kind: 'human' as const,
         seat: sideSeat('negative'),
         eligible: true,
+        teamOpen: false,
+        positionOpen: false,
         consentVersion: 0,
         consentCommandId: null,
       },

@@ -62,8 +62,11 @@ test('without JavaScript, a member without the casual AI judge practises with a 
     await expect(
       page.getByText('Invite a person to judge instead'),
     ).toBeVisible();
+    // The open judge seat's own row invites a person to judge.
     await expect(
-      page.getByRole('link', { name: 'Invite', exact: true }),
+      page
+        .getByRole('listitem', { name: 'Judge 1', exact: true })
+        .getByRole('link', { name: 'Invite', exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'AI judge', exact: true }),

@@ -1,7 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { freestyleChoice, unequalTemplate } from './assembly.test-support';
 import { createRoomDraft } from './create-room-draft';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
+import { prepareRoomDraft } from './prepare-room-draft';
 
 setupRitewayBun();
 /** The standard with the unequal fixture's seats and fractional timings. */
@@ -12,6 +14,67 @@ const choice = () => ({
 });
 
 describe('native room draft fields', () => {
+  test('a template that forbids interruptions and yielding, made Custom', () => {
+    // Tab's Open conversation forbids both, so its preset holds null for each.
+    const template = {
+      ...unequalTemplate,
+      definition: {
+        ...unequalTemplate.definition,
+        configurable: {
+          ...unequalTemplate.definition.configurable,
+          interaction: { interruptions: null, yield: null },
+        },
+      },
+      preset: {
+        ...unequalTemplate.preset,
+        config: {
+          ...unequalTemplate.preset.config,
+          interruptions: null,
+          yielding: null,
+        },
+      },
+    };
+    const fields = draftFormValues(createRoomDraft(template));
+    const read = readRoomDraft({ ...fields, format: 'custom' }, [template]);
+    const compiled =
+      read.ok &&
+      resolveRoomConfiguration(read.draft.definition, read.draft.config);
+    assert({
+      given:
+        'a template whose preset forbids interruptions and yielding, posted as a Custom room',
+      should:
+        'compile, committing the template’s settings as chosen: the Custom room forbids what the template forbade',
+      actual: read.ok && {
+        custom: read.draft.custom,
+        compiled: compiled && compiled.ok,
+        interruptions: read.draft.config.interruptions,
+        yielding: read.draft.config.yielding,
+      },
+      expected: {
+        custom: true,
+        compiled: true,
+        interruptions: null,
+        yielding: null,
+      },
+    });
+    const form = new FormData();
+    for (const [name, value] of Object.entries({
+      ...fields,
+      format: 'custom',
+      title: 'A conversation',
+      visibility: 'public',
+      resolutionMethod: 'custom',
+      customResolution: 'Proof cities should fund transit',
+    }))
+      form.set(name, value);
+    assert({
+      given: 'the same Custom room submitted through the native create form',
+      should:
+        'reach the create: the definition it sends forbids what the template forbade',
+      actual: prepareRoomDraft(form, [template]).kind,
+      expected: 'submit',
+    });
+  });
   test('exact round trip', () => {
     const draft = createRoomDraft(choice());
     const read = readRoomDraft(draftFormValues(draft), [choice()]);

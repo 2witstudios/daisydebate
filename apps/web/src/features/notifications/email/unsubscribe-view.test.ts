@@ -5,21 +5,17 @@ setupRitewayBun();
 
 test('unsubscribeViewOf', () => {
   assert({
-    given: 'a link, a done answer, a refusal and a kind never emailed',
+    given: 'a link, a done answer, a refusal and a link missing its token',
     should: 'confirm, report done, and call the rest not valid',
     actual: [
-      unsubscribeViewOf({ u: 'u1', k: 'room_invitation', t: 'tok' }),
-      unsubscribeViewOf({ done: 'challenge_received' }),
+      unsubscribeViewOf({ u: 'u1', t: 'tok' }),
+      unsubscribeViewOf({ done: '1' }),
       unsubscribeViewOf({ invalid: '1' }),
-      unsubscribeViewOf({ u: 'u1', k: 'recording_ready', t: 'tok' }),
+      unsubscribeViewOf({ u: 'u1' }),
     ],
     expected: [
-      {
-        kind: 'confirm',
-        subject: 'room_invitation',
-        fields: { u: 'u1', k: 'room_invitation', t: 'tok' },
-      },
-      { kind: 'done', subject: 'challenge_received' },
+      { kind: 'confirm', fields: { u: 'u1', t: 'tok' } },
+      { kind: 'done' },
       { kind: 'invalid' },
       { kind: 'invalid' },
     ],

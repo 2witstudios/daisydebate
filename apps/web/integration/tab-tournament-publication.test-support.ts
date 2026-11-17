@@ -157,6 +157,16 @@ export const publishDrawStage = async (world: World): Promise<void> => {
     ],
     expected: [2, true, 6, true, true],
   });
+  const sides = await sql<
+    { team_one_side: string | null; open: number }[]
+  >`select r.team_one_side, (select count(*)::int from room_participants p where p.room_id = r.id and (p.team_open or p.position_open)) open from rooms r join fixtures f on f.room_id=r.id where f.tab_round_id=${world.made.get('tab-round')!} order by r.id`;
+  assert({
+    given: 'the published event Rooms (ADR 0145)',
+    should:
+      'seat each team on the side the draw gave it, with no coin flip and no ? seat',
+    actual: sides,
+    expected: rooms.map(() => ({ team_one_side: 'affirmative', open: 0 })),
+  });
   if (rooms[0]) {
     world.made.set('first-room', rooms[0].id);
     world.made.set('first-fixture', rooms[0].fixture_id);

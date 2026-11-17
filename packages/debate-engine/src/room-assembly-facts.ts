@@ -51,6 +51,11 @@ export type Edges = {
   readonly formatFacts?: FormatSelectionFacts | null;
   /** Facts for a new draw, loaded only for `start-round` on a draw Room. */
   readonly drawStart: DrawStartFacts | null;
+  /**
+   * The Round's seed (hex), minted for every Start round: the seat draw
+   * resolves every ? from it (ADR 0145). Null on every other command.
+   */
+  readonly seatSeed: string | null;
 };
 export const complete = (room: RoomAssemblyState) =>
   heldSeatsComplete(
@@ -113,6 +118,8 @@ export const acceptedRoomMutation = (
     seatsBotDebater: false,
     publishDefinition: false,
     draw: null,
+    seatDraw: null,
+    roundSeed: null,
     members: activeRoomMembers(state),
     ...overrides,
   },

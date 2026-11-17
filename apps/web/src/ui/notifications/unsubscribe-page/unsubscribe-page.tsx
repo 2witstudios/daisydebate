@@ -1,16 +1,10 @@
-import type { EmailedNotificationKind } from '@daisy/protocol';
 import Link from 'next/link';
 import type { UnsubscribeView } from '../../../features/notifications/email/unsubscribe-view';
 import { buttonClass } from '../../components/button/button-class';
 
-const kindWords: Record<EmailedNotificationKind, string> = {
-  room_invitation: 'room invitations',
-  challenge_received: 'challenges',
-};
-
 /**
- * Turns off one kind of notification email from the email's own link, with
- * no sign-in (ADR 0124). A native form, so it works without JavaScript.
+ * Stops notification email from the email's own link, with no sign-in (ADR
+ * 0124, ADR 0144). A native form, so it works without JavaScript.
  */
 export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
   return (
@@ -23,23 +17,23 @@ export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
           className="flex flex-col gap-4"
         >
           <p className="text-base text-ink">
-            Stop emails about {kindWords[view.subject]}? You still see them in
-            Daisy, and other emails are unchanged.
+            Stop notification emails from Daisy? You still see everything in
+            Daisy, and sign-in and account emails are unchanged.
           </p>
           <input type="hidden" name="from" value="page" />
           <input type="hidden" name="u" value={view.fields.u} />
-          <input type="hidden" name="k" value={view.fields.k} />
           <input type="hidden" name="t" value={view.fields.t} />
           <div>
             <button type="submit" className={buttonClass('primary')}>
-              Stop these emails
+              Stop notification emails
             </button>
           </div>
         </form>
       ) : view.kind === 'done' ? (
         <p role="status" className="text-base text-ink">
-          Done. You will not get emails about {kindWords[view.subject]}. You can
-          turn them back on in <Link href="/settings">Settings</Link>.
+          Done. Daisy will not email you about notifications. You can turn them
+          back on, or choose which kinds, in{' '}
+          <Link href="/settings">Settings</Link>.
         </p>
       ) : (
         <p role="status" className="text-base text-ink">

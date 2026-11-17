@@ -17,6 +17,8 @@ const seat = {
   id: 'candidate',
   label: 'Daisy',
   seat: judgeSeat(),
+  teamOpen: false,
+  positionOpen: false,
   consentVersion: 0,
   consentCommandId: null,
 };

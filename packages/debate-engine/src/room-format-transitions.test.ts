@@ -157,6 +157,8 @@ describe('select-format', () => {
           kind: 'human',
           seat: sideSeat('affirmative', 1),
           eligible: true,
+          teamOpen: false,
+          positionOpen: false,
           consentVersion: 0,
           consentCommandId: null,
         },

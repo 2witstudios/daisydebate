@@ -38,6 +38,7 @@ import {
 } from './ranked-room.test-support';
 import { fixtureBallot, submitHumanBallot } from './round-judging.test-support';
 import { withRoomRuntime } from './round-runtime.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -102,7 +103,7 @@ test('every public and member read holds a ranked outcome until release', async 
         });
         return readNotificationItems(f.store, {
           userId: follower,
-          unreadOnly: false,
+          query: { unreadOnly: false, after: null },
           now,
         });
       };
@@ -266,7 +267,7 @@ test('every public and member read holds a ranked outcome until release', async 
         given: 'a follower of a seated debater, after a sweep, before release',
         should: 'store no notification, so none can say anything early',
         actual: await followerNotifications(),
-        expected: { items: [], unread: 0 },
+        expected: { items: [], unread: 0, next: null },
       });
       const round = await f.store.readLaunchedRound(
         roundId,
@@ -426,6 +427,7 @@ test('every public and member read holds a ranked outcome until release', async 
         },
       });
       await f.sql`delete from rooms where id=${openRoomId}`;
+      await deleteOrphanNotificationSignals(f.sql);
     } finally {
       await f.sql`delete from users where id=${follower}`;
       if (roundId) {

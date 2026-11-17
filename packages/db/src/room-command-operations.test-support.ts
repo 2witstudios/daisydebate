@@ -58,6 +58,8 @@ export const room = {
   presetVersion: null,
   basis: null,
   competitionType: 'casual' as const,
+  teamOneSide: 'affirmative' as const,
+  holdsHost: false,
   config: oneOnOneSettings,
   capture: null,
   postRoundCall: false,

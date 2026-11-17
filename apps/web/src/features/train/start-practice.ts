@@ -89,6 +89,10 @@ export function preparePractice(
       resolution: { kind: 'strike' },
       visibility: defaultRoomVisibility,
       selection: casualSelection(freestyle),
+      // The bot takes a seat, not a side: practice flips for sides like any Room (ADR 0145).
+      sides: 'open',
+      // Its creator is held from create: a second Start practice returns here.
+      practice: true,
       cast: [
         { actorId: bot.actorId, seat: sideSeat(botSide.key) },
         ...(judge ? [{ actorId: judge.actorId, seat: judgeSeat() }] : []),

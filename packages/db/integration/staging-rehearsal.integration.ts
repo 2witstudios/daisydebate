@@ -29,14 +29,18 @@ afterAll(() => scratch.drop());
 // Every feature-only folder, including the wiring migration. The initial
 // database runs every main folder; each sorts before the first Tab folder.
 const parentFolders = new Set([
-  '20261117003138_tab_schema',
-  '20261117003139_tab_schema_checks_validated',
-  '20261117003140_tab_seats',
-  '20261117003141_tab_seats_checks_validated',
-  '20261117003142_tab_casual_templates',
-  '20261117003143_tab_wiring',
-  '20261117003144_lethal_grey_gargoyle',
-  '20261117054407_tab_finalization_assignment_cascade',
+  '20261117122348_tab_schema',
+  '20261117122349_tab_schema_checks_validated',
+  '20261117122350_tab_seats',
+  '20261117122351_tab_seats_checks_validated',
+  '20261117122352_tab_casual_templates',
+  '20261117122353_tab_wiring',
+  '20261117122354_lethal_grey_gargoyle',
+  '20261117122355_tab_finalization_assignment_cascade',
+  '20261117122356_tab_room_seat_teams',
+  '20261117134249_tab_notifications',
+  '20261117134250_tab_seat_and_notification_checks_validated',
+  '20261117180901_tab_room_holds_host',
 ]);
 
 const oldRules = ({
@@ -428,6 +432,57 @@ test(
           queue: 'safety',
           created_at: at,
         });
+      // Main's seat model (ADR 0145, #766): open seats, each side rule and a
+      // frozen seat draw exist before any Tab folder rewrites the seats.
+      await sql`update room_participants set team_open = true, position_open = true where role = 'negative'`;
+      await sql`update room_participants set position_open = true where id = (select id from room_participants where role = 'affirmative' order by id limit 1)`;
+      await sql`update rooms set team_one_side = null where id = (select id from rooms where competition_type = 'casual' order by id limit 1)`;
+      await sql`update rooms set team_one_side = 'negative' where id = (select id from rooms where competition_type = 'casual' order by id offset 1 limit 1)`;
+      const seatDraw = {
+        algorithm: 'daisy-draw-v1/seats',
+        commitment: '0'.repeat(64),
+        coin: 'swapped',
+        teamOneSide: 'negative',
+        moved: [],
+      };
+      await sql`update rounds set seat_draw = ${seatDraw}::jsonb where id = ${round}`;
+      const seatModel = async () => ({
+        seats:
+          await sql`select id, team_open, position_open from room_participants order by id`,
+        sides: await sql`select id, team_one_side from rooms order by id`,
+        draws:
+          await sql`select id, seat_draw from rounds where seat_draw is not null order by id`,
+      });
+      const seatModelBefore = await seatModel();
+      // Main's notification catalogue (ADR 0144, #767): kinds Tab's own
+      // checks never listed, and a presentation choice, before any Tab folder.
+      const [hostUser] = await sql`select user_id from actors where id=${host}`;
+      for (const [kind, about] of [
+        ['round_started', null],
+        ['round_decision_released', host],
+      ] as const)
+        await f.insert('notifications', {
+          id: createId(),
+          user_id: hostUser!.user_id,
+          kind,
+          round_id: round,
+          actor_id: about,
+          created_at: at,
+          surfaced_at: at,
+        });
+      await f.insert(
+        'notification_presentation',
+        {
+          user_id: hostUser!.user_id,
+          toasts: false,
+          sound: true,
+          desktop_alerts: false,
+          email: true,
+        },
+        'user_id',
+      );
+      const notificationsBefore =
+        await sql`select to_jsonb(n) as row from notifications n order by id`;
       await sql`insert into room_active_memberships (actor_id, room_id)
         select actor_id, room_id from room_participants order by id limit 1`;
       const activeSeatsBefore =
@@ -494,6 +549,21 @@ test(
         expected: reportsBefore,
       });
       assert({
+        given:
+          "main's notifications of kinds Tab's checks never listed (ADR 0144)",
+        should: 'keep every row, with no Tab subject named',
+        actual:
+          await sql`select to_jsonb(n) - array['fixture_id','notification_lobby_id','tab_command_id'] as row from notifications n order by id`,
+        expected: notificationsBefore,
+      });
+      assert({
+        given:
+          "main's open seats, side rules and a frozen seat draw (ADR 0145)",
+        should: 'keep every one through the Tab folders',
+        actual: await seatModel(),
+        expected: seatModelBefore,
+      });
+      assert({
         given: 'old side and judge seats',
         should: 'keep identities and slots with the same side or judge meaning',
         actual:
@@ -533,7 +603,7 @@ test(
       };
       const retainedAfter = {
         rooms:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id'] as row from rooms r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host'] as row from rooms r order by id`,
         rounds:
           await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id'] as row from rounds r order by id`,
         roomParticipants:
@@ -547,6 +617,15 @@ test(
           'preserve exact identities, owners, configuration, consent, visibility, runtime checkpoints and timestamps',
         actual: retainedAfter,
         expected: retainedBefore,
+      });
+      assert({
+        given: 'every existing Room (decision 75)',
+        should:
+          'hold no seatless host: only a Train practice created from now on holds its host',
+        actual: (
+          await sql`select count(*)::int n from rooms where holds_host`
+        )[0]!.n,
+        expected: 0,
       });
       assert({
         given: 'ordinary Rooms and Rounds that predate league rating selection',

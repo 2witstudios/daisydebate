@@ -87,6 +87,14 @@ export const memberDestinations = {
 export const friendsLabel = (online: number): string =>
   `Friends, ${online} online`;
 
+/** The accessible name of the Notifications link, with the unread count in it. */
+export const notificationsLabel = (unread: number): string =>
+  unread === 0 ? 'Notifications' : `Notifications, ${unread} unread`;
+
+/** The accessible name of the Messages link, with the waiting conversations in it. */
+export const messagesLabel = (unread: number, label = 'Messages'): string =>
+  unread === 0 ? label : `${label}, ${unread} unread`;
+
 /** Where a member's profile lives. */
 export const profileHref = (username: string): string => `/profile/${username}`;
 

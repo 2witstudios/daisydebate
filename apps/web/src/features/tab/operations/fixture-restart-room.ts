@@ -1,4 +1,5 @@
 import { activeRoomMembers, executeRoomCommand } from '@daisy/debate-engine';
+import { createdSides } from '../../room-runtime/created-sides';
 import { createAppError } from '@daisy/errors';
 import type { LoadedFixtureCommand, FixtureOwnerEffects } from '@daisy/db/tab';
 import type { TabPrincipal } from '../tab-principal';
@@ -31,6 +32,14 @@ export function fixtureRestartRoom(
             }
           : null,
       competitionType: room.competitionType,
+      // A restarted event Room keeps the draw's sides (ADR 0145).
+      teamOneSide: createdSides({
+        competitionType: room.competitionType,
+        sides: undefined,
+        castNamesDebater: false,
+        seating: room.rulesSnapshot,
+        eventRoom: true,
+      }),
       config: room.config,
       executionPlan: room.executionPlan,
       rules: room.rulesSnapshot,
@@ -78,9 +87,12 @@ export function fixtureRestartRoom(
                   id: seat.participantId,
                   consentVersion: 0,
                   seat: seat.seat,
+                  teamOpen: false,
+                  positionOpen: false,
                 }
               : null,
             drawStart: null,
+            seatSeed: null,
           },
         ),
     },

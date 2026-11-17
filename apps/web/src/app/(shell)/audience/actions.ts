@@ -23,7 +23,10 @@ import {
   saveRefused,
   type SaveFormState,
 } from '../../../features/forms/save-form';
-import { choicesFromForm } from '../../../features/notifications/preference-form';
+import {
+  choicesFromForm,
+  presentationFromForm,
+} from '../../../features/notifications/preference-form';
 import { post } from '../form-post';
 
 const routes = {
@@ -33,6 +36,7 @@ const routes = {
   history: processRoute((all) => all.audience.watchHistory),
   read: processRoute((all) => all.audience.notificationsRead),
   preferences: processRoute((all) => all.audience.notificationPreferences),
+  presentation: processRoute((all) => all.audience.notificationPresentation),
   report: processRoute((all) => all.contentModeration.report.POST),
 };
 
@@ -174,7 +178,7 @@ export async function markNotificationReadAction(
   return mutate(
     routes.read,
     '/api/notifications/read',
-    { version: 1, kind: 'one', notificationId },
+    { version: 1, kind: 'some', notificationIds: [notificationId] },
     form,
     '/notifications',
   );
@@ -203,6 +207,25 @@ export async function saveNotificationPreferencesAction(
       routes.preferences,
       '/api/notifications/preferences',
       { version: 2, choices: choicesFromForm(form) },
+    );
+    if (!response.ok) return saveRefused(form);
+  } catch {
+    return saveRefused(form);
+  }
+  revalidatePath('/settings');
+  return done();
+}
+
+/** Stores how the member is told, and the email switch (ADR 0144). */
+export async function saveNotificationPresentationAction(
+  _previous: SaveFormState,
+  form: FormData,
+): Promise<SaveFormState> {
+  try {
+    const response = await post(
+      routes.presentation,
+      '/api/notifications/presentation',
+      { version: 1, ...presentationFromForm(form) },
     );
     if (!response.ok) return saveRefused(form);
   } catch {

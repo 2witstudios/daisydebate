@@ -4,10 +4,8 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
 import { rowsOf } from '../raw-rows';
 
-export type TournamentInboxRow = {
-  readonly id: string;
-  readonly readAt: string | null;
-  readonly createdAt: string;
+/** What a standing tournament notification's words and link read (NTF-15). */
+export type TournamentNotificationFacts = {
   readonly kind: TournamentNotificationKind;
   readonly handle: string;
   readonly eventId: string;
@@ -18,22 +16,38 @@ export type TournamentInboxAccess = (
   facts: NonNullable<Awaited<ReturnType<typeof loadLobbyAuthority>>>,
 ) => boolean;
 
-/** Current account, boundary, actual fixture relationship and recorded opening, under the ordinary Tab read fences. */
-export async function readTournamentInbox(
+/**
+ * Tab's published standing for its notifications (ADR 0144, NTF-15): which of
+ * a member's tournament notifications still stand, with the facts their words
+ * need. Tab's rows sit behind lobby-scoped row security, so each lobby is read
+ * in its own scope, and only a lobby the member may read now (the ordinary
+ * Tab read fences, a minor's closed guardian flag among them) contributes.
+ * Within it, a notification stands while the person is still who it was
+ * about (an accepted competitor or panel judge of a published fixture, or a
+ * judge taken off it) and, for a posting or a result, while a recorded
+ * release opens it to them.
+ */
+export async function standingTournamentNotifications(
   database: BunSQLDatabase,
   input: {
     readonly userId: string;
-    readonly canReadTournament?: TournamentInboxAccess;
+    readonly canReadTournament?: TournamentInboxAccess | undefined;
+    /**
+     * Only unread rows are wanted (the shell's read on every ring): read
+     * rows, and lobbies that hold only read ones, are not visited.
+     */
+    readonly unreadOnly?: boolean;
   },
-): Promise<readonly TournamentInboxRow[]> {
+): Promise<ReadonlyMap<string, TournamentNotificationFacts>> {
   const canRead = input.canReadTournament;
-  if (!canRead) return [];
+  if (!canRead) return new Map();
+  const unread = input.unreadOnly ? sql`and n.read_at is null` : sql``;
   return database.transaction(async (tx) => {
     const lobbies = await rowsOf<{ id: string }>(
       tx,
-      sql`select distinct notification_lobby_id id from notifications where user_id=${input.userId} and notification_lobby_id is not null order by notification_lobby_id`,
+      sql`select distinct n.notification_lobby_id id from notifications n where n.user_id=${input.userId} and n.notification_lobby_id is not null ${unread} order by n.notification_lobby_id`,
     );
-    const visible: TournamentInboxRow[] = [];
+    const standing = new Map<string, TournamentNotificationFacts>();
     for (const lobby of lobbies) {
       const facts = await loadLobbyAuthority(tx, {
         viewerUserId: input.userId,
@@ -53,16 +67,12 @@ export async function readTournamentInbox(
         thing: string,
       ) => sql`exists(select 1 from releases rel where rel.tab_round_id=f.tab_round_id and rel.thing=${thing}
         and (rel.audience in ('participants','link','public') or (rel.audience='competitors' and ${competitor}) or (rel.audience='responsible_adults' and ${adult})))`;
-      visible.push(
-        ...(await rowsOf<TournamentInboxRow>(
-          tx,
-          sql`select n.id,n.kind,${facts.lobby.handle}::text handle,f.event_id as "eventId",f.tab_round_id as "tabRoundId",f.room_id as "roomId",
-        to_char(n.read_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "readAt",
-        to_char(n.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt"
+      const rows = await rowsOf<TournamentNotificationFacts & { id: string }>(
+        tx,
+        sql`select n.id,n.kind,${facts.lobby.handle}::text handle,f.event_id as "eventId",f.tab_round_id as "tabRoundId",f.room_id as "roomId"
         from notifications n join fixtures f on f.id=n.fixture_id and f.lobby_id=n.notification_lobby_id
         left join rooms ro on ro.id=f.room_id
-        where n.user_id=${input.userId} and n.notification_lobby_id=${lobby.id}
-        and coalesce((select enabled from notification_preferences p where p.user_id=n.user_id and p.kind=n.kind and p.channel='in_app'),true)
+        where n.user_id=${input.userId} and n.notification_lobby_id=${lobby.id} ${unread}
         and (
           (n.kind='judge_assigned' and f.status='published' and ${judge})
           or (n.kind in ('judge_replaced','judge_unassigned') and f.status='published' and ${removedJudge})
@@ -70,9 +80,9 @@ export async function readTournamentInbox(
           or (n.kind='tournament_room_ready' and f.status='published' and ro.status='ready' and (${competitor} or ${judge}))
           or (n.kind='tournament_results_released' and f.status='published' and (${competitor} or ${judge}) and ${released('decision')})
         )`,
-        )),
       );
+      for (const { id, ...row } of rows) standing.set(id, row);
     }
-    return visible;
+    return standing;
   });
 }

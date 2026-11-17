@@ -65,6 +65,7 @@ export async function leagueRoomRating(world: World) {
         presetVersion: null,
         basis: null,
         competitionType: 'casual',
+        teamOneSide: 'affirmative',
         config,
         executionPlan: {
           preRoundPrep: config.preRoundPrep,
