@@ -111,10 +111,10 @@ export const strikeToReveal = async (
   const strikes = (opening?.draw?.drawSize ?? 1) - 1;
   // Negative strikes first. A ranked Room flips for sides (ADR 0145), so
   // the host may hold either one.
-  const [seat] = await f.sql`select role from round_participants
+  const [seat] = await f.sql`select side from round_participants
     where round_id=${roundId} and actor_id=${cast.host.actorId}`;
   const [first, second] =
-    seat?.role === 'negative'
+    seat?.side === 'negative'
       ? [cast.host, cast.guest]
       : [cast.guest, cast.host];
   for (let ordinal = 0; ordinal < strikes; ordinal += 1)

@@ -132,7 +132,12 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
       // Written for each new Round by its own trigger, not by the seed.
       'spectator_fact_log_open_rounds',
     ]);
-    const uncopied = Object.keys(held).filter((table) => !copied.has(table));
+    // Every Start round mints the Round's draw seed (ADR 0145). Only Start
+    // reads it, for the seat and resolution draws; no ending fact does.
+    const notEnding = new Set(['round_draw_seeds']);
+    const uncopied = Object.keys(held).filter(
+      (table) => !copied.has(table) && !notEnding.has(table),
+    );
     if (uncopied.length)
       throw new Error(`Template rows the seed does not copy: ${uncopied}`);
     const debaters = await createBots(
