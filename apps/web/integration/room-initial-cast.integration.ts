@@ -11,6 +11,7 @@ import {
 } from '@daisy/protocol';
 
 import { withRoomRuntime } from './room-runtime.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
@@ -54,7 +55,9 @@ const deleteRooms = async (
     await f.sql`delete from outbox where topic=${`room:${id}`}`;
     await f.sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
     await f.sql`delete from rounds where room_id=${id}`;
+    await deleteOrphanNotificationSignals(f.sql);
     await f.sql`delete from rooms where id=${id}`;
+    await deleteOrphanNotificationSignals(f.sql);
   }
 };
 

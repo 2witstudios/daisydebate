@@ -33,6 +33,7 @@ import {
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -360,6 +361,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
       await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
       await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
       await f.sql`delete from rounds where id=${roundId}`;
+      await deleteOrphanNotificationSignals(f.sql);
       await f.sql`delete from seasons where id=${seasonId}`;
     }
   }, judgingOptions);
@@ -402,6 +404,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
     });
     await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
     await f.sql`delete from rounds where id=${roundId}`;
+    await deleteOrphanNotificationSignals(f.sql);
   }, judgingOptions);
 });
 

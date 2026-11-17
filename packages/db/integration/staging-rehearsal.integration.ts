@@ -29,15 +29,16 @@ afterAll(() => scratch.drop());
 // Every feature-only folder, including the wiring migration. The initial
 // database runs every main folder; each sorts before the first Tab folder.
 const parentFolders = new Set([
-  '20261117033251_tab_schema',
-  '20261117033252_tab_schema_checks_validated',
-  '20261117033253_tab_seats',
-  '20261117033254_tab_seats_checks_validated',
-  '20261117033255_tab_casual_templates',
-  '20261117033256_tab_wiring',
-  '20261117033257_lethal_grey_gargoyle',
-  '20261117054407_tab_finalization_assignment_cascade',
-  '20261117124154_tab_room_seat_teams',
+  '20261117122348_tab_schema',
+  '20261117122349_tab_schema_checks_validated',
+  '20261117122350_tab_seats',
+  '20261117122351_tab_seats_checks_validated',
+  '20261117122352_tab_casual_templates',
+  '20261117122353_tab_wiring',
+  '20261117122354_lethal_grey_gargoyle',
+  '20261117122355_tab_finalization_assignment_cascade',
+  '20261117122356_tab_room_seat_teams',
+  '20261117134249_tab_notifications',
 ]);
 
 const oldRules = ({
@@ -451,6 +452,35 @@ test(
           await sql`select id, seat_draw from rounds where seat_draw is not null order by id`,
       });
       const seatModelBefore = await seatModel();
+      // Main's notification catalogue (ADR 0144, #767): kinds Tab's own
+      // checks never listed, and a presentation choice, before any Tab folder.
+      const [hostUser] = await sql`select user_id from actors where id=${host}`;
+      for (const [kind, about] of [
+        ['round_started', null],
+        ['round_decision_released', host],
+      ] as const)
+        await f.insert('notifications', {
+          id: createId(),
+          user_id: hostUser!.user_id,
+          kind,
+          round_id: round,
+          actor_id: about,
+          created_at: at,
+          surfaced_at: at,
+        });
+      await f.insert(
+        'notification_presentation',
+        {
+          user_id: hostUser!.user_id,
+          toasts: false,
+          sound: true,
+          desktop_alerts: false,
+          email: true,
+        },
+        'user_id',
+      );
+      const notificationsBefore =
+        await sql`select to_jsonb(n) as row from notifications n order by id`;
       await sql`insert into room_active_memberships (actor_id, room_id)
         select actor_id, room_id from room_participants order by id limit 1`;
       const activeSeatsBefore =
@@ -515,6 +545,14 @@ test(
         actual:
           await sql`select to_jsonb(c) - 'feedback_subject' as row, feedback_subject as subject from content_reports c order by id`,
         expected: reportsBefore,
+      });
+      assert({
+        given:
+          "main's notifications of kinds Tab's checks never listed (ADR 0144)",
+        should: 'keep every row, with no Tab subject named',
+        actual:
+          await sql`select to_jsonb(n) - array['fixture_id','notification_lobby_id','tab_command_id'] as row from notifications n order by id`,
+        expected: notificationsBefore,
       });
       assert({
         given:

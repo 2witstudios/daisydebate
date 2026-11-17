@@ -5,6 +5,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { NecessaryEvidenceRetirement } from '../src/features/media-capture/necessary-evidence-retirement/necessary-evidence-retirement';
 import { createNecessaryEvidenceIngress } from '../src/features/media-capture/necessary-evidence-ingress';
 import { withEvidenceIngress } from './necessary-evidence-ingress.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -62,6 +63,7 @@ test('aggregate erasure and unknown speaker provenance cannot strand authorized 
         throw new Error('Expected payload receipt');
       await f.sql`update necessary_evidence set original_speaker=null where id=${body.evidenceId}`;
       await f.sql`delete from rounds where id=${body.roundId}`;
+      await deleteOrphanNotificationSignals(f.sql);
       const before = authority.read(receipt.receipt);
       const store = f.store.createNecessaryEvidenceRetirement({
         leaseMs: 15000,

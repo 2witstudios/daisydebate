@@ -10,6 +10,11 @@
   /* The phone's bottom tab bar, safe area excluded: 4 + 48 + 8. */
   --spacing-tab-bar: 60px;
   --spacing-tab: 48px;
+  /* Notification toasts (ADR 0144): their column beside the content, the
+     mark that says their kind, and each control's touch target. */
+  --spacing-toast: 360px;
+  --spacing-toast-mark: 36px;
+  --spacing-toast-target: 44px;
   --spacing-people-rail: 224px;
   --spacing-person-card: 264px;
   --spacing-flyout: 190px;

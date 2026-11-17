@@ -28,6 +28,7 @@ import { createRoundBallotOperations } from '../src/features/round-ballots/opera
 import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { readRoundRatings } from '../src/features/ratings/read-round';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 import {
   fixtureBallot,
   freezeBotJudge,
@@ -419,6 +420,7 @@ for (const captured of [true, false])
         await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
         await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
         await f.sql`delete from rounds where id=${roundId}`;
+        await deleteOrphanNotificationSignals(f.sql);
         await f.sql`delete from seasons where id=${seasonId}`;
       }
     });
@@ -687,6 +689,7 @@ test('a forfeit on an incomplete freeze still has a rating coming', async () => 
       await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '3 hours'`;
       await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
       await f.sql`delete from rounds where id=${roundId}`;
+      await deleteOrphanNotificationSignals(f.sql);
     }
   });
 });

@@ -19,7 +19,7 @@ import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const sourceMigration = '20261117033256_tab_wiring';
+const sourceMigration = '20261117122353_tab_wiring';
 
 test('canonical source/storage migrations preserve a genuinely submitted and finalized Daisy ballot and its consumed v1 digest', async () => {
   const scratch = scratchDatabase(databaseUrl, 'ballotupgrade');
@@ -31,7 +31,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     // digest uses the exact forward SQL and the real stored submitted ballot.
     const migrationSql = await Bun.file(
       new URL(
-        '../../../packages/db/migrations/20261117033256_tab_wiring/migration.sql',
+        '../../../packages/db/migrations/20261117122353_tab_wiring/migration.sql',
         import.meta.url,
       ),
     ).text();

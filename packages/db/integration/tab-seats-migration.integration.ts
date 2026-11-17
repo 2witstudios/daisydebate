@@ -28,8 +28,8 @@ import { insertRow, refusedBy, withSample } from './tab.test-support';
 
 const { databaseUrl: url } = integrationSuite();
 
-const seats = '20261117033253_tab_seats';
-const validated = '20261117033254_tab_seats_checks_validated';
+const seats = '20261117122350_tab_seats';
+const validated = '20261117122351_tab_seats_checks_validated';
 const scratch = scratchDatabase(url, 'tabseats');
 afterAll(() => scratch.drop());
 

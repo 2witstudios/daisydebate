@@ -1,8 +1,7 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
-import { buildUserInboxTopic } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { TabTransaction } from '../tab/tab-transaction';
-import { appendOutboxEvent } from '../outbox';
+import { oweNotifications } from './owe';
 import { rowsOf } from '../raw-rows';
 
 /** Actual accepted competitors and panel members of one fixture; never a lobby-wide broadcast. */
@@ -24,7 +23,13 @@ export const fixtureNotificationPeople = (
     where fj.fixture_id=${fixtureId}`,
   );
 
-/** Content-free inbox truth and signal commit with the command; the unique subject fences retries. */
+/**
+ * Owes one Tab event's notification to the people it is about (NTF-15),
+ * through the one writer every producer calls (ADR 0144): one row each,
+ * signalled on their inbox in the command's transaction. Its subject is the
+ * fixture, its lobby and the applied command, so a retried command writes
+ * nothing twice. Nobody in particular brought it, so it is about no one.
+ */
 export async function oweTournamentNotification(
   tx: TabTransaction,
   input: {
@@ -40,31 +45,19 @@ export async function oweTournamentNotification(
     }[];
   },
 ) {
-  for (const person of new Map(
-    input.people.map((person) => [person.userId, person]),
-  ).values()) {
-    const id = input.newId();
-    const written = await rowsOf(
-      tx,
-      sql`insert into notifications(id,user_id,kind,fixture_id,notification_lobby_id,tab_command_id,created_at)
-      select ${id},u.id,${input.kind},${input.fixtureId},${input.lobbyId},${input.commandId},${input.at}::timestamptz
-      from users u where u.id=${person.userId} and u.deleted_at is null
-      on conflict do nothing returning id`,
-    );
-    if (written.length === 0) continue;
-    await appendOutboxEvent(tx, {
-      topic: buildUserInboxTopic(person.actorId),
-      kind: 'user.notification-delivered',
-      version: 1,
-      payload: {
-        entityVersion: 1,
-        kind: 'user.notification-delivered',
-        ids: [id],
-        notificationType: input.kind,
-        occurredAt: input.at,
-      },
-    });
-  }
+  await oweNotifications(tx, {
+    kind: input.kind,
+    subject: {
+      fixture_id: input.fixtureId,
+      notification_lobby_id: input.lobbyId,
+      tab_command_id: input.commandId,
+    },
+    recipients: [...new Set(input.people.map((person) => person.userId))].map(
+      (userId) => ({ userId, about: null }),
+    ),
+    at: input.at,
+    nextId: input.newId,
+  });
 }
 
 /** Only a newly recorded opening can owe results; changing policy never fabricates a release. */

@@ -33,11 +33,8 @@ export const inviteToRoom = (
     roomId: input.roomId,
     username: input.username,
     seat: input.seat,
-    ids: {
-      invitation: deps.nextId(),
-      notification: deps.nextId(),
-      emailJob: deps.nextId(),
-    },
+    ids: { invitation: deps.nextId() },
+    nextId: deps.nextId,
     admitted: (account) => participantAccess(account),
     decide: (facts) =>
       decideRoomInvitation({

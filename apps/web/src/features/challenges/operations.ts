@@ -103,8 +103,7 @@ export async function sendChallenge(
         (frame) =>
           frame.send({
             id: input.commandId,
-            notificationId: dependencies.nextId(),
-            emailJobId: dependencies.nextId(),
+            nextId: dependencies.nextId,
             mode: input.mode,
             format: input.format,
             now,
@@ -141,6 +140,7 @@ export async function acceptChallenge(
             followUntil: new Date(
               Date.parse(now) + ROOM_SEAT_HOLD_MS,
             ).toISOString(),
+            nextId: dependencies.nextId,
           }),
       ),
   );

@@ -178,6 +178,7 @@ describe('competitive schema rules', () => {
             'rounds_competition_type_check',
             'rounds_completed_after_started',
             'rounds_current_stage_check',
+            'rounds_decision_release_check',
             'rounds_judging_is_object',
             'rounds_judging_source_check',
             'rounds_ladder_check',

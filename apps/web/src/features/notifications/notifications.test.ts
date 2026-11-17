@@ -30,7 +30,32 @@ describe('parseNotificationsQuery', () => {
         parseNotificationsQuery({}),
         parseNotificationsQuery({ show: 'unread' }),
       ],
-      expected: [{ unreadOnly: false }, { unreadOnly: true }],
+      expected: [
+        { unreadOnly: false, after: null },
+        { unreadOnly: true, after: null },
+      ],
+    });
+  });
+
+  test('a cursor round-trips through its address', () => {
+    const query = {
+      unreadOnly: true,
+      after: {
+        surfacedAt: '2026-11-02T12:00:00.000Z',
+        id: 'k2zc4ph7oqbcxnmnqxl7mz4t',
+      },
+    };
+    const href = notificationsHref(query);
+    assert({
+      given: 'a page after a row, then a cursor that is not one',
+      should: 'read back the same query, and ignore the stranger',
+      actual: [
+        parseNotificationsQuery(
+          Object.fromEntries(new URL(href, 'https://d.test').searchParams),
+        ),
+        parseNotificationsQuery({ after: '12-not an id' }).after,
+      ],
+      expected: [query, null],
     });
   });
 });
@@ -41,8 +66,8 @@ describe('notificationsHref', () => {
       given: 'the default query and the unread filter',
       should: 'write only what differs',
       actual: [
-        notificationsHref({ unreadOnly: false }),
-        notificationsHref({ unreadOnly: true }),
+        notificationsHref({ unreadOnly: false, after: null }),
+        notificationsHref({ unreadOnly: true, after: null }),
       ],
       expected: ['/notifications', '/notifications?show=unread'],
     });
@@ -54,7 +79,7 @@ describe('notificationRows', () => {
     assert({
       given: 'the unread filter',
       should: 'drop the read ones',
-      actual: notificationRows(items, { unreadOnly: true }).map(
+      actual: notificationRows(items, { unreadOnly: true, after: null }).map(
         (row) => row.id,
       ),
       expected: ['a', 'b'],
@@ -65,7 +90,7 @@ describe('notificationRows', () => {
     assert({
       given: 'items 12 minutes, 190 minutes and 26 hours old',
       should: 'word them',
-      actual: notificationRows(items, { unreadOnly: false }).map(
+      actual: notificationRows(items, { unreadOnly: false, after: null }).map(
         (row) => row.when,
       ),
       expected: ['12 minutes ago', '3 hours ago', '1 day ago'],
@@ -79,7 +104,12 @@ describe('getNotifications', () => {
       given: 'the page seam with no stored notifications',
       should: 'list nothing rather than a sample',
       actual: getNotifications({}, [], 0),
-      expected: { query: { unreadOnly: false }, rows: [], unread: 0 },
+      expected: {
+        query: { unreadOnly: false, after: null },
+        rows: [],
+        unread: 0,
+        olderHref: null,
+      },
     });
   });
 

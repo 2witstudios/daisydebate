@@ -83,11 +83,8 @@ const afterEveryWriter = (
         roomId,
         username: member.userId,
         seat,
-        ids: {
-          invitation: createId(),
-          notification: createId(),
-          emailJob: createId(),
-        },
+        ids: { invitation: createId() },
+        nextId: createId,
         admitted: (account) => account?.beta?.state === 'approved',
         decide: (facts) =>
           decideRoomInvitation({ ...facts, callerActorId: host.actorId, seat }),

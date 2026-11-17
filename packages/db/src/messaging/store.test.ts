@@ -84,9 +84,9 @@ test('send frame binds receipt to current command and commits with monotonic cou
   assert({
     given: 'the successful write',
     should:
-      'allocate on the locked stream row, persist message and receipt, then read whose inboxes to ring (ISSUE-603); content is observed, never rung (ADR 0089)',
+      'allocate on the locked stream row, persist message and receipt, read whose inboxes to ring (ISSUE-603), then who is owed an unread email (ADR 0144); content is observed, never rung (ADR 0089)',
     actual: f.queries.slice(7).map((q) => q.query.trim().split(/\s/)[0]),
-    expected: ['select', 'update', 'insert', 'insert', 'select'],
+    expected: ['select', 'update', 'insert', 'insert', 'select', 'select'],
   });
 });
 test('send frame refuses fresh authority loss and malformed command without inspecting private receipts', async () => {

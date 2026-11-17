@@ -28,8 +28,13 @@ const kindLabel: Record<NotificationKind, string> = {
   tournament_results_released: 'My tournament results are released',
   followed_debater_live: 'A debater I follow is on air',
   recording_ready: 'A recording is ready to watch',
+  round_started: 'My Round starts',
+  round_decision_released: 'The decision in my Round is in',
   room_invitation: 'A host invites me to a room',
   challenge_received: 'Someone challenges me',
+  challenge_accepted: 'Someone accepts my challenge',
+  friend_request_received: 'Someone asks to be friends',
+  friend_request_accepted: 'Someone accepts my friend request',
 };
 const channelLabel: Record<NotificationChannel, string> = {
   in_app: 'In Daisy',
@@ -64,7 +69,7 @@ export function NotificationPreferencesForm({
         <fieldset key={kind} className="flex flex-col gap-1">
           <legend className="text-base text-ink">{kindLabel[kind]}</legend>
           <div className="flex flex-wrap gap-4">
-            {notificationChannelsOf[kind].map((channel) => (
+            {notificationChannelsOf(kind).map((channel) => (
               <label
                 key={channel}
                 className="flex items-center gap-2 text-sm text-ink-muted"
