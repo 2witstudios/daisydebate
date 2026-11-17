@@ -444,8 +444,9 @@ img.ProseMirror-separator {
 }
 
 @utility room-roster-sides {
-  grid-template-columns:
-    var(--spacing-roster-mark) minmax(0, 1fr) var(--spacing-roster-side) auto;
+  grid-template-columns: var(--spacing-roster-mark) minmax(0, 1fr) var(
+      --spacing-roster-side
+    ) auto;
   @container (max-width: 520px) {
     grid-template-columns:
       var(--spacing-roster-mark-narrow) minmax(0, 1fr)

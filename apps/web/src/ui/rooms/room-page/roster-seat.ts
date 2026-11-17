@@ -53,11 +53,7 @@ const sideMarkOf = (
 export function rosterBoxes(
   view: Pick<
     RoomView,
-    | 'teamOneSide'
-    | 'competitionType'
-    | 'hostActorId'
-    | 'status'
-    | 'definition'
+    'teamOneSide' | 'competitionType' | 'hostActorId' | 'status' | 'definition'
   >,
   participant: Participant,
   viewerActorId: string,
@@ -90,11 +86,7 @@ export function rosterBoxes(
     next: {
       team: seat.teamOpen ? 1 : team === 1 ? 2 : null,
       teamOneSide:
-        nextSide === '?'
-          ? null
-          : team === 1
-            ? nextSide
-            : opposite(nextSide),
+        nextSide === '?' ? null : team === 1 ? nextSide : opposite(nextSide),
       position: nextPosition,
     },
   };
@@ -112,7 +104,7 @@ export const ordinalOf = (position: number) => {
   const suffix =
     n % 100 >= 11 && n % 100 <= 13
       ? 'th'
-      : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ??
-        'th';
+      : (({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ??
+        'th');
   return `${n}${suffix}`;
 };

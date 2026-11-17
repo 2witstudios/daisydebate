@@ -169,7 +169,7 @@ function ReadyMark({ seat }: { readonly seat: Participant }) {
     <span
       role="img"
       aria-label={ready ? 'Ready' : 'Not ready'}
-      className={`size-8 flex items-center justify-center justify-self-center rounded-md border-2 text-sm font-bold ${ready ? 'border-accent bg-accent text-accent-ink' : 'border-border-strong'}`}
+      className={`flex size-8 items-center justify-center justify-self-center rounded-md border-2 text-sm font-bold ${ready ? 'border-accent bg-accent text-accent-ink' : 'border-border-strong'}`}
     >
       {ready ? '✓' : null}
     </span>
@@ -204,7 +204,7 @@ function Who({
     <div className="flex min-w-0 items-center gap-3">
       <span
         aria-hidden="true"
-        className={`size-10 flex shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
+        className={`flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
       >
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
