@@ -43,6 +43,7 @@ describe('canonical room assembly controls', () => {
         type: 'ready',
         enabled: false,
         reason: 'Sign the ranked content waiver before readying.',
+        blocker: 'waiver',
       },
     });
   });
@@ -72,7 +73,7 @@ describe('canonical room assembly controls', () => {
         devicesPassed: false,
         unreadyPending: false,
       }),
-      expected: { type: 'ready', enabled: true, reason: null },
+      expected: { type: 'ready', enabled: true, reason: null, blocker: null },
     });
   });
 
@@ -88,7 +89,22 @@ describe('canonical room assembly controls', () => {
         type: 'ready',
         enabled: false,
         reason: 'Check your camera and microphone before readying.',
+        blocker: 'devices',
       },
+    });
+  });
+
+  test('an earlier refusal outranks unchecked devices', () => {
+    const source = view('affirmative');
+    assert({
+      given: 'a debater with unchecked devices and stale readiness',
+      should: 'name the stale readiness, not the devices',
+      actual: readinessControl(
+        { ...source, readiness: { ...source.readiness, version: 3 } },
+        'actor',
+        { devicesPassed: false, unreadyPending: false },
+      )?.blocker,
+      expected: 'unavailable',
     });
   });
 
@@ -104,6 +120,7 @@ describe('canonical room assembly controls', () => {
         type: 'unready',
         enabled: true,
         reason: 'Not ready requested. Waiting for server confirmation.',
+        blocker: null,
       },
     });
   });
@@ -122,6 +139,7 @@ describe('canonical room assembly controls', () => {
         type: 'ready',
         enabled: false,
         reason: 'Readiness is unavailable. Refresh the room and try again.',
+        blocker: 'unavailable',
       },
     });
   });

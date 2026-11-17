@@ -9,12 +9,13 @@ import { roomSync, seedRoomSync } from './room-sync';
 setupRitewayBun();
 
 const ids = (tag: string): RoomCommandIds => ({
-  header: { details: `${tag}d`, leave: `${tag}l`, close: `${tag}c` },
+  header: { details: `${tag}d`, close: `${tag}c` },
   readiness: { ready: `${tag}r`, unready: `${tag}u`, 'start-round': `${tag}s` },
   settings: `${tag}x`,
   capture: `${tag}cp`,
   sides: `${tag}sd`,
   visibility: `${tag}vs`,
+  leave: `${tag}l`,
   seats: [],
   format: { choose: `${tag}fc`, reset: `${tag}fr`, template: `${tag}ft` },
 });

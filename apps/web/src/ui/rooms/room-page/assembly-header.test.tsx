@@ -18,7 +18,7 @@ const header = (view: RoomView, actorId: string, roomNumber?: number) =>
     view,
     actorId,
     ...(roomNumber === undefined ? {} : { roomNumber }),
-    commandIds: { leave: 'leave-id', close: 'close-id' },
+    commandIds: { close: 'close-id' },
     commandAction: action,
     invitationAction: async () => initialInvitationForm,
   });

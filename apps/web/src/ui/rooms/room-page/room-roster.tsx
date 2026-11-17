@@ -41,14 +41,11 @@ export type RosterProps = {
   readonly viewer: { readonly actorId: string; readonly label: string };
   readonly bots: readonly RoomCastChoice[];
   readonly action: FormAction<RoomFormState>;
-  readonly commandIds: Pick<RoomCommandIds, 'seats' | 'sides'> & {
-    /** The viewer's own Leave, on their row. */
-    readonly leave: string;
-  };
+  readonly commandIds: Pick<RoomCommandIds, 'seats' | 'sides' | 'leave'>;
   /** What Start waits on, and Start round for the host: the roster's last line. */
   readonly footer: ReactNode;
   /** The host's withdraw, which releases a seat held for an invitation. */
-  readonly invitationAction?: FormAction<InvitationFormState>;
+  readonly invitationAction: FormAction<InvitationFormState>;
 };
 
 const boxTone: Readonly<Record<SideMark, string>> = {
@@ -406,7 +403,7 @@ function OpenSeat({
               visibility={view.visibility}
               label="Invite"
             />
-          ) : view.capabilities.host && props.invitationAction ? (
+          ) : view.capabilities.host ? (
             // The host releases the held seat by withdrawing its invitation (ADR 0124).
             <EndInvitationForm
               action={props.invitationAction}

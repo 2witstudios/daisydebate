@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { systemId } from '@daisy/clock';
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
 import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
 import { rememberCheckedDevices } from '../../../features/video/device-selection';
@@ -22,7 +22,7 @@ import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import { StartControl, ReadyControl } from './assembly-readiness';
 import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
 import { buttonClass } from '../../components/button/button-class';
-import type { LocalReadiness } from './assembly-controls';
+import { ownSeat, type LocalReadiness } from './assembly-controls';
 import { CameraPreview, DeviceChoice } from './device-check';
 import { RoomSyncContext } from './room-sync-context';
 
@@ -110,17 +110,17 @@ function LiveDevices({
     consent.updateView(props.view);
   }, [consent, props.view]);
   const [inputs, setInputs] = useState<readonly MediaDeviceInfo[]>([]);
-  const check = async (kind: DeviceKind) => {
-    await devices.check(kind);
+  // Each check runs on its own stream, so both can start from one gesture;
+  // the input list is read once after them.
+  const check = async (...kinds: readonly DeviceKind[]) => {
+    await Promise.all(kinds.map((kind) => devices.check(kind)));
     try {
       setInputs(await navigator.mediaDevices.enumerateDevices());
     } catch {
       setInputs([]);
     }
   };
-  const own = props.view.participants
-    .filter(isNamedSeat)
-    .find((seat) => seat.actorId === props.actorId);
+  const own = ownSeat(props.view, props.actorId);
   return (
     <GatheringLayout
       props={props}
@@ -130,7 +130,7 @@ function LiveDevices({
         devicesPassed: snapshot.devicesPassed,
         unreadyPending: local.pending,
       }}
-      turnOnDevices={() => void check('microphone').then(() => check('camera'))}
+      turnOnDevices={() => void check('microphone', 'camera')}
       devices={
         <>
           <CameraPreview
@@ -173,9 +173,7 @@ function LiveDevices({
 
 /** SSR remains failclosed for human devices; judge native forms need no JS. */
 export function AssemblyDeviceReadiness(props: Props) {
-  const own = props.view.participants
-    .filter(isNamedSeat)
-    .find((p) => p.actorId === props.actorId);
+  const own = ownSeat(props.view, props.actorId);
   const needsDevices = own?.kind === 'human' && own.role !== 'judge';
   const latest = useRef(props);
   const sync = useContext(RoomSyncContext);

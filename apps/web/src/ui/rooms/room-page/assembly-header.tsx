@@ -78,7 +78,7 @@ export function AssemblyHeader({
   readonly view: RoomView;
   readonly actorId: string;
   readonly roomNumber?: number;
-  readonly commandIds: { readonly leave: string; readonly close: string };
+  readonly commandIds: { readonly close: string };
   readonly commandAction: FormAction<RoomFormState>;
   readonly invitationAction: FormAction<InvitationFormState>;
 }) {

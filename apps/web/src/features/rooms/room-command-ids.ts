@@ -4,7 +4,6 @@ import type { RoomView } from '@daisy/protocol';
 export type RoomCommandIds = {
   readonly header: {
     readonly details: string;
-    readonly leave: string;
     readonly close: string;
   };
   readonly readiness: {
@@ -18,6 +17,8 @@ export type RoomCommandIds = {
   readonly sides: string;
   /** Who can join, from the page's Room controls. */
   readonly visibility: string;
+  /** The viewer's own Leave seat, on their roster row. */
+  readonly leave: string;
   /** Per declared seat, in `declaredSeats` order. */
   readonly seats: readonly {
     readonly claim: string;
@@ -45,7 +46,7 @@ export function roomCommandIds(
   view: RoomView,
   nextId: () => string,
 ): RoomCommandIds {
-  const header = { details: nextId(), leave: nextId(), close: nextId() };
+  const header = { details: nextId(), close: nextId() };
   const readiness = {
     ready: nextId(),
     unready: nextId(),
@@ -65,6 +66,7 @@ export function roomCommandIds(
   const capture = nextId();
   const sides = nextId();
   const visibility = nextId();
+  const leave = nextId();
   return {
     header,
     readiness,
@@ -72,6 +74,7 @@ export function roomCommandIds(
     capture,
     sides,
     visibility,
+    leave,
     seats,
     format,
   };

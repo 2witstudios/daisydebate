@@ -383,14 +383,9 @@ describe('the tile’s one button (ADR 0145)', () => {
     const turnOnDevices = () => {
       turnedOn += 1;
     };
-    const before = renderToStaticMarkup(
-      <>{ReadyControl({ ...props, view: debater, turnOnDevices })}</>,
-    );
-    const button = byText(
-      ReadyControl({ ...props, view: debater, turnOnDevices }),
-      'button',
-      'Turn on camera and mic',
-    );
+    const unchecked = ReadyControl({ ...props, view: debater, turnOnDevices });
+    const before = renderToStaticMarkup(<>{unchecked}</>);
+    const button = byText(unchecked, 'button', 'Turn on camera and mic');
     (button?.props as { onClick?: () => void } | undefined)?.onClick?.();
     const after = renderToStaticMarkup(
       <>

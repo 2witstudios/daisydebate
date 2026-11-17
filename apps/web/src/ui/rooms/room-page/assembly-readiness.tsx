@@ -4,14 +4,14 @@ import { CaptureSummary } from './capture-choice';
 import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import {
-  freezePostRoundCall,
-  isNamedSeat,
-  type RoomView,
-} from '@daisy/protocol';
+import { freezePostRoundCall, type RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
-import { readinessControl, type LocalReadiness } from './assembly-controls';
+import {
+  ownSeat,
+  readinessControl,
+  type LocalReadiness,
+} from './assembly-controls';
 import { startRefusalText, waitingOn } from './room-labels';
 
 /**
@@ -63,9 +63,7 @@ function startFence(
   local: LocalReadiness,
 ): boolean {
   if (local.unreadyPending) return true;
-  const own = view.participants
-    .filter(isNamedSeat)
-    .find((seat) => seat.actorId === actorId);
+  const own = ownSeat(view, actorId);
   return own?.kind === 'human' && own.role !== 'judge' && !local.devicesPassed;
 }
 
@@ -127,16 +125,9 @@ export function ReadyControl({
 }: Props) {
   const ready = readinessControl(view, actorId, local);
   if (!ready) return null;
-  const own = view.participants
-    .filter(isNamedSeat)
-    .find((seat) => seat.actorId === actorId);
-  const turnOn =
-    ready.type === 'ready' &&
-    own?.role !== 'judge' &&
-    !local.devicesPassed &&
-    turnOnDevices
-      ? turnOnDevices
-      : null;
+  const own = ownSeat(view, actorId);
+  // The only refusal the viewer can clear from here is their own devices.
+  const turnOn = ready.blocker === 'devices' ? turnOnDevices : undefined;
   return (
     <div className="flex flex-col gap-2">
       {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (

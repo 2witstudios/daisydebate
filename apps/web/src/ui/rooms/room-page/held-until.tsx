@@ -1,9 +1,7 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import { systemClock } from '@daisy/clock';
-
-const subscribeNever = () => () => undefined;
+import { useHydrated } from '../../use-hydrated';
 
 /** "5 h left", "40 min left", or "under a minute left" until `expiresAt`. */
 export function timeLeft(expiresAt: string, now: string): string {
@@ -19,12 +17,7 @@ export function timeLeft(expiresAt: string, now: string): string {
  * device's clock, so the server render leaves it out rather than guess.
  */
 export function HeldUntil({ expiresAt }: { readonly expiresAt: string }) {
-  const hydrated = useSyncExternalStore(
-    subscribeNever,
-    () => true,
-    () => false,
-  );
-  return hydrated ? (
+  return useHydrated() ? (
     <span className="text-ink-faint">
       {` · ${timeLeft(expiresAt, systemClock.now())}`}
     </span>

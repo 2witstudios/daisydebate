@@ -163,11 +163,7 @@ export function RoomLive(props: Props) {
             viewer={{ actorId: props.actorId, label: props.viewerLabel }}
             bots={props.bots}
             action={props.commandAction}
-            commandIds={{
-              seats: ids.seats,
-              sides: ids.sides,
-              leave: ids.header.leave,
-            }}
+            commandIds={ids}
             footer={start}
             invitationAction={props.invitationAction}
           />
