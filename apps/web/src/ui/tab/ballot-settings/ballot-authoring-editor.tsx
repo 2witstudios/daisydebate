@@ -2,7 +2,13 @@
 import { authoringControlClass as control } from './ballot-authoring-fields';
 import { BallotDefinitionSummary } from './ballot-definition-summary';
 import { BallotDefinitionFields } from './ballot-definition-fields';
-import { useId, useState, type SyntheticEvent } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type SyntheticEvent,
+} from 'react';
 import { sampleBallotPreview } from '../../../features/tab/ballot-definition';
 import {
   draftedPreview,
@@ -25,9 +31,13 @@ const section =
 const formOf = (event: SyntheticEvent): HTMLFormElement | null =>
   (event.target as Partial<Element>).closest?.('form') ?? null;
 
-/** Whether an event inside a form came from one of its buttons. */
-const fromButton = (event: SyntheticEvent): boolean =>
-  (event.target as Partial<Element>).closest?.('button') != null;
+/**
+ * Whether an event came from one of a form's own buttons (adding or removing
+ * a criterion), not its submit button, which disables the form while it posts.
+ */
+const fromFieldButton = (event: SyntheticEvent): boolean =>
+  (event.target as Partial<Element>).closest?.('button[type="button"]') !=
+  null;
 
 /**
  * Host edits the canonical body through explicit business fields; publication
@@ -53,12 +63,23 @@ export function BallotAuthoringEditor({
 }) {
   const id = useId();
   const [source, setSource] = useState(savedPreview);
-  const draft = (form: HTMLFormElement | null) => {
-    if (form)
-      setSource((previous) =>
-        draftedPreview(view, new FormData(form), previous),
-      );
+  // A change can reveal or remove fields (a decision kind's toggles, a score
+  // scale, a criterion), which mount only once it renders. So an edit, or a
+  // reset after a refused publish, marks the form, and the form is read after
+  // that render commits.
+  const edited = useRef<HTMLFormElement | null>(null);
+  const [edits, setEdits] = useState(0);
+  const markEdited = (form: HTMLFormElement | null) => {
+    if (!form) return;
+    edited.current = form;
+    setEdits((count) => count + 1);
   };
+  useLayoutEffect(() => {
+    const form = edited.current;
+    if (edits === 0 || !form) return;
+    const values = new FormData(form);
+    setSource((previous) => draftedPreview(view, values, previous));
+  }, [edits, view]);
   return (
     <div className="flex flex-col gap-6">
       <header>
@@ -96,7 +117,17 @@ export function BallotAuthoringEditor({
             segments={view.segments}
           />
         ) : null}
-        <section className={section}>
+        <section
+          className={section}
+          // A refused pin resets the picker to the saved version.
+          onReset={() =>
+            setSource((previous) =>
+              previous.kind === 'version' || previous.kind === 'daisy-unshown'
+                ? savedPreview
+                : previous,
+            )
+          }
+        >
           <h2 className="font-display text-xl font-bold">
             Ballot for this event
           </h2>
@@ -151,12 +182,11 @@ export function BallotAuthoringEditor({
         {view.capabilities.publish ? (
           <section
             className={section}
-            onChange={(event) => draft(formOf(event))}
+            onChange={(event) => markEdited(formOf(event))}
+            onReset={(event) => markEdited(formOf(event))}
             onClick={(event) => {
-              // Adding or removing a criterion changes the fields after the
-              // click renders, so read the form once it has.
-              const form = formOf(event);
-              if (form && fromButton(event)) setTimeout(() => draft(form), 0);
+              // Adding or removing a criterion is a click, not a change.
+              if (fromFieldButton(event)) markEdited(formOf(event));
             }}
           >
             <h2 className="font-display text-xl font-bold">

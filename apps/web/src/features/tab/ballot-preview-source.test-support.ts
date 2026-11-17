@@ -32,6 +32,40 @@ export const leagueBallotV3: BallotDefinition = {
   written: { reason: null, feedback: null },
 };
 
+/** Version 2 scored on two criteria, Reasoning and Delivery. */
+export const leagueGridBallot: BallotDefinition = {
+  ...leagueBallotV2,
+  points: {
+    per: 'side',
+    scale: { min: 20, max: 30, step: 0.5 },
+    default: 27,
+    criteria: {
+      kind: 'grid',
+      groups: [
+        {
+          id: 'case',
+          name: 'The case',
+          categories: [
+            {
+              id: 'reasoning',
+              name: 'Reasoning',
+              rewards: 'Supported comparison',
+              anchors: ['Unsupported', 'Compared'],
+            },
+            {
+              id: 'delivery',
+              name: 'Delivery',
+              rewards: 'Clear and paced',
+              anchors: ['Unclear', 'Clear'],
+            },
+          ],
+        },
+      ],
+    },
+    weights: null,
+  },
+};
+
 export const leagueDefinitionId = 'k5x0e8w2q9m3n7b1c4v6z8aa';
 
 /** A stored event on version 2 of the league's ballot, editable. */

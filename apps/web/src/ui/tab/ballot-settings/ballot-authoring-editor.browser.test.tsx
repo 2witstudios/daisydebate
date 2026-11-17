@@ -5,17 +5,9 @@ import type * as Client from './ballot-authoring-editor.test-support';
 
 setupRitewayBun();
 
-test('the preview follows the host before anything is saved', async () => {
-  const {
-    act,
-    createElement,
-    root,
-    container,
-    browser,
-    EditorHarness,
-    authoringView,
-    leagueDefinitionId,
-  } = await mountBrowserClient<typeof Client>(
+/** The editor mounted in a browser, with readers of its judge preview. */
+const mountEditor = async () => {
+  const client = await mountBrowserClient<typeof Client>(
     Bun.resolveSync('./ballot-authoring-editor.test-support', import.meta.dir),
     {
       self: { setTimeout: () => 0, clearTimeout: () => {} },
@@ -26,6 +18,7 @@ test('the preview follows the host before anything is saved', async () => {
       process: { env: { NODE_ENV: 'test' } },
     },
   );
+  const { act, container, browser } = client;
   const preview = () =>
     container.querySelector('[aria-label="Preview of the judge\'s ballot"]')!;
   const read = () => ({
@@ -49,6 +42,28 @@ test('the preview follows the host before anything is saved', async () => {
       );
       control.dispatchEvent(new browser.Event(type, { bubbles: true }));
     });
+  /** Clicks the publish form's first button labelled `label`. */
+  const press = (label: string) =>
+    act(async () => {
+      const button = [...container.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent.trim() === label,
+      )!;
+      button.dispatchEvent(new browser.MouseEvent('click', { bubbles: true }));
+    });
+  return { ...client, preview, read, enter, press };
+};
+
+test('the preview follows the host before anything is saved', async () => {
+  const {
+    act,
+    createElement,
+    root,
+    EditorHarness,
+    authoringView,
+    leagueDefinitionId,
+    read,
+    enter,
+  } = await mountEditor();
   try {
     await act(async () =>
       root.render(createElement(EditorHarness, { view: authoringView() })),
@@ -84,7 +99,7 @@ test('the preview follows the host before anything is saved', async () => {
         },
         drafted: {
           status:
-            'An unpublished draft. Judges get it only once it is published and selected.',
+            'An unpublished draft. Name it to publish it; judges get it only once it is published and selected.',
           places: false,
           max: '40',
         },
@@ -94,6 +109,168 @@ test('the preview follows the host before anything is saved', async () => {
           places: false,
           max: '40',
         },
+      },
+    });
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('the preview reads fields a change reveals', async () => {
+  const {
+    act,
+    createElement,
+    root,
+    container,
+    EditorHarness,
+    authoringView,
+    preview,
+    read,
+    enter,
+  } = await mountEditor();
+  const state = () => ({
+    places: read().places,
+    doubleLossOffered: preview().textContent.includes('A loss for both'),
+    doubleLossChecked:
+      container.querySelector<HTMLInputElement>('input[name="double-loss"]')
+        ?.checked ?? null,
+  });
+  try {
+    await act(async () =>
+      root.render(createElement(EditorHarness, { view: authoringView() })),
+    );
+    await enter('select[name="decision"]', 'ranking-sides', 'change');
+    const ranked = state();
+    await enter('select[name="decision"]', 'winner', 'change');
+    const winnerAgain = state();
+    assert({
+      given:
+        'a saved winner ballot allowing a loss for both, its decision set to Rank sides and back to Winner',
+      should:
+        'draw places, then the loss for both the revealed (checked) toggle now publishes',
+      actual: { ranked, winnerAgain },
+      expected: {
+        ranked: {
+          places: true,
+          doubleLossOffered: false,
+          doubleLossChecked: null,
+        },
+        winnerAgain: {
+          places: false,
+          doubleLossOffered: true,
+          doubleLossChecked: true,
+        },
+      },
+    });
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('the preview follows a removed criterion', async () => {
+  const {
+    act,
+    createElement,
+    root,
+    EditorHarness,
+    authoringView,
+    leagueDefinitionId,
+    leagueGridBallot,
+    preview,
+    press,
+  } = await mountEditor();
+  const criteria = () => ({
+    reasoning: preview().textContent.includes('Reasoning'),
+    delivery: preview().textContent.includes('Delivery'),
+  });
+  try {
+    await act(async () =>
+      root.render(
+        createElement(EditorHarness, {
+          view: authoringView({
+            definition: {
+              source: { kind: 'stored', id: leagueDefinitionId, version: 2 },
+              ballot: leagueGridBallot,
+            },
+            definitions: [
+              {
+                id: leagueDefinitionId,
+                name: 'League ballot',
+                owned: true,
+                currentVersion: 2,
+                versions: [
+                  {
+                    version: 2,
+                    definition: leagueGridBallot,
+                    compatible: true,
+                  },
+                ],
+              },
+            ],
+          }),
+        }),
+      ),
+    );
+    const saved = criteria();
+    await press('Remove criterion');
+    const removed = criteria();
+    assert({
+      given:
+        'a saved ballot scored on Reasoning and Delivery, its first criterion removed in the publish form',
+      should: 'draw both criteria, then only Delivery',
+      actual: { saved, removed },
+      expected: {
+        saved: { reasoning: true, delivery: true },
+        removed: { reasoning: false, delivery: true },
+      },
+    });
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('a reset form takes the preview back with it', async () => {
+  const {
+    act,
+    createElement,
+    root,
+    container,
+    EditorHarness,
+    authoringView,
+    leagueDefinitionId,
+    read,
+    enter,
+  } = await mountEditor();
+  /** Resets the form holding `selector`, as React does after a refused post. */
+  const reset = (selector: string) =>
+    act(async () => container.querySelector(selector)!.closest('form')!.reset());
+  try {
+    await act(async () =>
+      root.render(createElement(EditorHarness, { view: authoringView() })),
+    );
+    await enter(
+      'select[name="ballot-version"]',
+      `${leagueDefinitionId}@3`,
+      'change',
+    );
+    await reset('select[name="ballot-version"]');
+    const pinReset = read();
+    await enter('input[name="score-max"]', '40', 'input');
+    await reset('input[name="score-max"]');
+    const publishReset = read();
+    assert({
+      given:
+        'version 3 picked and its form reset, then the maximum set to 40 and the publish form reset',
+      should: 'draw the saved ballot again, then the reset form’s maximum of 30',
+      actual: { pinReset, publishReset: publishReset.max },
+      expected: {
+        pinReset: {
+          status:
+            'The saved ballot, version 2. Changes you make here show before you save.',
+          places: false,
+          max: '30',
+        },
+        publishReset: '30',
       },
     });
   } finally {

@@ -1,9 +1,10 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type {
-  BallotDefinition,
-  BallotSettings,
+import {
+  previewDraftOn,
+  type BallotDefinition,
+  type BallotSettings,
 } from '../../../features/tab/ballot-definition';
 import { ConfiguredBallot } from '../ballot/configured-ballot';
 
@@ -69,7 +70,7 @@ export function BallotPreview({
           key={JSON.stringify(definition)}
           definition={definition}
           subjects={preview.subjects}
-          draft={preview.draft}
+          draft={previewDraftOn(definition, preview.draft)}
           reasonReaders={previewReasonReaders}
           preview
         />

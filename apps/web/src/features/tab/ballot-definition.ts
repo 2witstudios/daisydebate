@@ -194,6 +194,33 @@ export const sampleBallotPreview: BallotSettings['preview'] = {
   draft: { winner: 'jensen', points: { jensen: 28.5, doyle: 27 }, reason: '' },
 };
 
+/**
+ * A preview's sample answers, fitted to the definition it draws: a sample
+ * score off that definition's scale or step reads as its default instead,
+ * so a 1 to 10 ballot never shows a 28.5.
+ */
+export function previewDraftOn(
+  definition: BallotDefinition,
+  draft: BallotDraft,
+): BallotDraft {
+  const points = definition.points;
+  if (points === null) return draft;
+  const { min, max, step } = points.scale;
+  const fits = (value: number) =>
+    value >= min &&
+    value <= max &&
+    Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-9;
+  return {
+    ...draft,
+    points: Object.fromEntries(
+      Object.entries(draft.points).map(([key, value]) => [
+        key,
+        fits(value) ? value : points.default,
+      ]),
+    ),
+  };
+}
+
 /** A host's ballot settings screen for one event. */
 export function ballotSettingsOf(
   view: EventBallotView,

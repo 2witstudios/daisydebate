@@ -8,6 +8,7 @@ export { createRoot } from 'react-dom/client';
 export {
   authoringView,
   leagueDefinitionId,
+  leagueGridBallot,
 } from '../../../features/tab/ballot-preview-source.test-support';
 
 const action = async () => idle();

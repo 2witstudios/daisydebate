@@ -1,3 +1,5 @@
+import { createAppError } from '@daisy/errors';
+
 /**
  * A posted form's answer is exactly one of a union discriminated on `kind`.
  * Every form's `*FormState` follows this convention:
@@ -124,6 +126,14 @@ export const field = (form: FormData, name: string): string => {
   const value = form.get(name);
   return typeof value === 'string' ? value.trim() : '';
 };
+
+/** One text field that a form must send exactly once. */
+export function singleFormField(form: FormData, key: string): string {
+  const value = form.get(key);
+  if (typeof value !== 'string' || form.getAll(key).length !== 1)
+    throw createAppError('VALIDATION');
+  return value;
+}
 
 /** The state a failed post answers with. */
 export const refused = (form: FormData, error: string): Refused =>

@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { previewDraftOn, sampleBallotPreview } from './ballot-definition';
 import {
   draftedPreview,
   pickedPreview,
@@ -140,6 +141,78 @@ describe('ballot preview source', () => {
         'An unpublished draft, as it last stood complete. Finish its fields to preview the rest.',
         leagueBallotV2,
         "The saved ballot, version 2. Finish the draft's fields to preview it.",
+      ],
+    });
+  });
+
+  test('a draft with no name yet', () => {
+    const view = authoringView();
+    const unnamed = draftedPreview(
+      view,
+      publishForm({ ...completeDraft, 'definition-name': '' }),
+      savedPreview,
+    );
+    const revision = draftedPreview(
+      view,
+      publishForm({
+        ...completeDraft,
+        'publish-target': leagueDefinitionId,
+        'definition-name': '',
+      }),
+      savedPreview,
+    );
+    assert({
+      given:
+        'a complete draft as a new definition with no name, and as a revision',
+      should:
+        'draw both, saying only the new definition needs a name to publish',
+      actual: [
+        previewDefinition(view, unnamed)?.points?.scale.max,
+        previewStatus(view, unnamed),
+        previewStatus(view, revision),
+      ],
+      expected: [
+        10,
+        'An unpublished draft. Name it to publish it; judges get it only once it is published and selected.',
+        'An unpublished draft. Judges get it only once it is published and selected.',
+      ],
+    });
+  });
+
+  test("Daisy's ballot picked again on an event that uses it", () => {
+    const view = authoringView({ definition: null });
+    assert({
+      given:
+        "an event with no stored ballot, another version picked, then Daisy's again",
+      should: 'show the saved setting, not a pending change',
+      actual: pickedPreview(view, 'daisy'),
+      expected: savedPreview,
+    });
+  });
+});
+
+describe('preview sample answers', () => {
+  test('fitted to the drawn scale', () => {
+    const onScale = previewDraftOn(leagueBallotV2, sampleBallotPreview.draft);
+    const offScale = previewDraftOn(
+      {
+        ...leagueBallotV2,
+        points: {
+          ...leagueBallotV2.points!,
+          scale: { min: 1, max: 10, step: 1 },
+          default: 7,
+        },
+      },
+      sampleBallotPreview.draft,
+    );
+    assert({
+      given:
+        'sample scores of 28.5 and 27 on a 20 to 30 scale in halves, and on a 1 to 10 scale',
+      should: 'keep them, and read each as the default 7',
+      actual: [onScale.points, offScale.points],
+      expected: [
+        { jensen: 28.5, doyle: 27 },
+        { jensen: 7, doyle: 7 },
       ],
     });
   });
