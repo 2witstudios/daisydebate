@@ -4,6 +4,7 @@ import { isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 import {
   launchRuntimeRound,
   withRoomRuntime,
@@ -258,6 +259,7 @@ test('a live Round holds its members until it ends; the end frees them for a rem
       // The fixture does not track a rematch's Room: remove it and its doorbell.
       await f.sql`delete from outbox where topic=${`room:${rematch.view.id}`}`;
       await f.sql`delete from rooms where id=${rematch.view.id}`;
+      await deleteOrphanNotificationSignals(f.sql);
     }
   });
 });

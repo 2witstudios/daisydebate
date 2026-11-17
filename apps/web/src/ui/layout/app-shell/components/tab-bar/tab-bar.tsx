@@ -9,9 +9,16 @@ import { itemActive } from '../../../../components/nav-item/nav-item';
 import { useFriendsOnline } from '../../../../friends/use-friends-online';
 import { SelfAvatar } from '../../../../people/status-form';
 import type { ShellAccount } from '../../account';
+import { useMessagesUnread } from '../../../../messaging/messages-unread-provider';
+import {
+  UnreadBadge,
+  useUnreadNotifications,
+} from '../rail/notifications-link';
 import {
   friendsLabel,
   memberDestinations,
+  messagesLabel,
+  notificationsLabel,
   moreDestination,
   primaryDestinations,
   profileHref,
@@ -49,6 +56,7 @@ const tabsFor = (account: ShellAccount): readonly Tab[] => [
 const moreLinksFor = (
   account: ShellAccount,
   online: number,
+  unread: number,
 ): readonly { readonly href: string; readonly label: string }[] => [
   ...primaryDestinations
     .filter((item) => !tabbed.has(item.href))
@@ -62,7 +70,10 @@ const moreLinksFor = (
     ),
   ...(account.state === 'member'
     ? [
-        memberDestinations.notifications,
+        {
+          href: memberDestinations.notifications.href,
+          label: notificationsLabel(unread),
+        },
         {
           href: memberDestinations.friends.href,
           label: friendsLabel(online),
@@ -89,7 +100,9 @@ export function TabBar({
 }) {
   const pathname = usePathname();
   const online = useFriendsOnline(account.state === 'member') ?? 0;
-  const moreLinks = moreLinksFor(account, online);
+  const unread = useUnreadNotifications();
+  const messages = useMessagesUnread();
+  const moreLinks = moreLinksFor(account, online, unread);
   return (
     <nav
       aria-label="Primary"
@@ -103,9 +116,19 @@ export function TabBar({
             key={tab.href}
             href={tab.href}
             aria-current={active ? 'page' : undefined}
+            aria-label={
+              tab.href === memberDestinations.messages.href
+                ? messagesLabel(messages, tab.label)
+                : undefined
+            }
             className={tabClass(active)}
           >
-            <Icon name={tab.icon} size={20} />
+            <span className="relative px-2">
+              <Icon name={tab.icon} size={20} />
+              {tab.href === memberDestinations.messages.href ? (
+                <UnreadBadge unread={messages} />
+              ) : null}
+            </span>
             {tab.label}
           </Link>
         );
@@ -117,7 +140,11 @@ export function TabBar({
             moreLinks.some((link) => itemActive(pathname, link.href)),
           )}
         >
-          <Icon name={moreDestination.icon} size={20} />
+          {/* Notifications live in More on a phone, so More carries their count. */}
+          <span className="relative px-2">
+            <Icon name={moreDestination.icon} size={20} />
+            <UnreadBadge unread={unread} />
+          </span>
           {moreDestination.label}
         </summary>
         <div className="fixed inset-x-0 more-sheet flex flex-col overflow-y-auto border-t border-border bg-surface-raised shadow-3">

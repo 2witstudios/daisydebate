@@ -1,6 +1,8 @@
 import { freezeRoundFinalization } from './round-finalization-writer';
 import {
   isRoundOver,
+  isRoundCompleted,
+  roundBegan,
   attendanceTimingPolicy,
   TRANSCRIPT_ADMISSION_WINDOW_MS,
 } from '@daisy/protocol';
@@ -20,6 +22,8 @@ import { refundUnservedPracticeLocked } from './round-bot-admission';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 import { writeRoundIncidentChanges } from './round-incident-rows';
 import { releaseRoundRoomMembers } from './room-membership-persistence';
+import { oweRoundStarted } from './round-began';
+import { releaseFinalizedDecision } from './round-decision-release';
 import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
@@ -118,7 +122,12 @@ export async function writeProjectionWithPhaseSignal(
   if (endsRound(current, projection)) {
     await refundUnservedPracticeLocked(tx, roundId);
     await settleCasualJudgeUsageLocked(tx, roundId);
+    if (projection.round && isRoundCompleted(projection.round.status))
+      await releaseFinalizedDecision(tx, { roundId, at: now });
   }
+  // An opening that ends starts the debate's clock (ADR 0144).
+  if (projection.round && roundBegan(current.status, projection.round.status))
+    await oweRoundStarted(tx, { roundId, at: now });
   // The engine rules when a Round stops holding its Room's members (ADR 0070).
   if (projection.releasesRoomMembers)
     await releaseRoundRoomMembers(tx, roundId);

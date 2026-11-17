@@ -22,6 +22,8 @@ export type FriendFrame = {
     readonly requestId: string;
     readonly now: string;
     readonly limits: SocialRequestLimits;
+    /** Mints the notification ids a request or an acceptance owes (ADR 0144). */
+    readonly nextId: () => string;
   }) => Promise<void>;
   readonly contacts: readonly ContactFact[];
 };

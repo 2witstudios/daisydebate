@@ -32,11 +32,12 @@ const harness = (overrides: Partial<ChallengeDependencies> = {}) => {
   const frame: ChallengeFrame = {
     otherActorId: them,
     send: async (input) => {
-      calls.push(['send', input]);
+      // The id minter is recorded by the first id it mints.
+      calls.push(['send', { ...input, nextId: input.nextId() }]);
       return { challengeId: input.id };
     },
     accept: async (input) => {
-      calls.push(['accept', input]);
+      calls.push(['accept', { ...input, nextId: input.nextId() }]);
     },
     remove: async (input) => {
       calls.push(['remove', input]);
@@ -82,7 +83,7 @@ describe('sendChallenge', () => {
     assert({
       given: 'a ranked Freestyle challenge to a member who is online',
       should:
-        'fence the pair and record the offer, expiring in two minutes, with ids for its notification and email',
+        'fence the pair and record the offer, expiring in two minutes, with an id minter for its notifications',
       actual: { answer, calls },
       expected: {
         answer: { challengeId: id, state: 'sent' },
@@ -93,8 +94,7 @@ describe('sendChallenge', () => {
             'send',
             {
               id,
-              notificationId: 'id0000000000000000000001',
-              emailJobId: 'id0000000000000000000002',
+              nextId: 'id0000000000000000000001',
               mode: 'ranked',
               format: 'freestyle',
               now,
@@ -194,6 +194,7 @@ describe('acceptChallenge', () => {
             followUntil: new Date(
               Date.parse(now) + CHALLENGE_TTL_MS,
             ).toISOString(),
+            nextId: 'id0000000000000000000001',
           },
         ],
       },

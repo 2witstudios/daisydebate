@@ -40,6 +40,22 @@ export const isRoundRunning = (
   status: RoundStatus,
 ): status is RunningRoundStatus =>
   (runningRoundStatuses as readonly RoundStatus[]).includes(status);
+/**
+ * When a Round's participants are told its decision (ADR 0144), frozen with
+ * the Round: as it is finalized, or held until its organizer releases it.
+ */
+export const roundDecisionReleases = ['on_finalize', 'held'] as const;
+export type RoundDecisionRelease = (typeof roundDecisionReleases)[number];
+
+/**
+ * Whether a change from `before` to `after` is the moment a Round begins: the
+ * debate's clock starts (ADR 0144). An opening (strike, topic draw, prep) is
+ * running but has not begun; `before` is null for a Round that did not exist.
+ */
+export const roundBegan = (
+  before: RoundStatus | null,
+  after: RoundStatus,
+): boolean => after === 'active' && before !== 'active';
 /** Whether a Round in `status` has ended. Every status is running or over. */
 export const isRoundOver = (status: RoundStatus): status is OverRoundStatus =>
   (overRoundStatuses as readonly RoundStatus[]).includes(status);

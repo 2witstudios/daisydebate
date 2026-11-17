@@ -11,6 +11,7 @@ import { composeMessagingGroupInvitationRoutes } from './group-invitation-route'
 import {
   composeMessagingChannelEntryRoute,
   composeMessagingInboxRoute,
+  composeMessagingUnreadRoute,
 } from './inbox-route';
 import { composeRetainedConversationRoutes } from './retained-route';
 import {
@@ -184,6 +185,7 @@ export function composeMessagingRoutes(app: App) {
     files: composeMessagingFileRoutes(app),
     createGroup: composeMessagingGroupCreationRoute(app),
     inbox: composeMessagingInboxRoute(app),
+    unread: composeMessagingUnreadRoute(app),
     channelEntry: composeMessagingChannelEntryRoute(app),
     retained: composeRetainedConversationRoutes(app),
     preferences: composeMessagingPreferenceRoutes(app),

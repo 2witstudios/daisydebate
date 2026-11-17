@@ -263,7 +263,8 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.social_declines',
             'retention.social_requests',
             'retention.notifications',
-            'retention.notification_emails',
+            'retention.messaging_unread_emails',
+            'retention.notification_digests',
             'retention.room_invitations',
             'retention.watch_history',
             'retention.spectator_chat',
@@ -278,7 +279,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.reports',
             'retention.moderation',
           ],
-          failuresByTarget: Array.from({ length: 35 }, () => 1),
+          failuresByTarget: Array.from({ length: 36 }, () => 1),
           lastSuccessDuringOutage: null,
           recoveredAfterOutage: true,
         },
@@ -289,5 +290,5 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
     }
     // Twenty-nine database targets each wait for a real connection timeout
     // (about 3 s apiece), followed by metrics reads and a complete recovery sweep.
-  }, 120_000);
+  }, 150_000);
 });

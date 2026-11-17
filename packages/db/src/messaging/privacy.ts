@@ -209,6 +209,9 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       // Cached observation copies of what was just erased are purged by a
       // durable, retried job queued in this same transaction (ISSUE-852).
       await queueObservationPurge(tx, subject.userId, now);
+      await tx.execute(
+        sql`delete from messaging_unread_emails where user_id=${subject.userId}`,
+      );
     },
     async export(tx, subject): Promise<PrivacyExport> {
       await lockSubjectMessaging(tx, subject.actorId);
@@ -275,9 +278,18 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select id,title,title_author_actor_id from messaging_channels where title_author_actor_id=${actorId} order by id`,
         ),
       );
+      const files = await exportSubjectFiles(tx, actorId);
+      // Read last: Messaging's own email jobs, after every other table.
+      const unreadEmails = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select state,attempts,last_error_code,first_owed_at,created_at,completed_at
+            from messaging_unread_emails
+            where user_id=(select user_id from actors where id=${actorId}) order by created_at,id`,
+        ),
+      );
       return Object.fromEntries(
         Object.entries({
-          ...(await exportSubjectFiles(tx, actorId)),
+          ...files,
           messaging_channels: channels,
           messaging_messages: messages,
           messaging_actor_states: preferences,
@@ -289,6 +301,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_retained_authors: retained,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
+          messaging_unread_emails: unreadEmails,
         }).map(([table, rows]) => [table, exportRows(rows)]),
       );
     },

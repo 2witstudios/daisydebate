@@ -1014,6 +1014,7 @@ const sweep = (env: Env, seconds: number) =>
 const rowsFor = async (env: Env, userId: string) =>
   (
     await env.notifications.readNotifications({
+      after: null,
       userId,
       unreadOnly: false,
       limit: 10,
@@ -1056,6 +1057,7 @@ test('a follower hears nothing before release, once after it, and only of a publ
     await sweep(env, 12);
     const row = (
       await env.notifications.readNotifications({
+        after: null,
         userId: fan.userId,
         unreadOnly: false,
         limit: 10,
@@ -1089,11 +1091,15 @@ test('a follower hears nothing before release, once after it, and only of a publ
           'actor_id',
           'challenge_id',
           'created_at',
+          'digest_id',
+          'friendship_high_actor_id',
+          'friendship_low_actor_id',
           'id',
           'kind',
           'read_at',
           'room_invitation_id',
           'round_id',
+          'surfaced_at',
           'user_id',
         ],
       },
@@ -1160,6 +1166,7 @@ test('reading is per account, and a read notification leaves 90 days later', asy
     await sweep(env, 5);
     const read = () =>
       env.notifications.readNotifications({
+        after: null,
         userId: fan.userId,
         unreadOnly: true,
         limit: 10,
@@ -1168,13 +1175,13 @@ test('reading is per account, and a read notification leaves 90 days later', asy
     const unread = await read();
     await env.notifications.markNotificationsRead({
       userId: other.userId,
-      notificationId: unread.rows[0]!.id,
+      notificationIds: [unread.rows[0]!.id],
       at: at(6),
     });
     const stillUnread = (await read()).unread;
     await env.notifications.markNotificationsRead({
       userId: fan.userId,
-      notificationId: unread.rows[0]!.id,
+      notificationIds: [unread.rows[0]!.id],
       at: at(6),
     });
     const afterRead = (await read()).unread;

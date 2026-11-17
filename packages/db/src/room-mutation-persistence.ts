@@ -1,7 +1,11 @@
 import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
-import { freezePostRoundCall, freezeRoomConfig } from '@daisy/protocol';
+import {
+  freezePostRoundCall,
+  freezeRoomConfig,
+  roundBegan,
+} from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
@@ -11,6 +15,7 @@ import { challenges } from './schema/challenges';
 import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
+import { oweRoundStarted } from './round-began';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import {
@@ -144,6 +149,9 @@ export const persistRoomMutation = async (
         .insert(roundDrawSeeds)
         .values({ roundId, seed: mutation.roundSeed });
     await appendRoundPhaseChanged(tx, roundId, 1);
+    // A Round with nothing to run first begins at this click (ADR 0144).
+    if (roundBegan(null, opens ? 'opening' : 'active'))
+      await oweRoundStarted(tx, { roundId, at: now });
   }
   return next.roundRef;
 };

@@ -5,6 +5,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { withAttendanceRound } from './attendance.test-support';
+import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -118,6 +119,7 @@ test('actual scoped receipts share one global command fence and refuse foreign s
         await own.f
           .sql`delete from outbox where topic=${buildRoundTopic(own.roundId)}`;
         await own.f.sql`delete from rounds where id=${own.roundId}`;
+        await deleteOrphanNotificationSignals(own.f.sql);
       }
     }),
   ));

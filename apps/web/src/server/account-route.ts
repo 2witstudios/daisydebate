@@ -66,6 +66,34 @@ export const accountRoute =
     );
 
 /**
+ * A read of the account's own state: signed in, one rate limit per account,
+ * then the work. A GET carries no body and changes nothing, so it needs no
+ * origin check.
+ */
+export const accountRead =
+  (
+    deps: AccountRouteDeps,
+    route: { readonly operation: OperationName; readonly limit: RateRule },
+    work: (identity: SignedInIdentity) => Promise<Response>,
+  ) =>
+  (request: Request) =>
+    handleOperation(
+      deps.logger,
+      request,
+      route.operation,
+      async () => {
+        const identity = requireSignedIn(await deps.identify(request));
+        await consumeOrThrow(
+          deps.limiter(),
+          `${route.operation}:${identity.principal.userId}`,
+          route.limit,
+        );
+        return work(identity);
+      },
+      deps.reporter,
+    );
+
+/**
  * The account rule for audience interaction (WATCH-1): any account with a claimed
  * username may chat, react, report and follow, admitted or not, unless a suspension
  * or ban is in force. Reading stays open to everyone.

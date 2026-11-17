@@ -123,6 +123,51 @@ export async function appendOutboxEvent(
   return position;
 }
 
+const OUTBOX_BATCH_ROWS = 1000;
+
+/**
+ * Appends many outbox rows in few inserts, each validated as
+ * `appendOutboxEvent` validates one, and issues one `pg_notify` for the
+ * batch: the notified position is a hint only, and the drain reads every
+ * committed row from its own cursor. Resolves to nothing for none.
+ */
+export async function appendOutboxEvents(
+  tx: Tx,
+  inputs: readonly OutboxAppendInput[],
+): Promise<void> {
+  if (inputs.length === 0) return;
+  const rows = inputs.map((input) => {
+    const parsed = outboxAppendInputSchema.parse(input);
+    if (parsed.kind !== parsed.payload.kind)
+      throw new Error(
+        `Outbox kind column "${parsed.kind}" does not match payload kind "${parsed.payload.kind}"`,
+      );
+    if (!isPayloadStorableOnTopic(parsed.topic, parsed.payload))
+      throw new Error(
+        `Outbox payload kind "${parsed.payload.kind}" is not storable on topic "${parsed.topic}"`,
+      );
+    return parsed;
+  });
+  // Bounded statements: well inside PostgreSQL's bind-parameter limit.
+  const written: { seq: number | bigint | string; txid: string }[] = [];
+  for (let start = 0; start < rows.length; start += OUTBOX_BATCH_ROWS)
+    written.push(
+      ...(await tx
+        .insert(outbox)
+        .values(rows.slice(start, start + OUTBOX_BATCH_ROWS))
+        .returning({ seq: outbox.seq, txid: outbox.txid })),
+    );
+  const last = written.at(-1);
+  if (!last || written.length !== rows.length)
+    throw new Error('Outbox insert returned too few rows');
+  await tx.execute(
+    sql`select pg_notify('outbox', ${encodeOutboxCursor({
+      txid: String(last.txid),
+      seq: BigInt(last.seq),
+    })})`,
+  );
+}
+
 const MAX_DRAIN_LIMIT = 500;
 
 /**

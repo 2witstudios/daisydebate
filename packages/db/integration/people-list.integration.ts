@@ -422,8 +422,7 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
         id,
-        notificationId: createId(),
-        emailJobId: createId(),
+        nextId: createId,
         mode: 'ranked',
         format: 'freestyle',
         now: ctx.now,
@@ -494,8 +493,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
         id: createId(),
-        notificationId: createId(),
-        emailJobId: createId(),
+        nextId: createId,
         mode,
         format: 'freestyle',
         now: ctx.now,
@@ -510,6 +508,7 @@ test('accepting names only a room made for the offer, and only for a free challe
           roomId,
           now: ctx.now,
           followUntil: expiresAt,
+          nextId: createId,
         }),
       )
       .then(
@@ -609,8 +608,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
         id: createId(),
-        notificationId: createId(),
-        emailJobId: createId(),
+        nextId: createId,
         mode: 'casual',
         format: 'freestyle',
         now,
@@ -800,8 +798,7 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
       (frame) =>
         frame.send({
           id: createId(),
-          notificationId: createId(),
-          emailJobId: createId(),
+          nextId: createId,
           mode: 'casual',
           format: 'freestyle',
           now: live,

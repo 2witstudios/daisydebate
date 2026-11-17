@@ -13,6 +13,8 @@ import {
   roundOutcomeSchema,
   type RoundPlatformEnding,
   type RoundOutcome,
+  roundDecisionReleases,
+  type RoundDecisionRelease,
   type RoundStage,
   type RoundStatus,
   type RatingLadder,
@@ -140,6 +142,11 @@ export const rounds = pgTable(
     version: versionColumn(),
     /** SHA3-256 of an unlisted Round's current link; the token is never stored. */
     audienceLinkHash: text('audience_link_hash'),
+    /** When participants are told the decision (ADR 0144), frozen at the Start. */
+    decisionRelease: text('decision_release')
+      .$type<RoundDecisionRelease>()
+      .notNull()
+      .default('on_finalize'),
   },
   (table) => {
     const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
@@ -223,6 +230,10 @@ export const rounds = pgTable(
       check(
         'rounds_competition_type_check',
         oneOf(table.competitionType, competitionTypes),
+      ),
+      check(
+        'rounds_decision_release_check',
+        oneOf(table.decisionRelease, roundDecisionReleases),
       ),
       check(
         'rounds_outcome_check',

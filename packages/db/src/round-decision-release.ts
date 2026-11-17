@@ -1,0 +1,88 @@
+import { createId } from '@paralleldrive/cuid2';
+import { sql } from 'drizzle-orm';
+import type { AuthorizationTransaction } from './authorization';
+import type { NotificationRecipient } from './notifications/owe';
+import { oweNotifications, resurfaceNotifications } from './notifications/owe';
+import { rowsOf } from './raw-rows';
+
+/**
+ * Who is told a Round's decision by default: every live account seated in it,
+ * each about the member across from them (a judge, about the affirmative).
+ */
+export const roundDecisionAudience = async (
+  tx: Pick<AuthorizationTransaction, 'execute'>,
+  roundId: string,
+): Promise<readonly NotificationRecipient[]> =>
+  (
+    await rowsOf<{ user_id: string; about: string }>(
+      tx,
+      sql`select distinct on (u.id) u.id as user_id,
+          coalesce((select o.actor_id from round_participants o
+            where o.round_id=p.round_id and o.role=case p.role
+              when 'affirmative' then 'negative' else 'affirmative' end
+            order by o.slot limit 1),p.actor_id) as about
+        from round_participants p
+        join actors a on a.id=p.actor_id
+        join users u on u.id=a.user_id and u.deleted_at is null
+        where p.round_id=${roundId}
+        order by u.id,p.role`,
+    )
+  ).map((row) => ({ userId: row.user_id, about: row.about }));
+
+/**
+ * Tells `recipients` a Round's decision is in (ADR 0144). Finalization calls
+ * it for a Round frozen `on_finalize`; a `held` Round's organizer calls it
+ * when they release, with the audience they resolved.
+ */
+export async function releaseRoundDecision(
+  tx: AuthorizationTransaction,
+  input: {
+    readonly roundId: string;
+    readonly at: string;
+    readonly recipients: readonly NotificationRecipient[];
+  },
+): Promise<void> {
+  await oweNotifications(tx, {
+    kind: 'round_decision_released',
+    subject: { round_id: input.roundId },
+    recipients: input.recipients,
+    at: input.at,
+    nextId: createId,
+  });
+}
+
+/** The Round was just finalized: tells its seats now, unless its release is held. */
+export async function releaseFinalizedDecision(
+  tx: AuthorizationTransaction,
+  input: { readonly roundId: string; readonly at: string },
+): Promise<void> {
+  const [round] = await rowsOf<{ decision_release: string }>(
+    tx,
+    sql`select decision_release from rounds where id=${input.roundId}`,
+  );
+  if (round?.decision_release !== 'on_finalize') return;
+  await releaseRoundDecision(tx, {
+    ...input,
+    recipients: await roundDecisionAudience(tx, input.roundId),
+  });
+}
+
+/**
+ * One participant's analysis of the Round is ready: their decision
+ * notification comes back unread, so the analysis is read beside it.
+ */
+export const resurfaceRoundDecision = (
+  tx: AuthorizationTransaction,
+  input: {
+    readonly roundId: string;
+    readonly userIds: readonly string[];
+    readonly at: string;
+  },
+) =>
+  resurfaceNotifications(tx, {
+    kind: 'round_decision_released',
+    subject: { round_id: input.roundId },
+    userIds: input.userIds,
+    at: input.at,
+    nextId: createId,
+  });

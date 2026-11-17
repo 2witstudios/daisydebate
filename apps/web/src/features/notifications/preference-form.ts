@@ -3,6 +3,7 @@ import {
   type NotificationChannel,
   type NotificationChoices,
   type NotificationKind,
+  type NotificationPresentation,
 } from '@daisy/protocol';
 
 /** The form field of one kind's channel: `room_invitation.email`. */
@@ -35,3 +36,13 @@ export const chosen = (
 ): boolean =>
   (choices[kind] as Partial<Record<NotificationChannel, boolean>>)[channel] ??
   true;
+
+/** The presentation a submitted form states: a checked box is on. */
+export const presentationFromForm = (
+  form: FormData,
+): NotificationPresentation => ({
+  toasts: form.get('toasts') === 'on',
+  sound: form.get('sound') === 'on',
+  desktopAlerts: form.get('desktopAlerts') === 'on',
+  email: form.get('email') === 'on',
+});

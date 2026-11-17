@@ -10,6 +10,8 @@ import { createDebaterFollowRoute } from '../following/handler';
 import { createSpectatorChatRoute } from '../messaging/spectator-chat/handler';
 import {
   createNotificationPreferencesRoute,
+  createNotificationPresentationRoute,
+  createNotificationShellRoute,
   createNotificationsReadRoute,
 } from '../notifications/handlers';
 import { createUnsubscribeRoute } from '../notifications/email/unsubscribe-handler';
@@ -60,6 +62,15 @@ export function composeAudienceRoutes(app: App) {
     notificationPreferences: createNotificationPreferencesRoute({
       ...account,
       store,
+    }),
+    notificationPresentation: createNotificationPresentationRoute({
+      ...account,
+      store,
+    }),
+    notificationShell: createNotificationShellRoute({
+      ...account,
+      store,
+      clock,
     }),
     notificationUnsubscribe: createUnsubscribeRoute({
       store,

@@ -65,3 +65,14 @@ export function inboxPageHref(after: string, q: string | null): string {
   if (q !== null) params.set('q', q);
   return `/messages?${params}`;
 }
+
+/**
+ * The Messages badge's count (ADR 0144): conversations on the page holding a
+ * message the reader has not read, and invitations, which wait on them too.
+ */
+export const unreadConversationsOf = (
+  entries: readonly MessagingInboxEntry[],
+): number =>
+  entries.filter(
+    (entry) => entry.kind === 'incoming_invitation' || entry.unread,
+  ).length;

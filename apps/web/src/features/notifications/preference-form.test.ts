@@ -8,7 +8,7 @@ test('choicesFromForm', () => {
   const form = new FormData();
   form.set('followed_debater_live.in_app', 'on');
   form.set('room_invitation.in_app', 'on');
-  form.set('challenge_received.email', 'on');
+  form.set('friend_request_received.email', 'on');
   assert({
     given: 'a form with three boxes checked',
     should: 'turn those on and every other channel off',
@@ -16,8 +16,13 @@ test('choicesFromForm', () => {
     expected: {
       followed_debater_live: { in_app: true },
       recording_ready: { in_app: false },
+      round_started: { in_app: false },
+      round_decision_released: { in_app: false, email: false },
       room_invitation: { in_app: true, email: false },
-      challenge_received: { in_app: false, email: true },
+      challenge_received: { in_app: false },
+      challenge_accepted: { in_app: false },
+      friend_request_received: { in_app: false, email: true },
+      friend_request_accepted: { in_app: false },
     },
   });
 });

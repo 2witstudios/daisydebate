@@ -239,3 +239,12 @@ export const liveBroadcastReads = ({
 export type LiveBroadcastPage = Awaited<
   ReturnType<ReturnType<typeof liveBroadcastReads>['listLiveBroadcasts']>
 >;
+
+/**
+ * Broadcast's published read: the Round named by `roundId` has a Broadcast on
+ * air (opened, neither completed nor stopped). `roundId` is an expression in
+ * the reader's query.
+ */
+export const broadcastOnAir = (roundId: SQL) =>
+  sql`exists(select 1 from broadcasts b where b.round_id=${roundId}
+    and b.completed_at is null and b.stopped_at is null)`;

@@ -60,4 +60,5 @@ export const socialLimits = {
 export const friendCommand = () => ({
   requestId: createId(),
   limits: socialLimits,
+  nextId: createId,
 });

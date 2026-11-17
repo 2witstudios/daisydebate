@@ -3,6 +3,7 @@ import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
 import { testMessagingRecovery } from './support/messaging-recovery';
 import { STEP_LIMIT_MS } from './support/bounded-step';
 import { testPeopleList } from './support/people-list-live';
+import { testNotificationShellLive } from './support/notification-shell-live';
 import { testMessagingHistoryCompletion } from './support/messaging-history-completion';
 import { testMessagingNavigationOverlap } from './support/messaging-navigation-overlap';
 import { testEditCompletionWindow } from './support/messaging-completion-window';
@@ -38,6 +39,7 @@ const isBareInboxBell = (topic: string, payload: unknown) =>
 testRoundFloorLive();
 testMessageControlFocus();
 testPeopleList();
+testNotificationShellLive();
 testMessagingNavigationOverlap();
 testEditCompletionWindow();
 testMessagingHistoryCompletion();
