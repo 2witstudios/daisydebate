@@ -92,6 +92,32 @@ const invalid = {
   error: 'Check the speech order, times and room settings.',
 } as const;
 
+/**
+ * A Custom room's definition offers interruptions and yielding (see
+ * customRoomDefinition); where the draft's choice is none (a template that
+ * forbade it, such as Tab's Open conversation), the room forbids it too, so
+ * the template's settings commit exactly as chosen.
+ */
+const forbidUnchosen = (
+  definition: FormatDefinition,
+  config: RoomConfig,
+): FormatDefinition => ({
+  ...definition,
+  configurable: {
+    ...definition.configurable,
+    interaction: {
+      interruptions:
+        config.interruptions === null
+          ? null
+          : definition.configurable.interaction.interruptions,
+      yield:
+        config.yielding === null
+          ? null
+          : definition.configurable.interaction.yield,
+    },
+  },
+});
+
 /** The enhanced editor and native POST decode the same named fields. */
 export function readRoomDraft(
   values: Readonly<Record<string, string>>,
@@ -265,28 +291,14 @@ export function readRoomDraft(
         config: source.preset.config,
       },
     }).kind !== 'standard';
-  // A Custom room's definition offers interruptions and yielding (see
-  // customRoomDefinition), so a template that forbade them (a null choice)
-  // runs them off rather than leaving a choice its definition requires.
-  const config = custom
-    ? {
-        ...parsedConfig.data,
-        interruptions: parsedConfig.data.interruptions ?? {
-          mode: 'disabled' as const,
-          minRemainingMs: 0,
-        },
-        yielding: parsedConfig.data.yielding ?? {
-          allowed: false,
-          returnsTime: false,
-        },
-      }
-    : parsedConfig.data;
   return {
     ok: true,
     draft: {
       ...original,
-      definition: custom ? customRoomDefinition(definition) : definition,
-      config,
+      definition: custom
+        ? forbidUnchosen(customRoomDefinition(definition), parsedConfig.data)
+        : definition,
+      config: parsedConfig.data,
       custom,
       ranked:
         decoded.ranked === 'on' && source.preset.rankedEligible && !custom,

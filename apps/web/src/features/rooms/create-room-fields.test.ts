@@ -42,7 +42,7 @@ describe('native room draft fields', () => {
       given:
         'a template whose preset forbids interruptions and yielding, posted as a Custom room',
       should:
-        'compile: a Custom room offers both, so it chooses them off rather than leaving them null',
+        'compile, committing the template’s settings as chosen: the Custom room forbids what the template forbade',
       actual: read.ok && {
         custom: read.draft.custom,
         compiled: compiled && compiled.ok,
@@ -52,8 +52,8 @@ describe('native room draft fields', () => {
       expected: {
         custom: true,
         compiled: true,
-        interruptions: { mode: 'disabled', minRemainingMs: 0 },
-        yielding: { allowed: false, returnsTime: false },
+        interruptions: null,
+        yielding: null,
       },
     });
   });
