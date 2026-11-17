@@ -50,7 +50,7 @@ test('the room name is the page title, with status and meta lines and no badges'
   assert({
     given: 'a seated guest in an assembling casual team room',
     should:
-      'title the page with the room name, say status and meta in words, offer invite and Leave seat, and no Room setup',
+      'title the page with the room name, say status and meta in words, offer invite, and leave Leave seat to the roster row and settings to Edit settings (ADR 0145)',
     actual: [
       byText(tree, 'h1', seated.title)?.type,
       html.includes('Setting up · 1 of 6 seats filled'),
@@ -61,7 +61,7 @@ test('the room name is the page title, with status and meta lines and no badges'
       Boolean(byText(tree, 'button', 'Leave seat')),
       html.includes('Room setup'),
     ],
-    expected: ['h1', true, true, false, 'Copy invite link', true, false],
+    expected: ['h1', true, true, false, 'Copy invite link', false, false],
   });
 });
 
@@ -150,7 +150,7 @@ test('only the host of an open room is offered Invite people, as a dialog in the
   });
 });
 
-test('a host keeps Leave seat apart from Close room, and a seatless host is labelled', () => {
+test('a seated host keeps Close room, and a seatless host is labelled', () => {
   const hostId = assemblySnapshot.hostActorId!;
   const seatedHost = renderToStaticMarkup(
     header(
@@ -169,7 +169,7 @@ test('a host keeps Leave seat apart from Close room, and a seatless host is labe
   assert({
     given: 'the host in a seat, then the host without one',
     should:
-      'offer the seated host both Leave seat and a separate Close room, and label the seatless host',
+      'offer the seated host Close room (Leave is on their roster row), and label the seatless host',
     actual: [
       seatedHost.includes('Leave seat'),
       seatedHost.includes('value="leave-seat"'),
@@ -178,7 +178,7 @@ test('a host keeps Leave seat apart from Close room, and a seatless host is labe
       seatlessHost.includes('You’re hosting · not in a seat'),
       seatlessHost.includes('Leave seat'),
     ],
-    expected: [true, true, true, false, true, false],
+    expected: [false, false, true, false, true, false],
   });
 });
 

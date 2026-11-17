@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomView } from '@daisy/protocol';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import { idle } from '../../../features/forms/form-state';
 import { RoomRoster } from './room-roster';
 import { seatIntents } from './seat-intents.test-support';
 
@@ -47,7 +48,8 @@ const seated = (
 
 const intents = {
   action: seatIntents.action,
-  commandIds: { seats: seatIntents.commandIds, sides: 'sides' },
+  invitationAction: async () => idle(),
+  commandIds: { seats: seatIntents.commandIds, sides: 'sides', leave: 'leave' },
 };
 
 const render = (
@@ -170,6 +172,21 @@ describe('RoomRoster boxes', () => {
         others: [null, null],
         unknownViewer: null,
       },
+    });
+  });
+
+  test('the row action', () => {
+    const html = render(twoVsTwo);
+    const own = formOf(html, 'leave');
+    assert({
+      given: 'the host seated on team 1 beside two other debaters',
+      should:
+        'offer Leave seat on their own row and Remove on each other occupied row',
+      actual: {
+        leave: [field(own, 'type'), html.includes('aria-label="Leave seat"')],
+        remove: (html.match(/aria-label="Remove /g) ?? []).length,
+      },
+      expected: { leave: ['leave-seat', true], remove: 2 },
     });
   });
 
@@ -371,23 +388,36 @@ describe('RoomRoster open seats', () => {
   });
 
   test('a seat kept for an invitation', () => {
-    const html = render({
+    const invited = {
       ...assemblySnapshot,
       invitations: [
         {
           id: 'i'.repeat(24),
-          seat: 'judge',
+          seat: 'judge' as const,
           invitee: 'ana',
           inviter: 'Host',
           expiresAt: '2026-11-16T12:00:00.000Z',
         },
       ],
+    };
+    const host = render(invited);
+    const guest = render({
+      ...invited,
+      capabilities: { ...invited.capabilities, host: false },
     });
     assert({
-      given: 'a pending judge invitation',
-      should: 'name the invitee on the open judge seat',
-      actual: html.includes('Invited: ana'),
-      expected: true,
+      given: 'a pending judge invitation, seen by the host and by a guest',
+      should:
+        'name the invitee on the open judge seat, and let the host alone release it',
+      actual: {
+        named: [host.includes('Invited: ana'), guest.includes('Invited: ana')],
+        release: [
+          host.includes('>Release<') &&
+            host.includes(`name="invitationId" value="${'i'.repeat(24)}"`),
+          guest.includes('>Release<'),
+        ],
+      },
+      expected: { named: [true, true], release: [true, false] },
     });
   });
 });

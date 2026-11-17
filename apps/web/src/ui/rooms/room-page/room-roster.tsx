@@ -18,6 +18,9 @@ import { AssemblyCommandForm } from './assembly-command-form';
 import { declaredSeats } from './assembly-controls';
 import { roomSeatLabel } from './room-labels';
 import { RoomInvite } from './room-invite';
+import { EndInvitationForm } from './end-invitation-form';
+import { ROOM_TITLE_ID } from './room-setup-modal';
+import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import {
   ordinalOf,
   rosterBoxes,
@@ -37,9 +40,14 @@ export type RosterProps = {
   readonly viewer: { readonly actorId: string; readonly label: string };
   readonly bots: readonly RoomCastChoice[];
   readonly action: FormAction<RoomFormState>;
-  readonly commandIds: Pick<RoomCommandIds, 'seats' | 'sides'>;
+  readonly commandIds: Pick<RoomCommandIds, 'seats' | 'sides'> & {
+    /** The viewer's own Leave, on their row. */
+    readonly leave: string;
+  };
   /** What Start waits on, and Start round for the host: the roster's last line. */
   readonly footer: ReactNode;
+  /** The host's withdraw, which releases a seat held for an invitation. */
+  readonly invitationAction?: FormAction<InvitationFormState>;
 };
 
 const boxTone: Readonly<Record<SideMark, string>> = {
@@ -238,7 +246,7 @@ function CommandButton({
   name = label,
 }: {
   readonly props: RosterProps;
-  readonly type: 'claim-seat' | 'assign-seat' | 'remove-seat';
+  readonly type: 'claim-seat' | 'assign-seat' | 'remove-seat' | 'leave-seat';
   readonly commandId: string;
   readonly fields: Readonly<Record<string, string>>;
   readonly label: string;
@@ -384,13 +392,22 @@ function OpenSeat({
               name={`Take ${roomSeatLabel(view, seat.role, seat.slot)}`}
             />
           ) : null}
-          {invited ? null : (
+          {!invited ? (
             <RoomInvite
               roomId={view.id}
               visibility={view.visibility}
               label="Invite"
             />
-          )}
+          ) : view.capabilities.host && props.invitationAction ? (
+            // The host releases the held seat by withdrawing its invitation (ADR 0124).
+            <EndInvitationForm
+              action={props.invitationAction}
+              intent="withdraw"
+              invitationId={invited.id}
+              label="Release"
+              focusAfterAnswer={ROOM_TITLE_ID}
+            />
+          ) : null}
           {seat.role === 'judge' && view.capabilities.host && aiJudge ? (
             <CommandButton
               props={props}
@@ -451,9 +468,16 @@ function Row({
             />
           ) : null}
           <div className="room-roster-action flex justify-end empty:hidden">
-            {named &&
-            view.capabilities.host &&
-            named.actorId !== props.viewer.actorId ? (
+            {named && named.actorId === props.viewer.actorId ? (
+              <CommandButton
+                props={props}
+                type="leave-seat"
+                commandId={props.commandIds.leave}
+                fields={{}}
+                label="Leave"
+                name="Leave seat"
+              />
+            ) : named && view.capabilities.host ? (
               <CommandButton
                 props={props}
                 type="remove-seat"

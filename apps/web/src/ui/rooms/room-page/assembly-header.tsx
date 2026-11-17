@@ -3,9 +3,6 @@ import Link from 'next/link';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
-import { AssemblyCommandFields } from './assembly-command-fields';
-import { AssemblyCommandForm } from './assembly-command-form';
 import { ROOM_SETUP_HREF, roomMeta, roomStatus } from './room-labels';
 import { CloseRoom } from './close-room';
 import { InvitePeople } from './invite-people';
@@ -139,18 +136,6 @@ export function AssemblyHeader({
               commandId={commandIds.close}
               action={commandAction}
             />
-          ) : null}
-          {seated ? (
-            <AssemblyCommandForm action={commandAction}>
-              <AssemblyCommandFields
-                type="leave-seat"
-                version={view.version}
-                commandId={commandIds.leave}
-              />
-              <button type="submit" className={buttonClass('secondary')}>
-                Leave seat
-              </button>
-            </AssemblyCommandForm>
           ) : null}
         </div>
       </div>

@@ -281,8 +281,10 @@ and Position only when a team seats more than one. `?` is random, decided at
 Start round; a box the viewer may change is a button that cycles to its next
 value (team 1 → 2 → ?, side ? → Aff → Neg, position 1st → … → ?). A member
 changes their own row and the host anyone's. An open seat offers Take seat,
-Invite and, to the host, a Seat picker (and AI judge on a judge seat); the
-host removes an occupant with Remove before seating someone else. The roster
+Invite and, to the host, a Seat picker (and AI judge on a judge seat); a seat
+held for an invitation names the invitee, with Release for the host. The
+viewer's own row ends in Leave; the host removes anyone else with Remove
+before seating someone else. The roster
 ends with what Start waits on and the host's Start round.
 
 Ready belongs to the viewer, so I'm ready is one full-width button under their
