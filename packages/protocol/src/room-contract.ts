@@ -130,6 +130,12 @@ export const roomCreateSchema = z
      * A ranked Room's sides are always open.
      */
     sides: z.enum(['open', 'fixed']).optional(),
+    /**
+     * A Train practice (decision 75): its creator is held as an active
+     * member from create, seated or not, so a second Start practice returns
+     * to this Room. Any other Room holds only its seated people (TAB-6.16).
+     */
+    practice: z.literal(true).optional(),
     /** The capture notice the create form showed its host, to be recorded; only a casual create with capture states one. */
     noticeVersion: z.string().min(1).max(64).optional(),
   })

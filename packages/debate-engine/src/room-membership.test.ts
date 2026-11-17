@@ -101,6 +101,28 @@ describe('Launch', () => {
   });
 });
 
+describe('a Train practice (decision 75)', () => {
+  test('its creator is held from create; a seatless standing host is not', () => {
+    const practice = {
+      ...state(),
+      hostActorId: 'creator',
+      participants: [bot],
+    };
+    assert({
+      given:
+        'a new Room seating only a bot, created as a Train practice and as any other standing Room',
+      should:
+        'hold the practice creator, so a second Start practice returns to it, and hold no seatless host otherwise (TAB-6.16)',
+      actual: [
+        activeRoomMembers(practice, 'creator'),
+        activeRoomMembers(practice),
+        activeRoomMembers({ ...practice, status: 'closed' }, 'creator'),
+      ],
+      expected: [['creator'], [], []],
+    });
+  });
+});
+
 describe('leaving a seat', () => {
   test('a host leaving their seat stays the host of an open Room', () => {
     const room = { ...state(), status: 'assembling' as const };

@@ -313,13 +313,14 @@ export function createRoomRuntimeOperations({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
       // A new Room holds the humans its cast seats, never a host without a
-      // seat; another Room holding one of them refuses it.
+      // seat (TAB-6.16), save a Train practice's creator; another Room
+      // holding one of them refuses it.
       membersOf: (participants) =>
-        activeRoomMembers({
-          status: 'assembling',
-          roundRef: null,
-          participants,
-        }),
+        activeRoomMembers(
+          { status: 'assembling', roundRef: null, participants },
+          // A Train practice holds its creator from create (decision 75).
+          body.practice === true ? caller.actorId : null,
+        ),
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,

@@ -199,6 +199,34 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   });
 });
 
+test('a Train practice holds its creator from create; any other Room holds only its seats (decision 75, TAB-6.16)', async () => {
+  const create = async (practice: boolean) => {
+    const run = makeOperations({}, false);
+    await run.operations.create(caller, {
+      commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
+      title: 'A practice room',
+      resolution: { kind: 'strike' },
+      visibility: 'public',
+      selection: {
+        kind: 'catalog',
+        formatId: 'freestyle',
+        formatVersion: 1,
+        presetVersion: 1,
+        competitionType: 'casual',
+      },
+      ...(practice ? { practice: true as const } : {}),
+    });
+    return run.createInput()?.membersOf([]);
+  };
+  assert({
+    given: 'a Train practice create, then an ordinary create, seating nobody',
+    should:
+      'hold the practice creator, so a second Start practice returns to the Room, and hold no seatless host otherwise',
+    actual: [await create(true), await create(false)],
+    expected: [[caller.actorId], []],
+  });
+});
+
 test('Room creation hands the initial cast to the create transaction through the assign-seat authority (train-room)', async () => {
   const botActorId = 'b4n6p8r2t4v6x8z1k3b5c7d9';
   const botTarget = {

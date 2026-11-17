@@ -40,7 +40,7 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
   assert({
     given: 'a chosen eligible opponent with the judge and Freestyle available',
     should:
-      'build the create body: strike resolution, public, freestyle at its canonical preset, the bot at negative and the judge judging',
+      'build the create body: strike resolution, public, freestyle at its canonical preset, the bot at negative, the judge judging, and a practice that holds its creator',
     actual:
       ready.kind === 'ready'
         ? [
@@ -49,6 +49,7 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
             ready.body.visibility,
             ready.body.selection,
             ready.body.cast,
+            ready.body.practice,
           ]
         : ready,
     expected: [
@@ -72,6 +73,8 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
           seat: { kind: 'judge', slot: 0 } as const,
         },
       ],
+      // Its creator is held from create (decision 75).
+      true,
     ],
   });
 });
