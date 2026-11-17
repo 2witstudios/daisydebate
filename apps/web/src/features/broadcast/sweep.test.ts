@@ -234,3 +234,58 @@ test('a logically completed Broadcast retains pending recovery and stops unknown
     ],
   });
 });
+
+test('a pre-Tab Broadcast whose Egress LiveKit no longer knows settles, not fails, every pass', async () => {
+  const settled: unknown[] = [];
+  const { deps, log } = world({
+    listOpen: async () => [
+      open({
+        completedAt: new Date(1),
+        observerRevokedAt: new Date(1),
+        egressId: 'EG_old',
+        egressGeneration: 1,
+      }),
+    ],
+    readRound: async () => ({
+      round: lockedRound.round,
+      endedAt: null,
+      roomName: 'media-room',
+    }),
+    recordObserverRevoked: async () => undefined,
+    settleEgressAttempt: async (input: unknown) => {
+      settled.push(input);
+      return true;
+    },
+  });
+  const sweep = createBroadcastSweep({
+    ...deps,
+    egress: {
+      ...deps.egress,
+      read: async (id) => ({ kind: 'failed', id, reason: 'not_found' }),
+      revokeObserver: async () => undefined,
+      stop: async (id) => {
+        log.push(`stop ${id}`);
+      },
+    },
+  });
+  await sweep();
+  await sweep.settled();
+  assert({
+    given:
+      'a completed legacy Broadcast of an over Round whose Egress record LiveKit has dropped',
+    should:
+      'settle that exact attempt and say why, without a failure or a stop',
+    actual: [settled, log],
+    expected: [
+      [
+        {
+          id: 'b1',
+          generation: 1,
+          egressId: 'EG_old',
+          observation: { kind: 'failed', id: 'EG_old', reason: 'not_found' },
+        },
+      ],
+      ['report broadcast.egress.settled_absent'],
+    ],
+  });
+});

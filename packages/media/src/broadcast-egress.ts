@@ -21,7 +21,12 @@ const OBSERVER_TTL_SECONDS = 60;
 export type BroadcastEgressFact =
   | { readonly kind: 'none' }
   | { readonly kind: 'starting' | 'active'; readonly id: string }
-  | { readonly kind: 'failed'; readonly id: string }
+  | {
+      readonly kind: 'failed';
+      readonly id: string;
+      /** LiveKit no longer knows this Egress: long ended, its record expired. */
+      readonly reason?: 'not_found';
+    }
   | { readonly kind: 'complete' }
   | { readonly kind: 'unresolved'; readonly id: string };
 
@@ -57,6 +62,16 @@ export const stageCaptureId = (url: string, origin: string): string | null => {
   const id = url.slice(prefix.length).split(/[/?#]/, 1)[0];
   return id ? id : null;
 };
+
+/** LiveKit's definite answer that it has no such Egress. */
+const notFound = (error: unknown) =>
+  error instanceof ServerError &&
+  (error.status === 404 || error.code === 'not_found');
+
+/** LiveKit's refusal to stop an Egress that has already ended. */
+const alreadyEnded = (error: unknown) =>
+  error instanceof ServerError &&
+  (error.status === 412 || error.code === 'failed_precondition');
 
 const observerPermission = (canSubscribe: boolean) => ({
   canSubscribe,
@@ -111,14 +126,27 @@ export function createBroadcastEgress(deps: {
       );
       return started.egressId;
     },
+    /** Stopping an Egress that is gone or already ended has nothing left to do. */
     async stop(id: string) {
-      await client.stopEgress(id);
+      try {
+        await client.stopEgress(id);
+      } catch (error) {
+        if (!notFound(error) && !alreadyEnded(error)) throw error;
+      }
     },
-    /** A job LiveKit no longer lists is reported failed, so it cannot look alive. */
+    /**
+     * A job LiveKit no longer lists, or no longer knows, is reported failed, so it
+     * cannot look alive and its attempt settles. Any other refusal still throws.
+     */
     async read(id: string): Promise<BroadcastEgressFact> {
-      const [info] = await client.listEgress({ egressId: id });
+      let info;
+      try {
+        [info] = await client.listEgress({ egressId: id });
+      } catch (error) {
+        if (!notFound(error)) throw error;
+      }
       return !info
-        ? { kind: 'failed', id }
+        ? { kind: 'failed', id, reason: 'not_found' }
         : info.egressId === id
           ? egressFact(info)
           : { kind: 'unresolved', id };

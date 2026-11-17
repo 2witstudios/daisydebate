@@ -272,6 +272,48 @@ describe('a Recording with no Broadcast', () => {
       expected: ['openOwn'],
     });
   });
+  test('an own Egress LiveKit no longer knows settles and says why, instead of failing', async () => {
+    const { sweep, calls } = setup({
+      open: [
+        row({
+          ...casualOwn,
+          roundStatus: 'completed',
+          own: {
+            recordingId: 'rec',
+            egressId: 'EG_old',
+            attempt: 1,
+            egressStartedAt: new Date(0),
+            egressDispatchedAt: null,
+            egressSettledAt: null,
+            stageCredentialHash: null,
+            observerRevokedAt: new Date(0),
+            revocationFailures: 0,
+          },
+        }),
+      ],
+      egressRead: { kind: 'failed', id: 'EG_old', reason: 'not_found' },
+    });
+    await sweep();
+    assert({
+      given: 'a pre-Tab capture of an over Round whose Egress LiveKit dropped',
+      should: 'settle that exact attempt and report it settled as absent',
+      actual: calls.filter(
+        ([name]) => name === 'settleOwnEgressAttempt' || name === 'report',
+      ),
+      expected: [
+        [
+          'settleOwnEgressAttempt',
+          {
+            recordingId: 'rec',
+            generation: 1,
+            egressId: 'EG_old',
+            observation: { kind: 'failed', id: 'EG_old', reason: 'not_found' },
+          },
+        ],
+        ['report', 'recording.egress.settled_absent'],
+      ],
+    });
+  });
 });
 
 describe('answers to the worker', () => {

@@ -67,7 +67,8 @@ export const createBroadcastSweep = (deps: {
     event:
       | Parameters<ReconcilePorts['report']>[0]
       | 'broadcast.reconcile_failed'
-      | 'broadcast.release_delayed',
+      | 'broadcast.release_delayed'
+      | 'broadcast.egress.settled_absent',
   ) => void;
   /** Resolves when a pass has waited long enough for its slowest Broadcast. */
   readonly passBudget?: () => Promise<void>;
@@ -146,12 +147,15 @@ export const createBroadcastSweep = (deps: {
       broadcast.egressSettledAt === null &&
       (egress.kind === 'complete' || egress.kind === 'failed')
     ) {
-      await deps.store.settleEgressAttempt({
+      const settled = await deps.store.settleEgressAttempt({
         id,
         generation: broadcast.egressGeneration,
         egressId: broadcast.egressId,
         observation: egress,
       });
+      // An Egress the vendor forgot settles, said once, rather than failing every pass.
+      if (settled && egress.kind === 'failed' && egress.reason === 'not_found')
+        deps.report('broadcast.egress.settled_absent');
       return;
     }
     // Logical feed completion never hides possible live physical work or reopens the feed.
