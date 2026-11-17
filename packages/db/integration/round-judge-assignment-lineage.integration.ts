@@ -596,3 +596,57 @@ test(
     }),
   60_000,
 );
+
+test(
+  'a finalized judged Round deletes whichever cascade PostgreSQL fires first',
+  () =>
+    withJudgedRound(async ({ sql, f, roundId, actorId }) => {
+      await completeOrdinaryForfeit(sql, f, roundId, actorId);
+      // RI triggers fire in trigger-name order, which follows constraint OIDs,
+      // so each database can differ. Re-adding a constraint gives it the
+      // newest OID: its cascade then fires after every other one.
+      const fireLast = async (table: string, name: string) => {
+        const [constraint] =
+          await sql`select pg_get_constraintdef(oid) d from pg_constraint where conname=${name}`;
+        await sql.unsafe(
+          `alter table ${table} drop constraint ${name}, add constraint ${name} ${constraint!.d}`,
+        );
+      };
+      const deleted = () =>
+        sql
+          .begin(async (tx) => {
+            await tx`delete from rounds where id=${roundId}`;
+            throw new Error('deleted');
+          })
+          .catch((error: Error) => error.message);
+      const orders: string[] = [];
+      for (const [table, name] of [
+        ['round_finalizations', 'round_finalizations_round_id_rounds_id_fkey'],
+        [
+          'round_judge_assignments',
+          'round_judge_assignments_round_id_rounds_id_fkey',
+        ],
+        ['round_finalizations', 'round_finalizations_round_id_rounds_id_fkey'],
+      ] as const) {
+        await fireLast(table, name);
+        orders.push(await deleted());
+      }
+      assert({
+        given:
+          'a forfeited Round with a frozen judge panel, its finalization cascade firing last, then first, then last',
+        should: 'delete the Round in every order',
+        actual: orders,
+        expected: ['deleted', 'deleted', 'deleted'],
+      });
+      assert({
+        given: 'the same Round still present',
+        should: 'refuse deleting its assignment history directly',
+        actual: await rejectedBy(
+          () =>
+            sql`delete from round_judge_assignments where round_id=${roundId}`,
+        ),
+        expected: 'round_assignment_history_immutable',
+      });
+    }),
+  60_000,
+);

@@ -36,6 +36,7 @@ const parentFolders = new Set([
   '20261117003142_tab_casual_templates',
   '20261117003143_tab_wiring',
   '20261117003144_lethal_grey_gargoyle',
+  '20261117054407_tab_finalization_assignment_cascade',
 ]);
 
 const oldRules = ({

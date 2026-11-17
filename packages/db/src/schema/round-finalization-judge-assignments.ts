@@ -12,7 +12,13 @@ import {
 import { roundFinalizations } from './round-finalizations';
 import { roundJudgeAssignments } from './round-judge-assignments';
 
-/** Exact slot versions selected by the terminal receipt; later reads never reselect a mutable panel. */
+/**
+ * Exact slot versions selected by the terminal receipt; later reads never reselect a mutable panel.
+ * Both assignment references cascade: assignment history can only be deleted
+ * with its Round (`daisy_round_assignment_history_immutable`), and a Round's
+ * delete must not depend on which of its two cascade paths (through
+ * `round_finalizations` or `round_judge_assignments`) PostgreSQL fires first.
+ */
 export const roundFinalizationJudgeAssignments = pgTable(
   'round_finalization_judge_assignments',
   {
@@ -47,7 +53,7 @@ export const roundFinalizationJudgeAssignments = pgTable(
         roundJudgeAssignments.slot,
         roundJudgeAssignments.version,
       ],
-    }),
+    }).onDelete('cascade'),
     foreignKey({
       name: 'round_finalization_judge_assignments_occupant_fk',
       columns: [
@@ -62,6 +68,6 @@ export const roundFinalizationJudgeAssignments = pgTable(
         roundJudgeAssignments.version,
         roundJudgeAssignments.participantId,
       ],
-    }),
+    }).onDelete('cascade'),
   ],
 );
