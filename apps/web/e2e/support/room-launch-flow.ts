@@ -31,10 +31,13 @@ export const deniedCommand = (
     data: { ...body, commandId: createId(), expectedVersion: view.version },
   });
 const roomSetup = (page: Page) =>
-  page.getByRole('dialog', { name: 'Room setup', exact: true });
-/** Opens Room setup; `rules` also opens its speeches-and-rules disclosure. */
+  page.getByRole('dialog', { name: 'Settings', exact: true });
+/**
+ * Opens the host's Settings dialog through the Settings card's Edit
+ * settings; `rules` also opens its speeches-and-rules disclosure.
+ */
 export async function openRoomSetup(page: Page, rules = false) {
-  await page.getByRole('link', { name: 'Room setup', exact: true }).click();
+  await page.getByRole('link', { name: 'Edit settings', exact: true }).click();
   await expect(roomSetup(page)).toBeVisible();
   if (rules)
     await page
@@ -42,21 +45,19 @@ export async function openRoomSetup(page: Page, rules = false) {
       .click();
   return page.getByRole('form', { name: 'Round settings' });
 }
-/** Saves the round settings; an accepted save closes Room setup. */
+/** Saves the round settings; an accepted save closes Settings. */
 export async function saveRoundSettings(page: Page) {
   await roomSetup(page)
     .getByRole('button', { name: 'Save round settings' })
     .click();
   await expect(roomSetup(page)).toBeHidden();
 }
-/** Closes Room setup through its close link. */
+/** Closes Settings through its close link. */
 export async function closeRoomSetup(page: Page) {
-  await page
-    .getByRole('link', { name: 'Close room setup', exact: true })
-    .click();
+  await page.getByRole('link', { name: 'Close settings', exact: true }).click();
   await expect(roomSetup(page)).toBeHidden();
 }
-/** Turns prep before the round off in Room setup and saves it. */
+/** Turns prep before the round off in Settings and saves it. */
 export async function turnOffPreRoundPrep(page: Page) {
   const settings = await openRoomSetup(page);
   await settings
@@ -169,7 +170,11 @@ export async function createFromPlay(
  * offers only Daisy's standards and league templates (FMT-1), and a judged
  * standard cannot launch with two debaters alone. Opens its page.
  */
-export async function createProofRoom(page: Page, title: string) {
+export async function createProofRoom(
+  page: Page,
+  title: string,
+  sides: 'open' | 'fixed' = 'fixed',
+) {
   const response = await page.request.post('/api/rooms', {
     headers: { origin },
     data: {
@@ -178,12 +183,36 @@ export async function createProofRoom(page: Page, title: string) {
       resolution: { kind: 'custom', text: 'Proof cities should fund transit' },
       visibility: 'public',
       selection: foundationSelection,
+      // Fixed by default, so the Affirmative 1 seat argues the Affirmative.
+      sides,
     },
   });
   expect(response.status()).toBe(201);
   const view = roomViewSchema.parse((await response.json()).view);
   await page.goto(`/rooms/${view.id}`);
   return view;
+}
+
+/**
+ * Fixes a casual Room's sides as seated (ADR 0145): team 1, the Affirmative
+ * seats, argues the Affirmative, so Start round flips no coin. A Room the
+ * UI creates leaves its sides open; journeys that play a given side fix
+ * them first. Returns the durable Room.
+ */
+export async function fixSides(request: APIRequestContext, view: RoomView) {
+  const response = await request.post(`/api/rooms/${view.id}/commands`, {
+    headers: { origin },
+    data: {
+      type: 'set-sides',
+      teamOneSide: 'affirmative',
+      commandId: createId(),
+      expectedVersion: view.version,
+    },
+  });
+  expect(response.status()).toBe(200);
+  const fixed = await reread(request, view.id);
+  expect(fixed.teamOneSide).toBe('affirmative');
+  return fixed;
 }
 
 export async function closeRoom(
@@ -202,9 +231,31 @@ export async function closeRoom(
   expect(response.status()).toBe(200);
 }
 
+/**
+ * The name the roster gives a seat placed as `seat` ("Affirmative 1" is team
+ * 1's first seat). Before Start it is named by its side once the sides are
+ * fixed and by its team while they are open (ADR 0145), as roomSeatLabel does.
+ */
+export function rosterSeatName(view: RoomView, seat: string): string {
+  const [word, number] = seat.split(' ');
+  if (word === 'Judge') return seat;
+  const team = word === 'Affirmative' ? 1 : 2;
+  if (view.teamOneSide !== null) {
+    const affirmative = (team === 1) === (view.teamOneSide === 'affirmative');
+    return `${affirmative ? 'Affirmative' : 'Negative'} ${number}`;
+  }
+  const { affirmative, negative } = view.definition.seats;
+  if (affirmative === 1 && negative === 1) return `Team ${team}`;
+  const n = Number(number);
+  const ordinal =
+    n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+  return `Team ${team} · ${ordinal}`;
+}
+
 export async function claim(page: Page, view: RoomView, seat: string) {
   await page.goto(`/rooms/${view.id}`);
-  await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();
+  const name = rosterSeatName(await reread(page.request, view.id), seat);
+  await page.getByRole('button', { name: `Take ${name}`, exact: true }).click();
   const [role, number] = seat.toLowerCase().split(' ');
   await expect(async () => {
     view = await reread(page.request, view.id);
@@ -237,6 +288,9 @@ export async function prepareRoomAs(
 ) {
   // Launched without a strike: the host's wording stands in for the draw.
   let view = await createFromPlay(page, title, 'freestyle', setResolution);
+  // The member's seat names its side in the Round.
+  view = await fixSides(page.request, view);
+  await page.reload();
   await turnOffPreRoundPrep(page);
   await expect(async () => {
     view = await reread(page.request, view.id);
@@ -261,15 +315,20 @@ export async function prepareRoomAs(
       (bot: ReturnType<typeof roomCastChoiceSchema.parse>) =>
         bot.seatRole === (seatRole[seat] === 'judge' ? 'judge' : 'debater'),
     );
-  await page.getByText('Manage seats', { exact: true }).click();
   for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
     const actor = ofRole(seat)[index % ofRole(seat).length]!;
-    const select = page.getByLabel(`Assign ${seat}`, { exact: true });
+    // The host seats anyone in an open seat from that seat's own row.
+    const select = page.getByLabel(
+      `Seat someone in ${rosterSeatName(view, seat)}`,
+      { exact: true },
+    );
+    const form = page.locator('form').filter({ has: select });
+    // The page has caught up with the last seat before this one is posted.
+    await expect(form.locator('[name="expectedVersion"]')).toHaveValue(
+      String(view.version),
+    );
     await select.selectOption(actor.actorId);
-    await select
-      .locator('..')
-      .getByRole('button', { name: 'Assign', exact: true })
-      .click();
+    await form.getByRole('button', { name: 'Seat', exact: true }).click();
     await expect(async () => {
       view = await reread(page.request, view.id);
       expect(
@@ -284,8 +343,8 @@ export async function prepareRoomAs(
       ).toBe(true);
     }).toPass({ timeout: 10_000 });
     await expect(
-      select.locator('..').locator('[name="expectedVersion"]'),
-    ).toHaveValue(String(view.version));
+      page.getByRole('listitem', { name: seat, exact: true }),
+    ).toHaveCount(0);
   }
   return claim(page, view, own);
 }

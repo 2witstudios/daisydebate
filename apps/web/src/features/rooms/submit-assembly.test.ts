@@ -233,3 +233,55 @@ test('a refusal the Room names is a refusal whatever status carries it', async (
     ],
   });
 });
+
+/** The body a form posts, as the route receives it. */
+const posted = async (fields: Record<string, string>) => {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) form.set(key, value);
+  let sent: unknown;
+  await submitAssembly(
+    async (_path, init) => {
+      sent = JSON.parse(String(init.body));
+      return Response.json({ view: assemblySnapshot, receipt: {} });
+    },
+    assemblySnapshot.id,
+    form,
+  );
+  return sent;
+};
+
+test('seat and side forms post ? as null (ADR 0145)', async () => {
+  const commandId = 'm'.repeat(24);
+  const participantId = 'p'.repeat(24);
+  assert({
+    given: 'a seat move to team 2 with position ?, and sides set back to ?',
+    should: 'post numbers for the chosen boxes and null for each ?',
+    actual: [
+      await posted({
+        type: 'set-seat',
+        commandId,
+        expectedVersion: '4',
+        participantId,
+        team: '2',
+        position: '',
+      }),
+      await posted({
+        type: 'set-sides',
+        commandId,
+        expectedVersion: '4',
+        teamOneSide: '',
+      }),
+    ],
+    expected: [
+      {
+        type: 'set-seat',
+        commandId,
+        expectedVersion: 4,
+        participantId,
+        team: 2,
+        position: null,
+      },
+      { type: 'set-sides', commandId, expectedVersion: 4, teamOneSide: null },
+    ],
+  });
+});

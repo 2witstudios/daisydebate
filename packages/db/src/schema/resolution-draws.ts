@@ -232,18 +232,6 @@ export const roundResolutionStrikes = pgTable(
   ],
 );
 
-/** The Round's draw seed: secret, immutable, never deleted. */
-export const roundDrawSeeds = pgTable(
-  'round_draw_seeds',
-  {
-    roundId: text('round_id')
-      .primaryKey()
-      .references(() => rounds.id, { onDelete: 'cascade' }),
-    seed: text('seed').notNull(),
-  },
-  (table) => [check('round_draw_seeds_seed_hex', hex64(table.seed))],
-);
-
 /** The drawn texts, written at Start round; fixed once written. */
 export const roundResolutionDrawTexts = pgTable(
   'round_resolution_draw_texts',

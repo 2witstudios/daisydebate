@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { ratingLadders, type RatingLadder } from '@daisy/protocol';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -64,6 +64,43 @@ type CardRecordRow = {
   readonly rounds: number;
 };
 
+/** Each actor's rating on each Daisy ladder in the active season, released. */
+const readCardRatings = async (
+  database: BunSQLDatabase,
+  ids: SQL,
+  clock: SpectatorClock,
+): Promise<readonly CardRatingRow[]> => {
+  const postingReleased = factReleasedSql(
+    sql`greatest(c.occurred_at, held_r.completed_at)`,
+    postingRound,
+    clock,
+  );
+  const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
+    where c.actor_id = r.actor_id and c.ladder = r.ladder and c.season_id = r.season_id`;
+  const ratings = (await database.execute(sql`
+    select r.actor_id as "actorId", r.ladder, r.rating, r.deviation, r.volatility,
+      (select max(c.occurred_at) from ${postings} and ${postingReleased}) as "lastRatedAt",
+      held.rating_before as "heldRating",
+      held.deviation_before as "heldDeviation",
+      held.volatility_before as "heldVolatility"
+    from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
+    left join lateral (
+      select c.rating_before, c.deviation_before, c.volatility_before
+      from ${postings} and not ${postingReleased}
+      order by c.occurred_at asc limit 1
+    ) held on true
+    where r.actor_id = any(${ids})`)) as unknown as CardRatingRead[];
+  return ratings
+    .filter((row) => ratingLadders.includes(row.ladder))
+    .flatMap((row) => releasedCardRating(row) ?? []);
+};
+
+const actorIdArray = (actorIds: readonly string[]) =>
+  sql`array[${sql.join(
+    actorIds.map((id) => sql`${id}`),
+    sql`, `,
+  )}]::text[]`;
+
 /**
  * What each person's card may show (ADR 0103, ADR 0142): their rating on each
  * Daisy ladder in the active season, and the shape of their public record,
@@ -81,30 +118,7 @@ export const memberCardOperations = ({
   readMemberCards: (actorIds: readonly string[], clock: SpectatorClock) =>
     instrumented(eventSink, 'readMemberCards', async () => {
       if (actorIds.length === 0) return { ratings: [], records: [] };
-      const ids = sql`array[${sql.join(
-        actorIds.map((id) => sql`${id}`),
-        sql`, `,
-      )}]::text[]`;
-      const postingReleased = factReleasedSql(
-        sql`greatest(c.occurred_at, held_r.completed_at)`,
-        postingRound,
-        clock,
-      );
-      const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
-        where c.actor_id = r.actor_id and c.ladder = r.ladder and c.season_id = r.season_id`;
-      const ratingsRead = database.execute(sql`
-        select r.actor_id as "actorId", r.ladder, r.rating, r.deviation, r.volatility,
-          (select max(c.occurred_at) from ${postings} and ${postingReleased}) as "lastRatedAt",
-          held.rating_before as "heldRating",
-          held.deviation_before as "heldDeviation",
-          held.volatility_before as "heldVolatility"
-        from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
-        left join lateral (
-          select c.rating_before, c.deviation_before, c.volatility_before
-          from ${postings} and not ${postingReleased}
-          order by c.occurred_at asc limit 1
-        ) held on true
-        where r.actor_id = any(${ids})`);
+      const ids = actorIdArray(actorIds);
       const recordsRead = database.execute(sql`
         select p.actor_id as "actorId", r.status, r.outcome, p.role, count(*)::int as rounds
         from round_participants p join rounds r on r.id = p.round_id
@@ -112,14 +126,19 @@ export const memberCardOperations = ({
           and ${outcomeReleasedSql(roundAliasR, clock)}
         group by p.actor_id, r.status, r.outcome, p.role`);
       const [ratings, records] = (await Promise.all([
-        ratingsRead,
+        readCardRatings(database, ids, clock),
         recordsRead,
-      ])) as unknown as [CardRatingRead[], CardRecordRow[]];
-      return {
-        ratings: ratings
-          .filter((row) => ratingLadders.includes(row.ladder))
-          .flatMap((row) => releasedCardRating(row) ?? []),
-        records: [...records],
-      };
+      ])) as unknown as [CardRatingRow[], CardRecordRow[]];
+      return { ratings, records: [...records] };
     }),
+  /**
+   * The card's ratings alone, for one batch of seated actors (a Room's
+   * seats, SEAT-7): the same released active-season read, without records.
+   */
+  readMemberCardRatings: (actorIds: readonly string[], clock: SpectatorClock) =>
+    instrumented(eventSink, 'readMemberCardRatings', async () =>
+      actorIds.length === 0
+        ? []
+        : readCardRatings(database, actorIdArray(actorIds), clock),
+    ),
 });

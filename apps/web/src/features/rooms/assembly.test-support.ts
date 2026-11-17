@@ -150,6 +150,7 @@ export const assemblySnapshot = {
   seatsHeldFromViewer: { debater: 0, judge: 0 },
   invitations: [],
   rules: compiled.rules,
+  teamOneSide: null,
   participants: [],
   readiness: { available: true, version: 3, readyActorIds: [] },
   capabilities: {

@@ -3,12 +3,12 @@ import { and, asc, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   roundDrawPrivateInputs,
-  roundDrawSeeds,
   roundResolutionDrawItems,
   roundResolutionDrawTexts,
   roundResolutionDraws,
   roundResolutionStrikes,
 } from './schema/resolution-draws';
+import { roundDrawSeeds } from './schema/round-seeds';
 import type { Tx } from './room-command-facts';
 import type {
   DrawPrivateInputs,

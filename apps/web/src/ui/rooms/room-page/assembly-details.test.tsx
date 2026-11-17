@@ -66,50 +66,23 @@ test('non-host details remain visible but cannot submit an edit', () => {
   });
 });
 
-test('the edit form never offers private', () => {
+test('the details form keeps who can join as saved (ADR 0145)', () => {
   const html = renderToStaticMarkup(
     <AssemblyDetailsFields
-      view={assemblySnapshot}
+      view={{ ...assemblySnapshot, visibility: 'unlisted' }}
       commandId="fresh-command"
       state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );
   assert({
-    given: 'the Room details form',
-    should: 'offer public and unlisted only (ISSUE-443, DEC-206)',
-    actual: [
-      html.includes('value="public"'),
-      html.includes('value="unlisted"'),
-      html.includes('value="private"'),
-    ],
-    expected: [true, true, false],
-  });
-});
-
-test('the edit form lists public first and checks the saved choice', () => {
-  const radios = (visibility: 'public' | 'unlisted') =>
-    [
-      ...renderToStaticMarkup(
-        <AssemblyDetailsFields
-          view={{ ...assemblySnapshot, visibility }}
-          commandId="fresh-command"
-          state={{ values: {}, error: undefined }}
-          pending={false}
-        />,
-      ).matchAll(/<input[^>]*name="visibility"[^>]*>/g),
-    ].map(([input]) => {
-      const value = /value="(\w+)"/.exec(input)?.[1];
-      return `${value}${input.includes('checked') ? '*' : ''}`;
-    });
-  assert({
-    given: 'a public Room, then an unlisted one',
-    should: 'offer public first, with the Room’s own visibility checked',
-    actual: [radios('public'), radios('unlisted')],
-    expected: [
-      ['public*', 'unlisted'],
-      ['public', 'unlisted*'],
-    ],
+    given: 'an unlisted Room’s details form in Edit settings',
+    should: 'post the saved visibility unchanged, with no choice of its own',
+    actual: [...html.matchAll(/<input[^>]*name="visibility"[^>]*>/g)].map(
+      ([input]) =>
+        input.includes('type="hidden"') && input.includes('value="unlisted"'),
+    ),
+    expected: [true],
   });
 });
 

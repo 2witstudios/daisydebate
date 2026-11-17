@@ -7,12 +7,12 @@ import {
   useReducer,
   useState,
   useRef,
-  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { tileHeightFor } from '../../features/debate-room/layout';
 import type { PhonePanel } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
+import { useHydrated } from '../use-hydrated';
 import { BallotStatus } from './ballot-status';
 import {
   CommandPalette,
@@ -59,16 +59,6 @@ function useTileHeight(height: number) {
 
 const DOCUMENT_ID = 'open-document';
 const PHONE_ROOM_ID = 'round-phone-room';
-
-const noSubscribe = () => () => {};
-
-/** False in the server's markup and until hydration: every panel then shows. */
-const useHydrated = () =>
-  useSyncExternalStore(
-    noSubscribe,
-    () => true,
-    () => false,
-  );
 
 const focusRegions = () => [
   document.getElementById(FILES_ID),

@@ -8,7 +8,8 @@ import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 setupRitewayBun();
 const actorId = assemblySnapshot.hostActorId;
 const nativeProps = {
-  side: (ready: ReactNode) => <div data-side>{ready}</div>,
+  main: (start: ReactNode) => <div data-roster>{start}</div>,
+  aside: <div data-aside />,
   chat: null,
   actorId,
   action: async () => idle(),
@@ -34,6 +35,9 @@ for (const role of ['affirmative', 'judge'] as const) {
           label: 'Host',
           role,
           slot: 0,
+          teamOpen: false,
+          positionOpen: false,
+          rating: null,
           needsReady: true,
           eligible: true,
           ready: 'not-ready' as const,
@@ -55,14 +59,14 @@ for (const role of ['affirmative', 'judge'] as const) {
         ),
         html.includes('<video'),
         html.includes('Camera and microphone checks require JavaScript.'),
-        html.includes('Start the round'),
+        html.includes('data-roster'),
       ],
       expected: [true, role !== 'judge', false, role !== 'judge', true],
     });
   });
 }
 
-test('the Room chat fills the left column for a viewer with no devices (RCHAT-9)', () => {
+test('the Room chat sits under the roster for a viewer with no devices (RCHAT-9)', () => {
   const chat = <section aria-label="Room chat">thread</section>;
   const visitor = renderToStaticMarkup(
     <AssemblyDeviceReadiness
@@ -71,27 +75,22 @@ test('the Room chat fills the left column for a viewer with no devices (RCHAT-9)
       view={assemblySnapshot}
     />,
   );
-  const alone = renderToStaticMarkup(
-    <AssemblyDeviceReadiness {...nativeProps} view={assemblySnapshot} />,
-  );
   assert({
-    given: 'a viewer without a seat, with the Room chat and then without it',
+    given: 'a viewer without a seat, with the Room chat',
     should:
-      'show the chat in the left column with no device section or Ready, and only the side column when there is no chat',
+      'show the roster then the chat, then the controls, with no tile of their own or Ready',
     actual: [
-      visitor.includes('room-gathering'),
-      visitor.indexOf('aria-label="Room chat"') <
-        visitor.indexOf('Start the round'),
-      visitor.includes('aria-label="Your devices"'),
+      visitor.indexOf('data-roster') <
+        visitor.indexOf('aria-label="Room chat"'),
+      visitor.indexOf('aria-label="Room chat"') < visitor.indexOf('data-aside'),
+      visitor.includes('aria-label="You"'),
       visitor.includes('I’m ready'),
-      alone.includes('room-gathering'),
-      alone.includes('Start the round'),
     ],
-    expected: [true, true, false, false, false, true],
+    expected: [true, true, false, false],
   });
 });
 
-test('a seated debater has the Room chat under their devices and Ready in the side column (RCHAT-9, RCHAT-11)', () => {
+test('a seated debater has I’m ready under their own tile, above the Room controls (SEAT-8)', () => {
   const view = {
     ...assemblySnapshot,
     capabilities: { ...assemblySnapshot.capabilities, canReady: true },
@@ -103,6 +102,9 @@ test('a seated debater has the Room chat under their devices and Ready in the si
         label: 'Host',
         role: 'affirmative' as const,
         slot: 0,
+        teamOpen: false,
+        positionOpen: false,
+        rating: null,
         needsReady: true,
         eligible: true,
         ready: 'not-ready' as const,
@@ -117,15 +119,16 @@ test('a seated debater has the Room chat under their devices and Ready in the si
       view={view}
     />,
   );
-  const devices = html.indexOf('aria-label="Your devices"');
+  const roster = html.indexOf('data-roster');
   const chat = html.indexOf('aria-label="Room chat"');
-  const side = html.indexOf('data-side');
+  const tile = html.indexOf('aria-label="You"');
   const ready = html.indexOf('I’m ready');
+  const aside = html.indexOf('data-aside');
   assert({
     given: 'a seated debater with the Room chat',
     should:
-      'order devices, then chat, then the side column, with Ready inside the side column',
-    actual: [devices > -1, devices < chat, chat < side, side < ready],
+      'order roster, chat, their tile with Ready in it, then the controls',
+    actual: [roster < chat, chat < tile, tile < ready, ready < aside],
     expected: [true, true, true, true],
   });
 });

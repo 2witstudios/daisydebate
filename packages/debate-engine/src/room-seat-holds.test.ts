@@ -15,6 +15,8 @@ const human = (actorId: string) => ({
   slot: 0,
   eligible: true,
   seatRole: null,
+  teamOpen: false,
+  positionOpen: false,
   consentVersion: 0,
   consentCommandId: null,
 });

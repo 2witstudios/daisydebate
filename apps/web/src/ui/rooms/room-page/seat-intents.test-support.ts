@@ -7,5 +7,7 @@ export const seatIntents = {
     assign: `assign-${index}`,
     remove: `remove-${index}`,
     ai: `ai-${index}`,
+    team: `team-${index}`,
+    position: `position-${index}`,
   })),
 };

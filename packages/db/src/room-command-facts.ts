@@ -211,6 +211,8 @@ const hydrateRoom = async (
         id: seat.id,
         role: seat.role,
         slot: seat.slot,
+        teamOpen: seat.teamOpen,
+        positionOpen: seat.positionOpen,
         consentCommandId: seat.readinessCommandId,
         consentVersion: seat.readinessVersion,
       };
@@ -261,6 +263,7 @@ const hydrateRoom = async (
     competitionType: row.competitionType,
     capture: row.capture,
     postRoundCall: row.postRoundCall,
+    teamOneSide: row.teamOneSide,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

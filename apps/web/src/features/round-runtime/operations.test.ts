@@ -103,7 +103,13 @@ test('a seated forfeit in the opening stands as a result, under a digest of the 
         outcome: null,
       }),
       opening: {
-        state: { startedAt: now, draw: null, prepMs: 60_000, stops: [] },
+        state: {
+          startedAt: now,
+          draw: null,
+          prepMs: 60_000,
+          stops: [],
+          sides: null,
+        },
         seed: null,
       },
     },

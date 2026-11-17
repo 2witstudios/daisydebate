@@ -15,6 +15,8 @@ import type {
 
 import { startBlocker, type Edges } from './room-assembly-facts';
 import { startRoundDraw } from './room-draw-start';
+import { resolveSeats } from './room-seats';
+import { bytesOf } from './draw-random';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
@@ -78,16 +80,32 @@ export const startRound = (
     return refuse('capture-premium');
   if (room.visibility === 'private' && room.capture?.broadcast)
     return refuse('broadcast-private');
-  const draw = room.executionPlan.resolutionDraw.enabled
-    ? startRoundDraw(room, edges)
-    : null;
-  if (room.executionPlan.resolutionDraw.enabled && !draw)
-    return refuse('draw-unavailable');
   // A started Room names its Round from the transition that starts it.
-  if (edges.roundId === null)
-    throw createAppError('INVARIANT', 'A Start round carries its Round id');
-  const next: RoomAssemblyState = {
+  if (edges.roundId === null || edges.seatSeed === null)
+    throw createAppError(
+      'INVARIANT',
+      'A Start round carries its Round id and seed',
+    );
+  // Every ? resolves before anything reads a side (ADR 0145): the draw's
+  // strike order and automatic sides, bot admission and the frozen cast.
+  const seats = resolveSeats(room, {
+    seed: bytesOf(edges.seatSeed),
+    roundId: edges.roundId,
+  });
+  const seated: RoomAssemblyState = {
     ...room,
+    // Resolved seats are sides, so the started Room's team 1 is whoever now
+    // sits Affirmative; the draw keeps which team that was.
+    participants: seats.participants,
+    teamOneSide: 'affirmative',
+  };
+  const draw = seated.executionPlan.resolutionDraw.enabled
+    ? startRoundDraw(seated, edges)
+    : null;
+  if (seated.executionPlan.resolutionDraw.enabled && !draw)
+    return refuse('draw-unavailable');
+  const next: RoomAssemblyState = {
+    ...seated,
     status: 'started',
     roundRef: {
       id: edges.roundId,
@@ -96,6 +114,8 @@ export const startRound = (
   };
   return acceptedRoomMutation(next, {
     draw,
+    seatDraw: seats.seatDraw,
+    roundSeed: edges.seatSeed,
     freeze: true,
     seatsBotDebater: castSeatsBotDebater(next),
   });
