@@ -3,6 +3,7 @@ import {
   buildRoomTopic,
   emptyRuntimeCheckpointFor,
   type RoundProjection,
+  type RoundRules,
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -21,6 +22,9 @@ import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { betaAllowance } from './bot-admission.test-support';
 import { withFixture, type Fixture } from './constraint-helpers';
+import { judgedRound } from './judged-round.test-support';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { validConfig, validRules } from './round-fixtures';
 
 setupRitewayBun();
@@ -58,6 +62,9 @@ const advance = (f: Fixture, roundId: string, status: 'active' | 'completed') =>
   drizzle({ client: f.sql }).transaction(async (tx) => {
     const now = new Date().toISOString();
     const current = await lockedRoundVersion(tx, roundId);
+    const stored = (await f.sql`select rules_snapshot as rules from rounds
+      where id=${roundId}`) as { rules: RoundRules }[];
+    const checkpoint = emptyRuntimeCheckpointFor(stored[0]!.rules);
     await writeProjectionWithPhaseSignal(
       tx,
       roundId,
@@ -70,7 +77,7 @@ const advance = (f: Fixture, roundId: string, status: 'active' | 'completed') =>
               startedAt: now,
               completedAt: null,
               outcome: null,
-              checkpoint: emptyRuntimeCheckpointFor(validRules),
+              checkpoint,
             }
           : {
               status,
@@ -78,7 +85,7 @@ const advance = (f: Fixture, roundId: string, status: 'active' | 'completed') =>
               startedAt: current.startedAt?.toISOString() ?? now,
               completedAt: now,
               outcome: { kind: 'winner', side: 'affirmative' },
-              checkpoint: emptyRuntimeCheckpointFor(validRules),
+              checkpoint,
             },
       ),
       now,
@@ -87,7 +94,8 @@ const advance = (f: Fixture, roundId: string, status: 'active' | 'completed') =>
 
 /** A Round in its opening: two seated members and a bot judge. */
 const openingRound = async (f: Fixture) => {
-  const roundId = await f.round();
+  // Tab's foundation fixture seats no judge (TAB-6): use a judged revision.
+  const roundId = await judgedRound(f);
   const affirmative = await f.seat(roundId, 'affirmative');
   const negative = await f.seat(roundId, 'negative');
   const bot = createId();
@@ -217,13 +225,20 @@ test('a Round with nothing to run first tells its seated humans at the Start', a
   await withFixture(databaseUrl, async (f) => {
     const host = await createAuthorizationSubject(f);
     const guest = await createAuthorizationSubject(f);
-    const roomId = await f.room(host.actorId, await f.format(), {
+    // Tab's foundation seats no judge (TAB-6): the Room runs a judged revision.
+    const judged = resolveRoomConfiguration(
+      oneOnOneDefinition,
+      oneOnOneSettings,
+    );
+    if (!judged.ok) throw new Error('The judged revision did not compile');
+    const roomId = await f.room(host.actorId, 'one-on-one', {
+      format_version: 2,
       config: validConfig,
       execution_plan: {
         preRoundPrep: { enabled: false },
         resolutionDraw: { enabled: false },
       },
-      rules_snapshot: validRules,
+      rules_snapshot: judged.rules,
       status: 'ready',
       competition_type: 'casual',
     });
