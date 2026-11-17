@@ -58,7 +58,7 @@ export function NotificationPreferencesForm({
         <fieldset key={kind} className="flex flex-col gap-1">
           <legend className="text-base text-ink">{kindLabel[kind]}</legend>
           <div className="flex flex-wrap gap-4">
-            {notificationChannelsOf[kind].map((channel) => (
+            {notificationChannelsOf(kind).map((channel) => (
               <label
                 key={channel}
                 className="flex items-center gap-2 text-sm text-ink-muted"

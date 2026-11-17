@@ -1,4 +1,9 @@
-import { notificationChoicePairs, notificationKinds } from '@daisy/protocol';
+import {
+  emailedNotificationKinds,
+  kindsAbout,
+  notificationChoicePairs,
+  notificationKinds,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -22,7 +27,8 @@ import { roomInvitations } from './room-invitations';
 import { rounds } from './rounds';
 import { users } from './users';
 
-const watchKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
+/** The kinds Watch's fan-out writes from released Round facts (WATCH-12). */
+const watchFanoutKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
 
 /**
  * A stored notification (WATCH-12, ADR 0124). There is no text, result or
@@ -75,9 +81,9 @@ export const notifications = pgTable(
     check('notifications_kind_check', oneOf(table.kind, notificationKinds)),
     check(
       'notifications_subject_check',
-      sql`(${table.kind} in (${watchKinds})) = (${table.roundId} is not null)
-        and (${table.kind} = 'room_invitation') = (${table.roomInvitationId} is not null)
-        and (${table.kind} = 'challenge_received') = (${table.challengeId} is not null)`,
+      sql`(${oneOf(table.kind, kindsAbout('round'))}) = (${table.roundId} is not null)
+        and (${oneOf(table.kind, kindsAbout('room_invitation'))}) = (${table.roomInvitationId} is not null)
+        and (${oneOf(table.kind, kindsAbout('challenge'))}) = (${table.challengeId} is not null)`,
     ),
     check(
       'notifications_actor_check',
@@ -131,7 +137,7 @@ export const notificationFanouts = pgTable(
     index('notification_fanouts_round_idx').on(table.roundId),
     check(
       'notification_fanouts_kind_check',
-      sql`${table.kind} in (${watchKinds})`,
+      sql`${table.kind} in (${watchFanoutKinds})`,
     ),
   ],
 );
@@ -175,7 +181,7 @@ export const notificationEmails = pgTable(
     index('notification_emails_completed_idx').on(table.completedAt),
     check(
       'notification_emails_kind_check',
-      sql`${table.kind} in ('room_invitation', 'challenge_received')`,
+      oneOf(table.kind, emailedNotificationKinds),
     ),
     ...mailJobChecks('notification_emails', table, notificationEmailErrorCodes),
   ],

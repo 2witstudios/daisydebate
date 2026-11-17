@@ -1,9 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   defaultNotificationChoices,
+  emailedNotificationKinds,
+  kindsAbout,
   notificationChoicePairs,
   notificationKinds,
   notificationPreferencesSchema,
+  type NotificationKindSpec,
 } from './notifications';
 
 setupRitewayBun();
@@ -72,5 +75,39 @@ test('preferences schema', () => {
       },
     }).success,
     expected: false,
+  });
+});
+
+test('catalogue', () => {
+  assert({
+    given: 'the catalogue',
+    should: 'derive the emailed kinds from each entry',
+    actual: emailedNotificationKinds,
+    expected: ['room_invitation', 'challenge_received'],
+  });
+  assert({
+    given: 'a subject',
+    should: 'name the kinds about it, in catalogue order',
+    actual: [kindsAbout('round'), kindsAbout('challenge')],
+    expected: [
+      ['followed_debater_live', 'recording_ready'],
+      ['challenge_received'],
+    ],
+  });
+});
+
+test('an urgent kind cannot be emailed', () => {
+  // An urgent kind would reach the inbox after its moment; the type refuses it.
+  const urgentEmailed = {
+    subject: 'challenge',
+    urgency: 'urgent',
+    // @ts-expect-error an urgent kind has no email policy
+    email: 'batched',
+  } satisfies NotificationKindSpec;
+  assert({
+    given: 'an urgent entry written with an email policy',
+    should: 'fail to type-check (the line above carries the expected error)',
+    actual: urgentEmailed.urgency,
+    expected: 'urgent',
   });
 });
