@@ -134,7 +134,7 @@ export function NotificationToast({
       onFocus={() => setHeld(true)}
       onBlur={() => setHeld(false)}
       className={cn(
-        'shadow-3 pointer-events-auto flex w-full items-start gap-3 rounded-lg border py-3 pr-1 pl-3',
+        'pointer-events-auto flex w-full items-start gap-3 rounded-lg border py-3 pr-1 pl-3 shadow-3',
         stage
           ? 'border-stage-accent bg-surface-stage text-stage-ink'
           : 'border-border bg-surface-raised text-ink',
@@ -143,7 +143,7 @@ export function NotificationToast({
       <span
         aria-hidden="true"
         className={cn(
-          'size-toast-mark flex flex-none items-center justify-center rounded-round',
+          'flex size-toast-mark flex-none items-center justify-center rounded-round',
           look.hue,
         )}
       >
@@ -174,7 +174,7 @@ export function NotificationToast({
         aria-label="Dismiss"
         onClick={dismiss}
         className={cn(
-          'size-toast-target -mt-2 flex flex-none cursor-pointer items-center justify-center rounded-md',
+          '-mt-2 flex size-toast-target flex-none cursor-pointer items-center justify-center rounded-md',
           stage ? 'text-stage-ink-muted' : 'text-ink-muted hover:text-ink',
         )}
       >

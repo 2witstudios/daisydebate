@@ -199,7 +199,7 @@ export function NotificationShellProvider({
       <section
         aria-label="New notifications"
         aria-live="polite"
-        className="narrow:right-4 narrow:left-auto narrow:w-toast pointer-events-none fixed inset-x-4 top-16 z-50 flex flex-col items-center gap-2"
+        className="pointer-events-none fixed inset-x-4 top-16 z-50 flex flex-col items-center gap-2 narrow:right-4 narrow:left-auto narrow:w-toast"
       >
         {visible.map((row) => (
           <NotificationToast
@@ -209,14 +209,14 @@ export function NotificationShellProvider({
           />
         ))}
         {more > 0 ? (
-          <p className="shadow-2 pointer-events-auto flex w-full items-center gap-3 rounded-lg border border-border bg-surface-raised py-1 pr-1 pl-4 text-base">
+          <p className="pointer-events-auto flex w-full items-center gap-3 rounded-lg border border-border bg-surface-raised py-1 pr-1 pl-4 text-base shadow-2">
             <span className="flex-1">
               <strong className="font-semibold">{more} more</strong> in your
               inbox
             </span>
             <a
               href="/notifications"
-              className="min-h-toast-target inline-flex items-center px-3 font-semibold"
+              className="inline-flex min-h-toast-target items-center px-3 font-semibold"
             >
               Open inbox
             </a>
