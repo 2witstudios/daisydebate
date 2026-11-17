@@ -60,11 +60,14 @@ pipeline, and no username change for now.
    `max-age=60` and an ETag, inside the moderation delivery bound, and an
    in-review photo only to its owner, uncached. There is no public bucket URL
    and no signed URL, so a removal or erasure takes effect within a minute.
+   Each client's storage reads are budgeted after the 304 check; the budget
+   fails open on a limiter outage, and there is no global bucket.
 6. **Reports and removals use the one moderation queue.** A photo, a display
    name and a bio are content report targets with the safety reasons
    (impersonation included); anyone may report someone else's. A text report
    names the profile, whose id lasts across edits, so a repeat report by the
-   same reporter reopens their resolved one with its new reason. Operators, in
+   same reporter reopens their resolved one with its new reason, once that
+   field changed after the resolution (both by the database clock). Operators, in
    the admin app over the signed operator API (ADR 0079), approve or reject a
    photo in review and remove a published photo or one text field, each with
    its closed reason in the admin audit chain. Repeat abuse uses the existing
