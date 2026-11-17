@@ -3,7 +3,12 @@ import { systemClock } from '@daisy/clock';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
-import { affirmativeSide, negativeSide, type SideKey } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  emptyRuntimeCheckpointFor,
+  negativeSide,
+  type SideKey,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 
@@ -78,8 +83,8 @@ const create = async (sql: SQL, input: Create) => {
     const roomId = createId();
     await tx`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
       values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},'started')`;
-    await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,rules_snapshot,status,current_stage,started_at,visibility,room_config_snapshot)
-      values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${rules},'active','live',now()-interval '5 minutes',${input.visibility},${{}})`;
+    await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
+      values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${{}})`;
     const aff = await seat(
       tx as never,
       roundId,
@@ -87,6 +92,16 @@ const create = async (sql: SQL, input: Create) => {
       `aff-${suffix}`,
     );
     await seat(tx as never, roundId, negativeSide, `neg-${suffix}`);
+    // Every frozen judge slot is filled at construction, so the Round can
+    // complete (rounds_judge_slots_complete).
+    for (let slot = 0; slot < rules.seats.judges; slot += 1) {
+      const judgeUser = createId();
+      const judgeActor = createId();
+      await tx`insert into users (id,username,email_verified) values (${judgeUser},${`judge-${slot}-${suffix}`},true)`;
+      await tx`insert into actors (id,kind,user_id) values (${judgeActor},'human',${judgeUser})`;
+      await tx`insert into round_participants (id,round_id,actor_id,seat_kind,slot)
+        values (${createId()},${roundId},${judgeActor},'judge',${slot})`;
+    }
     const segmentId = createId();
     await tx`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
       values (${segmentId},${roundId},0,${segment.type},${segment.key},now()-interval '4 minutes',${segment.durationMs})`;

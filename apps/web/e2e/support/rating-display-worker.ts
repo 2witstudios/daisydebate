@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
 import {
   affirmativeSide,
+  emptyRuntimeCheckpointFor,
   idSchema,
   negativeSide,
   ratingLadders,
@@ -37,13 +38,33 @@ try {
   for (const ladder of ratingLadders) {
     const id = createId(),
       command = createId();
+    const roomId = rooms.find((r) => r.ladder === ladder)!.id;
     await sql.begin(async (tx) => {
-      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,status,winning_side,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,'completed',${affirmativeSide},${ladder},clock_timestamp()-interval '10 minutes',clock_timestamp()-interval '10 minutes' from rooms where id=${rooms.find((r) => r.ladder === ladder)!.id} and host_actor_id=${member.id}`;
+      const [room] =
+        await tx`select rules_snapshot from rooms where id=${roomId} and host_actor_id=${member.id}`;
+      if (!room) throw new Error('Display fixture room missing');
+      const checkpoint = emptyRuntimeCheckpointFor(room.rules_snapshot);
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${ladder},clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
       for (const [side, actor] of [
         [affirmativeSide, member.id],
         [negativeSide, opponent],
       ])
         await tx`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot) values(${createId()},${id},${actor},'side',${side},0)`;
+      // Every frozen judge slot is filled too (rounds_judge_slots_complete).
+      for (
+        let slot = 0;
+        slot < (room.rules_snapshot.seats?.judges ?? 0);
+        slot += 1
+      ) {
+        const judgeUser = createId(),
+          judge = createId();
+        await tx`insert into users(id,username) values(${judgeUser},${`judge-${judgeUser}`})`;
+        await tx`insert into actors(id,kind,user_id) values(${judge},'human',${judgeUser})`;
+        await tx`insert into round_participants(id,round_id,actor_id,seat_kind,slot) values(${createId()},${id},${judge},'judge',${slot})`;
+      }
+      // The cast is seated while the Round is constructed, then it completes
+      // (round_participants_fixed_cast).
+      await tx`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=clock_timestamp()-interval '10 minutes' where id=${id}`;
       await tx`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${command},${id},${member.id},'forfeit',${'a'.repeat(64)},${{}},1,clock_timestamp())`;
       await tx`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${command},1)`;
     });

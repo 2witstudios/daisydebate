@@ -84,9 +84,9 @@ test('native no-JavaScript ranked entry preserves canonical setup for the one Fr
           ),
         ],
         { timeout: 20000 },
-        (error, output) =>
+        (error, output, stderr) =>
           error
-            ? reject(new Error('Rating display fixture refused'))
+            ? reject(new Error(`Rating display fixture refused: ${stderr}`))
             : resolve(JSON.parse(output)),
       );
       child.stdin?.end(JSON.stringify({ username: member.username, rooms }));
