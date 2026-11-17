@@ -80,7 +80,7 @@ export function WinnerChoice({
               nameVisible
             />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-md font-strong text-pretty text-ink">
+              <span className="text-md font-strong text-pretty wrap-break-word text-ink">
                 {subject.name}
               </span>
               <span className="text-sm text-ink-muted">{subject.role}</span>

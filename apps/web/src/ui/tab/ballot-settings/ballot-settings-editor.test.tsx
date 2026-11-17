@@ -41,7 +41,7 @@ describe('BallotSettingsEditor', () => {
     assert({
       given: "an event's ballot settings",
       should:
-        'draw the header, then the judge ballot as the main column, then the settings form, with Save posting that form by its id',
+        'draw the header, then the judge ballot as the main column, then the settings form, with the header Save posting that form by its id and a narrow-only Save inside it',
       actual: [
         html.indexOf('>Setup<') < html.indexOf('<h1'),
         html.indexOf('<h1') < preview,
@@ -50,9 +50,15 @@ describe('BallotSettingsEditor', () => {
         html.slice(form, formEnd).includes('What a judge sees'),
         html.slice(form, formEnd).includes('name="screening"'),
         formId !== undefined &&
-          html.slice(0, form).includes(`form="${formId}"`),
+          (html.slice(0, form).match(/<button[^>]*>/g) ?? []).some(
+            (tag) =>
+              tag.includes('type="submit"') && tag.includes(`form="${formId}"`),
+          ),
+        html
+          .slice(form, formEnd)
+          .includes('<div class="hidden max-rail:block"><button type="submit"'),
       ],
-      expected: [true, true, true, true, false, true, true],
+      expected: [true, true, true, true, false, true, true, true],
     });
   });
 
