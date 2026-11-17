@@ -87,12 +87,38 @@ async function createProbeRoom(
       own,
     );
   }
+  // Who each member is, before Start round may flip their seats' sides (ADR 0145).
+  const actors = roles.map((role) => {
+    const seat = room.participants.find(
+      (p) => p.role === role && 'actorId' in p,
+    );
+    if (!seat || !('actorId' in seat))
+      throw new Error('Public probe seated actor missing');
+    return seat.actorId;
+  });
   await roomCommand(members[0]!, { type: 'start-round' });
-  return room;
+  return { room, actors };
 }
+
+/** The member seated on `side` in the Round, whichever way the coin fell. */
+const memberOn = (
+  round: RoundView,
+  side: 'affirmative' | 'negative',
+  members: readonly LaunchProbeMember[],
+  actors: readonly string[],
+) => {
+  const seat = round.participants.find(
+    (p) => p.role === side && 'actorId' in p,
+  );
+  const index = seat && 'actorId' in seat ? actors.indexOf(seat.actorId) : -1;
+  const member = members[index];
+  if (!member) throw new Error(`Public probe ${side} member missing`);
+  return member;
+};
 async function endProbeSpeeches(
   json: ProbeRequests,
   members: readonly LaunchProbeMember[],
+  actors: readonly string[],
   roundId: string,
 ) {
   const roles = ['affirmative', 'negative'] as const;
@@ -141,10 +167,14 @@ async function endProbeSpeeches(
     );
     if (!speaker || !('id' in speaker))
       throw new Error('Public probe actual speaker missing');
-    round = await command(members[sequence]!, round, {
-      type: 'yield',
-      participantId: speaker.id,
-    });
+    round = await command(
+      memberOn(round, roles[sequence]!, members, actors),
+      round,
+      {
+        type: 'yield',
+        participantId: speaker.id,
+      },
+    );
   }
   return read();
 }
@@ -173,16 +203,18 @@ export async function createPublicProbeRound(
   if (members.length !== 3)
     throw new Error('Public probe requires three synthetic members');
   const json = probeRequests(origin);
-  const room = await createProbeRoom(json, members);
+  const { room, actors } = await createProbeRoom(json, members);
   const roundId = room.roundRef?.id;
   if (!roundId) throw new Error('Public probe committed Round missing');
-  const round = await endProbeSpeeches(json, members, roundId);
+  const round = await endProbeSpeeches(json, members, actors, roundId);
   const target = probeTarget(round);
+  // The target is the Negative seat, so its own member checks in.
+  const negative = memberOn(round, 'negative', members, actors);
   const configuration = {
     origin,
     roundId,
     ...target,
-    cookie: members[1]!.cookie,
+    cookie: negative.cookie,
   };
   const probe = createPublicCheckInProbe({
     configuration,
@@ -192,7 +224,7 @@ export async function createPublicProbeRound(
   });
   if (!(await probe()))
     throw new Error('Public probe resource failed its real receipt check');
-  return { roundId, ...target, cookie: members[1]!.cookie };
+  return { roundId, ...target, cookie: negative.cookie };
 }
 /** A real last-speech resource with actual on-time receipts, not prefilled attendance facts. */
 export async function createLaunchProbeResource(
