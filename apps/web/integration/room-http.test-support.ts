@@ -12,6 +12,7 @@ import {
 import { createRoutes } from '../src/server/routes';
 import { inProcessFetch } from '../src/server/in-process-fetch';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
+import { deleteRoomNotificationSignals } from './notification-signals.test-support';
 import { createTestApp, withSql } from './fixtures';
 export function createRoomHttpFixture() {
   // Explicit env policy through ordinary createApp; no injection/adoption.
@@ -172,6 +173,7 @@ export async function withHumanJudgeHttpRound(
       await withSql(async (sql) => {
         if (roundId)
           await sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
+        await deleteRoomNotificationSignals(sql, roomId);
         await sql`delete from rounds where room_id=${roomId}`;
         await sql`delete from outbox where topic=${`room:${roomId}`}`;
         await sql`delete from rooms where id=${roomId}`;

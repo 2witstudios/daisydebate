@@ -6,6 +6,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { isNamedSeat, type RoomCreate } from '@daisy/protocol';
 
 import { withRoomRuntime } from './room-runtime.test-support';
+import { deleteRoomNotificationSignals } from './notification-signals.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
@@ -48,6 +49,7 @@ const deleteRooms = async (
   for (const id of ids) {
     await f.sql`delete from outbox where topic=${`room:${id}`}`;
     await f.sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
+    await deleteRoomNotificationSignals(f.sql, id);
     await f.sql`delete from rounds where room_id=${id}`;
     await f.sql`delete from rooms where id=${id}`;
   }

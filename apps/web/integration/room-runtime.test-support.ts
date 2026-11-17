@@ -16,6 +16,7 @@ import {
 import { roundViewReader } from '../src/features/round-runtime/reads';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 import { foundationSelection } from './foundation-selection.test-support';
+import { deleteRoomNotificationSignals } from './notification-signals.test-support';
 import { aiAdmissionOptions } from '../src/server/round-worker-policy';
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
@@ -320,6 +321,7 @@ async function fixture(
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
           await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
+          await deleteRoomNotificationSignals(sql, id);
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;
         }

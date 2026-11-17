@@ -11,6 +11,7 @@ import { createRoomHttpFixture } from './room-http.test-support';
 import { foundationSelection } from './foundation-selection.test-support';
 import { inProcessFetch } from '../src/server/in-process-fetch';
 import { withSql } from './fixtures';
+import { deleteRoomNotificationSignals } from './notification-signals.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 const { f, routes, headers, member, command } = createRoomHttpFixture();
@@ -184,6 +185,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
         if (round)
           await sql`delete from outbox where topic=${buildRoundTopic(round.id)}`;
         await sql`delete from round_participants where round_id in (select id from rounds where room_id=${roomId})`;
+        await deleteRoomNotificationSignals(sql, roomId);
         await sql`delete from rounds where room_id=${roomId}`;
         await sql`delete from room_commands where room_id=${roomId}`;
         await sql`delete from room_participants where room_id=${roomId}`;
