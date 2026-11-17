@@ -37,9 +37,11 @@ export const unacknowledgedPublish: BallotAuthoringAction = async (
 export function EditorHarness({
   view,
   publish = action,
+  pin = action,
 }: {
   readonly view: EventBallotAuthoringView;
   readonly publish?: BallotAuthoringAction;
+  readonly pin?: BallotAuthoringAction;
 }) {
   return (
     <WithAppRouter>
@@ -47,7 +49,7 @@ export function EditorHarness({
         view={view}
         saved={null}
         publish={publish}
-        pin={action}
+        pin={pin}
         screening={action}
       />
     </WithAppRouter>

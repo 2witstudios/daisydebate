@@ -3,7 +3,7 @@ import { useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { Button } from '../../components/button/button';
 import { FormField } from '../../components/form-field/form-field';
-import { usePostedValues } from '../../form-action/posted-values';
+import { postedCount, usePostedValues } from '../../form-action/posted-values';
 import {
   NumberField,
   authoringControlClass as control,
@@ -15,23 +15,24 @@ export function BallotSpeechWeights({
 }) {
   const body = view.definition?.ballot;
   const posted = usePostedValues();
-  const postedCount = Number(posted?.['weight-count']);
-  // The rows as posted, else the definition's.
-  const initialWeights =
-    Number.isInteger(postedCount) && postedCount >= 0
-      ? Array.from({ length: postedCount }, (_, index) => [
-          posted?.[`weight-${index}-key`] ?? '',
-          posted?.[`weight-${index}-value`] ?? '',
-        ])
-      : Object.entries(body?.points?.weights ?? {});
-  const [weights, setWeights] = useState(
-    initialWeights.map(([key, value], index) => ({
+  // The rows as posted (read by position once, while the names match), else
+  // the definition's; each row then carries its own key and multiplier.
+  const [weights, setWeights] = useState(() => {
+    const count = postedCount(posted, 'weight-count');
+    const rows =
+      count === null
+        ? Object.entries(body?.points?.weights ?? {})
+        : Array.from({ length: count }, (_, index) => [
+            posted?.[`weight-${index}-key`] ?? '',
+            posted?.[`weight-${index}-value`] ?? '',
+          ]);
+    return rows.map(([key, value], index) => ({
       id: index,
       key: String(key),
       value: String(value),
-    })),
-  );
-  const nextWeight = useRef(initialWeights.length);
+    }));
+  });
+  const nextWeight = useRef(weights.length);
   const id = useId();
   return (
     <>
@@ -75,7 +76,8 @@ export function BallotSpeechWeights({
           <NumberField
             name={`weight-${index}-value`}
             label="Scale multiplier"
-            value={weight.value === '' ? undefined : Number(weight.value)}
+            value={weight.value}
+            fromPost={false}
           />
           <Button
             type="button"

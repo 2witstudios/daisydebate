@@ -12,6 +12,10 @@ import {
   unchangedChoices,
 } from '../../../features/tab/ballot-preview-source';
 import { BallotPreview, BallotPreviewLayout } from './ballot-preview';
+import {
+  useFormResets,
+  usePostedValues,
+} from '../../form-action/posted-values';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { FormField } from '../../components/form-field/form-field';
 import {
@@ -31,6 +35,39 @@ const formOf = (event: SyntheticEvent): HTMLFormElement | null =>
  */
 const fromFieldButton = (event: SyntheticEvent): boolean =>
   (event.target as Partial<Element>).closest?.('button[type="button"]') != null;
+
+/**
+ * The event's version picker, mounted afresh after each reset of its form:
+ * on the posted version while the answer gives it back (refused, or lost and
+ * awaiting Retry), so the picker shows what a retry posts; else the saved one.
+ */
+function PinVersionSelect({
+  id,
+  saved,
+  children,
+}: {
+  readonly id: string;
+  readonly saved: string;
+  readonly children: React.ReactNode;
+}) {
+  const posted = usePostedValues()?.['ballot-version'];
+  const anchor = useRef<HTMLSpanElement>(null);
+  const resets = useFormResets(anchor);
+  return (
+    <>
+      <span ref={anchor} hidden />
+      <select
+        key={resets}
+        id={id}
+        name="ballot-version"
+        className={control}
+        defaultValue={posted ?? saved}
+      >
+        {children}
+      </select>
+    </>
+  );
+}
 
 /**
  * Host edits the canonical body through explicit business fields; publication
@@ -132,11 +169,9 @@ export function BallotAuthoringEditor({
               submitLabel="Use this ballot"
             >
               <FormField id={`${id}-pin`} label="Immutable version">
-                <select
+                <PinVersionSelect
                   id={`${id}-pin`}
-                  name="ballot-version"
-                  className={control}
-                  defaultValue={
+                  saved={
                     view.definition?.source.kind === 'stored'
                       ? `${view.definition.source.id}@${view.definition.source.version}`
                       : 'daisy'
@@ -157,7 +192,7 @@ export function BallotAuthoringEditor({
                       </option>
                     )),
                   )}
-                </select>
+                </PinVersionSelect>
               </FormField>
             </BallotCommandForm>
           ) : (

@@ -400,7 +400,14 @@ const postEdits = async ({
       }
     ).closest('fieldset:disabled') !== null;
   await act(async () => unmount());
-  return { edited, after, preview, focused, disabled, leagueDefinitionId };
+  return {
+    edited,
+    after,
+    preview,
+    focused,
+    disabled,
+    leagueDefinitionId,
+  };
 };
 
 const draftShown = (league: string) => ({
@@ -426,6 +433,7 @@ test('a refused publish keeps the draft, each select beside its own fields', asy
       hydrated.after,
       clientMounted.after,
       hydrated.preview,
+      hydrated.focused,
     ],
     expected: [
       draftShown(hydrated.leagueDefinitionId),
@@ -438,6 +446,8 @@ test('a refused publish keeps the draft, each select beside its own fields', asy
         places: true,
         max: '40',
       },
+      // The refusal notice keeps focus; no field takes it back.
+      undefined,
     ],
   });
 });
@@ -505,4 +515,140 @@ test('focus stays on its field through a reset', async () => {
     actual: focused,
     expected: 'score-max',
   });
+});
+
+/** The editor as the page arrives (server markup, then hydrated). */
+const arrive = async (
+  props: (client: Awaited<ReturnType<typeof mountEditor>>) => object,
+) => {
+  const client = await mountEditor();
+  const { act, createElement, hydrateRoot, renderToString, container } = client;
+  const element = createElement(client.EditorHarness, props(client) as never);
+  const page = container.ownerDocument.createElement('div');
+  container.append(page);
+  page.innerHTML = renderToString(element);
+  let unmount = () => {};
+  await act(async () => {
+    const root = hydrateRoot(page as unknown as Element, element);
+    unmount = () => root.unmount();
+  });
+  const settle = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  const value = (selector: string) =>
+    (container.querySelector(selector) as { readonly value?: string } | null)
+      ?.value;
+  return { ...client, settle, value, done: () => act(async () => unmount()) };
+};
+
+test('a criterion removed after a refusal takes its own values with it', async () => {
+  const editor = await arrive((client) => ({
+    view: client.authoringView({
+      definition: {
+        source: {
+          kind: 'stored',
+          id: client.leagueDefinitionId,
+          version: 2,
+        },
+        ballot: client.leagueGridBallot,
+      },
+    }),
+    publish: client.refusedPublish,
+  }));
+  try {
+    // A revision needs no name, so the post is not held back by a blank one.
+    await editor.enter(
+      'select[name="publish-target"]',
+      editor.leagueDefinitionId,
+      'change',
+    );
+    await editor.press('Publish definition');
+    await editor.settle();
+    const refused = editor.container.textContent.includes(
+      'This ballot changed',
+    );
+    await editor.press('Remove criterion');
+    const shown = {
+      first: editor.value('input[name="group-0-criterion-0-name"]'),
+      // What a fresh field shows in a browser until it is typed in.
+      firstDefault: editor.container
+        .querySelector('input[name="group-0-criterion-0-name"]')
+        ?.getAttribute('value'),
+      second: editor.value('input[name="group-0-criterion-1-name"]') ?? null,
+    };
+    assert({
+      given:
+        'Reasoning and Delivery posted and refused, then Reasoning removed',
+      should: 'leave one row showing Delivery',
+      actual: { refused, ...shown },
+      expected: {
+        refused: true,
+        first: 'Delivery',
+        firstDefault: 'Delivery',
+        second: null,
+      },
+    });
+  } finally {
+    await editor.done();
+  }
+});
+
+test("a toggle the post did not show keeps the definition's setting", async () => {
+  const editor = await arrive((client) => ({
+    view: client.authoringView(),
+    publish: client.refusedPublish,
+  }));
+  try {
+    await editor.enter(
+      'select[name="publish-target"]',
+      editor.leagueDefinitionId,
+      'change',
+    );
+    await editor.enter('select[name="decision"]', 'ranking-sides', 'change');
+    await editor.press('Publish definition');
+    await editor.settle();
+    const refused = editor.container.textContent.includes(
+      'This ballot changed',
+    );
+    await editor.enter('select[name="decision"]', 'winner', 'change');
+    const checked = (
+      editor.container.querySelector('input[name="double-loss"]') as {
+        readonly checked?: boolean;
+      } | null
+    )?.checked;
+    assert({
+      given:
+        'a saved winner ballot allowing a loss for both, posted as Rank sides and refused, then set back to Winner',
+      should: 'show the loss for both still allowed, as saved',
+      actual: { refused, checked },
+      expected: { refused: true, checked: true },
+    });
+  } finally {
+    await editor.done();
+  }
+});
+
+test('a pin whose answer is lost shows the version its retry posts', async () => {
+  const editor = await arrive((client) => ({
+    view: client.authoringView(),
+    pin: client.unacknowledgedPublish,
+  }));
+  try {
+    await editor.enter(
+      'select[name="ballot-version"]',
+      `${editor.leagueDefinitionId}@3`,
+      'change',
+    );
+    await editor.press('Use this ballot');
+    await editor.settle();
+    assert({
+      given: 'version 3 picked and its pin answer lost',
+      should: 'show version 3 in the picker beside Retry',
+      actual: editor.value('select[name="ballot-version"]'),
+      expected: `${editor.leagueDefinitionId}@3`,
+    });
+  } finally {
+    await editor.done();
+  }
 });

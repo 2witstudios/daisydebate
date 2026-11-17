@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { FormField } from '../../components/form-field/form-field';
 import {
@@ -11,7 +11,11 @@ import {
 } from './ballot-authoring-fields';
 import { BallotCriteriaFields } from './ballot-criteria-fields';
 import { BallotSpeechWeights } from './ballot-speech-weights';
-import { usePostedValues } from '../../form-action/posted-values';
+import { focusLost } from '../../form-action/form-action';
+import {
+  useFormResets,
+  usePostedValues,
+} from '../../form-action/posted-values';
 /**
  * The publish form's definition fields. Their selects are controlled (each
  * mounts the fields it governs), so when a post resets the form, which puts
@@ -28,30 +32,22 @@ export function BallotDefinitionFields({
 }) {
   const anchor = useRef<HTMLSpanElement>(null);
   const focused = useRef<string | null>(null);
-  const [resets, setResets] = useState(0);
-  useEffect(() => {
-    const form = anchor.current?.closest('form');
-    if (!form) return;
-    const reset = () => {
-      const active = form.ownerDocument.activeElement as {
-        readonly name?: unknown;
-      } | null;
-      focused.current =
-        active &&
-        form.contains(active as Node) &&
-        typeof active.name === 'string'
-          ? active.name
-          : null;
-      setResets((count) => count + 1);
-    };
-    form.addEventListener('reset', reset);
-    return () => form.removeEventListener('reset', reset);
+  const remember = useCallback((form: HTMLFormElement) => {
+    const active = form.ownerDocument.activeElement as {
+      readonly name?: unknown;
+    } | null;
+    focused.current =
+      active && form.contains(active as Node) && typeof active.name === 'string'
+        ? active.name
+        : null;
   }, []);
+  const resets = useFormResets(anchor, remember);
   useEffect(() => {
     const name = focused.current;
-    focused.current = null;
     const form = anchor.current?.closest('form');
-    if (resets === 0 || !name || !form) return;
+    // Only focus the remount left nowhere: a notice the answer focused keeps it.
+    if (resets === 0 || !name || !form || !focusLost()) return;
+    focused.current = null;
     const field = form.elements.namedItem(name) as {
       focus?: () => void;
     } | null;
@@ -138,11 +134,13 @@ function DefinitionFields({
         <>
           <Toggle
             name="double-loss"
+            posted={posted?.decision === 'winner'}
             label="Allow a loss for both sides"
             value={body?.decision.kind === 'winner' && body.decision.doubleLoss}
           />
           <Toggle
             name="low-point-win"
+            posted={posted?.decision === 'winner'}
             label="Allow a winner with fewer points"
             value={
               body?.decision.kind === 'winner' && body.decision.lowPointWin
@@ -150,6 +148,7 @@ function DefinitionFields({
           />
           <Toggle
             name="speaker-ranks"
+            posted={posted?.decision === 'winner'}
             label="Also rank every speaker individually"
             value={body?.speakerRanks ?? false}
           />
