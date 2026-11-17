@@ -64,7 +64,82 @@ test('reading an Egress that LiveKit no longer lists is not treated as running',
     given: 'an id LiveKit does not list',
     should: 'report failed, so a dead job cannot look alive',
     actual: await egress.read('EG_gone'),
-    expected: { kind: 'failed', id: 'EG_gone' },
+    expected: { kind: 'failed', id: 'EG_gone', reason: 'not_found' },
+  });
+});
+
+test('an Egress LiveKit no longer knows settles; any other refusal still surfaces', async () => {
+  const refusing = (error: Error) =>
+    createBroadcastEgress({
+      config,
+      client: {
+        listEgress: async () => {
+          throw error;
+        },
+      } as never,
+      rooms: {} as never,
+    });
+  const read = (error: Error) =>
+    refusing(error)
+      .read('EG_gone')
+      .catch(() => 'thrown');
+  assert({
+    given: "LiveKit's not_found, by status or by code, for a long-ended Egress",
+    should: 'report it failed and not found, so its attempt settles',
+    actual: [
+      await read(new ServerError('not_found', 'egress does not exist', 404)),
+      await read(
+        new ServerError('x', 'egress does not exist', 0, 'not_found'),
+      ),
+    ],
+    expected: [
+      { kind: 'failed', id: 'EG_gone', reason: 'not_found' },
+      { kind: 'failed', id: 'EG_gone', reason: 'not_found' },
+    ],
+  });
+  assert({
+    given: 'an unavailable LiveKit, a refused credential or a network fault',
+    should: 'throw, so nothing is settled on an unknown answer',
+    actual: [
+      await read(new ServerError('unavailable', 'down', 503)),
+      await read(new ServerError('unauthenticated', 'no', 401)),
+      await read(new Error('ECONNRESET')),
+    ],
+    expected: ['thrown', 'thrown', 'thrown'],
+  });
+});
+
+test('stopping an Egress that is gone or already ended is done; other refusals surface', async () => {
+  const stop = (error: Error) =>
+    createBroadcastEgress({
+      config,
+      client: {
+        stopEgress: async () => {
+          throw error;
+        },
+      } as never,
+      rooms: {} as never,
+    })
+      .stop('EG_old')
+      .then(
+        () => 'stopped',
+        () => 'thrown',
+      );
+  assert({
+    given: 'not_found, an ended Egress (failed_precondition), and an outage',
+    should: 'treat the first two as stopped and throw on the outage',
+    actual: [
+      await stop(new ServerError('not_found', 'gone', 404)),
+      await stop(
+        new ServerError(
+          'failed_precondition',
+          'egress with status EGRESS_COMPLETE cannot be stopped',
+          412,
+        ),
+      ),
+      await stop(new ServerError('unavailable', 'down', 503)),
+    ],
+    expected: ['stopped', 'stopped', 'thrown'],
   });
 });
 
