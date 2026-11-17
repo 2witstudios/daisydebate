@@ -594,6 +594,68 @@ test('a criterion removed after a refusal takes its own values with it', async (
   }
 });
 
+test('a speech weight removed after a refusal takes its own multiplier with it', async () => {
+  const editor = await arrive((client) => {
+    const view = client.authoringView();
+    const saved = view.definition!.ballot;
+    const weighted = {
+      ...saved,
+      points: {
+        ...saved.points!,
+        per: 'speech' as const,
+        weights: { opening: 2, rebuttal: 0.5 },
+      },
+    };
+    return {
+      view: client.authoringView({
+        definition: { ...view.definition!, ballot: weighted },
+        segments: [
+          { key: 'opening', label: 'Opening', individual: true },
+          { key: 'rebuttal', label: 'Rebuttal', individual: true },
+        ],
+      }),
+      publish: client.refusedPublish,
+    };
+  });
+  try {
+    await editor.enter(
+      'select[name="publish-target"]',
+      editor.leagueDefinitionId,
+      'change',
+    );
+    await editor.press('Publish definition');
+    await editor.settle();
+    const refused = editor.container.textContent.includes(
+      'This ballot changed',
+    );
+    await editor.press('Remove weight');
+    const row = {
+      speech: editor.value('select[name="weight-0-key"]'),
+      multiplier: editor.value('input[name="weight-0-value"]'),
+      // What a fresh field shows in a browser until it is typed in.
+      multiplierDefault: editor.container
+        .querySelector('input[name="weight-0-value"]')
+        ?.getAttribute('value'),
+      second: editor.value('select[name="weight-1-key"]') ?? null,
+    };
+    assert({
+      given:
+        'weights opening × 2 and rebuttal × 0.5 posted and refused, then the opening weight removed',
+      should: 'leave one row: rebuttal with its own multiplier, 0.5',
+      actual: { refused, ...row },
+      expected: {
+        refused: true,
+        speech: 'rebuttal',
+        multiplier: '0.5',
+        multiplierDefault: '0.5',
+        second: null,
+      },
+    });
+  } finally {
+    await editor.done();
+  }
+});
+
 test("a toggle the post did not show keeps the definition's setting", async () => {
   const editor = await arrive((client) => ({
     view: client.authoringView(),
