@@ -13,9 +13,12 @@ export function CreateRoomPage({
   choices,
   freshRoom = false,
   initialRanked = false,
+  rankedAgeAdmitted,
 }: {
   readonly freshRoom?: boolean;
   readonly initialRanked?: boolean;
+  /** The member meets the ranked age floor (decision 79); a hint, the create decides again. */
+  readonly rankedAgeAdmitted: boolean;
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
@@ -44,6 +47,7 @@ export function CreateRoomPage({
       ) : null}
       <CreateAssemblyForm
         initialRanked={initialRanked}
+        rankedAgeAdmitted={rankedAgeAdmitted}
         {...(initialState ? { initialState } : {})}
         {...(sourceRoomId ? { sourceRoomId } : {})}
         commandId={commandId}

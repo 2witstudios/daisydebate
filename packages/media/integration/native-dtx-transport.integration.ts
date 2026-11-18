@@ -7,7 +7,7 @@ import { createAudioSubscription } from '../src/audio-subscription';
 import { createMediaService } from '../src/service';
 import { config } from './native-room.test-support';
 import { pcmJob, waitForCadence } from './native-fixtures.test-support';
-import { withDtxSource } from './native-dtx.test-support';
+import { DTX_SETUP_BUDGET_MS, withDtxSource } from './native-dtx.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 afterAll(async () => {
@@ -20,6 +20,11 @@ async function until(test: () => boolean) {
     await Bun.sleep(10);
   }
 }
+// 44 s: the observation's own 20 s plus withDtxSource's worst-case setup, so
+// exhausted attempts fail by name. A literal keeps the test call's layout;
+// this guard keeps it in step with the fixture.
+if (20000 + DTX_SETUP_BUDGET_MS !== 44000)
+  throw new Error('Set the DTX test timeout to 20 s + DTX_SETUP_BUDGET_MS');
 test('actual DTX-requested zero source continues capture callbacks with sparse packet progress', async () => {
   await withDtxSource(async (source) => {
     let binding:
@@ -115,6 +120,8 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
           zero: quiet.kind === 'observed' ? quiet.counters : quiet,
           held: held.kind === 'observed' ? held.counters : held,
           gap: gap.kind === 'observed' ? gap.counters : gap,
+          setupFmtp: source.fmtp,
+          rejectedAnswers: source.rejected,
           outcome,
         }) + '\n',
       );
@@ -138,4 +145,4 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
       await sub.close();
     }
   });
-}, 20000);
+}, 44000);

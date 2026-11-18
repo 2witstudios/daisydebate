@@ -237,6 +237,15 @@ export const requestOptionalAnswersAdmitted = cache(
 );
 
 /**
+ * Whether this render's member meets the ranked age floor now (decision 79),
+ * from the participation read the session already made, so a page offers
+ * ranked play only to them. False for anyone else. It only shapes the page:
+ * every ranked command decides again under the account fence.
+ */
+export const requestRankedPlayAdmitted = async (): Promise<boolean> =>
+  (await requestSession()).rankedAgeAdmitted;
+
+/**
  * A member's profile as this render's viewer may see it, read in the server
  * render so a link followed from another site renders instead of meeting an
  * API's cross-site read check. The profile feature owns the read and its

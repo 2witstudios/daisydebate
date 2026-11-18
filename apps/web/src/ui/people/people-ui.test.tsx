@@ -59,7 +59,11 @@ const list = (people: readonly Person[]): PeopleList => ({
   counts: { everyone: people.length + 7, friends: 3, online: people.length },
   self: 'online',
 });
-const inProvider = (children: unknown, people: readonly Person[]) =>
+const inProvider = (
+  children: unknown,
+  people: readonly Person[],
+  rankedAgeAdmitted = true,
+) =>
   renderToString(
     h(
       AppRouterContext,
@@ -68,6 +72,7 @@ const inProvider = (children: unknown, people: readonly Person[]) =>
         initialList: list(people),
         socketUrl: null,
         children: h(ChallengeProvider, {
+          rankedAgeAdmitted,
           initialChallenges: {
             version: 1,
             incoming: [
@@ -91,6 +96,41 @@ const inProvider = (children: unknown, people: readonly Person[]) =>
       }),
     ),
   );
+
+test('a ranked challenge to a member under the ranked floor says why, with no Accept', () => {
+  const render = (rankedAgeAdmitted: boolean) =>
+    inProvider(
+      h(PeopleRail, {
+        preference: 'auto',
+        actions,
+        setRail: async () => {},
+        activeRoomId: null,
+      }),
+      [person()],
+      rankedAgeAdmitted,
+    ).replaceAll('&#x27;', "'");
+  const card = (html: string) =>
+    /<section aria-label="Challenge from @mara".*?<\/section>/s.exec(
+      html,
+    )?.[0] ?? '';
+  const under = card(render(false));
+  const adult = card(render(true));
+  assert({
+    given: 'a ranked challenge from @mara to a 16-17 member, then to an adult',
+    should:
+      'show the plain reason and only Decline to the 16-17 member, and Accept to the adult',
+    actual: [
+      under.includes(
+        'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
+      ),
+      under.includes('>Accept<'),
+      under.includes('>Decline<'),
+      adult.includes('>Accept<'),
+      adult.includes('Ranked play is for members'),
+    ],
+    expected: [true, false, true, true, false],
+  });
+});
 
 describe('the people rail', () => {
   const html = inProvider(

@@ -57,6 +57,7 @@ import {
   type SelectionTuple,
 } from './format-operations';
 import { drawStartFacts } from './draw-start-facts';
+import { belowRankedAge, seatableInRoom } from './ranked-age-seat';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -166,6 +167,39 @@ export const roomWriteOperations = ({
   },
 });
 
+/**
+ * Decision 79, on the fenced accounts of this instant (the Round's date at
+ * Start): a person under the ranked floor claims no seat, readies none and
+ * starts no rated Room, and hears their own age as the reason. A Start held
+ * up by someone else's seat answers only that a seat cannot take part, so
+ * nobody learns another person's age. A host naming someone under it is
+ * refused by seat eligibility the same way.
+ */
+function rankedAgeRefusal(
+  room: Parameters<typeof belowRankedAge>[0],
+  fenced: Parameters<typeof belowRankedAge>[1],
+  state: RoomAssemblyState,
+  input: Pick<CommandInput, 'type' | 'caller'>,
+): void {
+  const below = (actorId: string) => belowRankedAge(room, fenced, actorId);
+  if (
+    (input.type === 'claim-seat' || input.type === 'ready') &&
+    below(input.caller.actorId)
+  )
+    throw createRefusal('CONFLICT', 'ranked-age');
+  if (
+    input.type === 'start-round' &&
+    state.participants.some((p) => p.kind === 'human' && below(p.actorId))
+  )
+    throw createRefusal(
+      'CONFLICT',
+      below(input.caller.actorId) &&
+        state.participants.some((p) => p.actorId === input.caller.actorId)
+        ? 'ranked-age'
+        : 'actor-ineligible',
+    );
+}
+
 /** The Room moved between preparation and its lock: retry from fresh facts. */
 class RoomMoved extends Error {}
 
@@ -205,7 +239,7 @@ async function executeOnce(
       ...(input.targetActorId ? [input.targetActorId] : []),
     ]),
   ];
-  await lockAuthorizationActors(tx, fencedActors, {
+  const fenced = await lockAuthorizationActors(tx, fencedActors, {
     maxActors: fencedActors.length,
   });
   const account = await loadAuthorizationAccount(tx, input.caller.userId);
@@ -234,8 +268,9 @@ async function executeOnce(
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
+  rankedAgeRefusal(row, fenced, state, input);
   const target = input.targetActorId
-    ? await actorFact(tx, input.targetActorId)
+    ? seatableInRoom(row, fenced, await actorFact(tx, input.targetActorId))
     : null;
   // FOR SHARE: a concurrent publication (FOR UPDATE on the format
   // row) serializes with this selection, so the policy judges facts

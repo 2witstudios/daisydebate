@@ -26,6 +26,8 @@ type FieldsProps = {
   readonly state: FormFields;
   readonly pending: boolean;
   readonly initialRanked?: boolean;
+  /** The member meets the ranked age floor (decision 79); a hint, the create decides again. */
+  readonly rankedAgeAdmitted: boolean;
 };
 
 export function CreateAssemblyFields({
@@ -34,6 +36,7 @@ export function CreateAssemblyFields({
   state,
   pending,
   initialRanked = false,
+  rankedAgeAdmitted,
 }: FieldsProps) {
   const first = defaultChoice(choices);
   if (!first)
@@ -60,7 +63,8 @@ export function CreateAssemblyFields({
       initialChoice={first}
       values={state.values}
       commandId={commandId}
-      initialRanked={initialRanked}
+      initialRanked={initialRanked && rankedAgeAdmitted}
+      rankedAgeAdmitted={rankedAgeAdmitted}
       pending={pending}
       error={state.error}
     />
@@ -76,12 +80,15 @@ export function CreateAssemblyForm({
   commandId,
   choices,
   initialRanked = false,
+  rankedAgeAdmitted,
 }: {
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
   readonly initialRanked?: boolean;
+  /** The member meets the ranked age floor (decision 79); a hint, the create decides again. */
+  readonly rankedAgeAdmitted: boolean;
 }) {
   const [state, setState] = useState<RoomDraftAnswer>(initialState);
   const [pending, startTransition] = useTransition();
@@ -124,6 +131,7 @@ export function CreateAssemblyForm({
         state={fields}
         pending={pending}
         initialRanked={initialRanked}
+        rankedAgeAdmitted={rankedAgeAdmitted}
       />
     </form>
   );
