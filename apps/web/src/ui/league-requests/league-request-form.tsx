@@ -67,7 +67,7 @@ function Field({
 }) {
   const error = fields.errors[name];
   return (
-    <div className="gap-1.5 flex min-w-0 flex-col">
+    <div className="flex min-w-0 flex-col gap-2">
       <label htmlFor={fieldId(name)} className="font-strong text-ink">
         {label}
       </label>

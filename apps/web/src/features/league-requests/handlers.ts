@@ -38,26 +38,27 @@ const MAX_BODY_BYTES = 32_768;
 
 /**
  * POST /api/league-requests (PYL-17): a League "Talk to us" request, signed
- * in or not. Same origin only, open only while `league-requests` is, and
- * limited per client and for everyone before anything is stored. A request
- * id already stored answers the same, so a resend is safe.
+ * in or not. Same origin only, open only while `league-requests` is (the
+ * Next route module supplies `released`, so the flag stays out of the
+ * proxy's route table), and limited per client and for everyone before
+ * anything is stored. A request id already stored answers the same, so a
+ * resend is safe.
  */
 export const createLeagueRequestHandlers = (deps: {
   readonly logger: Logger;
   readonly reporter: ErrorReporter;
   readonly origin: () => string;
-  readonly released: () => Promise<boolean>;
   readonly limiter: () => RateLimiter;
   readonly store: Pick<Database, 'recordLeagueRequest'>;
 }) => ({
-  POST: (request: Request) =>
+  POST: (released: () => Promise<boolean>) => (request: Request) =>
     handleOperation(
       deps.logger,
       request,
       'league-request.create',
       async () => {
         requireSameOrigin(request, deps.origin());
-        if (!(await deps.released())) throw createAppError('NOT_FOUND');
+        if (!(await released())) throw createAppError('NOT_FOUND');
         const body = parseValidated(
           leagueRequestSchema,
           await readJson(request, MAX_BODY_BYTES),

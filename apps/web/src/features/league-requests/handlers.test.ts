@@ -54,7 +54,6 @@ const routeWith = (input: {
     logger: silentLogger,
     reporter: noopErrorReporter,
     origin: () => origin,
-    released: async () => input.released ?? true,
     limiter: () => ({
       consume: async (key, rule) => {
         consumed.push({ key, rule });
@@ -67,7 +66,11 @@ const routeWith = (input: {
       },
     },
   });
-  return { route, stored, consumed };
+  return {
+    route: { POST: route.POST(async () => input.released ?? true) },
+    stored,
+    consumed,
+  };
 };
 
 test('POST /api/league-requests', async () => {

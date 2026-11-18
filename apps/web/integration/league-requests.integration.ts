@@ -1,10 +1,8 @@
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
-import { noopErrorReporter } from '@daisy/observability';
 import type { LeagueRequest } from '@daisy/protocol/league-request';
 import { createId } from '@paralleldrive/cuid2';
 import { afterAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createLeagueRequestHandlers } from '../src/features/league-requests/handlers';
 import { createLeagueRequestNotices } from '../src/features/league-requests/owner-notice';
 import { nextWorkerToken } from '../src/server/worker-token';
 import { createTestApp, withSql } from './fixtures';
@@ -22,15 +20,8 @@ afterAll(() =>
   ),
 );
 
-/** The route as composed, but with its release open: the catalogue default keeps it closed. */
-const openRoute = createLeagueRequestHandlers({
-  logger: t.app.logger,
-  reporter: noopErrorReporter,
-  origin: () => t.origin,
-  released: async () => true,
-  limiter: () => t.app.limiter,
-  store: t.app.database,
-});
+/** The route as the app composes it, with its release open (the catalogue default keeps it closed). */
+const openRoute = { POST: t.routes.leagueRequests.POST(async () => true) };
 
 const requestFor = (overrides: Partial<LeagueRequest> = {}): LeagueRequest => {
   const requestId = overrides.requestId ?? createId();
@@ -222,7 +213,7 @@ test('closed, invalid and cross-origin requests store nothing', async () => {
   const invalid = requestFor({ contactEmail: 'not an address' });
   const crossOrigin = requestFor();
   const answers = [
-    await t.routes.leagueRequests.POST(
+    await t.routes.leagueRequests.POST(async () => false)(
       t.jsonPost('/api/league-requests', closed),
     ),
     await openRoute.POST(t.jsonPost('/api/league-requests', invalid)),

@@ -12,10 +12,13 @@ import {
   requestValuesOf,
   type RequestFormState,
 } from '../../../../features/league-requests/request-form';
+import { leagueRequestsReleased } from '../../../../features/league-requests/route-release';
 import { processRoute } from '../../../../server/process-app';
 import { post } from '../../form-post';
 
-const route = processRoute((routes) => routes.leagueRequests.POST);
+const route = processRoute((routes, app) =>
+  routes.leagueRequests.POST(leagueRequestsReleased(app)),
+);
 
 /**
  * The League request form's POST, as a server action. The pure rule reads
