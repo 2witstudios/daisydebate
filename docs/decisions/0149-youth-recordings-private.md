@@ -38,23 +38,37 @@ answers, with publishing closed in production by a release flag.
 3. **How linked adults are read.** `readYouthRecordingPeople` reads the
    debater's own memberships and guardian links under the subject scope, and
    each school's staff under that school's scope, as the web role, so
-   row-level security fences each read. Guardian links have no runtime write
-   path yet (counsel-gated). Until one opens, the parent case admits nobody in
-   production.
+   row-level security fences each read. It runs in its own transaction and
+   restores any scope its caller set. Playback authorizes every media segment,
+   so the web reuses one read per Round for 15 seconds (`youthPeopleCache`). A
+   revoked grant or an ended link therefore stops admitting within 15 seconds.
+   Guardian links have no runtime write path yet (counsel-gated). Until one
+   opens, the parent case admits nobody in production.
 4. **Never on Watch, never live.** `plannedBroadcast` plans no Broadcast for a
    Youth Round, so its Recording runs its own Egress (ADR 0107, two capture
-   paths) and no audience feed exists. The broadcast discovery, the Live
-   listing and its count, a Room's link to Watch, and the public archive also
-   exclude Youth Rounds in SQL as a second fence. A debater's own archive list
-   still holds their Youth Rounds.
+   paths) and no audience feed exists. A Broadcast that opened before this
+   rule shipped is still followed by the capture sweep, so no Round is
+   captured twice. As a second fence, these SQL reads leave Youth Rounds out:
+   - the broadcast discovery;
+   - the Live listing and its count, and a Room's link to Watch;
+   - the spectator timeline (`/watch/<id>`, which answers as missing);
+   - the public archive;
+   - a public profile's list and record, and member cards' counts;
+   - the follower notice that a Recording is ready (its seats are still told).
+
+   A debater's own archive list and profile still hold their Youth Rounds,
+   badged private.
+
 5. **No download, no share link.** `mayDownload` refuses every Youth
    Recording (the board is stricter than "debater only"). The page offers no
    link to copy. Ranked Rooms are public, so no audience link can be issued
    for one.
 6. **Takedown.** Any youth debater of the Round, or one of their linked
    adults, may take the whole Recording down for everyone through the
-   participant removal path. `removal_requested` carries `youthRound`, and the
-   lifecycle lifts `ranked_is_kept` only for it. An open report still holds the
+   participant removal path. The Recording itself says it is a Youth one: its
+   eligibility is `{ kind: 'ranked', youth: true }`, fixed when it is requested
+   from the Round's division. The lifecycle lifts `ranked_is_kept` only for such
+   a Recording, so no caller can lift it. An open report still holds the
    Recording as evidence, as for casual removal. A judge may not take it down.
 7. **Publishing.** `youthRoundPublishable(people, releases)` is true only
    when every youth debater holds an active media release. S4 records
