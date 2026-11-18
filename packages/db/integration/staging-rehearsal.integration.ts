@@ -45,7 +45,7 @@ const parentFolders = new Set([
   '20261117180901_tab_room_holds_host',
   '20261117195735_tab_legacy_egress_settled',
   // Host tiers (ADR 0149) build on the Tab tables.
-  '20261118150749_host_tiers',
+  '20261118153922_host_tiers',
 ]);
 
 const oldRules = ({
