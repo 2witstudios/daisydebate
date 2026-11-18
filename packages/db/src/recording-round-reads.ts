@@ -113,7 +113,10 @@ export const recordingRoundReadOperations = ({
             ? { style: round.ladderStyle, division: round.ladderDivision }
             : null,
         /** A Youth Round's youth debaters and linked adults (PYL-5); null otherwise. */
-        youth: await readYouthRecordingPeople(tx, roundId),
+        youth:
+          round.competitionType === 'ranked' && round.ladderDivision === 'youth'
+            ? await readYouthRecordingPeople(tx, roundId)
+            : null,
         /** Both lists are in seat order, so they pair up. */
         debaters: debaters.map((seat, index) => ({
           ...seat,

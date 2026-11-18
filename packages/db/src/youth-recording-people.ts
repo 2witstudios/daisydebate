@@ -68,17 +68,12 @@ export const readLinkedAdultUserIds = async (
 };
 
 /**
- * A Youth Round's youth debaters and the actors of their linked adults; null
- * for any Round not ranked on Youth – Freestyle. Recording reads this to decide
- * who may see the Round's private Recording, and never writes any of it.
+ * A Youth Round's youth debaters and the actors of their linked adults. The
+ * caller has read the Round as ranked on Youth – Freestyle. Recording reads
+ * this to decide who may see the Round's private Recording, and never writes
+ * any of it.
  */
 export const readYouthRecordingPeople = async (tx: Tx, roundId: string) => {
-  const [round] = await rows<{ youth: boolean }>(
-    tx,
-    sql`select (r.competition_type = 'ranked' and r.ladder_division = 'youth') as youth
-        from rounds r where r.id = ${roundId}`,
-  );
-  if (!round?.youth) return null;
   const debaters = await rows<{ actor_id: string; user_id: string }>(
     tx,
     sql`select distinct p.actor_id, a.user_id from round_participants p

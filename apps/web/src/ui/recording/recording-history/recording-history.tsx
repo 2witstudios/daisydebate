@@ -204,7 +204,7 @@ function YouthSharing({
         <p className="text-sm font-strong text-ink">
           Share publicly needs a media release from every youth debater
         </p>
-        <ul className="gap-1.5 flex flex-col text-sm text-ink">
+        <ul className="flex flex-col gap-2 text-sm text-ink">
           {youth.debaters.map((debater) => (
             <li key={debater.name} className="flex items-center gap-2">
               {debater.released ? (
@@ -212,7 +212,7 @@ function YouthSharing({
               ) : (
                 <span
                   aria-hidden="true"
-                  className="mx-0.5 size-3 rounded-full border-2 border-dashed border-border-strong"
+                  className="size-3 shrink-0 rounded-full border-2 border-dashed border-border-strong"
                 />
               )}
               {`${debater.name} · ${debater.released ? 'release on record' : 'no media release yet'}`}
@@ -221,7 +221,7 @@ function YouthSharing({
           <li className="flex items-center gap-2 text-ink-muted">
             <span
               aria-hidden="true"
-              className="mx-0.5 size-3 rounded-full border-2 border-dashed border-border"
+              className="size-3 shrink-0 rounded-full border-2 border-dashed border-border"
             />
             Judges · not needed
           </li>
@@ -279,8 +279,8 @@ function Removal({
       <p className="text-sm text-ink-muted">{words.body}</p>
       <input type="hidden" name="roundId" value={roundId} />
       <input type="hidden" name="version" value={String(removal.version)} />
-      <label className="min-h-11 flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" name="confirm" className="size-[18px]" />
+      <label className="flex min-h-12 items-center gap-2 text-sm text-ink">
+        <input type="checkbox" name="confirm" className="size-4" />
         {words.confirm}
       </label>
       <button

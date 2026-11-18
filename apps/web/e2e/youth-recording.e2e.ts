@@ -90,6 +90,22 @@ test('a Youth debater sees their Recording as private, with Take down and no pub
     page.getByRole('button', { name: 'Take down', exact: true }),
   ).toBeVisible();
   await assertNoSeriousFindings(page);
+
+  // The debater's own profile lists it; a stranger's view of it does not.
+  await page.goto(`/profile/${username}`);
+  await expect(page.getByText(`Youth scrimmage ${tag}`)).toBeVisible();
+  const stranger = await page.context().browser()!.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const visitor = await openPage(stranger, 'visitor');
+    await visitor.goto(`/profile/${username}`);
+    await expect(visitor.getByText(`@${username}`).first()).toBeVisible();
+    await expect(visitor.getByText(`Youth scrimmage ${tag}`)).toHaveCount(0);
+  } finally {
+    await stranger.close();
+  }
 });
 
 test('Watch, the archive and a stranger never find a Youth Round', async ({
