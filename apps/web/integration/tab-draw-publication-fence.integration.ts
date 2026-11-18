@@ -57,7 +57,11 @@ test('publication reloads after account waits and holds actual Room pins through
       await withRuntimeTestTransaction(owner, async (frame) => {
         await preparePublication({ ...frame, ...state }, template, async () => {
           const lobbyId = state.made.get('tournament-lobby')!;
-          await seedPaidHosting(frame.sql, lobbyId, state.bots.Director!.userId);
+          await seedPaidHosting(
+            frame.sql,
+            lobbyId,
+            state.bots.Director!.userId,
+          );
           const [settings] =
             await frame.sql`select settings_version from lobbies where id=${lobbyId}`;
           const configured = await settingCommand({

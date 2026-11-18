@@ -62,7 +62,8 @@ test('host event prices are their own group beside billing (ADR 0147)', () => {
   };
   const billing = readServerConfig({ ...env, ...stripe, ...hostEvent }).billing;
   assert({
-    given: 'billing with both host event prices, one of them, and neither group',
+    given:
+      'billing with both host event prices, one of them, and neither group',
     should:
       'carry both prices, refuse a half group, and refuse prices without billing',
     actual: {

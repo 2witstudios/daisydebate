@@ -44,7 +44,12 @@ const fakeStripe = () => {
     product,
   });
   const prices: Record<string, unknown> = {
-    price_host64: price('price_host64', 9900, 'daisy_host_event_usd_99', 'prod_64'),
+    price_host64: price(
+      'price_host64',
+      9900,
+      'daisy_host_event_usd_99',
+      'prod_64',
+    ),
     price_hostUnlimited: price(
       'price_hostUnlimited',
       19900,
@@ -143,16 +148,16 @@ test('free hosting caps entries and paid features; one payment unlocks that tour
         },
       });
       if (added.kind !== 'accepted') throw new Error('event refused');
-      const [event] = await sql`select id from events where lobby_id=${lobbyId}`;
+      const [event] =
+        await sql`select id from events where lobby_id=${lobbyId}`;
       const eventId = String(event!.id);
       const settings = settingCommand(common);
       const versionOf = async (kind: 'event' | 'lobby') =>
         Number(
-          (
-            kind === 'event'
-              ? await sql`select settings_version v from events where id=${eventId}`
-              : await sql`select settings_version v from lobbies where id=${lobbyId}`
-          )[0]!.v,
+          (kind === 'event'
+            ? await sql`select settings_version v from events where id=${eventId}`
+            : await sql`select settings_version v from lobbies where id=${lobbyId}`)[0]!
+            .v,
         );
       const set = async (
         scope: 'event' | 'lobby',
@@ -176,8 +181,9 @@ test('free hosting caps entries and paid features; one payment unlocks that tour
       const entries = entryEnrollmentCommand(common);
       const entriesVersion = async () =>
         Number(
-          (await sql`select entries_version v from events where id=${eventId}`)[0]!
-            .v,
+          (
+            await sql`select entries_version v from events where id=${eventId}`
+          )[0]!.v,
         );
       const enter = async (name: string) => {
         const person = bot[name]!;
@@ -368,7 +374,8 @@ test('free hosting caps entries and paid features; one payment unlocks that tour
       assert({
         given:
           'Stripe completing the session, and its signed webhook delivered twice',
-        should: 'settle the purchase paid once and change nothing the second time',
+        should:
+          'settle the purchase paid once and change nothing the second time',
         actual: { settled: settled?.kind, again, paid: { ...paid } },
         expected: {
           settled: 'paid',

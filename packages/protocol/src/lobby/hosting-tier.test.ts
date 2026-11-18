@@ -59,8 +59,8 @@ test('eventAllowance: paid features', () => {
   assert({
     given: 'a free tournament',
     should: 'require an upgrade for recording, AI judging and broadcast',
-    actual: (['recording', 'ai_judging', 'broadcast'] as const).map(
-      (feature) => eventAllowance('free', 0, feature),
+    actual: (['recording', 'ai_judging', 'broadcast'] as const).map((feature) =>
+      eventAllowance('free', 0, feature),
     ),
     expected: [
       { kind: 'upgrade_required', reason: 'recording' },

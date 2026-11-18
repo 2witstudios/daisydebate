@@ -38,16 +38,24 @@ const asUser = (principal: { readonly kind: string }): TabPrincipal => {
 
 export function composeHostingRoutes(input: {
   readonly boundary: BudgetedMemberBoundary;
-  readonly dependencies: () => HostingDependencies;
+  /** The hosting resources over this process's vendor transport. */
+  readonly dependencies: (
+    fetch: typeof globalThis.fetch,
+  ) => HostingDependencies;
   readonly lobbyIdOfHandle: (handle: string) => Promise<string | null>;
 }) {
   const lobbyOf = async (handle: unknown) => {
-    const id = await input.lobbyIdOfHandle(parseValidated(handleSchema, handle));
+    const id = await input.lobbyIdOfHandle(
+      parseValidated(handleSchema, handle),
+    );
     if (!id) throw createAppError('NOT_FOUND');
     return id;
   };
   return {
-    home: (released: (userId: string) => Promise<boolean>) => ({
+    home: (
+      released: (userId: string) => Promise<boolean>,
+      fetch: typeof globalThis.fetch,
+    ) => ({
       GET: (request: Request) =>
         runEvaluatedRoute(input.boundary, request, {
           name: 'tab.hosting.home',
@@ -55,15 +63,19 @@ export function composeHostingRoutes(input: {
           readInput: async () => undefined,
           operation: async (_value, principal) => {
             const user = asUser(principal);
-            if (!(await released(user.userId))) throw createAppError('NOT_FOUND');
+            if (!(await released(user.userId)))
+              throw createAppError('NOT_FOUND');
             return hostedTournamentsViewSchema.parse(
-              await readHostedTournaments(input.dependencies())(user),
+              await readHostedTournaments(input.dependencies(fetch))(user),
             );
           },
           headers: { 'cache-control': 'no-store' },
         }),
     }),
-    account: (released: (userId: string) => Promise<boolean>) => ({
+    account: (
+      released: (userId: string) => Promise<boolean>,
+      fetch: typeof globalThis.fetch,
+    ) => ({
       GET: (request: Request) =>
         runEvaluatedRoute(input.boundary, request, {
           name: 'tab.hosting.account',
@@ -71,7 +83,8 @@ export function composeHostingRoutes(input: {
           readInput: async () => undefined,
           operation: async (_value, principal) => {
             const user = asUser(principal);
-            if (!(await released(user.userId))) throw createAppError('NOT_FOUND');
+            if (!(await released(user.userId)))
+              throw createAppError('NOT_FOUND');
             const query = parseValidated(
               z.strictObject({
                 handle: handleSchema,
@@ -80,7 +93,7 @@ export function composeHostingRoutes(input: {
               Object.fromEntries(new URL(request.url).searchParams),
             );
             const lobbyId = await lobbyOf(query.handle);
-            const dependencies = input.dependencies();
+            const dependencies = input.dependencies(fetch);
             const view = await readHostingAccount(dependencies)(user, lobbyId);
             if (!view) throw createAppError('NOT_FOUND');
             // A host returning from Checkout settles at once if Stripe has
@@ -108,7 +121,10 @@ export function composeHostingRoutes(input: {
           headers: { 'cache-control': 'no-store' },
         }),
     }),
-    checkout: (released: (userId: string) => Promise<boolean>) => ({
+    checkout: (
+      released: (userId: string) => Promise<boolean>,
+      fetch: typeof globalThis.fetch,
+    ) => ({
       POST: (request: Request) =>
         runMemberRoute(
           input.boundary,
@@ -137,12 +153,13 @@ export function composeHostingRoutes(input: {
             );
             if ([...form.keys()].some((key) => key !== 'tier'))
               throw createAppError('VALIDATION');
-            const tier = parseValidated(z.enum(paidHostingTiers), form.get('tier'));
-            const answer = await startHostingCheckout(input.dependencies())(
-              { kind: 'user', ...caller },
-              lobbyId,
-              tier,
+            const tier = parseValidated(
+              z.enum(paidHostingTiers),
+              form.get('tier'),
             );
+            const answer = await startHostingCheckout(
+              input.dependencies(fetch),
+            )({ kind: 'user', ...caller }, lobbyId, tier);
             const slug = parseValidated(handleSchema, handle);
             const location =
               answer.kind === 'redirect'

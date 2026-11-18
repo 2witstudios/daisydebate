@@ -53,23 +53,23 @@ export function UpgradeForm({
     <form
       method="post"
       action={action}
-      className="flex flex-wrap items-start gap-6"
+      className="flex items-start gap-6 max-rail:flex-col"
     >
-      <fieldset className="flex min-w-0 flex-[2_1_560px] flex-col gap-2.5 border-0 p-0">
-        <legend className="mb-2.5 font-strong">Entries</legend>
-        <div className="flex flex-wrap gap-4">
+      <fieldset className="flex min-w-0 flex-2 flex-col gap-2 border-0 p-0">
+        <legend className="mb-2 font-strong">Entries</legend>
+        <div className="flex gap-4 max-compact:flex-col">
           {options.map((option) => (
             <label
               key={option.tier}
               className={cn(
-                'flex min-w-0 flex-[1_1_280px] cursor-pointer flex-col gap-3.5 rounded-lg bg-surface-raised p-5',
+                'flex min-w-0 flex-1 cursor-pointer flex-col gap-3 rounded-lg bg-surface-raised p-5',
                 option.tier === chosen
                   ? 'border-2 border-ink'
                   : 'border border-border-strong',
               )}
             >
               <span className="flex items-start justify-between gap-3">
-                <span className="flex items-center gap-2.5">
+                <span className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="tier"
@@ -78,16 +78,22 @@ export function UpgradeForm({
                     onChange={() => setChosen(option.tier)}
                     className="m-0 size-5 accent-ink"
                   />
-                  <strong className="text-lg">{paidTierTitle[option.tier]}</strong>
+                  <strong className="text-lg">
+                    {paidTierTitle[option.tier]}
+                  </strong>
                 </span>
                 <span className="font-display text-3xl font-bold">
                   {formatUsd(option.price)}
                 </span>
               </span>
-              <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {included.map((line) => (
-                  <li key={line} className="flex items-start gap-2.5">
-                    <Icon name="check" size={18} className="shrink-0 text-sage-deep" />
+                  <li key={line} className="flex items-start gap-2">
+                    <Icon
+                      name="check"
+                      size={18}
+                      className="shrink-0 text-sage-deep"
+                    />
                     <span>{line}</span>
                   </li>
                 ))}
@@ -98,7 +104,7 @@ export function UpgradeForm({
       </fieldset>
       <section
         aria-labelledby="upgrade-summary"
-        className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 rounded-lg bg-surface p-5 shadow-sm"
+        className="flex min-w-0 flex-1 flex-col gap-3 rounded-lg bg-surface p-5 shadow-1"
       >
         <h2 id="upgrade-summary" className={eyebrowClass}>
           Summary
@@ -115,7 +121,7 @@ export function UpgradeForm({
             {formatUsd(current.owed, true)}
           </strong>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           <span className="font-strong">Who pays</span>
           <span>You ({payerName})</span>
           <span className="text-sm text-ink-muted">
@@ -131,7 +137,7 @@ export function UpgradeForm({
         ) : null}
         <button
           type="submit"
-          className={cn(buttonClass('primary'), 'min-h-13 w-full text-base')}
+          className={cn(buttonClass('primary'), 'min-h-12 w-full text-base')}
         >
           <Icon name="card" size={18} />
           Continue to checkout · {formatUsd(current.owed)}

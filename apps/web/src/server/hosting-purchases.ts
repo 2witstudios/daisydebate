@@ -16,7 +16,7 @@ const held = new WeakMap<App, HostingDependencies>();
  */
 export function hostingPurchaseDependencies(
   app: App,
-  fetch: BillingFetch = globalThis.fetch,
+  fetch: BillingFetch,
 ): HostingDependencies {
   const existing = held.get(app);
   if (existing) return existing;

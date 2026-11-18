@@ -173,7 +173,8 @@ export function observeHostingSession(
         ? {
             kind: 'paid',
             vendorPaymentIntentId: session.payment_intent.id,
-            receiptUrl: session.payment_intent.latest_charge?.receipt_url ?? null,
+            receiptUrl:
+              session.payment_intent.latest_charge?.receipt_url ?? null,
           }
         : mismatch;
   }

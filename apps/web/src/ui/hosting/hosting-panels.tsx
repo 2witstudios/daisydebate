@@ -15,7 +15,10 @@ import { ListCard, ListHeading } from '../tab/list-card/list-card';
 import { cn } from '../cn';
 
 const rowButton = (variant: 'primary' | 'secondary') =>
-  cn(buttonClass(variant), 'min-h-11 px-3.5 py-0 text-sm whitespace-nowrap');
+  cn(
+    buttonClass(variant),
+    'min-h-room-target px-3 py-0 text-sm whitespace-nowrap',
+  );
 
 /**
  * The 17th entry on a free event, or the 65th on a USD 99 one (PYL-14): in
@@ -41,7 +44,7 @@ export function EntryLimitNotice({
       role="status"
       className="flex flex-wrap items-center gap-4 rounded-lg border border-border-strong bg-surface-raised px-5 py-4"
     >
-      <div className="flex min-w-0 flex-[1_1_360px] flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <strong>
           {asked} The event is full on{' '}
           {free ? 'free hosting' : 'its plan of up to 64 entries'}.
@@ -50,7 +53,9 @@ export function EntryLimitNotice({
           {free
             ? `Free hosting takes ${cap} entries. Upgrade this event to accept them: ${formatUsd(hostingOffers.event_64.unitAmount)} takes up to ${hostingEntryCap('event_64')}, ${formatUsd(hostingOffers.event_unlimited.unitAmount)} has no limit.`
             : `This event takes ${cap} entries. Move it to unlimited to accept them.`}{' '}
-          {account.waitingEntries === 1 ? 'Their request waits' : 'Their requests wait'}{' '}
+          {account.waitingEntries === 1
+            ? 'Their request waits'
+            : 'Their requests wait'}{' '}
           until you choose.
         </span>
       </div>
@@ -89,9 +94,7 @@ export function HostedFeatures({
   upgradeHref,
 }: {
   readonly account: HostingAccountReadView;
-  readonly states: Readonly<
-    Record<(typeof features)[number]['key'], boolean>
-  >;
+  readonly states: Readonly<Record<(typeof features)[number]['key'], boolean>>;
   readonly upgradeHref: string;
 }) {
   const free = account.tier === 'free';
@@ -102,11 +105,15 @@ export function HostedFeatures({
         {features.map((feature, index) => (
           <li
             key={feature.key}
-            className="flex flex-wrap items-center gap-4 border-t border-border px-4 py-3.5 first:border-t-0"
+            className="flex flex-wrap items-center gap-4 border-t border-border px-4 py-3 first:border-t-0"
           >
-            <div className="flex min-w-0 flex-[1_1_280px] items-start gap-2.5">
+            <div className="flex min-w-0 flex-1 items-start gap-2">
               {free ? (
-                <Icon name="lock" size={18} className="shrink-0 text-ink-muted" />
+                <Icon
+                  name="lock"
+                  size={18}
+                  className="shrink-0 text-ink-muted"
+                />
               ) : null}
               <div>
                 <strong>{feature.title}</strong>
@@ -119,7 +126,7 @@ export function HostedFeatures({
                 </div>
               </div>
             </div>
-            <span className="flex min-h-11 items-center gap-2 text-ink-muted">
+            <span className="flex min-h-room-target items-center gap-2 text-ink-muted">
               <input
                 type="checkbox"
                 role="switch"
@@ -206,7 +213,10 @@ export function HostingBilling({
           </div>
         ) : null}
       </section>
-      <section aria-labelledby="hosting-receipts" className="flex flex-col gap-3">
+      <section
+        aria-labelledby="hosting-receipts"
+        className="flex flex-col gap-3"
+      >
         <h2
           id="hosting-receipts"
           className="text-xs font-heavy tracking-wider text-ink-muted uppercase"
@@ -234,13 +244,18 @@ export function HostingBilling({
                 {account.payments.map((payment) => (
                   <tr key={payment.id} className="border-t border-border">
                     <td className="px-4 py-3">
-                      <time dateTime={payment.at}>{hostingDate(payment.at)}</time>
+                      <time dateTime={payment.at}>
+                        {hostingDate(payment.at)}
+                      </time>
                     </td>
                     <td className="px-4 py-3">
-                      {account.name}: {paidTierTitle[payment.tier].toLowerCase()}
+                      {account.name}:{' '}
+                      {paidTierTitle[payment.tier].toLowerCase()}
                     </td>
                     <td className="px-4 py-3">{payment.payerName}</td>
-                    <td className="px-4 py-3">{formatUsd(payment.amount, true)}</td>
+                    <td className="px-4 py-3">
+                      {formatUsd(payment.amount, true)}
+                    </td>
                     <td className="px-4 py-3">
                       {payment.state === 'paid'
                         ? 'Paid'

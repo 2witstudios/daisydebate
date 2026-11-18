@@ -52,17 +52,15 @@ export function hostingAccountView(
     now,
   );
   const covered = tier !== paidTier;
-  const payments = account.purchases.map(
-    (purchase): HostingPaymentView => ({
-      id: purchase.id,
-      at: purchase.paidAt ?? purchase.createdAt,
-      tier: purchase.tier,
-      payerName: purchase.payerName,
-      amount: purchase.amount,
-      state: purchase.state,
-      receiptUrl: purchase.receiptUrl,
-    }),
-  );
+  const payments = account.purchases.map((purchase): HostingPaymentView => ({
+    id: purchase.id,
+    at: purchase.paidAt ?? purchase.createdAt,
+    tier: purchase.tier,
+    payerName: purchase.payerName,
+    amount: purchase.amount,
+    state: purchase.state,
+    receiptUrl: purchase.receiptUrl,
+  }));
   return {
     lobbyId: account.lobby.id,
     handle: account.lobby.handle,

@@ -72,7 +72,8 @@ test('hostingAccountView', () => {
   const paid = hostingAccountView(account({ purchases: [purchase()] }), now);
   assert({
     given: 'a tournament paid at USD 99',
-    should: 'offer only the move to unlimited for USD 100, and name its payment',
+    should:
+      'offer only the move to unlimited for USD 100, and name its payment',
     actual: {
       tier: paid.tier,
       upgrades: paid.upgrades,

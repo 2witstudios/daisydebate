@@ -56,7 +56,8 @@ test('tournamentHostingTier', () => {
     expected: 'event_64',
   });
   assert({
-    given: 'an administrative grant naming the tournament, and one naming another',
+    given:
+      'an administrative grant naming the tournament, and one naming another',
     should: 'be unlimited only for the named tournament',
     actual: [
       tournamentHostingTier(

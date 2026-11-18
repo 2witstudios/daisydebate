@@ -104,7 +104,7 @@ export function createRoutes(app: App) {
     tab: composeTabRoutes(app),
     hosting: composeHostingRoutes({
       boundary: memberBoundary,
-      dependencies: () => hostingPurchaseDependencies(app),
+      dependencies: (fetch) => hostingPurchaseDependencies(app, fetch),
       lobbyIdOfHandle: (handle) =>
         app.database.tabCommands.lobbyIdOfHandle(handle),
     }),

@@ -53,7 +53,7 @@ describe('the Tab release', () => {
     const pages = groups.flatMap((group) =>
       [...new Glob(`${group}/**/page.tsx`).scanSync(app)].filter(
         (page) =>
-          !/requestSampleScene\(|requestLeaguePage\(|requestStandingRoomPage\(|requireGrant\(|await requireTabRelease\(\)|StoredDrawOverview|StoredHostEvents|StoredRoster|StoredHostRound/.test(
+          !/requestSampleScene\(|requestLeaguePage\(|requestStandingRoomPage\(|requireGrant\(|await requireTabRelease\(\)|await requireHostTiersRelease\(\)|StoredDrawOverview|StoredHostEvents|StoredRoster|StoredHostRound/.test(
             readFileSync(join(app, page), 'utf8'),
           ),
       ),

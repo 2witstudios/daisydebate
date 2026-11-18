@@ -53,7 +53,6 @@ import {
 function lobbyCreation(
   holder: Holder,
   resource: Of<'lobby_collection'>,
-  context: Context,
 ): AuthorizationDecision {
   if (!bandAtLeast(holder.ageBand, 'adult')) return deny('age-band');
   const { lobbyKind, owner } = resource.proposed;
@@ -169,7 +168,7 @@ export function lobbyDecision(
     case 'guardian_link':
       return guardianLinkDecision(holder, capability, resource);
     case 'lobby_collection':
-      return lobbyCreation(holder, resource, context);
+      return lobbyCreation(holder, resource);
     case 'lobby':
       return lobbyResourceDecision(holder, capability, resource, context);
     case 'template':

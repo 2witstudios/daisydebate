@@ -121,7 +121,10 @@ const managed = (
 /** A host's view of one tournament's hosting; null when they do not manage it. */
 export const readHostingAccount =
   (dependencies: HostingDependencies) =>
-  (principal: TabPrincipal, lobbyId: string): Promise<HostingAccountView | null> =>
+  (
+    principal: TabPrincipal,
+    lobbyId: string,
+  ): Promise<HostingAccountView | null> =>
     dependencies.store.tournamentHosting(
       { viewerUserId: principal.userId, lobbyId },
       async (account) =>
@@ -203,7 +206,7 @@ export const startHostingCheckout =
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const step = await dependencies.store.tournamentHosting(
         { viewerUserId: principal.userId, lobbyId },
-        async (account, writes) => {
+        async (account) => {
           if (!managed(dependencies, principal, account))
             throw createAppError('NOT_FOUND');
           const view = hostingAccountView(account, account.checkedAt);
@@ -231,7 +234,12 @@ export const startHostingCheckout =
           open.payerUserId === principal.userId &&
           open.mode === vendor.mode;
         if (same && open.vendorSessionId === null)
-          return createSession(dependencies, vendor, asCheckout(open), step.view);
+          return createSession(
+            dependencies,
+            vendor,
+            asCheckout(open),
+            step.view,
+          );
         if (same) {
           const observed = await settle({ lobbyId, purchaseId: open.id });
           if (observed?.kind === 'open' && observed.url)

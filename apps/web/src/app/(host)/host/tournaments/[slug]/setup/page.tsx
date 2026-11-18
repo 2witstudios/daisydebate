@@ -59,9 +59,13 @@ export default async function Page({
         hostingAccountViewSchema,
       )
     : null;
-  const on = (key: 'recording.capture' | 'judging.ai_judge' | 'broadcast.live') =>
-    (resolvedEntry(stored.settings, key)?.value as { value?: string } | undefined)
-      ?.value === 'on';
+  const on = (
+    key: 'recording.capture' | 'judging.ai_judge' | 'broadcast.live',
+  ) =>
+    (
+      resolvedEntry(stored.settings, key)?.value as
+        { value?: string } | undefined
+    )?.value === 'on';
   return (
     <Setup
       rail={stored.rail}

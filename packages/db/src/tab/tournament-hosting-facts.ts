@@ -2,7 +2,10 @@ import { and, eq } from 'drizzle-orm';
 import type { PaidHostingTier } from '@daisy/protocol/lobby/hosting-tier';
 import { lobbies, tournaments } from '../schema/lobbies';
 import { tournamentHostingPurchases } from '../schema/tournament-hosting-purchases';
-import { loadAccountHostingFacts, type AccountHostingFacts } from './account-hosting-facts';
+import {
+  loadAccountHostingFacts,
+  type AccountHostingFacts,
+} from './account-hosting-facts';
 import type { TabTransaction } from './tab-transaction';
 
 /**
@@ -36,7 +39,9 @@ export const loadTournamentHostingFacts = async (
     .innerJoin(lobbies, eq(lobbies.id, tournaments.lobbyId))
     .where(eq(tournaments.lobbyId, lobbyId));
   const [tournament] =
-    lock === 'update' ? await query.for('update', { of: tournaments }) : await query;
+    lock === 'update'
+      ? await query.for('update', { of: tournaments })
+      : await query;
   if (!tournament) return null;
   const paid = await tx
     .select({ tier: tournamentHostingPurchases.tier })

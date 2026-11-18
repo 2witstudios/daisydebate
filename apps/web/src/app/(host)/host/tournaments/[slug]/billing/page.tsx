@@ -38,7 +38,10 @@ export default async function Page({
   return (
     <HostShell rail={hostNavigationRail(navigation)} current="billing">
       <PageHeader title="Billing" lede={`${account.name} · Freestyle`} />
-      <HostingBilling account={account} upgradeHref={hostRoutes.upgrade(slug)} />
+      <HostingBilling
+        account={account}
+        upgradeHref={hostRoutes.upgrade(slug)}
+      />
     </HostShell>
   );
 }

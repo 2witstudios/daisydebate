@@ -445,7 +445,9 @@ describe('the hosting tier entry cap (PYL-14)', () => {
     assert({
       given: 'an unlimited tournament with 500 accepted entries',
       should: 'accept another at once',
-      actual: statusOf(decideEntry(automatic('event_unlimited', 500), submit())),
+      actual: statusOf(
+        decideEntry(automatic('event_unlimited', 500), submit()),
+      ),
       expected: 'accepted',
     });
   });
@@ -486,7 +488,10 @@ describe('the hosting tier entry cap (PYL-14)', () => {
       should: 'accept with no cap',
       actual: refusalOf(
         decideEntry(
-          facts({ hosting: null, event: { ...facts().event, entryCount: 900 } }),
+          facts({
+            hosting: null,
+            event: { ...facts().event, entryCount: 900 },
+          }),
           accept,
         ),
       ),

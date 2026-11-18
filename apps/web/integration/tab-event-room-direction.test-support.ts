@@ -51,7 +51,11 @@ export const committedEventRoom = async (
         copied.value = await copyForeignBallot(world, mode);
         const lobbyId = state.made.get('tournament-lobby')!;
         if (options.recording === 'on')
-          await seedPaidHosting(frame.sql, lobbyId, state.bots.Director!.userId);
+          await seedPaidHosting(
+            frame.sql,
+            lobbyId,
+            state.bots.Director!.userId,
+          );
         const [lobby] =
           await frame.sql`select settings_version from lobbies where id=${lobbyId}`;
         const answer = await settingCommand({

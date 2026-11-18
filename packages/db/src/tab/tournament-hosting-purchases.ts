@@ -159,9 +159,7 @@ const purchaseWrites = (tx: TabTransaction, lobbyId: string) => ({
       .where(openPurchase(tx, lobbyId, purchaseId));
   },
 });
-export type TournamentHostingPurchaseWrites = ReturnType<
-  typeof purchaseWrites
->;
+export type TournamentHostingPurchaseWrites = ReturnType<typeof purchaseWrites>;
 
 /**
  * The open tournaments a person owns themselves, newest first, each read
@@ -203,7 +201,9 @@ const loadHostedTournaments = async (
     const [accepted] = await tx
       .select({ count: sql<number>`count(*)::int` })
       .from(entries)
-      .where(and(eq(entries.lobbyId, lobby.id), eq(entries.status, 'accepted')));
+      .where(
+        and(eq(entries.lobbyId, lobby.id), eq(entries.status, 'accepted')),
+      );
     hosted.push({
       ...lobby,
       paidTiers: paid.map((row) => row.tier),
@@ -238,7 +238,10 @@ export const createTournamentHostingPurchaseStore = (
     ) => Promise<Answer>,
   ): Promise<Answer> =>
     database.transaction(async (tx) =>
-      work(await loadHostingAccount(tx, input), purchaseWrites(tx, input.lobbyId)),
+      work(
+        await loadHostingAccount(tx, input),
+        purchaseWrites(tx, input.lobbyId),
+      ),
     ),
   /**
    * Settlement from a verified vendor observation: no viewer, only the

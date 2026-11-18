@@ -169,7 +169,11 @@ describe('the host area', () => {
         'refuse before rendering without navigation or their actual area read, with no missing inventory entry',
       actual: storedPages.map((file) => {
         const source = readFileSync(join(app, file), 'utf8'),
-          release = source.indexOf('await requireTabRelease()'),
+          // Host tiers' pages gate on Tab and host tiers together (ADR 0147).
+          release = Math.max(
+            source.indexOf('await requireTabRelease()'),
+            source.indexOf('await requireHostTiersRelease()'),
+          ),
           navigation = source.indexOf('await readStoredHostNavigation('),
           read = source.indexOf('await readOwnRoute(');
         return [
@@ -191,6 +195,13 @@ describe('the host area', () => {
           true,
         ],
         [
+          '(host)/host/tournaments/[slug]/billing/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
           '(host)/host/tournaments/[slug]/people/page.tsx',
           true,
           true,
@@ -206,6 +217,13 @@ describe('the host area', () => {
         ],
         [
           '(host)/host/tournaments/[slug]/standings/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
+          '(host)/host/tournaments/[slug]/upgrade/page.tsx',
           true,
           true,
           true,
