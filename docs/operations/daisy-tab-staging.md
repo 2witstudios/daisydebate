@@ -17,7 +17,9 @@ account unless a stored choice says otherwise ([ADR 0118](../decisions/0118-rele
 (`/clubs/new`, PYL-13) and League Talk to us (`/contact/league`, PYL-17);
 until those
 routes land, staging's default links to pages that do not exist yet, so
-either store them `disabled` or accept the gap.
+either store them `disabled` or accept the gap. `youth-publishing` is on too
+(decision 77), but a Youth Recording still needs every media release (PYL S4)
+before it can be shared, so nothing is published until releases exist.
 Production never sets it and keeps each flag's safe default (off); the web app
 refuses to start if the variable is present without the staging operator
 audience.

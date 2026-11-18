@@ -3,6 +3,10 @@
 Recording policy is amended by
 [ADR 0134](0134-formats-beyond-two-sides.md). Event Rooms pin `off` or `officials`;
 this amendment does not approve the counsel-gated retention proposal below.
+[ADR 0149](0149-youth-recordings-private.md) amends it again: a Youth Round's
+ranked Recording is private to its debaters, judges and linked adults, is never
+broadcast, listed or downloaded, and any youth debater or linked adult may take
+it down.
 
 Status: accepted, owner decisions on the Watch plan, 2026-11-02. The retention of
 ranked video after erasure is **proposed and not reviewed by counsel** (COMP-4), and
