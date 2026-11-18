@@ -94,8 +94,11 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
   await expect(page.locator('video')).toHaveCount(0);
   await assertNoSeriousFindings(page);
 
-  // The student's Room link leads to the same room, with JavaScript and without.
+  // The student's Room and Round links lead to the same room, with JavaScript
+  // and without.
   await page.goto(`/rooms/${round.roomId}`);
+  await expect(page).toHaveURL(`/rounds/${round.roundId}/room`);
+  await page.goto(`/rounds/${round.roundId}`);
   await expect(page).toHaveURL(`/rounds/${round.roundId}/room`);
   const noScript = await browser.newContext({
     baseURL: origin,
