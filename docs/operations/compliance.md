@@ -406,8 +406,7 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
   PYL S3). A Youth Round is recorded like any ranked Round, but its Recording
   is private. Only the Round's debaters and judges see it, and so does each
   youth debater's linked adult: a coach on staff at a school the debater
-  belongs to, or a guardian with an active link. It is never broadcast live,
-  listed on Watch or in the public archive, downloaded or given a share link.
+  belongs to, or a guardian with an active link. It is never broadcast live, shown on its spectator page, listed on Watch, in the public archive or on a public profile or member card, announced to the debaters' followers, downloaded or given a share link.
   Any youth debater or linked adult can take it down for everyone. It becomes
   publishable only when every youth debater holds an active media release
   (PYL S4, not built yet) and the `youth-publishing` release flag is open.
