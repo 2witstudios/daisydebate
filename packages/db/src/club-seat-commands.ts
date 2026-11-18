@@ -184,10 +184,15 @@ async function writeSeating(
     (invitation) =>
       !before.invitations.some((prior) => prior.id === invitation.id),
   );
-  for (const invitation of closed)
+  for (const invitation of closed) {
+    // An answered or cancelled offer is no longer owed: its unsent mail ends first.
+    await tx.execute(sql`update mail_intents set state='cancelled', last_error_code='not-owed',
+        completed_at=clock_timestamp(), lease_token_digest=null, lease_expires_at=null
+      where club_seat_invitation_id=${invitation.id} and state in ('queued', 'leased')`);
     await tx.execute(
       sql`delete from club_seat_invitations where organization_id=${club.id} and id=${invitation.id}`,
     );
+  }
   for (const seat of removed) {
     await tx.execute(
       sql`delete from club_seats where organization_id=${club.id} and user_id=${seat.userId}`,

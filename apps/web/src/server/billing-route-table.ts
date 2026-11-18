@@ -1,12 +1,12 @@
 import type { App } from './app';
 import type { composeBillingRoutes } from '../features/billing/native-composition';
-import type { composeClubs } from '../features/clubs/composition';
+import type { composeClubRoutes } from '../features/clubs/routes';
 import type { BillingFetch } from './billing-stripe';
 import type { OperationName } from '../features/ops/operation-names';
 import { handleOperation } from './http';
 
 type BillingRoutes = ReturnType<typeof composeBillingRoutes> & {
-  readonly clubs: ReturnType<typeof composeClubs>;
+  readonly clubs: ReturnType<typeof composeClubRoutes>;
 };
 export type BillingRouteLoader = () => Promise<{
   readonly billingRoutes: (app: App, fetch: BillingFetch) => BillingRoutes;
