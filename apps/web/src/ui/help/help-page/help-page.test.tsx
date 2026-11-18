@@ -38,15 +38,18 @@ describe('topicFromHash', () => {
   test('names a topic only for a fragment that is one', () => {
     const ids = ['ratings', 'ranked-recorded'];
     assert({
-      given: 'a topic fragment, an encoded one, an unknown one and none',
+      given:
+        'a topic fragment, an encoded one, an unknown one, a malformed one and none',
       should: 'return the topic for the first two and nothing otherwise',
       actual: [
         topicFromHash('#ratings', ids),
         topicFromHash('#ranked%2Drecorded', ids),
         topicFromHash('#nope', ids),
+        topicFromHash('#%', ids),
+        topicFromHash('#ranked%2', ids),
         topicFromHash('', ids),
       ],
-      expected: ['ratings', 'ranked-recorded', null, null],
+      expected: ['ratings', 'ranked-recorded', null, null, null, null],
     });
   });
 });
