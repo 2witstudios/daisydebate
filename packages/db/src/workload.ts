@@ -128,11 +128,12 @@ export function createWorkload({
         connections: profile.lanes[name]?.connections ?? 0,
         ...gate.stats(),
       })),
-    /** Per-operation hold time on each lane since the last drain. */
+    /** Each lane's hold time since the last drain, whole and per operation. */
     drainLaneHolds: () =>
-      [...lanes.values()].flatMap(({ name, gate }) =>
-        gate.drainHolds().map((hold) => ({ lane: name, ...hold })),
-      ),
+      [...lanes.values()].map(({ name, gate }) => ({
+        lane: name,
+        ...gate.drainHolds(),
+      })),
     async close() {
       await Promise.all(pools.map((pool) => pool.close({ timeout: 5 })));
     },

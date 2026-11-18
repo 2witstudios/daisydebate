@@ -1,10 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startLaneGauges } from './lane-gauges';
+import type { LaneWindowLine } from './lane-window';
 
 setupRitewayBun();
 
 const harness = () => {
-  const lines: { event: string; fields: Record<string, unknown> }[] = [];
+  const lines: LaneWindowLine[] = [];
   let tick = () => {};
   const readings = [0, 2, 4];
   const gauges = startLaneGauges({
@@ -19,14 +20,21 @@ const harness = () => {
     drainHolds: () => [
       {
         lane: 'competitive' as const,
-        operation: 'claimMediaReconcile',
-        count: 2,
-        totalMs: 44,
-        maxMs: 40,
-        p95Ms: 40,
+        total: { count: 2, totalMs: 44, maxMs: 40, p95Ms: 40, waits: 0 },
+        operations: [
+          {
+            operation: 'claimMediaReconcile',
+            count: 2,
+            totalMs: 44,
+            maxMs: 40,
+            p95Ms: 40,
+            waits: 0,
+          },
+        ],
       },
     ],
-    log: (event, fields) => lines.push({ event, fields }),
+    log: (line) => lines.push(line),
+    detail: false,
     samplesPerWindow: 3,
     every: (_ms, run) => {
       tick = run;
@@ -48,12 +56,12 @@ test('lanes report one time-average window, not refusal-time samples', () => {
   });
   tick();
   assert({
-    given: 'a full window',
-    should: 'log the gauge sums and maxima and each operation hold',
+    given: 'a full window with only quick holds',
+    should: 'log one line for the lane with its occupancy and hold totals',
     actual: lines,
     expected: [
       {
-        event: 'db.lane.gauge',
+        event: 'db.lane.window',
         fields: {
           lane: 'competitive',
           connections: 10,
@@ -62,17 +70,11 @@ test('lanes report one time-average window, not refusal-time samples', () => {
           activeMax: 4,
           waitingSum: 3,
           waitingMax: 1,
-        },
-      },
-      {
-        event: 'db.lane.hold',
-        fields: {
-          lane: 'competitive',
-          operation: 'claimMediaReconcile',
           holds: 2,
           durationMs: 44,
           maxMs: 40,
           p95Ms: 40,
+          waits: 0,
         },
       },
     ],
@@ -82,6 +84,6 @@ test('lanes report one time-average window, not refusal-time samples', () => {
     given: 'the next window just begun',
     should: 'start its counts again',
     actual: lines.length,
-    expected: 2,
+    expected: 1,
   });
 });
