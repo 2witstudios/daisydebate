@@ -57,7 +57,7 @@ const refundReference = z.object({
 });
 
 /**
- * A hosted tournament's one-time payment (ADR 0147). The hint names only
+ * A hosted tournament's one-time payment (ADR 0149). The hint names only
  * the purchase to settle; settlement retrieves the session from Stripe and
  * trusts nothing in this payload.
  */

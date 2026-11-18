@@ -42,7 +42,7 @@ export const flagCatalogue = [
     dependencies: [],
   },
   {
-    // The host home at /host, event upgrades and Host a tournament on /pricing (ADR 0147).
+    // The host home at /host, event upgrades and Host a tournament on /pricing (ADR 0149).
     key: 'host-tiers',
     kind: 'release',
     owner: 'Daisy Tab (@2witstudios)',

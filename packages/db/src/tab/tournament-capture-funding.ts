@@ -70,7 +70,7 @@ export const loadTournamentCaptureFunding = async (
     throw new TournamentCaptureFundingChanged();
   const account = await loadAuthorizationAccount(tx, current.userId);
   const hosting = await loadAccountHostingFacts(tx, current.userId);
-  // A personal tournament paid for funds its own capture (ADR 0147).
+  // A personal tournament paid for funds its own capture (ADR 0149).
   const paidRows =
     current.ownerOrganizationId === null
       ? await tx

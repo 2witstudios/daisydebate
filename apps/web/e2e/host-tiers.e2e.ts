@@ -5,7 +5,7 @@ import { expect, test } from './support/fixtures';
 import { signUpMember } from './support/accounts';
 
 /**
- * Host tiers (PYL-14, PYL-15, ADR 0147) in the browser: a member hosts a
+ * Host tiers (PYL-14, PYL-15, ADR 0149) in the browser: a member hosts a
  * free tournament, its 17th entry waits, and Entries offers the upgrade in
  * place. The flags are stored for this serial file only.
  */

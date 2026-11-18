@@ -81,7 +81,7 @@ const grant = {
 const parses = (value: unknown) =>
   tournamentCaptureAdmissionSchema.safeParse(value).success;
 
-test('tournament capture admission bases (ADR 0147)', () => {
+test('tournament capture admission bases (ADR 0149)', () => {
   assert({
     given:
       'a covering hosting grant, and a paid hosting purchase at its tier limits',

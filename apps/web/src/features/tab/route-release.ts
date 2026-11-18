@@ -25,7 +25,7 @@ const releaseFor =
 export const tabReleasedFor = (app: App) => releaseFor(app, 'daisy-tab');
 export const tabMinorsReleasedFor = (app: App) =>
   releaseFor(app, 'daisy-tab-minors');
-/** Host tiers ride on Tab: both must be released (ADR 0147). */
+/** Host tiers ride on Tab: both must be released (ADR 0149). */
 export const hostTiersReleasedFor = (app: App) => {
   const tab = tabReleasedFor(app),
     tiers = releaseFor(app, 'host-tiers');

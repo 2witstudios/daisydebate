@@ -138,7 +138,7 @@ vendor error messages. The proposed lawful basis is performance of the paid
 service contract. These records are private and included in the subject's
 account export; internal claim identifiers and discovery cursors are excluded.
 
-Hosted event payments (ADR 0147) are their own record,
+Hosted event payments (ADR 0149) are their own record,
 `tournament_hosting_purchases`: the tournament, the paying account, the tier,
 the amount, the mode and Stripe's Checkout Session and PaymentIntent ids and
 receipt link. Daisy sends Stripe only the purchase and tournament ids and the

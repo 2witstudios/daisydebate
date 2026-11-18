@@ -10,7 +10,7 @@ export function createBillingWebhook(input: {
   readonly clock: Clock;
   readonly deadline: () => AbortSignal;
   readonly receive: Database['receiveBillingReceipt'];
-  /** Settles a hosted tournament's payment from Stripe's own session (ADR 0147). */
+  /** Settles a hosted tournament's payment from Stripe's own session (ADR 0149). */
   readonly settleHosting: (target: {
     readonly purchaseId: string;
     readonly lobbyId: string;

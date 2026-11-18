@@ -12,7 +12,7 @@ export type BillingConfig =
       readonly premiumPriceId: string;
       readonly portalConfigurationId: string;
       /**
-       * The one-time host event prices (ADR 0147); null where they are not
+       * The one-time host event prices (ADR 0149); null where they are not
        * configured, which leaves event upgrades unavailable and Premium as is.
        */
       readonly hostEventPrices: {

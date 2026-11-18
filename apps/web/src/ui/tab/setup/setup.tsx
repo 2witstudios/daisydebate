@@ -36,7 +36,7 @@ export const forceLabel = (policy: PairingPolicy): string => {
  */
 type SetupProps = {
   readonly rail: TimelineRail;
-  /** Video and judging under the settings: the hosting tier's switches (ADR 0147). */
+  /** Video and judging under the settings: the hosting tier's switches (ADR 0149). */
   readonly hosted?: ReactNode;
 } & (
   | {

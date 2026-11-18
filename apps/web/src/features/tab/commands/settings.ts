@@ -140,7 +140,7 @@ type LobbyFact = {
 export type SettingFacts = {
   /**
    * The hosting tier of the tournament the written lobby or event belongs
-   * to (ADR 0147); null where no tier applies.
+   * to (ADR 0149); null where no tier applies.
    */
   readonly hostingTier: HostingTier | null;
   readonly now: string;

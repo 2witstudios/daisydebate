@@ -16,7 +16,7 @@ export async function requireTabRelease(): Promise<void> {
   if (!(await tabReleased())) notFound();
 }
 
-/** The host home and event upgrades: Tab and host tiers both released (ADR 0147). */
+/** The host home and event upgrades: Tab and host tiers both released (ADR 0149). */
 export async function hostTiersReleased(): Promise<boolean> {
   const identity = await requestIdentity();
   const userId = identity.state === 'member' ? identity.principal.userId : null;

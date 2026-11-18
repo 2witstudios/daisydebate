@@ -132,7 +132,7 @@ const rows: { readonly [Key in SettingKey]: Row<Key> } = {
   'entry.age_division': daisy(aboveEvents, { value: 'open' }),
   'conflict.handling': daisy(aboveEvents, { value: 'second_confirms' }),
   'recording.capture': daisy(aboveEvents, { value: 'on' }, 'both'),
-  // A paid hosting tier unlocks these two for a tournament (ADR 0147).
+  // A paid hosting tier unlocks these two for a tournament (ADR 0149).
   'judging.ai_judge': daisy(aboveEvents, { value: 'off' }),
   'broadcast.live': daisy(aboveEvents, { value: 'off' }),
   'audience.posting': daisy(

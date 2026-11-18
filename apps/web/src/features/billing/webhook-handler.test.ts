@@ -174,7 +174,7 @@ test('a body deadline cancels a stalled stream even when the peer never resolves
   });
 });
 
-test('a hosted tournament payment event settles that purchase and records no customer receipt (ADR 0147)', async () => {
+test('a hosted tournament payment event settles that purchase and records no customer receipt (ADR 0149)', async () => {
   const purchaseId = 'p'.padEnd(24, '1'),
     lobbyId = 'l'.padEnd(24, '1');
   const hostingBody = (

@@ -24,7 +24,7 @@ export type TournamentHostingPurchaseState =
   (typeof tournamentHostingPurchaseStates)[number];
 
 /**
- * One payment for one hosted tournament (decision 80, ADR 0147): who paid,
+ * One payment for one hosted tournament (decision 80, ADR 0149): who paid,
  * which tier, how much and Stripe's ids. A tournament's tier is the highest
  * paid row; nothing else stores it. Card details never enter this table.
  */

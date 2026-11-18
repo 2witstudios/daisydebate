@@ -144,7 +144,7 @@ export const eventRoomPins = (
   if (!parsed.success) return null;
   const compiled = resolveRoomConfiguration(definition, parsed.data);
   if (!compiled.ok) return null;
-  // A free tournament never records, whatever the setting says (ADR 0147).
+  // A free tournament never records, whatever the setting says (ADR 0149).
   const recordingAllowed =
     loaded.hosting === null ||
     eventAllowance(tournamentHostingTier(loaded.hosting, now), 0, 'recording')

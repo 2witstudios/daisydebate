@@ -44,7 +44,7 @@ export const tournamentCaptureAdmissionSchema = z
     ]),
     /**
      * What pays for the capture: a hosting grant covering the tournament, or
-     * the tournament's own paid hosting purchase (ADR 0147).
+     * the tournament's own paid hosting purchase (ADR 0149).
      */
     basis: z.discriminatedUnion('kind', [
       z.strictObject({

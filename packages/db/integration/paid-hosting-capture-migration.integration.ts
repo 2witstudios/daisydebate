@@ -17,7 +17,7 @@ const scratch = scratchDatabase(url, 'paidcapturemig');
 afterAll(() => scratch.drop());
 
 test(
-  'the migration moves an existing capture admission’s grant into its basis and keeps it valid (ADR 0147)',
+  'the migration moves an existing capture admission’s grant into its basis and keeps it valid (ADR 0149)',
   async () => {
     await scratch.create();
     await scratch.migrate((folder) => folder < migration);

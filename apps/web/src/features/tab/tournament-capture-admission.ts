@@ -53,7 +53,7 @@ export const eventCaptureAdmission = (input: {
     versionId:
       sponsorship?.kind === 'active' ? sponsorship.hostingVersionId : null,
   });
-  // Without a grant, a personal tournament paid for funds its own capture (ADR 0147).
+  // Without a grant, a personal tournament paid for funds its own capture (ADR 0149).
   const purchase =
     grant === null &&
     funding.ownerOrganizationId === null &&

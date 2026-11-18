@@ -1,5 +1,5 @@
 /**
- * Host tiers (decision 80, ADR 0147). Anyone can host a tournament free up to
+ * Host tiers (decision 80, ADR 0149). Anyone can host a tournament free up to
  * 16 entries, without recording, AI judging or broadcast. One payment for
  * that tournament only unlocks those and raises its entry cap: USD 99 up to
  * 64 entries, USD 199 unlimited. Nothing renews.

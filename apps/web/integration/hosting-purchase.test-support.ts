@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { inTabTestTransaction } from './tab-test-transaction.test-support';
 
 /**
- * A personal tournament already paid to unlimited (ADR 0147): the fact a
+ * A personal tournament already paid to unlimited (ADR 0149): the fact a
  * suite needs before it switches recording on. Written as the owner role,
  * as Stripe settlement would leave it.
  */

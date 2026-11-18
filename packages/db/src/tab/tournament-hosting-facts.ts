@@ -9,7 +9,7 @@ import {
 import type { TabTransaction } from './tab-transaction';
 
 /**
- * What a hosted tournament's tier is decided from (ADR 0147): the tiers paid
+ * What a hosted tournament's tier is decided from (ADR 0149): the tiers paid
  * for it, who owns it, and the owner's hosting grants. The caller has the
  * lobby in scope; the tournament row is locked so two entry or setting
  * commands on different events of one tournament count against one cap in

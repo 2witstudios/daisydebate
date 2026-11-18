@@ -47,7 +47,7 @@ test('complete billing configuration carries a mode but grants no release author
   });
 });
 
-test('host event prices are their own group beside billing (ADR 0147)', () => {
+test('host event prices are their own group beside billing (ADR 0149)', () => {
   const hostEvent = {
     STRIPE_HOST_EVENT_64_PRICE_ID: 'price_hostEvent64',
     STRIPE_HOST_EVENT_UNLIMITED_PRICE_ID: 'price_hostEventUnlimited',

@@ -5,7 +5,7 @@ import {
 } from '../ladder';
 
 /**
- * An event's division (decision 79, ADR 0147 PYL-16): a hosted tournament
+ * An event's division (decision 79, ADR 0149 PYL-16): a hosted tournament
  * declares Open or Youth, and an entrant's age is taken on its first day, so
  * someone who turns 18 before it starts debates in Open.
  */

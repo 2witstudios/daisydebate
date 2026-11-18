@@ -199,7 +199,7 @@ export const settingValueSchemas = {
   }),
   'conflict.handling': z.strictObject({ value: conflictHandlingSchema }),
   'recording.capture': choice(['on', 'off']),
-  // Who may enter: a tournament's division, aged on its first day (ADR 0147).
+  // Who may enter: a tournament's division, aged on its first day (ADR 0149).
   'entry.age_division': choice(['open', 'youth']),
   'judging.ai_judge': choice(['on', 'off']),
   'broadcast.live': choice(['on', 'off']),

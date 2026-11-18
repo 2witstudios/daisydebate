@@ -34,7 +34,7 @@ export function HostEntries({
   readonly entriesHref: string;
   readonly judgesHref: string;
   readonly obligationEditor?: ReactNode;
-  /** A status panel under the header: the hosting tier's entry limit (ADR 0147). */
+  /** A status panel under the header: the hosting tier's entry limit (ADR 0149). */
   readonly notice?: ReactNode;
 }) {
   return (

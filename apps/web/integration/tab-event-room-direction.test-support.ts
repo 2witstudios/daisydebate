@@ -22,7 +22,7 @@ export const committedEventRoom = async (
     readonly recording?: 'off' | 'on';
     readonly tournamentOwner?: 'personal' | 'organization';
     /**
-     * What lets a recorded tournament record (ADR 0147): a paid hosting
+     * What lets a recorded tournament record (ADR 0149): a paid hosting
      * purchase, or a hosting grant naming it (for suites about grant funding).
      */
     readonly hosting?: 'paid' | 'granted';

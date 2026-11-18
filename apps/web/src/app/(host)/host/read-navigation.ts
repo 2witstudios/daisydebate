@@ -6,7 +6,7 @@ import { GET } from '../../api/tab/host-navigation/route';
 
 /**
  * Shell metadata passes the same evaluated request boundary as every area;
- * a tournament's Billing shows while host tiers are released (ADR 0147).
+ * a tournament's Billing shows while host tiers are released (ADR 0149).
  */
 export const readStoredHostNavigation = async (
   kind: 'organization' | 'lobby',

@@ -10,7 +10,7 @@ import {
 const held = new WeakMap<App, HostingDependencies>();
 
 /**
- * The hosting purchases' resources (ADR 0147): the Tab store, the evaluator
+ * The hosting purchases' resources (ADR 0149): the Tab store, the evaluator
  * and Stripe, which exists only when billing and both host event prices are
  * configured. One set per App.
  */

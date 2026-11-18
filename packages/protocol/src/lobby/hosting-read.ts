@@ -7,7 +7,7 @@ const paidTier = z.enum(paidHostingTiers);
 const cents = z.number().int().positive();
 const count = z.number().int().nonnegative();
 
-/** One hosting payment as its tournament's Billing lists it (ADR 0147). */
+/** One hosting payment as its tournament's Billing lists it (ADR 0149). */
 export const hostingPaymentViewSchema = z.strictObject({
   id: idSchema,
   at: z.iso.datetime(),

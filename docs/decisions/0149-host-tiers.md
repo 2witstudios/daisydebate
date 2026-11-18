@@ -1,4 +1,4 @@
-# 0147: Host tiers: free up to 16 entries, one payment per event
+# 0149: Host tiers: free up to 16 entries, one payment per event
 
 Status: accepted (owner decision 80, 2026-11-18; slice PYL S8 host-tiers,
 [epic plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/dvjf9nlzrhaojb2vw4n5ufrw),

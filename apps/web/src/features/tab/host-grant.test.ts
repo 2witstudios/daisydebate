@@ -169,7 +169,7 @@ describe('the host area', () => {
         'refuse before rendering without navigation or their actual area read, with no missing inventory entry',
       actual: storedPages.map((file) => {
         const source = readFileSync(join(app, file), 'utf8'),
-          // Host tiers' pages gate on Tab and host tiers together (ADR 0147).
+          // Host tiers' pages gate on Tab and host tiers together (ADR 0149).
           release = Math.max(
             source.indexOf('await requireTabRelease()'),
             source.indexOf('await requireHostTiersRelease()'),

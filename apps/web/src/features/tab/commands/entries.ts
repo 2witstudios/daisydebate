@@ -36,7 +36,7 @@ export type EntryPersonFacts = {
   readonly minor: boolean;
   /** Within the event's `entry.age_band`, from the account's age facts. */
   readonly withinAgeBand: boolean;
-  /** Their age band on the tournament's first day; null with no valid record (ADR 0147). */
+  /** Their age band on the tournament's first day; null with no valid record (ADR 0149). */
   readonly bandOnFirstDay: AgeBand | null;
   /** The event's divisions this person may enter. */
   readonly divisions: readonly string[];
@@ -143,7 +143,7 @@ export type EntryFacts = {
   readonly entry: EntryRowFacts | null;
   /**
    * The hosted tournament's tier and its accepted entries across every
-   * event (ADR 0147); null where no tier applies.
+   * event (ADR 0149); null where no tier applies.
    */
   readonly hosting: {
     readonly tier: HostingTier;

@@ -10,7 +10,7 @@ import {
  *
  * Premium's amount is billing's: the offer a new Checkout sells (ADR 0146),
  * read as a named input, so the quote and the charge cannot drift. Host's
- * are the hosting tiers' own (ADR 0147). Club and League prices move to
+ * are the hosting tiers' own (ADR 0149). Club and League prices move to
  * their owning features when S7 and S9 sell them.
  */
 export type HostEventUpgrade = {

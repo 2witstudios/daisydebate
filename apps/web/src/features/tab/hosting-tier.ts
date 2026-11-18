@@ -6,7 +6,7 @@ import {
 } from '@daisy/protocol/lobby/hosting-tier';
 
 /**
- * A hosted tournament's tier (ADR 0147). A league's tournament is covered by
+ * A hosted tournament's tier (ADR 0149). A league's tournament is covered by
  * the league and has no cap; a personal one is the highest tier paid for it,
  * or unlimited while the owner holds a current hosting grant that names it.
  */

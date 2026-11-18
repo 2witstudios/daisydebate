@@ -6,7 +6,7 @@ import type { TimelineRail } from './tournament';
 /**
  * Every item reflects an evaluated area, rather than the mere presence of a
  * role. `billing` is the tournament's hosting Billing, for its managers
- * while host tiers are released (ADR 0147).
+ * while host tiers are released (ADR 0149).
  */
 export function hostNavigationRail(
   view: HostNavigationView & { readonly billing?: boolean },

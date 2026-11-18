@@ -51,7 +51,7 @@ export const tournamentCaptureAdmissions = pgTable(
       () => accountHostingEntitlementVersions.id,
       { onDelete: 'restrict' },
     ),
-    /** The tournament's paid hosting purchase that funds it (ADR 0147). */
+    /** The tournament's paid hosting purchase that funds it (ADR 0149). */
     hostingPurchaseId: text('hosting_purchase_id').references(
       () => tournamentHostingPurchases.id,
       { onDelete: 'restrict' },

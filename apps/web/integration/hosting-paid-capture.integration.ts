@@ -9,7 +9,7 @@ import { committedEventRoom } from './tab-event-room-direction.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-test('a personal tournament paid for funds its own recording with no hosting grant (ADR 0147)', async () => {
+test('a personal tournament paid for funds its own recording with no hosting grant (ADR 0149)', async () => {
   const scratch = scratchDatabase(databaseUrl, 'paidcapture');
   await scratch.create();
   const owner = new SQL(scratch.url, { max: 4 });

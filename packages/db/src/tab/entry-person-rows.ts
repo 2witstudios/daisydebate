@@ -17,7 +17,7 @@ export const loadEntryPeople = async (
   tx: TabTransaction,
   scope: TenantScope,
   actorIds: readonly string[],
-  /** The tournament's first day: each person's age band is also read on it (ADR 0147). */
+  /** The tournament's first day: each person's age band is also read on it (ADR 0149). */
   firstDay: string,
 ) => {
   const people = actorIds.length
