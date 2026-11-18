@@ -82,7 +82,7 @@ export const helpTopics: readonly HelpTopic[] = [
   },
   {
     id: 'ranked-recorded',
-    question: 'Why are ranked rounds always recorded?',
+    question: 'Why are ranked rounds recorded?',
     answer:
       'Ranked rounds are the season’s record, and they are how debate finds an audience. Ranked rounds are broadcast and recorded, so results can be checked, rounds can be watched again, and the best moments become clips that promote debate. That is the deal for competing on the ladder, and you agree to it once a season in the content waiver. Prefer not to be recorded? Play casual: a non-ranked round belongs to the people in it. Your prep stays yours, and you can stream and post ranked rounds yourself with no royalty. There is no payment today; sharing revenue with debaters is a goal for a future program.',
     links: [

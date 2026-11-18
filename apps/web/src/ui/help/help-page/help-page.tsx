@@ -2,8 +2,9 @@ import Link from 'next/link';
 import type { HelpTopic } from '../../../features/help/topics';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
+import { OpenTopicFromHash } from './open-topic-from-hash';
 
-/** Common questions. Native disclosure, so it works without JavaScript. */
+/** Common questions. Native disclosure, so it works without JavaScript; a link to /help#topic opens its answer. */
 export function HelpPage({
   topics,
 }: {
@@ -19,8 +20,6 @@ export function HelpPage({
         {topics.map((topic) => (
           <li key={topic.id} className="rounded-xl bg-surface p-5 shadow-1">
             <details>
-              {/* The id sits inside the disclosure, so a link to /help#id
-                  opens its answer as the browser scrolls to it. */}
               <summary
                 id={topic.id}
                 className="cursor-pointer text-base font-bold text-ink"
@@ -43,6 +42,7 @@ export function HelpPage({
           </li>
         ))}
       </ul>
+      <OpenTopicFromHash topicIds={topics.map((topic) => topic.id)} />
     </ReadingPage>
   );
 }
