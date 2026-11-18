@@ -2,9 +2,17 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { leagueLadderSeatFits, seatableInRoom } from './league-ladder-seat';
 setupRitewayBun();
 
-const human = (division: 'open' | 'youth' | null) =>
-  ({ kind: 'human', division, eligible: true }) as const;
-const bot = { kind: 'bot', division: null, eligible: true } as const;
+type Actor = {
+  readonly kind: 'human' | 'bot';
+  readonly division: 'open' | 'youth' | null;
+  readonly eligible: boolean;
+};
+const human = (division: Actor['division']): Actor => ({
+  kind: 'human',
+  division,
+  eligible: true,
+});
+const bot: Actor = { kind: 'bot', division: null, eligible: true };
 
 test('leagueLadderSeatFits (PYL-16)', () => {
   const youth = { leagueDivision: 'youth' } as const;
