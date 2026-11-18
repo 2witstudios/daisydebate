@@ -10,14 +10,14 @@ Round is rewritten.
 `availability.probe_invalid` names what is wrong with the resources
 `ATTENDANCE_PUBLIC_PROBE` points at:
 
-| `cause`               | Meaning                                                                                                                               |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `round_missing`       | The synthetic Round no longer exists                                                                                                  |
-| `round_not_active`    | The synthetic Round has ended                                                                                                         |
-| `segment_missing`     | The configured segment is not in it                                                                                                   |
-| `participant_missing` | The configured seat is not in it                                                                                                      |
-| `check_failed`        | The check could not read them; it retries                                                                                             |
-| `session_rejected`    | Check-in answered 401: the probe's session is gone. The probe stops posting and stays unhealthy until a repaired secret and a restart |
+| `cause`               | Meaning                                                                                                                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `round_missing`       | The synthetic Round no longer exists                                                                                                                                                                       |
+| `round_not_active`    | The synthetic Round has ended                                                                                                                                                                              |
+| `segment_missing`     | The configured segment is not in it                                                                                                                                                                        |
+| `participant_missing` | The configured seat is not in it                                                                                                                                                                           |
+| `check_failed`        | The check could not read them; it retries                                                                                                                                                                  |
+| `session_rejected`    | Check-in answered 401: the probe's session is gone. Logged once per streak; the probe stays unhealthy and asks again after a minute, doubling to an hour, so a repaired session recovers without a restart |
 
 All but `session_rejected` describe the resources only. A healthy result here does not prove public
 ingress works: only a real check-in does.

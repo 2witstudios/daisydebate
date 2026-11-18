@@ -170,6 +170,8 @@ test('a session read that never answers never delays the probe (ISSUE-531)', asy
 test('a rejected session stops the probe asking, once reported', async () => {
   const calls: string[] = [];
   let reported = 0;
+  let now = 0;
+  let status = 401;
   const probe = createPublicCheckInProbe({
     configuration: {
       origin: 'http://localhost:13140',
@@ -179,13 +181,10 @@ test('a rejected session stops the probe asking, once reported', async () => {
       cookie: 'isolated-fixture-only',
     },
     nextId: () => 'd'.repeat(24),
-    nowMs: () => 0,
+    nowMs: () => now,
     fetch: async (url) => {
       calls.push(new URL(url).pathname);
-      return Response.json(
-        { error: { code: 'AUTHENTICATION' } },
-        { status: 401 },
-      );
+      return Response.json({ error: { code: 'AUTHENTICATION' } }, { status });
     },
     sessionRejected: () => {
       reported += 1;
@@ -206,6 +205,35 @@ test('a rejected session stops the probe asking, once reported', async () => {
       reported,
     },
     expected: { checkIns: 1, reported: 1 },
+  });
+  const checkIns = () =>
+    calls.filter((path) => path.endsWith('/check-in')).length;
+  now = 59_000;
+  await probe();
+  const beforeRetry = checkIns();
+  now = 60_000;
+  await probe();
+  const atRetry = checkIns();
+  now = 60_000 + 119_000;
+  await probe();
+  const insideDoubled = checkIns();
+  assert({
+    given: 'the session still rejected a minute later',
+    should: 'ask again at one minute, then wait twice as long, reporting once',
+    actual: { beforeRetry, atRetry, insideDoubled, reported },
+    expected: { beforeRetry: 1, atRetry: 2, insideDoubled: 2, reported: 1 },
+  });
+  status = 503;
+  now = 60_000 + 120_000;
+  await probe();
+  status = 401;
+  now += 1_000;
+  await probe();
+  assert({
+    given: 'the session accepted again (an outage answer), then a new 401',
+    should: 'end the streak and report the new rejection',
+    actual: reported,
+    expected: 2,
   });
 });
 

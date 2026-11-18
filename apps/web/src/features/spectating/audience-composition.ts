@@ -1,10 +1,7 @@
 import { identify } from '../../lib/identity';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import { passOf } from '../../lib/idle-backoff';
-import {
-  HOUSEKEEPING_IDLE_MAX_MS,
-  startWorkerLoop,
-} from '../../lib/worker-loop';
+import { startWorkerLoop } from '../../lib/worker-loop';
 import type { App } from '../../server/app';
 import type { AccountRouteDeps } from '../../server/account-route';
 import { createAudienceReactionRoute } from '../audience-reactions/handler';
@@ -92,9 +89,11 @@ export const startNotificationSweep = (app: App, timers: WorkerTimers) => {
   });
   return startWorkerLoop({
     run: () => sweep().then(passOf),
+    // A fixed cadence: an event falls due by the spectator clock, not a
+    // command, so followers hear within one pass of its release.
     backoff: {
       busyMs: NOTIFICATION_SWEEP_EVERY_MS,
-      idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS,
+      idleMaxMs: NOTIFICATION_SWEEP_EVERY_MS,
     },
     timers,
     failed: () =>

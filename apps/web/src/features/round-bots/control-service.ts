@@ -267,20 +267,16 @@ export function startBotControlService<C extends Claim>(input: {
   /** One discovery pass; it worked while any seat is owned or found. */
   const discover = async (): Promise<LoopPass> => {
     if (stopped) return 'idle';
-    let found = 0;
-    try {
-      const targets = await input.store.scanRoundBotWorkers(
-        input.limits.scanBatch,
-      );
-      found = targets.length;
-      for (const target of targets) {
-        if (stopped) break;
-        await claimTarget(target).catch(claimFailed);
-      }
-    } catch (error) {
-      failed(error, 'discover');
+    // A failed scan throws to the loop, which reports it and backs off even
+    // while seats are owned.
+    const targets = await input.store.scanRoundBotWorkers(
+      input.limits.scanBatch,
+    );
+    for (const target of targets) {
+      if (stopped) break;
+      await claimTarget(target).catch(claimFailed);
     }
-    return owned.size > 0 || found > 0 ? 'worked' : 'idle';
+    return owned.size > 0 || targets.length > 0 ? 'worked' : 'idle';
   };
   /**
    * Pulses each live seat with no pulse in flight, on its own: a seat whose

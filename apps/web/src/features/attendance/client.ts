@@ -101,39 +101,44 @@ export function createAttendanceClient(deps: {
       }
     }
   };
-  const adopt = (snapshot: Snapshot) => {
-    if (stopped || terminal) return;
+  /** Takes a snapshot's speeches; returns how many it had not seen before. */
+  const adopt = (snapshot: Snapshot): number => {
+    if (stopped || terminal) return 0;
     active = snapshot.status === 'active';
     if (!active) {
       terminal =
         snapshot.status === 'completed' || snapshot.status === 'abandoned';
       pending.clear();
-      return;
+      return 0;
     }
+    let added = 0;
     for (const segment of snapshot.segments)
       if (
         segment.type === 'speech' &&
         !pending.has(segment.id) &&
         !retired.has(segment.id)
-      )
+      ) {
         pending.set(segment.id, {
           segmentId: segment.id,
           commandId: deps.nextCommandId(),
           acknowledged: false,
         });
+        added += 1;
+      }
+    return added;
   };
   const refresh = async (force: boolean) => {
     if (stopped || terminal) return;
-    // A heartbeat inside the back-off waits; a reconnect never does.
-    if (!force && nowMs() < retryAtMs) return;
     const snapshot = await deps.read().catch(() => null);
     if (stopped || terminal) return;
     if (snapshot === 'signed-out') {
       signOut();
       return;
     }
-    if (snapshot) adopt(snapshot);
-    await send(force);
+    const added = snapshot ? adopt(snapshot) : 0;
+    // Inside the back-off a heartbeat still reads, so a new speech is sent at
+    // once; only retries of the failing ones wait. A reconnect never waits.
+    if (force || added > 0 || nowMs() >= retryAtMs) await send(force);
   };
   return {
     async update(snapshot: Snapshot) {

@@ -306,3 +306,30 @@ test('a slow failing send still retries on the heartbeat its wait names', async 
     expected: [0, 15_000, 45_000, 105_000],
   });
 });
+
+test('inside the back-off a new speech is still checked in at once', async () => {
+  let now = 0;
+  const sent: string[] = [];
+  let segments = [{ id: 'speech-a', type: 'speech' as const }];
+  const client = createAttendanceClient({
+    read: async () => ({ status: 'active', segments }),
+    nextCommandId: () => `command-${sent.length}`,
+    nowMs: () => now,
+    send: async ({ segmentId }) => {
+      sent.push(segmentId);
+      return segmentId === 'speech-b';
+    },
+  });
+  await client.heartbeat();
+  now = 15_000;
+  await client.heartbeat();
+  now = 30_000;
+  segments = [...segments, { id: 'speech-b', type: 'speech' as const }];
+  await client.heartbeat();
+  assert({
+    given: 'one speech failing into its back-off, then a new speech opening',
+    should: 'send the new speech on the next heartbeat',
+    actual: sent.includes('speech-b'),
+    expected: true,
+  });
+});

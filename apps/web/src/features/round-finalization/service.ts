@@ -197,54 +197,55 @@ export function startRoundMaintenance(input: MaintenancePorts) {
     }
     advance();
   };
-  /** Whether discovery found a due Round or has more pages to read. */
-  const discover = async (): Promise<boolean> => {
-    if (stopped) return false;
-    try {
-      const page = await input.discover();
-      if (!stopped) remember(page);
-      return page.roundIds.length > 0 || !page.cycleComplete;
-    } catch (error) {
-      input.failed(error, 'discover');
-      return false;
-    }
-  };
-  /** Whether the rating sweep rated a Round or has more pages to read. */
-  const recoverRatings = async (): Promise<boolean> => {
-    if (stopped) return false;
-    try {
-      return (await input.rateUnrated()) > 0;
-    } catch (error) {
-      input.failed(error, 'rate');
-      return false;
-    }
-  };
   /**
-   * One pulse: it worked while any Round is live, queued or due, so a live
-   * Round's deadlines keep the busy pace; idle only when nothing is live.
+   * One discovery pulse: it worked while any Round is live, queued or due,
+   * so a live Round's deadlines keep the busy pace; idle only when nothing
+   * is live. A failed read throws, so the loop reports it and backs off.
    */
   const pulse = async (): Promise<LoopPass> => {
-    const [due, rated] = await Promise.all([discover(), recoverRatings()]);
-    return due || rated || active.size > 0 || waiting.size > 0
+    if (stopped) return 'idle';
+    const page = await input.discover();
+    if (!stopped) remember(page);
+    return page.roundIds.length > 0 ||
+      !page.cycleComplete ||
+      active.size > 0 ||
+      waiting.size > 0
       ? 'worked'
       : 'idle';
   };
-  const loop = startWorkerLoop({
+  /**
+   * Rating recovery on its own loop, so a slow rating page never holds up
+   * discovering live Rounds. It worked while it rated or has pages left.
+   */
+  const rate = async (): Promise<LoopPass> =>
+    stopped ? 'idle' : (await input.rateUnrated()) > 0 ? 'worked' : 'idle';
+  const discovery = startWorkerLoop({
     run: pulse,
     backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => input.failed(error, 'discover'),
     wake: input.wake,
   });
+  const rating = startWorkerLoop({
+    run: rate,
+    backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
+    timers: input.timers,
+    failed: (error) => input.failed(error, 'rate'),
+    wake: input.wake,
+  });
   let closing: Promise<void> | undefined;
   return {
-    ready: loop.started,
+    ready: Promise.all([discovery.started, rating.started]).then(
+      () => undefined,
+    ),
     stop: () => {
       stopped = true;
       waiting.clear();
-      closing ??= loop.stop().then(async () => {
-        await Promise.all(active.values());
-      });
+      closing ??= Promise.all([discovery.stop(), rating.stop()]).then(
+        async () => {
+          await Promise.all(active.values());
+        },
+      );
       return closing;
     },
   };

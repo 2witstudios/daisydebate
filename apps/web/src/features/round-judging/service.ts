@@ -117,88 +117,88 @@ export function startRoundJudgingService<C extends Claim>(input: {
       }
     })();
   };
-  /** One discovery pass; it worked while any judging is held or found. */
+  /**
+   * One discovery pass; it worked while any judging is held or found. A
+   * failed discovery claims what the other kinds found, then throws, so the
+   * loop reports it and backs off even while judging is held.
+   */
   const scan = async (): Promise<LoopPass> => {
     if (stopped) return 'idle';
     let found = 0;
-    try {
-      const visited = new Set(entries.keys());
-      for (const entry of entries.values()) execute(entry);
-      const discoveries = await Promise.allSettled(
-        judgingWorkKinds.map((kind) =>
-          input.store.scanRoundJudgingJobs(input.limits.scanBatch, kind),
-        ),
-      );
-      const refused = discoveries.find(
-        (result) => result.status === 'rejected',
-      );
-      if (refused?.status === 'rejected') input.failed(refused.reason, 'scan');
-      const targets = discoveries.flatMap((result, index) =>
-        result.status === 'fulfilled'
-          ? result.value.filter(
-              (target) =>
-                Boolean(target.holdsBallot) ===
-                (judgingWorkKinds[index] === 'submission'),
-            )
-          : [],
-      );
-      for (const target of targets) {
-        if (stopped) break;
-        if (visited.has(key(target))) continue;
-        const workKind: JudgingWorkKind = target.holdsBallot
-          ? 'submission'
-          : 'generation';
-        const parallel =
-          workKind === 'submission'
-            ? judgingPolicy.submissionParallel
-            : input.limits.parallel;
-        if (
-          [...entries.values()].filter((entry) => entry.workKind === workKind)
-            .length >= parallel
-        )
-          continue;
-        if (entries.has(key(target))) continue;
-        if (
-          [...entries.values()].some(
-            (entry) => entry.claim.scope.roundId === target.roundId,
+    let refusal: { reason: unknown } | undefined;
+    const visited = new Set(entries.keys());
+    for (const entry of entries.values()) execute(entry);
+    const discoveries = await Promise.allSettled(
+      judgingWorkKinds.map((kind) =>
+        input.store.scanRoundJudgingJobs(input.limits.scanBatch, kind),
+      ),
+    );
+    const refused = discoveries.find((result) => result.status === 'rejected');
+    if (refused?.status === 'rejected') refusal = { reason: refused.reason };
+    const targets = discoveries.flatMap((result, index) =>
+      result.status === 'fulfilled'
+        ? result.value.filter(
+            (target) =>
+              Boolean(target.holdsBallot) ===
+              (judgingWorkKinds[index] === 'submission'),
           )
+        : [],
+    );
+    for (const target of targets) {
+      if (stopped) break;
+      if (visited.has(key(target))) continue;
+      const workKind: JudgingWorkKind = target.holdsBallot
+        ? 'submission'
+        : 'generation';
+      const parallel =
+        workKind === 'submission'
+          ? judgingPolicy.submissionParallel
+          : input.limits.parallel;
+      if (
+        [...entries.values()].filter((entry) => entry.workKind === workKind)
+          .length >= parallel
+      )
+        continue;
+      if (entries.has(key(target))) continue;
+      if (
+        [...entries.values()].some(
+          (entry) => entry.claim.scope.roundId === target.roundId,
         )
-          continue;
-        // Submitting a held ballot buys nothing, so it takes no provider slot.
-        const freeCapacity = target.holdsBallot
-          ? () => {}
-          : input.reserveCapacity();
-        // A later held reply needs no provider slot; still visit it.
-        if (!freeCapacity) continue;
-        try {
-          const claim = await input.store.claimRoundJudgingJob(target);
-          if (stopped) {
-            // A successful durable claim recovers by lease expiry. This
-            // process has not started execution; never clear an unfenced lease.
-            freeCapacity();
-            break;
-          }
-          const entry: Entry<C> = {
-            workKind,
-            claim,
-            freeCapacity,
-            abort: new AbortController(),
-            running: false,
-            work: Promise.resolve(),
-            refusals: 0,
-          };
-          entries.set(key(target), entry);
-          visited.add(key(target));
-          execute(entry);
-        } catch {
+      )
+        continue;
+      // Submitting a held ballot buys nothing, so it takes no provider slot.
+      const freeCapacity = target.holdsBallot
+        ? () => {}
+        : input.reserveCapacity();
+      // A later held reply needs no provider slot; still visit it.
+      if (!freeCapacity) continue;
+      try {
+        const claim = await input.store.claimRoundJudgingJob(target);
+        if (stopped) {
+          // A successful durable claim recovers by lease expiry. This
+          // process has not started execution; never clear an unfenced lease.
           freeCapacity();
-          /* Discovery is advisory; another process may win the claim. */
+          break;
         }
+        const entry: Entry<C> = {
+          workKind,
+          claim,
+          freeCapacity,
+          abort: new AbortController(),
+          running: false,
+          work: Promise.resolve(),
+          refusals: 0,
+        };
+        entries.set(key(target), entry);
+        visited.add(key(target));
+        execute(entry);
+      } catch {
+        freeCapacity();
+        /* Discovery is advisory; another process may win the claim. */
       }
-      found = targets.length;
-    } catch (error) {
-      input.failed(error, 'scan');
     }
+    found = targets.length;
+    if (refusal) throw refusal.reason;
     return entries.size > 0 || found > 0 ? 'worked' : 'idle';
   };
   const renew = (): Promise<void> => {

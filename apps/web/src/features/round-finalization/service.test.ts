@@ -3,6 +3,29 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMaintenance } from './service';
 import { createRefusal } from '@daisy/errors';
 import { inertTimers } from '../../lib/worker-timers.test-support';
+
+/** Maintenance's two loops (discovery, rating): a pulse fires every armed pass. */
+const pulseTimers = () => {
+  const armed = new Map<object, () => unknown>();
+  return {
+    timers: {
+      ...inertTimers,
+      setTimeout: (run: () => unknown) => {
+        const handle = {};
+        armed.set(handle, run);
+        return handle;
+      },
+      clearTimeout: (handle: unknown) => {
+        armed.delete(handle as object);
+      },
+    },
+    pulse: async () => {
+      const due = [...armed.values()];
+      armed.clear();
+      await Promise.all(due.map((run) => run()));
+    },
+  };
+};
 setupRitewayBun();
 /** A pass that reached a decision, as the store returns it. */
 const decided = (decision: 'forfeit' | 'abandoned' | 'attended') =>
@@ -101,8 +124,9 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
   const held = gate(),
     rediscovered = gate(),
     order: string[] = [];
-  let pulse = () => {},
-    scans = 0,
+  const driver = pulseTimers();
+  const { pulse } = driver;
+  let scans = 0,
     ratings = 0;
   const service = startRoundMaintenance({
     ...ports(),
@@ -126,13 +150,7 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
       ratings += 1;
       return 0;
     },
-    timers: {
-      ...inertTimers,
-      setTimeout: (next) => {
-        pulse = async () => void (await next());
-        return 1;
-      },
-    },
+    timers: driver.timers,
   });
   await service.ready;
   pulse();
@@ -204,9 +222,10 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
 test('a five-Round fleet leaves capacity for public work and advances queued Rounds fairly', async () => {
   const held = gate(),
     calls: string[] = [];
+  const driver = pulseTimers();
+  const { pulse } = driver;
   let running = 0,
-    maximum = 0,
-    pulse = () => {};
+    maximum = 0;
   const service = startRoundMaintenance({
     ...ports(),
     discover: async () => page(['a', 'b', 'c', 'd', 'e']),
@@ -217,13 +236,7 @@ test('a five-Round fleet leaves capacity for public work and advances queued Rou
       await held.promise;
       running -= 1;
     },
-    timers: {
-      ...inertTimers,
-      setTimeout: (next) => {
-        pulse = async () => void (await next());
-        return 1;
-      },
-    },
+    timers: driver.timers,
   });
   await service.ready;
   assert({
@@ -287,23 +300,17 @@ const flush = async () => {
 };
 /** A service whose pulse and clock the test drives. */
 function driven(overrides: Partial<Ports>) {
-  let pulse: () => Promise<void> = async () => {};
+  const driver = pulseTimers();
   let clock = 0;
   const service = startRoundMaintenance({
     ...ports(),
-    timers: {
-      ...inertTimers,
-      setTimeout: (run: () => unknown) => {
-        pulse = async () => void (await run());
-        return 1;
-      },
-    },
+    timers: driver.timers,
     now: () => clock,
     ...overrides,
   });
   return {
     service,
-    pulse: () => pulse(),
+    pulse: () => driver.pulse(),
     advance: (ms: number) => {
       clock += ms;
     },

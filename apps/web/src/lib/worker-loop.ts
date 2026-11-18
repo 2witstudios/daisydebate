@@ -77,7 +77,12 @@ export function startWorkerLoop(input: {
       .then(
         (found): LoopOutcome => found,
         (error: unknown): LoopOutcome => {
-          input.failed(error);
+          // A reporter that throws must never stop the loop for good.
+          try {
+            input.failed(error);
+          } catch {
+            /* The next pass reports again. */
+          }
           return 'failed';
         },
       )

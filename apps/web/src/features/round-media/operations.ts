@@ -406,8 +406,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
      * Starts the Rounds that need a pass and are not already recovering here,
      * and resolves when those finish. A tick does not wait for the last one, so
      * one Round's slow pass never delays another's floor (ISSUE-972).
+     * `listed` hears the live sessions' Rounds before any recovery runs.
      */
-    /** `listed` hears the live sessions' Rounds before any recovery runs. */
     async recoverActiveSessions(
       listed?: (roundIds: readonly string[]) => void,
     ) {

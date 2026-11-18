@@ -1,7 +1,6 @@
 import type { WorkerTimers } from '../../lib/worker-timers';
 import { passOf } from '../../lib/idle-backoff';
 import {
-  HOUSEKEEPING_IDLE_MAX_MS,
   LIVE_IDLE_MAX_MS,
   startWorkerLoop,
   type WorkWake,
@@ -47,10 +46,9 @@ export const startBroadcastSweep = (
   });
   const factLog = startWorkerLoop({
     run: () => factLogSweep().then(passOf),
-    backoff: {
-      busyMs: FACT_LOG_EVERY_MS,
-      idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS,
-    },
+    // A fixed cadence: a fact leaves by the spectator clock, not a command,
+    // and its release time must be no later than one pass after (BCAST-5).
+    backoff: { busyMs: FACT_LOG_EVERY_MS, idleMaxMs: FACT_LOG_EVERY_MS },
     timers,
     failed: () => log('spectator.fact_log_failed'),
     wake,

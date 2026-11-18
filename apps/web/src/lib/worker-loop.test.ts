@@ -250,3 +250,29 @@ test('stop waits for the pass in flight and arms nothing after', async () => {
     expected: { armed: 0, passes: 1 },
   });
 });
+
+test('a reporter that throws never stops the loop', async () => {
+  const clock = manualOneShot();
+  let passes = 0;
+  const loop = startWorkerLoop({
+    run: async () => {
+      passes += 1;
+      throw new Error('store down');
+    },
+    backoff: { busyMs: 100, idleMaxMs: 800 },
+    timers: clock.timers,
+    failed: () => {
+      throw new Error('reporter down');
+    },
+  });
+  await loop.started;
+  await settle();
+  await clock.fire();
+  await loop.stop();
+  assert({
+    given: 'a failing pass whose failure report also throws',
+    should: 'keep arming passes',
+    actual: { passes, waits: clock.waits },
+    expected: { passes: 2, waits: [100, 200] },
+  });
+});

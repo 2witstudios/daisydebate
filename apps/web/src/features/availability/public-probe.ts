@@ -14,6 +14,9 @@ export type PublicCheckInProbeConfiguration = {
  * slides a session read this way once it is older than its update age.
  */
 export const PROBE_SESSION_REFRESH_MS = 60 * 60_000;
+/** After a 401 the probe asks again after this, doubling to the cap. */
+export const PROBE_REJECTED_RETRY_MS = 60_000;
+const PROBE_REJECTED_RETRY_CAP_MS = 60 * 60_000;
 /** Credentials enter only from the process edge; missing configuration remains unhealthy. */
 export function createPublicCheckInProbe(input: {
   readonly configuration: PublicCheckInProbeConfiguration | null;
@@ -22,9 +25,10 @@ export function createPublicCheckInProbe(input: {
   readonly nowMs: () => number;
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
   /**
-   * Check-in answered 401: the probe's session is gone and no retry can
-   * revive it, only a repaired secret and a restart. Called once; the probe
-   * then reports unhealthy without asking again.
+   * Check-in answered 401: the probe's session is gone. Called once per
+   * streak of rejections. The probe then reports unhealthy without asking,
+   * and asks again after a minute, doubling to an hour, so a repaired
+   * session or a spurious 401 recovers without a restart.
    */
   readonly sessionRejected?: () => void;
 }): () => Promise<boolean> {
@@ -45,7 +49,9 @@ export function createPublicCheckInProbe(input: {
   )
     throw new Error('Invalid public check-in probe configuration');
   let refreshedAtMs: number | null = null;
-  let rejected = false;
+  /** The rejection streak: when to ask again, and the wait after that. */
+  let rejection: { readonly askAtMs: number; readonly waitMs: number } | null =
+    null;
   // Its outcome never decides health: only the check-in receipt does.
   const slideSession = async () => {
     const now = input.nowMs();
@@ -72,7 +78,7 @@ export function createPublicCheckInProbe(input: {
     }
   };
   return async () => {
-    if (rejected) return false;
+    if (rejection && input.nowMs() < rejection.askAtMs) return false;
     // Not awaited: the session read never delays this second's sample.
     void slideSession();
     const commandId = input.nextId();
@@ -97,10 +103,15 @@ export function createPublicCheckInProbe(input: {
       );
       if (response.status === 401) {
         await response.body?.cancel();
-        if (!rejected) input.sessionRejected?.();
-        rejected = true;
+        if (!rejection) input.sessionRejected?.();
+        const waitMs = rejection
+          ? Math.min(PROBE_REJECTED_RETRY_CAP_MS, rejection.waitMs * 2)
+          : PROBE_REJECTED_RETRY_MS;
+        rejection = { askAtMs: input.nowMs() + waitMs, waitMs };
         return false;
       }
+      // Anything but a 401 ends the streak: the session was accepted.
+      rejection = null;
       if (!response.ok) return false;
       const parsed = attendanceReceiptSchema.safeParse(await response.json());
       return (

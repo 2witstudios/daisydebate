@@ -52,19 +52,13 @@ export function startRoundAnalysisService(input: {
   const scan = async (): Promise<LoopPass> => {
     if (abort.signal.aborted) return 'idle';
     if (running.size >= input.limits.parallel) return 'worked';
-    let found = 0;
-    try {
-      const seats = await input.scan(input.limits.scanBatch);
-      found = seats.length;
-      for (const seat of seats) {
-        if (abort.signal.aborted || running.size >= input.limits.parallel)
-          break;
-        if (!running.has(seat.roundParticipantId)) start(seat);
-      }
-    } catch (error) {
-      input.failed(error, 'scan');
+    // A failed scan throws to the loop, which reports it and backs off.
+    const seats = await input.scan(input.limits.scanBatch);
+    for (const seat of seats) {
+      if (abort.signal.aborted || running.size >= input.limits.parallel) break;
+      if (!running.has(seat.roundParticipantId)) start(seat);
     }
-    return running.size > 0 || found > 0 ? 'worked' : 'idle';
+    return running.size > 0 || seats.length > 0 ? 'worked' : 'idle';
   };
   const discovery = startWorkerLoop({
     run: scan,
