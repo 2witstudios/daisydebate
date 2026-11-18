@@ -30,7 +30,9 @@ loop retried every tick and filled Sentry with deadline-expired errors
 
    The caps are 10 s for loops on a live Round's path (judging, bots, Round
    and Room maintenance, media recovery, Broadcast and recording capture)
-   and 60 s for housekeeping. A loop with a fixed cadence (billing economics
+   and 60 s for housekeeping. Room maintenance gets no wake (its work, a
+   Room idle past the timeout, is made by the clock, not a command), so its
+   cap alone bounds it. A loop with a fixed cadence (billing economics
    hourly, the cleanup monitor each minute) sets the cap equal to `busyMs`.
 
 3. **What counts as work.** A live-Round loop reports `worked` while
@@ -49,10 +51,12 @@ loop retried every tick and filled Sentry with deadline-expired errors
    | `analysis` | an analysis is requested                     |
 
    The web process LISTENs on one more dedicated connection
-   (`WORKLOAD_PROFILES.web.dedicated` goes from 1 to 2). A wake runs the
-   loops for that kind at once and resets their back-off. A wake that
-   arrives during a pass runs one more pass straight after it. When the
-   LISTEN is established or re-established, every loop is woken once.
+   (`WORKLOAD_PROFILES.web.dedicated` goes from 1 to 2). A wake resets the
+   back-off of the loops for that kind and brings their next pass forward,
+   never sooner than `busyMs` after the last pass started. Wakes in between
+   coalesce into that one pass, so however often Rounds are written, the
+   busy interval stays a rate ceiling. When the LISTEN is established or
+   re-established, every loop is woken once.
 
 5. **Wakes are lossy.** A wake is a hint: it grants nothing and carries no
    row. A lost wake costs at most the loop's idle cap. If the LISTEN cannot

@@ -62,6 +62,9 @@ export function createAttendanceClient(deps: {
       return;
     }
     inFlight = (async () => {
+      // Measured from the send's start: heartbeats tick exactly 15 s apart,
+      // so the retry tick is not skipped by a request's own latency.
+      const startedAt = nowMs();
       let failed = false;
       for (const item of [...pending.values()].reverse()) {
         if (!active) break;
@@ -86,7 +89,7 @@ export function createAttendanceClient(deps: {
         }
       }
       failures = failed ? failures + 1 : 0;
-      retryAtMs = nowMs() + attendanceRetryWaitMs(failures);
+      retryAtMs = startedAt + attendanceRetryWaitMs(failures);
     })();
     try {
       await inFlight;

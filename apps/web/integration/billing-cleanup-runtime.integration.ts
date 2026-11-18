@@ -160,6 +160,7 @@ for (const mapped of [false, true])
           clearTimeout: (handle) => {
             cleared.push(handle);
           },
+          now: () => 0,
         },
         fetch: transport,
       });

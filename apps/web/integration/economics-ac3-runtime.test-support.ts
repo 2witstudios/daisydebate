@@ -46,6 +46,7 @@ export function manualWorkerTimers() {
   let next = 0;
   const tasks = new Map<number, () => Promise<void>>();
   const timers: WorkerTimers = {
+    now: () => 0,
     setInterval: (task) => {
       const id = ++next;
       tasks.set(id, task);

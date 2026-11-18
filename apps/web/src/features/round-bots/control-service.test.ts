@@ -102,6 +102,7 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers: {
+      now: () => 0,
       setInterval: () => 0,
       clearInterval: () => {},
       setTimeout: (run) => tasks.push(async () => void (await run())),

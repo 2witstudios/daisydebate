@@ -88,6 +88,7 @@ for (const mode of ['valid', 'provider-error'] as const)
             timers.add(handle);
             return handle;
           },
+          now: () => performance.now(),
           setTimeout: (run, ms) => {
             const handle = setTimeout(() => void run(), ms);
             timers.add(handle);

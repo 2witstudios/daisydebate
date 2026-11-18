@@ -8,7 +8,10 @@ export function manualTimers() {
   const tasks = new Map<number, () => Promise<void>>();
   const waits: number[] = [];
   const shots = new Map<object, number>();
+  // Firing a one-shot advances the clock by its wait, as real time would.
+  let clock = 0;
   const timers: WorkerTimers = {
+    now: () => clock,
     setInterval: (task, ms) => {
       tasks.set(ms, task);
       return ms;
@@ -24,6 +27,7 @@ export function manualTimers() {
         if (!shots.has(handle)) return;
         shots.delete(handle);
         tasks.delete(ms);
+        clock += ms;
         await run();
       });
       return handle;
@@ -61,6 +65,7 @@ export function failureLog() {
 
 /** Timers that never fire: a worker runs only its start-up pass. */
 export const inertTimers: WorkerTimers = {
+  now: () => 0,
   setInterval: () => 1,
   clearInterval: () => {},
   setTimeout: () => 1,
@@ -69,6 +74,7 @@ export const inertTimers: WorkerTimers = {
 
 /** The process's own timers, for integration proofs that run in real time. */
 export const realWorkerTimers: WorkerTimers = {
+  now: () => performance.now(),
   setInterval: (task, ms) => setInterval(() => void task(), ms),
   clearInterval: (handle) =>
     clearInterval(handle as ReturnType<typeof setInterval>),
@@ -87,6 +93,7 @@ export const withOneShots = (intervals: {
   readonly clearInterval: WorkerTimers['clearInterval'];
 }): WorkerTimers => ({
   ...intervals,
+  now: () => 0,
   setTimeout: (run, ms) =>
     intervals.setInterval(async () => void (await run()), ms),
   clearTimeout: intervals.clearInterval,

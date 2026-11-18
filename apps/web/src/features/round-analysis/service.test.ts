@@ -14,6 +14,7 @@ const manualTimers = () => {
   return {
     tick: () => Promise.all([...tasks].map((task) => task())),
     timers: {
+      now: () => 0,
       setInterval: (task: () => Promise<void>) => tasks.push(task),
       clearInterval: () => {
         tasks.length = 0;

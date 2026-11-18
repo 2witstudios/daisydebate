@@ -279,3 +279,30 @@ test('the retry wait doubles from the heartbeat to a one-minute cap', async () =
     expected: [0, 15_000, 30_000, 60_000, 60_000, 60_000],
   });
 });
+
+test('a slow failing send still retries on the heartbeat its wait names', async () => {
+  let now = 0;
+  const attempts: number[] = [];
+  const client = createAttendanceClient({
+    read: async () => snapshot,
+    nextCommandId: () => 'command',
+    nowMs: () => now,
+    send: async () => {
+      if (!attempts.includes(now)) attempts.push(now);
+      now += 200;
+      return false;
+    },
+  });
+  await client.update(snapshot);
+  for (let tick = 15_000; tick <= 120_000; tick += 15_000) {
+    now = tick;
+    await client.heartbeat();
+  }
+  assert({
+    given: 'sends that take 200 ms and always fail, heartbeats every 15 s',
+    should: 'retry at 15 s, then 30 s and 60 s later, not a heartbeat late',
+    // Each pass sends both speeches' check-ins, 200 ms apart: its first marks it.
+    actual: attempts.filter((at) => at % 1_000 === 0),
+    expected: [0, 15_000, 45_000, 105_000],
+  });
+});

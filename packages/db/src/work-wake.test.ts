@@ -1,6 +1,12 @@
 import type { SQL } from 'bun';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { subscribeWorkWakes, type WorkKind } from './work-wake';
+import {
+  notifyWork,
+  subscribeWorkWakes,
+  WORK_CHANNEL,
+  type WorkKind,
+} from './work-wake';
 
 setupRitewayBun();
 
@@ -49,9 +55,32 @@ test('work wakes pass known kinds and drop anything else', async () => {
     should: 'deliver only known kinds, and nothing once closed',
     actual: { channel: fake.channel(), kinds, listens },
     expected: {
-      channel: 'daisy_work',
+      channel: WORK_CHANNEL,
       kinds: ['judging', 'round', 'analysis'],
       listens: 1,
     },
+  });
+});
+
+test('a wake is sent on the channel the listener hears', async () => {
+  const sent: unknown[][] = [];
+  await notifyWork(
+    {
+      execute: async (query) => {
+        sent.push(new PgDialect().sqlToQuery(query).params);
+      },
+    },
+    'judging',
+  );
+  const fake = fakeClient();
+  await subscribeWorkWakes(fake.client, {
+    onNotify: () => {},
+    onListen: () => {},
+  });
+  assert({
+    given: 'a judging wake and a listener',
+    should: 'notify and listen on the same channel',
+    actual: { notifies: sent, listens: fake.channel() },
+    expected: { notifies: [[WORK_CHANNEL, 'judging']], listens: WORK_CHANNEL },
   });
 });

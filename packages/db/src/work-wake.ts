@@ -9,7 +9,8 @@ import { sql } from 'drizzle-orm';
  */
 export const WORK_KINDS = ['round', 'judging', 'analysis'] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];
-const CHANNEL = 'daisy_work';
+/** The one channel; `subscribeWorkWakes` spells it as a literal (lint), tested equal. */
+export const WORK_CHANNEL = 'daisy_work';
 
 const isWorkKind = (payload: string): payload is WorkKind =>
   (WORK_KINDS as readonly string[]).includes(payload);
@@ -22,7 +23,7 @@ export async function notifyWork(
   tx: { readonly execute: (query: ReturnType<typeof sql>) => Promise<unknown> },
   kind: WorkKind,
 ): Promise<void> {
-  await tx.execute(sql`select pg_notify(${CHANNEL}, ${kind})`);
+  await tx.execute(sql`select pg_notify(${WORK_CHANNEL}, ${kind})`);
 }
 
 export type WorkWakeHandlers = {
@@ -40,6 +41,8 @@ export async function subscribeWorkWakes(
   handlers: WorkWakeHandlers,
 ): Promise<{ readonly unlisten: () => Promise<void> }> {
   let closed = false;
+  // A literal, as the bind-safety lint rule requires of `listen`; the test
+  // pins it to WORK_CHANNEL so the two can never drift apart.
   const subscription = await client.listen(
     'daisy_work',
     (payload: string) => {

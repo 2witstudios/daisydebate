@@ -98,6 +98,7 @@ export const passBallotDeadline = (sql: SQL, roundId: string) =>
   });
 
 export const maintenanceTestTimers = {
+  now: () => performance.now(),
   setInterval: (pulse: () => void, ms: number) => {
     const handle = setInterval(pulse, ms);
     return () => clearInterval(handle);

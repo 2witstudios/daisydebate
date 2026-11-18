@@ -5,9 +5,12 @@ import {
   type LoopOutcome,
   type LoopPass,
 } from './idle-backoff';
-import type { OneShotTimer } from './worker-timers';
+import type { LoopTimers } from './worker-timers';
 
-/** Idle caps by urgency: a live Round loop is also woken, housekeeping is not. */
+/**
+ * Idle caps by urgency. Live-Round loops are woken where a command creates
+ * their work; Room maintenance and housekeeping rely on the cap alone.
+ */
 export const LIVE_IDLE_MAX_MS = 10_000;
 export const HOUSEKEEPING_IDLE_MAX_MS = 60_000;
 
@@ -19,16 +22,18 @@ export type WorkWake = {
 /**
  * Every polling background worker's loop (ADR 0154). One pass at a time in
  * this process: it runs at once, then after a wait the idle back-off sets
- * from what each pass found. A wake runs a pass now, or once more straight
- * after the pass in flight, and resets the back-off; the back-off cap bounds
- * how late a lost wake can make work. A failed pass is reported and backs
- * off like an empty one. Other instances may run the same loop; each
- * caller's store keeps them off each other's work.
+ * from what each pass found. A wake resets the back-off and brings the next
+ * pass forward, but never sooner than `busyMs` after the last pass started:
+ * wakes in between coalesce into that one pass, so the busy interval stays a
+ * rate ceiling however often work is created. The back-off cap bounds how
+ * late a lost wake can make work. A failed pass is reported and backs off
+ * like an empty one. Other instances may run the same loop; each caller's
+ * store keeps them off each other's work.
  */
 export function startWorkerLoop(input: {
   readonly run: () => Promise<LoopPass>;
   readonly backoff: IdleBackoff;
-  readonly timers: OneShotTimer;
+  readonly timers: LoopTimers;
   readonly failed: (error: unknown) => void;
   readonly wake?: WorkWake | undefined;
 }) {
@@ -38,6 +43,18 @@ export function startWorkerLoop(input: {
   let handle: unknown = null;
   let waitMs: number | null = null;
   let wokenDuringPass = false;
+  let lastStartedAt: number | null = null;
+  /** How long until a pass may start without exceeding the busy rate. */
+  const untilPaced = () =>
+    lastStartedAt === null
+      ? 0
+      : Math.max(0, lastStartedAt + backoff.busyMs - input.timers.now());
+  /** Run a woken pass now if the busy rate allows it, else as soon as it does. */
+  const passWhenPaced = () => {
+    const delay = untilPaced();
+    if (delay === 0) void pass();
+    else arm(delay);
+  };
   const disarm = () => {
     if (handle === null) return;
     input.timers.clearTimeout(handle);
@@ -54,6 +71,7 @@ export function startWorkerLoop(input: {
     if (stopped) return Promise.resolve();
     if (running) return running;
     disarm();
+    lastStartedAt = input.timers.now();
     running = input
       .run()
       .then(
@@ -69,7 +87,7 @@ export function startWorkerLoop(input: {
         if (wokenDuringPass) {
           wokenDuringPass = false;
           waitMs = null;
-          void pass();
+          passWhenPaced();
           return;
         }
         waitMs = nextWaitMs(backoff, waitMs, outcome);
@@ -84,13 +102,13 @@ export function startWorkerLoop(input: {
       return;
     }
     waitMs = null;
-    void pass();
+    passWhenPaced();
   };
   const unsubscribe = input.wake?.subscribe(wake);
   const started = pass();
   return {
     started,
-    /** Work may be waiting: pass now and reset the back-off. */
+    /** Work may be waiting: reset the back-off and pass as soon as the busy rate allows. */
     wake,
     async stop() {
       stopped = true;

@@ -122,6 +122,7 @@ const oneShotTimer: OneShotTimer = {
 /** Process timers for the background workers; `unref` never holds the process open. */
 const workerTimers: WorkerTimers = {
   ...oneShotTimer,
+  now: () => performance.now(),
   setInterval: (tick, ms) =>
     setInterval(() => {
       void tick();
