@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "28cdf211-900d-41bb-8d04-33f46f34df35",
+  "id": "56133a47-932d-4bff-a4e4-96bb3d005344",
   "prevIds": [
     "243bde54-28cf-4a8d-9dce-3b0f5aaec056"
   ],
@@ -9179,6 +9179,32 @@
       "generated": null,
       "identity": null,
       "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "form_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "fields_digest",
       "entityType": "columns",
       "schema": "public",
       "table": "league_requests"
@@ -27985,6 +28011,34 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "ladders"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "form_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "fields_digest",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_requests_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_requests"
     },
     {
       "nameExplicit": true,
@@ -48572,6 +48626,13 @@
     {
       "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'not-owed')",
       "name": "league_requests_error_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"fields_digest\" ~ '^[0-9a-f]{64}$'",
+      "name": "league_requests_digest_check",
       "entityType": "checks",
       "schema": "public",
       "table": "league_requests"

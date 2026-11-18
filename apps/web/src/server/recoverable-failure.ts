@@ -100,7 +100,11 @@ export function recoverableFailure(input: {
   };
 }
 
-/** The process's worker failure sinks: its logger, clock and ids, with real pool backpressure. */
+/**
+ * The process's worker failure sinks: its logger, clock and ids, with real
+ * pool backpressure. A `terminal` sink is for work nothing will retry: its
+ * capacity refusals are reported at once, never deferred.
+ */
 export const workerFailures =
   (app: App, reporter: ErrorReporter = noopErrorReporter) =>
   (
@@ -108,12 +112,13 @@ export const workerFailures =
     operation: string,
     message: string,
     cause?: (error: unknown) => string | undefined,
+    { terminal = false }: { readonly terminal?: boolean } = {},
   ) =>
     recoverableFailure({
       logger: app.logger,
       reporter,
       nextId: () => app.ids.next(),
-      isCapacity: isCapacityRefusal,
+      isCapacity: terminal ? () => false : isCapacityRefusal,
       isLeaseLapse: isServiceLeaseLapse,
       event,
       operation,

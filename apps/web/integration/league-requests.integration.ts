@@ -169,6 +169,8 @@ test('a resend never changes a stored request', async () => {
     unchanged.push((await send(request)).status);
   const corrected = { ...request, contactEmail: 'dana.w@example.test' };
   const edited = await send(corrected);
+  // Its answer lost too: the corrected version, sent again, is stored once.
+  const editedAgain = await send(corrected);
   await notices().run(10);
   const rows = (await withSql(
     (sql) =>
@@ -182,12 +184,12 @@ test('a resend never changes a stored request', async () => {
 
   assert({
     given:
-      'a sent request resent unchanged five times, then under its id with a corrected email',
+      'a sent request resent unchanged five times, then under its id with a corrected email, twice',
     should:
       'take every resend without spending allowance, keep the first as it was, and store the correction as a new request the owner also gets',
     actual: {
       unchanged,
-      edited: edited.status,
+      edited: [edited.status, editedAgain.status],
       rows: rows.map(({ id, contact_email, state }) => ({
         first: id === request.requestId,
         contact_email,
@@ -200,7 +202,7 @@ test('a resend never changes a stored request', async () => {
     },
     expected: {
       unchanged: [200, 200, 200, 200, 200],
-      edited: 200,
+      edited: [200, 200],
       rows: [
         { first: true, contact_email: 'dana@example.test', state: 'sent' },
         { first: false, contact_email: 'dana.w@example.test', state: 'sent' },

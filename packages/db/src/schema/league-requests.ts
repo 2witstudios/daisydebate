@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import {
   leagueRequestDivisions,
   leagueRequestLimits,
@@ -31,6 +31,10 @@ export const leagueRequests = pgTable(
   'league_requests',
   {
     id: text('id').primaryKey(),
+    /** The id the sent form carried; its first version is stored under it. */
+    formId: text('form_id').notNull(),
+    /** SHA3-256 of the request's fields: one row per version of a form. */
+    fieldsDigest: text('fields_digest').notNull(),
     leagueName: text('league_name').notNull(),
     schools: text('schools').notNull(),
     seasons: text('seasons').notNull(),
@@ -70,6 +74,14 @@ export const leagueRequests = pgTable(
         and (${table.contactPhone} is null or char_length(${table.contactPhone}) between 1 and ${sql.raw(String(leagueRequestLimits.contactPhone))})`,
     ),
     ...mailJobChecks('league_requests', table, leagueRequestNoticeErrorCodes),
+    uniqueIndex('league_requests_version_idx').on(
+      table.formId,
+      table.fieldsDigest,
+    ),
+    check(
+      'league_requests_digest_check',
+      sql`${table.fieldsDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
     index('league_requests_due_idx').on(table.state, table.nextAttemptAt),
     index('league_requests_created_idx').on(table.createdAt),
   ],
