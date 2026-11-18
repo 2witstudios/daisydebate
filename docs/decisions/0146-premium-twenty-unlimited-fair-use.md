@@ -43,15 +43,19 @@ usedThisPeriod)` in `packages/auth/src/allowance.ts` returns `allow`,
    refunded and credited use never counts, as before.
 4. **Reads carry only the decision.** The Room's `botAdmission` is the
    refusal or null; `aiJudgeSeating` is `free`, `included`, `premium` (the
-   free one is used), `with-bot` (the free AI judge comes only with the free
-   bot Round) or `fair-use`; the analysis view adds `fair-use`; billing
-   settings carry no usage at all. No count, limit or period leaves the
+   free one is used, including when bound to another Round), `with-bot` (the
+   free AI judge comes only with the free bot Round), `not-included` (any
+   other refusal) or `fair-use`; the analysis view says `locked` only for a
+   spent free analysis and adds `fair-use`; billing settings carry no usage
+   at all. No count, limit or period leaves the
    decision, and the contract schemas refuse one.
 5. **The new price.** `premium-price.ts` names the offer a new Checkout
    sells: USD 2000 minor units a month, Stripe lookup key
-   `daisy_premium_monthly_usd_20`. Checkout verifies the session's price by
-   amount and lookup key, so a deployment still configured with the old
-   price refuses the session rather than selling it.
+   `daisy_premium_monthly_usd_20`. A session Checkout creates must be that
+   offer, by amount and lookup key, so a deployment still configured with the
+   old price refuses it rather than selling it. Reading back a session that
+   already exists also accepts the grandfathered offer, so a Checkout opened
+   before the change and paid after it completes.
    `STRIPE_PREMIUM_PRICE_ID` must name the new price (PYL-19, owner).
 6. **Existing subscribers keep their price.** Subscription, invoice and
    closure reads accept the grandfathered USD 10 offer as well as the new
@@ -60,12 +64,15 @@ usedThisPeriod)` in `packages/auth/src/allowance.ts` returns `allow`,
    subscription keeps verifying against its own price. Moving existing
    subscribers to USD 20 stays an open owner decision.
 7. **Billing shows the plan, not usage.** A verified observation's
-   cancel-at-period-end and price amount are stored beside the evidence
+   renewal-off (cancel at period end or on a set `cancel_at` date) and price
+   amount are stored beside the evidence
    (`billing_subscriptions.renewal_off`, `amount_minor`), for display only:
-   access still comes from verified evidence alone. The billing page shows
-   three states: paying yourself (price and renewal date), cancelled
-   (renewal off, Premium until the paid end, Keep Premium) and paid by a
-   club (a state S7's Club seats will produce). Card digits are never
+   access still comes from verified evidence alone. Rows fill on each
+   customer's next scheduled reconciliation. The billing page shows paying
+   yourself (price and renewal date), cancelled (renewal off, Premium until
+   the paid end, Keep Premium), Premium granted by beta access (nothing to
+   pay, no checkout) and paid by a club (a state S7's Club seats will
+   produce). Card digits are never
    stored, so the page shows none. The checkout return confirms Premium
    only when current evidence shows it; otherwise the pending notice stays.
 8. **Upgrade panels in place.** A free account sees one panel at each of
