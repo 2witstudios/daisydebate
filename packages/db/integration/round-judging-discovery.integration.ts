@@ -27,6 +27,8 @@ const failure = {
 // ISSUE-1435: the lane filter applies before LIMIT and the page size is a
 // parameter, so a full page of older uncached Rounds at PAGE proves the same
 // ordering as one at the 64 maximum, without seeding 65 Rounds one by one.
+// Measured ~1.0 s idle (3.7 s at the old page of 64); the 10 s budget leaves
+// headroom for the remaining per-Round seed on loaded CI hosts.
 const PAGE = 4;
 
 test('cached discovery is independent of a full page of older uncached Rounds', async () => {
@@ -74,7 +76,7 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
         await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });
-});
+}, 10_000);
 
 test('concurrent judge claims serialize one active operation per Round', async () => {
   await withJudgingJob(
