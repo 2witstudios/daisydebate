@@ -1,7 +1,6 @@
 import type { Ladder, RatingDivision } from '@daisy/protocol';
 import { noLadderReason } from '../../../../../features/play/ladder-division-words';
 import { ladderKey } from '@daisy/protocol';
-import { styleLabels } from '../../../../../features/ratings/ladder-labels';
 import type { MemberStanding } from '../../../../../features/ratings/read-member';
 import {
   markedRating,
@@ -64,9 +63,7 @@ const heading = 'text-xs font-semibold tracking-wide text-ink-faint uppercase';
 function LadderRow({ row }: { readonly row: RailLadderRow }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-sm text-ink-muted">
-        {styleLabels[row.ladder.style]}
-      </dt>
+      <dt className="text-sm text-ink-muted">Rating</dt>
       <dd
         className={cn(
           'text-sm font-semibold text-ink tabular-nums',

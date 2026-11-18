@@ -28,16 +28,20 @@ export default async function LobbyPage({
   if (!parsed.success) throw createAppError('VALIDATION');
   // Only the rows' actions and the landing lobby read it; the Room's own seat
   // check decides.
-  const viewerDivision = await requestMemberDivision().catch(() => null);
+  const division = requestMemberDivision().catch(() => null);
+  const others = Promise.all([
+    requestActiveRoom(),
+    actorId === null ? [] : hostedRoomsRead(),
+  ]);
+  const viewerDivision = await division;
   // A member lands in their own lobby unless the URL names one (ADR 0156).
   const query = {
     ...parsed.data,
     division: parsed.data.division ?? lobbyOf({ division: viewerDivision }),
   };
-  const [listing, activeRoom, hosted] = await Promise.all([
+  const [listing, [activeRoom, hosted]] = await Promise.all([
     roomListing(query),
-    requestActiveRoom(),
-    actorId === null ? [] : hostedRoomsRead(),
+    others,
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = Date.parse(systemClock.now());

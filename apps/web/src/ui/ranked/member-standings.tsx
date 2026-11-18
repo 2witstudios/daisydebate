@@ -1,7 +1,6 @@
 import { ladderBoardHref } from '../../features/leaderboard/query';
 import Link from 'next/link';
 import type { SeasonHistoryRow } from '../../features/profile/season-history';
-import { styleLabels } from '../../features/ratings/ladder-labels';
 import type { MemberStanding } from '../../features/ratings/read-member';
 import {
   markedRating,
@@ -51,7 +50,7 @@ function LadderCard({ standing }: { readonly standing: MemberStanding }) {
           href={ladderBoardHref(standing.ladder.division)}
           className="font-strong text-ink no-underline hover:underline"
         >
-          {styleLabels[standing.ladder.style]}
+          Rating
         </Link>
         <span className="text-xs text-ink-muted">
           {standing.current ? `${standing.season} · current` : 'History'}

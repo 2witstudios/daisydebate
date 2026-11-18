@@ -136,7 +136,6 @@ export const loadStandingRoomDraft = async (
     : [];
   // A league's Rooms are in its division (ADR 0156); Daisy runs every
   // division and carries none, so its own standing Rooms are Open.
-  await scopeTransaction(tx, scope);
   const [owner] = await tx
     .select({ division: organizations.leagueDivision })
     .from(organizations)

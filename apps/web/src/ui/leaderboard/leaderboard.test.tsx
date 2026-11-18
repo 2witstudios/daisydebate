@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -133,13 +134,13 @@ describe('Leaderboard', () => {
     assert({
       given: 'the Youth ladder asked for',
       should:
-        'show no ladder badge or audience line, and keep the Seasons link on the division',
+        'name no ladder, style or division outside the lobby switch, and keep the Seasons link on the division',
       actual: [
+        ladderCopyIn(youth),
         youth.includes('Members under 18'),
-        youth.includes('Youth – Freestyle'),
         youth.includes('href="/leaderboard/seasons?division=youth&amp;season='),
       ],
-      expected: [false, false, true],
+      expected: [null, false, true],
     });
   });
 

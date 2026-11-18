@@ -68,14 +68,15 @@ const sectionLabels: Readonly<Record<RowState, string>> = {
 };
 
 /**
- * Where someone without a seat watches a live Round: its public page. Only a
- * seatless host lists a Round that is not public, and that page admits them by
- * its link alone, so they keep the Round's own guarded page.
+ * Where someone without a seat watches a live Round: an Open public Round's
+ * public page. A Youth Room's Round has no public page (ADR 0156), and only a
+ * seatless host lists a Round that is not public; that host keeps the Round's
+ * own guarded page, which admits them.
  */
 const watchHrefOf = (entry: RoomListEntry): string => {
   const round = entry.roundRef;
   if (!round) return watchRoutes.hub;
-  return entry.visibility === 'public'
+  return entry.visibility === 'public' && entry.division === 'open'
     ? liveHref(round.id)
     : `/rounds/${round.id}`;
 };

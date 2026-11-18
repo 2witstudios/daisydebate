@@ -5,7 +5,6 @@ import {
   noLadderReason,
   rankedRoomLadder,
 } from '../../features/play/ladder-division-words';
-import { styleLabels } from '../../features/ratings/ladder-labels';
 import type { MemberStanding } from '../../features/ratings/read-member';
 import { provisionalMarkClass } from '../../features/ratings/provisional-mark';
 import { Badge } from '../components/badge/badge';
@@ -39,7 +38,7 @@ export const rankedLadderView = (
 
 /**
  * The Ranked page's ratings, as YRanked and YRankedAdult draw them: one
- * Freestyle rating, no division named. With no age on record, the age prompt.
+ * rating, named by no ladder, style or division (owner copy, ADR 0156). With no age on record, the age prompt.
  */
 export function RankedLadders({
   standings,
@@ -63,7 +62,7 @@ export function RankedLadders({
               href={ladderBoardHref(view.ladder.division)}
               className="font-strong text-ink no-underline hover:underline"
             >
-              {styleLabels[view.ladder.style]}
+              Rating
             </Link>
             {view.season ? (
               <span className="text-xs text-ink-muted">{view.season}</span>

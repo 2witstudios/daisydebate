@@ -238,6 +238,10 @@ const startRows = (changeVersion = 1) => [
   [],
   [],
   [[readyRoom.id]], // the host's active membership is this Room's
+  [
+    { id: caller.actorId, division: null },
+    { id: secondActorId, division: null },
+  ], // the seated debaters still fit the Room's lobby (ADR 0156)
   [[null]], // the source Room has no league ladder selection to freeze
   [],
   [],

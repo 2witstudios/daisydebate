@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { MemberStanding } from '../../features/ratings/read-member';
@@ -17,7 +18,7 @@ const standing = (over: Partial<MemberStanding>): MemberStanding => ({
 });
 
 describe('MemberStandings', () => {
-  test('a member who turned 18: one Freestyle card, then every season (YProfile)', () => {
+  test('a member who turned 18: one Rating card, then every season (YProfile, generic copy)', () => {
     const html = renderToString(
       <MemberStandings
         standings={[standing({})]}
@@ -41,13 +42,13 @@ describe('MemberStandings', () => {
       should:
         'show one Freestyle card, then the season with its facts, naming no division',
       actual: [
-        html.includes('>Freestyle</a>'),
+        html.includes('>Rating</a>'),
         html.includes('Fall 2026 · current'),
         html.includes('1500*'),
         html.includes('>Provisional<'),
         html.includes('Season history'),
         html.includes('#12 of 388 · 31–12'),
-        html.includes('Youth') || html.includes('Open'),
+        ladderCopyIn(html) ?? (html.includes('Youth') || html.includes('Open')),
         html.includes('text-hue-plum'),
       ],
       expected: [true, true, true, true, true, true, false, false],

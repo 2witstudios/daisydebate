@@ -1,5 +1,3 @@
-import type { Ladder } from '@daisy/protocol';
-import { styleLabels } from '../../features/ratings/ladder-labels';
 import type { RoundRatingsView } from '../../features/ratings/read-round';
 import {
   markedRating,
@@ -11,9 +9,9 @@ import { cn } from '../cn';
 export const signedChange = (change: number): string =>
   change > 0 ? `+${change}` : change < 0 ? `−${-change}` : '0';
 
-/** A posted change names the style it moved, never a division: "Freestyle +14". */
-export const ladderChangeText = (ladder: Ladder, change: number): string =>
-  `${styleLabels[ladder.style]} ${signedChange(change)}`;
+/** A posted change, naming no ladder, style or division: "+14". */
+export const ladderChangeText = (change: number): string =>
+  signedChange(change);
 
 /** Gains read green, losses clay, no change quiet. */
 export const changeToneClass = (change: number): string =>
@@ -30,9 +28,7 @@ export function RoundRatings({
       aria-label="Round ratings"
       className="flex flex-col gap-3 rounded-xl bg-surface p-4 shadow-1"
     >
-      <h2 className="text-base font-bold">
-        {`Ranked · ${styleLabels[view.ladder.style]} · ${view.season}`}
-      </h2>
+      <h2 className="text-base font-bold">{`Ranked · ${view.season}`}</h2>
       {view.posting === 'rated' ? <p>Rated</p> : null}
       {view.posting === 'pending' ? (
         <p role="status">Rating update pending</p>
@@ -62,7 +58,7 @@ export function RoundRatings({
                       changeToneClass(row.delta),
                     )}
                   >
-                    {` ${ladderChangeText(view.ladder, row.delta)}`}
+                    {` ${ladderChangeText(row.delta)}`}
                   </span>
                 )}
               </dd>

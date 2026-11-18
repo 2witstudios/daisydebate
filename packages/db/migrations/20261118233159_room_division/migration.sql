@@ -3,8 +3,9 @@
 -- launched Round's ladder division (a ranked Round froze one at Start); a
 -- league lobby Room's league division; a tournament Room's age division
 -- (the `entry.age_division` lobby setting, Open by default); else their
--- host's division from the stored birth month, read now (adult is Open, any
--- younger band Youth); else Open (no host, or no age record).
+-- host's division from the stored birth month, aged as the runtime ages it
+-- (ADR 0147 §3: on the active Youth season's start, bounded by the record and
+-- a 12-month carry; adult is Open, any younger band Youth); else Open.
 -- It reads and writes no rating and cannot refuse.
 ALTER TABLE "rooms" ADD COLUMN "division" text;--> statement-breakpoint
 UPDATE "rooms" AS r SET "division" = coalesce(
@@ -19,7 +20,10 @@ UPDATE "rooms" AS r SET "division" = coalesce(
         AND s.key = 'entry.age_division' AND s.value->>'value' IN ('open', 'youth')
       LIMIT 1),
     'open') END,
-  (SELECT CASE public.daisy_age_band(aa.birth_month, aa.version, aa.recorded_at, clock_timestamp())
+  (SELECT CASE (CASE WHEN public.daisy_age_band(aa.birth_month, aa.version, aa.recorded_at, clock_timestamp()) IS NULL THEN NULL
+      ELSE public.daisy_age_band(aa.birth_month, aa.version, aa.recorded_at, least(clock_timestamp(), greatest(
+        coalesce((SELECT youth.starts_at FROM seasons youth WHERE youth.status = 'active' AND youth.division = 'youth' AND youth.organization_id = 'fo05z182lha0a3usciy9wr2r'), clock_timestamp()),
+        aa.recorded_at, clock_timestamp() - make_interval(months => 12)))) END)
       WHEN 'adult' THEN 'open'
       WHEN '16-17' THEN 'youth'
       WHEN '13-15' THEN 'youth'

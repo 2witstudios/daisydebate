@@ -1,5 +1,6 @@
 import type { RoomCreator } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
+import { clubOrganizationKinds } from './billing-owner-lock';
 import { readDivisionOf } from './media-release-records';
 import { rowsOf } from './raw-rows';
 import type { Tx } from './room-command-facts';
@@ -25,7 +26,7 @@ export async function readRoomCreator(
     sql`select exists (
         select 1 from organizations o
         where o.owner_user_id = ${userId} and o.closed_at is null
-          and o.kind in ('school', 'family')
+          and o.kind in ${sql.raw(`(${clubOrganizationKinds.map((kind) => `'${kind}'`).join(', ')})`)}
       ) or exists (
         select 1 from memberships m join organizations o on o.id = m.organization_id
         join grants g on g.organization_id = o.id and g.user_id = m.user_id

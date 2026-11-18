@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
@@ -165,12 +166,8 @@ describe('Dashboard ladder words', () => {
       given: 'a youth member on Home',
       should:
         'show Play with only its title and tagline, and Leaderboard with its shipped tagline, naming no division',
-      actual: [
-        play,
-        html.includes('Freestyle ladders.'),
-        html.includes('The season ladder.'),
-      ],
-      expected: [`${playTile?.title}${playTile?.description}`, false, true],
+      actual: [play, ladderCopyIn(html), html.includes('The season ladder.')],
+      expected: [`${playTile?.title}${playTile?.description}`, null, true],
     });
   });
 });

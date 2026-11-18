@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
@@ -361,10 +362,10 @@ describe('Lobby', () => {
         new RegExp(
           `href="/rooms/${id('c')}"[^>]*aria-label="Judge: Judge wanted"[^>]*>Judge</a>`,
         ).test(html),
+        ladderCopyIn(html, { format: true }),
         html.includes('Freestyle</span>'),
-        html.includes('under 18'),
       ],
-      expected: [true, false, true, false, false],
+      expected: [true, false, true, null, false],
     });
   });
 

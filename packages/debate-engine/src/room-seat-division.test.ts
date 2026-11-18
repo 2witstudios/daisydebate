@@ -131,3 +131,27 @@ test('a debater seat is for the Room’s own lobby (ADR 0156)', () => {
     expected: ['seated', 'seated'],
   });
 });
+
+test('an event Room seats the cast its entries admitted', () => {
+  const room = { ...roomIn('open'), hostActorId: null };
+  const outcome = executeRoomCommand(
+    room,
+    'organiser',
+    {
+      type: 'assign-seat',
+      commandId: 'cast',
+      expectedVersion: room.version,
+      actorId: 'member',
+      seat: sideSeat('negative'),
+    },
+    consent,
+    { ...edges, target: member('youth', sideSeat('negative')) },
+  );
+  assert({
+    given:
+      'an Open event Room seating an entrant the event admitted, whose carried division still reads Youth',
+    should: 'not refuse them on the lobby rule',
+    actual: !outcome.ok && outcome.refusal === 'other-division',
+    expected: false,
+  });
+});

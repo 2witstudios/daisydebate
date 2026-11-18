@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../../../../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -103,7 +104,7 @@ describe('railSeason', () => {
 });
 
 describe('AccountRatings', () => {
-  test('one Freestyle rating, no division named (YHomeActive)', async () => {
+  test('one Rating, naming no ladder, style or division (YHomeActive)', async () => {
     const html = await render(
       Promise.resolve({
         state: 'ready',
@@ -117,13 +118,13 @@ describe('AccountRatings', () => {
     assert({
       given: 'a youth member rated provisionally on their own ladder',
       should:
-        'title the section with the season, show Freestyle starred, and name no division',
+        'title the section with the season, show the Rating starred, and name no ladder, style or division',
       actual: [
         html.includes('Ranked · Fall 2026'),
-        html.includes('>Freestyle</dt>'),
+        html.includes('>Rating</dt>'),
         html.includes('1530*'),
         html.includes('title="Provisional rating"'),
-        html.includes('Youth') || html.includes('Open') || html.includes('18'),
+        ladderCopyIn(html) ?? (html.includes('Youth') || html.includes('Open')),
       ],
       expected: [true, true, true, true, false],
     });

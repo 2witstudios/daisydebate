@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { noLadderReason } from '../../features/play/ladder-division-words';
@@ -24,7 +25,7 @@ const standing = (
 const text = (html: string) => html.replaceAll('&#x27;', "'");
 
 describe('RankedLadders', () => {
-  test('one Freestyle rating, no division named (YRanked, YRankedAdult)', () => {
+  test('one Rating, naming no ladder, style or division (YRanked, generic copy)', () => {
     const youth = text(
       renderToString(
         <RankedLadders
@@ -47,18 +48,18 @@ describe('RankedLadders', () => {
     assert({
       given: 'a youth member rated 1512 and an adult provisional at 1490',
       should:
-        'show one Freestyle card each with the season and rating, and no Youth, Open, lock or ladder copy',
+        'show one Rating card each with the season and rating, and no ladder, style or division copy',
       actual: [
-        youth.includes('>Freestyle</a>'),
+        youth.includes('>Rating</a>'),
         youth.includes('Fall 2026'),
         youth.includes('1512'),
         adult.includes('1490*'),
         adult.includes('Provisional'),
         [youth, adult].some(
           (html) =>
+            ladderCopyIn(html) !== null ||
             html.includes('Youth') ||
             html.includes('Open') ||
-            html.includes('18') ||
             html.includes('Your ladder'),
         ),
         (youth.match(/<li/g) ?? []).length,

@@ -420,3 +420,25 @@ test('a Youth Room’s live Round has no public audience; an Open one does (ADR 
     });
   });
 });
+
+test('Start refuses a seated debater who no longer fits the Room’s lobby', async () => {
+  await withRoomRuntime(async (f) => {
+    const cast = await f.freshCast();
+    await setAge(f, cast.host, 'seventeen');
+    await setAge(f, cast.guest, 'seventeen');
+    const room = await f.assemble({}, cast);
+    // The guest's division changes while seated: their age record is corrected.
+    await setAge(f, cast.guest, 'adult');
+    const started = await refusalOf(
+      f.command(cast.host, room, { type: 'start-round' }),
+    );
+    const rounds =
+      await f.sql`select count(*)::int as c from rounds where room_id=${room.id}`;
+    assert({
+      given: 'a Youth Room whose seated debater is now on record as an adult',
+      should: 'refuse Start as the other lobby’s seat and launch no Round',
+      actual: { started, rounds: rounds[0]!.c },
+      expected: { started: 'other-division', rounds: 0 },
+    });
+  });
+});

@@ -1,3 +1,5 @@
+import { playOptions } from '../../../features/play/options';
+import { ladderCopyIn } from '../../test-support/ladder-copy.test-support';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { PlayOption } from '../../../features/play/options';
@@ -32,5 +34,16 @@ describe('PlayChoices', () => {
       ],
       expected: [true, true],
     });
+  });
+});
+
+test('the Play options name no ladder, style or division (owner copy)', () => {
+  assert({
+    given: 'every way to play the Lobby offers',
+    should: 'use generic words only',
+    actual: ladderCopyIn(
+      renderToStaticMarkup(<PlayChoices options={playOptions} />),
+    ),
+    expected: null,
   });
 });

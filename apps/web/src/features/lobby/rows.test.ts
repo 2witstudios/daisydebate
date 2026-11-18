@@ -166,12 +166,13 @@ describe('rowActions', () => {
     assert({
       given:
         'a live Youth Round read by an outsider, then by its seatless host',
-      should: 'offer no action to the outsider and Watch to the host',
+      should:
+        'offer no action to the outsider, and Watch on the Round’s own page to the host',
       actual: [
         rowActions(minor, youth, 'live'),
         rowActions({ actorId: id('b'), division: 'open' }, youth, 'live'),
       ],
-      expected: [[], [watch(`/watch/${id('c')}`)]],
+      expected: [[], [watch(`/rounds/${id('c')}`)]],
     });
   });
 

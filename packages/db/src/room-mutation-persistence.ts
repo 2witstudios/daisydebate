@@ -24,6 +24,7 @@ import { oweRoundStarted } from './round-began';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 import { freezeRoomBallot } from './room-ballot-freeze';
 import { columnsOfSeat } from './seat-columns';
+import { refuseDebatersOffDivision } from './room-start-division';
 
 import {
   appendRoomChanged,
@@ -122,6 +123,7 @@ export const persistRoomMutation = async (
   if (mutation.freeze) {
     // The engine named the Round this Start launches, and the status it launches in.
     if (next.status !== 'started') throw createAppError('INVARIANT');
+    await refuseDebatersOffDivision(tx, next);
     const plan = next.executionPlan;
     const prepMs = plan.preRoundPrep.enabled
       ? plan.preRoundPrep.durationMs

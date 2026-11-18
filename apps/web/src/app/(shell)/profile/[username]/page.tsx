@@ -70,7 +70,10 @@ export default async function ProfileRoute({
   ]);
   const ladders = {
     memberDivision: ownDivision,
-    theirDivision: currentDivisionOf(standings),
+    // Their ratings name their lobby only once they are rated this season.
+    // Unrated, it is unknown here: Challenge is offered as inside one's own
+    // lobby, and the send decides under the pair's lock (ADR 0156).
+    theirDivision: currentDivisionOf(standings) ?? ownDivision,
   };
   const live = await requestLiveRoundsOf([profile.username]);
   const toward = !profile.me && !profile.closed;
