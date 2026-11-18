@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   acquisitionCommands,
   dropStageCommand,
+  verifyArchivesCommand,
   listsReusable,
   offlineCheckCommand,
   preparationDeadline,
@@ -132,6 +133,25 @@ describe('primary Ubuntu mirror recovery', () => {
         'https://archive.ubuntu.com/ubuntu/\tpriority:2',
         'https://security.ubuntu.com/ubuntu/\tpriority:3',
       ],
+    });
+  });
+});
+
+describe('archive verification', () => {
+  test('an unreadable archive is deleted, and the archives after it are still checked', () => {
+    const script = verifyArchivesCommand().at(-1)!;
+    assert({
+      given: 'the verification loop under sh -e',
+      should: 'turn a failed dpkg-deb read into an empty field, never an exit',
+      actual: [
+        script.includes(
+          'package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""',
+        ),
+        script.includes(
+          'version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""',
+        ),
+      ],
+      expected: [true, true],
     });
   });
 });

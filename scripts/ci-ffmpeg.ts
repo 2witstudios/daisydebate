@@ -96,7 +96,10 @@ export const verifyArchivesCommand = () => [
     'kept=0; removed=0',
     'for deb in /var/cache/apt/archives/*.deb; do',
     '  [ -f "$deb" ] || continue',
-    '  package=$(dpkg-deb -f "$deb" Package); version=$(dpkg-deb -f "$deb" Version)',
+    // Under sh -e an unreadable archive must not end the loop: it reads as
+    // no package, matches nothing in the index and is deleted.
+    '  package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""',
+    '  version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""',
     '  actual=$(sha256sum "$deb" | cut -d " " -f 1)',
     `  if apt-cache show "$package=$version" 2>/dev/null | grep -qx "SHA256: $actual"; then kept=$((kept + 1)); else rm -f "$deb"; removed=$((removed + 1)); fi`,
     'done',
@@ -146,7 +149,7 @@ export const refreshStageCommand = (
     '-ec',
     [
       // Only the versions now installed, so older images' .debs do not pile up.
-      `for deb in ${quote(next.archives)}/*.deb; do [ -f "$deb" ] || continue; package=$(dpkg-deb -f "$deb" Package); version=$(dpkg-deb -f "$deb" Version); if [ "$(dpkg-query -W -f='\${Version}' "$package" 2>/dev/null || true)" != "$version" ]; then rm "$deb"; fi; done`,
+      `for deb in ${quote(next.archives)}/*.deb; do [ -f "$deb" ] || continue; package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""; version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""; if [ "$(dpkg-query -W -f='\${Version}' "$package" 2>/dev/null || true)" != "$version" ]; then rm "$deb"; fi; done`,
       `mkdir -p ${quote(next.lists)}`,
       `find /var/lib/apt/lists -maxdepth 1 -type f ! -name lock -exec cp {} ${quote(next.lists)}/ \\;`,
       // Written last: lists are reused only beside it.

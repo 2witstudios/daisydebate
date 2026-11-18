@@ -257,9 +257,9 @@ jobs:
         run: |
           read -r started _ < /proc/uptime
           sudo -n --preserve-env=ImageOS,ImageVersion "$(command -v bun)" scripts/ci-ffmpeg.ts "$started" "$HOME/.cache/daisy-ffmpeg-apt"
-          # The helper drops a restored stage it will not reuse, so an image
-          # file here means this run staged (or installed offline from) it.
-          if [ -f "$HOME/.cache/daisy-ffmpeg-apt/image" ]; then echo "staged=true" >> "$GITHUB_OUTPUT"; fi
+          # Only an entry naming this exact image is saved under its key, even
+          # if dropping a restored stage from another image failed.
+          if [ "$(cat "$HOME/.cache/daisy-ffmpeg-apt/image" 2>/dev/null)" = "$ImageOS/$ImageVersion" ]; then echo "staged=true" >> "$GITHUB_OUTPUT"; fi
       # Saved straight after preparation, so a later test failure still keeps
       # the warm cache. The four shards race for one key; the losers only warn.
       - name: Save ffmpeg packages
