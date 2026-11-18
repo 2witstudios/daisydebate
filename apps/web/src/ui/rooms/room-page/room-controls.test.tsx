@@ -129,3 +129,44 @@ test('everyone else', () => {
     expected: [false, true, true, 2],
   });
 });
+
+test('a free host reaching for a capture switch sees the upgrade panel, and nothing posts', async () => {
+  const { mountBrowserClient } =
+    await import('../../test-support/browser-client.test-support');
+  const client = await mountBrowserClient<
+    typeof import('./room-controls.test-support')
+  >(Bun.resolveSync('./room-controls.test-support', import.meta.dir), {
+    URL,
+    URLSearchParams,
+    performance,
+    process: { env: { NODE_ENV: 'test' } },
+  });
+  try {
+    await client.act(async () =>
+      client.root.render(client.createElement(client.FreeHostControls)),
+    );
+    const panel = () =>
+      client.container.textContent?.includes(
+        'Recording and broadcast are Premium',
+      ) ?? false;
+    const before = panel();
+    const record = client.container.querySelector(
+      '#room-recording',
+    ) as unknown as { click: () => void; checked: boolean };
+    await client.act(async () => record.click());
+    assert({
+      given: 'a free casual host who clicks the Record switch',
+      should:
+        'show the Premium panel in place, leave the switch off and post no capture command',
+      actual: {
+        before,
+        after: panel(),
+        checked: record.checked,
+        posted: client.posted.length,
+      },
+      expected: { before: false, after: true, checked: false, posted: 0 },
+    });
+  } finally {
+    await client.act(async () => client.root.unmount());
+  }
+});

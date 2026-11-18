@@ -139,7 +139,7 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
         practice.view.participants.map((p) => [p.seat, p.kind]),
         practice.view.aiJudgeSeating,
       ],
-      expected: [0, [[sideSeat(negativeSide), 'bot']], 'premium'],
+      expected: [0, [[sideSeat(negativeSide), 'bot']], 'not-included'],
     });
   });
 });

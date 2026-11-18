@@ -58,7 +58,7 @@ test('without JavaScript, a member without the casual AI judge practises with a 
     expect(room.participants.map((p) => [p.seat, p.kind])).toEqual([
       [sideSeat(negativeSide), 'bot'],
     ]);
-    expect(room.aiJudgeSeating).toBe('premium');
+    expect(room.aiJudgeSeating).toBe('not-included');
     // PYL-11: the upgrade panel in place of the old notice.
     await expect(
       page

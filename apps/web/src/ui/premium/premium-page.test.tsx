@@ -18,7 +18,6 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
       'No counters to watch.',
       'Human debate stays free',
       'one bot Round, one AI-judged casual Round and one requested Round analysis, ever',
-      'at $10 per seat a month',
       'after Premium ends',
       'visibility rules',
     ].filter((text) => !html.includes(text)),

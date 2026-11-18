@@ -174,3 +174,22 @@ test('released purchases are plain POST forms at the new price', () => {
     expected: [true, true, false, true],
   });
 });
+
+test('beta-granted Premium has nothing to pay and no checkout', () => {
+  const text = words(
+    renderToString(
+      <BillingSettingsPage settings={{ ...settings, plan: 'granted' }} />,
+    ),
+  );
+  assert({
+    given: 'Premium from beta access',
+    should: 'say it is included and offer no purchase or counter',
+    actual: [
+      text.includes('Daisy Premium'),
+      text.includes('included with your beta access'),
+      text.includes('Get Premium'),
+      text.includes('Free account'),
+    ],
+    expected: [true, true, false, false],
+  });
+});

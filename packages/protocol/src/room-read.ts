@@ -100,17 +100,21 @@ const roomViewFields = z.strictObject({
   hostLabel: z.string().nullable(),
   /**
    * Host-only display of what seating an AI judge means here (WATCH-16):
-   * free on ranked, included for an entitled casual host, else premium. The
-   * seat command rechecks it under the host's fence. Null for anyone else.
-   */
-  /**
-   * What seating an AI judge means for this host: free (ranked, or the free
-   * bot Round's judge), included (Premium), premium (the free one is used),
-   * with-bot (the free one comes only with the free bot Round) or fair-use
-   * (today's abuse ceiling is reached). Never a count.
+   * free (ranked, or the free bot Round's judge), included (Premium),
+   * premium (the free one is used), with-bot (the free one comes only with
+   * the free bot Round), not-included (the account holds no AI judging for
+   * any other reason) or fair-use (today's abuse ceiling). Never a count.
+   * The seat command rechecks it under the host's fence. Null for anyone else.
    */
   aiJudgeSeating: z
-    .enum(['free', 'included', 'premium', 'with-bot', 'fair-use'])
+    .enum([
+      'free',
+      'included',
+      'premium',
+      'with-bot',
+      'not-included',
+      'fair-use',
+    ])
     .nullable(),
   /**
    * This viewer's standing on the season's content waiver (WATCH-15), for a

@@ -56,6 +56,21 @@ test('a free host whose AI judge comes with the bot Round is told so', () => {
   });
 });
 
+test('a host refused for another reason gets the panel without a false "used" claim', () => {
+  const html = text(render('not-included', 1, 'casual'));
+  assert({
+    given: 'a casual host whose account holds no AI judging (a lapsed grant)',
+    should: 'show the Premium panel and never say a free Round was used',
+    actual: [
+      html.includes('AI judging on casual Rounds is Premium'),
+      html.includes('href="/premium"'),
+      html.includes('You’ve used'),
+      html.includes('comes with your free bot Round'),
+    ],
+    expected: [true, true, false, false],
+  });
+});
+
 test('the host is told plainly what judging is available', () => {
   assert({
     given: 'a ranked host, a free casual bot bundle and a host at the ceiling',
@@ -84,8 +99,16 @@ test('only free and included seating offers the AI judge', () => {
     given: 'each seating',
     should: 'offer the AI judge only when free or included',
     actual: (
-      ['free', 'included', 'premium', 'with-bot', 'fair-use', null] as const
+      [
+        'free',
+        'included',
+        'premium',
+        'with-bot',
+        'not-included',
+        'fair-use',
+        null,
+      ] as const
     ).map(aiJudgeSeatable),
-    expected: [true, true, false, false, false, false],
+    expected: [true, true, false, false, false, false, false],
   });
 });

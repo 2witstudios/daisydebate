@@ -2,6 +2,7 @@ import type Stripe from 'stripe';
 import {
   canManageBilling,
   canPurchasePremium,
+  holdsGrantedPremium,
 } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
@@ -57,6 +58,11 @@ export function composeNativeBilling(
     memberStore: app.database.billingMember({
       manage: canManageBilling,
       purchase: canPurchasePremium,
+      granted: (grants, now) =>
+        holdsGrantedPremium(grants, {
+          now,
+          betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
+        }),
     }),
     release: (key, accountId) =>
       createRequestFlagReader({

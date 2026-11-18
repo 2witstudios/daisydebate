@@ -22,10 +22,11 @@ export async function roomAiJudgeSeating(
       case 'free-judge-unbound':
         return 'with-bot';
       case 'free-limit-reached':
+        return 'premium';
       case 'not-eligible':
       case 'renewal-grace':
       case 'invalid-facts':
-        return 'premium';
+        return 'not-included';
     }
   return decision.reservations.some((entry) => entry.source.kind === 'lifetime')
     ? 'free'

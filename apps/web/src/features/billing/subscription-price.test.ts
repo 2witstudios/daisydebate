@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { normalizeSubscriptionObservation } from './subscription-observation';
+import {
+  normalizeSubscriptionObservation,
+  observedTerms,
+} from './subscription-observation';
 import {
   identity,
   subscription,
@@ -77,18 +80,27 @@ test('an invoice settles a period only at its own subscription amount', () => {
   });
 });
 
-test('renewal off is carried from the verified observation', () => {
-  const observed = observe(
-    { ...priced(2000), cancel_at_period_end: true },
-    billed(2000),
-  );
+test('renewal is off at the period end or on a set cancel date', () => {
+  const terms = (over: Record<string, unknown>) => {
+    const observed = observe({ ...priced(2000), ...over }, billed(2000));
+    return observed.kind === 'observed'
+      ? [observed.evidence.settlement.kind, observedTerms(observed)]
+      : null;
+  };
   assert({
-    given: 'a $20 subscriber who turned renewal off in the portal',
-    should: 'keep paid access and report cancel at period end',
-    actual:
-      observed.kind === 'observed'
-        ? [observed.evidence.settlement.kind, observed.cancelAtPeriodEnd]
-        : null,
-    expected: ['paid', true],
+    given:
+      'a $20 subscriber renewing, cancelling at period end, and cancelled for a set date',
+    should:
+      'keep paid access in each case and store renewal off for both cancellations, at $20',
+    actual: [
+      terms({}),
+      terms({ cancel_at_period_end: true }),
+      terms({ cancel_at: subscription.items.data[0]!.current_period_end }),
+    ],
+    expected: [
+      ['paid', { renewalOff: false, amountMinor: 2000 }],
+      ['paid', { renewalOff: true, amountMinor: 2000 }],
+      ['paid', { renewalOff: true, amountMinor: 2000 }],
+    ],
   });
 });

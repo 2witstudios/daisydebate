@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { premiumOfferPrice } from '../../features/billing/premium-price';
 import { buttonClass } from '../components/button/button-class';
 import { PageHeader } from '../components/page-header/page-header';
 import { Panel } from '../components/panel/panel';
@@ -20,7 +21,7 @@ export function PremiumPage() {
         lede="More ways to practise, review and share your debates."
       />
       <Panel
-        title="Premium · $20/month"
+        title={`Premium · ${premiumOfferPrice}`}
         action={
           <Link href="/settings/billing" className={buttonClass('ghost')}>
             Billing
@@ -41,7 +42,7 @@ export function PremiumPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/settings/billing" className={primary}>
-              Get Premium · $20/month
+              Get Premium · {premiumOfferPrice}
             </Link>
           </div>
         </div>
@@ -60,12 +61,6 @@ export function PremiumPage() {
             Play a debate
           </Link>
         </div>
-      </Panel>
-      <Panel title="Coaches and families">
-        <p>
-          A Club gives Premium to each student you seat, at $10 per seat a
-          month. The club pays, and seats can move between students.
-        </p>
       </Panel>
       <Panel title="Your debates stay yours">
         <div className="flex flex-col gap-3">

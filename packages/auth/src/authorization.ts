@@ -1,7 +1,11 @@
 export { tournamentHostingGrantFor } from './tournament-hosting-entitlement';
 export { currentEntitlementGrants } from './entitlement-validity';
 export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
-export { canManageBilling, canPurchasePremium } from './billing-policy';
+export {
+  canManageBilling,
+  canPurchasePremium,
+  holdsGrantedPremium,
+} from './billing-policy';
 export { admitAllowance, canUseAiAllowance } from './allowance';
 export { allowanceCeilings } from './allowance-ceilings';
 export { canReleaseFreeJudgeBinding } from './free-judge-binding';

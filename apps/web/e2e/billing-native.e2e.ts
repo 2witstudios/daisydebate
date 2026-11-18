@@ -13,8 +13,12 @@ test.describe('native Billing with JavaScript off', () => {
     await expect(
       page.getByRole('heading', { name: 'Billing', exact: true }),
     ).toBeVisible();
+    // A beta member holds Premium by grant (ADR 0146): nothing to pay.
     await expect(
-      page.getByRole('heading', { name: 'Free account', exact: true }),
+      page.getByRole('heading', { name: 'Daisy Premium', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('included with your beta access'),
     ).toBeVisible();
     await expect(page.getByText(/remaining|Bot debates/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Get Premium/ })).toHaveCount(
@@ -29,7 +33,7 @@ test.describe('native Billing with JavaScript off', () => {
     );
     await expect(page.getByText('You have Premium')).toHaveCount(0);
     await expect(
-      page.getByRole('heading', { name: 'Free account', exact: true }),
+      page.getByRole('heading', { name: 'Daisy Premium', exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: /Manage billing/ }),
@@ -38,7 +42,7 @@ test.describe('native Billing with JavaScript off', () => {
     expect(current.status()).toBe(200);
     expect(current.headers()['cache-control']).toBe('no-store');
     const view = await current.json();
-    expect(view.plan).toBe('free');
+    expect(view.plan).toBe('granted');
     expect(view.accessEndsAt).toBeNull();
     expect(view.checkoutAvailable).toBe(false);
     expect(view.manageAvailable).toBe(false);

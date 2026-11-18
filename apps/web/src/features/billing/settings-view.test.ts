@@ -9,6 +9,7 @@ const source: BillingSettingsSource = {
   evidence: null,
   hasCustomer: true,
   purchaseAllowed: true,
+  granted: false,
   renewalOff: false,
   amountMinor: null,
 };
@@ -135,5 +136,19 @@ test('paying yourself, cancelled and grandfathered show their own price and stat
       view({ amountMinor: 1000 }).priceMinor,
     ],
     expected: [['premium', 2000, endsAt], ['cancelled', endsAt], 1000],
+  });
+});
+
+test('a beta-granted account reads as Premium with nothing to buy', () => {
+  const view = billingSettingsView({
+    source: { ...source, granted: true },
+    configured: true,
+    purchaseVisible: true,
+  });
+  assert({
+    given: 'a current beta grant of Premium and no subscription',
+    should: 'show the granted plan and offer no checkout',
+    actual: [view.plan, view.checkoutAvailable],
+    expected: ['granted', false],
   });
 });

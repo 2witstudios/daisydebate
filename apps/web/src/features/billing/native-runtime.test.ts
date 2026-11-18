@@ -60,6 +60,7 @@ test('changing or failed display Flags cannot substitute for durable admission o
         evidence: null,
         hasCustomer: true,
         purchaseAllowed: true,
+        granted: false,
         renewalOff: false,
         amountMinor: null,
       }),

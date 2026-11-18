@@ -34,6 +34,7 @@ const used: AllowanceDecision = {
   reason: 'free-limit-reached',
 };
 const ceiling: AllowanceDecision = { kind: 'refuse', reason: 'abuse-ceiling' };
+const lapsed: AllowanceDecision = { kind: 'refuse', reason: 'not-eligible' };
 
 test('a host sees the allowance source for seating a judge in this Room', async () => {
   let reads = 0;
@@ -43,15 +44,22 @@ test('a host sees the allowance source for seating a judge in this Room', async 
   };
   assert({
     given:
-      'a casual host included, on the free bundle, unbound, used, or at the ceiling',
+      'a casual host included, on the free bundle, unbound, used, at the ceiling, or without the grant',
     should:
-      'show included, free, with-bot, premium or fair-use from the shared allowance decision',
+      'show included, free, with-bot, premium, fair-use or not-included from the shared allowance decision',
     actual: await Promise.all(
-      [included, free, refused, used, ceiling].map((decision) =>
+      [included, free, refused, used, ceiling, lapsed].map((decision) =>
         roomAiJudgeSeating(room, 'host', read(decision)),
       ),
     ),
-    expected: ['included', 'free', 'with-bot', 'premium', 'fair-use'],
+    expected: [
+      'included',
+      'free',
+      'with-bot',
+      'premium',
+      'fair-use',
+      'not-included',
+    ],
   });
   reads = 0;
   assert({

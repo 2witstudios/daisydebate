@@ -1,14 +1,21 @@
 import type { RoomView } from '@daisy/protocol';
 import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
+import { invitePeopleTitleId } from './invite-people-title';
 
 /** Null is not the host's view, which offers no seating at all. */
 export const aiJudgeSeatable = (seating: RoomView['aiJudgeSeating']) =>
   seating === 'free' || seating === 'included';
 
+const usedCopy = {
+  premium: 'You’ve used your free AI-judged Round. ',
+  'with-bot': 'Your free AI-judged Round comes with your free bot Round. ',
+  'not-included': '',
+} as const;
+
 const inviteJudge = {
   kind: 'dialog',
   label: 'Invite a judge',
-  titleId: 'invite-people-title',
+  titleId: invitePeopleTitleId,
 } as const;
 
 /**
@@ -37,15 +44,14 @@ export function AiJudgeNotice({
       );
     case 'premium':
     case 'with-bot':
+    case 'not-included':
       return (
         <div className="py-3">
           <UpgradePanel
             title="AI judging on casual Rounds is Premium"
             alternative={inviteJudge}
           >
-            {view.aiJudgeSeating === 'premium'
-              ? 'You’ve used your free AI-judged Round.'
-              : 'Your free AI-judged Round comes with your free bot Round.'}{' '}
+            {usedCopy[view.aiJudgeSeating]}
             Invite a person to judge, or get Premium for unlimited AI judging.
             Ranked Rounds include an AI judge free.
           </UpgradePanel>

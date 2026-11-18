@@ -99,6 +99,7 @@ test('actual native composition uses the injected public display reader afresh w
           subscriptionLifecycle: null,
           hasCustomer: true,
           purchaseAllowed: true,
+          granted: false,
           renewalOff: false,
           amountMinor: null,
         }),

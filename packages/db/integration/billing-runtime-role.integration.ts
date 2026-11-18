@@ -4,7 +4,10 @@ import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import { causeChainMember } from '../src/capacity-refusal';
 import { sqlStateOf } from './constraint-helpers';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withBillingSynchronization,
+  renewing,
+} from './billing-synchronization.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -40,10 +43,14 @@ test('daisy_web can synchronize billing but cannot rewrite mapping, receipt or t
         mode: 'test',
       });
       const claim = (await store.claim(customerId))!;
-      const applied = await store.apply(claim, {
-        ...paid,
-        lifecycle: 'canceled',
-      });
+      const applied = await store.apply(
+        claim,
+        {
+          ...paid,
+          lifecycle: 'canceled',
+        },
+        renewing,
+      );
       assert({
         given:
           'ordinary bounded control transactions under the real production role',

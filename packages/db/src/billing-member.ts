@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { subscriptionEvidenceSchema } from '@daisy/protocol/billing';
 import { readDatabaseTime } from './database-clock';
+import { readEntitlementGrants } from './entitlement-grants';
 import {
   lockPurchaseSubject,
   type PurchaseSubject,
@@ -17,6 +18,11 @@ export function createBillingMember(input: {
   readonly run: BoundedTransaction;
   readonly manage: (account: Account) => boolean;
   readonly purchase: (account: Account) => boolean;
+  /** Whether current grants give Premium without a subscription (a beta grant). */
+  readonly granted: (
+    grants: Awaited<ReturnType<typeof readEntitlementGrants>>,
+    now: string,
+  ) => boolean;
 }) {
   const owned = async (
     tx: BoundedTransactionContext,
@@ -41,8 +47,13 @@ export function createBillingMember(input: {
     read: (subject: PurchaseSubject) =>
       input.run(async (tx) => {
         const { account, customer, subscription } = await owned(tx, subject);
+        const now = (await readDatabaseTime(tx)).toISOString();
         return {
-          now: (await readDatabaseTime(tx)).toISOString(),
+          now,
+          granted: input.granted(
+            await readEntitlementGrants(tx, account.userId),
+            now,
+          ),
           evidence: subscription
             ? subscriptionEvidenceSchema.parse(subscription.evidence)
             : null,

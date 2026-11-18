@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import type { BillingSettings } from '../../features/billing/settings-view';
+import {
+  monthlyPrice,
+  premiumOfferPrice,
+} from '../../features/billing/premium-price';
 import { Button } from '../components/button/button';
 import { buttonClass } from '../components/button/button-class';
 import { Icon } from '../components/icon/icon';
@@ -30,11 +34,6 @@ function Day({
   const text = day.format(new Date(at));
   return <time dateTime={at}>{strong ? <strong>{text}</strong> : text}</time>;
 }
-/** "$20/month" from minor units; the subscriber's own verified price. */
-const monthlyPrice = (minor: number) => {
-  const dollars = minor / 100;
-  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}/month`;
-};
 
 const secondary = `${buttonClass('secondary')} min-h-nav-target self-start`;
 
@@ -114,6 +113,21 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
           </div>
         </Panel>
       );
+    case 'granted':
+      return (
+        <Panel title="Daisy Premium">
+          <div className="flex flex-col gap-3">
+            <p>
+              Premium is included with your beta access, so there is nothing to
+              pay.
+            </p>
+            {settings.manageAvailable ? (
+              <Portal variant="secondary">Manage billing</Portal>
+            ) : null}
+            <Terms />
+          </div>
+        </Panel>
+      );
     case 'club-seat':
       return (
         <Panel title="Daisy Premium">
@@ -171,7 +185,7 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
                 method="post"
                 className="self-start"
               >
-                <Button type="submit">Get Premium · $20/month</Button>
+                <Button type="submit">Get Premium · {premiumOfferPrice}</Button>
               </form>
             ) : null}
             {settings.manageAvailable ? (

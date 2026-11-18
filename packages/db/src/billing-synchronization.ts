@@ -147,12 +147,12 @@ export function createBillingSynchronization(input: {
     apply(
       claim: BillingSynchronizationClaim,
       observed: SubscriptionEvidence,
-      terms?: SubscriptionTerms,
+      terms: SubscriptionTerms,
     ) {
       if (
         !validClaim(claim) ||
-        (terms &&
-          (!Number.isSafeInteger(terms.amountMinor) || terms.amountMinor < 1))
+        !Number.isSafeInteger(terms.amountMinor) ||
+        terms.amountMinor < 1
       )
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {

@@ -11,6 +11,14 @@ export const premiumOffer = {
 } as const;
 const grandfatheredUnitAmount = 1000;
 
+/** "$20/month" from minor units: a subscriber's own price, or the offer's. */
+export const monthlyPrice = (minor: number) => {
+  const dollars = minor / 100;
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}/month`;
+};
+/** The current offer as copy shows it. */
+export const premiumOfferPrice = monthlyPrice(premiumOffer.unitAmount);
+
 const priceShape = {
   id: z
     .string()

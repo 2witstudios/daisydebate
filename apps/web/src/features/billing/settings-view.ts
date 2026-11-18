@@ -7,6 +7,8 @@ export type BillingSettingsSource = {
   readonly evidence: SubscriptionEvidence | null;
   readonly hasCustomer: boolean;
   readonly purchaseAllowed: boolean;
+  /** Premium from a current beta grant, with no subscription (ADR 0146). */
+  readonly granted: boolean;
   /** From the same verified subscription observation; display only. */
   readonly renewalOff: boolean;
   readonly amountMinor: number | null;
@@ -14,11 +16,19 @@ export type BillingSettingsSource = {
 
 /**
  * What the billing page shows. There are no usage counters (PYL-10): only
- * the plan, its price, and when it renews or ends. `club-seat` is the state
- * a Club seat gives (S7 produces it); nothing here grants it.
+ * the plan, its price, and when it renews or ends. `granted` is Premium from
+ * beta access with nothing to pay. `club-seat` is the state a Club seat gives
+ * (S7 produces it); nothing here grants it.
  */
 export const billingSettingsSchema = z.strictObject({
-  plan: z.enum(['free', 'premium', 'cancelled', 'payment-due', 'club-seat']),
+  plan: z.enum([
+    'free',
+    'granted',
+    'premium',
+    'cancelled',
+    'payment-due',
+    'club-seat',
+  ]),
   accessEndsAt: z.iso.datetime().nullable(),
   priceMinor: z.number().int().positive().nullable(),
   club: z
@@ -50,7 +60,9 @@ export function billingSettingsView(input: {
           : 'premium'
         : access.kind === 'grace'
           ? 'payment-due'
-          : 'free',
+          : source.granted
+            ? 'granted'
+            : 'free',
     accessEndsAt:
       access.kind === 'none'
         ? null
@@ -60,7 +72,10 @@ export function billingSettingsView(input: {
     priceMinor: access.kind === 'none' ? null : source.amountMinor,
     club: null,
     checkoutAvailable:
-      input.configured && input.purchaseVisible && source.purchaseAllowed,
+      input.configured &&
+      input.purchaseVisible &&
+      source.purchaseAllowed &&
+      !(access.kind === 'none' && source.granted),
     manageAvailable: input.configured && source.hasCustomer,
   });
 }

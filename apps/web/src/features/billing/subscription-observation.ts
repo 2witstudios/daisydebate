@@ -208,6 +208,18 @@ function observedSettlement(
   };
 }
 
+/**
+ * The display terms stored beside verified evidence: renewal is off when the
+ * subscription ends at its period end or on a set date (`cancel_at`), and the
+ * price is the subscriber's own verified amount.
+ */
+export const observedTerms = (
+  observed: Extract<SubscriptionObservation, { kind: 'observed' }>,
+) => ({
+  renewalOff: observed.cancelAtPeriodEnd || observed.cancelAt !== null,
+  amountMinor: observed.amountMinor,
+});
+
 /** Strip vendor payloads to verified billing facts; never store customer/contact/card data. */
 export function normalizeSubscriptionObservation(
   input: ObservationInput,

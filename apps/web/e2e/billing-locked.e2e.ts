@@ -53,7 +53,7 @@ test('locked features show the upgrade panel in place, keep native withdrawal an
   await withdraw('capture', username);
   await page.goto('/rooms/' + roomId);
   const view = await reread(page.request, roomId);
-  expect(view.aiJudgeSeating).toBe('premium');
+  expect(view.aiJudgeSeating).toBe('not-included');
   expect(view.captureOffer).toBe('premium');
   const judgeNotice = page
     .getByRole('status')
@@ -120,7 +120,8 @@ test('locked features show the upgrade panel in place, keep native withdrawal an
   const settings = await (
     await page.request.get('/api/billing/settings')
   ).json();
-  expect(settings.plan).toBe('free');
+  // A beta member holds Premium by grant (ADR 0146): nothing to buy, no counter.
+  expect(settings.plan).toBe('granted');
   expect(settings).not.toHaveProperty('botDebates');
   await expect(page.getByText(/remaining|Bot debates/)).toHaveCount(0);
   await page.screenshot({

@@ -6,6 +6,7 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   canManageBilling,
   canPurchasePremium,
+  holdsGrantedPremium,
 } from '@daisy/auth/authorization';
 import { createBillingMember } from '../src/billing-member';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
@@ -14,7 +15,12 @@ import { flagCommand } from './flags.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const policies = { manage: canManageBilling, purchase: canPurchasePremium };
+const policies = {
+  manage: canManageBilling,
+  purchase: canPurchasePremium,
+  granted: (grants: Parameters<typeof holdsGrantedPremium>[0], now: string) =>
+    holdsGrantedPremium(grants, { now, betaGrantsPremium: false }),
+};
 test('owned native member reads carry no usage and refuse forged account routing', async () =>
   withBillingPurchases(async ({ run, subject }) => {
     const member = createBillingMember({ run, ...policies });
@@ -86,6 +92,7 @@ test('a spent free bot debate leaves billing without any counter', async () =>
       expected: [
         'amountMinor',
         'evidence',
+        'granted',
         'hasCustomer',
         'now',
         'purchaseAllowed',
