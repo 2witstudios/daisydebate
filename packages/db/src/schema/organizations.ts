@@ -3,6 +3,7 @@ import {
   organizationKinds,
   permissions,
 } from '@daisy/protocol/lobby';
+import { ratingDivisions, type RatingDivision } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -34,7 +35,10 @@ import { users } from './users';
  * is this column: every organization has one except Daisy itself, whose owner
  * is the operator, outside the participant database (ADR 0043).
  * `settings_version` is the optimistic counter of this scope's settings,
- * which moves apart from `version`.
+ * which moves apart from `version`. A league carries the division its
+ * ladder, seasons and Rooms rate on (PYL-16, decision 79): Open or Youth.
+ * Daisy itself (kind league) runs every division and carries none; no other
+ * kind has one.
  */
 export const organizations = pgTable(
   'organizations',
@@ -56,6 +60,7 @@ export const organizations = pgTable(
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
     settingsVersion: integer('settings_version').notNull().default(1),
+    leagueDivision: text('league_division').$type<RatingDivision>(),
   },
   (table) => [
     unique('organizations_id_kind_unique').on(table.id, table.kind),
@@ -63,6 +68,11 @@ export const organizations = pgTable(
     index('organizations_owner_user_idx').on(table.ownerUserId),
     index('organizations_billing_owner_user_idx').on(table.billingOwnerUserId),
     check('organizations_kind_check', oneOf(table.kind, organizationKinds)),
+    check(
+      'organizations_league_division_check',
+      // Daisy is kind league but runs every division; only other leagues carry one.
+      sql`(${table.kind} = 'league' and ${table.id} <> '${sql.raw(daisyOrganizationId)}') = (${table.leagueDivision} is not null) and (${table.leagueDivision} is null or ${oneOf(table.leagueDivision, ratingDivisions)})`,
+    ),
     check(
       'organizations_has_owner',
       sql`${table.ownerUserId} is not null or ${table.id} = '${sql.raw(daisyOrganizationId)}'`,

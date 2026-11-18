@@ -67,8 +67,8 @@ export const seasons = pgTable(
       .references(() => organizations.id, { onDelete: 'restrict' }),
     /**
      * The division whose ladders this season rates (ADR 0147), fixed when the
-     * season opens. A league's season is Open until its league has a
-     * division (PYL S9).
+     * season opens. A league's season takes its league's division then
+     * (PYL-16).
      */
     division: text('division').$type<RatingDivision>().notNull(),
   },

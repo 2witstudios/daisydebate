@@ -7,6 +7,7 @@ import type {
   MembershipStatus,
   OrganizationKind,
 } from '@daisy/protocol/lobby';
+import type { RatingDivision } from '@daisy/protocol';
 import { grants } from '../schema/grants';
 import { memberships, organizations } from '../schema/organizations';
 import { lobbies } from '../schema/lobbies';
@@ -34,6 +35,8 @@ export type OrganizationWrite =
         readonly name: string;
         readonly handle: string;
         readonly ownerUserId: string | null;
+        /** A league's division; null for every other kind. */
+        readonly leagueDivision: RatingDivision | null;
       };
     }
   | {
