@@ -65,7 +65,7 @@ describe('helpTopics', () => {
         answer.includes('There is no payment today'),
         answer.includes('a goal for a future program'),
         answer.includes(
-          'a casual round is recorded only if its host chooses to',
+          'outside a tournament, a casual round is recorded only if its host chooses to',
         ),
         /\b(will|guarantee)\b/i.test(answer),
       ],
