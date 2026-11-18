@@ -42,6 +42,16 @@ export const flagCatalogue = [
     dependencies: [],
   },
   {
+    // Host a tournament on /pricing; S8 opens it with the host home at /host.
+    key: 'host-tiers',
+    kind: 'release',
+    owner: 'Daisy Tab (@2witstudios)',
+    taskCode: 'PYL-14',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
+  {
     // Start a Club on /pricing; S7 opens it with /clubs/new.
     key: 'club-seats',
     kind: 'release',

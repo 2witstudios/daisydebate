@@ -18,8 +18,8 @@ export type PlanActions = {
 export type PlanReleases = {
   /** `premium-checkout`: billing sells Premium. */
   readonly premiumCheckout: boolean;
-  /** `daisy-tab`: the host home at /host exists. */
-  readonly tabHosting: boolean;
+  /** `host-tiers`: the host home at /host exists (S8). */
+  readonly hostTiers: boolean;
   readonly clubSeats: boolean;
   readonly leagueRequests: boolean;
 };
@@ -39,7 +39,7 @@ export const planActions = (releases: PlanReleases): PlanActions => ({
   club: releases.clubSeats
     ? { kind: 'link', href: startClubHref, label: 'Start a Club' }
     : comingSoon,
-  host: releases.tabHosting
+  host: releases.hostTiers
     ? { kind: 'link', href: hostHref, label: 'Host a tournament' }
     : comingSoon,
   league: releases.leagueRequests

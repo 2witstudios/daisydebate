@@ -30,6 +30,13 @@
       "taskCode": "PYL-12"
     },
     {
+      "key": "host-tiers",
+      "retired": false,
+      "kind": "release",
+      "owner": "Daisy Tab (@2witstudios)",
+      "taskCode": "PYL-14"
+    },
+    {
       "key": "club-seats",
       "retired": false,
       "kind": "release",

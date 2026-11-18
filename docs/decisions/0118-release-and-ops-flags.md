@@ -142,8 +142,9 @@ approves pricing there (epic PYL win condition 5). Closed, `club-seats` and
 `league-requests` show "Coming soon" on the Club and League cards; open, they
 link to `/clubs/new` and `/contact/league`, which their slices build. Get Premium
 and Host a tournament follow the flags that own their destinations,
-`premium-checkout` (billing checkout) and `daisy-tab` (the host home at
-`/host`), and show "Coming soon" while those are closed.
+`premium-checkout` (billing checkout) and `host-tiers` (Daisy Tab, PYL-14,
+expires 2027-03-31: the host home at `/host`, which S8 builds), and show
+"Coming soon" while those are closed.
 
 References verified against PostgreSQL 18 (the repository's version):
 [isolation](https://www.postgresql.org/docs/18/transaction-iso.html),

@@ -10,7 +10,7 @@ import { assertNoSeriousFindings } from './support/axe';
  * each one, at desktop and phone width, with no serious accessibility
  * finding. The page is behind `pricing-page`, which this file opens (with
  * `premium-checkout`, so Get Premium links) and closes again. The suite runs
- * one worker, so no other spec sees them open. Host (`daisy-tab`), Club and
+ * one worker, so no other spec sees them open. Host (`host-tiers`), Club and
  * League keep their safe default and show "Coming soon".
  */
 const setFlag = (key: string, state: 'enabled' | 'default') =>

@@ -4,13 +4,13 @@ setupRitewayBun();
 
 const none: PlanReleases = {
   premiumCheckout: false,
-  tabHosting: false,
+  hostTiers: false,
   clubSeats: false,
   leagueRequests: false,
 };
 const all: PlanReleases = {
   premiumCheckout: true,
-  tabHosting: true,
+  hostTiers: true,
   clubSeats: true,
   leagueRequests: true,
 };
@@ -53,7 +53,7 @@ test('planActions', () => {
     actual: [
       kinds({ ...none, premiumCheckout: true }),
       kinds({ ...none, clubSeats: true }),
-      kinds({ ...none, tabHosting: true }),
+      kinds({ ...none, hostTiers: true }),
       kinds({ ...none, leagueRequests: true }),
     ],
     expected: [

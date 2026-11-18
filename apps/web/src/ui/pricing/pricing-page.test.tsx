@@ -11,13 +11,13 @@ setupRitewayBun();
 // Checkout and Tab's host home released; Club and League not yet.
 const closed = planActions({
   premiumCheckout: true,
-  tabHosting: true,
+  hostTiers: true,
   clubSeats: false,
   leagueRequests: false,
 });
 const open = planActions({
   premiumCheckout: true,
-  tabHosting: true,
+  hostTiers: true,
   clubSeats: true,
   leagueRequests: true,
 });

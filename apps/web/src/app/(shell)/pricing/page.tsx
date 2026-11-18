@@ -24,16 +24,16 @@ export const metadata: Metadata = {
 /**
  * Public: every plan, readable signed out, once `pricing-page` opens (until
  * then it does not exist). Each plan's action opens with the flag that owns
- * its destination (checkout, Tab's host home, Club seats, League requests);
+ * its destination (checkout, the host home, Club seats, League requests);
  * until then its card says "Coming soon". Flags are read for no
  * account: the page is the same for every viewer.
  */
 export default async function Pricing() {
-  const [pricing, premiumCheckout, tabHosting, clubSeats, leagueRequests] =
+  const [pricing, premiumCheckout, hostTiers, clubSeats, leagueRequests] =
     await Promise.all([
       requestReleaseEnabled('pricing-page', null),
       requestReleaseEnabled('premium-checkout', null),
-      requestReleaseEnabled('daisy-tab', null),
+      requestReleaseEnabled('host-tiers', null),
       requestReleaseEnabled('club-seats', null),
       requestReleaseEnabled('league-requests', null),
     ]);
@@ -43,7 +43,7 @@ export default async function Pricing() {
       prices={planPrices}
       actions={planActions({
         premiumCheckout,
-        tabHosting,
+        hostTiers,
         clubSeats,
         leagueRequests,
       })}
