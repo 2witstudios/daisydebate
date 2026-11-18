@@ -154,7 +154,12 @@ test('actual officials-recording Start requires explicit separate sponsorship an
         const frozen = stored.admission as {
           id: string;
           roundId: string;
-          grant: { hosting: { id: string; expiresAt: string } };
+          basis:
+            | {
+                kind: 'grant';
+                grant: { hosting: { id: string; expiresAt: string } };
+              }
+            | { kind: 'hosting-purchase' };
           deadlineAt: string;
           admittedAt: string;
           funding: { sponsorshipVersionId: string };
@@ -174,12 +179,16 @@ test('actual officials-recording Start requires explicit separate sponsorship an
             createdBy: stored.created_by_actor_id,
             sponsor: stored.sponsor_user_id,
             official: stored.official_user_id,
-            grant: frozen.grant.hosting.id,
+            grant:
+              frozen.basis.kind === 'grant'
+                ? frozen.basis.grant.hosting.id
+                : null,
             command: stored.command_id,
             finite:
               Date.parse(frozen.admittedAt) < Date.parse(frozen.deadlineAt) &&
+              frozen.basis.kind === 'grant' &&
               Date.parse(frozen.deadlineAt) <=
-                Date.parse(frozen.grant.hosting.expiresAt),
+                Date.parse(frozen.basis.grant.hosting.expiresAt),
             capacity: frozen.capacity,
             round: frozen.roundId === launched.receipt.roundRef?.id,
             replay: replay.receipt.replayed,

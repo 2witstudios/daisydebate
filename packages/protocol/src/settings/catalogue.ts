@@ -129,8 +129,14 @@ const rows: { readonly [Key in SettingKey]: Row<Key> } = {
   'entry.approval': daisy(everywhere, { value: 'host' }),
   'entry.judge_obligation': daisy(everywhere, { kind: 'unconfigured' }),
   'entry.cap': daisy(everywhere, { perEvent: null, perSchool: null }),
+  // A tournament's own: no organization or template changes it underneath
+  // its entries (leagues carry their own division, S9).
+  'entry.age_division': daisy(['lobby'], { value: 'open' }),
   'conflict.handling': daisy(aboveEvents, { value: 'second_confirms' }),
   'recording.capture': daisy(aboveEvents, { value: 'on' }, 'both'),
+  // A paid hosting tier unlocks these two for a tournament (ADR 0149).
+  'judging.ai_judge': daisy(aboveEvents, { value: 'off' }),
+  'broadcast.live': daisy(aboveEvents, { value: 'off' }),
   'audience.posting': daisy(
     everywhere,
     {

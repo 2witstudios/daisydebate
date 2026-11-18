@@ -54,14 +54,28 @@ test('actual creation reads canonical finite hosting, replays once, and denies r
     // The deliberately stale injected arrival clock cannot grant paid access or timestamp a committed command.
     const send = organizationCommand(common),
       personal = lobbyAdministrationCommand(common);
+    const freeTournament = {
+      version: 1,
+      commandId: createId(),
+      expected: {},
+      command: {
+        type: 'create-lobby',
+        owner: { kind: 'self' },
+        name: 'Free tournament',
+        handle: `free-${createId()}`,
+        lobby: { kind: 'tournament', admitsMinors: false },
+      },
+    };
     assert({
       given: 'an ordinary beta-admitted adult without hosting',
-      should: 'refuse league creation but allow school creation',
+      should:
+        'refuse league creation but allow school creation and a tournament of their own (decision 80)',
       actual: [
         await denied(() => send(as(director), command('league'))),
         (await send(as(director), command('school'))).kind,
+        (await personal(as(other), freeTournament)).kind,
       ],
-      expected: [true, 'accepted'],
+      expected: [true, 'accepted', 'accepted'],
     });
     const versionId = await owner.begin((sql) =>
       seedHostingGrant(sql, director.userId),
@@ -116,10 +130,10 @@ test('actual creation reads canonical finite hosting, replays once, and denies r
       given:
         'the exact previously accepted creation commands after source revocation',
       should:
-        'deny replay and new paid creation with no duplicated organization or lobby',
+        'deny league replay and new league creation, keep the personal tournament (hosting never gated it), with no duplicated organization or lobby',
       actual: [
         await denied(() => send(as(director), envelope)),
-        await denied(() => personal(as(director), lobbyEnvelope)),
+        (await personal(as(director), lobbyEnvelope)).kind,
         await denied(() => send(as(director), command('league'))),
         Number(
           (
@@ -127,7 +141,7 @@ test('actual creation reads canonical finite hosting, replays once, and denies r
           )[0]!.n,
         ),
       ],
-      expected: [true, true, true, 2],
+      expected: [true, 'accepted', true, 2],
     });
 
     const expiryEnvelope = command('league');

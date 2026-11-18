@@ -34,7 +34,11 @@ export const forceLabel = (policy: PairingPolicy): string => {
  * The pairing panel picks a preset; how strict each policy is comes with the
  * preset and is shown, not edited.
  */
-type SetupProps = { readonly rail: TimelineRail } & (
+type SetupProps = {
+  readonly rail: TimelineRail;
+  /** Video and judging under the settings: the hosting tier's switches (ADR 0149). */
+  readonly hosted?: ReactNode;
+} & (
   | {
       readonly empty: { readonly addEvent: TabAction | null };
       readonly setup?: never;
@@ -109,6 +113,7 @@ export function Setup(props: SetupProps) {
           ))}
         </ul>
       </ListCard>
+      {props.hosted}
     </HostShell>
   );
 }

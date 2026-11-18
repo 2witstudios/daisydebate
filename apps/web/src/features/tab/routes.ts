@@ -68,6 +68,8 @@ export const hostRoutes = {
   standings: (slug: string) => `${hostTournament(slug)}/standings`,
   results: (slug: string) => `${hostTournament(slug)}/results`,
   ballots: (slug: string) => `${hostTournament(slug)}/ballots`,
+  upgrade: (slug: string) => `${hostTournament(slug)}/upgrade`,
+  billing: (slug: string) => `${hostTournament(slug)}/billing`,
 } as const;
 
 /** The pages only the host area has, as the last segment of their path. */
@@ -79,6 +81,8 @@ const hostOnly = new Set([
   'results',
   'ballot',
   'resolutions',
+  'upgrade',
+  'billing',
 ]);
 
 /**

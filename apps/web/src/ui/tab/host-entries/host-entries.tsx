@@ -27,12 +27,15 @@ export function HostEntries({
   entriesHref,
   judgesHref,
   obligationEditor,
+  notice,
 }: {
   readonly rail: TimelineRail;
   readonly entries: Read;
   readonly entriesHref: string;
   readonly judgesHref: string;
   readonly obligationEditor?: ReactNode;
+  /** A status panel under the header: the hosting tier's entry limit (ADR 0149). */
+  readonly notice?: ReactNode;
 }) {
   return (
     <HostShell rail={rail} current="entries">
@@ -44,6 +47,7 @@ export function HostEntries({
           <ActionButton key={action.label} action={action} />
         ))}
       />
+      {notice}
       <EntriesTabs
         counts={entries.tabs}
         selected="debaters"

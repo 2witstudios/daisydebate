@@ -73,7 +73,6 @@ export const sharedLobbyRefusals = [
   'command-conflict',
   'not-found',
   'settings-inherited',
-  'plan-required',
   'lobby-closed',
   'name-taken',
 ] as const;

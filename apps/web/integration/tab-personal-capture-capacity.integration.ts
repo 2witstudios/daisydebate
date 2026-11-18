@@ -21,6 +21,7 @@ test('actual personal-owner concurrent Starts reserve one finite slot and expiry
       noPrep: true,
       recording: 'on',
       tournamentOwner: 'personal',
+      hosting: 'granted',
     });
     const director = world.bots.Director!,
       lobbyId = world.made.get('tournament-lobby')!;
@@ -112,7 +113,9 @@ test('actual personal-owner concurrent Starts reserve one finite slot and expiry
             source.funding.kind === 'personal-owner'
               ? source.funding.ownerUserId
               : null,
-            source.grant.hosting.id,
+            source.basis.kind === 'grant'
+              ? source.basis.grant.hosting.id
+              : null,
             Number(
               (
                 await owner`select count(*)::int as n from tournament_sponsorship_versions where lobby_id=${lobbyId}`

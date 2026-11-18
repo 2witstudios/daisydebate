@@ -1,3 +1,4 @@
+import { tournamentFirstDay } from '@daisy/protocol/lobby/event-division';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { EntryCommand } from '@daisy/protocol/lobby/entry-command';
@@ -9,7 +10,7 @@ import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { entries, entryMembers } from '../schema/entries';
-import { tabRounds } from '../schema/events';
+import { tabRounds, timeSlots } from '../schema/events';
 import { draws } from '../schema/draws';
 import { tournamentJudges } from '../schema/tournament-judges';
 import { fixtureJudges, fixtures } from '../schema/fixtures';
@@ -24,6 +25,7 @@ import {
   type StoredTabCommand,
 } from './command-record';
 import { applyEntryEnrollmentWrites } from './entry-enrollment-writes';
+import { loadTournamentHostingFacts } from './tournament-hosting-facts';
 import type { EntryEnrollmentWrite } from './entry-enrollment-write';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 export type EntryEnrollmentCommand = Exclude<
@@ -123,6 +125,8 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
         .from(actors)
         .where(eq(actors.userId, lobby.ownerUserId))
     : [];
+  // Locks the tournament row, so every event's entries count against one cap in turn.
+  const hosting = lobby ? await loadTournamentHostingFacts(tx, lobby.id) : null;
   const currentEntries = await tx
     .select()
     .from(entries)
@@ -142,7 +146,15 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
           .map((member) => member.actorId);
   if (currentActorIds.some((id) => !namedActorIds.includes(id)))
     throw new EntryEnrollmentChanged();
-  const people = await loadEntryPeople(tx, scope, currentActorIds);
+  const slots = await tx
+    .select({ startsAt: timeSlots.startsAt })
+    .from(timeSlots)
+    .where(eq(timeSlots.lobbyId, input.lobbyId));
+  const firstDay = tournamentFirstDay(
+    slots.map((slot) => slot.startsAt.toISOString()),
+    input.now,
+  );
+  const people = await loadEntryPeople(tx, scope, currentActorIds, firstDay);
   const [school] = schoolId
     ? await tx
         .select({ id: organizations.id })
@@ -190,6 +202,8 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     guardianActorId: guardianActor?.id ?? null,
     ownerActorId: owner?.id ?? null,
     configuration,
+    hosting,
+    firstDay,
     entries: currentEntries,
     members,
     rounds: await tx

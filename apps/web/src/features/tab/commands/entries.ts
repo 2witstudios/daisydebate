@@ -5,6 +5,12 @@ import type {
 } from '@daisy/protocol/lobby/entry-command';
 import type { entryStatuses, responsibleKinds } from '@daisy/protocol/lobby';
 import type { FixtureChange } from '@daisy/protocol/lobby/command';
+import type { AgeBand, RatingDivision } from '@daisy/protocol';
+import { divisionAdmission } from '@daisy/protocol/lobby/event-division';
+import {
+  eventAllowance,
+  type HostingTier,
+} from '@daisy/protocol/lobby/hosting-tier';
 import { isRepairable, type LiveFixtureState } from './fixture-lifecycle';
 import { refuse, type CommandDecision } from './run-command';
 
@@ -30,6 +36,8 @@ export type EntryPersonFacts = {
   readonly minor: boolean;
   /** Within the event's `entry.age_band`, from the account's age facts. */
   readonly withinAgeBand: boolean;
+  /** Their age band on the tournament's first day; null with no valid record (ADR 0149). */
+  readonly bandOnFirstDay: AgeBand | null;
   /** The event's divisions this person may enter. */
   readonly divisions: readonly string[];
   /** In another entry of this event that is not withdrawn. */
@@ -98,6 +106,8 @@ export type EntryFacts = {
     readonly approval: 'automatic' | 'host';
     /** `entry.cap`; null is none. */
     readonly entryCap: number | null;
+    /** `entry.age_division`: who may enter, aged on the first day. */
+    readonly ageDivision: RatingDivision;
     /** Entries not withdrawn. */
     readonly entryCount: number;
     readonly registration: {
@@ -131,7 +141,40 @@ export type EntryFacts = {
     | { readonly kind: 'self' }
     | null;
   readonly entry: EntryRowFacts | null;
+  /**
+   * The hosted tournament's tier and its accepted entries across every
+   * event (ADR 0149); null where no tier applies.
+   */
+  readonly hosting: {
+    readonly tier: HostingTier;
+    readonly acceptedEntries: number;
+  } | null;
 };
+
+/**
+ * The first entrant outside the event's division, by the reason they are
+ * (PYL-16); a missing age record is the age-band refusal's, already made.
+ */
+const divisionRefusalOf = (
+  facts: EntryFacts,
+  people: readonly EntryPersonFacts[],
+): 'over-youth-age' | 'under-open-age' | null => {
+  for (const person of people) {
+    const admission = divisionAdmission(
+      person.bandOnFirstDay,
+      facts.event.ageDivision,
+    );
+    if (admission.kind === 'refused' && admission.reason !== 'no-age-record')
+      return admission.reason;
+  }
+  return null;
+};
+
+/** Whether the tournament may hold one more accepted entry. */
+const roomForEntry = (facts: EntryFacts) =>
+  facts.hosting === null ||
+  eventAllowance(facts.hosting.tier, facts.hosting.acceptedEntries, 'entry')
+    .kind === 'allowed';
 
 type EntryRow = {
   readonly id: string;
@@ -314,6 +357,8 @@ const submitEntry = (
   if (people.some((person) => person.enteredInEvent))
     return refuse('already-entered');
   if (people.some((person) => !person.withinAgeBand)) return refuse('age-band');
+  const outsideDivision = divisionRefusalOf(facts, people);
+  if (outsideDivision) return refuse(outsideDivision);
   if (!hasResponsibleAdult(facts, command, people))
     return refuse('no-responsible-adult');
   const division = command.division;
@@ -334,8 +379,11 @@ const submitEntry = (
   const awaited = people.some((person) =>
     guardianAwaited(person, facts.event.lobbyId, facts.sender.userId),
   );
+  // Past the hosting tier's cap an entry waits for the host to upgrade.
   const status: EntryStatus =
-    !awaited && (facts.sender.host || facts.event.approval === 'automatic')
+    !awaited &&
+    roomForEntry(facts) &&
+    (facts.sender.host || facts.event.approval === 'automatic')
       ? 'accepted'
       : 'pending';
   const entryId = facts.newEntryId;
@@ -400,6 +448,7 @@ const acceptEntry = (
     )
   )
     return refuse('guardian-pending');
+  if (!roomForEntry(facts)) return refuse('hosting-upgrade-required');
   return accepted(facts, [
     setStatus(entry.id, 'accepted'),
     ...boundaryRevisions(entry.members),
@@ -423,6 +472,8 @@ const replaceEntryMember = (
     return refuse('fixture-started');
   if (incoming.enteredInEvent) return refuse('already-entered');
   if (!incoming.withinAgeBand) return refuse('age-band');
+  const outsideDivision = divisionRefusalOf(facts, [incoming]);
+  if (outsideDivision) return refuse(outsideDivision);
   if (incoming.enteredInSharedSlot) return refuse('slot-clash');
   if (entry.division !== null && !incoming.divisions.includes(entry.division))
     return refuse('division-ineligible');

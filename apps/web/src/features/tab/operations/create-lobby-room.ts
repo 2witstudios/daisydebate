@@ -169,7 +169,6 @@ export const createLobbyRoom =
             now,
             newId: dependencies.newId(),
             actorUserId: principal.userId,
-            planAllows: true,
             handleTaken: false,
             organization: {
               id: loaded.lobby.ownerOrganizationId,

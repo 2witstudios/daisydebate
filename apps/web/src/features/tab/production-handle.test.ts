@@ -12,7 +12,7 @@ test('sample handles dispatch to the same stored host page as every other handle
   // returned by the actual page and retains its real authorization reader.
   const code = `
     import { mock } from 'bun:test';
-    mock.module(${JSON.stringify(release)}, () => ({ requireTabRelease: async () => {} }));
+    mock.module(${JSON.stringify(release)}, () => ({ requireTabRelease: async () => {}, hostTiersReleased: async () => false }));
     mock.module(${JSON.stringify(grant)}, () => ({ requireGrant: async () => ({ viewer: 'host', moment: 'elims', scale: 'normal' }) }));
     const { default: Page } = await import(${JSON.stringify(page)});
     const answers = [];

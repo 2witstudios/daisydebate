@@ -56,6 +56,25 @@ const refundReference = z.object({
     .nullable(),
 });
 
+/**
+ * A hosted tournament's one-time payment (ADR 0149). The hint names only
+ * the purchase to settle; settlement retrieves the session from Stripe and
+ * trusts nothing in this payload.
+ */
+const hostingEventType = z.enum([
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'checkout.session.expired',
+]);
+const hostingReference = z.object({
+  object: z.literal('checkout.session'),
+  mode: z.literal('payment'),
+  metadata: z.object({
+    daisy_hosting_purchase_id: idSchema,
+    daisy_lobby_id: idSchema,
+  }),
+});
+
 /** Persist the hint, never the raw body or an entitlement asserted by it. */
 type BillingWebhookHint =
   | {
@@ -71,6 +90,14 @@ type BillingWebhookHint =
         readonly chargeId: string;
         readonly customerId: string | null;
         readonly actionId: string | null;
+      };
+    }
+  | {
+      readonly eventId: string;
+      readonly eventType: z.infer<typeof hostingEventType>;
+      readonly hosting: {
+        readonly purchaseId: string;
+        readonly lobbyId: string;
       };
     };
 
@@ -103,6 +130,20 @@ function synchronizationHint(
       },
     };
   }
+  const hostingType = hostingEventType.safeParse(parsed.data.type);
+  const hosting = hostingReference.safeParse(parsed.data.data.object);
+  if (hostingType.success && hosting.success)
+    return {
+      kind: 'accepted',
+      hint: {
+        eventId: parsed.data.id,
+        eventType: hostingType.data,
+        hosting: {
+          purchaseId: hosting.data.metadata.daisy_hosting_purchase_id,
+          lobbyId: hosting.data.metadata.daisy_lobby_id,
+        },
+      },
+    };
   const type = eventType.safeParse(parsed.data.type);
   if (!type.success) return { kind: 'ignored' };
   const target = (

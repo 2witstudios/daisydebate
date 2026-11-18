@@ -1,4 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
+import { effectiveHostingTier } from '@daisy/protocol/lobby/hosting-tier';
+import { tournamentHostingPurchases } from '../schema/tournament-hosting-purchases';
 import { lobbies } from '../schema/lobbies';
 import { actors } from '../schema/actors';
 import { scopeTransaction } from '../tenant-scope';
@@ -68,7 +70,45 @@ export const loadTournamentCaptureFunding = async (
     throw new TournamentCaptureFundingChanged();
   const account = await loadAuthorizationAccount(tx, current.userId);
   const hosting = await loadAccountHostingFacts(tx, current.userId);
-  return { ...current, account, hosting };
+  // A personal tournament paid for funds its own capture (ADR 0149).
+  const paidRows =
+    current.ownerOrganizationId === null
+      ? await tx
+          .select({
+            id: tournamentHostingPurchases.id,
+            lobbyId: tournamentHostingPurchases.lobbyId,
+            tier: tournamentHostingPurchases.tier,
+            paidAt: tournamentHostingPurchases.paidAt,
+          })
+          .from(tournamentHostingPurchases)
+          .where(
+            and(
+              eq(tournamentHostingPurchases.lobbyId, current.lobbyId),
+              eq(tournamentHostingPurchases.state, 'paid'),
+            ),
+          )
+          .orderBy(desc(tournamentHostingPurchases.paidAt))
+      : [];
+  // The highest tier by the protocol's own order, its latest payment.
+  const highest = effectiveHostingTier({
+    paidTiers: paidRows.map((row) => row.tier),
+    granted: false,
+  });
+  const hostingPurchase = paidRows.find((row) => row.tier === highest);
+  return {
+    ...current,
+    account,
+    hosting,
+    hostingPurchase:
+      hostingPurchase && hostingPurchase.paidAt
+        ? {
+            id: hostingPurchase.id,
+            lobbyId: hostingPurchase.lobbyId,
+            tier: hostingPurchase.tier,
+            paidAt: hostingPurchase.paidAt.toISOString(),
+          }
+        : null,
+  };
 };
 export type TournamentCaptureFunding = Awaited<
   ReturnType<typeof loadTournamentCaptureFunding>

@@ -45,19 +45,18 @@ import {
 } from './authorization-tournament';
 
 /**
- * A person hosts a tournament on the hosting plan. A league's tournament
+ * Any adult hosts a tournament of their own (decision 80): its hosting tier
+ * decides its entry cap and paid features, never whether it may exist. A league's tournament
  * takes `lobby.setup.manage` on the league, and a standing lobby takes
  * `organization.manage` on the organization that will own it.
  */
 function lobbyCreation(
   holder: Holder,
   resource: Of<'lobby_collection'>,
-  context: Context,
 ): AuthorizationDecision {
   if (!bandAtLeast(holder.ageBand, 'adult')) return deny('age-band');
   const { lobbyKind, owner } = resource.proposed;
-  if (owner.kind === 'person')
-    return decide(context.account?.hostingPlan === true);
+  if (owner.kind === 'person') return decide(true);
   if (lobbyKind === 'standing')
     return holdingDecision(
       holds(holder, 'organization.manage', organization(owner.organization)),
@@ -169,7 +168,7 @@ export function lobbyDecision(
     case 'guardian_link':
       return guardianLinkDecision(holder, capability, resource);
     case 'lobby_collection':
-      return lobbyCreation(holder, resource, context);
+      return lobbyCreation(holder, resource);
     case 'lobby':
       return lobbyResourceDecision(holder, capability, resource, context);
     case 'template':

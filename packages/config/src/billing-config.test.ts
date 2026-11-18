@@ -42,8 +42,47 @@ test('complete billing configuration carries a mode but grants no release author
       webhookSecret: stripe.STRIPE_WEBHOOK_SECRET,
       premiumPriceId: stripe.STRIPE_PREMIUM_PRICE_ID,
       portalConfigurationId: stripe.STRIPE_PORTAL_CONFIGURATION_ID,
+      hostEventPrices: null,
       club: null,
     })),
+  });
+});
+
+test('host event prices are their own group beside billing (ADR 0149)', () => {
+  const hostEvent = {
+    STRIPE_HOST_EVENT_64_PRICE_ID: 'price_hostEvent64',
+    STRIPE_HOST_EVENT_UNLIMITED_PRICE_ID: 'price_hostEventUnlimited',
+  };
+  const refused = (fields: Record<string, string>) => {
+    try {
+      readServerConfig({ ...env, ...fields });
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  const billing = readServerConfig({ ...env, ...stripe, ...hostEvent }).billing;
+  assert({
+    given:
+      'billing with both host event prices, one of them, and neither group',
+    should:
+      'carry both prices, refuse a half group, and refuse prices without billing',
+    actual: {
+      prices: billing.kind === 'stripe' ? billing.hostEventPrices : null,
+      half: refused({
+        ...stripe,
+        STRIPE_HOST_EVENT_64_PRICE_ID: hostEvent.STRIPE_HOST_EVENT_64_PRICE_ID,
+      }),
+      alone: refused(hostEvent),
+    },
+    expected: {
+      prices: {
+        event_64: 'price_hostEvent64',
+        event_unlimited: 'price_hostEventUnlimited',
+      },
+      half: true,
+      alone: true,
+    },
   });
 });
 

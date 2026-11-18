@@ -29,6 +29,7 @@ export async function withTerminalCapture(
     const world = await committedEventRoom(owner, 'copy', {
       noPrep: true,
       recording: 'on',
+      hosting: 'granted',
     });
     const director = world.bots.Director!,
       lobbyId = world.made.get('tournament-lobby')!;

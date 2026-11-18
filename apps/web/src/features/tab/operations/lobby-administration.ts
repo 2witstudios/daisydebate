@@ -1,4 +1,3 @@
-import { currentEntitlementGrants } from '@daisy/auth/authorization';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -41,7 +40,6 @@ const decisionFacts = (
     readonly principal: TabPrincipal;
     readonly now: string;
     readonly newId: string;
-    readonly hostingPlan: boolean;
   },
 ): LobbyFacts => {
   const { lobby, organization } = loaded;
@@ -58,7 +56,6 @@ const decisionFacts = (
     now: input.now,
     newId: input.newId,
     actorUserId: input.principal.userId,
-    planAllows: input.hostingPlan,
     handleTaken: loaded.handleTaken,
     organization:
       organization.organization === null
@@ -114,7 +111,6 @@ export const lobbyAdministrationCommand =
     const envelope = { ...parsed.data, command };
     let now = dependencies.now();
     const newId = dependencies.newId();
-    let hostingPlan = false;
     try {
       return await runLobbyCommand<
         LobbyAdministrationCommand,
@@ -131,30 +127,10 @@ export const lobbyAdministrationCommand =
               { senderUserId: principal.userId, command, newId, now },
               (session) =>
                 work({
-                  stored: async (id) => {
-                    const record = await session.stored(id);
-                    if (
-                      record &&
-                      command.type === 'create-lobby' &&
-                      !hostingPlan
-                    )
-                      throw new CommandDenied('not-found');
-                    return record;
-                  },
+                  stored: session.stored,
                   facts: async () => {
                     const loaded = await session.load();
                     now = loaded.hosting.checkedAt;
-                    hostingPlan = currentEntitlementGrants(
-                      loaded.hosting.grants,
-                      {
-                        now,
-                        betaGrantsPremium: false,
-                      },
-                    ).some(
-                      (grant) =>
-                        grant.entitlement === 'tournament_hosting' &&
-                        grant.hosting.userId === principal.userId,
-                    );
                     return loaded;
                   },
                   authority: (facts) => {
@@ -162,7 +138,7 @@ export const lobbyAdministrationCommand =
                       principal,
                       command,
                       facts,
-                      { now, hostingPlan },
+                      { now },
                     );
                     if (
                       command.type === 'create-lobby' &&
@@ -203,7 +179,7 @@ export const lobbyAdministrationCommand =
         lobbySetupCommandCatalogue[command.type],
         (loaded, requested) => {
           const decision = decideLobby(
-            decisionFacts(loaded, { principal, now, newId, hostingPlan }),
+            decisionFacts(loaded, { principal, now, newId }),
             requested,
           );
           if (decision.kind === 'refused') return decision;
