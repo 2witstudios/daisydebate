@@ -328,6 +328,7 @@ test('free hosting caps entries and paid features; one payment unlocks that tour
           premiumPriceId: 'price_unused',
           portalConfigurationId: 'bpc_unused',
           hostEventPrices: hosting.vendor.prices,
+          club: null,
         },
         clock: fixedClock(new Date(deliveredAt).toISOString()),
         deadline: () => AbortSignal.timeout(5_000),

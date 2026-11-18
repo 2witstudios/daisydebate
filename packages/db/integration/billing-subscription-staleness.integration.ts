@@ -1,7 +1,7 @@
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { subscriptionGrants } from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src/index';
@@ -34,10 +34,10 @@ test('actual subscription application, new hints and ambiguous initialization re
         nextActorId: createId,
       });
       const reader = database.billingSubscriptionStaleness(instanceId);
-      const worker = database.billingSynchronization(
-        instanceId,
-        subscriptionGrants,
-      );
+      const worker = database.billingSynchronization(instanceId, {
+        account: subscriptionGrants,
+        club: clubSeatGrants,
+      });
       try {
         await assertRejects({
           given: 'an unregistered observer',

@@ -394,3 +394,47 @@ test('a new-Round preview cannot pretend to own an existing free judge binding',
     expected: ['admit', 'refuse', 'admit', 'refuse'],
   });
 });
+
+test('a club seat is Premium, attributed to the paying club (ADR 0148)', () => {
+  const organizationId = 'o00000000000000000000001';
+  const seatSource: UsageSource = {
+    kind: 'organization_seat',
+    organizationId,
+    startsAt: period.startsAt,
+    endsAt: period.endsAt,
+  };
+  const seated: AllowanceFacts = {
+    ...facts,
+    grants: entitlementKinds.map((entitlement) => ({
+      entitlement,
+      source: 'organization_seat',
+      organizationId,
+      startsAt: period.startsAt,
+      expiresAt: period.endsAt,
+    })),
+    // Spent lifetime use would refuse a free account.
+    usage: [{ kind: 'ai_round', source: free, spent: 1 }],
+  };
+  assert({
+    given:
+      'a member whose club pays for a seat and who already spent the free bot Round',
+    should: 'admit the bot Round as Premium, attributed to the club seat',
+    actual: decide(seated),
+    expected: {
+      kind: 'admit',
+      reservations: [{ kind: 'ai_round', source: seatSource }],
+    },
+  });
+  assert({
+    given: 'the same seat after the club plan period ends',
+    should: 'fall back to the free tier, which is spent',
+    actual: decide(seated, bot, period.endsAt),
+    expected: { kind: 'refuse', reason: 'free-limit-reached' },
+  });
+  assert({
+    given: 'a member paying for Premium themselves who also holds a seat',
+    should: 'attribute use to their own subscription first',
+    actual: decide({ ...paid, grants: [...paid.grants, ...seated.grants] }),
+    expected: { kind: 'admit', reservations: [{ kind: 'ai_round', source }] },
+  });
+});

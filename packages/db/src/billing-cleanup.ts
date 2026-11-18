@@ -67,7 +67,7 @@ export function createBillingCleanup(input: {
         )
           return { kind: 'unresolved' } as const;
         const source = await readFrozenBillingOffer(tx, {
-          userId: locked.userId,
+          owner: { kind: 'account', userId: locked.userId },
           mode: facts.route.mode,
           customerId: facts.route.customerId,
           vendorSubscriptionId,

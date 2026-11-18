@@ -77,6 +77,7 @@ function harness(mode: 'test' | 'live' = 'test') {
           premiumPriceId: 'price_replacement',
           portalConfigurationId: 'bpc_fixture',
           hostEventPrices: null,
+          club: null,
         },
       },
       database: {

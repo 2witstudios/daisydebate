@@ -15,6 +15,7 @@
 @import './theme/messages.css';
 @import './theme/tab.css';
 @import './theme/pricing.css';
+@import './theme/clubs.css';
 @import './theme/league-request.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no

@@ -14,6 +14,7 @@ const config = {
   premiumPriceId: 'price_fixture',
   portalConfigurationId: 'bpc_fixture',
   hostEventPrices: null,
+  club: null,
 };
 const refund = {
   object: 'refund',

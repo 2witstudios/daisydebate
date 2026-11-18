@@ -16,6 +16,7 @@
     "./pairing-presets": "./src/settings/pairing-presets.ts",
     "./sanction-check": "./src/settings/sanction-check.ts",
     "./billing": "./src/billing.ts",
+    "./club-seats": "./src/club-seats.ts",
     "./billing-economics": "./src/billing-economics.ts",
     "./testing": "./src/format-fixtures.test-support.ts",
     "./format-bounds-testing": "./src/format-bounds.test-support.ts",

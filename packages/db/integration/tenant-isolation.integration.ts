@@ -80,6 +80,9 @@ test(
               'league_schools',
               'membership_periods',
               'tournament_rating_snapshots',
+              // Club seats arrive later (ADR 0148).
+              'club_seats',
+              'club_seat_invitations',
             ].includes(table.table),
         )
         .map((table) =>

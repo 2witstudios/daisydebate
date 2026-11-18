@@ -9,12 +9,15 @@ import { createBillingSynchronization } from './billing-synchronization';
 import { createBillingPurchaseRecovery } from './billing-purchase-recovery';
 import { createBillingRefundActions } from './billing-refund-actions';
 import { createBillingCleanup } from './billing-cleanup';
+import { createClubSeats } from './club-seat-commands';
+import { createClubSeatReads } from './club-seat-reads';
+import type { ClubSeatGrantProjection } from './club-seat-grants';
 import {
   createBillingPurchases,
   type BillingPurchasePolicies,
 } from './billing-purchase-store';
 
-type GrantProjection = Parameters<
+type GrantProjections = Parameters<
   typeof createBillingSynchronization
 >[0]['grants'];
 
@@ -59,7 +62,15 @@ export function billingOperations(input: {
       });
     },
     receiveBillingReceipt: createBillingInbox(input),
-    billingSynchronization(instanceId: string, grants: GrantProjection) {
+    /** Club seat commands (ADR 0148); the seat projection comes from @daisy/auth. */
+    clubSeats(
+      grants: ClubSeatGrantProjection,
+      planActive: Parameters<typeof createClubSeats>[0]['planActive'],
+    ) {
+      return createClubSeats({ ...input, grants, planActive });
+    },
+    clubSeatReads: createClubSeatReads(input),
+    billingSynchronization(instanceId: string, grants: GrantProjections) {
       const run = currentWebTransaction(input.run, instanceId);
       return {
         ...createBillingDiscovery(run),

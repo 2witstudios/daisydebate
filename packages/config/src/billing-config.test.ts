@@ -43,6 +43,7 @@ test('complete billing configuration carries a mode but grants no release author
       premiumPriceId: stripe.STRIPE_PREMIUM_PRICE_ID,
       portalConfigurationId: stripe.STRIPE_PORTAL_CONFIGURATION_ID,
       hostEventPrices: null,
+      club: null,
     })),
   });
 });
@@ -82,6 +83,44 @@ test('host event prices are their own group beside billing (ADR 0149)', () => {
       half: true,
       alone: true,
     },
+  });
+});
+
+const club = {
+  STRIPE_CLUB_SEAT_PRICE_ID: 'price_clubSeatFixture',
+  STRIPE_CLUB_PORTAL_CONFIGURATION_ID: 'bpc_clubFixture',
+};
+
+test('Club billing is an optional pair inside the Stripe group (ADR 0148)', () => {
+  const billing = readServerConfig({ ...env, ...stripe, ...club }).billing;
+  assert({
+    given: 'the Stripe group with both Club ids',
+    should: 'configure Club seats beside Premium',
+    actual: billing.kind === 'stripe' ? billing.club : null,
+    expected: {
+      seatPriceId: club.STRIPE_CLUB_SEAT_PRICE_ID,
+      portalConfigurationId: club.STRIPE_CLUB_PORTAL_CONFIGURATION_ID,
+    },
+  });
+  const refused = (fields: Record<string, string>) => {
+    try {
+      readServerConfig({ ...env, ...fields });
+      return 'accepted';
+    } catch (error) {
+      return String(error);
+    }
+  };
+  assert({
+    given: 'one Club id alone, or Club ids without the Stripe group',
+    should: 'refuse startup naming the Club fields only',
+    actual: [
+      refused({
+        ...stripe,
+        STRIPE_CLUB_SEAT_PRICE_ID: club.STRIPE_CLUB_SEAT_PRICE_ID,
+      }),
+      refused(club),
+    ].map((message) => message.includes('STRIPE_CLUB')),
+    expected: [true, true],
   });
 });
 

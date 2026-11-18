@@ -4,7 +4,12 @@ import type { Purchase } from '@daisy/protocol/billing';
 import type { createCheckoutVendor } from './checkout-vendor';
 import type { discoverCheckout } from './checkout-discovery';
 
-type Subject = { readonly userId: string; readonly actorId: string };
+/** The acting account; a Club purchase also names the club it buys for (ADR 0148). */
+type Subject = {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly organizationId?: string;
+};
 type Store = Pick<
   ReturnType<Database['billingPurchases']>,
   'recover' | 'record' | 'read'

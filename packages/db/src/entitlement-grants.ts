@@ -13,7 +13,8 @@ export async function readEntitlementGrants(
   tx: Executor,
   userId: string,
 ): Promise<readonly EntitlementGrant[]> {
-  const rows = (await tx.execute(sql`select g.entitlement, g.source,
+  const rows =
+    (await tx.execute(sql`select g.entitlement, g.source, g.organization_id as "organizationId",
       to_char(g.starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "startsAt",
       to_char(g.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt",
       case when v.id is not null then jsonb_build_object(
@@ -36,7 +37,20 @@ export async function readEntitlementGrants(
             source: value.source,
             hosting: value.hosting,
           }
-        : value,
+        : value.source === 'organization_seat'
+          ? {
+              entitlement: value.entitlement,
+              source: value.source,
+              organizationId: value.organizationId,
+              startsAt: value.startsAt,
+              expiresAt: value.expiresAt,
+            }
+          : {
+              entitlement: value.entitlement,
+              source: value.source,
+              startsAt: value.startsAt,
+              expiresAt: value.expiresAt,
+            },
     );
   });
 }

@@ -28,6 +28,7 @@ export function createPurchaseAdmission(input: {
     return store.admit(subject, {
       mode: input.config.mode,
       priceId: input.config.premiumPriceId,
+      quantity: 1,
       returnOrigin: input.returnOrigin,
     });
   };

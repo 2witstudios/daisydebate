@@ -56,7 +56,7 @@ export function organizationDecision(
   return permissionDecision(holder, capability, target, context);
 }
 
-/** Creating an organization takes an adult; a league also takes the hosting plan. */
+/** Creating an organization takes an adult; a league also takes the hosting plan. A family (ADR 0148) is a parent's own club. */
 export function organizationCreation(
   holder: Holder,
   resource: Of<'organization_collection'>,
@@ -64,7 +64,9 @@ export function organizationCreation(
 ): AuthorizationDecision {
   if (!bandAtLeast(holder.ageBand, 'adult')) return deny('age-band');
   return decide(
-    resource.proposedKind === 'school' || context.account?.hostingPlan === true,
+    resource.proposedKind === 'school' ||
+      resource.proposedKind === 'family' ||
+      context.account?.hostingPlan === true,
   );
 }
 

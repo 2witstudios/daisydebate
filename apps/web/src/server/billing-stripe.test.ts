@@ -12,6 +12,7 @@ const config: BillingConfig = {
   premiumPriceId: 'price_fixture',
   portalConfigurationId: 'bpc_fixture',
   hostEventPrices: null,
+  club: null,
 };
 
 test('disabled beta configuration has no Stripe resource or transport work', () => {

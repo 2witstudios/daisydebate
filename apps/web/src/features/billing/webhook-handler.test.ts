@@ -13,6 +13,7 @@ const config = {
   premiumPriceId: 'price_fixture',
   portalConfigurationId: 'bpc_fixture',
   hostEventPrices: null,
+  club: null,
 };
 const event = {
   id: 'evt_fixture',

@@ -37,6 +37,7 @@ const billing = {
   premiumPriceId: 'price_replacement',
   portalConfigurationId: 'bpc_fixture',
   hostEventPrices: null,
+  club: null,
 };
 
 function harness() {
@@ -44,13 +45,13 @@ function harness() {
     calls: string[] = [];
   const claim = {
     customerId: createId(),
-    userId: createId(),
+    owner: { kind: 'account' as const, userId: createId() },
     vendorCustomerId: identity.customerId,
     mode: 'test' as const,
     subscriptionId: identity.subscriptionId,
     vendorSubscriptionId: identity.vendorSubscriptionId,
     priceId: identity.priceId,
-    accountRevision: 1,
+    ownerRevision: 1,
     revision: 1,
     claimId: createId(),
   };

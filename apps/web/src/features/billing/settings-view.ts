@@ -12,13 +12,16 @@ export type BillingSettingsSource = {
   /** From the same verified subscription observation; display only. */
   readonly renewalOff: boolean;
   readonly amountMinor: number | null;
+  /** The club whose current seat gives this person Premium (ADR 0148), if any. */
+  readonly seat: { readonly name: string; readonly manager: string } | null;
 };
 
 /**
  * What the billing page shows. There are no usage counters (PYL-10): only
  * the plan, its price, and when it renews or ends. `granted` is Premium from
- * beta access with nothing to pay. `club-seat` is the state a Club seat gives
- * (S7 produces it); nothing here grants it.
+ * beta access with nothing to pay. `club-seat` is Premium a club pays for
+ * (ADR 0148); a member who also pays for Premium themselves sees their own
+ * plan, which stays until they cancel it. Nothing here grants anything.
  */
 export const billingSettingsSchema = z.strictObject({
   plan: z.enum([
@@ -34,7 +37,7 @@ export const billingSettingsSchema = z.strictObject({
   club: z
     .strictObject({
       name: z.string().min(1).max(120),
-      coach: z.string().min(1).max(120),
+      manager: z.string().min(1).max(120),
     })
     .nullable(),
   checkoutAvailable: z.boolean(),
@@ -60,9 +63,11 @@ export function billingSettingsView(input: {
           : 'premium'
         : access.kind === 'grace'
           ? 'payment-due'
-          : source.granted
-            ? 'granted'
-            : 'free',
+          : source.seat
+            ? 'club-seat'
+            : source.granted
+              ? 'granted'
+              : 'free',
     accessEndsAt:
       access.kind === 'none'
         ? null
@@ -70,12 +75,12 @@ export function billingSettingsView(input: {
           ? access.expiresAt
           : access.period.endsAt,
     priceMinor: access.kind === 'none' ? null : source.amountMinor,
-    club: null,
+    club: access.kind === 'none' ? source.seat : null,
     checkoutAvailable:
       input.configured &&
       input.purchaseVisible &&
       source.purchaseAllowed &&
-      !(access.kind === 'none' && source.granted),
+      !(access.kind === 'none' && (source.granted || source.seat !== null)),
     manageAvailable: input.configured && source.hasCustomer,
   });
 }

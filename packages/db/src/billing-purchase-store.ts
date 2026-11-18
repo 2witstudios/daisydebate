@@ -4,12 +4,15 @@ import {
   parsePurchase,
   purchaseFromRow,
   savePurchase,
+  subjectOwner,
   type PurchaseSubject,
 } from './billing-purchase-authority';
-import { and, eq, sql } from 'drizzle-orm';
+import { ownedBy } from './billing-owner-lock';
+import { and, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   advancePurchase,
+  billingOwnerColumns,
   nextPurchaseWork,
   type Purchase,
   type PurchaseEvent,
@@ -31,11 +34,12 @@ export type BillingPurchasePolicies = {
   readonly manage: (account: Account) => boolean;
   readonly release: ReleaseAdmission;
 };
-type Offer = Pick<Purchase, 'mode' | 'priceId' | 'returnOrigin'>;
+type Offer = Pick<Purchase, 'mode' | 'priceId' | 'returnOrigin' | 'quantity'>;
 function existingOffer(purchase: Purchase, offer: Offer) {
   if (
     purchase.mode !== offer.mode ||
     purchase.priceId !== offer.priceId ||
+    purchase.quantity !== offer.quantity ||
     purchase.returnOrigin !== offer.returnOrigin
   )
     throw createAppError('CONFLICT');
@@ -51,7 +55,7 @@ async function pendingPurchase(
     .from(billingPurchases)
     .where(
       and(
-        eq(billingPurchases.userId, subject.userId),
+        ownedBy(billingPurchases, subjectOwner(subject)),
         sql`${billingPurchases.state}->>'kind' in ('admitted','creating','unknown','open')`,
       ),
     )
@@ -84,11 +88,14 @@ export function createBillingPurchases(input: {
           readonly kind: 'admitted' | 'existing';
           readonly purchase: Purchase;
         }> => {
-          const { account, customer, subscription } = await lockPurchaseSubject(
-            tx,
-            subject,
-          );
-          if (!input.policies.purchase(account) || customer?.closedAt)
+          const { account, club, customer, subscription } =
+            await lockPurchaseSubject(tx, subject);
+          // A closed club cannot buy seats that would never grant access.
+          if (
+            !input.policies.purchase(account) ||
+            customer?.closedAt ||
+            club?.closed
+          )
             throw createAppError('AUTHORIZATION');
           if (customer && customer.mode !== offer.mode)
             throw createAppError('CONFLICT');
@@ -104,7 +111,8 @@ export function createBillingPurchases(input: {
           );
           const purchase = parsePurchase({
             id: input.nextId(),
-            userId: subject.userId,
+            owner: subjectOwner(subject),
+            quantity: offer.quantity,
             mode: offer.mode,
             priceId: offer.priceId,
             returnOrigin: offer.returnOrigin,
@@ -114,7 +122,8 @@ export function createBillingPurchases(input: {
           });
           await tx.insert(billingPurchases).values({
             id: purchase.id,
-            userId: purchase.userId,
+            ...billingOwnerColumns(purchase.owner),
+            quantity: purchase.quantity,
             mode: purchase.mode,
             priceId: purchase.priceId,
             vendorCustomerId: purchase.customerId,
