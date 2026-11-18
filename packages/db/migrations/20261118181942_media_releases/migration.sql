@@ -54,14 +54,16 @@ CREATE TABLE "media_release_requests" (
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
 	"recipient_email" text NOT NULL,
+	"recipient_hash" text NOT NULL,
 	"requested_at" timestamp with time zone NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"outcome" text,
 	"resolved_at" timestamp with time zone,
 	"sends" integer DEFAULT 0 NOT NULL,
 	"last_sent_at" timestamp with time zone,
-	CONSTRAINT "media_release_requests_outcome_check" CHECK (("outcome" is null) = ("resolved_at" is null) and ("outcome" is null or "outcome" in ('signed', 'declined', 'not_me', 'cancelled', 'superseded', 'expired'))),
+	CONSTRAINT "media_release_requests_outcome_check" CHECK (("outcome" is null) = ("resolved_at" is null) and ("outcome" is null or "outcome" in ('signed', 'declined', 'not_me', 'cancelled', 'superseded', 'expired', 'stopped'))),
 	CONSTRAINT "media_release_requests_email_check" CHECK ("recipient_email" = lower(btrim("recipient_email")) and length("recipient_email") between 3 and 254),
+	CONSTRAINT "media_release_requests_hash_check" CHECK ("recipient_hash" ~ '^[0-9a-f]{64}$'),
 	CONSTRAINT "media_release_requests_expiry_check" CHECK (isfinite("expires_at") and "expires_at" > "requested_at"),
 	CONSTRAINT "media_release_requests_sends_check" CHECK ("sends" between 0 and 5)
 );
@@ -119,6 +121,7 @@ CREATE INDEX "media_release_links_request_idx" ON "media_release_links" ("reques
 CREATE INDEX "media_release_mails_request_idx" ON "media_release_mails" ("request_id");--> statement-breakpoint
 CREATE INDEX "media_release_mails_due_idx" ON "media_release_mails" ("state","next_attempt_at");--> statement-breakpoint
 CREATE INDEX "media_release_mails_completed_idx" ON "media_release_mails" ("completed_at");--> statement-breakpoint
+CREATE INDEX "media_release_requests_recipient_hash_idx" ON "media_release_requests" ("recipient_hash") WHERE "outcome" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "media_release_requests_one_open" ON "media_release_requests" ("user_id") WHERE "outcome" is null;--> statement-breakpoint
 CREATE INDEX "media_release_requests_user_idx" ON "media_release_requests" ("user_id","requested_at");--> statement-breakpoint
 CREATE INDEX "media_release_requests_ended_idx" ON "media_release_requests" ("resolved_at","expires_at");--> statement-breakpoint

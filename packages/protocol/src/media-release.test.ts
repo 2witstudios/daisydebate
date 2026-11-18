@@ -256,7 +256,14 @@ test('a minor asks', () => {
     given: 'an open request already',
     should: 'replace it',
     actual: decideAsk(
-      { ...facts, standing: { kind: 'waiting', request: request() } },
+      {
+        ...facts,
+        standing: {
+          kind: 'waiting',
+          request: request(),
+          afterParentWithdrawal: false,
+        },
+      },
       'other@example.com',
     ),
     expected: {
@@ -561,7 +568,13 @@ test('a club confirms', () => {
     actual: [
       clubConfirmVerdict(student()),
       clubConfirmVerdict(
-        student({ standing: { kind: 'waiting', request: request() } }),
+        student({
+          standing: {
+            kind: 'waiting',
+            request: request(),
+            afterParentWithdrawal: false,
+          },
+        }),
       ),
       clubConfirmVerdict(
         student({
@@ -603,7 +616,11 @@ test('a club confirms', () => {
         student(),
         student({
           userId: 'n'.repeat(24),
-          standing: { kind: 'waiting', request: request() },
+          standing: {
+            kind: 'waiting',
+            request: request(),
+            afterParentWithdrawal: false,
+          },
         }),
       ],
       form,
@@ -744,5 +761,35 @@ test('publishing a Youth Round', () => {
     should: 'refuse',
     actual: decidePublish({ ...facts, published: true }),
     expected: { ok: false, refusal: 'already_public' },
+  });
+});
+
+test('a parent’s withdrawal outlives a new request', () => {
+  const standing = releaseStandingOf({
+    subjectUserId: minor,
+    releases: [
+      parentRelease({ withdrawnAt: iso(t0 + DAY), withdrawnBy: 'parent' }),
+    ],
+    requests: [
+      request({
+        requestedAt: iso(t0 + 2 * DAY),
+        expiresAt: iso(t0 + 16 * DAY),
+      }),
+    ],
+    nowMs: t0 + 3 * DAY,
+  });
+  assert({
+    given: 'a parent withdrew, then the minor asked again',
+    should: 'wait on a parent, and still refuse a club’s confirmation',
+    actual: [
+      standing.kind,
+      clubConfirmVerdict({
+        userId: minor,
+        member: true,
+        youth: true,
+        standing,
+      }),
+    ],
+    expected: ['waiting', 'parent_withdrew'],
   });
 });

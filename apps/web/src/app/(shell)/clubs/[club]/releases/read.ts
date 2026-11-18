@@ -68,15 +68,9 @@ export async function readClubReleasePage(
 export async function readClubReleaseTabs(
   clubId: string,
 ): Promise<{ readonly needing: number } | null> {
-  const answer = await readOwnRoute(
+  return readOwnRoute(
     releasesRoute,
-    `/api/clubs/${encodeURIComponent(clubId)}/releases`,
-    releasesReadSchema,
+    `/api/clubs/${encodeURIComponent(clubId)}/releases?count=needing`,
+    z.object({ needing: z.number().int().nonnegative() }),
   );
-  return answer === null
-    ? null
-    : {
-        needing: answer.read.students.filter((s) => needsRelease(s.standing))
-          .length,
-      };
 }

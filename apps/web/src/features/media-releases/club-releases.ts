@@ -24,9 +24,13 @@ export const clubReleaseFilterOf = (value: unknown): ClubReleaseFilter =>
 export const needsRelease = (standing: ReleaseStanding): boolean =>
   standing.kind !== 'on_file';
 
-/** The club may confirm only for a student with none, or one waiting on a parent. */
+/**
+ * The club may confirm only for a student with none, or one waiting on a
+ * parent who has not withdrawn before: only that parent can sign again.
+ */
 export const confirmable = (standing: ReleaseStanding): boolean =>
-  standing.kind === 'none' || standing.kind === 'waiting';
+  standing.kind === 'none' ||
+  (standing.kind === 'waiting' && !standing.afterParentWithdrawal);
 
 export const studentsShown = <S extends Pick<ClubReleaseStudent, 'standing'>>(
   students: readonly S[],

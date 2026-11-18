@@ -69,7 +69,9 @@ test('the minor’s media release section', () => {
     given: 'an open request',
     should: 'show when it was asked, until when, and the masked address',
     actual: mediaReleaseSettingsView(
-      read({ standing: { kind: 'waiting', request } }),
+      read({
+        standing: { kind: 'waiting', request, afterParentWithdrawal: false },
+      }),
     ),
     expected: {
       kind: 'waiting',

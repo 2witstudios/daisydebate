@@ -34,6 +34,8 @@ export const releaseRequestOutcomes = [
   'superseded',
   /** Closed after its expiry, when the minor asked again. */
   'expired',
+  /** The address asked Daisy not to send it release requests. */
+  'stopped',
 ] as const;
 export type ReleaseRequestOutcome = (typeof releaseRequestOutcomes)[number];
 
@@ -152,7 +154,15 @@ export const activeReleaseOf = (
  */
 export type ReleaseStanding =
   | { readonly kind: 'none' }
-  | { readonly kind: 'waiting'; readonly request: ReleaseRequest }
+  | {
+      readonly kind: 'waiting';
+      readonly request: ReleaseRequest;
+      /**
+       * The last release was withdrawn by a parent: a new request asks a
+       * parent again, and still no club may confirm in their place.
+       */
+      readonly afterParentWithdrawal: boolean;
+    }
   | {
       readonly kind: 'on_file';
       readonly publish: MediaReleaseRecord;
@@ -177,16 +187,22 @@ export const releaseStandingOf = (input: {
       publish,
       paidAds: activeReleaseOf(releases, subjectUserId, 'paid_ads') !== null,
     };
+  const last = releases
+    .filter((r) => r.subjectUserId === subjectUserId && r.scope === 'publish')
+    .sort(latestFirst)[0];
+  const parentWithdrew = last !== undefined && last.withdrawnBy === 'parent';
   const open = input.requests.find(
     (request) =>
       request.subjectUserId === subjectUserId &&
       isReleaseRequestOpen(request, nowMs),
   );
-  if (open !== undefined) return { kind: 'waiting', request: open };
-  const last = releases
-    .filter((r) => r.subjectUserId === subjectUserId && r.scope === 'publish')
-    .sort(latestFirst)[0];
-  return last !== undefined && last.withdrawnBy === 'parent'
+  if (open !== undefined)
+    return {
+      kind: 'waiting',
+      request: open,
+      afterParentWithdrawal: parentWithdrew,
+    };
+  return parentWithdrew && last !== undefined
     ? { kind: 'withdrawn', release: last }
     : { kind: 'none' };
 };
@@ -470,8 +486,11 @@ export const clubConfirmVerdict = (
       return 'already_on_file';
     case 'withdrawn':
       return 'parent_withdrew';
-    case 'none':
     case 'waiting':
+      return student.standing.afterParentWithdrawal
+        ? 'parent_withdrew'
+        : 'eligible';
+    case 'none':
       return 'eligible';
   }
 };

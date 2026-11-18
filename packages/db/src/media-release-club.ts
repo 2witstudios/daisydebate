@@ -17,6 +17,7 @@ import {
 } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { isDebatingSeatSql } from './seat-columns';
+import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
 import type { BoundedTransactionContext } from './transaction-context';
 
@@ -253,6 +254,38 @@ export function createMediaReleaseClubs(input: {
           role,
           students: await youthStudents(tx, club, now.getTime()),
         };
+      }),
+
+    /**
+     * How many of the club's Youth students hold no release on file: the
+     * tab's badge, in one query, for its owner or staff; else null.
+     */
+    countClubReleasesNeeded: (
+      viewerUserId: string,
+      ref: string,
+    ): Promise<number | null> =>
+      run(async (tx) => {
+        const club = await readClub(
+          tx,
+          idSchema.safeParse(ref).success ? { id: ref } : { handle: ref },
+          false,
+        );
+        if (club === null) return null;
+        if ((await clubReleaseRole(tx, club, viewerUserId)) === null)
+          return null;
+        await scopeTransaction(tx, { organizationId: club.id });
+        const [count] = await rows<{ n: number }>(
+          tx,
+          sql`select count(*)::int as n from memberships m
+            join users u on u.id = m.user_id and u.deleted_at is null
+            join account_age on account_age.user_id = m.user_id
+            where m.organization_id = ${club.id} and m.status = 'active'
+              and ${divisionOfBandSql(divisionAgeBand())} = 'youth'
+              and not exists (select 1 from media_releases r
+                where r.user_id = m.user_id and r.scope = 'publish'
+                  and r.withdrawn_at is null)`,
+        );
+        return count?.n ?? 0;
       }),
 
     /** The club confirms releases for every selected student, or none. */

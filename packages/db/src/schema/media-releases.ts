@@ -45,6 +45,8 @@ export const mediaReleaseRequests = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     recipientEmail: text('recipient_email').notNull(),
+    /** The address's keyed hash: a stop closes every open request to it. */
+    recipientHash: text('recipient_hash').notNull(),
     requestedAt: timestampColumn('requested_at').notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
     outcome: text('outcome'),
@@ -61,6 +63,13 @@ export const mediaReleaseRequests = pgTable(
       'media_release_requests_email_check',
       emailNormalized(table.recipientEmail),
     ),
+    check(
+      'media_release_requests_hash_check',
+      sql`${table.recipientHash} ~ '^[0-9a-f]{64}$'`,
+    ),
+    index('media_release_requests_recipient_hash_idx')
+      .on(table.recipientHash)
+      .where(sql`${table.outcome} is null`),
     check(
       'media_release_requests_expiry_check',
       sql`isfinite(${table.expiresAt}) and ${table.expiresAt} > ${table.requestedAt}`,

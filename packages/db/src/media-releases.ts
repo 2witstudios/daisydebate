@@ -92,11 +92,15 @@ export function createMediaReleases(input: {
 }) {
   const { run, nextId } = input;
 
-  async function minorFacts(tx: Tx, userId: string, now: Date) {
-    // The minor's account row orders every command about them.
-    await tx.execute(sql`select 1 from users where id = ${userId} for update`);
-    const releases = await readReleasesOf(tx, [userId], true);
-    const requests = await readRequestsOf(tx, userId, true);
+  async function minorFacts(tx: Tx, userId: string, now: Date, lock = true) {
+    // The minor's account row orders every command about them; a page's
+    // read takes no lock, so a link scanner never waits on a command.
+    if (lock)
+      await tx.execute(
+        sql`select 1 from users where id = ${userId} for update`,
+      );
+    const releases = await readReleasesOf(tx, [userId], lock);
+    const requests = await readRequestsOf(tx, userId, lock);
     return {
       releases,
       requests,
@@ -109,11 +113,12 @@ export function createMediaReleases(input: {
     };
   }
 
-  /** The link by its digest, its request, and the minor's locked facts. */
+  /** The link by its digest, its request, and the minor's facts, locked for a command. */
   async function linkFacts(
     tx: Tx,
     digest: string,
     purpose: ReleaseLinkPurpose,
+    lock = true,
   ) {
     if (!digestPattern.test(digest)) return null;
     const [link] = await rows<{
@@ -125,7 +130,8 @@ export function createMediaReleases(input: {
     }>(
       tx,
       sql`select id, purpose, request_id, expires_at, consumed_at
-        from media_release_links where token_digest = ${digest} for update`,
+        from media_release_links where token_digest = ${digest}
+        ${lock ? sql`for update` : sql``}`,
     );
     if (link === undefined) return null;
     const [owner] = await rows<{ user_id: string }>(
@@ -134,7 +140,7 @@ export function createMediaReleases(input: {
     );
     if (owner === undefined) return null;
     const now = await readDatabaseTime(tx);
-    const facts = await minorFacts(tx, owner.user_id, now);
+    const facts = await minorFacts(tx, owner.user_id, now, lock);
     const request = facts.requests.find((r) => r.id === link.request_id);
     if (request === undefined) return null;
     const verdict = releaseLinkVerdict(
@@ -206,7 +212,8 @@ export function createMediaReleases(input: {
         );
         const [count] = await rows<{ n: number }>(
           tx,
-          sql`select count(*)::int as n from rounds r
+          sql`select count(distinct r.id)::int as n from rounds r
+            join recordings rc on rc.round_id = r.id
             join round_participants rp on rp.round_id = r.id
             join actors a on a.id = rp.actor_id
             left join youth_round_publications p on p.round_id = r.id and p.ended_at is null
@@ -277,8 +284,9 @@ export function createMediaReleases(input: {
         const requestId = nextId();
         await tx.execute(
           sql`insert into media_release_requests (id, user_id, recipient_email,
-              requested_at, expires_at, sends, last_sent_at)
+              recipient_hash, requested_at, expires_at, sends, last_sent_at)
             values (${requestId}, ${command.userId}, ${decision.recipientEmail},
+              ${command.recipientHash},
               ${now.toISOString()}, ${releaseRequestExpiry(now.getTime())}, 1,
               ${now.toISOString()})`,
         );
@@ -350,7 +358,7 @@ export function createMediaReleases(input: {
       purpose: ReleaseLinkPurpose,
     ): Promise<ParentLinkRead> =>
       run(async (tx) => {
-        const facts = await linkFacts(tx, digest, purpose);
+        const facts = await linkFacts(tx, digest, purpose, false);
         if (facts === null) return { kind: 'unknown' };
         const [minor] = await rows<{ username: string | null }>(
           tx,
@@ -583,6 +591,12 @@ export function createMediaReleases(input: {
         await tx.execute(
           sql`insert into media_release_stops (recipient_hash) values (${recipientHash})
             on conflict do nothing`,
+        );
+        // Its open requests end now, so no reminder or resend reaches it.
+        await tx.execute(
+          sql`update media_release_requests set outcome = 'stopped',
+              resolved_at = clock_timestamp()
+            where recipient_hash = ${recipientHash} and outcome is null`,
         );
       }),
 

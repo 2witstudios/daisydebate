@@ -81,11 +81,12 @@ export function composeMediaReleaseHandlers(
   deps: MediaReleaseRouteDependencies,
 ) {
   const { boundary } = deps;
-  const gate = async (
-    released: MediaReleasesReleased,
-    accountId: string | null,
-  ) => {
-    if (!(await released(accountId))) throw createAppError('NOT_FOUND');
+  /**
+   * The flag is one counsel gate for Daisy as a whole (PYL-8), read the same
+   * way by every page, route, read and the mail worker: never per account.
+   */
+  const gate = async (released: MediaReleasesReleased) => {
+    if (!(await released(null))) throw createAppError('NOT_FOUND');
   };
   const member =
     (
@@ -102,7 +103,7 @@ export function composeMediaReleaseHandlers(
         request,
         { name, readOnly, bucket, rule },
         async (caller) => {
-          await gate(released, caller.userId);
+          await gate(released);
           return json(await work(caller, request));
         },
       );
@@ -122,7 +123,7 @@ export function composeMediaReleaseHandlers(
         name,
         async () => {
           requireSameOrigin(request, boundary.origin());
-          if (gated) await gate(released, null);
+          if (gated) await gate(released);
           const client = request.headers.get(CLIENT_IP_HEADER) ?? 'unresolved';
           await consumeOrThrow(
             boundary.limiter(),
@@ -209,8 +210,18 @@ export function composeMediaReleaseHandlers(
         'media-release.club-read',
         'media-release:club-read',
         { max: 120, windowSeconds: 60 },
-        async (caller) => {
+        async (caller, request) => {
           if (club.length > 80) throw createAppError('NOT_FOUND');
+          // The tab's badge needs only the count: one query, not every read.
+          if (new URL(request.url).searchParams.get('count') === 'needing') {
+            const needing =
+              await deps.store.mediaReleaseClubs.countClubReleasesNeeded(
+                caller.userId,
+                decodeURIComponent(club),
+              );
+            if (needing === null) throw createAppError('NOT_FOUND');
+            return { needing };
+          }
           const read = await deps.store.mediaReleaseClubs.readClubReleases(
             caller.userId,
             decodeURIComponent(club),

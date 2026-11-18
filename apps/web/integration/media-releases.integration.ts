@@ -48,6 +48,7 @@ type Store = {
     readonly readMinorRelease: (
       userId: string,
     ) => Promise<{ standing: { kind: string } }>;
+    readonly stopRequests: (recipientHash: string) => Promise<void>;
     readonly readActivePublishReleases: (
       ids: readonly string[],
     ) => Promise<readonly unknown[]>;
@@ -597,5 +598,45 @@ test('a Youth Recording is public only when every youth debater holds a release 
         });
       }),
     ),
+  );
+});
+
+test('an address that stops release requests gets no reminder and no new request', async () => {
+  await withRoomRuntime(async (f) =>
+    withNotices(f, async () => {
+      const store = f.store as never as Store;
+      await setAge(f, f.host, '16 years');
+      const hash = 'c'.repeat(64);
+      const asked = await store.mediaReleases.ask({
+        userId: f.host.userId,
+        email: 'stop-me@example.com',
+        recipientHash: hash,
+      });
+      await store.mediaReleases.stopRequests(hash);
+      const [request] = await f.sql`select outcome from media_release_requests
+        where id=${asked.requestId!}`;
+      const reminder = await mailLink(f, store, asked.requestId!, 'request');
+      const again = await store.mediaReleases.ask({
+        userId: f.host.userId,
+        email: 'stop-me@example.com',
+        recipientHash: hash,
+      });
+      assert({
+        given: 'an open request whose address then asks to stop',
+        should:
+          'close it, owe its mail nothing more, and refuse a new request to it',
+        actual: {
+          outcome: request!.outcome,
+          moreMail: reminder.prepared,
+          again: again.reason,
+        },
+        expected: {
+          outcome: 'stopped',
+          moreMail: 'not-owed',
+          again: 'recipient_stopped',
+        },
+      });
+      await f.sql`delete from media_release_stops where recipient_hash=${hash}`;
+    }),
   );
 });

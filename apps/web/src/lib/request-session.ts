@@ -693,7 +693,8 @@ export const releaseNowMs = (): number => Date.parse(processApp().clock.now());
 export const requestMediaReleaseSettings = async (
   userId: string,
 ): Promise<MediaReleaseSettingsView | null> => {
-  if (!(await requestReleaseEnabled('youth-publishing', userId))) return null;
+  // One counsel gate for Daisy as a whole, never per account (ADR 0151).
+  if (!(await requestReleaseEnabled('youth-publishing', null))) return null;
   const read =
     await processApp().database.mediaReleases.readMinorRelease(userId);
   return read.division === 'youth' ? mediaReleaseSettingsView(read) : null;

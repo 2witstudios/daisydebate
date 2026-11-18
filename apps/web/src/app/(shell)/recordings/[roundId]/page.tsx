@@ -55,10 +55,7 @@ export default async function RecordingPage({
   // A Youth Round publishes only once this flag opens, after counsel (PYL-8).
   const youthPublishing =
     screen.kind === 'history' && screen.youth !== null
-      ? await requestReleaseEnabled(
-          'youth-publishing',
-          identity.state === 'member' ? identity.principal.userId : null,
-        )
+      ? await requestReleaseEnabled('youth-publishing', null)
       : false;
   return screen.kind === 'history' ? (
     <RecordingHistory

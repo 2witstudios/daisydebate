@@ -123,14 +123,16 @@ const EVERYTHING: RoundEvidencePermissions = {
  * A Youth Round is private whatever its Room's visibility or a presented link:
  * its audience sees all of it once it ends, anyone else answers as missing.
  * Once a debater shared it, and while every release holds and publishing is
- * open, anyone sees it (ADR 0151).
+ * open, anyone sees it, as the public archive lists it: only on a public
+ * Round, which every ranked Round is (ADR 0151).
  */
 const youthPermissions = (
   round: RecordingRound & { readonly youth: YouthRound },
   viewer: RecordingViewer,
 ): RoundEvidencePermissions =>
   round.completedAtMs !== null &&
-  (round.youth.public || recordingAudience(round, viewer).kind === 'allowed')
+  ((round.youth.public && round.visibility === 'public') ||
+    recordingAudience(round, viewer).kind === 'allowed')
     ? EVERYTHING
     : NOTHING;
 

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "8f8cecc3-3103-489a-810e-30f26f09337b",
+  "id": "8d693542-6c6a-4840-b78c-5d26903c9f74",
   "prevIds": [
     "c37e8c9c-84e0-45a9-a4be-62b5287a7be0"
   ],
@@ -10733,6 +10733,19 @@
       "generated": null,
       "identity": null,
       "name": "recipient_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_release_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "recipient_hash",
       "entityType": "columns",
       "schema": "public",
       "table": "media_release_requests"
@@ -30027,6 +30040,27 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "media_release_mails"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "recipient_hash",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"outcome\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "media_release_requests_recipient_hash_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "media_release_requests"
     },
     {
       "nameExplicit": true,
@@ -51589,7 +51623,7 @@
       "table": "media_release_mails"
     },
     {
-      "value": "(\"outcome\" is null) = (\"resolved_at\" is null) and (\"outcome\" is null or \"outcome\" in ('signed', 'declined', 'not_me', 'cancelled', 'superseded', 'expired'))",
+      "value": "(\"outcome\" is null) = (\"resolved_at\" is null) and (\"outcome\" is null or \"outcome\" in ('signed', 'declined', 'not_me', 'cancelled', 'superseded', 'expired', 'stopped'))",
       "name": "media_release_requests_outcome_check",
       "entityType": "checks",
       "schema": "public",
@@ -51598,6 +51632,13 @@
     {
       "value": "\"recipient_email\" = lower(btrim(\"recipient_email\")) and length(\"recipient_email\") between 3 and 254",
       "name": "media_release_requests_email_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_release_requests"
+    },
+    {
+      "value": "\"recipient_hash\" ~ '^[0-9a-f]{64}$'",
+      "name": "media_release_requests_hash_check",
       "entityType": "checks",
       "schema": "public",
       "table": "media_release_requests"

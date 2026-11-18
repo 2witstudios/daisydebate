@@ -63,7 +63,11 @@ const byClub = (attestedByUserId: string, organizationId = club) =>
   }) satisfies MediaReleaseRecord;
 
 const none: ReleaseStanding = { kind: 'none' };
-const waiting: ReleaseStanding = { kind: 'waiting', request };
+const waiting: ReleaseStanding = {
+  kind: 'waiting',
+  request,
+  afterParentWithdrawal: false,
+};
 const withdrawn: ReleaseStanding = {
   kind: 'withdrawn',
   release: {
