@@ -135,8 +135,15 @@ const purchaseWrites = (tx: TabTransaction, lobbyId: string) => ({
     readonly tier: PaidHostingTier;
     readonly amount: number;
     readonly mode: 'test' | 'live';
-  }) => {
-    await tx.insert(tournamentHostingPurchases).values({ ...row, lobbyId });
+  }): Promise<'opened' | 'taken'> => {
+    // The tournament's one open purchase may already exist: a concurrent
+    // checkout won the partial unique index, and this one resumes it.
+    const inserted = await tx
+      .insert(tournamentHostingPurchases)
+      .values({ ...row, lobbyId })
+      .onConflictDoNothing()
+      .returning({ id: tournamentHostingPurchases.id });
+    return inserted.length === 1 ? 'opened' : 'taken';
   },
   /** Whether the session was recorded: false once the purchase stopped being open. */
   recordSession: async (purchaseId: string, vendorSessionId: string) => {

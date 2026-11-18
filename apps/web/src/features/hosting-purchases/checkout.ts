@@ -180,24 +180,6 @@ export const settleHostingPurchase =
 /** How long a purchase may stay without its Stripe session before it counts as abandoned. */
 const SESSIONLESS_LEASE_MS = 120_000;
 
-/** A unique violation of the one-open-purchase index, however the driver wraps it. */
-const isOpenPurchaseRace = (error: unknown): boolean => {
-  for (let at: unknown = error; at instanceof Error; at = at.cause) {
-    const fields = at as Error & {
-      readonly code?: unknown;
-      readonly errno?: unknown;
-      readonly constraint?: unknown;
-    };
-    if (
-      (fields.code === '23505' || fields.errno === '23505') &&
-      (fields.constraint === 'tournament_hosting_purchases_open_unique' ||
-        at.message.includes('tournament_hosting_purchases_open_unique'))
-    )
-      return true;
-  }
-  return false;
-};
-
 export type HostingCheckoutDestination =
   | { readonly kind: 'redirect'; readonly url: string }
   | { readonly kind: 'held' }
@@ -317,20 +299,11 @@ export const startHostingCheckout =
       }
       // A concurrent checkout may have opened the tournament's one purchase
       // first; the unique index refuses this one, and the next pass resumes it.
-      const opened = await dependencies.store
-        .tournamentHosting(
-          { viewerUserId: principal.userId, lobbyId },
-          (_account, writes) => writes.open(step.row),
-        )
-        .then(
-          () => true,
-          (error: unknown) => {
-            // Only losing the one-open-purchase race resumes; anything else is real.
-            if (isOpenPurchaseRace(error)) return false;
-            throw error;
-          },
-        );
-      if (!opened) continue;
+      const opened = await dependencies.store.tournamentHosting(
+        { viewerUserId: principal.userId, lobbyId },
+        (_account, writes) => writes.open(step.row),
+      );
+      if (opened === 'taken') continue;
       return createSession(
         dependencies,
         vendor,

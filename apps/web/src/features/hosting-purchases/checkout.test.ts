@@ -61,21 +61,8 @@ const racedStore = () => {
           createdAt: '2026-11-18T12:00:00.000Z',
           paidAt: null,
         });
-        // As the driver reports it: Drizzle's error, Postgres's cause.
-        throw new Error(
-          'Failed query: insert into tournament_hosting_purchases',
-          {
-            cause: Object.assign(
-              new Error(
-                'duplicate key value violates unique constraint "tournament_hosting_purchases_open_unique"',
-              ),
-              {
-                errno: '23505',
-                constraint: 'tournament_hosting_purchases_open_unique',
-              },
-            ),
-          },
-        );
+        // The database answers that the one open purchase is taken.
+        return 'taken' as const;
       }
       throw new Error('unexpected second insert');
     },
@@ -243,7 +230,7 @@ test('startHostingCheckout: a purchase closed while its session was made is neve
     purchases: [],
   };
   const writes = {
-    open: async () => {},
+    open: async () => 'opened' as const,
     // Another request closed the purchase in the meantime.
     recordSession: async () => false,
   };
@@ -308,7 +295,10 @@ test('startHostingCheckout: a purchase closed while its session was made is neve
 });
 
 /** A store holding one sessionless open purchase, made `ageMs` before the read. */
-const sessionlessStore = (ageMs: number, onOpen: () => Promise<void>) => {
+const sessionlessStore = (
+  ageMs: number,
+  onOpen: () => Promise<'opened' | 'taken'>,
+) => {
   const purchases: TournamentHostingPurchaseRow[] = [
     {
       id: id('stale'),
@@ -392,8 +382,8 @@ const vendorFor = (sessions: string[]) => ({
 
 test('startHostingCheckout: an abandoned sessionless purchase blocks no one; a fresh one waits', async () => {
   const sessions: string[] = [];
-  const stale = sessionlessStore(5 * 60_000, async () => {});
-  const fresh = sessionlessStore(30_000, async () => {});
+  const stale = sessionlessStore(5 * 60_000, async () => 'opened' as const);
+  const fresh = sessionlessStore(30_000, async () => 'opened' as const);
   const dependencies = (store: unknown) =>
     ({
       store,
