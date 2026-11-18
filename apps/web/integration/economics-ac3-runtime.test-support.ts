@@ -54,6 +54,17 @@ export function manualWorkerTimers() {
     clearInterval: (id) => {
       if (typeof id === 'number') tasks.delete(id);
     },
+    setTimeout: (run) => {
+      const id = ++next;
+      tasks.set(id, async () => {
+        tasks.delete(id);
+        await run();
+      });
+      return id;
+    },
+    clearTimeout: (id) => {
+      if (typeof id === 'number') tasks.delete(id);
+    },
   };
   return {
     timers,

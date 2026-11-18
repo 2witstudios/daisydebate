@@ -30,8 +30,9 @@ const projection = (releases: boolean): RoundProjection => ({
   effects: [],
 });
 const releases = async (ruled: boolean) => {
-  // Round row and segment close, then (when ruled) the release, then the doorbell.
-  const writes: ScriptedResult[] = ruled ? [[], [], []] : [[], []];
+  // Round row, segment close and the work wake, then (when ruled) the
+  // release, then the doorbell.
+  const writes: ScriptedResult[] = ruled ? [[], [], [], []] : [[], [], []];
   const { client, queries } = fakeSql([
     ...writes,
     [[1n, '42']] as ScriptedResult,

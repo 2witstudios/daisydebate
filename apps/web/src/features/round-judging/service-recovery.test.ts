@@ -16,7 +16,7 @@ function oneJob(input: {
   readonly jobEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   const { failures, failed } = failureLog();
-  const { tasks, timers } = manualTimers();
+  const { tasks, timers, nextPass } = manualTimers();
   let claims = 0;
   const service = startRoundJudgingService({
     reserveCapacity: () => () => {},
@@ -54,7 +54,7 @@ function oneJob(input: {
     failures,
     claims: () => claims,
     scan: async () => {
-      await tasks.get(500)!();
+      await nextPass();
       await settle();
     },
     renew: async () => {
@@ -131,7 +131,8 @@ test('a saved ballot that keeps failing to submit is reported and its slot relea
     ballotHeld: true,
   });
   await job.service.started;
-  for (let i = 0; i < 4; i++) await job.scan();
+  // Start-up pass, then three more: tries one to three, then a fresh claim.
+  for (let i = 0; i < 3; i++) await job.scan();
   await job.service.stop();
   assert({
     given:
@@ -152,7 +153,7 @@ test('a saved ballot that keeps failing to submit is reported and its slot relea
 });
 
 test('a delayed old renewal cannot remove a replacement judging claim', async () => {
-  const { tasks, timers } = manualTimers();
+  const { tasks, timers, nextPass } = manualTimers();
   const oldRenewal = Promise.withResolvers<void>();
   const firstExecution = Promise.withResolvers<void>();
   const replacementEntered = Promise.withResolvers<void>();
@@ -193,7 +194,7 @@ test('a delayed old renewal cannot remove a replacement judging claim', async ()
   const renewing = tasks.get(3000)!();
   firstExecution.reject(createAppError('INFRASTRUCTURE'));
   await firstReported.promise;
-  await tasks.get(500)!();
+  await nextPass();
   await replacementEntered.promise;
   oldRenewal.reject(createAppError('CONFLICT'));
   await renewing;

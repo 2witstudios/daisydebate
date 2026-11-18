@@ -1,6 +1,12 @@
 import { isAppError } from '@daisy/errors';
 import type { RoundAnalysisSeat } from '@daisy/db/rounds';
 import type { WorkerTimers } from '../../lib/worker-timers';
+import type { LoopPass } from '../../lib/idle-backoff';
+import {
+  HOUSEKEEPING_IDLE_MAX_MS,
+  startWorkerLoop,
+  type WorkWake,
+} from '../../lib/worker-loop';
 
 /**
  * The round analysis worker: each scan lists debater seats that need an
@@ -20,12 +26,13 @@ export function startRoundAnalysisService(input: {
     readonly scanMs: number;
   };
   readonly timers: WorkerTimers;
+  /** An analysis was requested; scan now (ADR 0153). */
+  readonly wake?: WorkWake | undefined;
   /** `stage` names the work that failed: analyse or scan. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   const running = new Map<string, Promise<void>>();
   const abort = new AbortController();
-  let scanning: Promise<void> | null = null;
   const start = (seat: RoundAnalysisSeat) => {
     const key = seat.roundParticipantId;
     const work = input
@@ -41,34 +48,39 @@ export function startRoundAnalysisService(input: {
       .finally(() => running.delete(key));
     running.set(key, work);
   };
-  const scan = (): Promise<void> => {
-    if (abort.signal.aborted || scanning) return scanning ?? Promise.resolve();
-    // Cleared in a later turn: a scan that ends before its first await
-    // would otherwise clear the marker before it is set.
-    scanning = (async () => {
-      try {
-        if (running.size >= input.limits.parallel) return;
-        for (const seat of await input.scan(input.limits.scanBatch)) {
-          if (abort.signal.aborted || running.size >= input.limits.parallel)
-            break;
-          if (!running.has(seat.roundParticipantId)) start(seat);
-        }
-      } catch (error) {
-        input.failed(error, 'scan');
+  /** One discovery pass; it worked while any analysis runs or was found. */
+  const scan = async (): Promise<LoopPass> => {
+    if (abort.signal.aborted) return 'idle';
+    if (running.size >= input.limits.parallel) return 'worked';
+    let found = 0;
+    try {
+      const seats = await input.scan(input.limits.scanBatch);
+      found = seats.length;
+      for (const seat of seats) {
+        if (abort.signal.aborted || running.size >= input.limits.parallel)
+          break;
+        if (!running.has(seat.roundParticipantId)) start(seat);
       }
-    })().finally(() => {
-      scanning = null;
-    });
-    return scanning;
+    } catch (error) {
+      input.failed(error, 'scan');
+    }
+    return running.size > 0 || found > 0 ? 'worked' : 'idle';
   };
-  const discovery = input.timers.setInterval(scan, input.limits.scanMs);
-  const started = scan();
+  const discovery = startWorkerLoop({
+    run: scan,
+    backoff: {
+      busyMs: input.limits.scanMs,
+      idleMaxMs: Math.max(input.limits.scanMs, HOUSEKEEPING_IDLE_MAX_MS),
+    },
+    timers: input.timers,
+    failed: (error) => input.failed(error, 'scan'),
+    wake: input.wake,
+  });
   return {
-    started,
+    started: discovery.started,
     async stop() {
       abort.abort();
-      input.timers.clearInterval(discovery);
-      await Promise.allSettled([scanning, ...running.values()]);
+      await Promise.allSettled([discovery.stop(), ...running.values()]);
     },
   };
 }

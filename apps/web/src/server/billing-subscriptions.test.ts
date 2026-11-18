@@ -11,6 +11,7 @@ import {
   invoice,
 } from '../features/billing/subscription-observation.test-support';
 import type { BillingFetch } from './billing-stripe';
+import { withOneShots } from '../lib/worker-timers.test-support';
 
 setupRitewayBun();
 const build = () =>
@@ -57,7 +58,7 @@ function harness() {
   };
   let tick: () => Promise<void> = async () => undefined,
     cadence = 0;
-  const timers = {
+  const timers = withOneShots({
     setInterval: (run: () => Promise<void>, ms: number) => {
       tick = run;
       cadence = ms;
@@ -66,7 +67,7 @@ function harness() {
     clearInterval: () => {
       calls.push('clear');
     },
-  };
+  });
   const store: ReturnType<typeof app.database.billingSynchronization> = {
     receipts: async () => ({ rows: [], afterId: null, exhausted: true }),
     customers: async () => ({
@@ -126,13 +127,13 @@ test('no-Stripe beta starts neither subscription timers nor transport', () => {
   const result = startBillingSubscriptions({
     app,
     instanceId: createId(),
-    timers: {
+    timers: withOneShots({
       setInterval: () => {
         calls.push('timer');
         return 1;
       },
       clearInterval: () => undefined,
-    },
+    }),
     fetch: Object.assign(
       async () => {
         calls.push('fetch');
@@ -230,13 +231,8 @@ test('subscription shutdown waits for the bounded SDK read and never applies a r
   assert({
     given: 'a tick and shutdown during the first vendor read',
     should:
-      'admit no overlap, wait for completion and leave the durable claim for another instance',
+      'admit no overlap, wait for completion, arm no next pass and leave the durable claim for another instance',
     actual: [before, requests, stopped, h.calls],
-    expected: [
-      [1, false],
-      1,
-      true,
-      ['service:current-service-fixture', 'clear'],
-    ],
+    expected: [[1, false], 1, true, ['service:current-service-fixture']],
   });
 });

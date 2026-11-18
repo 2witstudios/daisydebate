@@ -7,6 +7,7 @@ import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import { refundFixture } from '../features/billing/refund.test-support';
 import type { BillingFetch } from './billing-stripe';
+import { withOneShots } from '../lib/worker-timers.test-support';
 
 setupRitewayBun();
 const fixture = refundFixture();
@@ -90,7 +91,7 @@ function harness(mode: 'test' | 'live' = 'test') {
     },
     calls,
     records,
-    timers: {
+    timers: withOneShots({
       setInterval: (run: () => Promise<void>, ms: number) => {
         tick = run;
         calls.push(['cadence', ms]);
@@ -99,7 +100,7 @@ function harness(mode: 'test' | 'live' = 'test') {
       clearInterval: () => {
         calls.push(['clear']);
       },
-    },
+    }),
     tick: () => tick(),
   };
 }
@@ -135,9 +136,9 @@ test('runtime independently refetches the original refund after success without 
     expected: [
       [
         ['service', 'current-service-fixture'],
-        ['cadence', 5000],
         ['actions', { mode: 'test', limit: 3 }],
         ['claim', fixture.base.id],
+        ['cadence', 5000],
         ['clear'],
       ],
       [[`/v1/refunds/${fixture.refund.id}`, 'GET']],

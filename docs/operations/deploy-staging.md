@@ -130,7 +130,7 @@ it is the one machine shared CPU cannot serve.
 Read from Fly on 2026-11-04 (staging only, read-only): Postgres
 `daisy-debate-staging-db` is performance-2x with 4 GB and `max_connections` 300; web
 `daisy-debate-staging` is 1 machine, shared-cpu-4x with 1 GB. One web process holds at
-most 33 connections (`WORKLOAD_PROFILES.web`). That is per process, the sum grows with
+most 34 connections (`WORKLOAD_PROFILES.web`). That is per process, the sum grows with
 web machines, and production's topology is undecided, so this is no production limit.
 
 Measured on 2026-10-28 (ISSUE-809): at performance-1x every database round

@@ -5,6 +5,7 @@ import { startRoundAnalysisWorkers } from './round-analysis-workers';
 import { startRoundBotWorkers } from './round-bot-workers';
 import { startRoundJudgingWorkers } from './round-judging-workers';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
+import type { WorkWakes } from './work-wakes';
 
 type Started = {
   readonly started: Promise<unknown>;
@@ -21,6 +22,8 @@ export function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
   readonly timers: WorkerTimers;
+  /** Each worker's wake for the work it looks for (ADR 0153). */
+  readonly wakes: WorkWakes;
   /** Bot seat ending deadlines (ISSUE-789). */
   readonly deadlineTimer: OneShotTimer;
   readonly botMedia: Parameters<typeof startRoundBotWorkers>[0]['botMedia'];
@@ -41,14 +44,28 @@ export function startRoundWorkers(input: {
             policy: judging,
             budget: competitive,
             parallel: concurrency,
+            wake: input.wakes.of('judging'),
           }),
         ]
       : []),
     ...(bots && competitive
-      ? [startRoundBotWorkers({ ...input, policy: bots, budget: competitive })]
+      ? [
+          startRoundBotWorkers({
+            ...input,
+            policy: bots,
+            budget: competitive,
+            wake: input.wakes.of('round'),
+          }),
+        ]
       : []),
     ...(analysis
-      ? [startRoundAnalysisWorkers({ ...input, policy: analysis })]
+      ? [
+          startRoundAnalysisWorkers({
+            ...input,
+            policy: analysis,
+            wake: input.wakes.of('analysis'),
+          }),
+        ]
       : []),
   ];
   if (!workers.length) return null;

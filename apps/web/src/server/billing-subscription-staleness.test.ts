@@ -11,6 +11,7 @@ import { createApp } from './app';
 import { startBillingSubscriptions } from './billing-subscriptions';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
+import { withOneShots } from '../lib/worker-timers.test-support';
 
 setupRitewayBun();
 
@@ -84,7 +85,10 @@ test('subscription freshness observes actual pending age against the explicit ta
       },
     },
     instanceId: createId(),
-    timers: { setInterval: () => 1, clearInterval: () => undefined },
+    timers: withOneShots({
+      setInterval: () => 1,
+      clearInterval: () => undefined,
+    }),
     fetch: Object.assign(
       async () => {
         throw Error('Freshness collection must not call a vendor');

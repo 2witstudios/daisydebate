@@ -6,6 +6,12 @@ import {
   type JudgingTerminalReason,
 } from '@daisy/protocol';
 import type { WorkerTimers } from '../../lib/worker-timers';
+import type { LoopPass } from '../../lib/idle-backoff';
+import {
+  LIVE_IDLE_MAX_MS,
+  startWorkerLoop,
+  type WorkWake,
+} from '../../lib/worker-loop';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Found = Target & { readonly holdsBallot?: boolean };
 type Claim = { readonly scope: Target; readonly token: string };
@@ -56,6 +62,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
+  /** Judging work was created; scan now (ADR 0153). */
+  readonly wake?: WorkWake | undefined;
   /** A renewal found the job over and ended it, for this reason. */
   readonly jobEnded?: (reason: JudgingTerminalReason) => void;
   /** `stage` names the work that failed: execute, scan or renew. */
@@ -63,7 +71,6 @@ export function startRoundJudgingService<C extends Claim>(input: {
 }) {
   const entries = new Map<string, Entry<C>>();
   let stopped = false,
-    scanning: Promise<void> | null = null,
     renewing: Promise<void> | null = null;
   const key = (target: Target) =>
     `${target.roundId}:${target.judgeParticipantId}`;
@@ -110,91 +117,89 @@ export function startRoundJudgingService<C extends Claim>(input: {
       }
     })();
   };
-  const scan = (): Promise<void> => {
-    if (stopped || scanning) return scanning ?? Promise.resolve();
-    scanning = (async () => {
-      try {
-        const visited = new Set(entries.keys());
-        for (const entry of entries.values()) execute(entry);
-        const discoveries = await Promise.allSettled(
-          judgingWorkKinds.map((kind) =>
-            input.store.scanRoundJudgingJobs(input.limits.scanBatch, kind),
-          ),
-        );
-        const refused = discoveries.find(
-          (result) => result.status === 'rejected',
-        );
-        if (refused?.status === 'rejected')
-          input.failed(refused.reason, 'scan');
-        const targets = discoveries.flatMap((result, index) =>
-          result.status === 'fulfilled'
-            ? result.value.filter(
-                (target) =>
-                  Boolean(target.holdsBallot) ===
-                  (judgingWorkKinds[index] === 'submission'),
-              )
-            : [],
-        );
-        for (const target of targets) {
-          if (stopped) break;
-          if (visited.has(key(target))) continue;
-          const workKind: JudgingWorkKind = target.holdsBallot
-            ? 'submission'
-            : 'generation';
-          const parallel =
-            workKind === 'submission'
-              ? judgingPolicy.submissionParallel
-              : input.limits.parallel;
-          if (
-            [...entries.values()].filter((entry) => entry.workKind === workKind)
-              .length >= parallel
-          )
-            continue;
-          if (entries.has(key(target))) continue;
-          if (
-            [...entries.values()].some(
-              (entry) => entry.claim.scope.roundId === target.roundId,
+  /** One discovery pass; it worked while any judging is held or found. */
+  const scan = async (): Promise<LoopPass> => {
+    if (stopped) return 'idle';
+    let found = 0;
+    try {
+      const visited = new Set(entries.keys());
+      for (const entry of entries.values()) execute(entry);
+      const discoveries = await Promise.allSettled(
+        judgingWorkKinds.map((kind) =>
+          input.store.scanRoundJudgingJobs(input.limits.scanBatch, kind),
+        ),
+      );
+      const refused = discoveries.find(
+        (result) => result.status === 'rejected',
+      );
+      if (refused?.status === 'rejected') input.failed(refused.reason, 'scan');
+      const targets = discoveries.flatMap((result, index) =>
+        result.status === 'fulfilled'
+          ? result.value.filter(
+              (target) =>
+                Boolean(target.holdsBallot) ===
+                (judgingWorkKinds[index] === 'submission'),
             )
+          : [],
+      );
+      for (const target of targets) {
+        if (stopped) break;
+        if (visited.has(key(target))) continue;
+        const workKind: JudgingWorkKind = target.holdsBallot
+          ? 'submission'
+          : 'generation';
+        const parallel =
+          workKind === 'submission'
+            ? judgingPolicy.submissionParallel
+            : input.limits.parallel;
+        if (
+          [...entries.values()].filter((entry) => entry.workKind === workKind)
+            .length >= parallel
+        )
+          continue;
+        if (entries.has(key(target))) continue;
+        if (
+          [...entries.values()].some(
+            (entry) => entry.claim.scope.roundId === target.roundId,
           )
-            continue;
-          // Submitting a held ballot buys nothing, so it takes no provider slot.
-          const freeCapacity = target.holdsBallot
-            ? () => {}
-            : input.reserveCapacity();
-          // A later held reply needs no provider slot; still visit it.
-          if (!freeCapacity) continue;
-          try {
-            const claim = await input.store.claimRoundJudgingJob(target);
-            if (stopped) {
-              // A successful durable claim recovers by lease expiry. This
-              // process has not started execution; never clear an unfenced lease.
-              freeCapacity();
-              break;
-            }
-            const entry: Entry<C> = {
-              workKind,
-              claim,
-              freeCapacity,
-              abort: new AbortController(),
-              running: false,
-              work: Promise.resolve(),
-              refusals: 0,
-            };
-            entries.set(key(target), entry);
-            visited.add(key(target));
-            execute(entry);
-          } catch {
+        )
+          continue;
+        // Submitting a held ballot buys nothing, so it takes no provider slot.
+        const freeCapacity = target.holdsBallot
+          ? () => {}
+          : input.reserveCapacity();
+        // A later held reply needs no provider slot; still visit it.
+        if (!freeCapacity) continue;
+        try {
+          const claim = await input.store.claimRoundJudgingJob(target);
+          if (stopped) {
+            // A successful durable claim recovers by lease expiry. This
+            // process has not started execution; never clear an unfenced lease.
             freeCapacity();
-            /* Discovery is advisory; another process may win the claim. */
+            break;
           }
+          const entry: Entry<C> = {
+            workKind,
+            claim,
+            freeCapacity,
+            abort: new AbortController(),
+            running: false,
+            work: Promise.resolve(),
+            refusals: 0,
+          };
+          entries.set(key(target), entry);
+          visited.add(key(target));
+          execute(entry);
+        } catch {
+          freeCapacity();
+          /* Discovery is advisory; another process may win the claim. */
         }
-      } catch (error) {
-        input.failed(error, 'scan');
-      } finally {
-        scanning = null;
       }
-    })();
-    return scanning;
+      found = targets.length;
+    } catch (error) {
+      input.failed(error, 'scan');
+    }
+    return entries.size > 0 || found > 0 ? 'worked' : 'idle';
   };
   const renew = (): Promise<void> => {
     if (stopped || renewing) return renewing ?? Promise.resolve();
@@ -224,15 +229,20 @@ export function startRoundJudgingService<C extends Claim>(input: {
     });
     return renewing;
   };
-  const discovery = input.timers.setInterval(scan, input.limits.scanMs);
   const heartbeat = input.timers.setInterval(renew, input.limits.renewMs);
-  const started = scan();
+  const discovery = startWorkerLoop({
+    run: scan,
+    backoff: { busyMs: input.limits.scanMs, idleMaxMs: LIVE_IDLE_MAX_MS },
+    timers: input.timers,
+    failed: (error) => input.failed(error, 'scan'),
+    wake: input.wake,
+  });
   return {
-    started,
+    started: discovery.started,
     async stop() {
       stopped = true;
-      input.timers.clearInterval(discovery);
       input.timers.clearInterval(heartbeat);
+      const scanning = discovery.stop();
       for (const entry of entries.values()) release(entry);
       await Promise.allSettled([
         scanning,

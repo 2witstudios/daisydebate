@@ -26,8 +26,10 @@ export const createStrayEgressSweep =
     readonly owners: readonly StageCaptureOwner[];
     readonly report: (event: StrayEgressEvent) => void;
   }) =>
-  async () => {
-    for (const { egressId, captureId } of await deps.listStages())
+  /** One pass: how many stage Egresses it saw, so none is an idle pass. */
+  async (): Promise<number> => {
+    const stages = await deps.listStages();
+    for (const { egressId, captureId } of stages)
       try {
         for (const owner of deps.owners) {
           const before = await owner.recordedEgress(captureId);
@@ -44,4 +46,5 @@ export const createStrayEgressSweep =
       } catch {
         deps.report('stage.stray_sweep_failed');
       }
+    return stages.length;
   };

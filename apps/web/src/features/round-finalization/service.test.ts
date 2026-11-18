@@ -2,6 +2,7 @@ import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMaintenance } from './service';
 import { createRefusal } from '@daisy/errors';
+import { inertTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 /** A pass that reached a decision, as the store returns it. */
 const decided = (decision: 'forfeit' | 'abandoned' | 'attended') =>
@@ -27,8 +28,8 @@ const ports = (): Ports => ({
   tick: async () => {},
   evaluate: async () => ({ kind: 'undecided' as const }),
   finalize: async () => {},
-  rateUnrated: async () => {},
-  timers: { setInterval: () => 1, clearInterval: () => {} },
+  rateUnrated: async () => 0,
+  timers: inertTimers,
   now: () => 0,
   failed: (error) => {
     throw error;
@@ -59,14 +60,15 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
     },
     rateUnrated: async () => {
       calls.push('rating-recovery');
+      return 0;
     },
     now: () => 0,
     timers: {
-      setInterval: (_pulse: () => void, ms: number) => {
+      ...inertTimers,
+      setTimeout: (_pulse: () => unknown, ms: number) => {
         interval = ms;
         return 1;
       },
-      clearInterval: () => {},
     },
     failed: () => {
       calls.push('failed');
@@ -122,13 +124,14 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
     },
     rateUnrated: async () => {
       ratings += 1;
+      return 0;
     },
     timers: {
-      setInterval: (next) => {
-        pulse = next;
+      ...inertTimers,
+      setTimeout: (next) => {
+        pulse = async () => void (await next());
         return 1;
       },
-      clearInterval: () => {},
     },
   });
   await service.ready;
@@ -215,11 +218,11 @@ test('a five-Round fleet leaves capacity for public work and advances queued Rou
       running -= 1;
     },
     timers: {
-      setInterval: (next) => {
-        pulse = next;
+      ...inertTimers,
+      setTimeout: (next) => {
+        pulse = async () => void (await next());
         return 1;
       },
-      clearInterval: () => {},
     },
   });
   await service.ready;
@@ -289,11 +292,11 @@ function driven(overrides: Partial<Ports>) {
   const service = startRoundMaintenance({
     ...ports(),
     timers: {
-      setInterval: (run: () => Promise<void>) => {
-        pulse = run;
+      ...inertTimers,
+      setTimeout: (run: () => unknown) => {
+        pulse = async () => void (await run());
         return 1;
       },
-      clearInterval: () => {},
     },
     now: () => clock,
     ...overrides,

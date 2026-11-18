@@ -32,6 +32,7 @@ import {
 } from './room-command-facts';
 import { isOpenRoomStatus } from '@daisy/protocol';
 import { settleRoomInvitationsAfter } from './room-invitations/store';
+import { notifyWork } from './work-wake';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */
 const roomRow = (
@@ -185,6 +186,8 @@ export const persistRoomMutation = async (
         .insert(roundDrawSeeds)
         .values({ roundId, seed: mutation.roundSeed });
     await appendRoundPhaseChanged(tx, roundId, 1);
+    // The live Round loops find it now, not at their idle cap (ADR 0153).
+    await notifyWork(tx, 'round');
     // A Round with nothing to run first begins at this click (ADR 0144).
     if (roundBegan(null, opens ? 'opening' : 'active'))
       await oweRoundStarted(tx, { roundId, at: now });

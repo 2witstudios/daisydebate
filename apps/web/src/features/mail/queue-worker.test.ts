@@ -1,60 +1,42 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startMailQueueWorker } from './queue-worker';
+import { manualTimers } from '../../lib/worker-timers.test-support';
 
 setupRitewayBun();
 
-const manualTimers = () => {
-  const ticks: Array<() => Promise<void>> = [];
-  let cleared = 0;
-  return {
-    ticks,
-    cleared: () => cleared,
-    timers: {
-      setInterval: (task: () => Promise<void>) => {
-        ticks.push(task);
-        return ticks.length;
-      },
-      clearInterval: () => {
-        cleared += 1;
-      },
-    },
-  };
-};
-
-test('runs a batch at start and per tick, never two at once, and stops cleanly', async () => {
-  const { ticks, timers, cleared } = manualTimers();
+test('a queue sending mail keeps its pace; an empty one backs off', async () => {
+  const { timers, waits, nextPass } = manualTimers();
   const limits: number[] = [];
-  let release = () => {};
+  const sent = [3, 1, 0, 0];
   const service = startMailQueueWorker({
-    run: (limit) => {
+    run: async (limit) => {
       limits.push(limit);
-      return new Promise<number>((resolve) => {
-        release = () => resolve(0);
-      });
+      return sent.shift() ?? 0;
     },
     batch: 10,
     everyMs: 15_000,
     timers,
     failed: () => {},
   });
-  const overlapping = ticks[0]!();
-  release();
-  await Promise.all([service.started, overlapping]);
-  const next = ticks[0]!();
-  release();
-  await next;
+  await service.started;
+  await nextPass();
+  await nextPass();
+  await nextPass();
   await service.stop();
-  await ticks[0]!();
   assert({
-    given: 'a tick while a batch runs, a later tick, and a tick after stop',
-    should: 'skip the overlap, run the later one, and run nothing after stop',
-    actual: { limits, cleared: cleared() },
-    expected: { limits: [10, 10], cleared: 1 },
+    given: 'two batches that send mail, then two that find none, then a stop',
+    should:
+      'run each batch with its limit, at 15 s while sending, then wait longer',
+    actual: { limits, waits },
+    expected: {
+      limits: [10, 10, 10, 10],
+      waits: [15_000, 15_000, 30_000, 60_000],
+    },
   });
 });
 
 test('a failed batch is reported and the loop carries on', async () => {
-  const { ticks, timers } = manualTimers();
+  const { timers, nextPass } = manualTimers();
   const failures: unknown[] = [];
   const service = startMailQueueWorker({
     run: async () => {
@@ -66,7 +48,7 @@ test('a failed batch is reported and the loop carries on', async () => {
     failed: (error) => failures.push(error),
   });
   await service.started;
-  await ticks[0]!();
+  await nextPass();
   await service.stop();
   assert({
     given: 'a store that fails on every batch',

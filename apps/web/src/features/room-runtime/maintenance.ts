@@ -1,9 +1,8 @@
 import type { Database } from '@daisy/db';
 import { maintainRoom } from '@daisy/debate-engine';
-import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../../lib/worker-timers';
+import type { WorkerTimers } from '../../lib/worker-timers';
+import type { LoopPass } from '../../lib/idle-backoff';
+import { LIVE_IDLE_MAX_MS, startWorkerLoop } from '../../lib/worker-loop';
 
 /** How often Room maintenance runs: due draw strikes settle within a pulse. */
 const ROOM_MAINTENANCE_PULSE_MS = 500;
@@ -30,7 +29,7 @@ export const createRoomMaintenance =
     /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0070). */
     readonly idleTimeoutMs: number | null;
   }) =>
-  async (failed: RoomMaintenanceFailed): Promise<void> => {
+  async (failed: RoomMaintenanceFailed): Promise<LoopPass> => {
     const { idleTimeoutMs } = input;
     const roomIds = await input.store.readMaintenanceCandidates({
       idleTimeoutMs,
@@ -48,17 +47,20 @@ export const createRoomMaintenance =
             }),
         })
         .catch((error: unknown) => failed(error, 'maintain'));
+    return roomIds.length > 0 ? 'worked' : 'idle';
   };
 
-/** Runs Room maintenance on its own single-flight timer, apart from Round maintenance. */
+/** Runs Room maintenance on its own worker loop, apart from Round maintenance. */
 export function startRoomMaintenance(input: {
-  readonly maintainRooms: (failed: RoomMaintenanceFailed) => Promise<void>;
+  readonly maintainRooms: (failed: RoomMaintenanceFailed) => Promise<LoopPass>;
   readonly timers: WorkerTimers;
   readonly failed: RoomMaintenanceFailed;
 }) {
-  return startSingleFlightWorker({
+  return startWorkerLoop({
     run: () => input.maintainRooms(input.failed),
-    everyMs: ROOM_MAINTENANCE_PULSE_MS,
+    // A Room idle past the timeout is found within the cap; one being
+    // maintained keeps the pulse (ADR 0153).
+    backoff: { busyMs: ROOM_MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => input.failed(error, 'discover'),
   });

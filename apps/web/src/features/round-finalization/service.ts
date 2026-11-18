@@ -1,6 +1,12 @@
 import { isAppError } from '@daisy/errors';
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import type { WorkerTimers } from '../../lib/worker-timers';
+import type { LoopPass } from '../../lib/idle-backoff';
+import {
+  LIVE_IDLE_MAX_MS,
+  startWorkerLoop,
+  type WorkWake,
+} from '../../lib/worker-loop';
 import {
   nextPacing,
   noPacing,
@@ -34,8 +40,11 @@ type MaintenancePorts = {
   readonly tick: (roundId: string) => Promise<unknown>;
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   readonly finalize: (roundId: string) => Promise<unknown>;
-  readonly rateUnrated: () => Promise<unknown>;
+  /** How many Rounds it rated, or more pages wait: zero is an idle sweep. */
+  readonly rateUnrated: () => Promise<number>;
   readonly timers: WorkerTimers;
+  /** A Round changed: discover now (ADR 0153). */
+  readonly wake?: WorkWake | undefined;
   readonly failed: (error: unknown, stage: MaintenanceWork) => void;
   /** Monotonic milliseconds. */
   readonly now: () => number;
@@ -148,11 +157,7 @@ async function maintainRound(
 
 /** Discovery and committed-rating recovery never wait for a competing Round's work. */
 export function startRoundMaintenance(input: MaintenancePorts) {
-  let stopped = false,
-    discovering = false,
-    rating = false;
-  let discoveryWork = Promise.resolve(),
-    ratingWork = Promise.resolve();
+  let stopped = false;
   const active = new Map<string, Promise<void>>();
   const waiting = new Map<string, RoundPhase>();
   const pacing = createRoundPacing(input);
@@ -192,44 +197,52 @@ export function startRoundMaintenance(input: MaintenancePorts) {
     }
     advance();
   };
-  const discover = async () => {
-    if (stopped || discovering) return;
-    discovering = true;
+  /** Whether discovery found a due Round or has more pages to read. */
+  const discover = async (): Promise<boolean> => {
+    if (stopped) return false;
     try {
       const page = await input.discover();
       if (!stopped) remember(page);
+      return page.roundIds.length > 0 || !page.cycleComplete;
     } catch (error) {
       input.failed(error, 'discover');
-    } finally {
-      discovering = false;
+      return false;
     }
   };
-  const recoverRatings = async () => {
-    if (stopped || rating) return;
-    rating = true;
+  /** Whether the rating sweep rated a Round or has more pages to read. */
+  const recoverRatings = async (): Promise<boolean> => {
+    if (stopped) return false;
     try {
-      await input.rateUnrated();
+      return (await input.rateUnrated()) > 0;
     } catch (error) {
       input.failed(error, 'rate');
-    } finally {
-      rating = false;
+      return false;
     }
   };
-  const pulse = () => {
-    if (!discovering) discoveryWork = discover();
-    if (!rating) ratingWork = recoverRatings();
-    return Promise.all([discoveryWork, ratingWork]).then(() => undefined);
+  /**
+   * One pulse: it worked while any Round is live, queued or due, so a live
+   * Round's deadlines keep the busy pace; idle only when nothing is live.
+   */
+  const pulse = async (): Promise<LoopPass> => {
+    const [due, rated] = await Promise.all([discover(), recoverRatings()]);
+    return due || rated || active.size > 0 || waiting.size > 0
+      ? 'worked'
+      : 'idle';
   };
-  const timer = input.timers.setInterval(pulse, MAINTENANCE_PULSE_MS);
-  const ready = pulse();
+  const loop = startWorkerLoop({
+    run: pulse,
+    backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
+    timers: input.timers,
+    failed: (error) => input.failed(error, 'discover'),
+    wake: input.wake,
+  });
   let closing: Promise<void> | undefined;
   return {
-    ready,
+    ready: loop.started,
     stop: () => {
       stopped = true;
       waiting.clear();
-      input.timers.clearInterval(timer);
-      closing ??= Promise.all([discoveryWork, ratingWork]).then(async () => {
+      closing ??= loop.stop().then(async () => {
         await Promise.all(active.values());
       });
       return closing;

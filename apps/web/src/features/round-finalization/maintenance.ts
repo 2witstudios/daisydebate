@@ -178,6 +178,7 @@ export function createRoundMaintenanceOperations(input: {
         ...(ratingAfterId ? { afterId: ratingAfterId } : {}),
       });
       ratingAfterId = page.exhausted ? undefined : page.afterId;
+      return page.exhausted ? page.rated : Math.max(1, page.rated);
     },
   };
 }

@@ -407,9 +407,13 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
      * and resolves when those finish. A tick does not wait for the last one, so
      * one Round's slow pass never delays another's floor (ISSUE-972).
      */
-    async recoverActiveSessions() {
+    /** `listed` hears the live sessions' Rounds before any recovery runs. */
+    async recoverActiveSessions(
+      listed?: (roundIds: readonly string[]) => void,
+    ) {
       const tickedAt = input.now();
       const sessions = await input.store.activeMediaSessions();
+      listed?.(sessions.map(({ roundId }) => roundId));
       const listMs = input.now() - tickedAt;
       const due = recoveryDue(sessions, recovering, input.recoveryHeartbeatMs);
       if (sessions.some(floorDue))

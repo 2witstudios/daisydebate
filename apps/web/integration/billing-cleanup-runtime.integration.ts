@@ -153,6 +153,13 @@ for (const mapped of [false, true])
           clearInterval: (handle) => {
             cleared.push(handle);
           },
+          setTimeout: (run, ms) => {
+            ticks.set(ms, async () => void (await run()));
+            return ms;
+          },
+          clearTimeout: (handle) => {
+            cleared.push(handle);
+          },
         },
         fetch: transport,
       });

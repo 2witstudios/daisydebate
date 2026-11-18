@@ -53,8 +53,9 @@ export function createRefundReconciliation(input: {
       input.failed(createAppError('CONFLICT'), 'record');
   }
   return {
-    async run() {
-      if (stopped || running) return;
+    /** One pass; returns how many rows it handled. */
+    async run(): Promise<number> {
+      if (stopped || running) return 0;
       running = true;
       try {
         // Each vendor action performs at most two bounded reads; three identities bound one tick.
@@ -64,12 +65,14 @@ export function createRefundReconciliation(input: {
           ...(afterId === undefined ? {} : { afterId }),
         });
         for (const { actionId } of page.rows) {
-          if (stopped) return;
+          if (stopped) return page.rows.length;
           await reconcile(actionId);
         }
         afterId = page.exhausted ? undefined : (page.afterId ?? undefined);
+        return page.rows.length;
       } catch (error) {
         input.failed(error, 'discover');
+        return 0;
       } finally {
         running = false;
       }

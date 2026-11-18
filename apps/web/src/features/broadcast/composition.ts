@@ -1,7 +1,11 @@
+import type { WorkerTimers } from '../../lib/worker-timers';
+import { passOf } from '../../lib/idle-backoff';
 import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../../lib/worker-timers';
+  HOUSEKEEPING_IDLE_MAX_MS,
+  LIVE_IDLE_MAX_MS,
+  startWorkerLoop,
+  type WorkWake,
+} from '../../lib/worker-loop';
 import type { App } from '../../server/app';
 import { newFeedKey } from './official-feed';
 import { stageEgressOf } from '../stage-capture/composition';
@@ -15,7 +19,12 @@ const FACT_LOG_EVERY_MS = 15_000;
 const PASS_BUDGET_MS = 750;
 
 /** Inert unless BROADCAST_CAPTURE is on, so merging never activates capture. */
-export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
+export const startBroadcastSweep = (
+  app: App,
+  timers: WorkerTimers,
+  /** A Round changed: one may need a Broadcast now (ADR 0153). */
+  wake?: WorkWake,
+) => {
   const egress = stageEgressOf(app);
   if (app.config.BROADCAST_CAPTURE !== 'on' || !egress) return null;
   const log = (event: Parameters<typeof app.logger.log>[0]) =>
@@ -32,20 +41,26 @@ export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
     report: log,
     passBudget: () => Bun.sleep(PASS_BUDGET_MS),
   });
-  const factLog = startSingleFlightWorker({
-    run: createFactLogSweep({
-      store: app.database,
-      now: () => app.clock.now(),
-    }),
-    everyMs: FACT_LOG_EVERY_MS,
+  const factLogSweep = createFactLogSweep({
+    store: app.database,
+    now: () => app.clock.now(),
+  });
+  const factLog = startWorkerLoop({
+    run: () => factLogSweep().then(passOf),
+    backoff: {
+      busyMs: FACT_LOG_EVERY_MS,
+      idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS,
+    },
     timers,
     failed: () => log('spectator.fact_log_failed'),
+    wake,
   });
-  const reconcile = startSingleFlightWorker({
+  const reconcile = startWorkerLoop({
     run: sweep,
-    everyMs: SWEEP_EVERY_MS,
+    backoff: { busyMs: SWEEP_EVERY_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
     timers,
     failed: () => log('broadcast.reconcile_failed'),
+    wake,
   });
   return {
     stop: () =>

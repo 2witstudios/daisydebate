@@ -39,6 +39,7 @@ import { roundCommands } from './schema/round-commands';
 import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
+import { notifyWork } from './work-wake';
 
 type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 
@@ -137,6 +138,9 @@ export async function writeProjectionWithPhaseSignal(
   // An opening that ends starts the debate's clock (ADR 0144).
   if (projection.round && roundBegan(current.status, projection.round.status))
     await oweRoundStarted(tx, { roundId, at: now });
+  // Every Round write may hand a live loop work: a bot's turn, a due step
+  // (ADR 0153). A lossy hint, delivered on commit.
+  await notifyWork(tx, 'round');
   // The engine rules when a Round stops holding its Room's members (ADR 0070).
   if (projection.releasesRoomMembers)
     await releaseRoundRoomMembers(tx, roundId);

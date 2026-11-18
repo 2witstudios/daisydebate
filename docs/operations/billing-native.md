@@ -81,7 +81,8 @@ production activation and the recorded minors/legal decisions remain human.
 ## Existing attempt repair
 
 A current-service process sweep independently scans at most three existing
-purchase identities per five-second single-flight tick. Its worker has no
+purchase identities per pass of its worker loop: every five seconds while it
+finds work, backing off to a minute when idle (ADR 0153). Its worker has no
 creation operation. It reads only the admitted mode, original offer and Session
 identity; a replacement configured price cannot reprice an old attempt. Failed
 identities remain durable while the indexed scan advances and revisits its head.

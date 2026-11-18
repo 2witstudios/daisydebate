@@ -102,8 +102,10 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers: {
-      setInterval: (task) => tasks.push(task),
+      setInterval: () => 0,
       clearInterval: () => {},
+      setTimeout: (run) => tasks.push(async () => void (await run())),
+      clearTimeout: () => {},
     },
     overdue: neverOverdue,
     failed: () => {
@@ -112,7 +114,7 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
   });
   await service.started;
   segment = 'second';
-  await tasks[0]!();
+  await tasks.at(-1)!();
   // The incoming claim follows the ending and pulses once it is owned.
   await within(incoming.promise, 'The incoming claim');
   await service.stop();

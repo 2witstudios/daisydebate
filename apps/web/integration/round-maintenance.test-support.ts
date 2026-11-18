@@ -106,6 +106,14 @@ export const maintenanceTestTimers = {
     if (typeof stop !== 'function') throw new Error('Unknown test timer');
     stop();
   },
+  setTimeout: (run: () => unknown, ms: number) => {
+    const handle = setTimeout(() => void run(), ms);
+    return () => clearTimeout(handle);
+  },
+  clearTimeout: (stop: unknown) => {
+    if (typeof stop !== 'function') throw new Error('Unknown test timer');
+    stop();
+  },
 };
 
 /** Observes real elected sampling without replacing its SQL or evidence. */

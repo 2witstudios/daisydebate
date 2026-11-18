@@ -1,8 +1,10 @@
 import { identify } from '../../lib/identity';
+import type { WorkerTimers } from '../../lib/worker-timers';
+import { passOf } from '../../lib/idle-backoff';
 import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../../lib/worker-timers';
+  HOUSEKEEPING_IDLE_MAX_MS,
+  startWorkerLoop,
+} from '../../lib/worker-loop';
 import type { App } from '../../server/app';
 import type { AccountRouteDeps } from '../../server/account-route';
 import { createAudienceReactionRoute } from '../audience-reactions/handler';
@@ -82,15 +84,20 @@ export function composeAudienceRoutes(app: App) {
 }
 
 /** Notifications, on every web instance: each event's claim keeps it once. */
-export const startNotificationSweep = (app: App, timers: WorkerTimers) =>
-  startSingleFlightWorker({
-    run: createNotificationSweep({
-      store: app.database,
-      now: () => app.clock.now(),
-      nextId: () => app.ids.next(),
-    }),
-    everyMs: NOTIFICATION_SWEEP_EVERY_MS,
+export const startNotificationSweep = (app: App, timers: WorkerTimers) => {
+  const sweep = createNotificationSweep({
+    store: app.database,
+    now: () => app.clock.now(),
+    nextId: () => app.ids.next(),
+  });
+  return startWorkerLoop({
+    run: () => sweep().then(passOf),
+    backoff: {
+      busyMs: NOTIFICATION_SWEEP_EVERY_MS,
+      idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS,
+    },
     timers,
     failed: () =>
       app.logger.log('notifications.sweep_failed', {}, 'Notifications'),
   });
+};

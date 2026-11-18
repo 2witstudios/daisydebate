@@ -2,10 +2,9 @@ import type { App } from './app';
 import { createBillingStripe, type BillingFetch } from './billing-stripe';
 import { privacyJobRetryAt } from './privacy-jobs';
 import { workerFailures } from './recoverable-failure';
-import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../lib/worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
+import { passOf, type LoopPass } from '../lib/idle-backoff';
+import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 import { createScheduledWorker } from '../features/ops/scheduled-worker';
 import { createBillingCleanupDelivery } from '../features/billing/cleanup-delivery';
 import { createCleanupRechecks } from '../features/billing/cleanup-rechecks';
@@ -59,15 +58,15 @@ export function startBillingCleanup(input: {
   });
   let stopped = false;
   let counts = { deleted: 0, retried: 0 };
-  const run = async () => {
-    if (stopped) return;
+  const run = async (): Promise<LoopPass> => {
+    if (stopped) return 'idle';
     const jobs = await app.database.duePrivacyJobs({
       now: app.clock.now(),
       limit: 3,
       vendors: ['stripe'],
     });
     for (const job of jobs) {
-      if (stopped) return;
+      if (stopped) return 'worked';
       try {
         const result = await delivery.deliver(job.id);
         if (result === 'complete')
@@ -78,6 +77,7 @@ export function startBillingCleanup(input: {
         if (!stopped) failed(error, 'delivery');
       }
     }
+    return passOf(jobs.length);
   };
   const health = createScheduledWorker({
     name: 'billing_cleanup',
@@ -97,22 +97,26 @@ export function startBillingCleanup(input: {
       }
     },
   });
-  const schedule = startSingleFlightWorker({
+  // A due privacy job is delivered within a second while any is due; an
+  // empty queue backs off to the housekeeping cap (ADR 0153).
+  const schedule = startWorkerLoop({
     run,
-    everyMs: 1000,
+    backoff: { busyMs: 1000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => {
       if (!stopped) failed(error, 'due');
     },
   });
   // Health and acknowledged-job revisits have their own bounded minute cadence; empty queues do not emit 1Hz heartbeats.
-  const monitoring = startSingleFlightWorker({
+  const monitoring = startWorkerLoop({
     run: async () => {
-      if (stopped) return;
+      if (stopped) return 'idle';
       await rechecks.run();
       if (!stopped) await health.run();
+      return 'idle';
     },
-    everyMs: 60000,
+    // A fixed minute cadence: it measures, it does not poll for work.
+    backoff: { busyMs: 60_000, idleMaxMs: 60_000 },
     timers: input.timers,
     failed: (error) => {
       if (!stopped) failed(error, 'monitor');
