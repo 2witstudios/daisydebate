@@ -107,7 +107,7 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
     storageState: await context.storageState(),
   });
   try {
-    const plain = await noScript.newPage();
+    const plain = await openPage(noScript, 'coach without JavaScript');
     await plain.goto(`/rooms/${round.roomId}`);
     await expect(plain).toHaveURL(`/rounds/${round.roundId}/room`);
     await expect(plain.getByText('Watching', { exact: true })).toBeVisible();

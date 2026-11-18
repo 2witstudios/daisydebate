@@ -39,10 +39,10 @@ export function createRoundFloorChannelCohortAuthority(
       readFacts: (tx, roundId, actorIds) =>
         readRoundFloorFacts(tx, roundId, actorIds, youth),
     });
-  const plain = cohortWith(null);
+  type Cohort = ReturnType<typeof cohortWith>;
   return <T>(
-    input: Parameters<typeof plain<T>>[0] & { readonly youth?: FloorYouth },
-    work: Parameters<typeof plain<T>>[1],
+    input: Parameters<Cohort>[0] & { readonly youth?: FloorYouth },
+    work: (frame: Parameters<Parameters<Cohort>[1]>[0]) => Promise<T>,
   ): Promise<T> => cohortWith(input.youth ?? null)(input, work);
 }
 
