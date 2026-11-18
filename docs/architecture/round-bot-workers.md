@@ -8,7 +8,11 @@ jobs at the explicitly configured interval, at most 500 ms.
 Each worker has its own optional validated JSON policy (ISSUE-749):
 `ROUND_JUDGING_POLICY` for AI judging (scan/lease/renewal/call bounds and its
 model) and `ROUND_BOT_WORKER_POLICY` for bot debaters (controllers, bounds and
-speech, cross-ex and TTS models). AI judging and live bot speech share one
+speech, cross-ex and TTS models, and the reasoning effort the speech and
+cross-ex calls ask for). That effort is named with the models because some
+endpoints make reasoning mandatory and refuse `none` (ISSUE-1460: Sonnet 5.5 on
+OpenRouter, November 2026); bots run Haiku 5.5 with `none`, so a speaker starts
+at once (PYL-18 measured it at about a twentieth of Sonnet's model cost). AI judging and live bot speech share one
 competitive provider budget, `COMPETITIVE_PROVIDER_CONCURRENCY`. Without a
 worker's policy and that budget, its discovery stays inert. The AI judge is
 not a bot debater: it has its own `ai_judge_profiles` row and may hold only

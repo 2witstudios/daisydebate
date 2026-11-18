@@ -25,6 +25,7 @@ const synthesizeOne = (
     timer: { setTimeout: () => null, clearTimeout: () => undefined },
     stallMs: 1000,
     maxTokens: 100,
+    reasoning: 'none',
   }).synthesize(
     scope,
     'token',
@@ -74,6 +75,7 @@ function streamedGeneration(
     readonly budget?: () => void;
     /** How many times the usage record is refused before it lands. */
     readonly refuseRecord?: number;
+    readonly reasoning?: 'none' | 'low';
   } = {},
 ) {
   let refusals = options.refuseRecord ?? 0;
@@ -169,6 +171,7 @@ function streamedGeneration(
     },
     stallMs: 9000,
     maxTokens: 100,
+    reasoning: options.reasoning ?? 'none',
   });
   const generate = () =>
     generation.generate(scope, 'token', new AbortController().signal, {
@@ -230,6 +233,23 @@ test('a speech answer opens with its first sentence and records its usage once, 
       finished,
     ],
     expected: ['I stand firmly against it.', true, null, ['received:9']],
+  });
+});
+
+test('a language answer asks for the reasoning effort its policy names', async () => {
+  const { generate, requests, hear, settle } = streamedGeneration({
+    reasoning: 'low',
+  });
+  const opening = generate();
+  await settle();
+  hear('Thank you, judge. I st');
+  await opening;
+  assert({
+    given:
+      'a bot policy naming low reasoning, for a model that refuses none (ISSUE-1460)',
+    should: 'send low, never none',
+    actual: requests[0]?.['reasoning'],
+    expected: 'low',
   });
 });
 

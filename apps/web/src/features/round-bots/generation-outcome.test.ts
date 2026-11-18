@@ -37,6 +37,7 @@ async function settlementOf(
     timer: { setTimeout: () => null, clearTimeout: () => undefined },
     stallMs: 1000,
     maxTokens: 100,
+    reasoning: 'none',
   });
   await generation
     .synthesize(scope, 'token', 'p'.repeat(24), 'One.', controller.signal)

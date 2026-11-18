@@ -95,6 +95,7 @@
     "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
     "drill:node-kill": "bun --env-file=.env apps/web/e2e/support/node-kill-drill-runner.ts",
     "drill:first-word": "bun --env-file=.env apps/web/e2e/support/first-word-runner.ts",
+    "drill:bot-freestyle": "bun --env-file=.env apps/web/e2e/support/bot-freestyle-runner.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
     "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
     "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts",
