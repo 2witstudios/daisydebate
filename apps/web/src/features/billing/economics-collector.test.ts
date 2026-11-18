@@ -523,13 +523,15 @@ test('club seat use keeps the self-paid plans’ coverage only when costs come f
       : r.kind;
   };
   assert({
-    given: 'an AI round from a club seat, and one nobody can attribute',
+    given:
+      'an AI round from a club seat priced by usage counters, the same priced by a provider invoice, and one nobody can attribute',
     should:
-      'keep the feed’s coverage for the seat, and void it for the unattributed one',
+      'keep coverage for the counted seat, and void it where the invoice includes club use or the use is unattributed',
     actual: [
       await coverage('organization_seat'),
+      await coverage('organization_seat', 'provider_invoice'),
       await coverage('unattributed'),
     ],
-    expected: [true, false],
+    expected: [true, false, false],
   });
 });
