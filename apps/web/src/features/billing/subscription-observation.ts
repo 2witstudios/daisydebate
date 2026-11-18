@@ -24,6 +24,8 @@ export type SubscriptionObservation =
       readonly evidence: SubscriptionEvidence;
       readonly cancelAtPeriodEnd: boolean;
       readonly cancelAt: string | null;
+      /** The verified price the subscriber holds: current or grandfathered. */
+      readonly amountMinor: number;
     };
 const refuse = { kind: 'refuse' } as const;
 const iso = (value: number) => new Date(value * 1000).toISOString();
@@ -115,11 +117,13 @@ function invoicePeriod(
     endsAt: iso(line.period.end),
   };
 }
+/** An invoice settles a period only for the subscription's own verified amount. */
 function payment(
   invoice: Invoice | null,
   subscriptionId: string,
+  amount: number,
 ): PaidPeriod | null {
-  return invoice?.status === 'paid' && invoice.lines.data[0]!.amount === 1000
+  return invoice?.status === 'paid' && invoice.lines.data[0]!.amount === amount
     ? {
         kind: 'paid',
         invoiceId: invoice.id,
@@ -166,14 +170,14 @@ function verifiedInvoices(input: ObservationInput, sub: Subscription) {
   if (previous && previous.status !== 'paid') return null;
   return { latest, previous };
 }
-function failedCollection(invoice: Invoice) {
+function failedCollection(invoice: Invoice, amount: number) {
   return (
     invoice.status === 'open' &&
     invoice.billing_reason === 'subscription_cycle' &&
     invoice.attempted &&
     invoice.attempt_count > 0 &&
     invoice.amount_remaining > 0 &&
-    invoice.lines.data[0]!.amount === 1000
+    invoice.lines.data[0]!.amount === amount
   );
 }
 function observedSettlement(
@@ -182,9 +186,13 @@ function observedSettlement(
   paid: PaidPeriod | null,
 ): SubscriptionEvidence['settlement'] {
   if (!paid) return { kind: 'unpaid' };
-  if (!latest || sub.status !== 'past_due' || !failedCollection(latest))
-    return paid;
   const item = sub.items.data[0]!;
+  if (
+    !latest ||
+    sub.status !== 'past_due' ||
+    !failedCollection(latest, item.price.unit_amount)
+  )
+    return paid;
   const failed = invoicePeriod(latest, paid.period.subscriptionId);
   if (
     failed.startsAt !== paid.period.endsAt ||
@@ -208,9 +216,10 @@ export function normalizeSubscriptionObservation(
   if (!sub) return refuse;
   const invoices = verifiedInvoices(input, sub);
   if (!invoices) return refuse;
+  const amount = sub.items.data[0]!.price.unit_amount;
   const paid = mostRecentPayment(
-    payment(invoices.latest, input.identity.subscriptionId),
-    payment(invoices.previous, input.identity.subscriptionId),
+    payment(invoices.latest, input.identity.subscriptionId, amount),
+    payment(invoices.previous, input.identity.subscriptionId, amount),
   );
   const evidence = subscriptionEvidenceSchema.safeParse({
     lifecycle: sub.status,
@@ -222,6 +231,7 @@ export function normalizeSubscriptionObservation(
         evidence: evidence.data,
         cancelAtPeriodEnd: sub.cancel_at_period_end,
         cancelAt: sub.cancel_at === null ? null : iso(sub.cancel_at),
+        amountMinor: amount,
       }
     : refuse;
 }

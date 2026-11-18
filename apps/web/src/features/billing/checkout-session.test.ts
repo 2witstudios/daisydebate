@@ -130,6 +130,11 @@ test('forged session authority, altered offers and unsafe redirects are refused'
     },
     withPrice({ id: 'price_other' }),
     withPrice({ unit_amount: 100 }),
+    // The grandfathered $10 offer is never sold to a new Checkout (PYL-9).
+    withPrice({ unit_amount: 1000 }),
+    { ...checkoutSession, amount_subtotal: 1000 },
+    withPrice({ lookup_key: null }),
+    withPrice({ lookup_key: 'daisy_premium_monthly_usd_10' }),
     withPrice({ currency: 'eur' }),
     withPrice({ livemode: true }),
     withPrice({

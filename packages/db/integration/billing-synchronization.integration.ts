@@ -189,3 +189,32 @@ test('original purchase price fences forged claims and missing provenance cannot
     },
   );
 });
+
+test('verified renewal-off and the subscriber price persist with the evidence for display only', async () => {
+  await withBillingSynchronization(
+    async ({ fixture, customerId, subscriptionId, store, paid }) => {
+      const read = async () =>
+        (
+          await fixture.sql`select renewal_off, amount_minor from billing_subscriptions where id=${subscriptionId}`
+        )[0];
+      const before = await read();
+      const claim = (await store.claim(customerId))!;
+      const applied = await store.apply(claim, paid, {
+        renewalOff: true,
+        amountMinor: 2000,
+      });
+      assert({
+        given:
+          'a new subscription, then a verified observation of a $20 price with renewal turned off',
+        should:
+          'start with renewal on and no price, then record both beside the paid evidence',
+        actual: [before, applied, await read()],
+        expected: [
+          { renewal_off: false, amount_minor: null },
+          'applied',
+          { renewal_off: true, amount_minor: 2000 },
+        ],
+      });
+    },
+  );
+});

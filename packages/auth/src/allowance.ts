@@ -7,16 +7,20 @@ import type {
   UsageKind,
   UsageSource,
 } from '@daisy/protocol/billing';
-import { requestedUsageKinds } from '@daisy/protocol/billing';
+import { allowanceDay, requestedUsageKinds } from '@daisy/protocol/billing';
 import { subscriptionAccess } from './subscription-policy';
 import { participantAccess } from './participant-access';
 import type { AccountAuthorizationFact } from './authorization-facts';
+import { allowanceCeilings, type AllowanceCeilings } from './allowance-ceilings';
 import {
   currentEntitlementGrants,
   type EntitlementEvaluation,
 } from './entitlement-validity';
 
-type Policy = EntitlementEvaluation & { readonly betaMonthlyCap: number };
+type Policy = EntitlementEvaluation & {
+  /** Tests may tighten the trusted ceilings; production uses the one config. */
+  readonly ceilings?: AllowanceCeilings;
+};
 type Refusal = Extract<AllowanceDecision, { kind: 'refuse' }>;
 const refuse = (reason: Refusal['reason']): Refusal => ({
   kind: 'refuse',
@@ -76,27 +80,40 @@ function sourceFor(
   };
 }
 
-function reservationLimit(
-  source: UsageSource,
-  kind: UsageKind,
-  betaCap: number,
-): number | null {
-  if (source.kind === 'lifetime') return 1;
-  return kind === 'ai_round'
-    ? source.kind === 'subscription'
-      ? 5
-      : betaCap
-    : null;
+/** Free is the lifetime source; a subscription or beta grant is Premium. */
+export type AllowanceTier = 'free' | 'premium';
+export type AllowanceVerdict = 'allow' | 'free-limit-reached' | 'abuse-ceiling';
+
+/**
+ * The whole quantity rule (PYL-10): a free account has one use of each kind,
+ * ever; Premium is unlimited up to the per-day abuse ceiling. Counts enter
+ * here and only the verdict leaves.
+ */
+export function allowanceVerdict(
+  input: {
+    readonly tier: AllowanceTier;
+    readonly kind: UsageKind;
+    readonly usedToday: number;
+    readonly usedThisPeriod: number;
+  },
+  ceilings: AllowanceCeilings = allowanceCeilings,
+): AllowanceVerdict {
+  if (input.tier === 'free')
+    return input.usedThisPeriod >= ceilings.freeLifetime
+      ? 'free-limit-reached'
+      : 'allow';
+  return input.usedToday >= ceilings.premiumPerDay[input.kind]
+    ? 'abuse-ceiling'
+    : 'allow';
 }
 
+const counts = (entries: readonly { readonly spent: number }[]) =>
+  entries.every((entry) => Number.isSafeInteger(entry.spent) && entry.spent >= 0);
 function validFacts(facts: AllowanceFacts, policy: Policy): boolean {
   return (
     Number.isFinite(Date.parse(policy.now)) &&
-    Number.isSafeInteger(policy.betaMonthlyCap) &&
-    policy.betaMonthlyCap > 0 &&
-    facts.usage.every(
-      (entry) => Number.isSafeInteger(entry.spent) && entry.spent >= 0,
-    )
+    counts(facts.usage) &&
+    (facts.today === null || counts(facts.today.usage))
   );
 }
 function holdsRequestedGrants(
@@ -115,20 +132,37 @@ function holdsRequestedGrants(
     )
   );
 }
-function exhaustedAllowance(
+/** The first refusing verdict across the bundle; a bundle admits whole or not at all. */
+function bundleVerdict(
   facts: AllowanceFacts,
-  reservations: Extract<AllowanceDecision, { kind: 'admit' }>['reservations'],
-): boolean {
-  return reservations.some(
-    ({ kind, source, limit }) =>
-      limit !== null &&
-      facts.usage
-        .filter(
-          (entry) =>
-            entry.kind === kind && sameUsageSource(entry.source, source),
-        )
-        .reduce((sum, entry) => sum + entry.spent, 0) >= limit,
-  );
+  source: UsageSource,
+  kinds: readonly UsageKind[],
+  policy: Policy,
+): AllowanceVerdict {
+  const today =
+    facts.today?.startsAt === allowanceDay(policy.now).startsAt
+      ? facts.today.usage
+      : [];
+  const sum = (entries: readonly { kind: UsageKind; spent: number }[]) =>
+    entries.reduce((total, entry) => total + entry.spent, 0);
+  for (const kind of kinds) {
+    const verdict = allowanceVerdict(
+      {
+        tier: source.kind === 'lifetime' ? 'free' : 'premium',
+        kind,
+        usedToday: sum(today.filter((entry) => entry.kind === kind)),
+        usedThisPeriod: sum(
+          facts.usage.filter(
+            (entry) =>
+              entry.kind === kind && sameUsageSource(entry.source, source),
+          ),
+        ),
+      },
+      policy.ceilings,
+    );
+    if (verdict !== 'allow') return verdict;
+  }
+  return 'allow';
 }
 
 export const canUseAiAllowance = (account: AccountAuthorizationFact | null) =>
@@ -179,12 +213,8 @@ export function admitAllowance(
     return refuse('not-eligible');
   if (freeJudgeUnbound(source, request, facts))
     return refuse('free-judge-unbound');
-  const reservations = kinds.map((kind) => ({
-    kind,
-    source,
-    limit: reservationLimit(source, kind, policy.betaMonthlyCap),
-  }));
-  return exhaustedAllowance(facts, reservations)
-    ? refuse('allowance')
-    : { kind: 'admit', reservations };
+  const verdict = bundleVerdict(facts, source, kinds, policy);
+  return verdict === 'allow'
+    ? { kind: 'admit', reservations: kinds.map((kind) => ({ kind, source })) }
+    : refuse(verdict);
 }

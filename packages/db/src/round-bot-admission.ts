@@ -97,11 +97,15 @@ function admissionRefusal(
   busy: number,
   busyCap: number,
 ) {
-  if (decision.kind === 'refuse') {
-    if (decision.reason === 'allowance') return 'allowance' as const;
-    if (decision.reason === 'renewal-grace') return 'renewal-grace' as const;
-    return 'not-eligible' as const;
-  }
+  if (decision.kind === 'refuse')
+    switch (decision.reason) {
+      case 'free-limit-reached':
+      case 'abuse-ceiling':
+      case 'renewal-grace':
+        return decision.reason;
+      default:
+        return 'not-eligible' as const;
+    }
   return busy >= busyCap ? ('capacity' as const) : null;
 }
 
@@ -171,15 +175,9 @@ export function createRoundBotAdmission(input: {
           request: { kind: 'bot_debate', roundId: null, withJudge: false },
           decide: input.allowance,
         });
-        const reservation = result.quote?.reservations[0];
-        const limit = reservation?.limit ?? 0;
-        const spent = result.facts.usage[0]?.spent ?? 0;
-        const refusal = admissionRefusal(result.decision, busy, input.busyCap);
+        // Only the decision leaves: never a count, limit or period (PYL-10).
         return {
-          limit,
-          remaining: Math.max(0, limit - spent),
-          source: reservation?.source ?? null,
-          refusal,
+          refusal: admissionRefusal(result.decision, busy, input.busyCap),
         };
       }),
     reserveLocked,

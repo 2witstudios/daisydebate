@@ -99,7 +99,8 @@ test('actual native composition uses the injected public display reader afresh w
           subscriptionLifecycle: null,
           hasCustomer: true,
           purchaseAllowed: true,
-          botDebates: { kind: 'unavailable' as const },
+          renewalOff: false,
+          amountMinor: null,
         }),
         portalCustomer: async () => ({
           id: 'cus_original',

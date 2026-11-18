@@ -60,7 +60,8 @@ test('changing or failed display Flags cannot substitute for durable admission o
         evidence: null,
         hasCustomer: true,
         purchaseAllowed: true,
-        botDebates: { kind: 'unavailable' },
+        renewalOff: false,
+        amountMinor: null,
       }),
     },
     admit: async () => {

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { BillingSettings } from '../../features/billing/settings-view';
 import { Button } from '../components/button/button';
+import { buttonClass } from '../components/button/button-class';
+import { Icon } from '../components/icon/icon';
 import { PageHeader } from '../components/page-header/page-header';
 import { Panel } from '../components/panel/panel';
 import { ReadingPage } from '../components/reading-page/reading-page';
@@ -10,96 +12,259 @@ const notices = {
     'Your purchase is being checked. Your access updates after payment is confirmed.',
   'billing-unavailable': 'Billing is unavailable. Try again.',
 } as const;
+
+const day = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+/** "17 Dec 2026" in UTC, the instant the verified period ends. */
+function Day({ at, strong = false }: { readonly at: string; readonly strong?: boolean }) {
+  const text = day.format(new Date(at));
+  return <time dateTime={at}>{strong ? <strong>{text}</strong> : text}</time>;
+}
+/** "$20/month" from minor units; the subscriber's own verified price. */
+const monthlyPrice = (minor: number) => {
+  const dollars = minor / 100;
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}/month`;
+};
+
+const secondary = `${buttonClass('secondary')} min-h-11 self-start`;
+
+function Portal({
+  children,
+  variant = 'primary',
+}: {
+  readonly children: string;
+  readonly variant?: 'primary' | 'secondary';
+}) {
+  return (
+    <form action="/api/billing/portal" method="post" className="self-start">
+      <Button type="submit" variant={variant}>
+        {children}
+      </Button>
+    </form>
+  );
+}
+function Terms() {
+  return (
+    <Link href="/premium" className={secondary}>
+      Premium features and terms
+    </Link>
+  );
+}
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .map((word) => word[0] ?? '')
+    .join('')
+    .slice(0, 3)
+    .toUpperCase();
+
+function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
+  const ends = settings.accessEndsAt;
+  switch (settings.plan) {
+    case 'premium':
+      return (
+        <Panel title="Daisy Premium">
+          <div className="flex flex-col gap-3.5">
+            {settings.priceMinor ? (
+              <p className="text-lg">
+                <strong>{monthlyPrice(settings.priceMinor)}</strong>
+              </p>
+            ) : null}
+            {ends ? (
+              <p>
+                Renews <Day at={ends} />.
+              </p>
+            ) : null}
+            {settings.manageAvailable ? (
+              <Portal>Manage billing or cancel</Portal>
+            ) : null}
+            <Terms />
+          </div>
+        </Panel>
+      );
+    case 'cancelled':
+      return (
+        <Panel title="Daisy Premium · cancelled">
+          <div className="flex flex-col gap-3.5">
+            {ends ? (
+              <p>
+                Renewal is off. Premium stays on until <Day at={ends} strong />,
+                then this becomes a free account.
+              </p>
+            ) : null}
+            <p className="text-sm text-ink-muted">
+              Your analysis and Recordings stay yours after that.
+            </p>
+            {settings.manageAvailable ? (
+              <>
+                <Portal>Keep Premium</Portal>
+                <Portal variant="secondary">Manage billing</Portal>
+              </>
+            ) : null}
+          </div>
+        </Panel>
+      );
+    case 'club-seat':
+      return (
+        <Panel title="Daisy Premium">
+          <div className="flex flex-col gap-3.5">
+            {settings.club ? (
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="inline-flex size-10 items-center justify-center rounded-lg bg-surface-sunken text-xs font-bold"
+                >
+                  {initials(settings.club.name)}
+                </span>
+                <div>
+                  <strong>Seat from {settings.club.name}</strong>
+                  <div className="text-sm text-ink-muted">
+                    Coach: {settings.club.coach}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <p>
+              Your club pays for your seat, so there is nothing to manage here.
+              Ask your coach if you want to change it.
+            </p>
+            <Link href="/messages" className={secondary}>
+              Message your coach
+            </Link>
+            <Terms />
+          </div>
+        </Panel>
+      );
+    case 'payment-due':
+      return (
+        <Panel title="Payment needs attention">
+          <div className="flex flex-col gap-3">
+            {ends ? (
+              <p>
+                Payment grace ends <Day at={ends} />.
+              </p>
+            ) : null}
+            {settings.manageAvailable ? (
+              <Portal>Manage billing or cancel</Portal>
+            ) : null}
+            <Terms />
+          </div>
+        </Panel>
+      );
+    case 'free':
+      return (
+        <Panel title="Free account">
+          <div className="flex flex-col gap-3">
+            {settings.checkoutAvailable ? (
+              <form
+                action="/api/billing/checkout"
+                method="post"
+                className="self-start"
+              >
+                <Button type="submit">Get Premium · $20/month</Button>
+              </form>
+            ) : null}
+            {settings.manageAvailable ? (
+              <Portal variant="secondary">Manage billing</Portal>
+            ) : null}
+            <Terms />
+          </div>
+        </Panel>
+      );
+  }
+}
+
+const included = [
+  ['Debate a bot', 'As many Rounds as you want.'],
+  ['Ask for analysis', 'On any Round you debated.'],
+  ['Record and broadcast', 'Turn it on when you host a casual Room.'],
+] as const;
+
+/** The checkout return once current server evidence shows Premium, never the return URL alone. */
+function PremiumConfirmed({ settings }: { readonly settings: BillingSettings }) {
+  return (
+    <section
+      role="status"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-7"
+    >
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-11 items-center justify-center rounded-full bg-sage text-ink"
+        >
+          <Icon name="check" size={22} />
+        </span>
+        <h2 className="font-display text-2xl font-bold">You have Premium</h2>
+      </div>
+      <p>
+        Payment confirmed.
+        {settings.priceMinor ? ` ${monthlyPrice(settings.priceMinor)}` : ''}
+        {settings.accessEndsAt ? (
+          <>
+            , renewing <Day at={settings.accessEndsAt} />
+          </>
+        ) : null}
+        . A receipt is on its way to your email.
+      </p>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+        {included.map(([title, body]) => (
+          <div key={title} className="flex flex-col gap-1 rounded-lg bg-surface p-4">
+            <strong>{title}</strong>
+            <span className="text-sm text-ink-muted">{body}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Link href="/play" className={`${buttonClass('primary')} min-h-11`}>
+          Debate a bot
+        </Link>
+        <Link href="/settings/billing" className={secondary}>
+          Back to billing
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/** Billing has no usage counters (PYL-10): the plan, its price and its dates. */
 export function BillingSettingsPage({
   settings,
   notice,
+  returned = false,
 }: {
   readonly settings: BillingSettings | null;
   readonly notice?: string;
+  /** Arrived from Checkout: confirmed only when current evidence is Premium. */
+  readonly returned?: boolean;
 }) {
-  const message =
-    notice && Object.hasOwn(notices, notice)
-      ? notices[notice as keyof typeof notices]
-      : null;
+  const confirmed = returned && settings?.plan === 'premium';
+  const message = confirmed
+    ? null
+    : returned
+      ? notices['purchase-pending']
+      : notice && Object.hasOwn(notices, notice)
+        ? notices[notice as keyof typeof notices]
+        : null;
   return (
     <ReadingPage>
       <PageHeader title="Billing" />
-      {message ? <p role="status">{message}</p> : null}
+      {message ? (
+        <p role="status" className="rounded-lg bg-surface-sunken px-4 py-3.5">
+          {message}
+        </p>
+      ) : null}
       {!settings ? (
         <Panel title="Billing unavailable">
           <p>Try again.</p>
         </Panel>
+      ) : confirmed ? (
+        <PremiumConfirmed settings={settings} />
       ) : (
-        <>
-          <Panel
-            title={
-              settings.plan === 'premium'
-                ? 'Daisy Premium'
-                : settings.plan === 'payment-due'
-                  ? 'Payment needs attention'
-                  : 'Free account'
-            }
-          >
-            <div className="flex flex-col gap-3">
-              {settings.accessEndsAt ? (
-                <p>
-                  {settings.plan === 'payment-due'
-                    ? 'Payment grace ends'
-                    : 'Paid through'}{' '}
-                  <time dateTime={settings.accessEndsAt}>
-                    {settings.accessEndsAt.slice(0, 10)}
-                  </time>
-                  .
-                </p>
-              ) : null}
-              {settings.manageAvailable ? (
-                <form action="/api/billing/portal" method="post">
-                  <Button type="submit">Manage billing or cancel</Button>
-                </form>
-              ) : null}
-              {settings.checkoutAvailable ? (
-                <form action="/api/billing/checkout" method="post">
-                  <Button type="submit">Get Premium · USD 10/month</Button>
-                </form>
-              ) : null}
-              <Link href="/premium" className="underline">
-                Premium features and terms
-              </Link>
-            </div>
-          </Panel>
-          <Panel title="Bot debates">
-            {settings.botDebates.kind === 'unavailable' ? (
-              <p>Usage unavailable.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <p>
-                  {settings.botDebates.remaining} of {settings.botDebates.limit}{' '}
-                  debates remaining
-                  {settings.botDebates.scope === 'lifetime'
-                    ? ' · one lifetime allowance'
-                    : settings.botDebates.scope === 'beta-month'
-                      ? ' · this beta month'
-                      : ' · this billing period'}
-                  .
-                </p>
-                {settings.botDebates.endsAt ? (
-                  <p>
-                    Period ends{' '}
-                    <time dateTime={settings.botDebates.endsAt}>
-                      {settings.botDebates.endsAt.slice(0, 10)}
-                    </time>
-                    .
-                  </p>
-                ) : null}
-                {!settings.botDebates.available ? (
-                  <Link href="/premium" className="underline">
-                    Explore Premium
-                  </Link>
-                ) : null}
-              </div>
-            )}
-          </Panel>
-        </>
+        <PlanPanel settings={settings} />
       )}
     </ReadingPage>
   );

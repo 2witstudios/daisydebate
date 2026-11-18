@@ -28,8 +28,9 @@ const facts: AllowanceFacts = {
   grants: [],
   usage: [],
   freeBotRoundId: null,
+  today: null,
 };
-const policy = { now, betaGrantsPremium: false, betaMonthlyCap: 20 };
+const policy = { now, betaGrantsPremium: false };
 const bot: AllowanceRequest = {
   kind: 'bot_debate',
   roundId: 'round_A',
@@ -110,42 +111,35 @@ test('free allowances never reset at a month edge', () => {
     expected: [
       {
         kind: 'admit',
-        reservations: [{ kind: 'ai_round', source: free, limit: 1 }],
+        reservations: [{ kind: 'ai_round', source: free }],
       },
-      { kind: 'refuse', reason: 'allowance' },
-      { kind: 'refuse', reason: 'allowance' },
+      { kind: 'refuse', reason: 'free-limit-reached' },
+      { kind: 'refuse', reason: 'free-limit-reached' },
     ],
   });
 });
 
-test('the paid quota belongs to the Stripe period and never falls back to unused free or beta quota', () => {
-  const exhausted = {
+test('Premium bot Rounds have no period quantity, only the per-day abuse ceiling', () => {
+  const day = { startsAt: '2026-11-05T00:00:00.000Z' };
+  const usedToday = (spent: number): AllowanceFacts => ({
     ...paid,
-    usage: [{ kind: 'ai_round' as const, source, spent: 5 }],
-  };
-  const previous = {
-    kind: 'subscription' as const,
-    ...period,
-    startsAt: '2026-10-02T12:00:00.000Z',
-    endsAt: period.startsAt,
-  };
+    usage: [{ kind: 'ai_round', source, spent: 400 }],
+    today: { ...day, usage: [{ kind: 'ai_round', spent }] },
+  });
   assert({
     given:
-      'four current uses, five uses and five uses attributed to the prior Stripe period',
+      'hundreds of bot Rounds this period, then 11 and 12 today, then 12 counted on yesterday',
     should:
-      'admit the final current use, refuse exhaustion, and leave old attribution out of the new limit',
+      'admit until the ceiling of 12 a day, refuse at it, and start afresh the next UTC day',
     actual: [
-      decide({ ...paid, usage: [{ kind: 'ai_round', source, spent: 4 }] }),
-      decide(exhausted),
-      decide({
-        ...paid,
-        usage: [{ kind: 'ai_round', source: previous, spent: 5 }],
-      }),
+      decide(usedToday(11)),
+      decide(usedToday(12)),
+      decide(usedToday(12), bot, '2026-11-06T00:00:00.000Z'),
     ],
     expected: [
-      { kind: 'admit', reservations: [{ kind: 'ai_round', source, limit: 5 }] },
-      { kind: 'refuse', reason: 'allowance' },
-      { kind: 'admit', reservations: [{ kind: 'ai_round', source, limit: 5 }] },
+      { kind: 'admit', reservations: [{ kind: 'ai_round', source }] },
+      { kind: 'refuse', reason: 'abuse-ceiling' },
+      { kind: 'admit', reservations: [{ kind: 'ai_round', source }] },
     ],
   });
 });
@@ -168,9 +162,9 @@ test('beta retirement changes the selected source without erasing prior use', ()
     expected: [
       {
         kind: 'admit',
-        reservations: [{ kind: 'ai_round', source: beta, limit: 20 }],
+        reservations: [{ kind: 'ai_round', source: beta }],
       },
-      { kind: 'refuse', reason: 'allowance' },
+      { kind: 'refuse', reason: 'free-limit-reached' },
     ],
   });
 });
@@ -215,11 +209,11 @@ test('grace blocks new bots and source fallback while other valid Premium capabi
       { kind: 'refuse', reason: 'renewal-grace' },
       {
         kind: 'admit',
-        reservations: [{ kind: 'casual_ai_judge', source, limit: null }],
+        reservations: [{ kind: 'casual_ai_judge', source }],
       },
       {
         kind: 'admit',
-        reservations: [{ kind: 'ai_round', source: free, limit: 1 }],
+        reservations: [{ kind: 'ai_round', source: free }],
       },
     ],
   });
@@ -255,14 +249,14 @@ test('optional free bot and judge form one atomic admission decision', () => {
       {
         kind: 'admit',
         reservations: [
-          { kind: 'ai_round', source: free, limit: 1 },
-          { kind: 'casual_ai_judge', source: free, limit: 1 },
+          { kind: 'ai_round', source: free },
+          { kind: 'casual_ai_judge', source: free },
         ],
       },
-      { kind: 'refuse', reason: 'allowance' },
+      { kind: 'refuse', reason: 'free-limit-reached' },
       {
         kind: 'admit',
-        reservations: [{ kind: 'casual_ai_judge', source: free, limit: 1 }],
+        reservations: [{ kind: 'casual_ai_judge', source: free }],
       },
       { kind: 'refuse', reason: 'free-judge-unbound' },
       { kind: 'refuse', reason: 'free-judge-unbound' },
@@ -290,11 +284,11 @@ test('paid analysis and casual judging are included without a monthly quantity c
     expected: [
       {
         kind: 'admit',
-        reservations: [{ kind: 'round_analysis', source, limit: null }],
+        reservations: [{ kind: 'round_analysis', source }],
       },
       {
         kind: 'admit',
-        reservations: [{ kind: 'casual_ai_judge', source, limit: null }],
+        reservations: [{ kind: 'casual_ai_judge', source }],
       },
     ],
   });
@@ -332,7 +326,7 @@ test('a refunded free judge cannot transfer through a replacement bot bundle', (
       { kind: 'refuse', reason: 'free-judge-unbound' },
       {
         kind: 'admit',
-        reservations: [{ kind: 'ai_round', source: free, limit: 1 }],
+        reservations: [{ kind: 'ai_round', source: free }],
       },
     ],
   });
@@ -358,9 +352,9 @@ test('allowance never substitutes for live account authority or valid policy fac
       ),
       decide(paid, bot, 'invalid'),
       decide({ ...paid, usage: [{ kind: 'ai_round', source, spent: -1 }] }),
-      admitAllowance(input.context.account!, paid, bot, {
-        ...policy,
-        betaMonthlyCap: 0,
+      decide({
+        ...paid,
+        today: { startsAt: now, usage: [{ kind: 'ai_round', spent: 1.5 }] },
       }),
     ],
     expected: [

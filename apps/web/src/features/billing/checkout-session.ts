@@ -7,7 +7,7 @@ import {
   type Purchase,
   type PurchaseObservation,
 } from '@daisy/protocol/billing';
-import { premiumPriceSchema } from './premium-price';
+import { premiumOffer, premiumPriceSchema } from './premium-price';
 
 export function checkoutParameters(purchase: Purchase) {
   const metadata = { daisy_purchase_id: purchase.id };
@@ -51,7 +51,7 @@ const sessionSchema = z.object({
   customer: vendorId('cus').nullable(),
   subscription: vendorId('sub').nullable(),
   currency: z.literal('usd'),
-  amount_subtotal: z.literal(1000),
+  amount_subtotal: z.literal(premiumOffer.unitAmount),
   automatic_tax: z.object({ enabled: z.literal(true) }),
   allow_promotion_codes: z.union([z.literal(false), z.null()]),
   after_expiration: z.null(),

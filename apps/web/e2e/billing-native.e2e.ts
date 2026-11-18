@@ -4,7 +4,7 @@ import { origin, signUpMember } from './support/accounts';
 test.describe('native Billing with JavaScript off', () => {
   test.use({ javaScriptEnabled: false });
 
-  test('a member reads current usage and return claims cannot grant Premium', async ({
+  test('a member reads their plan without counters and return claims cannot grant Premium', async ({
     page,
   }) => {
     await signUpMember(page.request);
@@ -16,7 +16,7 @@ test.describe('native Billing with JavaScript off', () => {
     await expect(
       page.getByRole('heading', { name: 'Free account', exact: true }),
     ).toBeVisible();
-    await expect(page.getByText(/debates remaining/)).toBeVisible();
+    await expect(page.getByText(/remaining|Bot debates/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Get Premium/ })).toHaveCount(
       0,
     );
@@ -27,6 +27,7 @@ test.describe('native Billing with JavaScript off', () => {
     await expect(page.getByRole('status')).toContainText(
       'Your purchase is being checked',
     );
+    await expect(page.getByText('You have Premium')).toHaveCount(0);
     await expect(
       page.getByRole('heading', { name: 'Free account', exact: true }),
     ).toBeVisible();

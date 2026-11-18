@@ -60,7 +60,10 @@ export function createSubscriptionReconciliation(input: {
     });
     if (stopped) return;
     if (observed.kind === 'observed') {
-      await input.store.apply(claim, observed.evidence);
+      await input.store.apply(claim, observed.evidence, {
+        renewalOff: observed.cancelAtPeriodEnd,
+        amountMinor: observed.amountMinor,
+      });
     } else {
       await input.store.retry(claim);
       input.failed(

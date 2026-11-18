@@ -1,11 +1,12 @@
 import { renderToString } from 'react-dom/server';
+import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 
 setupRitewayBun();
 
 const render = (
-  aiJudgeSeating: 'free' | 'included' | 'premium' | null,
+  aiJudgeSeating: RoomView['aiJudgeSeating'],
   judge = 1,
   competitionType: 'ranked' | 'casual' = 'ranked',
 ) =>
@@ -20,30 +21,55 @@ const render = (
       }
     />,
   );
+const text = (html: string) => html.replaceAll('&#x27;', "'");
+const words = (html: string) =>
+  html.replace(/<[^>]*>/g, ' ').replace(/&#?\w+;/g, ' ');
+
+test('a free host past their AI-judged Round sees the upgrade panel in place', () => {
+  const html = text(render('premium', 1, 'casual'));
+  assert({
+    given: 'a casual host whose free AI-judged Round is used',
+    should:
+      'show the Premium panel with Get Premium and Invite a judge, and no count',
+    actual: [
+      html.includes('AI judging on casual Rounds is Premium'),
+      html.includes('You’ve used your free AI-judged Round.'),
+      html.includes('Ranked Rounds include an AI judge free.'),
+      html.includes('href="/premium"'),
+      html.includes('Invite a judge'),
+      /\d+ of \d+|remaining/.test(words(html)),
+    ],
+    expected: [true, true, true, true, true, false],
+  });
+});
+
+test('a free host whose AI judge comes with the bot Round is told so', () => {
+  const html = text(render('with-bot', 1, 'casual'));
+  assert({
+    given: 'a casual host who has not used the free bot Round',
+    should: 'say the free AI-judged Round comes with it, not that it is used',
+    actual: [
+      html.includes('comes with your free bot Round'),
+      html.includes('You’ve used'),
+    ],
+    expected: [true, false],
+  });
+});
 
 test('the host is told plainly what judging is available', () => {
   assert({
-    given: 'a casual host without the entitlement',
-    should: 'say AI judging is premium and offer a person',
+    given: 'a ranked host, a free casual bot bundle and a host at the ceiling',
+    should:
+      'say the AI judge is free, describe the lifetime judge, and name fair use without a number',
     actual: [
-      render('premium').includes('AI judging on casual rounds is premium'),
-      render('premium').includes('Invite a person to judge'),
+      render('free').includes('free on ranked rounds'),
+      render('free', 1, 'casual').includes(
+        'Your one free bot debate includes an optional AI judge.',
+      ),
+      text(render('fair-use', 1, 'casual')).includes('fair-use ceiling'),
+      /\d/.test(words(render('fair-use', 1, 'casual'))),
     ],
-    expected: [true, true],
-  });
-  assert({
-    given: 'a ranked host',
-    should: 'say the AI judge is free',
-    actual: render('free').includes('free on ranked rounds'),
-    expected: true,
-  });
-  assert({
-    given: 'a free casual bot bundle',
-    should: 'describe its lifetime judge without claiming ranked play',
-    actual: render('free', 1, 'casual').includes(
-      'Your one free bot debate includes an optional AI judge.',
-    ),
-    expected: true,
+    expected: [true, true, true, false],
   });
   assert({
     given: 'an entitled casual host, a non-host, and a Room with no judge seat',
@@ -57,21 +83,9 @@ test('only free and included seating offers the AI judge', () => {
   assert({
     given: 'each seating',
     should: 'offer the AI judge only when free or included',
-    actual: (['free', 'included', 'premium', null] as const).map(
-      aiJudgeSeatable,
-    ),
-    expected: [true, true, false, false],
-  });
-});
-
-test('a genuinely Premium-locked judge offers the existing Premium destination', () => {
-  assert({
-    given: 'premium or included AI-judge seating',
-    should: 'offer Premium only while locked',
-    actual: [
-      render('premium').includes('href="/premium"'),
-      render('included').includes('href="/premium"'),
-    ],
-    expected: [true, false],
+    actual: (
+      ['free', 'included', 'premium', 'with-bot', 'fair-use', null] as const
+    ).map(aiJudgeSeatable),
+    expected: [true, true, false, false, false, false],
   });
 });

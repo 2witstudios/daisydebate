@@ -7,7 +7,7 @@ import {
 /** Authorized stored content survives lapse; only a fresh request uses present allowance. */
 export function roundAnalysisView(input: {
   readonly facts: RoundAnalysisFacts;
-  readonly allowance: 'included' | 'free' | 'unavailable';
+  readonly allowance: 'included' | 'free' | 'fair-use' | 'unavailable';
   readonly now: string;
   readonly enabled: boolean;
 }): RoundAnalysisView {
@@ -31,7 +31,12 @@ export function roundAnalysisView(input: {
     remainingAnalysisCalls(work) === 0
   )
     return { status: 'unavailable' };
-  return input.allowance === 'unavailable'
-    ? { status: 'locked' }
-    : { status: 'requestable', allowance: input.allowance };
+  switch (input.allowance) {
+    case 'unavailable':
+      return { status: 'locked' };
+    case 'fair-use':
+      return { status: 'fair-use' };
+    default:
+      return { status: 'requestable', allowance: input.allowance };
+  }
 }

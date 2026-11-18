@@ -20,15 +20,11 @@ export default async function Billing({
     '/api/billing/settings',
     billingSettingsSchema,
   );
-  const notice =
-    typeof query.notice === 'string'
-      ? query.notice
-      : typeof query.purchase === 'string'
-        ? 'purchase-pending'
-        : undefined;
+  const notice = typeof query.notice === 'string' ? query.notice : undefined;
   return (
     <BillingSettingsPage
       settings={settings}
+      returned={typeof query.purchase === 'string'}
       {...(notice === undefined ? {} : { notice })}
     />
   );

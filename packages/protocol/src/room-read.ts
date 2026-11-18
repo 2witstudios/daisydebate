@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { usageSourceSchema } from './billing';
 import { idSchema } from './primitives';
 import { aiRoleSchema } from './ai-roles';
 import { seatRefSchema } from './seats';
@@ -39,12 +38,11 @@ const seatState = {
 const roundRef = z
   .strictObject({ id: idSchema, status: roundStatusSchema })
   .nullable();
-/** The highest monthly AI-round cap any deploy may configure (DEC-183, ISSUE-646). */
-export const AI_ROUND_MONTHLY_CAP_MAX = 1000;
-/** Refusal order: the host's beta eligibility, its allowance, then global bot capacity. */
+/** Refusal order: the host's eligibility, the free limit or fair-use ceiling, then global bot capacity. */
 const botAdmissionRefusals = [
   'not-eligible',
-  'allowance',
+  'free-limit-reached',
+  'abuse-ceiling',
   'capacity',
   'renewal-grace',
 ] as const;
@@ -105,7 +103,15 @@ const roomViewFields = z.strictObject({
    * free on ranked, included for an entitled casual host, else premium. The
    * seat command rechecks it under the host's fence. Null for anyone else.
    */
-  aiJudgeSeating: z.enum(['free', 'included', 'premium']).nullable(),
+  /**
+   * What seating an AI judge means for this host: free (ranked, or the free
+   * bot Round's judge), included (Premium), premium (the free one is used),
+   * with-bot (the free one comes only with the free bot Round) or fair-use
+   * (today's abuse ceiling is reached). Never a count.
+   */
+  aiJudgeSeating: z
+    .enum(['free', 'included', 'premium', 'with-bot', 'fair-use'])
+    .nullable(),
   /**
    * This viewer's standing on the season's content waiver (WATCH-15), for a
    * seated human on an open ranked Room. Ready rechecks it under the Room's
@@ -136,20 +142,17 @@ const roomViewFields = z.strictObject({
   watchRoundId: idSchema.nullable(),
   /** Pending invitations this viewer may see (ADR 0124). */
   invitations: z.array(roomInvitationViewSchema).max(16),
-  /** Host-only display metadata; admission is rechecked atomically at freeze. */
+  /**
+   * Host-only display metadata; admission is rechecked atomically at freeze.
+   * Only the decision: never a count, limit or period (PYL-10).
+   */
   botAdmission: z
     .union([
       z.strictObject({ kind: z.literal('unavailable') }),
-      z
-        .strictObject({
-          kind: z.literal('allowance'),
-          /** 0 only for a host the beta does not admit to AI Rounds. */
-          limit: z.int().min(0).max(AI_ROUND_MONTHLY_CAP_MAX),
-          remaining: z.int().min(0).max(AI_ROUND_MONTHLY_CAP_MAX),
-          source: usageSourceSchema.nullable(),
-          refusal: z.enum(botAdmissionRefusals).nullable(),
-        })
-        .refine((allowance) => allowance.remaining <= allowance.limit),
+      z.strictObject({
+        kind: z.literal('allowance'),
+        refusal: z.enum(botAdmissionRefusals).nullable(),
+      }),
     ])
     .nullable(),
   status: z.enum(roomStatuses),
