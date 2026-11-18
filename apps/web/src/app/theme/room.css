@@ -181,10 +181,6 @@
   overflow-y: auto;
   top: var(--file-menu-top, 0);
   left: var(--file-menu-left, 0);
-
-  &:popover-open {
-    display: flex;
-  }
 }
 
 @utility room-palette-list {

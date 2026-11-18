@@ -349,6 +349,16 @@
     box-shadow: var(--focus-ring);
     border-radius: var(--radius-sm);
   }
+
+  /* Defence in depth, not the fix (ADR 0153). PopoverDialog and PopoverMenu
+     own a popover's display; this backs them up. The browser hides a closed
+     popover with a user-agent rule that any author `display` beats, and a
+     bare `flex` once laid every closed seat menu out on the Room page
+     (SEAT-14a). An important declaration in this first layer outranks every
+     later rule, important utilities included. */
+  [popover]:not(:popover-open) {
+    display: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

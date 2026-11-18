@@ -15,6 +15,7 @@ import {
   type DriveNode,
 } from '../../features/documents/drive-tree';
 import { Icon } from '../components/icon/icon';
+import { PopoverMenu } from '../components/popover/popover-menu';
 import type { DriveActions } from './use-drive';
 import { FileMenuItem as Item } from './file-menu-item';
 import { FileDeleteStep } from './file-delete-step';
@@ -162,13 +163,11 @@ export function FileMenu({
       >
         <Icon name="dots" size={14} />
       </button>
-      <div
+      <PopoverMenu
         ref={menu}
         id={id}
-        popover="auto"
-        role="menu"
         aria-label={`Actions for ${label}`}
-        className="file-menu w-file-menu flex-col rounded-md border border-border-strong bg-surface-raised p-1 text-ink shadow-3"
+        className="file-menu w-file-menu rounded-md border border-border-strong bg-surface-raised p-1 text-ink shadow-3"
         onKeyDown={moveMenuFocus}
         onToggle={(event) => {
           // Keep the focused item mounted until native closing has restored
@@ -288,7 +287,7 @@ export function FileMenu({
             run={run}
           />
         ) : null}
-      </div>
+      </PopoverMenu>
     </>
   );
 }

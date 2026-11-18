@@ -33,6 +33,22 @@ chooses before any script runs. Every route renders through `ConversationPane`,
 and none adds its own `main`. The list refreshes through the inbox API, never
 `router.refresh()` (ADR 0115).
 
+## A popover's visibility belongs to the primitive
+
+Every popover goes through `PopoverDialog` or `PopoverMenu`
+(`apps/web/src/ui/components/popover/`), and the primitive owns its display
+([ADR 0153](../decisions/0153-popover-visibility-belongs-to-the-primitive.md)).
+Closed, it is hidden; open, it lays out as its `layout` prop asks (`stack` or
+`row`). The caller's `className` styles the surface (size, gap, border,
+placement) and never sets display or flex direction: an author class beats
+the browser's rule that hides a closed popover, so one bare `flex` once laid
+every closed Fill seat menu out on a new Room (SEAT-14a). A literal display
+class fails the type check, a computed one is dropped at render, and `check-styling` fails
+on a raw `popover=` outside the primitives or a display class passed to one.
+Tests of a popover assert what the reader sees: the popover, found with
+`includeHidden`, is hidden until its opener is pressed and visible after, not
+a `:popover-open` count.
+
 ## Mutating forms
 
 Daisy needs JavaScript: nobody can compete without it, so nothing is built or

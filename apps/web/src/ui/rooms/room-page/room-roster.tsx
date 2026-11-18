@@ -24,7 +24,7 @@ import { controlClass } from '../../components/form-field/form-field-class';
 import { initialsOf } from '../../../lib/initials';
 import { Icon } from '../../components/icon/icon';
 import type { IconName } from '../../components/icon/icons';
-import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
+import { PopoverDialog } from '../../components/popover/popover-dialog';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
@@ -403,7 +403,7 @@ function FillSeat({
       <PopoverDialog
         id={`${id}-menu`}
         aria-label={`Fill ${seatName}`}
-        className="m-auto flex w-room-dialog max-w-full flex-col gap-2 rounded-lg border border-border-strong bg-surface p-3 text-ink shadow-3 backdrop:bg-scrim/50"
+        className="m-auto w-room-dialog max-w-full gap-2 rounded-lg border border-border-strong bg-surface p-3 text-ink shadow-3 backdrop:bg-scrim/50"
       >
         {choices ? (
           <AssemblyCommandForm action={props.action} className="flex gap-2">

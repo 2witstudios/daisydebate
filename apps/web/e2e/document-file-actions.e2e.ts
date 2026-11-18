@@ -737,18 +737,28 @@ test('shrinking Prep hands hidden Files focus to the visible document pane', asy
       page.getByRole('button', { name: 'Back to Files' }),
     ).toBeFocused();
     await page.setViewportSize({ width: 1280, height: 800 });
+    // Found with includeHidden: a closed menu still laid out on the page
+    // fails toBeHidden, where a `:popover-open` count could not see it.
+    const menu = page.getByRole('menu', {
+      name: `Actions for ${doc.title}`,
+      exact: true,
+      includeHidden: true,
+    });
+    await expect(menu).toHaveCount(1);
+    await expect(menu).toBeHidden();
     await files(page)
       .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
       .click();
+    await expect(menu).toBeVisible();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     await expect(page.getByRole('menuitem', { name: 'Keep it' })).toBeFocused();
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.locator(':popover-open')).toHaveCount(0);
+    await expect(menu).toBeHidden();
     await expect(
       page.getByRole('button', { name: 'Back to Files' }),
     ).toBeFocused();
     await page.getByRole('button', { name: 'Back to Files' }).click();
-    await expect(page.locator(':popover-open')).toHaveCount(0);
+    await expect(menu).toBeHidden();
     await expect(
       files(page).getByRole('menuitem', { includeHidden: true }),
     ).toHaveCount(0);

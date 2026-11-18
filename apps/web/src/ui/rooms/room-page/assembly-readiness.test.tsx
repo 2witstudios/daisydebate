@@ -10,7 +10,7 @@ import {
 } from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
 import { twoSides } from '@daisy/protocol';
-import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
+import { PopoverDialog } from '../../components/popover/popover-dialog';
 
 setupRitewayBun();
 const base = {
