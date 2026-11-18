@@ -1,5 +1,6 @@
 import type {
   RecordingClass,
+  RecordingEligibility,
   RecordingLifecycle,
   RecordingMedia,
   RecordingRemovalCause,
@@ -69,7 +70,16 @@ type Subject = {
   readonly id: string;
   readonly class: RecordingClass;
   readonly lifecycle: RecordingLifecycle;
+  /** What the Recording was requested under; a Youth one says so (ADR 0150). */
+  readonly eligibility?: RecordingEligibility;
 };
+
+/** A ranked Recording is kept from its participants, except a Youth Round's. */
+const keptFromParticipants = (subject: Subject): boolean =>
+  subject.class === 'ranked' &&
+  !(
+    subject.eligibility?.kind === 'ranked' && subject.eligibility.youth === true
+  );
 
 const moved = (next: RecordingLifecycle): RecordingTransition => ({
   kind: 'moved',
@@ -223,7 +233,7 @@ const removalRequested = (
   event: Extract<RecordingEvent, { type: 'removal_requested' }>,
 ): RecordingTransition => {
   const { lifecycle } = subject;
-  if (subject.class === 'ranked' && event.cause === 'participant_request')
+  if (keptFromParticipants(subject) && event.cause === 'participant_request')
     return refused('ranked_is_kept');
   if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
     return unchanged;

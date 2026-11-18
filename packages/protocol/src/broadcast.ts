@@ -32,5 +32,7 @@ export const broadcastFeedEndReasons = [
   'recording_legally_removed',
   'recording_removed_by_participant',
   'recording_removed_by_erasure',
+  /** A Youth Round is never broadcast (ADR 0150): one opened before that rule shipped. */
+  'youth_round_private',
 ] as const;
 export type BroadcastFeedEndReason = (typeof broadcastFeedEndReasons)[number];

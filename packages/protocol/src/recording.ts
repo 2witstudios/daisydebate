@@ -29,7 +29,14 @@ export type RecordingStatus = (typeof recordingStatuses)[number];
 
 /** Why capture was allowed, recorded when it was requested. */
 export const recordingEligibilitySchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('ranked') }),
+  z.strictObject({
+    kind: z.literal('ranked'),
+    /**
+     * A Youth Round's Recording (ADR 0150), fixed when it is requested: any
+     * youth debater or linked adult may take it down.
+     */
+    youth: z.literal(true).optional(),
+  }),
   z.strictObject({ kind: z.literal('host_opt_in'), hostActorId: idSchema }),
   z.strictObject({
     kind: z.literal('tournament_admission'),

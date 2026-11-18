@@ -67,6 +67,7 @@ export const spectatorTimelineReads = ({
               id: rounds.id,
               roomId: rounds.roomId,
               visibility: rounds.visibility,
+              ladderDivision: rounds.ladderDivision,
               status: rounds.status,
               competitionType: rounds.competitionType,
               resolution: rounds.resolution,
@@ -85,7 +86,10 @@ export const spectatorTimelineReads = ({
           if (
             !round ||
             round.roomId === null ||
-            (round.visibility !== 'public' && round.visibility !== 'unlisted')
+            (round.visibility !== 'public' &&
+              round.visibility !== 'unlisted') ||
+            // A Youth Round has no audience (ADR 0150): it reads as missing.
+            round.ladderDivision === 'youth'
           )
             return null;
           const competitionType = round.competitionType as 'ranked' | 'casual';

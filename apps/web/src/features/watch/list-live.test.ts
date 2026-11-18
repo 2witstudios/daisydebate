@@ -56,16 +56,25 @@ describe('listLive', () => {
   test('filters reach the read, with the ranked delay in force', async () => {
     const seen: unknown[] = [];
     await listLive(store([], seen), {
-      query: { ...defaultLiveQuery, mode: 'casual', q: 'ana' },
+      query: {
+        ...defaultLiveQuery,
+        mode: 'casual',
+        q: 'ana',
+        ladder: 'freestyle:youth',
+      },
       now: NOW,
     });
     assert({
-      given: 'a mode and a search',
+      given: 'a mode, a search and a ladder',
       should: 'ask the store for them under the release clock',
       actual: seen,
       expected: [
         {
-          filter: { mode: 'casual', q: 'ana' },
+          filter: {
+            mode: 'casual',
+            q: 'ana',
+            ladder: { style: 'freestyle', division: 'youth' },
+          },
           before: '',
           clock: { now: NOW, rankedDelaySeconds: 60 },
           limit: 24,

@@ -12,6 +12,8 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
   title: 'Semifinal',
   resolution: 'Resolved: x',
   ranked: false,
+  ladder: null,
+  youth: null,
   date: '2026-11-02',
   visibility: 'unlisted',
   deletesOn: null,
@@ -126,6 +128,87 @@ describe('RecordingHistory', () => {
         html.includes('<video'),
       ],
       expected: [true, true, true, false],
+    });
+  });
+});
+
+describe('RecordingHistory, a Youth Round (PYL-5)', () => {
+  const youth = render({
+    ranked: true,
+    visibility: 'public',
+    ladder: { style: 'freestyle', division: 'youth' },
+    youth: {
+      debaters: [
+        { actorId: 'maya', name: '@maya', released: true },
+        { actorId: 'jules', name: '@jules', released: false },
+      ],
+      releasesComplete: false,
+    },
+    removal: { recordingId: 'rec', version: 4 },
+  });
+
+  test('is private, with no link to copy', () => {
+    assert({
+      given: 'a Youth Round on a public Room',
+      should: 'name its ladder, say it is private, and offer no copy link',
+      actual: [
+        /<header[\s\S]*?Youth – Freestyle[\s\S]*?<\/header>/.test(youth),
+        youth.includes(
+          'visible to the debaters, judges and their coaches or parents',
+        ),
+        youth.includes('Copy link'),
+        youth.includes('Anyone can replay it'),
+      ],
+      expected: [true, true, false, false],
+    });
+  });
+
+  test('names the missing release and keeps Share publicly closed', () => {
+    assert({
+      given: 'one youth debater without a release',
+      should: 'name them and disable Share publicly',
+      actual: [
+        youth.includes('@jules has no media release yet.'),
+        /<button(?=[^>]*\sdisabled="")[^>]*>(?:(?!<\/button>).)*Share publicly<\/button>/s.test(
+          youth,
+        ),
+      ],
+      expected: [true, true],
+    });
+  });
+
+  test('offers Take down in place of Remove', () => {
+    assert({
+      given: 'a youth debater or linked adult',
+      should: 'offer the takedown for everyone',
+      actual: [
+        youth.includes('Take down this recording'),
+        youth.includes('Take it down for everyone'),
+        youth.includes('Remove recording'),
+      ],
+      expected: [true, true, false],
+    });
+  });
+
+  test('with every release, still waits for the publishing flag', () => {
+    const released = renderToString(
+      h(RecordingHistory, {
+        screen: {
+          ...screen,
+          ranked: true,
+          youth: {
+            debaters: [{ actorId: 'maya', name: '@maya', released: true }],
+            releasesComplete: true,
+          },
+        },
+        notice: null,
+      }),
+    );
+    assert({
+      given: 'every youth debater released, the flag closed',
+      should: 'say sharing is not open yet',
+      actual: released.includes('Sharing Youth recordings is not open yet.'),
+      expected: true,
     });
   });
 });

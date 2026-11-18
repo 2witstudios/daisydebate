@@ -22,6 +22,8 @@ import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
+import type { YouthRoundPeople } from './youth-audience';
+import { youthPeopleCache } from './youth-people-cache';
 import type { RecordingInputs } from './ports';
 
 /** As often as a Broadcast's: its own Egress has the same revocation lead to meet. */
@@ -33,7 +35,10 @@ type RoundRow = NonNullable<
   Awaited<ReturnType<App['database']['readRecordingRound']>>
 >;
 
-const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
+const asRound = (
+  round: RoundRow,
+  youth: YouthRoundPeople | null,
+): HistoryRound & RecordingRound => ({
   id: round.id,
   competitionType: round.competitionType,
   visibility: round.visibility,
@@ -45,26 +50,56 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   officialActorIds: round.seats
     .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
     .map((seat) => seat.actorId),
+  youth,
+  ladder: round.ladder,
   title: round.title,
   resolution: round.resolution,
   sides: round.sides,
   outcome: round.outcome,
   debaters: round.debaters.map((seat) => ({
     roundParticipantId: seat.roundParticipantId,
+    actorId:
+      round.seats.find((each) => each.id === seat.roundParticipantId)
+        ?.actorId ?? null,
     seat: seat.seat,
     label: seat.label,
   })),
 });
 
+/** One cache of Youth Round people per app, shared by every request. */
+const youthPeopleOf = new WeakMap<
+  App,
+  (roundId: string) => Promise<YouthRoundPeople>
+>();
+const youthPeople = (app: App) => {
+  const known = youthPeopleOf.get(app);
+  if (known) return known;
+  const cached = youthPeopleCache({
+    read: app.database.readYouthRecordingPeople,
+    // Monotonic: a wall clock stepping back must not stretch the window.
+    nowMs: () => performance.now(),
+  });
+  youthPeopleOf.set(app, cached);
+  return cached;
+};
+
 /** The named read-only inputs, in one place. */
 const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
-  const readHistoryRound = async (roundId: string) => {
-    const round = await app.database.readRecordingRound(roundId);
-    return round && asRound(round);
-  };
+  const readRoundWith =
+    (people: (roundId: string) => Promise<YouthRoundPeople>) =>
+    async (roundId: string) => {
+      const round = await app.database.readRecordingRound(roundId);
+      if (!round) return null;
+      const youthRound =
+        round.competitionType === 'ranked' &&
+        round.ladder?.division === 'youth';
+      return asRound(round, youthRound ? await people(roundId) : null);
+    };
+  const readHistoryRound = readRoundWith(youthPeople(app));
   const store = recordingPersistence(app);
   return {
     readRound: readHistoryRound,
+    readRoundFresh: readRoundWith(app.database.readYouthRecordingPeople),
     readHistoryRound,
     readBroadcastRelease: (roundId) =>
       app.database.readRecordingBroadcastRelease(
@@ -84,6 +119,8 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
       now: () => app.clock.now(),
     }),
     findRecordingByRound: store.findByRound,
+    // Media releases are S4's record (PYL-6, PYL-7); none exists yet.
+    readMediaReleases: async () => [],
   };
 };
 

@@ -18,7 +18,10 @@ account unless a stored choice says otherwise ([ADR 0118](../decisions/0118-rele
 `/contact/league` exists, so `league-requests` stays open by the default
 (its requests and grants: [league requests](league-requests.md)); until the
 other routes land, staging's default links to pages that do not exist yet,
-so either store those `disabled` or accept the gap.
+so either store those `disabled` or accept the gap. `youth-publishing` is on too (decision 77), but S3 cannot exercise
+publication on staging: the media-release read returns none and Share
+publicly stays disabled. S4 supplies both the release records and the
+publish action; a disabled button there is expected, not a flag problem.
 Production never sets it and keeps each flag's safe default (off); the web app
 refuses to start if the variable is present without the staging operator
 audience.

@@ -33,6 +33,7 @@ describe('parseLiveQuery', () => {
         tab: 'following',
         mode: 'ranked',
         q: 'debater-a',
+        ladder: '',
         before: 'abcdefghijklmnopqrstuvwx',
       },
     });
@@ -83,6 +84,29 @@ describe('hub hrefs', () => {
         isFiltered({ ...defaultLiveQuery, tab: 'following' }),
       ],
       expected: ['/watch?tab=following', true, false],
+    });
+  });
+});
+
+describe('the Ladder filter (PYL-5 board)', () => {
+  test('reads a known ladder and drops anything else', () => {
+    assert({
+      given: 'Youth – Freestyle, then an unknown ladder',
+      should: 'keep the first and fall back to every ladder',
+      actual: [
+        parseLiveQuery({ ladder: 'freestyle:youth' }).ladder,
+        parseLiveQuery({ ladder: 'chess:youth' }).ladder,
+      ],
+      expected: ['freestyle:youth', ''],
+    });
+    assert({
+      given: 'a ladder in the query',
+      should: 'carry it in the hub link and clear it with the filters',
+      actual: [
+        hubHref({ ...defaultLiveQuery, ladder: 'freestyle:open' }),
+        clearFiltersHref({ ...defaultLiveQuery, ladder: 'freestyle:open' }),
+      ],
+      expected: ['/watch?ladder=freestyle%3Aopen', '/watch'],
     });
   });
 });

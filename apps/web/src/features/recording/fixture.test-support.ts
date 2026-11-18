@@ -47,6 +47,20 @@ export const round: RecordingRound = {
   seatedActorIds: ['aff', 'neg'],
   recordingPolicy: 'released',
   officialActorIds: [],
+  youth: null,
+};
+/** A ranked Round on Youth – Freestyle (PYL-5): two youth debaters, a judge. */
+export const youthRound: RecordingRound = {
+  ...round,
+  competitionType: 'ranked',
+  seatedActorIds: ['aff', 'neg', 'judge'],
+  officialActorIds: ['judge'],
+  youth: {
+    debaters: [
+      { actorId: 'aff', userId: 'u-aff', linkedAdultActorIds: ['coach'] },
+      { actorId: 'neg', userId: 'u-neg', linkedAdultActorIds: ['parent'] },
+    ],
+  },
 };
 export const account = (actorId: string): RecordingViewer => ({
   kind: 'account',
@@ -68,6 +82,7 @@ export const deps = (
     objects: objects.store,
     inputs: {
       readRound: async () => over.round ?? round,
+      readRoundFresh: async () => over.round ?? round,
       readBroadcastRelease: async () =>
         ({
           releasedThroughMs: Number.MAX_SAFE_INTEGER,

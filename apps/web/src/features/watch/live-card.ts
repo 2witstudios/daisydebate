@@ -5,6 +5,7 @@ import {
   isDebatingSeat,
   sameSeat,
   sideOfSeat,
+  type Ladder,
   type SeatRef,
 } from '@daisy/protocol';
 import { seatName, sideShortName } from '../debate-room/seat-names';
@@ -27,6 +28,8 @@ export type LiveCard = {
   readonly href: string;
   readonly title: string;
   readonly ranked: boolean;
+  /** The ladder a ranked Round rates on, shown beside Ranked; null for casual. */
+  readonly ladder: Ladder | null;
   readonly mode: string;
   readonly resolution: string | null;
   /** One per side in declared order, or one per seat for an unsided format. */
@@ -90,6 +93,7 @@ export function liveCardOf(row: LiveRow): LiveCard {
     href: liveHref(row.id),
     title: row.title ?? 'Debate',
     ranked: row.competitionType === 'ranked',
+    ladder: row.ladder,
     mode: modeLabel(row.competitionType),
     resolution: row.resolution,
     seats: seatsOf(row, floor?.lead ?? null),

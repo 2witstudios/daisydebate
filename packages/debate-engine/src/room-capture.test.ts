@@ -170,13 +170,18 @@ describe('The host capture choice', () => {
 
 describe('What a Round captures', () => {
   test('a Broadcast follows the host, except on ranked', () => {
-    const ranked = { ...state(), competitionType: 'ranked' as const };
+    const open = { ...state(), ladderDivision: null };
+    const ranked = {
+      ...open,
+      competitionType: 'ranked' as const,
+      ladderDivision: 'open' as const,
+    };
     assert({
       given: 'no choice, a casual choice, and a ranked Room',
       should: 'plan none, the choice, and the fixed ranked Broadcast',
       actual: [
-        plannedBroadcast(state()),
-        plannedBroadcast({ ...state(), capture: both }),
+        plannedBroadcast(open),
+        plannedBroadcast({ ...open, capture: both }),
         plannedBroadcast(ranked),
       ],
       expected: [
@@ -190,6 +195,19 @@ describe('What a Round captures', () => {
           debatersReadChat: false,
         },
       ],
+    });
+  });
+
+  test('a Youth Round is never broadcast', () => {
+    assert({
+      given: 'a ranked Round on Youth – Freestyle',
+      should: 'plan no audience Broadcast (ADR 0107, PYL-5)',
+      actual: plannedBroadcast({
+        ...state(),
+        competitionType: 'ranked',
+        ladderDivision: 'youth',
+      }),
+      expected: null,
     });
   });
 

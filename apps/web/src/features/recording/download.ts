@@ -43,7 +43,8 @@ export const openDownload = async (
   const record = await deps.store.find(input.recordingId);
   if (record === null) throw refused;
   const round = await deps.inputs.readRound(record.roundId);
-  if (round === null) throw refused;
+  // Nobody downloads a Youth Recording (ADR 0150): refuse before any other read.
+  if (round === null || round.youth !== null) throw refused;
   const permissions = roundEvidencePermissions(
     round,
     await deps.inputs.readBroadcastRelease(round.id),
@@ -52,6 +53,7 @@ export const openDownload = async (
     input.nowMs,
   );
   const allowed = mayDownload({
+    round,
     viewer: input.viewer,
     permissions,
     status: record.lifecycle.status,

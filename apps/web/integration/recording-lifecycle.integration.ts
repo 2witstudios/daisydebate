@@ -78,7 +78,7 @@ const withReadyRecording = (
     >[0]['database'];
     const store = recordingPersistence({ database });
     const read = await database.readRecordingRound(roundId);
-    const inputs: RecordingInputs = {
+    const base: Omit<RecordingInputs, 'readRoundFresh'> = {
       readRound: async (id) => {
         const round = await database.readRecordingRound(id);
         return (
@@ -96,6 +96,7 @@ const withReadyRecording = (
                 (seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat),
               )
               .map((seat) => seat.actorId),
+            youth: null,
           }
         );
       },
@@ -108,6 +109,7 @@ const withReadyRecording = (
       readCoverageFacts: database.readRecordingCoverageFacts,
       holdsRecordingDownload: async () => true,
     };
+    const inputs: RecordingInputs = { ...base, readRoundFresh: base.readRound };
     const port = createRecordingCapturePort({
       store,
       inputs,
@@ -180,12 +182,14 @@ test('an unlisted Recording opens only past its current link', async () => {
         inputs.readRound(roundId).then((round) =>
           openRecordingHistory(
             {
+              readMediaReleases: async () => [],
               readJobState: async () => null,
               nowMs: () => nowMs,
               readHistoryRound: async () => ({
                 ...round!,
                 title: 'Round',
                 resolution: 'x',
+                ladder: null,
                 sides: [],
                 outcome: null,
                 debaters: [],
@@ -772,12 +776,14 @@ test('history reads the real Round and offers each panel on its own permission',
       const open = (viewer: RecordingViewer) =>
         openRecordingHistory(
           {
+            readMediaReleases: async () => [],
             readJobState: async () => null,
             nowMs: () => nowMs,
             readHistoryRound: async () => ({
               ...round,
               title: 'Round',
               resolution: 'x',
+              ladder: null,
               sides: [],
               outcome: null,
               debaters: [],

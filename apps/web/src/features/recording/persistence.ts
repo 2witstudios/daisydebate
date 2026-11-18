@@ -21,12 +21,14 @@ export const recordingPersistence = ({
     const page = await database.listRecordingArchive(input);
     return {
       nextBefore: page.nextBefore,
-      rows: page.rows.map(({ capture, ...row }) => ({
+      rows: page.rows.map(({ capture, youthRound, ...row }) => ({
         ...row,
         recordingPolicy: plannedRecording({
           competitionType: row.competitionType,
           capture,
         }),
+        // A listing is read by a seated viewer only, so no linked adult is needed.
+        youth: youthRound ? { debaters: [] } : null,
       })),
     };
   },

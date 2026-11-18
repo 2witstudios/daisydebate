@@ -282,6 +282,27 @@ describe('removal', () => {
       expected: { kind: 'refused', reason: 'ranked_is_kept' },
     });
     assert({
+      given: 'a participant asking on a Youth Round’s ranked Recording',
+      should: 'take the whole Recording down (ADR 0107, PYL-5)',
+      actual: transitionRecording(
+        {
+          id,
+          class: 'ranked',
+          eligibility: { kind: 'ranked', youth: true },
+          lifecycle: ready,
+        },
+        participant,
+      ),
+      expected: {
+        kind: 'moved',
+        next: {
+          status: 'removing',
+          cause: 'participant_request',
+          requestedAt: later,
+        },
+      },
+    });
+    assert({
       given: 'a participant asking on a casual Recording',
       should: 'record the durable intent for the whole Recording',
       actual: apply(ready, participant),

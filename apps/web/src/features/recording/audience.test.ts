@@ -24,6 +24,7 @@ const round: RecordingRound = {
   seatedActorIds: ['aff', 'neg', 'judge'],
   recordingPolicy: 'released',
   officialActorIds: ['judge'],
+  youth: null,
 };
 const roundEvidencePermissions = (
   input: RecordingRound,
@@ -246,6 +247,7 @@ describe('recordingMediaState', () => {
 
 describe('mayDownload', () => {
   const allowed = {
+    round: { youth: null },
     viewer: account('stranger'),
     permissions: everything,
     status: 'ready',
@@ -364,6 +366,102 @@ describe('roundEvidencePermissions under the officials policy (TAB-6.15)', () =>
       should: 'have no deletion date',
       actual: [recordingDeletionDueMs(round), recordingDeletionDueMs(kept)],
       expected: [null, due],
+    });
+  });
+});
+
+describe('a Youth Round (PYL-5)', () => {
+  const youthRound: RecordingRound = {
+    ...round,
+    youth: {
+      debaters: [
+        { actorId: 'aff', userId: 'user-aff', linkedAdultActorIds: ['coach'] },
+        { actorId: 'neg', userId: 'user-neg', linkedAdultActorIds: ['parent'] },
+      ],
+    },
+  };
+
+  test('is private to its people whatever its visibility', () => {
+    assert({
+      given:
+        'a debater, a judge, a coach, a parent, a stranger, the host and a visitor on a public Youth Round',
+      should: 'show everything to the first four and nothing to the rest',
+      actual: [
+        account('aff'),
+        account('judge'),
+        account('coach'),
+        account('parent'),
+        account('stranger'),
+        account('host'),
+        visitor,
+      ].map((viewer) => roundEvidencePermissions(youthRound, passed, viewer)),
+      expected: [
+        everything,
+        everything,
+        everything,
+        everything,
+        nothing,
+        nothing,
+        nothing,
+      ],
+    });
+  });
+
+  test('a presented link admits nobody', () => {
+    const hash = audienceLinkHash('token');
+    assert({
+      given: 'a stranger with the current link of an unlisted Youth Round',
+      should: 'see nothing',
+      actual: permissionsWithLink(
+        { ...youthRound, visibility: 'unlisted', audienceLinkHash: hash },
+        passed,
+        account('stranger'),
+        hash,
+        100_000,
+      ),
+      expected: nothing,
+    });
+  });
+
+  test('nothing before it ends', () => {
+    assert({
+      given: 'a debater on a Youth Round still running',
+      should: 'see nothing yet',
+      actual: roundEvidencePermissions(
+        { ...youthRound, completedAtMs: null },
+        passed,
+        account('aff'),
+      ),
+      expected: nothing,
+    });
+  });
+
+  test('is never downloaded and is taken down by its youth', () => {
+    assert({
+      given: 'a subscribed debater who may watch a ready Youth Recording',
+      should: 'offer no download',
+      actual: mayDownload({
+        round: youthRound,
+        viewer: account('aff'),
+        permissions: everything,
+        status: 'ready',
+        subscribed: true,
+      }),
+      expected: false,
+    });
+    assert({
+      given:
+        'a ranked Youth Recording, asked by a debater, a parent and the judge',
+      should: 'let the debater and the parent take it down',
+      actual: ['aff', 'parent', 'judge'].map((actorId) =>
+        mayRequestRemoval({
+          recordingClass: 'ranked',
+          round: youthRound,
+          viewer: account(actorId),
+          status: 'ready',
+        }),
+      ),
+      expected: [true, true, false],
     });
   });
 });

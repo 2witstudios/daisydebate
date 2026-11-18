@@ -4,6 +4,8 @@ import type { RecordingHistoryScreen } from '../../../features/recording/history
 import { watchRoutes } from '../../../features/watch/routes';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
+import { Icon } from '../../components/icon/icon';
+import { LadderBadge } from '../../ladder-badge/ladder-badge';
 import { CopyLink } from '../../watch/copy-link/copy-link';
 import { StateCard } from '../../watch/state-card/state-card';
 import { RecordingPlayer } from '../recording-player/recording-player';
@@ -18,6 +20,8 @@ export type RecordingHistoryProps = {
   readonly notice: keyof typeof removalNotices | null;
   /** The account's report control; a visitor has none. */
   readonly report?: ReactNode;
+  /** Whether the youth-publishing release flag is open (PYL-8). */
+  readonly youthPublishing?: boolean;
 };
 
 export const removalNotices = {
@@ -135,32 +139,162 @@ function Download({ href }: { href: string }) {
   );
 }
 
+function Sharing({ screen }: { screen: History }) {
+  return (
+    <section aria-label="Sharing" className={card}>
+      <span className={label}>Share and visibility</span>
+      <div>
+        <Badge tone={screen.visibility === 'private' ? 'gold' : 'accent'}>
+          {screen.visibility}
+        </Badge>
+      </div>
+      <p className="text-sm text-ink-muted">{VISIBILITY[screen.visibility]}</p>
+      {screen.visibility === 'unlisted' ? null : (
+        <div>
+          <CopyLink path={`${watchRoutes.recordings}/${screen.roundId}`} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+const names = (list: readonly string[]): string =>
+  list.length <= 1
+    ? (list[0] ?? '')
+    : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
+
+/** Why Share publicly cannot be used yet: a missing release, or the flag. */
+const shareReason = (
+  youth: NonNullable<History['youth']>,
+  publishing: boolean,
+): string => {
+  if (youth.debaters.length === 0)
+    return 'No youth debater is on record for this Round, so it cannot be shared.';
+  if (!youth.releasesComplete) {
+    const missing = youth.debaters
+      .filter((debater) => !debater.released)
+      .map((debater) => debater.name);
+    return `${names(missing)} ${missing.length === 1 ? 'has' : 'have'} no media release yet.`;
+  }
+  // The publish action arrives with media releases (S4); until then it waits.
+  return publishing
+    ? 'Every youth debater has a media release. Sharing arrives with media releases.'
+    : 'Sharing Youth recordings is not open yet.';
+};
+
+/**
+ * A Youth Round's Recording is private (PYL-5): no link to copy, and Share
+ * publicly waits for a media release from every youth debater. The publish
+ * action itself arrives with media releases (S4), so the button stays disabled.
+ */
+function YouthSharing({
+  youth,
+  publishing,
+}: {
+  youth: NonNullable<History['youth']>;
+  publishing: boolean;
+}) {
+  return (
+    <section aria-label="Sharing" className={card}>
+      <span className={label}>Share and visibility</span>
+      <div>
+        <Badge tone="gold">Private</Badge>
+      </div>
+      <p className="text-sm text-ink">
+        <strong className="font-strong">Private:</strong> visible to the
+        debaters, judges and their coaches or parents.
+      </p>
+      <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-3">
+        <p className="text-sm font-strong text-ink">
+          Share publicly needs a media release from every youth debater
+        </p>
+        <ul className="flex flex-col gap-2 text-sm text-ink">
+          {youth.debaters.map((debater) => (
+            <li key={debater.actorId} className="flex items-center gap-2">
+              {debater.released ? (
+                <Icon name="check" size={16} className="text-accent" />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="size-3 shrink-0 rounded-full border-2 border-dashed border-border-strong"
+                />
+              )}
+              {`${debater.name} · ${debater.released ? 'release on record' : 'no media release yet'}`}
+            </li>
+          ))}
+          <li className="flex items-center gap-2 text-ink-muted">
+            <span
+              aria-hidden="true"
+              className="size-3 shrink-0 rounded-full border-2 border-dashed border-border"
+            />
+            Judges · not needed
+          </li>
+        </ul>
+      </div>
+      <p id="share-publicly-reason" className="text-sm text-ink">
+        {shareReason(youth, publishing)}
+      </p>
+      <button
+        type="button"
+        disabled
+        aria-describedby="share-publicly-reason"
+        className={`${buttonClass('secondary')} self-start`}
+      >
+        <Icon name="lock" size={18} />
+        Share publicly
+      </button>
+      <p className="text-xs text-ink-muted">
+        Sharing makes it public on Watch, labelled Youth – Freestyle. Paid ads
+        never use it without a separate opt-in.
+      </p>
+    </section>
+  );
+}
+
+const removalWords = {
+  casual: {
+    title: 'Remove this recording',
+    body: 'Any participant can have a casual recording removed. The whole recording goes, for everyone.',
+    confirm: 'Remove it for everyone',
+    submit: 'Remove recording',
+  },
+  youth: {
+    title: 'Take down this recording',
+    body: 'Any debater in a Youth Round, or their coach or parent, can have it taken down. The whole recording goes, for everyone.',
+    confirm: 'Take it down for everyone',
+    submit: 'Take down',
+  },
+} as const;
+
 function Removal({
   roundId,
   removal,
+  youth,
 }: {
   roundId: string;
   removal: NonNullable<History['removal']>;
+  youth: boolean;
 }) {
+  const words = removalWords[youth ? 'youth' : 'casual'];
   return (
     <form
       method="post"
       action={`/api/recordings/${removal.recordingId}/removal`}
       className={card}
     >
-      <span className={label}>Remove this recording</span>
-      <p className="text-sm text-ink-muted">
-        Any participant can have a casual recording removed. The whole recording
-        goes, for everyone.
-      </p>
+      <span className={label}>{words.title}</span>
+      <p className="text-sm text-ink-muted">{words.body}</p>
       <input type="hidden" name="roundId" value={roundId} />
       <input type="hidden" name="version" value={String(removal.version)} />
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" name="confirm" />
-        Remove it for everyone
+      <label className="flex min-h-12 items-center gap-2 text-sm text-ink">
+        <input type="checkbox" name="confirm" className="size-4" />
+        {words.confirm}
       </label>
-      <button type="submit" className={buttonClass('secondary')}>
-        Remove recording
+      <button
+        type="submit"
+        className={`${buttonClass('secondary')} self-start`}
+      >
+        {words.submit}
       </button>
     </form>
   );
@@ -175,6 +309,7 @@ export function RecordingHistory({
   screen,
   notice,
   report,
+  youthPublishing = false,
 }: RecordingHistoryProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-4 px-6 pt-5 pb-8 max-compact:px-4">
@@ -188,6 +323,7 @@ export function RecordingHistory({
           <span className="text-sm font-strong text-accent">
             {screen.ranked ? 'Ranked' : 'Casual'}
           </span>
+          {screen.ladder ? <LadderBadge ladder={screen.ladder} /> : null}
           <span className="text-sm text-ink-muted">{screen.date}</span>
           {screen.deletesOn === null ? null : (
             <span className="text-sm text-ink-muted">
@@ -214,27 +350,18 @@ export function RecordingHistory({
         </div>
         <div className="flex basis-1/3 flex-col gap-4 max-compact:w-full max-compact:basis-auto">
           {screen.result ? <Result result={screen.result} /> : null}
-          <section aria-label="Sharing" className={card}>
-            <span className={label}>Share and visibility</span>
-            <div>
-              <Badge tone={screen.visibility === 'private' ? 'gold' : 'accent'}>
-                {screen.visibility}
-              </Badge>
-            </div>
-            <p className="text-sm text-ink-muted">
-              {VISIBILITY[screen.visibility]}
-            </p>
-            {screen.visibility === 'unlisted' ? null : (
-              <div>
-                <CopyLink
-                  path={`${watchRoutes.recordings}/${screen.roundId}`}
-                />
-              </div>
-            )}
-          </section>
+          {screen.youth ? (
+            <YouthSharing youth={screen.youth} publishing={youthPublishing} />
+          ) : (
+            <Sharing screen={screen} />
+          )}
           {screen.downloadHref ? <Download href={screen.downloadHref} /> : null}
           {screen.removal ? (
-            <Removal roundId={screen.roundId} removal={screen.removal} />
+            <Removal
+              roundId={screen.roundId}
+              removal={screen.removal}
+              youth={screen.youth !== null}
+            />
           ) : null}
           {report}
         </div>

@@ -1,6 +1,12 @@
 import { factReleased } from '@daisy/debate-engine';
 import { audienceAdmits } from '../audience-link/audience-link';
 import {
+  mayTakeDownYouthRecording,
+  recordingAudience,
+  removableStatus,
+  type YouthRoundPeople,
+} from './youth-audience';
+import {
   SPECTATOR_MARGIN_MS,
   type CompetitionType,
   type RecordingPolicy,
@@ -41,6 +47,11 @@ export type RecordingRound = {
   readonly recordingPolicy: RecordingPolicy;
   /** The actors in the Round's judge and moderator seats. */
   readonly officialActorIds: readonly string[];
+  /**
+   * A Youth Round's youth debaters and their linked adults (ADR 0107, PYL-5):
+   * a ranked Round on Youth – Freestyle. Null on every other Round.
+   */
+  readonly youth: YouthRoundPeople | null;
 };
 
 /**
@@ -101,6 +112,26 @@ const NOTHING: RoundEvidencePermissions = {
   result: false,
 };
 
+const EVERYTHING: RoundEvidencePermissions = {
+  open: true,
+  media: true,
+  transcript: true,
+  result: true,
+};
+
+/**
+ * A Youth Round is private whatever its Room's visibility or a presented link:
+ * its audience sees all of it once it ends, anyone else answers as missing.
+ */
+const youthPermissions = (
+  round: RecordingRound & { readonly youth: YouthRoundPeople },
+  viewer: RecordingViewer,
+): RoundEvidencePermissions =>
+  round.completedAtMs !== null &&
+  recordingAudience(round, viewer).kind === 'allowed'
+    ? EVERYTHING
+    : NOTHING;
+
 /**
  * Under the officials policy only the officials and the host see the video, and
  * only until its deletion date; a debater keeps the rest of their own record,
@@ -113,6 +144,8 @@ export const roundEvidencePermissions = (
   presentedLinkHash: string | null,
   nowMs: number,
 ): RoundEvidencePermissions => {
+  if (round.youth !== null)
+    return youthPermissions({ ...round, youth: round.youth }, viewer);
   const permissions = releasedPermissions(
     round,
     release,
@@ -206,21 +239,23 @@ export const recordingMediaState = (
 
 /**
  * A subscriber may download any Recording they may watch, and no other. The
- * subscription is the WATCH-8 entitlement, read as a named input.
+ * subscription is the WATCH-8 entitlement, read as a named input. Nobody
+ * downloads a Youth Round's private Recording.
  */
 export const mayDownload = (input: {
+  readonly round: Pick<RecordingRound, 'youth'>;
   readonly viewer: RecordingViewer;
   readonly permissions: RoundEvidencePermissions;
   readonly status: RecordingStatus | null;
   readonly subscribed: boolean;
 }): boolean =>
+  input.round.youth === null &&
   input.viewer.kind === 'account' &&
   input.subscribed &&
   input.permissions.media &&
   input.status === 'ready';
 
-/** Any participant of a casual Recording; nobody on a ranked one, host included. */
-export const mayRequestRemoval = (input: {
+const casualRemoval = (input: {
   readonly recordingClass: 'ranked' | 'casual';
   readonly round: RecordingRound;
   readonly viewer: RecordingViewer;
@@ -228,7 +263,24 @@ export const mayRequestRemoval = (input: {
 }): boolean =>
   input.recordingClass === 'casual' &&
   seated(input.round, input.viewer) &&
-  input.status !== null &&
-  input.status !== 'taken_down' &&
-  input.status !== 'removing' &&
-  input.status !== 'removed';
+  removableStatus(input.status);
+
+/**
+ * Any participant of a casual Recording; nobody on a ranked one, host included,
+ * except a Youth Round's, which any youth debater or linked adult may take down.
+ */
+export const mayRequestRemoval = (input: {
+  readonly recordingClass: 'ranked' | 'casual';
+  readonly round: RecordingRound;
+  readonly viewer: RecordingViewer;
+  readonly status: RecordingStatus | null;
+}): boolean => {
+  const { youth } = input.round;
+  if (youth !== null)
+    return mayTakeDownYouthRecording({
+      round: { ...input.round, youth },
+      viewer: input.viewer,
+      status: input.status,
+    });
+  return casualRemoval(input);
+};

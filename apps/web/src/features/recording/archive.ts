@@ -181,7 +181,12 @@ export const archiveEntries = (
           : null,
         media,
         transcript,
-        ownVisibility: own ? round.visibility : null,
+        // A Youth Round is private whatever its Room says (ADR 0150).
+        ownVisibility: own
+          ? round.youth === null
+            ? round.visibility
+            : 'private'
+          : null,
       },
     ];
   });

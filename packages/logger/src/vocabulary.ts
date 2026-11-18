@@ -101,6 +101,7 @@ export const eventRegistry = {
   'recording.observer.revoke_retry_failed': 'warn',
   'broadcast.conversation_held_long': 'error',
   'broadcast.reconcile_failed': 'error',
+  'broadcast.youth_round_stopped': 'warn',
   'spectator.fact_log_failed': 'error',
   'notifications.sweep_failed': 'error',
   'notifications.unsubscribed': 'info',

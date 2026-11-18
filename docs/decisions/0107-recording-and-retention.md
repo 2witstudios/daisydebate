@@ -3,6 +3,10 @@
 Recording policy is amended by
 [ADR 0134](0134-formats-beyond-two-sides.md). Event Rooms pin `off` or `officials`;
 this amendment does not approve the counsel-gated retention proposal below.
+[ADR 0150](0150-youth-recordings-private.md) amends it again: a Youth Round's
+ranked Recording is private to its debaters, judges and linked adults, is never
+broadcast, listed or downloaded, and any youth debater or linked adult may take
+it down.
 
 Status: accepted, owner decisions on the Watch plan, 2026-11-02. The retention of
 ranked video after erasure is **proposed and not reviewed by counsel** (COMP-4), and
@@ -43,7 +47,11 @@ playlist is answered by the app, so its relative paths come back through the che
 media redirects to a read signed for 60 seconds. Nothing in the bucket is public.
 
 **Removal.** A participant removes a casual Recording, whole; the transition refuses
-ranked. Erasure counts as that request for every casual Recording the member sits in,
+ranked, except a Youth Round's Recording (eligibility `{ kind: 'ranked', youth: true }`,
+[ADR 0150](0150-youth-recordings-private.md)): any youth debater or linked adult sends the
+same `participant_request`, and it goes whole. With no open report it moves to `removing`.
+Under an open report it is taken down at once and its removal is owed, paid when the report
+closes or 90 days pass, exactly as for casual. Erasure counts as that request for every casual Recording the member sits in,
 and never touches ranked. A casual Recording already taken down, with an open report on
 it or its Round, survives erasure, hidden, with the removal owed on its lifecycle: it goes
 when the report closes or 90 days pass. Until then it cannot be restored, and moderation
@@ -53,7 +61,8 @@ be removable whatever a hold says (point guard, 2026-11-03). `removing` is a dur
 by a bounded, idempotent sweep that ends only when the prefix lists empty.
 A participant's removal or an erasure also ends the Round's open feed, in its own transaction.
 
-**Takedown is not deletion.** It hides at once and keeps the objects, because ranked
+**Takedown is not deletion.** This is moderation's takedown, an operator command; a Youth
+Round participant's request above is a removal, not this. It hides at once and keeps the objects, because ranked
 video is the evidence behind disputes and integrity review. Moderation removes them as
 a separate decision, and can restore a Recording taken down while ready. The takedown's
 closed reason is stored on the Recording for the operator; the audience never reads it. Each is an
