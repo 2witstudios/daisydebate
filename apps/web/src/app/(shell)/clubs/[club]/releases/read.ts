@@ -60,3 +60,23 @@ export async function readClubReleasePage(
     },
   };
 }
+
+/**
+ * The media release tabs for the owner's Seats and Billing pages: the count
+ * of students needing a release, or null while releases are closed.
+ */
+export async function readClubReleaseTabs(
+  clubId: string,
+): Promise<{ readonly needing: number } | null> {
+  const answer = await readOwnRoute(
+    releasesRoute,
+    `/api/clubs/${encodeURIComponent(clubId)}/releases`,
+    releasesReadSchema,
+  );
+  return answer === null
+    ? null
+    : {
+        needing: answer.read.students.filter((s) => needsRelease(s.standing))
+          .length,
+      };
+}

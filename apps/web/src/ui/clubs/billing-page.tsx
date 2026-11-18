@@ -6,7 +6,7 @@ import type { FormAction } from '../form-action/form-action';
 import { Button } from '../components/button/button';
 import { PageHeader } from '../components/page-header/page-header';
 import { Panel } from '../components/panel/panel';
-import { ClubFrame } from './club-frame';
+import { ClubFrame, type ClubReleaseTabs } from './club-frame';
 import { cents, day, dollars, planLine, seatTally } from './club-copy';
 import type { ClubFormState } from './club-form-state';
 import { ChangeSeatsForm } from './change-seats-form';
@@ -111,7 +111,10 @@ export function ClubBillingPage({
   returned = false,
   now,
   action,
+  releases = null,
 }: {
+  /** The media release tabs, while releases are open (ADR 0151). */
+  readonly releases?: ClubReleaseTabs | null;
   readonly view: ClubBillingView;
   readonly seating: ClubSeatsView;
   readonly notice?: ClubBillingNotice;
@@ -127,7 +130,7 @@ export function ClubBillingPage({
     plan.state === 'cancelled' ||
     plan.state === 'payment-due';
   return (
-    <ClubFrame view={seating} section="billing">
+    <ClubFrame view={seating} section="billing" releases={releases}>
       <PageHeader
         title="Billing"
         lede={`One bill for ${club.name}. ${dollars(plan.seatPriceMinor)} per seat a month; every seat is Premium.`}

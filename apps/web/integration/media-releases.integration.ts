@@ -294,7 +294,7 @@ test('a parent signs and withdraws through single-use links, without an account'
           asked: asked.kind,
           email: request!.recipient_email,
           outcome: request!.outcome,
-          mails: mails.map((m) => [m.kind, m.later]),
+          mails: mails.map((m: Record<string, unknown>) => [m.kind, m.later]),
           prepared,
           digestStored: stored!.n,
           tokenStored: plain!.n,
@@ -339,7 +339,7 @@ test('a parent signs and withdraws through single-use links, without an account'
         actual: {
           signed: signed.kind,
           again: again.reason,
-          scopes: scopes.map((r) => [
+          scopes: scopes.map((r: Record<string, unknown>) => [
             r.scope,
             r.source,
             r.signer_name,
@@ -347,7 +347,7 @@ test('a parent signs and withdraws through single-use links, without an account'
           ]),
           standing: (await store.mediaReleases.readMinorRelease(f.host.userId))
             .standing.kind,
-          told: told.map((r) => r.kind),
+          told: told.map((r: Record<string, unknown>) => r.kind),
           moreSignMail: reminder.prepared,
         },
         expected: {
@@ -385,7 +385,7 @@ test('a parent signs and withdraws through single-use links, without an account'
           'withdraw both scopes, keep the record, and refuse that link or a sign token used as a manage one',
         actual: {
           withdrawn: withdrawn.kind,
-          rows: rows.map((r) => [r.scope, r.withdrawn_by, r.withdrawal_note]),
+          rows: rows.map((r: Record<string, unknown>) => [r.scope, r.withdrawn_by, r.withdrawal_note]),
           standing: (await store.mediaReleases.readMinorRelease(f.host.userId))
             .standing.kind,
           reused: reused.reason,
@@ -554,7 +554,7 @@ test('a Youth Recording is public only when every youth debater holds a release 
             flagClosed: flagClosed.reason,
             judge: judge.reason,
             shared: shared.kind,
-            told: told.map((r) => r.user_id),
+            told: told.map((r: Record<string, unknown>) => r.user_id),
             strangerSeesOpen: await strangerSees(true),
             strangerSeesClosed: await strangerSees(false),
           },

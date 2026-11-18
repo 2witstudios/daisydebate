@@ -18,6 +18,8 @@ import { GET as seatsRoute } from '../../../../api/clubs/[club]/seats/route';
 import { requireClubRelease } from '../../release';
 import { clubSeatCountAction } from '../../actions';
 
+import { readClubReleaseTabs } from '../releases/read';
+
 export const metadata: Metadata = { title: 'Club billing' };
 
 const clubId = /^[a-z0-9]{24}$/;
@@ -50,6 +52,7 @@ export default async function ClubBilling({
       : undefined;
   return (
     <ClubBillingPage
+      releases={await readClubReleaseTabs(club)}
       view={view}
       seating={seating}
       returned={typeof query.purchase === 'string'}

@@ -6,7 +6,7 @@ import { buttonClass } from '../components/button/button-class';
 import { Icon } from '../components/icon/icon';
 import { PageHeader } from '../components/page-header/page-header';
 import { TabLinks } from '../components/tab-links/tab-links';
-import { ClubFrame } from './club-frame';
+import { ClubFrame, type ClubReleaseTabs } from './club-frame';
 import { dollars, ladderLabel, seatTally, shortDay } from './club-copy';
 import type { ClubFormState } from './club-form-state';
 import {
@@ -169,7 +169,10 @@ export function ClubSeatsPage({
   view,
   filter,
   action,
+  releases = null,
 }: {
+  /** The media release tabs, while releases are open (ADR 0151). */
+  readonly releases?: ClubReleaseTabs | null;
   readonly view: ClubSeatsView;
   readonly filter: SeatFilter;
   readonly action: FormAction<ClubFormState>;
@@ -201,7 +204,7 @@ export function ClubSeatsPage({
     selected: filter === id,
   });
   return (
-    <ClubFrame view={view} section="seats">
+    <ClubFrame view={view} section="seats" releases={releases}>
       <PageHeader
         title="Seats"
         lede="Each seat gives one member Premium, paid by the club. Move a seat to another student any time."
