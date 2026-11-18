@@ -698,6 +698,7 @@ cached archive whose size matches the index without hashing it (apt 2.8
 `pkgAcqArchive`), so the helper checks each one against the SHA256 the current
 lists give for its package and version, and deletes any other before apt runs:
 after `update` on the acquisition path, before the readiness check offline.
+An archive `dpkg-deb` cannot read is deleted like a mismatch.
 Only on the exact image that wrote them are
 the lists restored too; then `apt-get install --print-uris` (no dpkg, no
 download) must report nothing left to fetch, and installation proceeds with no
@@ -707,7 +708,7 @@ good as those lists): cache entries
 are written only by this repository's workflows, main's only by pushes to main,
 the same trust that already governs `ci.yml`. A run that does not install
 offline drops the restored directory before acquiring, and the workflow saves
-only beside an image file (`staged=true`), so a failed or skipped refresh saves
+only beside an image file naming this exact image (`staged=true`), so a failed or skipped refresh saves
 nothing rather than another image's entry under this image's exact key. Cache
 phases (prefill, hold, stage, drop) never fail the step except on unproven
 group cleanup; cancellation or a spent budget still does.

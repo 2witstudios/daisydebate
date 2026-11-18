@@ -1,7 +1,18 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  chmodSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
   acquisitionCommands,
   dropStageCommand,
+  refreshStageCommand,
+  verifyArchivesCommand,
   listsReusable,
   offlineCheckCommand,
   preparationDeadline,
@@ -133,5 +144,70 @@ describe('primary Ubuntu mirror recovery', () => {
         'https://security.ubuntu.com/ubuntu/\tpriority:3',
       ],
     });
+  });
+});
+
+describe('archive verification', () => {
+  test('an unreadable archive is deleted, and the archives after it are still checked', () => {
+    const script = verifyArchivesCommand().at(-1)!;
+    assert({
+      given: 'the verification loop under sh -e',
+      should: 'turn a failed dpkg-deb read into an empty field, never an exit',
+      actual: [
+        script.includes(
+          'package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""',
+        ),
+        script.includes(
+          'version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""',
+        ),
+      ],
+      expected: [true, true],
+    });
+  });
+});
+
+describe('stage refresh', () => {
+  test('keeps only readable archives of installed versions', () => {
+    const root = mkdtempSync(join(tmpdir(), 'daisy-ffmpeg-stage-'));
+    try {
+      const bin = join(root, 'bin');
+      const stage = join(root, 'stage');
+      Bun.spawnSync(['mkdir', '-p', bin, `${stage}.next/archives`]);
+      for (const name of ['good', 'old', 'absent', 'bad'])
+        writeFileSync(`${stage}.next/archives/${name}.deb`, name);
+      const stub = (name: string, body: string) => {
+        writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`);
+        chmodSync(join(bin, name), 0o755);
+      };
+      // bad.deb cannot be read; old.deb is not the installed version; absent.deb
+      // is not installed at all.
+      stub(
+        'dpkg-deb',
+        'case "$2" in *bad.deb) exit 2;; esac\nif [ "$3" = Package ]; then basename "$2" .deb; else echo 1; fi',
+      );
+      stub(
+        'dpkg-query',
+        'case "$3" in good) echo 1;; old) echo 0;; *) exit 1;; esac',
+      );
+      // The apt lists and ownership steps are outside this check.
+      stub('find', 'exit 0');
+      stub('chown', 'exit 0');
+      const run = Bun.spawnSync(
+        refreshStageCommand(stage, 'ubuntu24/test', '0:0'),
+        { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } },
+      );
+      assert({
+        given:
+          'a held set with a readable installed, an older, an uninstalled and an unreadable archive',
+        should: 'complete and stage only the installed version',
+        actual: {
+          exit: run.exitCode,
+          archives: readdirSync(join(stage, 'archives')),
+        },
+        expected: { exit: 0, archives: ['good.deb'] },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
