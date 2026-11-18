@@ -1,4 +1,5 @@
 import type { Database } from '@daisy/db';
+import { createAppError } from '@daisy/errors';
 import type { EmailMessage } from '../mail/types';
 import { retryOrFail } from '../mail/retry-policy';
 import { runMailQueue } from '../mail/run-queue';
@@ -37,16 +38,24 @@ export function createLeagueRequestNotices(input: {
    */
   readonly gaveUp: (error: unknown) => void;
 }) {
-  /** The next outcome after a failed attempt; the last one is reported as lost. */
+  /**
+   * The next outcome after a failed attempt; the last one is reported as
+   * lost and names what failed: the provider (`delivery`) or the stored
+   * request (`unreadable`).
+   */
   const afterFailure = (
     claim: Claim,
     error: unknown,
+    cause: 'delivery' | 'unreadable',
     retrying: (error: unknown) => void,
   ): Outcome => {
     const outcome = retryOrFail(claim.attempts, input.now(), 'delivery');
-    if (outcome.kind === 'failed') input.gaveUp(error);
-    else retrying(error);
-    return outcome;
+    if (outcome.kind !== 'failed') {
+      retrying(error);
+      return outcome;
+    }
+    input.gaveUp(error);
+    return { kind: 'failed', errorCode: cause };
   };
   const decide = async (claim: Claim): Promise<Outcome> => {
     const notice = await input.store.readLeagueRequestNotice(claim.id);
@@ -56,14 +65,23 @@ export function createLeagueRequestNotices(input: {
       const sent = await input.deliver({
         ...renderLeagueRequestEmail(notice.request),
         to: input.ownerAddress,
-        idempotencyKey: claim.id,
+        // Namespaced: a client-chosen request id never shares a provider
+        // key with another mail queue's job.
+        idempotencyKey: `league-request:${claim.id}`,
       });
-      return sent === 'sent'
-        ? { kind: 'sent' }
-        : { kind: 'cancelled', errorCode: 'suppressed' };
+      if (sent === 'sent') return { kind: 'sent' };
+      // The owner's own address bounced or complained: every later lead
+      // would vanish the same way, so it is reported, not just recorded.
+      input.gaveUp(
+        createAppError(
+          'INFRASTRUCTURE',
+          'League request owner address is suppressed',
+        ),
+      );
+      return { kind: 'cancelled', errorCode: 'suppressed' };
     } catch (error) {
       // Earlier provider failures retry silently, as other mail queues do.
-      return afterFailure(claim, error, () => {});
+      return afterFailure(claim, error, 'delivery', () => {});
     }
   };
   return {
@@ -74,7 +92,8 @@ export function createLeagueRequestNotices(input: {
         nextToken: input.nextToken,
         claim: input.store.claimLeagueRequestNotices,
         decide,
-        undecided: (claim, error) => afterFailure(claim, error, input.failed),
+        undecided: (claim, error) =>
+          afterFailure(claim, error, 'unreadable', input.failed),
         settle: input.store.settleLeagueRequestNotice,
       }),
   };

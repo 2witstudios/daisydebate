@@ -63,7 +63,7 @@ const fieldMessages: Readonly<Record<RequestField, string>> = {
   seasons: 'Choose how many seasons a year.',
   style: 'Choose a style.',
   divisions: 'Choose the divisions.',
-  needs: `Keep this to ${leagueRequestLimits.needs.toLocaleString('en-US')} characters.`,
+  needs: `Keep this to ${leagueRequestLimits.needs.toLocaleString('en-US')} characters of plain text.`,
   contactName: `Enter your name, up to ${leagueRequestLimits.contactName} characters.`,
   contactRole: `Enter your role, up to ${leagueRequestLimits.contactRole} characters.`,
   contactEmail: 'Enter an email address we can reply to.',

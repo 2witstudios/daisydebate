@@ -87,7 +87,7 @@ test('a League request notice', async () => {
       expected: {
         count: 1,
         to: 'owner@daisy.example',
-        key: request.id,
+        key: `league-request:${request.id}`,
         subject: 'League request: Gulf Coast Speech League',
         labels: true,
         phoneLine: false,
@@ -111,15 +111,19 @@ test('a League request notice', async () => {
   }
 
   {
-    const { settled, notices } = scripted({
+    const { settled, lost, notices } = scripted({
       deliver: async () => 'suppressed',
     });
     await notices.run(10);
     assert({
       given: 'an owner address that is suppressed',
-      should: 'cancel as suppressed',
-      actual: settled,
-      expected: [{ kind: 'cancelled', errorCode: 'suppressed' }],
+      should:
+        'cancel as suppressed and report it, since every lead would vanish the same way',
+      actual: { settled, lost: lost.length },
+      expected: {
+        settled: [{ kind: 'cancelled', errorCode: 'suppressed' }],
+        lost: 1,
+      },
     });
   }
 
@@ -212,10 +216,10 @@ test('a League request notice', async () => {
     await notices.run(10);
     assert({
       given: 'a read that fails on the last attempt',
-      should: 'report it as lost, not as a retryable failure',
+      should: 'report it as lost and name the stored data, not the provider',
       actual: { settled, failures, lost },
       expected: {
-        settled: [{ kind: 'failed', errorCode: 'delivery' }],
+        settled: [{ kind: 'failed', errorCode: 'unreadable' }],
         failures: [],
         lost: [unreadable],
       },

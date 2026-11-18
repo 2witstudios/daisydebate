@@ -34,7 +34,7 @@ CREATE TABLE "league_requests" (
 	CONSTRAINT "league_requests_attempts_check" CHECK ("attempts" >= 0),
 	CONSTRAINT "league_requests_lease_check" CHECK (("state" = 'leased') = ("lease_token_digest" is not null and "lease_expires_at" is not null) and ("lease_token_digest" is null or "lease_token_digest" ~ '^[0-9a-f]{64}$')),
 	CONSTRAINT "league_requests_completed_check" CHECK (("state" in ('sent', 'failed', 'cancelled')) = ("completed_at" is not null)),
-	CONSTRAINT "league_requests_error_check" CHECK ("last_error_code" is null or "last_error_code" in ('delivery', 'delivery-unknown', 'suppressed', 'not-owed')),
+	CONSTRAINT "league_requests_error_check" CHECK ("last_error_code" is null or "last_error_code" in ('delivery', 'delivery-unknown', 'suppressed', 'not-owed', 'unreadable')),
 	CONSTRAINT "league_requests_digest_check" CHECK ("fields_digest" ~ '^[0-9a-f]{64}$')
 );
 --> statement-breakpoint

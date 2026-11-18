@@ -111,12 +111,29 @@ test('leagueRequestOf', () => {
   });
 
   assert({
+    given: 'notes over several lines with a tab',
+    should: 'accept them',
+    actual: leagueRequestOf({ ...filled, needs: 'One\n\tTwo\r\nThree' }).kind,
+    expected: 'accepted',
+  });
+
+  assert({
+    given: 'notes carrying a NUL, which PostgreSQL text cannot hold',
+    should: 'refuse the notes instead of failing on insert',
+    actual: leagueRequestOf({ ...filled, needs: 'Bad\u0000byte' }),
+    expected: {
+      kind: 'incomplete',
+      errors: { needs: 'Keep this to 4,000 characters of plain text.' },
+    },
+  });
+
+  assert({
     given: 'notes longer than the limit',
     should: 'refuse the notes',
     actual: leagueRequestOf({ ...filled, needs: 'x'.repeat(4001) }),
     expected: {
       kind: 'incomplete',
-      errors: { needs: 'Keep this to 4,000 characters.' },
+      errors: { needs: 'Keep this to 4,000 characters of plain text.' },
     },
   });
 

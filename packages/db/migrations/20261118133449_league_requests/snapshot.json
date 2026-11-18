@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "56133a47-932d-4bff-a4e4-96bb3d005344",
+  "id": "26bf37a3-0b0f-465b-98e5-74b7c15e4aca",
   "prevIds": [
     "243bde54-28cf-4a8d-9dce-3b0f5aaec056"
   ],
@@ -48624,7 +48624,7 @@
       "table": "league_requests"
     },
     {
-      "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'not-owed')",
+      "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'not-owed', 'unreadable')",
       "name": "league_requests_error_check",
       "entityType": "checks",
       "schema": "public",

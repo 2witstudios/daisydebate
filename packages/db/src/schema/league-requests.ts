@@ -14,6 +14,8 @@ export const leagueRequestNoticeErrorCodes = [
   'delivery-unknown',
   'suppressed',
   'not-owed',
+  /** The stored request could not be read on the last attempt: a data fault, not the provider. */
+  'unreadable',
 ] as const;
 
 /**

@@ -75,7 +75,12 @@ export const leagueRequestSchema = z.strictObject({
   seasons: z.enum(leagueRequestSeasonCounts),
   style: z.enum(leagueRequestStyles),
   divisions: z.enum(leagueRequestDivisions),
-  needs: z.string().trim().max(leagueRequestLimits.needs),
+  /** Free text over several lines: no control characters but line breaks and tabs. */
+  needs: z
+    .string()
+    .trim()
+    .max(leagueRequestLimits.needs)
+    .regex(/^(?:[^\p{Cc}]|[\n\r\t])*$/u),
   contactName: required(leagueRequestLimits.contactName),
   contactRole: required(leagueRequestLimits.contactRole),
   contactEmail: z

@@ -33,7 +33,10 @@ opens it.
   the app) sends the backlog.
 - A send that fails retries with backoff for about two hours and then
   fails for good (`state = 'failed'`), which is logged as
-  `league_request.mail.failed` and reported; a suppressed owner address ends
+  `league_request.mail.failed` and reported (`last_error_code` `delivery`
+  for the provider, `unreadable` when the stored row could not be read); a
+  suppressed owner address is reported the same way, because every later
+  lead would vanish with it, and ends
   `cancelled` with `suppressed`. The request itself is kept either way.
 - Spam: a hidden trap field answers the ordinary confirmation and stores
   nothing; each client address may send 5 an hour and 10 a day, and Daisy
@@ -51,7 +54,14 @@ from league_requests order by created_at desc limit 50;
 ## Retention and erasure
 
 A request is deleted 365 days after it was made, sent or not
-(`retention.league_requests`, [compliance](compliance.md)). The contact may
+(`retention.league_requests`, [compliance](compliance.md)). A deployment
+with no owner address therefore loses its unsent requests after a year:
+production and staging always have `BETA_NOTIFY_EMAIL`, and the
+`league_request.mail.unconfigured` warning at each start is the signal to
+fix one that does not. One more case ends a request's email unreported: a
+web process that dies while holding the request's eighth and last attempt
+leaves it `failed` with `delivery-unknown` (the shared queue settles it at
+the next claim). The read-only query above lists those rows. The contact may
 have no account, so a deletion request to the privacy contact is an
 owner-approved data action:
 `delete from league_requests where lower(contact_email) = lower('<address>');`

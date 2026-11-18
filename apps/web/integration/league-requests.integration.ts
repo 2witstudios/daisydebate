@@ -107,7 +107,7 @@ test('a League request is stored once and reaches the owner', async () => {
 
   const settled = await notices().run(10);
   const mail = t.mailbox.mails.filter(
-    (sent) => sent.idempotencyKey === request.requestId,
+    (sent) => sent.idempotencyKey === `league-request:${request.requestId}`,
   );
 
   assert({
@@ -145,7 +145,7 @@ test('a League request is stored once and reaches the owner', async () => {
       (await rowsOf([request.requestId]))[0]?.state,
       await notices().run(10),
       t.mailbox.mails.filter(
-        (sent) => sent.idempotencyKey === request.requestId,
+        (sent) => sent.idempotencyKey === `league-request:${request.requestId}`,
       ).length,
     ],
     expected: ['sent', 0, 1],
@@ -179,7 +179,7 @@ test('a resend never changes a stored request', async () => {
   )) as Array<{ id: string; contact_email: string; state: string }>;
   stored.push(...rows.map(({ id }) => id));
   const mails = t.mailbox.mails.filter((sent) =>
-    rows.some(({ id }) => id === sent.idempotencyKey),
+    rows.some(({ id }) => `league-request:${id}` === sent.idempotencyKey),
   );
 
   assert({
