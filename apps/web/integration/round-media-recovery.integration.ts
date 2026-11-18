@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { startRoundMediaRecovery } from '../src/server/round-media-recovery';
 import { withMediaRound } from './round-media.test-support';
+import { realWorkerTimers } from '../src/lib/worker-timers.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -10,14 +11,11 @@ test('actual post-start shared engine advancement remains safe for media reconci
     await f.mediaOperations.session(f.roundId, f.host.actorId);
     let failures = 0;
     const recovery = startRoundMediaRecovery({
-      recover: () => f.mediaOperations.recoverActiveSessions(),
+      recover: (listed) => f.mediaOperations.recoverActiveSessions(listed),
       failed: () => {
         failures++;
       },
-      every: (ms, tick) => {
-        const timer = setInterval(tick, ms);
-        return { stop: () => clearInterval(timer) };
-      },
+      timers: realWorkerTimers,
     });
     try {
       await recovery.started;

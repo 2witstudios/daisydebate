@@ -24,6 +24,7 @@ export function createRatingSweep(deps: {
     readonly limit: number;
   }) => {
     const candidates = await deps.database.readRatingCandidates(input);
+    let rated = 0;
     for (const candidate of candidates) {
       const { roundId, facts } = candidate;
       if (facts === null) {
@@ -33,6 +34,7 @@ export function createRatingSweep(deps: {
       try {
         if (!ratingAwaited(facts)) continue;
         await rateCompletedRound(deps.database, roundId, deps.ids);
+        rated += 1;
       } catch (error) {
         deps.onFailure(roundId, error);
       }
@@ -40,6 +42,8 @@ export function createRatingSweep(deps: {
     return {
       afterId: candidates.at(-1)?.roundId,
       exhausted: candidates.length < input.limit,
+      /** Rounds this page rated: zero means the sweep had nothing to do. */
+      rated,
     };
   };
 }

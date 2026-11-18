@@ -118,7 +118,9 @@ test('a tab from another build parses only what the attendance read uses (ISSUE-
   assert({
     given: 'a Round view whose other fields this build cannot parse',
     should: 'still adopt its segments, so the next speech gets a check-in',
-    actual: (await read(skewed))?.segments.length,
+    actual: await read(skewed).then((view) =>
+      typeof view === 'object' ? view?.segments.length : view,
+    ),
     expected: round.segments.length,
   });
   assert({
@@ -126,5 +128,26 @@ test('a tab from another build parses only what the attendance read uses (ISSUE-
     should: 'refuse the read',
     actual: await read({ id: round.id, status: round.status }),
     expected: null,
+  });
+});
+
+test('a 401 reads and sends as signed out, never as a retryable miss', async () => {
+  const client = createAttendanceHttpClient({
+    roundId: round.id,
+    timeout: () => new AbortController().signal,
+    fetch: async () =>
+      Response.json({ error: { code: 'AUTHENTICATION' } }, { status: 401 }),
+  });
+  assert({
+    given: 'the session gone on both the Round read and check-in',
+    should: 'answer signed-out for each',
+    actual: [
+      await client.read(),
+      await client.send({
+        commandId: 'a'.repeat(24),
+        segmentId: 'b'.repeat(24),
+      }),
+    ],
+    expected: ['signed-out', 'signed-out'],
   });
 });

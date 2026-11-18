@@ -88,6 +88,16 @@ for (const mode of ['valid', 'provider-error'] as const)
             timers.add(handle);
             return handle;
           },
+          now: () => performance.now(),
+          setTimeout: (run, ms) => {
+            const handle = setTimeout(() => void run(), ms);
+            timers.add(handle);
+            return handle;
+          },
+          clearTimeout: (handle) => {
+            timers.delete(handle);
+            clearTimeout(handle as ReturnType<typeof setTimeout>);
+          },
           clearInterval: (handle) => {
             timers.delete(handle);
             clearInterval(handle as ReturnType<typeof setInterval>);

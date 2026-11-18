@@ -1,7 +1,7 @@
 import { currentLaneOperation } from './lane-operation';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from './capacity-refusal';
-import { createHoldLedger, type LaneHoldSummary } from './lane-holds';
+import { createHoldLedger, type LaneHolds } from './lane-holds';
 import { RUNTIME_SESSION } from './session-bounds';
 
 /**
@@ -69,7 +69,8 @@ const SUBSCRIBE_ADMISSION = lane(1, 100, RUNTIME_SESSION.lock_timeout + 1000);
 export const WORKLOAD_PROFILES = {
   web: {
     name: 'web',
-    dedicated: 1,
+    // The availability election session, and the worker wake LISTEN (ADR 0154).
+    dedicated: 2,
     lanes: {
       competitive: COMPETITIVE,
       // A member's documents, a live debater's saves included (ADR 0111). A save
@@ -153,7 +154,7 @@ export type LaneGate = {
     readonly waiting: number;
   };
   /** How long each operation held this lane's connections since the last drain. */
-  readonly drainHolds: () => readonly LaneHoldSummary[];
+  readonly drainHolds: () => LaneHolds;
 };
 export type LaneTimer = (ms: number, fire: () => void) => () => void;
 export type LaneClock = () => number;
@@ -213,7 +214,11 @@ export function createLaneGate(
       },
       holders: holdersByOperation(held),
     });
-  const release = (weight: number, operation: string): LaneRelease => {
+  const release = (
+    weight: number,
+    operation: string,
+    waited = false,
+  ): LaneRelease => {
     let released = false;
     const hold = { since: clock(), operation, weight };
     held.add(hold);
@@ -221,7 +226,7 @@ export function createLaneGate(
       if (released) return;
       released = true;
       held.delete(hold);
-      holds.record(operation, clock() - hold.since);
+      holds.record(operation, clock() - hold.since, waited);
       active -= weight;
       pump();
     };
@@ -273,7 +278,7 @@ export function createLaneGate(
       return new Promise<LaneRelease>((resolve, reject) => {
         const waiter: Waiter = {
           weight,
-          grant: () => resolve(release(weight, operation)),
+          grant: () => resolve(release(weight, operation, true)),
           cancel: () => undefined,
         };
         waiter.cancel = timer(budget.maxWaitMs, () => {

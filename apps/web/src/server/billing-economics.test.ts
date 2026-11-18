@@ -20,6 +20,7 @@ import {
   now,
   month,
 } from '../features/billing/economics.test-support';
+import { withOneShots } from '../lib/worker-timers.test-support';
 
 setupRitewayBun();
 const window = { startsAt: month, endsAt: '2026-11-01T00:00:00.000Z' };
@@ -122,14 +123,14 @@ async function runWorker(input: {
       },
     },
     instanceId: 'service-fixture',
-    timers: {
+    timers: withOneShots({
       setInterval: (run, ms) => {
         tick = run;
         cadence = ms;
         return 1;
       },
       clearInterval: () => undefined,
-    },
+    }),
   });
   try {
     await service.started;
@@ -514,13 +515,13 @@ test('a failure outside any collection is reported once, not every hour', async 
       database: { ...app.database, billingEconomics: snapshotStore() },
     },
     instanceId: 'service-fixture',
-    timers: {
+    timers: withOneShots({
       setInterval: (run) => {
         tick = run;
         return 1;
       },
       clearInterval: () => undefined,
-    },
+    }),
   });
   try {
     await service.started;
@@ -675,13 +676,13 @@ async function runScripted(
       },
     },
     instanceId: 'service-fixture',
-    timers: {
+    timers: withOneShots({
       setInterval: (run) => {
         tick = run;
         return 1;
       },
       clearInterval: () => undefined,
-    },
+    }),
   });
   try {
     await service.started;
@@ -828,13 +829,13 @@ test('a failure outside any collection whose cause chain cannot be read never re
       },
     },
     instanceId: 'service-fixture',
-    timers: {
+    timers: withOneShots({
       setInterval: (run) => {
         tick = run;
         return 1;
       },
       clearInterval: () => undefined,
-    },
+    }),
   });
   try {
     await service.started;

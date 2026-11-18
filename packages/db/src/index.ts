@@ -99,6 +99,7 @@ import type { RoomClosureTransitions } from './room-account-closure';
 import { roundProtectedReads } from './round-protected-reads';
 import type { SQL } from 'bun';
 import { subscribeOutbox, type OutboxListenHandlers } from './listen';
+import { subscribeWorkWakes, type WorkWakeHandlers } from './work-wake';
 import {
   subscribeRealtimeHints,
   type RealtimeHintHandlers,
@@ -198,6 +199,7 @@ export type {
   ProvisionalMailCleanup,
 } from './provisional-cleanup';
 export { refuseSchemaAlteringRole } from './runtime-role';
+export type { WorkKind } from './work-wake';
 export { refuseUnisolatedTenantTables } from './tenant-isolation';
 export {
   createRealtimeDatabase,
@@ -352,6 +354,10 @@ export function createDatabase({
     /** Validated transient hints over a dedicated connection; durable drain is independent. */
     listenRealtimeHints(handlers: RealtimeHintHandlers) {
       return subscribeRealtimeHints(dedicated, handlers);
+    },
+    /** Lossy worker wakes (ADR 0154) over a dedicated connection. */
+    listenWorkWakes(handlers: WorkWakeHandlers) {
+      return subscribeWorkWakes(dedicated, handlers);
     },
     laneGauges: workload.laneGauges,
     drainLaneHolds: workload.drainLaneHolds,

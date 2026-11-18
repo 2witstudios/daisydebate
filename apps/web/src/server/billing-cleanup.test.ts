@@ -15,6 +15,7 @@ import {
 } from './privacy-jobs';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
+import { withOneShots } from '../lib/worker-timers.test-support';
 setupRitewayBun();
 const now = '2026-11-06T00:00:00.000Z',
   jobId = 'j'.repeat(24);
@@ -113,7 +114,7 @@ test('actual keyless scheduler separates Stripe closure from generic erase and d
       },
       { preconnect() {} },
     ),
-    timers: {
+    timers: withOneShots({
       setInterval: (run, ms) => {
         ticks.set(ms, run);
         return ms;
@@ -121,7 +122,7 @@ test('actual keyless scheduler separates Stripe closure from generic erase and d
       clearInterval: (handle) => {
         cleared.push(Number(handle));
       },
-    },
+    }),
   });
   await service.started;
   await ticks.get(1000)!();
@@ -221,7 +222,10 @@ test('actual scheduler reports private delivery failures while keeping subsequen
       },
       { preconnect() {} },
     ),
-    timers: { setInterval: () => 1, clearInterval: () => undefined },
+    timers: withOneShots({
+      setInterval: () => 1,
+      clearInterval: () => undefined,
+    }),
   });
   await service.started;
   await service.stop();

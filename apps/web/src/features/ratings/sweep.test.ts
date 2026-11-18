@@ -54,7 +54,7 @@ test('rating recovery advances past failures and retries them on the next bounde
     expected: {
       attempts: ['blocked', 'ready', 'blocked', 'ready'],
       failures: ['blocked', 'blocked'],
-      page: { afterId: 'ready', exhausted: false },
+      page: { afterId: 'ready', exhausted: false, rated: 1 },
     },
   });
 });
@@ -84,7 +84,7 @@ test("rating recovery leaves the engine's unrated Rounds alone and still pages p
     actual: { attempts, page },
     expected: {
       attempts: [],
-      page: { afterId: 'no-result', exhausted: false },
+      page: { afterId: 'no-result', exhausted: false, rated: 0 },
     },
   });
 });
@@ -125,7 +125,7 @@ test('rating recovery reports a Round whose facts cannot be decided and pages on
     expected: {
       attempts: ['ready'],
       failures: ['corrupt'],
-      page: { afterId: 'ready', exhausted: false },
+      page: { afterId: 'ready', exhausted: false, rated: 1 },
     },
   });
 });
@@ -155,7 +155,7 @@ test('one Round with an unreadable ledger row fails alone and the page moves on'
     expected: {
       attempts: ['ready'],
       failures: [['corrupt', unreadable]],
-      page: { afterId: 'ready', exhausted: false },
+      page: { afterId: 'ready', exhausted: false, rated: 1 },
     },
   });
 });

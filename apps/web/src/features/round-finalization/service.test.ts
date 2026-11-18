@@ -2,6 +2,30 @@ import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMaintenance } from './service';
 import { createRefusal } from '@daisy/errors';
+import { inertTimers } from '../../lib/worker-timers.test-support';
+
+/** Maintenance's two loops (discovery, rating): a pulse fires every armed pass. */
+const pulseTimers = () => {
+  const armed = new Map<object, () => unknown>();
+  return {
+    timers: {
+      ...inertTimers,
+      setTimeout: (run: () => unknown) => {
+        const handle = {};
+        armed.set(handle, run);
+        return handle;
+      },
+      clearTimeout: (handle: unknown) => {
+        armed.delete(handle as object);
+      },
+    },
+    pulse: async () => {
+      const due = [...armed.values()];
+      armed.clear();
+      await Promise.all(due.map((run) => run()));
+    },
+  };
+};
 setupRitewayBun();
 /** A pass that reached a decision, as the store returns it. */
 const decided = (decision: 'forfeit' | 'abandoned' | 'attended') =>
@@ -27,8 +51,8 @@ const ports = (): Ports => ({
   tick: async () => {},
   evaluate: async () => ({ kind: 'undecided' as const }),
   finalize: async () => {},
-  rateUnrated: async () => {},
-  timers: { setInterval: () => 1, clearInterval: () => {} },
+  rateUnrated: async () => 0,
+  timers: inertTimers,
   now: () => 0,
   failed: (error) => {
     throw error;
@@ -59,14 +83,15 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
     },
     rateUnrated: async () => {
       calls.push('rating-recovery');
+      return 0;
     },
     now: () => 0,
     timers: {
-      setInterval: (_pulse: () => void, ms: number) => {
+      ...inertTimers,
+      setTimeout: (_pulse: () => unknown, ms: number) => {
         interval = ms;
         return 1;
       },
-      clearInterval: () => {},
     },
     failed: () => {
       calls.push('failed');
@@ -99,8 +124,9 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
   const held = gate(),
     rediscovered = gate(),
     order: string[] = [];
-  let pulse = () => {},
-    scans = 0,
+  const driver = pulseTimers();
+  const { pulse } = driver;
+  let scans = 0,
     ratings = 0;
   const service = startRoundMaintenance({
     ...ports(),
@@ -122,14 +148,9 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
     },
     rateUnrated: async () => {
       ratings += 1;
+      return 0;
     },
-    timers: {
-      setInterval: (next) => {
-        pulse = next;
-        return 1;
-      },
-      clearInterval: () => {},
-    },
+    timers: driver.timers,
   });
   await service.ready;
   pulse();
@@ -201,9 +222,10 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
 test('a five-Round fleet leaves capacity for public work and advances queued Rounds fairly', async () => {
   const held = gate(),
     calls: string[] = [];
+  const driver = pulseTimers();
+  const { pulse } = driver;
   let running = 0,
-    maximum = 0,
-    pulse = () => {};
+    maximum = 0;
   const service = startRoundMaintenance({
     ...ports(),
     discover: async () => page(['a', 'b', 'c', 'd', 'e']),
@@ -214,13 +236,7 @@ test('a five-Round fleet leaves capacity for public work and advances queued Rou
       await held.promise;
       running -= 1;
     },
-    timers: {
-      setInterval: (next) => {
-        pulse = next;
-        return 1;
-      },
-      clearInterval: () => {},
-    },
+    timers: driver.timers,
   });
   await service.ready;
   assert({
@@ -284,23 +300,17 @@ const flush = async () => {
 };
 /** A service whose pulse and clock the test drives. */
 function driven(overrides: Partial<Ports>) {
-  let pulse: () => Promise<void> = async () => {};
+  const driver = pulseTimers();
   let clock = 0;
   const service = startRoundMaintenance({
     ...ports(),
-    timers: {
-      setInterval: (run: () => Promise<void>) => {
-        pulse = run;
-        return 1;
-      },
-      clearInterval: () => {},
-    },
+    timers: driver.timers,
     now: () => clock,
     ...overrides,
   });
   return {
     service,
-    pulse: () => pulse(),
+    pulse: () => driver.pulse(),
     advance: (ms: number) => {
       clock += ms;
     },
@@ -607,4 +617,48 @@ test('a Round that leaves discovery is forgotten: back again, it waits for nothi
     expected: 2,
   });
   await service.stop();
+});
+
+test('an opening waiting on the clock keeps discovery at its pace; none lets it back off', async () => {
+  const pace = async (openingsWaiting: boolean) => {
+    const armed = new Map<object, { ms: number; run: () => unknown }>();
+    const waits: number[] = [];
+    const service = startRoundMaintenance({
+      ...ports(),
+      discover: async () => ({ ...page([]), openingsWaiting }),
+      // Rating always busy, so only discovery's waits can grow.
+      rateUnrated: async () => 1,
+      timers: {
+        ...inertTimers,
+        setTimeout: (run, ms) => {
+          const handle = {};
+          armed.set(handle, { ms, run });
+          waits.push(ms);
+          return handle;
+        },
+        clearTimeout: (handle) => {
+          armed.delete(handle as object);
+        },
+      },
+    });
+    await service.ready;
+    for (let pulse = 0; pulse < 3; pulse += 1) {
+      const due = [...armed.values()];
+      armed.clear();
+      await Promise.all(due.map(({ run }) => run()));
+    }
+    await service.stop();
+    return waits;
+  };
+  const waiting = await pace(true);
+  const idle = await pace(false);
+  assert({
+    given: 'discovery passes with an opening waiting, then with none',
+    should: 'keep 500 ms while one waits, and back off without one',
+    actual: {
+      waiting: waiting.every((ms) => ms === 500),
+      idle: idle.includes(1000) && idle.includes(2000),
+    },
+    expected: { waiting: true, idle: true },
+  });
 });

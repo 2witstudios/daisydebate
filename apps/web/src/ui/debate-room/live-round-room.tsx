@@ -41,6 +41,7 @@ import { useRoundTime } from './use-round-time';
 import { ConversationHeldNotice } from './conversation-held-notice';
 import { RoundIncidentBanner } from './round-incident-banner';
 import { RoundTimeNotice } from './round-time-notice';
+import { AttendanceSignedOutNotice } from './attendance-signed-out-notice';
 
 /**
  * The mounted round room: the position derived each second from the
@@ -131,7 +132,7 @@ export function LiveRoundRoom({
       }),
     [refresh, roundTime, actorId, tab, endCall],
   );
-  useRoundAttendance({ view, actorId, reconnect });
+  const attendance = useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
     () =>
       view.version === seed.version
@@ -202,6 +203,9 @@ export function LiveRoundRoom({
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <ConversationHeldNotice view={view} nowMs={now} />
       <RoundTimeNotice roundTime={roundTime} />
+      {attendance.signedOut ? (
+        <AttendanceSignedOutNotice roundId={view.id} />
+      ) : null}
       <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
       {outcome ? (
         <p role="status" className="sr-only">

@@ -2,8 +2,9 @@ import type { Clock } from '@daisy/clock';
 import type { createDatabase } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import { createScheduledWorker } from '../features/ops/scheduled-worker';
-import { startRunSchedule } from './run-schedule';
 import type { WorkerTimers } from '../lib/worker-timers';
+import { passOf } from '../lib/idle-backoff';
+import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** How often due observation purge jobs are delivered (ISSUE-852). */
 const OBSERVATION_PURGE_INTERVAL_MS = 5_000;
@@ -26,21 +27,28 @@ export function startObservationPurges(input: {
   readonly timers: WorkerTimers;
   readonly intervalMs?: number;
 }) {
-  return startRunSchedule({
-    work: createScheduledWorker({
-      name: 'observation_purges',
-      clock: input.clock,
-      logger: input.logger,
-      pass: async (now) => {
-        const { succeeded, retried } = await input.deliver(
-          { now, limit: OBSERVATION_PURGE_BATCH },
-          { purge: async () => void (await input.purgeAll()) },
-        );
-        return { deleted: succeeded, retried, owed: await input.owed() };
-      },
-    }),
-    timers: input.timers,
-    intervalMs: input.intervalMs ?? OBSERVATION_PURGE_INTERVAL_MS,
-    runOnStart: true,
+  const worker = createScheduledWorker({
+    name: 'observation_purges',
+    clock: input.clock,
+    logger: input.logger,
+    pass: async (now) => {
+      const { succeeded, retried } = await input.deliver(
+        { now, limit: OBSERVATION_PURGE_BATCH },
+        { purge: async () => void (await input.purgeAll()) },
+      );
+      return { deleted: succeeded, retried, owed: await input.owed() };
+    },
   });
+  const busyMs = input.intervalMs ?? OBSERVATION_PURGE_INTERVAL_MS;
+  // Its alert reads a completion within 15 minutes; the idle cap is well inside.
+  const loop = startWorkerLoop({
+    run: () => worker.run().then(passOf),
+    backoff: {
+      busyMs,
+      idleMaxMs: Math.max(busyMs, HOUSEKEEPING_IDLE_MAX_MS),
+    },
+    timers: input.timers,
+    failed: () => undefined,
+  });
+  return { initial: loop.started, stop: loop.stop };
 }

@@ -6,6 +6,7 @@ import type { App } from './app';
 import { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
 import type { WorkerTimers } from '../lib/worker-timers';
+import type { WorkWake } from '../lib/worker-loop';
 
 /**
  * Round analysis's own worker and lifecycle (DEC-247): its own policy, its
@@ -16,6 +17,7 @@ export function startRoundAnalysisWorkers(input: {
   readonly app: App;
   readonly policy: RoundAnalysisPolicy;
   readonly timers: WorkerTimers;
+  readonly wake?: WorkWake | undefined;
   readonly reporter?: ErrorReporter;
 }) {
   const { app, policy } = input;
@@ -39,6 +41,7 @@ export function startRoundAnalysisWorkers(input: {
       scanMs: policy.scanMs,
     },
     timers: input.timers,
+    wake: input.wake,
     failed: failure(
       'round.analysis.failed',
       'round.analysis',

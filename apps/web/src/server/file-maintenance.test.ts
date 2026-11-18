@@ -5,6 +5,7 @@ import {
   createEventRecorder,
   createRecordingLogger,
 } from './test-loggers.test-support';
+import { inertTimers, withOneShots } from '../lib/worker-timers.test-support';
 setupRitewayBun();
 test('explicit file cleanup schedule bounds work and drains its current vendor acknowledgement on shutdown', async () => {
   const now = '2026-10-10T00:00:00.000Z';
@@ -28,7 +29,7 @@ test('explicit file cleanup schedule bounds work and drains its current vendor a
     remove,
     clock: fixedClock(now),
     logger,
-    timers: {
+    timers: withOneShots({
       setInterval: (callback, ms) => {
         tick = callback;
         calls.push(ms);
@@ -37,7 +38,7 @@ test('explicit file cleanup schedule bounds work and drains its current vendor a
       clearInterval: (handle) => {
         calls.push(handle);
       },
-    },
+    }),
   });
   tick();
   let stopped = false;
@@ -72,7 +73,7 @@ test('a refused vendor deletion reports failure and a clean pass completion', as
       remove: async () => {},
       clock: fixedClock('2026-10-10T00:00:00.000Z'),
       logger,
-      timers: { setInterval: () => 1, clearInterval: () => {} },
+      timers: inertTimers,
     });
   await start(async () => {
     throw new Error('vendor refused');
@@ -99,7 +100,7 @@ test('a full batch of acknowledged deletions may leave more, so it owes', async 
     remove: async () => {},
     clock: fixedClock('2026-10-10T00:00:00.000Z'),
     logger,
-    timers: { setInterval: () => 1, clearInterval: () => {} },
+    timers: inertTimers,
   }).stop();
   assert({
     given: 'a pass that filled its batch',

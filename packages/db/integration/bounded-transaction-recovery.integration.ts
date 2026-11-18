@@ -55,7 +55,7 @@ test(
           should:
             'report pending recovery rather than claim rollback or successful finalization',
           actual: message,
-          expected: 'Transcript transaction recovery pending',
+          expected: 'Bounded transaction recovery pending',
         });
         assert({
           given: 'unconfirmed cancellation',

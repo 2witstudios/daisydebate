@@ -1,5 +1,11 @@
 import { createAppError, isRefusal } from '@daisy/errors';
 import type { WorkerTimers } from '../../lib/worker-timers';
+import type { LoopPass } from '../../lib/idle-backoff';
+import {
+  LIVE_IDLE_MAX_MS,
+  startWorkerLoop,
+  type WorkWake,
+} from '../../lib/worker-loop';
 type Target = {
   readonly roundId: string;
   readonly roundParticipantId: string;
@@ -46,6 +52,8 @@ export function startBotControlService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
+  /** A Round changed; a bot's turn may be due (ADR 0154). */
+  readonly wake?: WorkWake | undefined;
   /**
    * Settles when a seat's ending has run too long, so a stop that never
    * answers cannot keep its seat dark (ISSUE-789); `signal` aborts once the
@@ -61,8 +69,7 @@ export function startBotControlService<C extends Claim>(input: {
 }) {
   const failed = input.failed;
   const owned = new Map<string, Owned<C>>();
-  let stopped = false,
-    discovering: Promise<void> | null = null;
+  let stopped = false;
   /** Seat endings still running; shutdown waits for every one. */
   const endings = new Set<Promise<void>>();
   /** Seats with a claim in flight, so a chained and a scanned claim never race. */
@@ -257,24 +264,19 @@ export function startBotControlService<C extends Claim>(input: {
     // Not awaited: neither discovery nor shutdown waits on a seat's receipts.
     void pulse(entry);
   };
-  const discover = (): Promise<void> => {
-    if (stopped || discovering) return discovering ?? Promise.resolve();
-    discovering = (async () => {
-      try {
-        const targets = await input.store.scanRoundBotWorkers(
-          input.limits.scanBatch,
-        );
-        for (const target of targets) {
-          if (stopped) break;
-          await claimTarget(target).catch(claimFailed);
-        }
-      } catch (error) {
-        failed(error, 'discover');
-      } finally {
-        discovering = null;
-      }
-    })();
-    return discovering;
+  /** One discovery pass; it worked while any seat is owned or found. */
+  const discover = async (): Promise<LoopPass> => {
+    if (stopped) return 'idle';
+    // A failed scan throws to the loop, which reports it and backs off even
+    // while seats are owned.
+    const targets = await input.store.scanRoundBotWorkers(
+      input.limits.scanBatch,
+    );
+    for (const target of targets) {
+      if (stopped) break;
+      await claimTarget(target).catch(claimFailed);
+    }
+    return owned.size > 0 || targets.length > 0 ? 'worked' : 'idle';
   };
   /**
    * Pulses each live seat with no pulse in flight, on its own: a seat whose
@@ -289,15 +291,20 @@ export function startBotControlService<C extends Claim>(input: {
         .map(pulse),
     );
   };
-  const scanTimer = input.timers.setInterval(discover, input.limits.scanMs);
   const pulseTimer = input.timers.setInterval(heartbeat, input.limits.renewMs);
-  const started = discover();
+  const discovery = startWorkerLoop({
+    run: discover,
+    backoff: { busyMs: input.limits.scanMs, idleMaxMs: LIVE_IDLE_MAX_MS },
+    timers: input.timers,
+    failed: (error) => failed(error, 'discover'),
+    wake: input.wake,
+  });
   return {
-    started,
+    started: discovery.started,
     async stop() {
       stopped = true;
-      input.timers.clearInterval(scanTimer);
       input.timers.clearInterval(pulseTimer);
+      const discovering = discovery.stop();
       // Speakers end at once; a claim still in flight revokes itself.
       for (const entry of [...owned.values()]) void end(entry, true);
       await Promise.allSettled([discovering, ...endings]);

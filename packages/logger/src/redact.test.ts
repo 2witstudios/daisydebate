@@ -169,6 +169,7 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       holds: 12,
       maxMs: 40,
       p95Ms: 25,
+      waits: 1,
     };
     const { entry } = emit(
       fields,

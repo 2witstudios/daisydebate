@@ -58,3 +58,27 @@ test('maintenance discovery without a probe discovers every candidate', async ()
     expected: ['rounda', 'probe', 'roundb', 'roundc'],
   });
 });
+
+test('a full rating page that rated nothing is no work', async () => {
+  const maintenance = createRoundMaintenanceOperations({
+    ratingFailed: () => {},
+    store: {
+      readRatingCandidates: async () =>
+        Array.from({ length: 64 }, (_, index) => ({
+          roundId: `unrated${String(index).padStart(17, '0')}`,
+          facts: null,
+          unreadable: new Error('not rateable'),
+        })),
+    } as never,
+    instanceId: 'webinstance0000000000001',
+    ids: { next: () => 'generatedid0000000000001' },
+    evaluate: async () => ({ kind: 'undecided' as const }),
+    probeRoundId: null,
+  });
+  assert({
+    given: 'a full page of completed Rounds none of which it can rate',
+    should: 'report zero rated, so the rating loop backs off',
+    actual: await maintenance.rateUnrated(),
+    expected: 0,
+  });
+});

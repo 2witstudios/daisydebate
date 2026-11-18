@@ -36,14 +36,14 @@ export function createSubscriptionReconciliation(input: {
       ),
   };
 
-  const receipts = async () => {
+  const receipts = async (): Promise<number> => {
     const page = await input.store.receipts({
       mode: input.mode,
       limit: 25,
       ...(receiptCursor ? { afterId: receiptCursor } : {}),
     });
     for (const receipt of page.rows) {
-      if (stopped) return;
+      if (stopped) return page.rows.length;
       try {
         const { eventId, customerId, mode } = receipt;
         await input.store.receive({ eventId, customerId, mode });
@@ -52,6 +52,7 @@ export function createSubscriptionReconciliation(input: {
       }
     }
     receiptCursor = page.exhausted ? undefined : (page.afterId ?? undefined);
+    return page.rows.length;
   };
   const synchronize = async (customerId: string) => {
     const claim = await input.store.claim(customerId);
@@ -86,14 +87,14 @@ export function createSubscriptionReconciliation(input: {
       );
     }
   };
-  const customers = async () => {
+  const customers = async (): Promise<number> => {
     const page = await input.store.customers({
       mode: input.mode,
       limit: 3,
       ...(customerCursor ? { afterId: customerCursor } : {}),
     });
     for (const { customerId } of page.rows) {
-      if (stopped) return;
+      if (stopped) return page.rows.length;
       try {
         await synchronize(customerId);
       } catch (error) {
@@ -101,21 +102,25 @@ export function createSubscriptionReconciliation(input: {
       }
     }
     customerCursor = page.exhausted ? undefined : (page.afterId ?? undefined);
+    return page.rows.length;
   };
   return {
-    async run() {
-      if (stopped) return;
+    /** One pass; returns how many receipts and customers it handled. */
+    async run(): Promise<number> {
+      if (stopped) return 0;
+      let handled = 0;
       try {
-        await receipts();
+        handled += await receipts();
       } catch (error) {
         input.failed(error, 'receipts');
       }
-      if (stopped) return;
+      if (stopped) return handled;
       try {
-        await customers();
+        handled += await customers();
       } catch (error) {
         input.failed(error, 'discover');
       }
+      return handled;
     },
     stop() {
       stopped = true;

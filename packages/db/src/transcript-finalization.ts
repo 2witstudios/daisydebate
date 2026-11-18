@@ -35,6 +35,7 @@ import { finalizationState } from './transcript-finalization-state';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { roundTranscripts } from './schema/transcript-segments';
 import { rounds } from './schema/rounds';
+import { notifyWork } from './work-wake';
 
 export const transcriptFinalizationOperations = (input: {
   readonly database: BunSQLDatabase;
@@ -105,6 +106,7 @@ async function planFrozenJudging(
     select ${request.roundId},1,p.id,'queued',0,(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.aiJudgingBudgetMs}*interval '1 millisecond' from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
     where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='bot'
     on conflict (round_id,judge_participant_id) do nothing`);
+  await notifyWork(tx, 'judging');
 }
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
 export async function finalizeLockedRoundTranscript(

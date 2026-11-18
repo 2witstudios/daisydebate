@@ -36,7 +36,7 @@ test('a failed callback rolls back, destroys the writer and preserves app error 
       ),
     },
     expected: {
-      message: 'Transcript transaction failed',
+      message: 'Bounded transaction failed',
       cause: 'driver detail',
       conflict: { reserved: 2, released: 1, closed: 1 },
       stray: { reserved: 2, released: 1, closed: 1 },
@@ -67,7 +67,7 @@ test('an unconfirmed rollback reports pending recovery with a settlement handle'
       reservations,
     },
     expected: {
-      message: 'Transcript transaction recovery pending',
+      message: 'Bounded transaction recovery pending',
       recovery: 'pending',
       confirmable: 'function',
       reservations: { reserved: 2, released: 0, closed: 2 },
@@ -82,7 +82,7 @@ test('a commit the server does not acknowledge is never reported as committed', 
     given: 'a commit answered with another command tag',
     should: 'refuse with the uncommitted infrastructure error',
     actual: failure?.message,
-    expected: 'Transcript transaction did not commit',
+    expected: 'Bounded transaction did not commit',
   });
 });
 
