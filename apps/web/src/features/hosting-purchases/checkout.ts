@@ -177,6 +177,27 @@ export const settleHostingPurchase =
     return observed;
   };
 
+/** How long a purchase may stay without its Stripe session before it counts as abandoned. */
+const SESSIONLESS_LEASE_MS = 120_000;
+
+/** A unique violation of the one-open-purchase index, however the driver wraps it. */
+const isOpenPurchaseRace = (error: unknown): boolean => {
+  for (let at: unknown = error; at instanceof Error; at = at.cause) {
+    const fields = at as Error & {
+      readonly code?: unknown;
+      readonly errno?: unknown;
+      readonly constraint?: unknown;
+    };
+    if (
+      (fields.code === '23505' || fields.errno === '23505') &&
+      (fields.constraint === 'tournament_hosting_purchases_open_unique' ||
+        at.message.includes('tournament_hosting_purchases_open_unique'))
+    )
+      return true;
+  }
+  return false;
+};
+
 export type HostingCheckoutDestination =
   | { readonly kind: 'redirect'; readonly url: string }
   | { readonly kind: 'held' }
@@ -218,7 +239,14 @@ export const startHostingCheckout =
           const view = hostingAccountView(account, account.checkedAt);
           const owed = view.upgrades.find((option) => option.tier === target);
           const open = account.purchases.find((row) => row.state === 'open');
-          if (open) return { kind: 'resolve-open' as const, open, owed, view };
+          if (open)
+            return {
+              kind: 'resolve-open' as const,
+              open,
+              owed,
+              view,
+              checkedAt: account.checkedAt,
+            };
           if (!owed) return { kind: 'held' as const };
           const row = {
             id: dependencies.newId(),
@@ -268,15 +296,21 @@ export const startHostingCheckout =
           }
           if (observed?.kind === 'mismatch' || observed === null)
             return { kind: 'unavailable' };
-        } else if (open.mode !== vendor.mode) {
-          // A purchase from another Stripe mode can never be paid here.
+        } else if (
+          open.mode !== vendor.mode ||
+          Date.parse(step.checkedAt) - Date.parse(open.createdAt) >
+            SESSIONLESS_LEASE_MS
+        ) {
+          // Another Stripe mode can never pay it, and a purchase still without
+          // a session after its lease was abandoned. Closing it is safe: a
+          // request still making its session cannot record it and expires it
+          // at Stripe, and a session paid anyway is credited on settlement.
           await dependencies.store.tournamentHostingSettlement(
             { lobbyId, purchaseId: open.id },
             (_row, writes) => writes.expired(open.id),
           );
         } else {
-          // Another request is still creating this purchase's session; closing
-          // it now could strand a payment. The host tries again in a moment.
+          // Another request is making this purchase's session right now.
           return { kind: 'unavailable' };
         }
         continue;
@@ -290,7 +324,11 @@ export const startHostingCheckout =
         )
         .then(
           () => true,
-          () => false,
+          (error: unknown) => {
+            // Only losing the one-open-purchase race resumes; anything else is real.
+            if (isOpenPurchaseRace(error)) return false;
+            throw error;
+          },
         );
       if (!opened) continue;
       return createSession(

@@ -61,8 +61,20 @@ const racedStore = () => {
           createdAt: '2026-11-18T12:00:00.000Z',
           paidAt: null,
         });
+        // As the driver reports it: Drizzle's error, Postgres's cause.
         throw new Error(
-          'duplicate key: tournament_hosting_purchases_open_unique',
+          'Failed query: insert into tournament_hosting_purchases',
+          {
+            cause: Object.assign(
+              new Error(
+                'duplicate key value violates unique constraint "tournament_hosting_purchases_open_unique"',
+              ),
+              {
+                errno: '23505',
+                constraint: 'tournament_hosting_purchases_open_unique',
+              },
+            ),
+          },
         );
       }
       throw new Error('unexpected second insert');
@@ -292,5 +304,160 @@ test('startHostingCheckout: a purchase closed while its session was made is neve
       destination: { kind: 'unavailable' },
       expiredAtStripe: ['cs_test_orphan'],
     },
+  });
+});
+
+/** A store holding one sessionless open purchase, made `ageMs` before the read. */
+const sessionlessStore = (ageMs: number, onOpen: () => Promise<void>) => {
+  const purchases: TournamentHostingPurchaseRow[] = [
+    {
+      id: id('stale'),
+      lobbyId,
+      payerUserId: id('comanager'),
+      payerName: 'Co-manager',
+      tier: 'event_64',
+      amount: 9900,
+      mode: 'test',
+      state: 'open',
+      vendorSessionId: null,
+      receiptUrl: null,
+      createdAt: new Date(
+        Date.parse('2026-11-18T12:00:00.000Z') - ageMs,
+      ).toISOString(),
+      paidAt: null,
+    },
+  ];
+  const account = () => ({
+    lobby: { id: lobbyId, kind: 'tournament', handle: 'cup', name: 'Cup' },
+    authorization: { organization: null, account: null, grants: [] },
+    ownerActorId: host.actorId,
+    checkedAt: '2026-11-18T12:00:00.000Z',
+    hosting: {
+      lobbyId,
+      ownerUserId: host.userId,
+      ownerOrganizationId: null,
+      paidTiers: [],
+      ownerHosting: null,
+    },
+    acceptedEntries: 16,
+    waitingEntries: 0,
+    purchases: [...purchases],
+  });
+  const writes = {
+    open: onOpen,
+    recordSession: async () => true,
+    expired: async (purchaseId: string) => {
+      const at = purchases.findIndex((row) => row.id === purchaseId);
+      if (at >= 0) purchases.splice(at, 1);
+    },
+  };
+  const store = {
+    tournamentHosting: async (
+      _input: unknown,
+      work: (a: unknown, w: unknown) => Promise<unknown>,
+    ) => work(account(), writes),
+    tournamentHostingSettlement: async (
+      _input: unknown,
+      work: (a: unknown, w: unknown) => Promise<unknown>,
+    ) => work(purchases[0] ?? null, writes),
+  };
+  return { store, purchases };
+};
+const vendorFor = (sessions: string[]) => ({
+  port: {
+    retrievePrice: async () => ({
+      id: 'price_unlimited',
+      object: 'price',
+      active: true,
+      currency: 'usd',
+      livemode: false,
+      type: 'one_time',
+      unit_amount: 19900,
+      lookup_key: 'daisy_host_event_usd_199',
+      product: 'prod_unlimited',
+    }),
+    createSession: async () => {
+      sessions.push('created');
+      return {
+        id: 'cs_test_fresh',
+        url: 'https://checkout.stripe.com/c/pay/cs_test_fresh',
+      };
+    },
+    retrieveSession: async () => null,
+    expireSession: async () => null,
+  },
+  prices: { event_64: 'price_64', event_unlimited: 'price_unlimited' },
+  mode: 'test',
+});
+
+test('startHostingCheckout: an abandoned sessionless purchase blocks no one; a fresh one waits', async () => {
+  const sessions: string[] = [];
+  const stale = sessionlessStore(5 * 60_000, async () => {});
+  const fresh = sessionlessStore(30_000, async () => {});
+  const dependencies = (store: unknown) =>
+    ({
+      store,
+      authorize: () => ({ allow: true }),
+      vendor: vendorFor(sessions),
+      origin: () => 'https://daisy.test',
+      newId: () => id('fresh'),
+    }) as unknown as HostingDependencies;
+  assert({
+    given:
+      'another payer’s purchase left without a session for five minutes, and one made 30 seconds ago',
+    should:
+      'expire the abandoned one and sell the new move; answer unavailable while the fresh one may still be in flight',
+    actual: [
+      await startHostingCheckout(dependencies(stale.store))(
+        host,
+        lobbyId,
+        'event_unlimited',
+      ),
+      stale.purchases.length,
+      await startHostingCheckout(dependencies(fresh.store))(
+        host,
+        lobbyId,
+        'event_unlimited',
+      ),
+      fresh.purchases.length,
+    ],
+    expected: [
+      {
+        kind: 'redirect',
+        url: 'https://checkout.stripe.com/c/pay/cs_test_fresh',
+      },
+      0,
+      { kind: 'unavailable' },
+      1,
+    ],
+  });
+});
+
+test('startHostingCheckout: an insert failure other than the open-purchase race is not swallowed', async () => {
+  const { store } = sessionlessStore(5 * 60_000, async () => {
+    throw new Error('Failed query', {
+      cause: Object.assign(new Error('check constraint violated'), {
+        errno: '23514',
+        constraint: 'tournament_hosting_purchases_amount_check',
+      }),
+    });
+  });
+  let thrown = 'none';
+  try {
+    await startHostingCheckout({
+      store,
+      authorize: () => ({ allow: true }),
+      vendor: vendorFor([]),
+      origin: () => 'https://daisy.test',
+      newId: () => id('fresh'),
+    } as unknown as HostingDependencies)(host, lobbyId, 'event_unlimited');
+  } catch (error) {
+    thrown = (error as Error).message;
+  }
+  assert({
+    given: 'an insert refused by a check constraint',
+    should: 'throw it rather than answer a silent unavailable',
+    actual: thrown,
+    expected: 'Failed query',
   });
 });
