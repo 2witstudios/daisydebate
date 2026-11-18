@@ -13,6 +13,24 @@ export type {
   ClubSeatManagerCommand,
 } from './club-seat-commands';
 export type { ClubSeatingRead, ClubPerson } from './club-seat-reads';
+export type {
+  MinorReleaseRead,
+  ParentLinkRead,
+  ParentAnswer,
+} from './media-releases';
+export type {
+  ClubReleasesRead,
+  ClubReleaseStudent,
+  ClubConfirmAnswer,
+} from './media-release-club';
+export type {
+  MediaReleaseMailClaim,
+  MediaReleaseMailKind,
+  MediaReleaseMailOutcome,
+  PreparedReleaseMail,
+} from './media-release-mail';
+export { releaseLinkPurposeOf } from './media-release-mail';
+export type { PublishAnswer } from './youth-round-publication';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
@@ -89,6 +107,10 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { leagueRequestOperations } from './league-requests';
+import { createMediaReleases } from './media-releases';
+import { createMediaReleaseClubs } from './media-release-club';
+import { mediaReleaseMailOperations } from './media-release-mail';
+import { createYouthRoundPublications } from './youth-round-publication';
 import { betaAccessOperations } from './beta-access';
 import { contentModerationOperations } from './content-moderation-operations';
 import { audienceReactionOperations } from './audience-reactions';
@@ -263,6 +285,19 @@ export function createDatabase({
   return namedLaneOperations({
     ...usageRecoveryOperations(controlTransaction),
     ...billingOperations({ run: controlTransaction, nextId: nextActorId }),
+    /** Media releases (ADR 0151): the minor, the parent and the club. */
+    mediaReleases: createMediaReleases({
+      run: controlTransaction,
+      nextId: nextActorId,
+    }),
+    mediaReleaseClubs: createMediaReleaseClubs({
+      run: controlTransaction,
+      nextId: nextActorId,
+    }),
+    youthRoundPublications: createYouthRoundPublications({
+      run: controlTransaction,
+      nextId: nextActorId,
+    }),
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(competitiveTransaction, roundTime),
     ...roundPanelCompletionOperations(competitiveTransaction, roundTime),
@@ -382,6 +417,7 @@ export function createDatabase({
     ...emailDeliveryOperations({ database: control, eventSink }),
     ...mailIntentOperations({ database: control, eventSink }),
     ...leagueRequestOperations({ database: control, eventSink }),
+    ...mediaReleaseMailOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
     ...flagOperations({ database: control, eventSink }),

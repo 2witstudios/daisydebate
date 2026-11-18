@@ -7,6 +7,7 @@ import {
   type SeatKind,
   type TournamentNotificationKind,
 } from '@daisy/protocol';
+import { maskEmail } from '@daisy/protocol/media-release';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -75,6 +76,35 @@ export type InboxRow = {
   | (TournamentNotificationFacts & {
       readonly kind: TournamentNotificationKind;
     })
+  | {
+      readonly kind: 'media_release_requested';
+      /** The parent's address, masked: the minor typed it. */
+      readonly recipient: string;
+      readonly expiresAt: string;
+    }
+  | {
+      readonly kind:
+        | 'media_release_declined'
+        | 'media_release_signed'
+        | 'media_release_club_confirmed';
+    }
+  | {
+      readonly kind: 'media_release_withdrawn';
+      /** The member's own release, or (to their coach) a student's. */
+      readonly own: boolean;
+      readonly minor: string | null;
+    }
+  | {
+      readonly kind: 'media_release_club_asked';
+      readonly student: string | null;
+      readonly clubHandle: string;
+    }
+  | {
+      readonly kind: 'youth_round_published';
+      readonly roundId: string;
+      /** The debater who shared it, or null once their account is gone. */
+      readonly by: string | null;
+    }
 );
 
 type FlatRow = {
@@ -88,6 +118,11 @@ type FlatRow = {
   mode: CompetitionType | null;
   format: RatingStyle | null;
   division: RatingDivision | null;
+  recipientEmail: string | null;
+  requestExpiresAt: string | null;
+  minor: string | null;
+  ownRelease: boolean | null;
+  clubHandle: string | null;
   readAt: string | null;
   surfacedAt: string;
 };
@@ -146,6 +181,33 @@ const inboxRow = (
     case 'friend_request_received':
     case 'friend_request_accepted':
       return { ...base, kind: row.kind, friend: row.about };
+    case 'media_release_requested':
+      return {
+        ...base,
+        kind: row.kind,
+        recipient: maskEmail(row.recipientEmail!),
+        expiresAt: row.requestExpiresAt!,
+      };
+    case 'media_release_declined':
+    case 'media_release_signed':
+    case 'media_release_club_confirmed':
+      return { ...base, kind: row.kind };
+    case 'media_release_withdrawn':
+      return {
+        ...base,
+        kind: row.kind,
+        own: row.ownRelease === true,
+        minor: row.minor,
+      };
+    case 'media_release_club_asked':
+      return {
+        ...base,
+        kind: row.kind,
+        student: row.about,
+        clubHandle: row.clubHandle!,
+      };
+    case 'youth_round_published':
+      return { ...base, kind: row.kind, roundId: row.roundId!, by: row.about };
     case 'judge_assigned':
     case 'judge_replaced':
     case 'judge_unassigned':
@@ -184,6 +246,10 @@ export const readInboxRows = async (
       sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",
           c.room_id as "challengeRoomId",i.seat,
           u.username as about,c.mode,c.format_id as format,c.division,
+          mrq.recipient_email as "recipientEmail",
+          ${iso('mrq.expires_at')} as "requestExpiresAt",
+          mru.username as minor,(mr.user_id=n.user_id) as "ownRelease",
+          mco.handle as "clubHandle",
           ${iso('n.read_at')} as "readAt",${iso('n.surfaced_at')} as "surfacedAt"
         from notifications n ${standingJoins} where ${input.where}
         order by n.surfaced_at desc,n.id desc limit ${input.limit}`,

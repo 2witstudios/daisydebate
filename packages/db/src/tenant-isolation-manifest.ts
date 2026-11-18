@@ -144,6 +144,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     organization('season_standing_rules'),
     organization('club_seats', { subject: 'user' }),
     organization('club_seat_invitations'),
+    organization('media_release_club_attestations', { subject: 'user' }),
   ],
   exempt: [
     {
@@ -170,6 +171,11 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       table: 'mail_intents',
       reason:
         'Durable mail owned by the mail worker. A club seat invitation id says which offer to send; the worker reads that one invitation under its club scope at send time.',
+    },
+    {
+      table: 'media_release_club_asks',
+      reason:
+        'A minor’s ask that their club confirm a media release (ADR 0151): it holds no release and grants nothing. Its recipients (the club’s owner and staff, decided when it is written) read it through their inbox for the club’s name and handle.',
     },
     {
       table: 'notifications',
