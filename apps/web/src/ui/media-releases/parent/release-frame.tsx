@@ -9,7 +9,7 @@ import { DaisyLogo } from '../../components/daisy-mark/daisy-mark';
  */
 export function ReleaseFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="min-h-dvh bg-background text-ink">
+    <div className="min-h-dvh bg-background text-ink wrap-anywhere">
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-border px-6 py-3 max-narrow:px-4">
         <Link
           href="/"
@@ -42,7 +42,7 @@ export function ReleaseNotice({
       <span className="text-xs font-heavy tracking-wider text-ink-muted uppercase">
         {eyebrow}
       </span>
-      <h1 className="font-display text-3xl leading-tight font-bold tracking-tight">
+      <h1 className="font-display text-3xl leading-tight font-bold tracking-tight wrap-anywhere">
         {title}
       </h1>
       <div className="flex flex-col gap-3 text-md text-ink-muted">

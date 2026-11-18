@@ -79,7 +79,7 @@ export function ManageRelease(props: ManageReleaseProps) {
           <span className="text-xs font-heavy tracking-wider text-ink-muted uppercase">
             Media release · signed {releaseDate(props.signedAt)}
           </span>
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight">
+          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight wrap-anywhere">
             Withdraw {who}’s media release?
           </h1>
           <p className="text-md text-ink-muted">

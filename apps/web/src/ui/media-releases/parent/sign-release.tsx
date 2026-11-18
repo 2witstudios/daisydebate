@@ -96,7 +96,7 @@ export function SignRelease(props: SignReleaseProps) {
           <span className="text-xs font-heavy tracking-wider text-ink-muted uppercase">
             Media release
           </span>
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-narrow:text-2xl">
+          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight wrap-anywhere max-narrow:text-2xl">
             Let Daisy share @{props.minor}’s debate Rounds?
           </h1>
           <p className="text-lg text-ink-muted">
