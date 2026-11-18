@@ -150,9 +150,11 @@ export const settleHostingPurchase =
       target,
       async (row) => row,
     );
+    // An expired purchase is read again too: a session paid after Daisy
+    // stopped waiting for it is still credited, never dropped.
     if (
       !purchase ||
-      purchase.state !== 'open' ||
+      purchase.state === 'paid' ||
       purchase.mode !== vendor.mode ||
       purchase.vendorSessionId === null
     )
@@ -266,11 +268,16 @@ export const startHostingCheckout =
           }
           if (observed?.kind === 'mismatch' || observed === null)
             return { kind: 'unavailable' };
-        } else {
+        } else if (open.mode !== vendor.mode) {
+          // A purchase from another Stripe mode can never be paid here.
           await dependencies.store.tournamentHostingSettlement(
             { lobbyId, purchaseId: open.id },
             (_row, writes) => writes.expired(open.id),
           );
+        } else {
+          // Another request is still creating this purchase's session; closing
+          // it now could strand a payment. The host tries again in a moment.
+          return { kind: 'unavailable' };
         }
         continue;
       }
@@ -327,9 +334,15 @@ async function createSession(
       .catch(() => null),
   );
   if (!created.success) return { kind: 'unavailable' };
-  await dependencies.store.tournamentHostingSettlement(
+  const recorded = await dependencies.store.tournamentHostingSettlement(
     { lobbyId: purchase.lobbyId, purchaseId: purchase.id },
     (_row, writes) => writes.recordSession(purchase.id, created.data.id),
   );
+  if (!recorded) {
+    // The purchase closed while its session was made: never send the host
+    // to pay for it.
+    await vendor.port.expireSession(created.data.id).catch(() => null);
+    return { kind: 'unavailable' };
+  }
   return { kind: 'redirect', url: created.data.url };
 }

@@ -4,7 +4,11 @@ import type {
   TournamentHostingPurchaseRow,
   TournamentHostingPurchaseWrites,
 } from '@daisy/db/tab';
-import { startHostingCheckout, type HostingDependencies } from './checkout';
+import {
+  settleHostingPurchase,
+  startHostingCheckout,
+  type HostingDependencies,
+} from './checkout';
 
 setupRitewayBun();
 
@@ -63,7 +67,7 @@ const racedStore = () => {
       }
       throw new Error('unexpected second insert');
     },
-    recordSession: async () => {},
+    recordSession: async () => true,
     paid: async () => true,
     expired: async () => {},
   };
@@ -137,6 +141,156 @@ test('startHostingCheckout: a checkout that loses the race resumes the winner', 
         url: 'https://checkout.stripe.com/c/pay/cs_test_winner',
       },
       sessions: [],
+    },
+  });
+});
+
+const paidSession = (purchaseId: string, sessionId: string) => ({
+  object: 'checkout.session',
+  id: sessionId,
+  livemode: false,
+  mode: 'payment',
+  status: 'complete',
+  payment_status: 'paid',
+  client_reference_id: purchaseId,
+  metadata: { daisy_hosting_purchase_id: purchaseId, daisy_lobby_id: lobbyId },
+  currency: 'usd',
+  amount_subtotal: 9900,
+  url: null,
+  payment_intent: {
+    id: 'pi_late',
+    latest_charge: { receipt_url: 'https://pay.stripe.com/receipts/late' },
+  },
+});
+
+test('settleHostingPurchase: a session paid after Daisy closed the purchase is still credited', async () => {
+  const credited: string[] = [];
+  const expired: TournamentHostingPurchaseRow = {
+    id: id('expired'),
+    lobbyId,
+    payerUserId: host.userId,
+    payerName: 'Host',
+    tier: 'event_64',
+    amount: 9900,
+    mode: 'test',
+    state: 'expired',
+    vendorSessionId: 'cs_test_late',
+    receiptUrl: null,
+    createdAt: '2026-11-18T12:00:00.000Z',
+    paidAt: null,
+  };
+  const writes = {
+    paid: async (purchaseId: string) => {
+      credited.push(purchaseId);
+      return true;
+    },
+    expired: async () => {},
+  };
+  const dependencies = {
+    store: {
+      tournamentHostingSettlement: async (
+        _input: unknown,
+        work: (row: unknown, w: unknown) => Promise<unknown>,
+      ) => work(expired, writes),
+    },
+    vendor: {
+      port: {
+        retrieveSession: async () => paidSession(expired.id, 'cs_test_late'),
+      },
+      mode: 'test',
+    },
+  } as unknown as HostingDependencies;
+  const observed = await settleHostingPurchase(dependencies)({
+    lobbyId,
+    purchaseId: expired.id,
+  });
+  assert({
+    given: 'a purchase Daisy expired whose Stripe session was then paid',
+    should: 'credit it as paid rather than drop the payment',
+    actual: { kind: observed?.kind, credited },
+    expected: { kind: 'paid', credited: [expired.id] },
+  });
+});
+
+test('startHostingCheckout: a purchase closed while its session was made is never sent to pay', async () => {
+  const expiredAtStripe: string[] = [];
+  const account = {
+    lobby: { id: lobbyId, kind: 'tournament', handle: 'cup', name: 'Cup' },
+    authorization: { organization: null, account: null, grants: [] },
+    ownerActorId: host.actorId,
+    checkedAt: '2026-11-18T12:00:00.000Z',
+    hosting: {
+      lobbyId,
+      ownerUserId: host.userId,
+      ownerOrganizationId: null,
+      paidTiers: [],
+      ownerHosting: null,
+    },
+    acceptedEntries: 16,
+    waitingEntries: 0,
+    purchases: [],
+  };
+  const writes = {
+    open: async () => {},
+    // Another request closed the purchase in the meantime.
+    recordSession: async () => false,
+  };
+  const dependencies = {
+    store: {
+      tournamentHosting: async (
+        _input: unknown,
+        work: (a: unknown, w: unknown) => Promise<unknown>,
+      ) => work(account, writes),
+      tournamentHostingSettlement: async (
+        _input: unknown,
+        work: (a: unknown, w: unknown) => Promise<unknown>,
+      ) => work(null, writes),
+    },
+    authorize: () => ({ allow: true }),
+    vendor: {
+      port: {
+        retrievePrice: async () => ({
+          id: 'price_64',
+          object: 'price',
+          active: true,
+          currency: 'usd',
+          livemode: false,
+          type: 'one_time',
+          unit_amount: 9900,
+          lookup_key: 'daisy_host_event_usd_99',
+          product: 'prod_64',
+        }),
+        createSession: async () => ({
+          id: 'cs_test_orphan',
+          url: 'https://checkout.stripe.com/c/pay/cs_test_orphan',
+        }),
+        retrieveSession: async () => null,
+        expireSession: async (sessionId: string) => {
+          expiredAtStripe.push(sessionId);
+          return null;
+        },
+      },
+      prices: { event_64: 'price_64', event_unlimited: 'price_unlimited' },
+      mode: 'test',
+    },
+    origin: () => 'https://daisy.test',
+    newId: () => id('orphan'),
+  } as unknown as HostingDependencies;
+  assert({
+    given:
+      'a new session whose purchase stopped being open before it was recorded',
+    should: 'expire the session at Stripe and answer unavailable',
+    actual: {
+      destination: await startHostingCheckout(dependencies)(
+        host,
+        lobbyId,
+        'event_64',
+      ),
+      expiredAtStripe,
+    },
+    expected: {
+      destination: { kind: 'unavailable' },
+      expiredAtStripe: ['cs_test_orphan'],
     },
   });
 });

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
 import { fenceTabAccountRead } from './account-read-fence';
 import { loadAccountHostingFacts } from './account-hosting-facts';
@@ -138,13 +138,19 @@ const purchaseWrites = (tx: TabTransaction, lobbyId: string) => ({
   }) => {
     await tx.insert(tournamentHostingPurchases).values({ ...row, lobbyId });
   },
+  /** Whether the session was recorded: false once the purchase stopped being open. */
   recordSession: async (purchaseId: string, vendorSessionId: string) => {
-    await tx
+    const recorded = await tx
       .update(tournamentHostingPurchases)
       .set({ vendorSessionId })
-      .where(openPurchase(tx, lobbyId, purchaseId));
+      .where(openPurchase(tx, lobbyId, purchaseId))
+      .returning({ id: tournamentHostingPurchases.id });
+    return recorded.length === 1;
   },
-  /** Settles an open purchase as paid; a purchase already settled is left alone. */
+  /**
+   * Settles a purchase as paid. An expired one is credited too: Stripe took
+   * the money, so Daisy honours it. A paid purchase is left alone.
+   */
   paid: async (
     purchaseId: string,
     vendor: {
@@ -155,8 +161,14 @@ const purchaseWrites = (tx: TabTransaction, lobbyId: string) => ({
     const now = await readDatabaseTime(tx);
     const settled = await tx
       .update(tournamentHostingPurchases)
-      .set({ state: 'paid', paidAt: now, ...vendor })
-      .where(openPurchase(tx, lobbyId, purchaseId))
+      .set({ state: 'paid', paidAt: now, expiredAt: null, ...vendor })
+      .where(
+        and(
+          eq(tournamentHostingPurchases.id, purchaseId),
+          eq(tournamentHostingPurchases.lobbyId, lobbyId),
+          inArray(tournamentHostingPurchases.state, ['open', 'expired']),
+        ),
+      )
       .returning({ id: tournamentHostingPurchases.id });
     return settled.length === 1;
   },
