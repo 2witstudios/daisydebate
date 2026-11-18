@@ -1,13 +1,16 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { createId } from '@paralleldrive/cuid2';
 import { hostedTournamentsViewSchema } from '@daisy/protocol/lobby/hosting-read';
-import type { SearchParams } from '../../../features/access/decision';
+import {
+  signInHref,
+  type SearchParams,
+} from '../../../features/access/decision';
 import { hostedTournamentsPath } from '../../../features/hosting-purchases/routes';
 import { linkTo } from '../../../features/tab/action';
 import { requireHostTiersRelease } from '../../../features/tab/release';
 import { hostRoutes } from '../../../features/tab/routes';
-import { requireAccess } from '../../../lib/access';
+import { requestIdentity } from '../../../lib/request-session';
 import { CreateTournamentForm } from '../../../ui/hosting/create-tournament-form';
 import { HostingHome } from '../../../ui/hosting/hosting-home';
 import { GET } from '../../api/tab/hosted-tournaments/route';
@@ -25,7 +28,9 @@ export default async function Page({
   readonly searchParams: Promise<SearchParams>;
 }) {
   await requireHostTiersRelease();
-  await requireAccess(hostRoutes.home, searchParams);
+  // /host stays a public root; its home is for a signed-in member.
+  if ((await requestIdentity()).state !== 'member')
+    redirect(signInHref(hostRoutes.home));
   const hosted = await readOwnRoute(
     GET,
     hostedTournamentsPath,
