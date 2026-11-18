@@ -63,7 +63,8 @@ describe('Room chat contracts', () => {
     }));
   test('a Youth Room (decision 84, ADR 0156)', () => {
     assert({
-      given: 'a Room of the Youth lobby and one of the Open lobby, ranked or casual',
+      given:
+        'a Room of the Youth lobby and one of the Open lobby, ranked or casual',
       should: 'be a Youth Room exactly when it was created in the Youth lobby',
       actual: [
         youthRoomOf({ division: 'youth' }),
