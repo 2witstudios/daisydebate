@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { destinationHref } from '../../../features/destinations/destinations';
+import { helpTopicHref } from '../../../features/help/topics';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
@@ -102,7 +103,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
     [
       'Decision',
       'A judge picks the side with the stronger case and writes why. In ranked debates, the result moves your rating.',
-      '/help#ratings',
+      helpTopicHref('ratings'),
       'How ratings work',
     ],
   ] as const;

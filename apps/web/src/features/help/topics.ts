@@ -84,7 +84,7 @@ export const helpTopics: readonly HelpTopic[] = [
     id: 'ranked-recorded',
     question: 'Why are ranked rounds recorded?',
     answer:
-      'Ranked rounds are the season’s record, and they are how debate finds an audience. Ranked rounds are broadcast and recorded, so results can be checked, rounds can be watched again, and the best moments become clips that promote debate. That is the deal for competing on the ladder, and you agree to it once a season in the content waiver. Prefer not to be recorded? Play casual: a non-ranked round belongs to the people in it. Your prep stays yours, and you can stream and post ranked rounds yourself with no royalty. There is no payment today; sharing revenue with debaters is a goal for a future program.',
+      'Ranked rounds are the season’s record, and they are how debate finds an audience. Ranked rounds are broadcast and recorded, so results can be checked, rounds can be watched again, and the best moments become clips that promote debate. That is the deal for competing on the ladder, and you agree to it once a season in the content waiver. Prefer not to be recorded? Play casual: a casual round is recorded only if its host chooses to, you are told before you are Ready, and any participant can remove the recording. Your prep stays yours, and you can stream and post ranked rounds yourself with no royalty. There is no payment today; sharing revenue with debaters is a goal for a future program.',
     links: [
       { label: 'Ranked content waiver', href: '/content-waiver' },
       { label: 'Ranked content policy', href: '/content-policy' },
@@ -111,3 +111,10 @@ export const helpTopics: readonly HelpTopic[] = [
     ],
   },
 ];
+
+/** A link to one Help answer; an unknown topic fails at load, never as a dead link. */
+export const helpTopicHref = (id: string): string => {
+  if (!helpTopics.some((topic) => topic.id === id))
+    throw new Error(`Help has no topic ${id}`);
+  return `/help#${id}`;
+};

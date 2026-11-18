@@ -167,7 +167,8 @@ other seven share one. CSS alone decides it, so the first HTML is right.
 
 Home ends with one About strip (owner, 2026-11-18) for visitors and members:
 a line on what Daisy is and links to About Daisy, Help, Terms and Privacy. A
-visitor's hero also links Learn about Daisy under the join.
+visitor's hero also links Learn about Daisy under the join. The account menu and the
+More sheet list About Daisy beside Help, so a phone reaches it too.
 
 A phone has no Home hero and no opening tournament, Live now or About strip. A member
 sees the menu, and the hero returns only while they hold a Room, because it

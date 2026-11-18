@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { join } from 'node:path';
 import { routeExists } from '../../ui/test-support/route-exists';
-import { helpTopics } from './topics';
+import { helpTopicHref, helpTopics } from './topics';
 
 const appDirectory = join(import.meta.dir, '../../app');
 const topic = (id: string) => helpTopics.find((entry) => entry.id === id);
@@ -64,9 +64,30 @@ describe('helpTopics', () => {
       actual: [
         answer.includes('There is no payment today'),
         answer.includes('a goal for a future program'),
+        answer.includes(
+          'a casual round is recorded only if its host chooses to',
+        ),
         /\b(will|guarantee)\b/i.test(answer),
       ],
-      expected: [true, true, false],
+      expected: [true, true, true, false],
+    });
+  });
+
+  test('a link to a topic', () => {
+    assert({
+      given: 'a topic id, then an unknown one',
+      should: 'address its answer, and refuse the unknown id',
+      actual: [
+        helpTopicHref('ratings'),
+        (() => {
+          try {
+            return helpTopicHref('nope');
+          } catch {
+            return 'refused';
+          }
+        })(),
+      ],
+      expected: ['/help#ratings', 'refused'],
     });
   });
 });

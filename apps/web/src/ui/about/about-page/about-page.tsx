@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { destinationHref } from '../../../features/destinations/destinations';
-import { helpTopics } from '../../../features/help/topics';
+import { helpTopicHref, helpTopics } from '../../../features/help/topics';
 
 /** The owner's case for Daisy, once published; the card stays hidden until then. */
 const caseForDaisyHref: string | null = null;
@@ -141,7 +141,7 @@ export function AboutPage({
           <ul className="flex flex-col gap-2 text-base">
             {questions.map(([id, question]) => (
               <li key={id}>
-                <Link href={`/help#${id}`}>{question}</Link>
+                <Link href={helpTopicHref(id)}>{question}</Link>
               </li>
             ))}
           </ul>
