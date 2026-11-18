@@ -96,3 +96,18 @@ test('a Youth Room spectator’s Room chat says only the people in it chat (deci
     expected: [true, false, false, false],
   });
 });
+
+test('a read-only Room chat with no seat to name says so plainly', () => {
+  const html = renderToString(h(RoomChat, { ...props, readOnlyHint: true }));
+  assert({
+    given:
+      'a read-only Room chat whose reader the view names neither judge nor spectator',
+    should: 'say the chat is read-only, blaming no seat',
+    actual: [
+      html.includes('This chat is read-only.'),
+      html.includes('Only people in this Room'),
+      html.includes('Judges read'),
+    ],
+    expected: [true, false, false],
+  });
+});

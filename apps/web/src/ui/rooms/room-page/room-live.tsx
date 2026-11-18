@@ -42,7 +42,7 @@ import { RoomControls } from './room-controls';
 import { RoomSettings } from './room-settings';
 import { RoomChat, type RoomChatProps } from '../../room-chat/room-chat';
 import { chatAuthorSeat } from './room-labels';
-import { roomChatHint } from '../../../features/messaging/room-community/room-chat-reader';
+import { roomChatReaderOf } from '../../../features/messaging/room-community/room-chat-reader';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
 
@@ -79,6 +79,11 @@ type Props = {
  * current by room sync, never by re-rendering the route. A failed read
  * leaves the last view on screen and every section mounted.
  */
+const readerHint = (reader: 'judge' | 'spectator' | null) => ({
+  reader,
+  readOnlyHint: reader !== null,
+});
+
 export function RoomLive(props: Props) {
   const { view: seedView, ids: seedIds, read, socketUrl } = props;
   const start = useCallback(
@@ -156,7 +161,9 @@ export function RoomLive(props: Props) {
           props.chat && isOpenRoomStatus(view.status) ? (
             <RoomChat
               {...props.chat}
-              {...roomChatHint(view, props.actorId, props.chat)}
+              // The view's hint is the first paint and decides before the chat
+              // is found; the found chat's own metadata decides after.
+              {...readerHint(roomChatReaderOf(view, props.actorId))}
               ownerRevision={view.version}
               authorLabel={(actorId) => chatAuthorSeat(view, actorId)}
             />

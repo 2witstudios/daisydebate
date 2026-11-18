@@ -94,18 +94,22 @@ export function divisionForSeatedDebaters(
  * The division a ranked Room's seated debaters set: its human debaters only.
  * Judges never set it, and a bot holds no ranked debater seat.
  */
+type SeatedPerson = {
+  readonly kind: 'human' | 'bot';
+  readonly seat: SeatRef;
+  readonly division: RatingDivision | null;
+};
+/** The divisions of a Room's seated human debaters: judges and bots set none. */
+export const seatedDebaterDivisions = (
+  participants: readonly SeatedPerson[],
+): (RatingDivision | null)[] =>
+  participants
+    .filter((p) => p.kind === 'human' && isDebatingSeat(p.seat))
+    .map((p) => p.division);
 export const seatedDivision = (
-  participants: readonly {
-    readonly kind: 'human' | 'bot';
-    readonly seat: SeatRef;
-    readonly division: RatingDivision | null;
-  }[],
+  participants: readonly SeatedPerson[],
 ): SeatedDivision =>
-  divisionForSeatedDebaters(
-    participants
-      .filter((p) => p.kind === 'human' && isDebatingSeat(p.seat))
-      .map((p) => p.division),
-  );
+  divisionForSeatedDebaters(seatedDebaterDivisions(participants));
 
 /**
  * A ranked Room's ladder as a row or bar names it: a launched Room's Round's

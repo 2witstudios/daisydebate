@@ -27,31 +27,3 @@ export const roomChatReaderOf = (
     ? 'spectator'
     : null;
 };
-
-/**
- * The live Room page's chat hint, from the synced view and the server's first
- * paint. A judge's seat decides at once. A Youth Room spectator's hint holds
- * only while the first paint read them read-only as a spectator too, because
- * only the server sees a youth debater's club staff: a viewer the server let
- * post keeps the composer, and so does one whose first paint was read-only for
- * another reason (a judge seat since left). The chat's metadata, re-read as
- * the Room changes, says the rest.
- */
-export const roomChatHint = (
-  view: Parameters<typeof roomChatReaderOf>[0],
-  actorId: string,
-  firstPaint: {
-    readonly readOnlyHint: boolean;
-    readonly reader?: 'judge' | 'spectator' | null;
-  },
-) => {
-  const reader = roomChatReaderOf(view, actorId);
-  return {
-    reader,
-    readOnlyHint:
-      reader === 'judge' ||
-      (reader === 'spectator' &&
-        firstPaint.readOnlyHint &&
-        firstPaint.reader === 'spectator'),
-  };
-};

@@ -19,20 +19,23 @@ export type RoomChatProps = Omit<ContextChatProps, 'ownerId'> & {
 const readOnlyNotices = {
   judge: 'Judges read this chat but don’t post in it.',
   spectator: 'Only people in this Room can chat here.',
+  other: 'This chat is read-only.',
 } as const;
-const labelsFor = (reader: RoomChatProps['reader']): ContextChatLabels => ({
+const labelsOf = (notice: string): ContextChatLabels => ({
   region: 'Room chat',
   heading: 'Room chat',
   audience: null,
   composer: 'Message everyone in the room',
-  readOnly: {
-    notice: readOnlyNotices[reader === 'judge' ? 'judge' : 'spectator'],
-    composer: 'none',
-  },
+  readOnly: { notice, composer: 'none' },
   unnamedAuthor: 'A member',
   messages: 'Room chat messages',
   idPrefix: 'room-chat',
 });
+const labels = {
+  judge: labelsOf(readOnlyNotices.judge),
+  spectator: labelsOf(readOnlyNotices.spectator),
+  other: labelsOf(readOnlyNotices.other),
+};
 /**
  * A Room's chat while it gathers (ADR 0126): the shared thread under the Room's
  * address and words. It fills the height its container gives it. `authorLabel`
@@ -53,7 +56,7 @@ export function RoomChat({
         {...props}
         ownerId={roomId}
         context={roomChatContext}
-        labels={labelsFor(reader)}
+        labels={labels[reader ?? 'other']}
         authorLabel={authorLabel}
       />
     </div>

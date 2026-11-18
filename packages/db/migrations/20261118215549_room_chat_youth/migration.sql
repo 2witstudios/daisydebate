@@ -6,7 +6,7 @@
 -- `readLinkedAdultUserIds` reads staff). The division expression is
 -- `divisionOfBandSql(divisionAgeBand())` rendered with its parameters inlined;
 -- `packages/db/src/messaging/room-community-fact-division.test.ts` fails if the
--- TypeScript rule moves.
+-- TypeScript division rule or debating-seat list (`isDebatingSeatSql`) moves.
 DROP FUNCTION public.daisy_room_community_fact(text,text);--> statement-breakpoint
 CREATE FUNCTION public.daisy_room_community_fact(requested_room_id text, requested_actor_id text)
 RETURNS TABLE(version bigint,status text,visibility text,ended_at timestamptz,host boolean,seat_kind text,channel_id text,authority_revision bigint,youth_room boolean,youth_staff boolean)
@@ -18,7 +18,7 @@ AS $room_community_fact$
   JOIN public.rooms ranked_room ON ranked_room.id=seated.room_id AND ranked_room.competition_type='ranked'
   JOIN public.actors seated_actor ON seated_actor.id=seated.actor_id
   LEFT JOIN public.account_age ON account_age.user_id=seated_actor.user_id
-  WHERE seated.room_id=requested_room_id AND seated_actor.kind='human' AND seated.seat_kind IN ('side','speaker')
+  WHERE seated.room_id=requested_room_id AND seated_actor.kind='human' AND seated.seat_kind in ('side', 'speaker')
    AND seated_actor.user_id IS NOT NULL
    AND (case case when public.daisy_age_band("account_age"."birth_month", "account_age"."version", "account_age"."recorded_at", clock_timestamp()) is null then null else public.daisy_age_band("account_age"."birth_month", "account_age"."version", "account_age"."recorded_at", least(clock_timestamp(), greatest(coalesce((select youth.starts_at from seasons youth where youth.status = 'active' and youth.division = 'youth' and youth.organization_id = 'fo05z182lha0a3usciy9wr2r'), clock_timestamp()), "account_age"."recorded_at", clock_timestamp() - make_interval(months => 12::int)))) end when 'under-13' then 'youth' when '13-15' then 'youth' when '16-17' then 'youth' when 'adult' then 'open' end) = 'youth'
  ),
@@ -33,7 +33,8 @@ AS $room_community_fact$
  r.host_actor_id=requested_actor_id,p.seat_kind,
  c.id,c.authority_revision,
  EXISTS (SELECT 1 FROM youth_debater),
- EXISTS (
+ -- Staff matters only to a seatless caller who does not host: everyone else posts.
+ CASE WHEN p.seat_kind IS NOT NULL OR r.host_actor_id IS NOT DISTINCT FROM requested_actor_id THEN false ELSE EXISTS (
   SELECT 1 FROM youth_debater d
   JOIN caller ON caller.user_id<>d.user_id
   JOIN public.memberships student ON student.user_id=d.user_id AND student.status='active'
@@ -43,7 +44,7 @@ AS $room_community_fact$
    JOIN public.memberships staff ON staff.organization_id=g.organization_id AND staff.user_id=g.user_id AND staff.status='active'
    WHERE g.organization_id=school.id AND g.user_id=caller.user_id AND g.scope_kind='organization'
     AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp())
-    AND EXISTS (SELECT 1 FROM public.role_permissions rp WHERE rp.role_id=g.role_id AND rp.permission='school.roster.manage')))
+    AND EXISTS (SELECT 1 FROM public.role_permissions rp WHERE rp.role_id=g.role_id AND rp.permission='school.roster.manage'))) END
  FROM public.rooms r LEFT JOIN public.room_participants p ON p.room_id=r.id AND p.actor_id=requested_actor_id
  LEFT JOIN public.messaging_channels c ON c.room_id=r.id AND c.kind='room_community'
  WHERE r.id=requested_room_id AND (c.id IS NULL OR (c.policy_revision=1 AND c.lifecycle='active'));

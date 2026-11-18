@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import type { RoomStatus, RoomView } from './room-contract';
-import type { RatingDivision } from './ladder';
+import { seatedDebaterDivisions, type RatingDivision } from './ladder';
 import type { CompetitionType } from './round';
-import { isDebatingSeat, type SeatKind, type SeatRef } from './seats';
+import type { SeatKind, SeatRef } from './seats';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
@@ -37,7 +37,7 @@ export type RoomCommunityFact = {
    * This actor is club staff of a youth debater seated in the Room: an adult
    * who owns, or holds a live grant whose role carries `school.roster.manage`
    * in, a school where that debater is an active member. False outside a Youth
-   * Room.
+   * Room, and for a caller who holds a seat or hosts: they post anyway.
    */
   readonly youthStaff: boolean;
 };
@@ -64,10 +64,7 @@ export const youthRoomOf = (room: {
   }[];
 }): boolean =>
   room.competitionType === 'ranked' &&
-  room.participants.some(
-    (p) =>
-      p.kind === 'human' && isDebatingSeat(p.seat) && p.division === 'youth',
-  );
+  seatedDebaterDivisions(room.participants).includes('youth');
 /**
  * Who reads Room chat while it gathers and never posts: a judge (DEC-174), and
  * in a Youth Room anyone without a seat there (decision 84), adult or minor,
