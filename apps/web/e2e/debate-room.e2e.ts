@@ -372,6 +372,54 @@ test('the round room fits the viewport and the workspace starts on one line', as
   await expect(lastTab).toBeInViewport();
 });
 
+test('the round bar’s speeches fit at every width, phones included', async ({
+  liveRoom,
+}) => {
+  const { page } = liveRoom;
+  const bar = page.locator('header').filter({
+    has: page.getByRole('list', { name: 'Speeches' }),
+  });
+  const strip = bar.getByRole('list', { name: 'Speeches' });
+  const live = strip.locator('[aria-current="step"]');
+  await expect(live).toHaveCount(1);
+  // The fixture's round is on a short speech; measure the longest
+  // Lincoln-Douglas name instead, so a cut-off name fails here.
+  await live.evaluate((chip) => {
+    chip.textContent = 'CX1 · Cross-examination of the affirmative';
+  });
+  for (const [width, height, wholeName] of [
+    [1440, 900, true],
+    [1280, 800, true],
+    [1024, 700, true],
+    [900, 700, true],
+    [640, 800, true],
+    [390, 844, true],
+    // The narrowest phones may ellipsize; the name stays in its tooltip.
+    [360, 740, false],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await expect(strip).toBeVisible();
+    await expect
+      .poll(() => bar.evaluate((el) => el.scrollWidth <= el.clientWidth))
+      .toBe(true);
+    await expect(live).toBeVisible();
+    const [chip, box] = await Promise.all([
+      live.boundingBox(),
+      bar.boundingBox(),
+    ]);
+    expect(chip && box && chip.x + chip.width <= box.x + box.width).toBe(true);
+    if (wholeName)
+      expect(
+        await live.evaluate((el) => el.scrollWidth <= el.clientWidth),
+        `the live speech's whole name at ${width}px`,
+      ).toBe(true);
+  }
+  // A phone's wrapped strip is under the 25rem cutoff: the live speech alone,
+  // with its place in the round instead of the next speech's code.
+  await expect(strip.getByText(/^\d+ of \d+$/)).toBeVisible();
+  await expect(strip.locator('li:not([aria-current])').first()).toBeHidden();
+});
+
 test('an open document survives every sidebar and phone tab switch', async ({
   liveRoom,
 }) => {
