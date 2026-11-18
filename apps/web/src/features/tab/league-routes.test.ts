@@ -1,43 +1,19 @@
 import { join } from 'node:path';
 import { mock } from 'bun:test';
 import type { Identity } from '@daisy/auth';
-import { redirect } from 'next/navigation';
-import { createAppError } from '@daisy/errors';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  decideAccess,
-  requestedPath,
-  requirementFor,
-  type SearchParams,
-} from '../access/decision';
+import { accessGuard } from '../../lib/access-guard';
 
 setupRitewayBun();
 
-// The guard runs against a scripted session; a missing league is what the
-// stored readers answer for a handle nothing claims. lib/access.ts is
-// installed here as its own decision path (the guarded-area table and
-// decideAccess, unmocked) because another suite in this process replaces that
-// module with a recording guard that never redirects.
+// The shipped guard runs against a scripted session; a missing league is what
+// the stored readers answer for a handle nothing claims. lib/access.ts is
+// installed as that guard bound to the script, because another suite in this
+// process replaces the module with a recording guard that never redirects.
 let identity: Identity;
-const guard = async (path: string, searchParams: Promise<SearchParams>) => {
-  const requirement = requirementFor(path);
-  if (requirement === null) throw createAppError('INTERNAL');
-  const decision = decideAccess({
-    identity,
-    path: requestedPath(path, await searchParams),
-    requirement,
-  });
-  if (decision.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
-  if (decision.kind === 'redirect') redirect(decision.to);
-  return identity;
-};
-mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
-  requireAccess: guard,
-  accessOrTemporary: async (
-    path: string,
-    searchParams: Promise<SearchParams>,
-  ) => ({ kind: 'allowed', identity: await guard(path, searchParams) }),
-}));
+mock.module(join(import.meta.dir, '../../lib/access.ts'), () =>
+  accessGuard(async () => identity),
+);
 const anonymous: Identity = {
   state: 'anonymous',
   principal: { kind: 'anonymous' },
@@ -47,21 +23,28 @@ const member: Identity = {
   username: 'ada',
   principal: { kind: 'user', userId: 'u', actorId: 'actor1' },
 };
-const lib = join(import.meta.dir, '../../lib');
 const app = join(import.meta.dir, '../../app');
-mock.module(join(lib, 'request-session.ts'), () => ({
+// Each replacement keeps every export of the module it stands in for: a suite
+// that runs later in this process links its pages against the same module.
+const session = await import('../../lib/request-session');
+mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
+  ...session,
   requestIdentity: async () => identity,
   requestReleaseEnabled: async () => true,
   requestLeaguePage: async () => null,
   requestStandingRoomPage: async () => null,
   requestNow: () => '2027-03-06T08:00:00.000Z',
 }));
+const flags = await import('../flags/server');
 mock.module(join(import.meta.dir, '../flags/server.ts'), () => ({
+  ...flags,
   isReleaseEnabled: async () => true,
 }));
+const people =
+  await import('../../app/(host)/host/leagues/[slug]/people/stored-people');
 mock.module(
   join(app, '(host)/host/leagues/[slug]/people/stored-people.ts'),
-  () => ({ readStoredPeople: async () => null }),
+  () => ({ ...people, readStoredPeople: async () => null }),
 );
 
 type Page = (props: {
