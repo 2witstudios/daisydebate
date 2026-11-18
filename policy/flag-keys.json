@@ -21,6 +21,20 @@
       "kind": "release",
       "owner": "Daisy Tab (@2witstudios)",
       "taskCode": "TAB-8.2"
+    },
+    {
+      "key": "club-seats",
+      "retired": false,
+      "kind": "release",
+      "owner": "Billing (@2witstudios)",
+      "taskCode": "PYL-13"
+    },
+    {
+      "key": "league-requests",
+      "retired": false,
+      "kind": "release",
+      "owner": "Daisy Tab (@2witstudios)",
+      "taskCode": "PYL-17"
     }
   ]
 }

@@ -60,6 +60,7 @@ export const moreDestination: Destination = {
   subItems: [
     { href: '/settings', label: 'Settings' },
     { href: '/help', label: 'Help' },
+    { href: '/pricing', label: 'Plans and pricing' },
     { href: '/terms', label: 'Terms' },
     { href: '/privacy', label: 'Privacy' },
     { href: '/analytics', label: 'Analytics preferences' },

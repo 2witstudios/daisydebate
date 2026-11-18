@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { buttonClass } from '../components/button/button-class';
 import { PageHeader } from '../components/page-header/page-header';
 import { Panel } from '../components/panel/panel';
 import { ReadingPage } from '../components/reading-page/reading-page';
@@ -10,6 +11,11 @@ export function PremiumPage() {
       <PageHeader
         title="Daisy Premium"
         lede="More ways to practise, review and share your debates."
+        actions={
+          <Link href="/pricing" className={buttonClass('secondary')}>
+            Compare plans
+          </Link>
+        }
       />
       <Panel
         title="Premium · USD 10/month"

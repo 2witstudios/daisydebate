@@ -53,6 +53,13 @@ export const helpTopics: readonly HelpTopic[] = [
     links: [{ label: 'Train', href: destinationHref('train') }],
   },
   {
+    id: 'plans',
+    question: 'What does Daisy cost?',
+    answer:
+      'Debating people is free. Premium, Club, Host and League pay for AI practice, video and running events.',
+    links: [{ label: 'Plans and pricing', href: '/pricing' }],
+  },
+  {
     id: 'your-data',
     question: 'How do I see or delete my data?',
     answer:

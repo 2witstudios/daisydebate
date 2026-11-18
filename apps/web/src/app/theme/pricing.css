@@ -1,0 +1,8 @@
+/* Component-owned size tokens for /pricing (ADR 0028). Theme variables only; classes stay in the markup. */
+@theme {
+  /* The Free, always band: its heading column and its list wrap below these widths. */
+  --spacing-pricing-free-intro: 260px;
+  --spacing-pricing-free-list: 420px;
+  /* A question's tap row, taller than the 44px target so the list breathes. */
+  --spacing-pricing-question: 52px;
+}

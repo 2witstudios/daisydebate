@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { RequestLinkAction } from '../../auth/sign-in-flow/sign-in-flow';
 import { HeroJoin } from './hero-join';
 import { HeroPhoto } from './hero-photo';
@@ -20,6 +21,12 @@ export function HeroBanner({
       <p className="text-lg text-ink-on-media/85 text-shadow-hero-sub max-narrow:text-ink-muted max-narrow:text-shadow-none">
         Better arguments. A more thoughtful world.
       </p>
+      <Link
+        href="/pricing"
+        className="text-ink-on-media underline max-narrow:text-ink"
+      >
+        Plans and pricing
+      </Link>
     </HeroJoin>
   );
 }

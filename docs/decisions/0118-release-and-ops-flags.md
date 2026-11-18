@@ -133,6 +133,11 @@ webhooks/reconciliation, erasure and existing authorized work remain available.
 Admin UI, other-process integration, AI ops consumers and the wider nightly
 rollout suite remain their existing separate leaves.
 
+`club-seats` (Billing, PYL-13) and `league-requests` (Daisy Tab, PYL-17)
+default false and expire on 2027-03-31. /pricing reads them for no account:
+closed, the Club and League cards show "Coming soon"; open, they link to
+`/clubs/new` and `/contact/league`, which their slices build.
+
 References verified against PostgreSQL 18 (the repository's version):
 [isolation](https://www.postgresql.org/docs/18/transaction-iso.html),
 [transaction locks](https://www.postgresql.org/docs/18/explicit-locking.html),
