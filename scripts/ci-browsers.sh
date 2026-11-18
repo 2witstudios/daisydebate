@@ -62,7 +62,7 @@ for deb in "$deb_cache"/*.deb; do
   # Under set -e an unreadable archive must not end the step: it reads as no
   # package, matches no installed version and is pruned.
   package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""
-  version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=
+  version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""
   installed=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
   [ -n "$version" ] && [ "$installed" = "$version" ] || rm "$deb"
 done
