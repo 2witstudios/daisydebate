@@ -10,13 +10,9 @@ import {
   requestIdentity,
   requestLeadingLive,
   requestMemberDivision,
-  requestMemberStandings,
   requestSeasonGlance,
 } from '../../lib/request-session';
-import {
-  homeLadderOf,
-  leaderboardTagline,
-} from '../../ui/dashboard/home-ladder';
+import { leaderboardTagline } from '../../ui/dashboard/leaderboard-tagline';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 import { requestPricingOpen } from './pricing/releases';
@@ -48,10 +44,7 @@ export default async function HomePage() {
         audience="visitor"
         liveNow={liveNow}
         seasonGlance={seasonGlance}
-        ladder={{
-          playCaption: null,
-          leaderboardTagline: leaderboardTagline(null),
-        }}
+        leaderboardTagline={leaderboardTagline(null)}
         hero={
           <HeroBanner
             requestLink={requestLinkAction.bind(null, '/')}
@@ -61,23 +54,17 @@ export default async function HomePage() {
       />
     );
   }
-  const [activeRoom, ladder] = await Promise.all([
+  const [activeRoom, tagline] = await Promise.all([
     requestActiveRoom(),
-    // The notes keep their own words when the ratings cannot be read.
-    Promise.all([
-      requestMemberStandings(identity.username),
-      requestMemberDivision(),
-    ]).then(
-      ([standings, division]) => homeLadderOf(standings, division),
-      () => undefined,
-    ),
+    // Leaderboard keeps its own words when the division cannot be read.
+    requestMemberDivision().then(leaderboardTagline, () => null),
   ]);
   return (
     <Dashboard
       audience="member"
       liveNow={liveNow}
       seasonGlance={seasonGlance}
-      {...(ladder ? { ladder } : {})}
+      leaderboardTagline={tagline}
       hero={
         <>
           <ResumeRound room={activeRoom} actorId={identity.principal.actorId} />
