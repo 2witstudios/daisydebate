@@ -8,6 +8,7 @@ import {
   pointsTotal,
   seatLabel,
   sideOfSeat,
+  type Ladder,
   type RecordingMedia,
   type RoundOutcome,
   type SeatRef,
@@ -36,6 +37,11 @@ import {
   type RoundEvidencePermissions,
 } from './audience';
 import type { RecordingRecord } from './ports';
+import {
+  youthRoundPublishable,
+  type MediaRelease,
+  type YouthRoundPeople,
+} from './youth-audience';
 
 /** The Round as the history screen shows it, beyond what permissions need. */
 export type HistoryRound = RecordingRound & {
@@ -44,8 +50,12 @@ export type HistoryRound = RecordingRound & {
   /** The format's declared sides, in order; none for an unsided format. */
   readonly sides: readonly Side[];
   readonly outcome: RoundOutcome | null;
+  /** The ladder a ranked Round rated on; null for casual. */
+  readonly ladder: Ladder | null;
   readonly debaters: readonly {
     readonly roundParticipantId: string | null;
+    /** The seat's actor, to pair it with a Youth Round's people. */
+    readonly actorId: string | null;
     readonly seat: SeatRef;
     readonly label: string | null;
   }[];
@@ -89,6 +99,26 @@ export type HistoryInputs = {
   readonly findRecordingByRound: (
     roundId: string,
   ) => Promise<RecordingRecord | null>;
+  /**
+   * The media releases these youth debaters hold (PYL-5). S4 records them;
+   * until then this reads none.
+   */
+  readonly readMediaReleases: (
+    userIds: readonly string[],
+  ) => Promise<readonly MediaRelease[]>;
+};
+
+/** A Youth Round's private panel: who still needs a release to publish it. */
+export type YouthPanel = {
+  readonly debaters: readonly {
+    readonly name: string;
+    readonly released: boolean;
+  }[];
+  /**
+   * Every youth debater holds an active release. Publishing also needs the
+   * youth-publishing release flag, which the page reads.
+   */
+  readonly releasesComplete: boolean;
 };
 
 type TranscriptPanel = {
@@ -150,8 +180,11 @@ export type RecordingHistoryScreen =
       readonly title: string;
       readonly resolution: string;
       readonly ranked: boolean;
+      readonly ladder: Ladder | null;
       readonly date: string;
       readonly visibility: RecordingRound['visibility'];
+      /** A Youth Round's private panel; null on every other Round. */
+      readonly youth: YouthPanel | null;
       /** An officials' Recording's deletion date (YYYY-MM-DD); null for any other. */
       readonly deletesOn: string | null;
       readonly media: RecordingMediaPanel;
@@ -320,7 +353,13 @@ const recordingActions = (input: {
   if (record === null) return { downloadHref: null, removal: null };
   const status = record.lifecycle.status;
   return {
-    downloadHref: mayDownload({ viewer, permissions, status, subscribed })
+    downloadHref: mayDownload({
+      round,
+      viewer,
+      permissions,
+      status,
+      subscribed,
+    })
       ? `/api/recordings/${record.id}/download`
       : null,
     removal: mayRequestRemoval({
@@ -331,6 +370,35 @@ const recordingActions = (input: {
     })
       ? { recordingId: record.id, version: record.version }
       : null,
+  };
+};
+
+const youthPanel = async (
+  inputs: HistoryInputs,
+  round: HistoryRound,
+  youth: YouthRoundPeople,
+): Promise<YouthPanel> => {
+  const releases = await inputs.readMediaReleases(
+    youth.debaters.map((debater) => debater.userId),
+  );
+  return {
+    debaters: youth.debaters.map((debater) => {
+      const seat = round.debaters.find((d) => d.actorId === debater.actorId);
+      return {
+        name:
+          seat === undefined
+            ? 'A debater'
+            : seat.label === null
+              ? unnamedSeat(round, seat.seat)
+              : `@${seat.label}`,
+        released: releases.some(
+          (release) =>
+            release.subjectUserId === debater.userId &&
+            release.status === 'active',
+        ),
+      };
+    }),
+    releasesComplete: youthRoundPublishable(youth, releases),
   };
 };
 
@@ -418,6 +486,8 @@ export const openRecordingHistory = async (
     title: round.title ?? round.resolution ?? UNDRAWN_RESOLUTION,
     resolution: round.resolution ?? UNDRAWN_RESOLUTION,
     ranked: round.competitionType === 'ranked',
+    ladder: round.ladder,
+    youth: round.youth && (await youthPanel(inputs, round, round.youth)),
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
     deletesOn: deletionDay(round),

@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RecordingViewer } from './audience';
-import { account, at, deps, record } from './fixture.test-support';
+import { account, at, deps, record, youthRound } from './fixture.test-support';
 import { requestParticipantRemoval } from './removal';
 
 setupRitewayBun();
@@ -63,6 +63,41 @@ describe('requestParticipantRemoval', () => {
       should: 'change nothing',
       actual: stale.rows.get('rec')?.lifecycle.status,
       expected: 'ready',
+    });
+  });
+
+  test('takes a Youth Round’s ranked Recording down for a youth debater or linked adult', async () => {
+    const youth = (viewer: RecordingViewer) => {
+      const d = deps(record({ class: 'ranked' }), { round: youthRound });
+      return remove(d, viewer).then((result) => result.lifecycle.status);
+    };
+    assert({
+      given: 'a youth debater, their coach and the other debater’s parent',
+      should: 'take the whole Recording down for each',
+      actual: await Promise.all(
+        [account('neg'), account('coach'), account('parent')].map(youth),
+      ),
+      expected: ['removing', 'removing', 'removing'],
+    });
+    await assertRejects({
+      given: 'the judge of a Youth Round',
+      should: 'refuse: only the debaters and their adults take it down',
+      actual: () =>
+        remove(
+          deps(record({ class: 'ranked' }), { round: youthRound }),
+          account('judge'),
+        ),
+      code: 'AUTHORIZATION',
+    });
+    await assertRejects({
+      given: 'a stranger on a Youth Round',
+      should: 'refuse',
+      actual: () =>
+        remove(
+          deps(record({ class: 'ranked' }), { round: youthRound }),
+          account('stranger'),
+        ),
+      code: 'AUTHORIZATION',
     });
   });
 });

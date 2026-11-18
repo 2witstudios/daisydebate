@@ -45,12 +45,17 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   officialActorIds: round.seats
     .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
     .map((seat) => seat.actorId),
+  youth: round.youth,
+  ladder: round.ladder,
   title: round.title,
   resolution: round.resolution,
   sides: round.sides,
   outcome: round.outcome,
   debaters: round.debaters.map((seat) => ({
     roundParticipantId: seat.roundParticipantId,
+    actorId:
+      round.seats.find((each) => each.id === seat.roundParticipantId)
+        ?.actorId ?? null,
     seat: seat.seat,
     label: seat.label,
   })),
@@ -84,6 +89,8 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
       now: () => app.clock.now(),
     }),
     findRecordingByRound: store.findByRound,
+    // Media releases are S4's record (PYL-6, PYL-7); none exists yet.
+    readMediaReleases: async () => [],
   };
 };
 

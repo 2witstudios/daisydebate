@@ -111,6 +111,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         eligibility: recordings.eligibility,
         competitionType: rounds.competitionType,
         roundCapture: rounds.capture,
+        ladderDivision: rounds.ladderDivision,
         roundStatus: rounds.status,
         broadcast: {
           id: broadcasts.id,

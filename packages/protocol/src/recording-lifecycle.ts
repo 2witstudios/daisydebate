@@ -45,6 +45,12 @@ export type RecordingEvent =
        * the removal is owed, and waits until then at the latest.
        */
       readonly evidenceHeldUntil?: string;
+      /**
+       * A participant's request on a Youth Round, whose ranked Recording any
+       * youth debater or linked adult may take down (ADR 0107, PYL-5). The
+       * caller sets it only after deciding the Round is a Youth Round.
+       */
+      readonly youthRound?: boolean;
     }
   | { readonly type: 'evidence_hold_ended' }
   | { readonly type: 'objects_gone'; readonly at: string };
@@ -223,7 +229,11 @@ const removalRequested = (
   event: Extract<RecordingEvent, { type: 'removal_requested' }>,
 ): RecordingTransition => {
   const { lifecycle } = subject;
-  if (subject.class === 'ranked' && event.cause === 'participant_request')
+  if (
+    subject.class === 'ranked' &&
+    event.cause === 'participant_request' &&
+    event.youthRound !== true
+  )
     return refused('ranked_is_kept');
   if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
     return unchanged;

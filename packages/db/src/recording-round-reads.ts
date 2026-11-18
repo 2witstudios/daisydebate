@@ -3,6 +3,7 @@ import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
+import { readYouthRecordingPeople } from './youth-recording-people';
 import type { SpectatorClock } from './spectator-release-sql';
 import { namedSeats } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
@@ -54,6 +55,8 @@ export const recordingRoundReadOperations = ({
           ranking: rounds.ranking,
           rules: rounds.rulesSnapshot,
           capture: rounds.capture,
+          ladderStyle: rounds.ladderId,
+          ladderDivision: rounds.ladderDivision,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
@@ -104,6 +107,13 @@ export const recordingRoundReadOperations = ({
         sides: round.rules.sides,
         outcome,
         seats,
+        /** The ladder a ranked Round rated on, frozen at Start (ADR 0147). */
+        ladder:
+          round.ladderStyle !== null && round.ladderDivision !== null
+            ? { style: round.ladderStyle, division: round.ladderDivision }
+            : null,
+        /** A Youth Round's youth debaters and linked adults (PYL-5); null otherwise. */
+        youth: await readYouthRecordingPeople(tx, roundId),
         /** Both lists are in seat order, so they pair up. */
         debaters: debaters.map((seat, index) => ({
           ...seat,

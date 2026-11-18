@@ -71,6 +71,18 @@ export const flagCatalogue = [
     safeDefault: false,
     dependencies: [],
   },
+  {
+    // Publishing a Youth Round's Recording once every youth debater holds a
+    // media release (PYL-5, S4); closed in production until counsel approves
+    // the release wording (decision 81, PYL-8).
+    key: 'youth-publishing',
+    kind: 'release',
+    owner: 'Recording (@2witstudios)',
+    taskCode: 'PYL-8',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
 ] as const satisfies readonly FlagDefinition[];
 
 export type ReleaseFlagKey = Extract<

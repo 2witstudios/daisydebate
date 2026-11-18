@@ -49,6 +49,13 @@
       "kind": "release",
       "owner": "Daisy Tab (@2witstudios)",
       "taskCode": "PYL-17"
+    },
+    {
+      "key": "youth-publishing",
+      "retired": false,
+      "kind": "release",
+      "owner": "Recording (@2witstudios)",
+      "taskCode": "PYL-8"
     }
   ]
 }

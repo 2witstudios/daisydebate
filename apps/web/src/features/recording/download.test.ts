@@ -11,6 +11,7 @@ import {
   record,
   round,
   visitor,
+  youthRound,
 } from './fixture.test-support';
 
 setupRitewayBun();
@@ -41,6 +42,14 @@ describe('openDownload', () => {
           download(deps(record(), { subscribed: false }), account('stranger')),
       ],
       ['a visitor', () => download(deps(), visitor)],
+      [
+        'a subscribed youth debater on their own Youth Round (PYL-5)',
+        () =>
+          download(
+            deps(record({ class: 'ranked' }), { round: youthRound }),
+            account('aff'),
+          ),
+      ],
       [
         'a subscriber who may not watch it',
         () =>

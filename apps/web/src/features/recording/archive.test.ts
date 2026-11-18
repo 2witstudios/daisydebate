@@ -16,6 +16,7 @@ const row: ArchiveRound = {
   seatedActorIds: ['aff', 'neg'],
   recordingPolicy: 'released',
   officialActorIds: [],
+  youth: null,
   release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stop: 'none' },
   status: 'ready',
   durationMs: 1_800_000,

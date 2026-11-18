@@ -52,6 +52,7 @@ export const openDownload = async (
     input.nowMs,
   );
   const allowed = mayDownload({
+    round,
     viewer: input.viewer,
     permissions,
     status: record.lifecycle.status,

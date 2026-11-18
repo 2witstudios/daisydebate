@@ -543,6 +543,7 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
       roundId: rounds.id,
       competitionType: rounds.competitionType,
       capture: rounds.capture,
+      ladderDivision: rounds.ladderDivision,
     })
     .from(rounds)
     .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
@@ -555,6 +556,8 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
         inArray(rounds.status, [...runningRoundStatuses]),
         // A private Round's Broadcast was refused at its edit and its Launch: this holds it.
         ne(rounds.visibility, 'private'),
+        // A Youth Round is never broadcast (ADR 0107, PYL-5): this holds it too.
+        sql`${rounds.ladderDivision} is distinct from 'youth'`,
         isNull(broadcasts.id),
       ),
     )

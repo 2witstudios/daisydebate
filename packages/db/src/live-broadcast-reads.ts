@@ -29,6 +29,9 @@ export type LiveBroadcastFilter = {
   readonly q: string;
 };
 
+/** A Youth Round is private (ADR 0107, PYL-5): never listed, counted or sent to Watch. */
+const notYouth = sql`${rounds.ladderDivision} is distinct from 'youth'`;
+
 /**
  * On the Live listing: a public Round whose Broadcast is open, once its start has
  * been released and until its end is. A held Broadcast has released nothing and
@@ -37,6 +40,7 @@ export type LiveBroadcastFilter = {
 const onLive = (clock: SpectatorClock) =>
   and(
     eq(rounds.visibility, 'public'),
+    notYouth,
     sql`${broadcasts.stoppedAt} is null`,
     sql`${broadcasts.completedAt} is null`,
     factReleasedSql(rounds.startedAt, roundColumns, clock),
@@ -88,6 +92,7 @@ const afterCursor = (before: string, clock: SpectatorClock): SQL | undefined =>
     ? undefined
     : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c
         where c.id = ${before} and c.visibility = 'public'
+          and c.ladder_division is distinct from 'youth'
           and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 
 /**
@@ -112,6 +117,7 @@ export const watchableRoundOfRoomRead = ({
         and(
           eq(rounds.roomId, roomId),
           eq(rounds.visibility, 'public'),
+          notYouth,
           factReleasedSql(rounds.startedAt, roundColumns, clock),
         ),
       );

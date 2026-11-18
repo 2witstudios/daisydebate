@@ -15,6 +15,7 @@ import {
   type HistoryRound,
 } from './history';
 import type { RecordingJobState } from '@daisy/protocol';
+import type { MediaRelease } from './youth-audience';
 
 setupRitewayBun();
 
@@ -28,18 +29,22 @@ const round: HistoryRound = {
   seatedActorIds: ['aff', 'neg'],
   recordingPolicy: 'released',
   officialActorIds: [],
+  youth: null,
   title: 'Semifinal',
   resolution: 'Resolved: x',
   sides: twoSides,
   outcome: { kind: 'winner', side: 'negative' },
+  ladder: { style: 'freestyle', division: 'open' },
   debaters: [
     {
       roundParticipantId: 'p-aff',
+      actorId: 'aff',
       seat: { kind: 'side', side: 'affirmative', slot: 0 },
       label: 'ada',
     },
     {
       roundParticipantId: 'p-neg',
+      actorId: 'neg',
       seat: { kind: 'side', side: 'negative', slot: 0 },
       label: null,
     },
@@ -87,11 +92,13 @@ const open = (
     transcript?: HistoryInputs['readTranscript'];
     viewer?: RecordingViewer;
     q?: string;
+    releases?: readonly MediaRelease[];
   } = {},
 ) => {
   const calls: string[] = [];
   const inputs: HistoryInputs = {
     readHistoryRound: async () => ({ ...round, ...over.round }),
+    readMediaReleases: async () => over.releases ?? [],
     readBroadcastRelease: async () =>
       over.release ?? {
         releasedThroughMs: Number.MAX_SAFE_INTEGER,
@@ -445,6 +452,84 @@ describe('after moderation hides a Recording', () => {
         }),
       ],
       expected: [true, true],
+    });
+  });
+});
+
+describe('a Youth Round’s history (PYL-5)', () => {
+  const youth = {
+    debaters: [
+      { actorId: 'aff', userId: 'u-aff', linkedAdultActorIds: ['coach'] },
+      { actorId: 'neg', userId: 'u-neg', linkedAdultActorIds: [] },
+    ],
+  };
+  const youthRound: Partial<HistoryRound> = {
+    ladder: { style: 'freestyle', division: 'youth' },
+    youth,
+  };
+  const member = (actorId: string): RecordingViewer => ({
+    kind: 'account',
+    userId: `u-${actorId}`,
+    actorId,
+  });
+
+  test('shows its people the private panel and its takedown, never a download', async () => {
+    const screen = await history({
+      round: youthRound,
+      viewer: member('coach'),
+      subscribed: true,
+      releases: [{ subjectUserId: 'u-aff', status: 'active' }],
+    });
+    assert({
+      given: 'a linked coach, subscribed, with one of two releases recorded',
+      should: 'name each debater’s release, take down, and offer no download',
+      actual: {
+        ladder: screen.ladder,
+        youth: screen.youth,
+        download: screen.downloadHref,
+        takedown: screen.removal !== null,
+      },
+      expected: {
+        ladder: { style: 'freestyle', division: 'youth' },
+        youth: {
+          debaters: [
+            { name: '@ada', released: true },
+            { name: 'Negative', released: false },
+          ],
+          releasesComplete: false,
+        },
+        download: null,
+        takedown: true,
+      },
+    });
+  });
+
+  test('every release recorded completes the releases', async () => {
+    const screen = await history({
+      round: youthRound,
+      viewer: member('aff'),
+      releases: [
+        { subjectUserId: 'u-aff', status: 'active' },
+        { subjectUserId: 'u-neg', status: 'active' },
+      ],
+    });
+    assert({
+      given: 'an active release from each youth debater',
+      should: 'say the releases are complete',
+      actual: screen.youth?.releasesComplete,
+      expected: true,
+    });
+  });
+
+  test('is missing for anyone outside it', async () => {
+    assert({
+      given: 'a stranger and a visitor on a public Youth Round',
+      should: 'answer as a missing Round',
+      actual: [
+        (await open({ round: youthRound, viewer: member('stranger') })).screen,
+        (await open({ round: youthRound })).screen,
+      ],
+      expected: [{ kind: 'unavailable' }, { kind: 'unavailable' }],
     });
   });
 });

@@ -10,6 +10,7 @@ import {
   readRecordingHistory,
   requestIdentity,
   requestPresentedLink,
+  requestReleaseEnabled,
 } from '../../../../lib/request-session';
 import {
   RecordingHistory,
@@ -49,10 +50,19 @@ export default async function RecordingPage({
   const notice = firstOf(search['removal']);
   const reported = reportNotice(search['report']);
   const returnTo = `/recordings/${encodeURIComponent(roundId)}`;
+  // A Youth Round publishes only once this flag opens, after counsel (PYL-8).
+  const youthPublishing =
+    screen.kind === 'history' && screen.youth !== null
+      ? await requestReleaseEnabled(
+          'youth-publishing',
+          identity.state === 'member' ? identity.principal.userId : null,
+        )
+      : false;
   return screen.kind === 'history' ? (
     <RecordingHistory
       screen={screen}
       notice={isNotice(notice) ? notice : null}
+      youthPublishing={youthPublishing}
       report={
         accountOf(identity) ? (
           <>

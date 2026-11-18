@@ -7,7 +7,8 @@ import {
 import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';
 
 /**
- * A participant has a casual Recording removed, whole. The version is the one
+ * A participant has a casual Recording removed, whole; on a Youth Round, any
+ * youth debater or linked adult takes its ranked Recording down (PYL-5). The version is the one
  * their form showed, so a changed Recording is confirmed again rather than acted
  * on blind. Ranked is refused by the transition as well as by this check. The store
  * ends the Round's open feed with it. Under an open report it is hidden with the removal
@@ -43,6 +44,7 @@ export const requestParticipantRemoval = async (
         type: 'removal_requested',
         cause: 'participant_request',
         at: input.now,
+        ...(round.youth === null ? {} : { youthRound: true }),
         ...(underOpenReport
           ? {
               evidenceHeldUntil: new Date(

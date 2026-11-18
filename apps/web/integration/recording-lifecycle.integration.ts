@@ -96,6 +96,7 @@ const withReadyRecording = (
                 (seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat),
               )
               .map((seat) => seat.actorId),
+            youth: round.youth,
           }
         );
       },
@@ -180,12 +181,14 @@ test('an unlisted Recording opens only past its current link', async () => {
         inputs.readRound(roundId).then((round) =>
           openRecordingHistory(
             {
+              readMediaReleases: async () => [],
               readJobState: async () => null,
               nowMs: () => nowMs,
               readHistoryRound: async () => ({
                 ...round!,
                 title: 'Round',
                 resolution: 'x',
+                ladder: null,
                 sides: [],
                 outcome: null,
                 debaters: [],
@@ -772,12 +775,14 @@ test('history reads the real Round and offers each panel on its own permission',
       const open = (viewer: RecordingViewer) =>
         openRecordingHistory(
           {
+            readMediaReleases: async () => [],
             readJobState: async () => null,
             nowMs: () => nowMs,
             readHistoryRound: async () => ({
               ...round,
               title: 'Round',
               resolution: 'x',
+              ladder: null,
               sides: [],
               outcome: null,
               debaters: [],
