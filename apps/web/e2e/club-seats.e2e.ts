@@ -2,6 +2,9 @@ import { expect, openPage, test } from './support/fixtures';
 import { signUpMember } from './support/accounts';
 import { fundClub } from './support/club-seats';
 import { resolveE2EPorts } from '../playwright.config';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const mailBase = `http://127.0.0.1:${resolveE2EPorts(process.env).mail}`;
 
@@ -25,6 +28,22 @@ async function invitationLink(
   }).toPass({ timeout: 20_000 });
   return new URL(link!).pathname;
 }
+
+// fundClub opens the club-seats release; close it again so no later spec
+// inherits an open flag from suite order (release-flag-process.ts).
+test.afterAll(async () => {
+  await promisify(execFile)(
+    'bun',
+    [
+      fileURLToPath(
+        new URL('./support/release-flag-process.ts', import.meta.url),
+      ),
+      'club-seats',
+      'default',
+    ],
+    { timeout: 20000, maxBuffer: 4096 },
+  );
+});
 
 test('a manager invites by email, the invitee accepts, and Premium comes from the club (ADR 0148)', async ({
   browser,

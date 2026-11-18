@@ -12,9 +12,10 @@ import { assertNoSeriousFindings } from './support/axe';
  * `premium-checkout`, so Get Premium links) and closes again. The suite runs
  * one worker, so no other spec sees them open. Host (`host-tiers`) and League
  * keep their safe default and show "Coming soon". Club starts once
- * `club-seats` opens (PYL-13); the club-seats spec leaves that flag open, so
- * every test here sets it itself: closed, Club is "Coming soon"; open, Start a
- * Club signs a visitor in and goes on to /clubs/new.
+ * `club-seats` opens (PYL-13), so every test here sets that flag itself
+ * rather than trust suite order: closed, Club is "Coming soon" and the family
+ * question is absent; open, Start a Club signs a visitor in and goes on to
+ * /clubs/new.
  */
 const setFlag = (key: string, state: 'enabled' | 'default') =>
   promisify(execFile)(
@@ -116,6 +117,10 @@ for (const { name, width, height, columns } of widths) {
     await expect(
       card(page, 'Club').getByRole('link', { name: 'Start a Club' }),
     ).toHaveCount(0);
+    // The family answer points at Start a Club, so it waits for Club too.
+    await expect(
+      page.getByText('Can I buy Premium for my children?'),
+    ).toHaveCount(0);
     await expect(card(page, 'League')).toContainText('Coming soon');
 
     // Every action is a full-size target.
@@ -161,6 +166,9 @@ test('with club-seats open, signed-out Start a Club signs in, then starts a club
   await expect(card(page, 'League')).toContainText('Coming soon');
   const target = await start.boundingBox();
   expect(target?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await expect(
+    page.locator('summary', { hasText: 'Can I buy Premium for my children?' }),
+  ).toBeVisible();
   await assertNoSeriousFindings(page);
 
   await start.click();
