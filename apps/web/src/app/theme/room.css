@@ -435,24 +435,29 @@ img.ProseMirror-separator {
   --spacing-round-title: 16rem;
   --spacing-round-details: 20rem;
   --spacing-round-speeches: 18rem;
-  /* The bar's speech strip: wide enough for "CX1 · Cross-examination of the
-     affirmative" beside the next code. Narrower, it wraps to its own line. */
-  --spacing-round-speech-strip: 26rem;
+  /* The bar's speech strip: wide enough for a team round's longest name,
+     "CX1 · Cross-examination of the first affirmative", beside the done count,
+     the next code and the remaining count. Narrower, it wraps to its own line.
+     Keep it above the 25rem cutoff below, so desktop always draws it wide. */
+  --spacing-round-speech-strip: 28rem;
 }
 
 /* The speech strip's own width picks what it shows (round-bar.tsx): wide, the
    done count, the live speech, the next and the remaining count; narrow, the
-   live speech alone with its position ("3 of 7"). */
+   live speech alone with its position ("3 of 7"). One cutoff, 25rem, in both
+   utilities (container queries cannot read a var()): under the 28rem strip
+   token, and over a phone's wrapped strip (390px less the bar's padding), so
+   a phone gives the whole line to the live speech. Change both together. */
 @utility round-speech-wide {
   display: none;
-  @container round-speeches (min-width: 22rem) {
+  @container round-speeches (min-width: 25rem) {
     display: flex;
   }
 }
 
 @utility round-speech-narrow {
   display: flex;
-  @container round-speeches (min-width: 22rem) {
+  @container round-speeches (min-width: 25rem) {
     display: none;
   }
 }
