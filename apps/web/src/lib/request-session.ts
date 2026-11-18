@@ -62,6 +62,12 @@ import type { RecordingViewer } from '../features/recording/audience';
 import { recordingReads } from '../features/recording/composition';
 import { openRecordingHistory } from '../features/recording/history';
 import { resolveSession } from './identity';
+import type { ParentLinkRead } from '@daisy/db';
+import type { ReleaseLinkPurpose } from '@daisy/protocol/media-release';
+import {
+  isReleaseLinkToken,
+  releaseLinkDigest,
+} from '../features/media-releases/link-token';
 
 const requestFlagReader = cache(() => {
   const app = processApp();
@@ -645,3 +651,28 @@ export async function requestLobbyGrantTarget(
       app.database.getActiveHumanUserIdByActorId(actorId),
   });
 }
+
+/**
+ * The parent's media release pages (ADR 0151). The release flow is behind
+ * the youth-publishing flag, the one counsel gate: closed, there is no page.
+ */
+export const releasePagesOpen = (): Promise<boolean> =>
+  requestReleaseEnabled('youth-publishing', null);
+
+/**
+ * What a presented release link may do, read without changing anything; a
+ * value that is not a token's shape is never looked up and reads as unknown.
+ */
+export const readReleaseLink = async (
+  purpose: ReleaseLinkPurpose,
+  token: string,
+): Promise<ParentLinkRead> =>
+  isReleaseLinkToken(token)
+    ? processApp().database.mediaReleases.readParentLink(
+        releaseLinkDigest(purpose, token),
+        purpose,
+      )
+    : { kind: 'unknown' };
+
+/** The app's clock, for what a release page derives from a link's dates. */
+export const releaseNowMs = (): number => Date.parse(processApp().clock.now());
