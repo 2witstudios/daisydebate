@@ -110,13 +110,13 @@ Transcripts of casual rounds and AI feedback are deleted after 180 days; ranked 
 
 ## Age requirements and children
 
-You must be 16 or older to use Daisy. Optional onboarding questions are only ever asked of members 16 or older.
+You must be 13 or older to use Daisy. Optional onboarding questions are only ever asked of members 13 or older.
 
-When you sign up we ask your birth month and year. If you are under 13, or under the beta minimum age, we tell you so in neutral words and keep nothing you entered: the account that started to be created is deleted immediately, with its sign-in links and sessions.
+When you sign up we ask your birth month and year. If you are under 13, we tell you so in neutral words and keep nothing you entered: the account that started to be created is deleted immediately, with its sign-in links and sessions.
 
-To stop the age answer being retried at once, your browser keeps a cookie for 24 hours that records only whether sign-up was refused for being under 13 or for being under the beta minimum age. It holds no name, email or identifier. [COUNSEL: confirm whether that age bracket is personal data on a shared device.]
+To stop the age answer being retried at once, your browser keeps a cookie for 24 hours that records only that sign-up was refused for being under 13. It holds no name, email or identifier. [COUNSEL: confirm whether that age bracket is personal data on a shared device.]
 
-We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us data, contact privacy@daisydebate.com and we will delete it. [COUNSEL: confirm COPPA and age-appropriate design obligations for 13 to 17 year olds once the minimum age drops to 13.]
+We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us data, contact privacy@daisydebate.com and we will delete it. [COUNSEL: confirm COPPA and age-appropriate design obligations for 13 to 17 year olds, and state social-media laws that require parental consent for some 13 to 15 year olds (YLS-9).]
 
 ## Cookies
 

@@ -10,7 +10,7 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 describe('optional onboarding answers and age (ISSUE-645)', () => {
-  test('optional answers need a canonical age of 16 or over (ISSUE-645)', async () => {
+  test('optional answers need a canonical age of 13 or over (ISSUE-645, decision 88)', async () => {
     await withFixture(url, async (fixture) => {
       const attempt = (birthMonth: string | null) =>
         member(fixture, birthMonth, (ids) =>
@@ -33,12 +33,12 @@ describe('optional onboarding answers and age (ISSUE-645)', () => {
         );
       assert({
         given:
-          'a member who turned 16 this month, one a month short of 16, one under 13 and one with no age source',
+          'a member who turned 13 this month, one a month short of 13, one under 13 and one with no age source',
         should:
-          'store the 16-year-old’s answers and refuse every other with nothing stored',
+          'store the 13-year-old’s answers and refuse every other with nothing stored',
         actual: [
-          await attempt('2010-10'),
-          await attempt('2010-11'),
+          await attempt('2013-10'),
+          await attempt('2013-11'),
           await attempt('2015-01'),
           await attempt(null),
         ],
@@ -114,13 +114,14 @@ describe('optional onboarding answers and age (ISSUE-645)', () => {
         );
       assert({
         given: 'an adult, a 15-year-old and a member with no age source',
-        should: 'admit only the adult',
+        should:
+          'admit the adult and the 15-year-old (decision 88), not the member with no age',
         actual: [
           await read('2000-01'),
           await read('2011-01'),
           await read(null),
         ],
-        expected: [true, false, false],
+        expected: [true, true, false],
       });
     });
   });

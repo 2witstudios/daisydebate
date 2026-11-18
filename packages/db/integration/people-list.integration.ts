@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { ADMITTED_AGE_BANDS } from '@daisy/auth/age-floor';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -63,7 +64,7 @@ const page = (
     ctx.me,
     {
       onlineActorIds: [ctx.me.actorId, ctx.them.actorId],
-      admittedAgeBands: ['16-17', 'adult'],
+      admittedAgeBands: ADMITTED_AGE_BANDS,
       now: ctx.now,
       filter: 'all',
       // Other suites' members share this database: read only this fixture's.
@@ -284,16 +285,16 @@ test('the people list leaves out an approved account the age rule does not admit
       [unrecorded.them.userId],
     );
     await underFloor.client.unsafe(
-      "update account_age set birth_month = '2012-01' where user_id = $1",
+      "update account_age set birth_month = '2016-01' where user_id = $1",
       [underFloor.them.userId],
     );
     await oldEnough.client.unsafe(
-      "update account_age set birth_month = '2010-01' where user_id = $1",
+      "update account_age set birth_month = '2012-01' where user_id = $1",
       [oldEnough.them.userId],
     );
     assert({
       given:
-        'approved accounts with no age record, in the 13-15 band, and in the 16-17 band',
+        'approved accounts with no age record, under 13, and in the 13-15 band (decision 88)',
       should: 'list and count only the one the age floor admits',
       actual: [
         await listed(unrecorded),

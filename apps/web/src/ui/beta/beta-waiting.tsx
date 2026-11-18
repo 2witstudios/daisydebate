@@ -11,7 +11,7 @@ export type BetaWaitingProps = {
   readonly username: string;
   /**
    * `pending` waits for approval; `revoked` access was paused;
-   * `age-required` has no durable age record yet (the beta is 16+).
+   * `age-required` has no durable age record yet (members are 13+).
    */
   readonly reason: 'pending' | 'revoked' | 'age-required';
   /** The age step, which returns here once answered. */

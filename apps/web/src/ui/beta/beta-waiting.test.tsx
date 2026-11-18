@@ -54,7 +54,7 @@ describe('BetaWaiting (ADR 0075)', () => {
       }),
     );
     assert({
-      given: 'an approved or pending account with no durable 16+ age record',
+      given: 'an approved or pending account with no durable 13+ age record',
       should:
         'ask for its age and link to the age step, never say it is on the list',
       actual: [

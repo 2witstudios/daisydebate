@@ -56,10 +56,10 @@ describe('legal documents', () => {
     assert({
       given: 'the served terms and privacy policy',
       should:
-        'state 16+, promise no parental agreement or re-acceptance, and name what Watch keeps',
+        'state 13+ (decision 88), promise no parental agreement or re-acceptance, and name what Watch keeps',
       actual: [
-        terms.includes('16 or older'),
-        /13 or older|parent|guardian/.test(terms),
+        terms.includes('13 or older') && !/\b16\b/.test(terms),
+        /parental (?:consent|agreement|approval)|guardian/.test(terms),
         terms.includes('ask you to accept'),
         [
           'Tigris',

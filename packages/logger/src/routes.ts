@@ -270,6 +270,7 @@ const appRoutes = [
   '/onboarding/debate',
   '/onboarding/experience',
   '/onboarding/host',
+  '/onboarding/lobby',
   '/onboarding/passkey',
   '/onboarding/practice',
   '/onboarding/ready',

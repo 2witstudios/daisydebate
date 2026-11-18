@@ -25,7 +25,7 @@ export const termsDocument: LegalDocument = {
       id: 'who-can-join',
       heading: 'Who can join',
       paragraphs: [
-        'You must be 16 or older to make an account.',
+        'You must be 13 or older to make an account.',
         'One person holds one account. You sign in with an email link or a passkey, and you keep the sign-in methods you use private.',
       ],
     },
@@ -157,7 +157,7 @@ export const privacyDocument: LegalDocument = {
       id: 'young-members',
       heading: 'Members under 18',
       paragraphs: [
-        'You must be 16 or older to have an account. We do not target schools, and we do not sell personal data.',
+        'You must be 13 or older to have an account. We do not target schools, and we do not sell personal data.',
       ],
     },
     {

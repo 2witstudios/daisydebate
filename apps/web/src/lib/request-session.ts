@@ -240,7 +240,7 @@ export const requestHasRecordedAge = cache(async (): Promise<boolean> => {
 
 /**
  * Whether this render's member may be asked the optional onboarding
- * questions: their canonical age fact admits it (16 or over, ISSUE-645).
+ * questions: their canonical age fact admits it (13 or over, ISSUE-645, decision 88).
  * False for anyone else; a waitlisted account onboards before approval. A page only skips the questions on it; every
  * answer's write decides again under the account fence.
  */
@@ -257,6 +257,19 @@ export const requestOptionalAnswersAdmitted = cache(
       now: app.clock.now(),
       admits: admitsOptionalAnswers,
     });
+  },
+);
+
+/**
+ * The ladder division a provisional account's recorded age puts it on
+ * (ADR 0147), for the landing after the age step (YLS-8): `youth` for 13 to
+ * 17. Null for anyone else or without an age record; it only shapes the page.
+ */
+export const requestOnboardingDivision = cache(
+  async (): Promise<RatingDivision | null> => {
+    const identity = await requestIdentity();
+    if (identity.state !== 'provisional') return null;
+    return processApp().database.readMemberDivision(identity.principal.userId);
   },
 );
 

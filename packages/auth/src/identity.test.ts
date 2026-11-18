@@ -65,7 +65,7 @@ describe('resolveIdentity', () => {
       given:
         'pending, revoked and missing beta access, approval or pending without an age record, and an approved 16-17 account',
       should:
-        'wait with its reason until it is approved with an age record at the 16+ floor',
+        'wait with its reason until it is approved with an age record at the 13+ floor',
       actual: [
         await resolveWith(session(), 'c=1', 'pending'),
         await resolveWith(session(), 'c=1', 'revoked'),

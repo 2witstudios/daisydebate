@@ -70,6 +70,17 @@ export function decidePreapprovalChange(input: {
   };
 }
 
+/**
+ * The age bands a claimed grant may still invite: the account floor's bands
+ * (`ADMITTED_AGE_BANDS` in @daisy/auth, 13 and over since decision 88). The
+ * database never imports policy; a unit test holds the two equal.
+ */
+export const INVITABLE_AGE_BANDS: readonly string[] = [
+  '13-15',
+  '16-17',
+  'adult',
+];
+
 /** A consumed grant may invite only its still-matching eligible account. */
 export const canInviteClaimedPreapproval = (input: {
   readonly verified: boolean;
@@ -84,4 +95,5 @@ export const canInviteClaimedPreapproval = (input: {
   !input.erased &&
   !input.restricted &&
   input.state === 'approved' &&
-  (input.ageBand === 'adult' || input.ageBand === '16-17');
+  input.ageBand !== null &&
+  INVITABLE_AGE_BANDS.includes(input.ageBand);

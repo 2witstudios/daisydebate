@@ -157,7 +157,8 @@ The rest of this record describes BETA-2.
     HTTP. Room reads and creation stay member-only at the edge.
 - **Age admission (ISSUE-664).** Participant access is beta approval
   _and_ a durable age record whose band, computed now, meets
-  `ACCOUNT_AGE_FLOOR` (16 in the beta, DEC-106; 13 after). The account
+  `ACCOUNT_AGE_FLOOR` (16 in the beta, DEC-106; 13 since owner decision 88,
+  2026-11-18). The account
   fence reports that band (never birth data). A missing record is no
   access: the account waits as `age-required`, and the beta page sends
   it to the age step. The operator command refuses to approve such an

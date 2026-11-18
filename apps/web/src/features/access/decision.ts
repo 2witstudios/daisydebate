@@ -93,6 +93,13 @@ export const signInHref = (destination: string): string =>
 export const onboardingHref = (destination: string): string =>
   `/onboarding/age?next=${encodeURIComponent(destination)}`;
 
+/**
+ * After the age step: the Youth landing for a member under 18, straight on
+ * to the username step for anyone else (decision 88, YLS-8).
+ */
+export const lobbyLandingHref = (destination: string): string =>
+  `/onboarding/lobby?next=${encodeURIComponent(destination)}`;
+
 /** Choose a username, once the age step is answered, then the destination. */
 export const usernameHref = (destination: string): string =>
   `/onboarding/username?next=${encodeURIComponent(destination)}`;

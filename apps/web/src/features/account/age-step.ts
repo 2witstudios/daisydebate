@@ -2,11 +2,11 @@ import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { ageBand, type Identity } from '@daisy/auth';
+import type { Identity } from '@daisy/auth';
 import {
-  ageStepDecision,
+  memberFloorDecision,
   type AgeFloor,
-  type AgeStepDecision,
+  type AgeRefusal,
 } from '@daisy/auth/age-floor';
 import { z } from 'zod';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
@@ -21,16 +21,20 @@ import {
 /** A person correcting a slip, far below anything that probes the floor. */
 const AGE_RULE = { windowSeconds: 60, max: 10 } as const;
 
-/** The refusal a browser is held to for a day after an under-age answer (WAIT-4.7). */
-export type AgeRefusal = Exclude<AgeStepDecision, 'accept'>;
+/** The refusal a browser is held to for a day after an under-13 answer (WAIT-4.7). */
+export type { AgeRefusal };
 
 /** Holds only which refusal was given; it identifies no one. */
 export const AGE_HOLD_COOKIE = '__Host-daisy-age-held';
 const HOLD_SECONDS = 24 * 60 * 60;
 
-/** A hold cookie's value as the refusal it holds, or null for anything else. */
+/**
+ * A hold cookie's value as the refusal it holds, or null for anything else.
+ * A day-old `below-floor` hold from the beta's 16 floor holds nothing now:
+ * that answer is admitted at 13 (decision 88).
+ */
 export const holdRefusal = (value: string | undefined): AgeRefusal | null =>
-  value === 'under-13' || value === 'below-floor' ? value : null;
+  value === 'under-13' ? value : null;
 
 /** The hold a browser carries, read from its own cookie header. */
 const heldRefusal = (cookieHeader: string | null): AgeRefusal | null =>
@@ -143,16 +147,17 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
         );
         const birthMonth = `${year}-${String(month).padStart(2, '0')}`;
         const now = dependencies.clock.now();
-        const decision = ageStepDecision(
-          ageBand(birthMonth, new Date(now)),
+        const decision = memberFloorDecision(
+          birthMonth,
+          new Date(now),
           dependencies.floor,
         );
-        if (decision !== 'accept') {
+        if (decision.outcome === 'refused') {
           // Refused means the account answered already or became a member:
           // the first answer stands, so no refusal page and no hold.
           if ((await dependencies.forget(userId)) === 'refused')
             throw createAppError('CONFLICT');
-          return refused(decision, id);
+          return refused(decision.refusal, id);
         }
         const outcome = await dependencies.record({
           userId,
