@@ -61,6 +61,7 @@ export const clubSeatInvitations = pgTable(
       table.expiresAt,
     ),
     index('club_seat_invitations_email_idx').on(table.email),
+    index('club_seat_invitations_invited_by_idx').on(table.invitedByUserId),
     check(
       'club_seat_invitations_email_normalized',
       sql`${table.email} = lower(btrim(${table.email})) and length(${table.email}) between 3 and 320`,

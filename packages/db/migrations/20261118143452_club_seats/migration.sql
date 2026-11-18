@@ -34,6 +34,7 @@ CREATE UNIQUE INDEX "billing_subscriptions_current_organization_unique" ON "bill
 CREATE INDEX "billing_subscriptions_organization_idx" ON "billing_subscriptions" ("organization_id");--> statement-breakpoint
 CREATE INDEX "club_seat_invitations_organization_idx" ON "club_seat_invitations" ("organization_id","expires_at");--> statement-breakpoint
 CREATE INDEX "club_seat_invitations_email_idx" ON "club_seat_invitations" ("email");--> statement-breakpoint
+CREATE INDEX "club_seat_invitations_invited_by_idx" ON "club_seat_invitations" ("invited_by_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "club_seats_user_unique" ON "club_seats" ("user_id");--> statement-breakpoint
 CREATE INDEX "account_entitlement_grants_organization_idx" ON "account_entitlement_grants" ("organization_id");--> statement-breakpoint
 CREATE INDEX "mail_intents_club_invitation_idx" ON "mail_intents" ("club_seat_invitation_id");--> statement-breakpoint
