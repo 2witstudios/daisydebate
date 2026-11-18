@@ -175,7 +175,7 @@ test('the prune loop keeps readable installed versions and reports a changed set
   const { tmpdir } = await import('node:os');
   const script = await read('scripts/ci-browsers.sh');
   const loop = script.slice(
-    script.indexOf('cp /var/cache/apt/archives/*.deb'),
+    script.indexOf('for deb in "$deb_cache"/*.deb; do'),
     script.indexOf('"$bun" "$cli" install "$@"'),
   );
   const root = mkdtempSync(join(tmpdir(), 'daisy-browser-debs-'));
