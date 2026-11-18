@@ -30,9 +30,11 @@ const questionIds = [
   'ranked-recorded',
 ] as const;
 
-const questions = questionIds.flatMap((id) => {
+const questions = questionIds.map((id) => {
   const topic = helpTopics.find((entry) => entry.id === id);
-  return topic ? [[id, topic.question] as const] : [];
+  // A renamed Help topic fails here, at module load, never as a link that quietly disappears.
+  if (topic === undefined) throw new Error(`Help has no topic ${id}`);
+  return [id, topic.question] as const;
 });
 
 const button =

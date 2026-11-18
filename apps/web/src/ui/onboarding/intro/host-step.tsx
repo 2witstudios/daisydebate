@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { hostRoutes } from '../../../features/tab/routes';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
 import { heading, hostTag, type HostAwareStepProps } from './intro';
+import { IntroCard } from './intro-parts';
 
 const tools = [
   {
@@ -27,9 +27,9 @@ const tools = [
 ] as const;
 
 /**
- * Step 5: Daisy Tab for leagues and hosts. Until Tab is released to the
- * viewer its link leads to the Tournaments page, never to a route that
- * would answer as missing.
+ * Step 5: Daisy Tab for leagues and hosts, tagged by whether Tab is released
+ * to the viewer. Its link is the public Tournaments page, which says what is
+ * open to them: Tab has no host landing page yet (`/host` answers missing).
  */
 export function HostStep({
   nextHref,
@@ -55,30 +55,12 @@ export function HostStep({
         where your debaters already are.
       </p>
       <ul className="grid grid-cols-2 gap-4 max-narrow:grid-cols-1">
-        {tools.map(({ name, summary, points }) => (
-          <li
-            key={name}
-            className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-4"
-          >
-            <h2 className="font-display text-xl font-semibold text-ink">
-              {name}
-            </h2>
-            <p className="text-sm leading-normal text-ink-muted">{summary}</p>
-            <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-normal text-ink">
-              {points.map((point) => (
-                <li key={point}>{point}</li>
-              ))}
-            </ul>
-          </li>
+        {tools.map((tool) => (
+          <IntroCard key={tool.name} {...tool} />
         ))}
       </ul>
-      <Link
-        href={tabReleased ? hostRoutes.home : '/tournaments'}
-        className="self-start text-base font-strong"
-      >
-        {tabReleased
-          ? 'Set up a league or tournament'
-          : 'See what’s coming for tournaments'}
+      <Link href="/tournaments" className="self-start text-base font-strong">
+        Tournaments on Daisy
       </Link>
       <StepFooter
         backHref={backHref}

@@ -20,4 +20,14 @@ test('a link to a Help topic opens its answer', async ({ page }) => {
   await expect(
     page.locator('details', { has: page.locator('summary#ranked-recorded') }),
   ).toHaveAttribute('open', '');
+
+  // A same-page link changes the hash through history.pushState, which
+  // fires no hashchange; the answer still opens.
+  await page.evaluate(() => {
+    history.pushState(null, '', '/help#teams');
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await expect(
+    page.locator('details', { has: page.locator('summary#teams') }),
+  ).toHaveAttribute('open', '');
 });

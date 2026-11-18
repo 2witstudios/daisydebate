@@ -3,7 +3,6 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { destinationHref } from '../../../features/destinations/destinations';
-import { leaderboardDestinations } from '../../../features/leaderboard/actions';
 import { hostRoutes } from '../../../features/tab/routes';
 import { routeExists } from '../../test-support/route-exists';
 import { stageColourClasses } from '../../test-support/stage-palette';
@@ -12,6 +11,7 @@ import { DebateStep } from './debate-step';
 import { PracticeStep } from './practice-step';
 import { HostStep } from './host-step';
 import { catalogTemplates } from './templates';
+import { drawSize, freestylePreset } from './freestyle';
 import { DaisyStep, type IntroStepProps } from './intro';
 
 setupRitewayBun();
@@ -132,6 +132,17 @@ describe('StylesStep', () => {
       expected: Array(8).fill(true),
     });
     assert({
+      given: 'the catalog’s Freestyle draw',
+      should:
+        'match the example: as many resolutions as it draws, Neg striking first',
+      actual: [
+        html.split('<del').length - 1 + 1,
+        freestylePreset.resolutionDraw.enabled &&
+          freestylePreset.resolutionDraw.firstStriker,
+      ],
+      expected: [drawSize, 'negative'],
+    });
+    assert({
       given: 'the example draw',
       should: 'strike four resolutions, two by each side',
       actual: [
@@ -195,14 +206,10 @@ describe('DebateStep', () => {
     assert({
       given: 'Practise a debate, Watch a debate and How ratings work',
       should:
-        'point at existing routes, How ratings work at the seasons page’s rating section',
+        'point at existing routes, How ratings work at Help’s ratings answer, which every member can reach',
       actual: [links, links.filter((href) => !resolves(href))],
       expected: [
-        [
-          destinationHref('train'),
-          destinationHref('watch'),
-          leaderboardDestinations.howRatingWorks,
-        ],
+        [destinationHref('train'), destinationHref('watch'), '/help#ratings'],
         [],
       ],
     });
@@ -237,16 +244,18 @@ describe('HostStep', () => {
     const page = text(html);
     assert({
       given: 'a viewer Daisy Tab is released to',
-      should: 'show league and tournament tools and lead to the host area',
+      should:
+        'show league and tournament tools and lead to the Tournaments page, never the missing host landing',
       actual: [
         page.includes('5 of 8'),
         page.includes('Run your league For leagues and hosts'),
         page.includes('Your league'),
         page.includes('Your tournaments'),
         page.includes('in person at your venue'),
-        hrefs(html).includes(hostRoutes.home),
+        hrefs(html).includes('/tournaments'),
+        hrefs(html).some((href) => href.startsWith(hostRoutes.home)),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, false],
     });
   });
 

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
-import { freestyleLength } from './freestyle';
+import { freestyleLine } from './freestyle';
+import { IntroCard } from './intro-parts';
 
 export type IntroStepProps = {
   readonly nextHref: string;
@@ -57,7 +58,7 @@ export function DaisyStep({
       summary:
         'Play Freestyle, Daisy’s standard. Get matched with someone near your rating, and every result moves you on the season’s ladder.',
       points: [
-        `1v1, ${freestyleLength} with prep`,
+        `${freestyleLine.replace(' · ', ', ')} with prep`,
         'Resolution chosen at the table',
         'One ladder per season',
       ],
@@ -103,24 +104,8 @@ export function DaisyStep({
         league here.
       </p>
       <ul className="grid grid-cols-3 gap-4 max-tiles:grid-cols-1">
-        {ways.map(({ name, tag, summary, points }) => (
-          <li
-            key={name}
-            className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-4"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-display text-xl font-semibold text-ink">
-                {name}
-              </h2>
-              <span className={tag.className}>{tag.label}</span>
-            </div>
-            <p className="text-sm leading-normal text-ink-muted">{summary}</p>
-            <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-normal text-ink">
-              {points.map((point) => (
-                <li key={point}>{point}</li>
-              ))}
-            </ul>
-          </li>
+        {ways.map((way) => (
+          <IntroCard key={way.name} {...way} />
         ))}
       </ul>
       <StepFooter

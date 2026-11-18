@@ -77,7 +77,7 @@ export const helpTopics: readonly HelpTopic[] = [
     id: 'run-your-league',
     question: 'Can my league or tournament use Daisy?',
     answer:
-      'Yes, in early access as it rolls out. A league can have its own lobby and ladder on Daisy, and host tournaments online or in person with tabulation built in: events, entries, judges, pairings, ballots, results and standings.',
+      'Daisy’s league and tournament tools are rolling out in early access. A league will have its own lobby and ladder on Daisy, and can host tournaments online or in person with tabulation built in: events, entries, judges, pairings, ballots, results and standings. The Tournaments page says when it is open to your account.',
     links: [{ label: 'Tournaments', href: '/tournaments' }],
   },
   {

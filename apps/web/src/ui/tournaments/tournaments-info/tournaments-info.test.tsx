@@ -40,13 +40,13 @@ describe('TournamentsInfo', () => {
   test('with Daisy Tab released', () => {
     const released = renderToString(h(TournamentsInfo, { tabReleased: true }));
     assert({
-      given: 'a viewer Daisy Tab is released to',
+      given: 'a viewer Daisy Tab is released to, and one it is not',
       should:
-        'say tabulation is here, lead to the host area, and claim no hybrid',
+        'say early access is open to the first and rolling out to the second, linking nowhere and claiming no hybrid',
       actual: [
-        released.includes('Run your league or tournament on Daisy'),
-        released.includes('href="/host"'),
-        released.includes('planning tabulation'),
+        released.includes('Tabulation is open to your account in early access'),
+        html.includes('Tabulation is rolling out in early access'),
+        released.includes('<a '),
         released.includes('hybrid') || html.includes('hybrid'),
       ],
       expected: [true, true, false, false],

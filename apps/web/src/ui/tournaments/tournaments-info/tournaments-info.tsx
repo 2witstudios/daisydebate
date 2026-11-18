@@ -1,6 +1,4 @@
 import Image from 'next/image';
-import Link from 'next/link';
-import { hostRoutes } from '../../../features/tab/routes';
 import { art } from '../../assets';
 
 const events = [
@@ -19,9 +17,9 @@ const events = [
 ] as const;
 
 /**
- * What Daisy plans for tournaments. Information only, with nothing to act on,
- * until Daisy Tab is released to the viewer: then its tabulation note says
- * the tools are here and leads to the host area.
+ * What Daisy plans for tournaments: information only, with nothing to act on.
+ * Its tabulation note says whether Daisy Tab's early access is open to the
+ * viewer yet.
  */
 export function TournamentsInfo({
   tabReleased = false,
@@ -79,23 +77,11 @@ export function TournamentsInfo({
         <h2 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           Tabulation software
         </h2>
-        {tabReleased ? (
-          <>
-            <p className="text-base leading-tile-copy text-ink-muted">
-              Run your league or tournament on Daisy, online or in person:
-              pairings, ballots and results in one place.
-            </p>
-            <Link href={hostRoutes.home} className="text-base font-strong">
-              Set up a league or tournament
-            </Link>
-          </>
-        ) : (
-          <p className="text-base leading-tile-copy text-ink-muted">
-            We&apos;re also planning tabulation software for running speech and
-            debate tournaments, online or in person: pairings, ballots and
-            results in one place.
-          </p>
-        )}
+        <p className="text-base leading-tile-copy text-ink-muted">
+          {tabReleased
+            ? 'Tabulation is open to your account in early access: run your league or tournament on Daisy, online or in person, with pairings, ballots and results in one place.'
+            : 'Tabulation is rolling out in early access: running speech and debate tournaments on Daisy, online or in person, with pairings, ballots and results in one place.'}
+        </p>
       </section>
     </div>
   );

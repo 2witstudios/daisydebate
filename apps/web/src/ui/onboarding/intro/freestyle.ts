@@ -1,6 +1,6 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { catalogFormats } from '@daisy/db/catalog-formats';
-import { roundLength } from '../../../features/debate-room/vocabulary';
+import { formatLine } from '../../rooms/room-page/room-labels';
 
 /**
  * Freestyle as the intro teaches it: the format a new member's first
@@ -31,15 +31,9 @@ export const drawSize = freestyle.preset.resolutionDraw.enabled
   ? freestyle.preset.resolutionDraw.drawSize
   : 0;
 
-/** "about 45 min": the room creator's own reckoning, prep included. */
-export const freestyleLength = roundLength({
-  speechesMs: freestyle.rules.segments.map((segment) => segment.durationMs),
-  countdownMs: freestyle.preset.speechTiming.countdownMs,
-  prepPerSideMs: freestyle.preset.inRoundPrep.enabled
-    ? freestyle.preset.inRoundPrep.budgetMsPerSide
-    : null,
-  preRoundPrepMs: freestyle.preset.preRoundPrep.enabled
-    ? freestyle.preset.preRoundPrep.durationMs
-    : 0,
-  sideCount: freestyle.rules.sides.length,
+/** "1v1 · about 45 min": the line every room shows for its format, prep included. */
+export const freestyleLine = formatLine({
+  rules: freestyle.rules,
+  config: freestyle.preset,
+  definition: freestyle.format.definition,
 });
