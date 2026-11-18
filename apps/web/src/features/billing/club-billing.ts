@@ -4,20 +4,14 @@ import type { Clock } from '@daisy/clock';
 import type { ClubBillingConfig } from '@daisy/config';
 import type { ClubSeatAnswer, Database } from '@daisy/db';
 import { clubSeatBounds } from '@daisy/protocol/club-seats';
-import {
-  createCheckoutVendor,
-  type CheckoutPort,
-} from '../billing/checkout-vendor';
+import { createCheckoutVendor, type CheckoutPort } from './checkout-vendor';
 import {
   discoverCheckout,
   type CheckoutSearchPort,
-} from '../billing/checkout-discovery';
-import {
-  createPurchaseFlow,
-  type PurchaseDestination,
-} from '../billing/purchase-flow';
-import { createPortalSession } from '../billing/portal-session';
-import { clubSubscriptionSchema } from '../billing/club-subscription-facts';
+} from './checkout-discovery';
+import { createPurchaseFlow, type PurchaseDestination } from './purchase-flow';
+import { createPortalSession } from './portal-session';
+import { clubSubscriptionSchema } from './club-subscription-facts';
 
 type Subject = { readonly userId: string; readonly actorId: string };
 type PurchaseStore = ReturnType<Database['billingPurchases']>;
@@ -99,20 +93,21 @@ export type SeatChangeAnswer =
  * no credit. Neither writes access: the webhook's verified observation does.
  */
 export function createClubBilling(input: {
-  readonly config: {
+  /** Absent while Club billing is not configured: every vendor act is unavailable. */
+  readonly vendor: {
     readonly mode: 'test' | 'live';
     readonly club: ClubBillingConfig;
+    readonly checkout: CheckoutPort & CheckoutSearchPort;
+    readonly portal: PortalCreate;
+    readonly plan: ClubPlanPort;
   } | null;
   readonly clock: Clock;
   readonly returnOrigin: string;
-  readonly checkout: CheckoutPort & CheckoutSearchPort;
-  readonly portal: PortalCreate;
-  readonly plan: ClubPlanPort;
   readonly purchases: PurchaseStore;
   readonly member: MemberStore;
   readonly seats: SeatStore;
 }) {
-  const config = input.config;
+  const config = input.vendor;
   const unavailable = { kind: 'unavailable' } as const;
   /** One bounded purchase step for this club's seat count, fenced by the club's billing owner. */
   const flowFor = (
@@ -133,12 +128,15 @@ export function createClubBilling(input: {
         ),
       store: input.purchases,
       vendor: createCheckoutVendor({
-        port: input.checkout,
+        port: active.checkout,
         clock: input.clock,
         mode: active.mode,
       }),
       discover: (purchase) =>
-        discoverCheckout({ port: input.checkout, mode: active.mode }, purchase),
+        discoverCheckout(
+          { port: active.checkout, mode: active.mode },
+          purchase,
+        ),
     });
 
   return {
@@ -167,7 +165,7 @@ export function createClubBilling(input: {
         returnPath: `/clubs/${organizationId}/billing`,
         customer: () =>
           input.member.portalCustomer({ ...subject, organizationId }),
-        create: input.portal,
+        create: config.portal,
       })(subject);
     },
 
@@ -191,7 +189,7 @@ export function createClubBilling(input: {
       if (ready.seatCount === ready.currentSeatCount)
         return { kind: 'changed' };
       const current = clubSubscriptionSchema.safeParse(
-        await input.plan.subscription(ready.vendorSubscriptionId),
+        await config.plan.subscription(ready.vendorSubscriptionId),
       );
       if (
         !current.success ||
@@ -203,7 +201,7 @@ export function createClubBilling(input: {
       const item = current.data.items.data[0]!;
       const increase = ready.seatCount > item.quantity;
       try {
-        await input.plan.updateSeats(
+        await config.plan.updateSeats(
           ready.vendorSubscriptionId,
           {
             items: [{ id: item.id, quantity: ready.seatCount }],
@@ -232,7 +230,7 @@ export function createClubBilling(input: {
       if (!customer || customer.mode !== config.mode) return [];
       let page: unknown;
       try {
-        page = await input.plan.invoices(customer.id, vendorSubscriptionId);
+        page = await config.plan.invoices(customer.id, vendorSubscriptionId);
       } catch {
         return [];
       }
