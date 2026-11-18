@@ -1,3 +1,4 @@
+import { composeClubs } from '../features/clubs/composition';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { fixedClock, sequentialId } from '@daisy/clock';
@@ -51,16 +52,17 @@ test('the process-owned lazy table retains its complete trusted boundary and rej
         compositions += 1;
         if (ownedApp !== app || ownedFetch !== noVendor)
           throw Error('Wrong process');
-        return composeBillingRoutes({
-          boundary: {
-            logger: app.logger,
-            reporter: app.reporter,
-            origin: () => origin,
-            identify: async () => member,
-            limiter: () => ({
-              consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
-            }),
-          },
+        const boundary = {
+          logger: app.logger,
+          reporter: app.reporter,
+          origin: () => origin,
+          identify: async () => member,
+          limiter: () => ({
+            consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
+          }),
+        };
+        const billing = composeBillingRoutes({
+          boundary,
           runtime: () => ({
             checkout: async () => {
               throw trusted
@@ -73,6 +75,7 @@ test('the process-owned lazy table retains its complete trusted boundary and rej
             },
           }),
         });
+        return { ...billing, clubs: composeClubs(app, null, boundary) };
       },
     };
   });

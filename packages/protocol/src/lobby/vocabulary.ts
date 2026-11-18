@@ -5,8 +5,11 @@
  * protocol and API slice.
  */
 
-/** An organization is a league, or a school or club. */
-export const organizationKinds = ['league', 'school'] as const;
+/**
+ * An organization is a league, a school or club, or a homeschool family (a
+ * parent seating their own children on a Club plan, ADR 0148).
+ */
+export const organizationKinds = ['league', 'school', 'family'] as const;
 export type OrganizationKind = (typeof organizationKinds)[number];
 
 /** Belonging to an organization. It grants nothing; only `active` lets a grant count. */

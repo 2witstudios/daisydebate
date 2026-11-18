@@ -19,6 +19,7 @@ const configured: BillingConfig = {
   webhookSecret: 'whsec_fixture',
   premiumPriceId: 'price_replacement',
   portalConfigurationId: 'bpc_fixture',
+  club: null,
 };
 
 for (const mapped of [false, true])

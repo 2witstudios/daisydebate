@@ -19,7 +19,8 @@ export const monthlyPrice = (minor: number) => {
 /** The current offer as copy shows it. */
 export const premiumOfferPrice = monthlyPrice(premiumOffer.unitAmount);
 
-const priceShape = {
+/** A licensed USD price billed every month: Premium's and Club's share it. */
+export const monthlyPriceShape = {
   id: z
     .string()
     .regex(/^price_[A-Za-z0-9_]+$/)
@@ -35,7 +36,7 @@ const priceShape = {
 
 /** A new Checkout verifies exactly the current offer. */
 export const premiumPriceSchema = z.object({
-  ...priceShape,
+  ...monthlyPriceShape,
   unit_amount: z.literal(premiumOffer.unitAmount),
   lookup_key: z.literal(premiumOffer.lookupKey),
 });
@@ -46,7 +47,7 @@ export const premiumPriceSchema = z.object({
  * still equal its own subscription's amount.
  */
 export const subscribedPriceSchema = z.object({
-  ...priceShape,
+  ...monthlyPriceShape,
   lookup_key: z.string().max(200).nullable().optional(),
   unit_amount: z.union([
     z.literal(premiumOffer.unitAmount),

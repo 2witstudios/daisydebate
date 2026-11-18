@@ -12,6 +12,7 @@ const source: BillingSettingsSource = {
   granted: false,
   renewalOff: false,
   amountMinor: null,
+  seat: null,
 };
 test('dark purchase release preserves billing management and shows no counter', () => {
   const view = billingSettingsView({
@@ -150,5 +151,47 @@ test('a beta-granted account reads as Premium with nothing to buy', () => {
     should: 'show the granted plan and offer no checkout',
     actual: [view.plan, view.checkoutAvailable],
     expected: ['granted', false],
+  });
+});
+
+test('a current Club seat shows Premium through the club; paying for Premium yourself shows your own plan', () => {
+  const seat = { name: 'Northside Debate Club', manager: 'Ms. R. Okafor' };
+  const seated = billingSettingsView({
+    source: { ...source, seat },
+    configured: true,
+    purchaseVisible: true,
+  });
+  assert({
+    given: 'a seat holder with no subscription of their own',
+    should: 'show the club seat, name the club, and offer no checkout',
+    actual: [seated.plan, seated.club, seated.checkoutAvailable],
+    expected: ['club-seat', seat, false],
+  });
+  const own = billingSettingsView({
+    source: {
+      ...source,
+      seat,
+      amountMinor: 2000,
+      evidence: {
+        lifecycle: 'active',
+        settlement: {
+          kind: 'paid',
+          invoiceId: 'in_fixture',
+          period: {
+            subscriptionId: 'a'.repeat(24),
+            startsAt: '2026-11-01T00:00:00.000Z',
+            endsAt: '2026-12-01T00:00:00.000Z',
+          },
+        },
+      },
+    },
+    configured: true,
+    purchaseVisible: true,
+  });
+  assert({
+    given: 'a seat holder who also pays for Premium',
+    should: 'show their own Premium, which stays until they cancel it',
+    actual: [own.plan, own.club],
+    expected: ['premium', null],
   });
 });

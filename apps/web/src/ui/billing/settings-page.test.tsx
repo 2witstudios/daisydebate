@@ -100,7 +100,7 @@ test('a club seat has nothing to manage', () => {
           ...premium,
           plan: 'club-seat',
           priceMinor: null,
-          club: { name: 'Northside Debate Club', coach: 'Ms. R. Okafor' },
+          club: { name: 'Northside Debate Club', manager: 'Ms. R. Okafor' },
         }}
       />,
     ),

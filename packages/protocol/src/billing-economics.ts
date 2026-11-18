@@ -5,6 +5,7 @@ const sourceKind = z.enum([
   'lifetime',
   'beta',
   'subscription',
+  'organization_seat',
   'ranked',
   'unattributed',
 ]);

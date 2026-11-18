@@ -11,6 +11,7 @@ const config: BillingConfig = {
   webhookSecret: 'whsec_fixture',
   premiumPriceId: 'price_fixture',
   portalConfigurationId: 'bpc_fixture',
+  club: null,
 };
 
 test('disabled beta configuration has no Stripe resource or transport work', () => {

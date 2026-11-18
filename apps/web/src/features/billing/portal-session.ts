@@ -27,6 +27,8 @@ export function createPortalSession(input: {
   readonly mode: Customer['mode'];
   readonly configurationId: string;
   readonly returnOrigin: string;
+  /** Where the portal returns: the member's billing page unless a club names its own. */
+  readonly returnPath?: string;
   readonly customer: (subject: Subject) => Promise<Customer | null>;
   readonly create: (parameters: Parameters) => Promise<unknown>;
 }) {
@@ -40,7 +42,7 @@ export function createPortalSession(input: {
     const parameters = {
       customer: customer.id,
       configuration: input.configurationId,
-      return_url: `${input.returnOrigin}/settings/billing`,
+      return_url: `${input.returnOrigin}${input.returnPath ?? '/settings/billing'}`,
     };
     let value: unknown;
     try {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import { billingOwnerSchema, maxPurchaseQuantity } from './billing-owner';
 
 export const purchaseBounds = {
   creationMs: 300_000,
@@ -84,7 +85,9 @@ function validUnknown(
 export const purchaseSchema = z
   .strictObject({
     id: idSchema,
-    userId: idSchema,
+    owner: billingOwnerSchema,
+    /** Seats bought: 1 for Premium, the Club plan's seat count otherwise. */
+    quantity: z.number().int().min(1).max(maxPurchaseQuantity),
     mode: z.enum(['test', 'live']),
     priceId: z
       .string()
@@ -99,6 +102,10 @@ export const purchaseSchema = z
     admittedAt: instant,
     state: purchaseStateSchema,
   })
+  .refine(
+    (purchase) =>
+      purchase.owner.kind === 'organization' || purchase.quantity === 1,
+  )
   .refine((purchase) => {
     const { state } = purchase;
     const admitted = at(purchase.admittedAt);

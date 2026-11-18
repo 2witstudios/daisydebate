@@ -4,6 +4,7 @@ import { composeNativeBilling } from '../features/billing/native-app';
 import type { NativeBillingRuntime } from '../features/billing/native-contract';
 import { memberHttpBoundary } from './member-boundary';
 import { composeBillingRoutes } from '../features/billing/native-composition';
+import { composeClubs } from '../features/clubs/composition';
 
 /** Only Billing routes compose release authority; the proxy's shared App has a pure optional port. */
 export function createBillingNativeResolver() {
@@ -25,8 +26,14 @@ export function createBillingNativeResolver() {
 const native = createBillingNativeResolver();
 
 /** Route modules receive the process resources through the authorized route binder. */
-export const billingRoutes = (app: App, fetch: BillingFetch) =>
-  composeBillingRoutes({
+export const billingRoutes = (app: App, fetch: BillingFetch) => ({
+  ...composeBillingRoutes({
     boundary: memberHttpBoundary(app),
     runtime: () => native(app, fetch),
-  });
+  }),
+  clubs: composeClubs(
+    app,
+    createBillingStripe(app.config.billing, fetch),
+    memberHttpBoundary(app),
+  ),
+});

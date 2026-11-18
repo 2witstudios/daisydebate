@@ -5,6 +5,7 @@ import {
   type AuthorizationCapability,
   type Permission,
 } from './authorization';
+import { organizationKinds } from './lobby/vocabulary';
 
 /** Every kind of resource a capability may be asked of. */
 export const authorizationResourceKindSchema = z.enum([
@@ -56,7 +57,7 @@ export type AuthorizationResourceKind = z.infer<
 
 export const lobbyKindSchema = z.enum(['standing', 'tournament']);
 export type LobbyKind = z.infer<typeof lobbyKindSchema>;
-export const organizationKindSchema = z.enum(['league', 'school']);
+export const organizationKindSchema = z.enum(organizationKinds);
 export type OrganizationKind = z.infer<typeof organizationKindSchema>;
 
 /**

@@ -1,6 +1,6 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { subscriptionGrants } from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { createBillingSynchronization } from '../src/billing-synchronization';
@@ -77,7 +77,7 @@ export function withBillingSynchronization(
         store: createBillingSynchronization({
           run,
           nextId: createId,
-          grants: subscriptionGrants,
+          grants: { account: subscriptionGrants, club: clubSeatGrants },
         }),
       });
     } finally {
@@ -89,4 +89,8 @@ export function withBillingSynchronization(
 }
 
 /** The display terms of an ordinary renewing $20 subscription (ADR 0146). */
-export const renewing = { renewalOff: false, amountMinor: 2000 } as const;
+export const renewing = {
+  renewalOff: false,
+  amountMinor: 2000,
+  seatCount: null,
+} as const;

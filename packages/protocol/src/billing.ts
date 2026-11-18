@@ -66,6 +66,13 @@ export type {
   PurchaseEvent,
   PurchaseObservation,
 } from './billing-purchase';
+export {
+  billingOwnerColumns,
+  billingOwnerOf,
+  billingOwnerSchema,
+  maxPurchaseQuantity,
+} from './billing-owner';
+export type { BillingOwner } from './billing-owner';
 export { reconcileSubscriptionEvidence } from './billing-reconciliation';
 export { advanceBillingSync, billingSyncStateSchema } from './billing-sync';
 import type { EntitlementGrant } from './entitlements';
@@ -133,7 +140,14 @@ export type UsageSource =
       readonly startsAt: string;
       readonly endsAt: string;
     }
-  | ({ readonly kind: 'subscription' } & SubscriptionPeriod);
+  | ({ readonly kind: 'subscription' } & SubscriptionPeriod)
+  /** A club seat (ADR 0148): the paying club and the seat grant's bounds. */
+  | {
+      readonly kind: 'organization_seat';
+      readonly organizationId: string;
+      readonly startsAt: string;
+      readonly endsAt: string;
+    };
 
 export type AllowanceRequest =
   | {
@@ -332,6 +346,13 @@ export const usageSourceSchema: z.ZodType<UsageSource> = z.discriminatedUnion(
       .strictObject({
         kind: z.literal('subscription'),
         ...subscriptionPeriodSchema.shape,
+      })
+      .refine(orderedInterval, 'Period must have positive duration'),
+    z
+      .strictObject({
+        kind: z.literal('organization_seat'),
+        organizationId: idSchema,
+        ...interval,
       })
       .refine(orderedInterval, 'Period must have positive duration'),
   ],

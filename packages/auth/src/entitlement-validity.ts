@@ -23,7 +23,8 @@ export function currentEntitlementGrants(
     switch (grant.source) {
       case 'beta':
         return evaluation.betaGrantsPremium;
-      case 'subscription': {
+      case 'subscription':
+      case 'organization_seat': {
         const start = Date.parse(grant.startsAt);
         const end = Date.parse(grant.expiresAt);
         return start <= now && now < end;

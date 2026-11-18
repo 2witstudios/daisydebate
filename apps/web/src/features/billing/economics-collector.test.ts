@@ -472,3 +472,66 @@ test('a monthly run never treats its own month as a correction, whatever the clo
     expected: ['reported', 'missing', 1],
   });
 });
+
+test('club seat use keeps the self-paid plans’ coverage only when costs come from usage counters', async () => {
+  const attempt = (sourceKind: 'organization_seat' | 'unattributed') => ({
+    sourceKind,
+    sourceStartsAt: sourceKind === 'organization_seat' ? month : null,
+    sourceEndsAt:
+      sourceKind === 'organization_seat' ? '2026-11-01T00:00:00.000Z' : null,
+    feature: 'ai_round' as const,
+    model: null,
+    provider: 'openrouter',
+    firstAt: month,
+    lastAt: month,
+    runs: 1,
+    knownResponses: 0,
+    unmeasuredResponses: 0,
+    unknownCalls: 0,
+    definiteFailures: 1,
+    inputTokens: 0,
+    outputTokens: 0,
+    characters: 0,
+  });
+  const coverage = async (
+    sourceKind: 'organization_seat' | 'unattributed',
+    basis: 'provider_invoice' | 'usage_counters' = 'usage_counters',
+  ) => {
+    const collector = createBillingEconomicsCollector({
+      store: {
+        read: async () => ({ ...snapshot(), attempts: [attempt(sourceKind)] }),
+      },
+      feed: {
+        read: async () => {
+          const value = { ...feed(), modelCostBasis: basis };
+          return basis === 'usage_counters'
+            ? {
+                ...value,
+                costs: value.costs.filter(
+                  (c: { category: string }) => c.category !== 'models',
+                ),
+              }
+            : value;
+        },
+      },
+      now: () => now,
+      save: async () => undefined,
+    });
+    const r = await collector.run(window);
+    return r.kind === 'reported' && r.report.kind === 'report'
+      ? r.report.sources.coverage.length > 0
+      : r.kind;
+  };
+  assert({
+    given:
+      'an AI round from a club seat priced by usage counters, the same priced by a provider invoice, and one nobody can attribute',
+    should:
+      'keep coverage for the counted seat, and void it where the invoice includes club use or the use is unattributed',
+    actual: [
+      await coverage('organization_seat'),
+      await coverage('organization_seat', 'provider_invoice'),
+      await coverage('unattributed'),
+    ],
+    expected: [true, false, false],
+  });
+});
