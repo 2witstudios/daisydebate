@@ -5,7 +5,11 @@ import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import type { ReactNode } from 'react';
-import { freezePostRoundCall, type RoomView } from '@daisy/protocol';
+import {
+  freezePostRoundCall,
+  isJudgeSeat,
+  type RoomView,
+} from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
@@ -38,7 +42,7 @@ type View = Pick<
   | 'teamOneSide'
   | 'status'
 > & {
-  readonly definition: Pick<RoomView['definition'], 'seats'>;
+  readonly definition: Pick<RoomView['definition'], 'sides' | 'seats'>;
   readonly capabilities: Pick<
     RoomView['capabilities'],
     'canReady' | 'host' | 'canStart'
@@ -66,7 +70,9 @@ function startFence(
 ): boolean {
   if (local.unreadyPending) return true;
   const own = ownSeat(view, actorId);
-  return own?.kind === 'human' && own.role !== 'judge' && !local.devicesPassed;
+  return (
+    own?.kind === 'human' && !isJudgeSeat(own.seat) && !local.devicesPassed
+  );
 }
 
 /** One native versioned room command; CAP validates every value again. */
@@ -219,7 +225,7 @@ export function ReadyControl({
   const turnOn =
     turnOnDevices &&
     own?.kind === 'human' &&
-    own.role !== 'judge' &&
+    !isJudgeSeat(own.seat) &&
     !local.devicesPassed
       ? turnOnDevices
       : null;

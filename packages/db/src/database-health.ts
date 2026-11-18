@@ -4,6 +4,17 @@ import { sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { probeListen } from './listen';
 import {
+  readTenantIsolationProblems,
+  tenantIsolationFactsSql,
+  type TenantTableFacts,
+} from './tenant-isolation';
+import {
+  readImageSchema,
+  startupSchemaProblems,
+  type MigrationStamp,
+} from './startup-schema';
+import { tenantIsolationManifest } from './tenant-isolation-manifest';
+import {
   runtimeRoleFactsFrom,
   runtimeRoleFactsQuery,
   runtimeRoleProblems,
@@ -58,6 +69,43 @@ export const databaseHealthOperations = ({
       // No row means no schema public: nothing proves the role is safe.
       if (row === undefined) throw new Error('Schema public is missing');
       return runtimeRoleProblems(runtimeRoleFactsFrom(row));
+    });
+  },
+  /**
+   * Every way this schema's tenant fence differs from the manifest; empty
+   * when each table that carries or references a tenant key has its
+   * row-level security policies. Production startup refuses to serve unless
+   * it is empty.
+   */
+  async tenantIsolationProblems({
+    acceptNewerMigrations = false,
+  } = {}): Promise<readonly string[]> {
+    return instrumented(eventSink, 'tenantIsolationProblems', async () => {
+      if (!acceptNewerMigrations)
+        return readTenantIsolationProblems((statement) =>
+          database.execute(sql.raw(statement)),
+        );
+      const image = await readImageSchema();
+      return database.transaction(
+        async (tx) => {
+          const journal = (await tx.execute(
+            sql`select hash, created_at as "createdAt" from drizzle.__drizzle_migrations order by created_at, id`,
+          )) as unknown as MigrationStamp[];
+          const facts = (await tx.execute(
+            sql.raw(tenantIsolationFactsSql),
+          )) as unknown as TenantTableFacts[];
+          return startupSchemaProblems({
+            image,
+            journal: journal.map(({ hash, createdAt }) => ({
+              hash,
+              createdAt: Number(createdAt),
+            })),
+            facts,
+            manifest: tenantIsolationManifest,
+          });
+        },
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      );
     });
   },
 });

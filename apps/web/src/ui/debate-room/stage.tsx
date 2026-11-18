@@ -1,8 +1,6 @@
 import { cn } from '../cn';
 import type { Debater } from './round';
-
-const sideName = { aff: 'Aff', neg: 'Neg' } as const;
-const sideDisc = { aff: 'bg-hue-sky', neg: 'bg-hue-clay' } as const;
+import { toneDisc } from './side-tone';
 
 /** How much of a tile its occupant fills: a disc and a pill, or a caption. */
 type Look = 'large' | 'medium' | 'small';
@@ -16,10 +14,10 @@ const discLook: Readonly<Record<Look, string>> = {
 /** The pill naming a large tile's part in the phase. */
 function FloorPill({
   state,
-  side,
+  tone,
 }: {
   readonly state: string;
-  readonly side: Debater['side'];
+  readonly tone: Debater['tone'];
 }) {
   return (
     <span className="absolute top-3 left-3 inline-flex items-center gap-2 rounded-round bg-scrim/60 px-2 py-1 text-xs font-strong max-narrow:hidden">
@@ -27,7 +25,7 @@ function FloorPill({
         aria-hidden="true"
         className={cn(
           'size-2 rounded-round',
-          state === 'Speaking' ? 'bg-live' : sideDisc[side],
+          state === 'Speaking' ? 'bg-live' : toneDisc[tone],
         )}
       />
       {state}
@@ -54,7 +52,7 @@ function TileCaption({
     <figcaption className="absolute bottom-2 left-3 flex items-baseline gap-1 text-sm whitespace-nowrap max-narrow:text-xs">
       <span className="font-strong">{you ? 'You' : debater.name}</span>
       <span className="text-stage-ink-muted">
-        · {sideName[debater.side]}
+        · {debater.sideShort}
         {state ? (
           <span className={named ? undefined : 'hidden max-narrow:inline'}>
             {` · ${state.toLowerCase()}`}
@@ -104,14 +102,14 @@ export function Tile({
           className={cn(
             'flex items-center justify-center rounded-round font-display text-background max-narrow:hidden',
             discLook[look],
-            sideDisc[debater.side],
+            toneDisc[debater.tone],
           )}
         >
           {debater.initials}
         </span>
       )}
       {state && !caption ? (
-        <FloorPill state={state} side={debater.side} />
+        <FloorPill state={state} tone={debater.tone} />
       ) : null}
       <TileCaption debater={debater} you={you} state={state} named={caption} />
     </figure>

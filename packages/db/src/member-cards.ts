@@ -1,6 +1,14 @@
 import { sql, type SQL } from 'drizzle-orm';
+import { daisyOrganizationId } from './daisy-reference';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { ratingLadders, type RatingLadder } from '@daisy/protocol';
+import {
+  ratingLadders,
+  type RatingLadder,
+  type RoundOutcome,
+  type SeatRef,
+} from '@daisy/protocol';
+import { roundOutcomeSql } from './round-outcome-sql';
+import { seatOfColumns, type SeatColumns } from './seat-columns';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
   factReleasedSql,
@@ -59,8 +67,8 @@ const releasedCardRating = (row: CardRatingRead): CardRatingRow | null => {
 type CardRecordRow = {
   readonly actorId: string;
   readonly status: string;
-  readonly outcome: string | null;
-  readonly role: string;
+  readonly outcome: RoundOutcome | null;
+  readonly seat: SeatRef;
   readonly rounds: number;
 };
 
@@ -84,6 +92,7 @@ const readCardRatings = async (
       held.deviation_before as "heldDeviation",
       held.volatility_before as "heldVolatility"
     from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
+      and s.organization_id = ${daisyOrganizationId}
     left join lateral (
       select c.rating_before, c.deviation_before, c.volatility_before
       from ${postings} and not ${postingReleased}
@@ -120,16 +129,26 @@ export const memberCardOperations = ({
       if (actorIds.length === 0) return { ratings: [], records: [] };
       const ids = actorIdArray(actorIds);
       const recordsRead = database.execute(sql`
-        select p.actor_id as "actorId", r.status, r.outcome, p.role, count(*)::int as rounds
+        select p.actor_id as "actorId", r.status, ${roundOutcomeSql('r')} as outcome,
+          p.seat_kind as "seatKind", p.side, p.slot, count(*)::int as rounds
         from round_participants p join rounds r on r.id = p.round_id
         where p.actor_id = any(${ids}) and r.room_id is not null and r.visibility = 'public'
           and ${outcomeReleasedSql(roundAliasR, clock)}
-        group by p.actor_id, r.status, r.outcome, p.role`);
+        group by p.actor_id, r.status, 3, p.seat_kind, p.side, p.slot`);
       const [ratings, records] = (await Promise.all([
         readCardRatings(database, ids, clock),
         recordsRead,
-      ])) as unknown as [CardRatingRow[], CardRecordRow[]];
-      return { ratings, records: [...records] };
+      ])) as unknown as [
+        CardRatingRow[],
+        (Omit<CardRecordRow, 'seat'> & SeatColumns)[],
+      ];
+      return {
+        ratings,
+        records: records.map(({ seatKind, side, slot, ...row }) => ({
+          ...row,
+          seat: seatOfColumns({ seatKind, side, slot }),
+        })),
+      };
     }),
   /**
    * The card's ratings alone, for one batch of seated actors (a Room's

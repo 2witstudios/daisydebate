@@ -1,3 +1,4 @@
+import { negativeSide, winnerOutcome } from '@daisy/protocol';
 import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage } from './fixtures';
@@ -123,7 +124,7 @@ export async function proveMvpJourney(browser: Browser) {
     const finished = await readRound(played.affirmative, roundId);
     expect([finished.status, finished.outcome]).toEqual([
       'completed',
-      'negative',
+      winnerOutcome(negativeSide),
     ]);
     await expectInHistory(
       played.affirmative,

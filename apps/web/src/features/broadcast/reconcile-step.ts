@@ -17,6 +17,7 @@ export type ReconcilePorts = {
   /** The claim outlasts a start, so no other instance starts another. */
   readonly holdClaim: () => Promise<void>;
   readonly releaseClaim: () => Promise<void>;
+  readonly beginEgressAttempt: () => Promise<boolean>;
   readonly startEgress: () => Promise<string>;
   /** False means another start won this generation. */
   readonly recordEgressStarted: (id: string) => Promise<boolean>;
@@ -48,6 +49,7 @@ const run = (action: BroadcastAction, ports: ReconcilePorts) => {
       return attempt(
         async () => {
           await ports.holdClaim();
+          if (!(await ports.beginEgressAttempt())) return;
           const id = await ports.startEgress();
           if (await ports.recordEgressStarted(id)) return;
           ports.report('broadcast.egress.start_lost');

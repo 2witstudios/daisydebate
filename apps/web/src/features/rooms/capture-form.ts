@@ -1,4 +1,8 @@
-import type { BroadcastReleasePolicy, RoomCapture } from '@daisy/protocol';
+import type {
+  BroadcastReleasePolicy,
+  RecordingPolicy,
+  RoomCapture,
+} from '@daisy/protocol';
 
 /** The host's release choices; a native select, so no script is needed. */
 export const releaseChoices = [
@@ -17,14 +21,22 @@ const releasePolicy = (choice: unknown): BroadcastReleasePolicy | null => {
 };
 
 /**
+ * The ordinary form's one Recording box: ticked releases the Recording as
+ * Daisy releases any, unticked records nothing. It never offers a Recording
+ * kept for the officials (TAB-6.15).
+ */
+export const recordingPolicyFromBox = (box: unknown): RecordingPolicy =>
+  box === 'on' ? 'released' : 'off';
+
+/**
  * Reads the native form into the command's capture, or null when the release
  * cannot be understood. An unticked box sends nothing, so absence is off.
  */
 export function captureFromFields(
   fields: Record<string, unknown>,
 ): RoomCapture | null {
-  const recording = fields.recording === 'on';
-  if (fields.broadcast !== 'on') return { broadcast: null, recording };
+  const recordingPolicy = recordingPolicyFromBox(fields.recording);
+  if (fields.broadcast !== 'on') return { broadcast: null, recordingPolicy };
   const release = releasePolicy(fields.release);
   return (
     release && {
@@ -32,7 +44,7 @@ export function captureFromFields(
         release,
         debatersReadChat: fields.debatersReadChat === 'on',
       },
-      recording,
+      recordingPolicy,
     }
   );
 }
@@ -53,5 +65,16 @@ export function captureLine(capture: RoomCapture): string {
           : '; debaters cannot read spectator chat during the round'
       }`
     : 'Not broadcast';
-  return `${broadcast}. ${capture.recording ? 'Recorded' : 'Not recorded'}.`;
+  return `${broadcast}. ${recordingWords(capture.recordingPolicy)}.`;
 }
+
+const recordingWords = (policy: RecordingPolicy): string => {
+  switch (policy) {
+    case 'off':
+      return 'Not recorded';
+    case 'officials':
+      return 'Recorded for the judges, the moderator and the host only';
+    case 'released':
+      return 'Recorded';
+  }
+};

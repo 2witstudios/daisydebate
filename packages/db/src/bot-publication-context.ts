@@ -1,5 +1,6 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
+import { isJudgeSeat } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
@@ -188,7 +189,7 @@ export async function verifyLockedBotWorker(
     scope.roundId,
     scope.roundParticipantId,
   );
-  if (context.round.status !== 'active' || context.seat.role === 'judge')
+  if (context.round.status !== 'active' || isJudgeSeat(context.seat.seat))
     throw createAppError('AUTHORIZATION');
   const [run] = await tx
     .select()

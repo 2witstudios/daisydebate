@@ -21,7 +21,7 @@ const facts = (
   now: string,
   finalSegmentEndedAt: string | null,
   postRoundCall: PostRoundCallFacts = noPostRoundCall(status),
-) => ({ status, now, finalSegmentEndedAt, postRoundCall });
+) => ({ status, now, finalSegmentEndedAt, postRoundCall, sourceVoided: false });
 const chosen: PostRoundCallFacts = {
   optedIn: true,
   status: 'completed',
@@ -147,5 +147,17 @@ test('mediaWindowEndsAt()', () => {
     should: 'add the media policy window',
     actual: mediaWindowEndsAt(end) - Date.parse(end),
     expected: roundMediaPolicy.windowAfterFinalSegmentMs,
+  });
+});
+
+test('an explicit source void closes a historical post-round call without rewriting its ending', () => {
+  assert({
+    given: 'an opted-in completed Round whose ordinary source was voided',
+    should: 'close every media phase while preserving the completed status',
+    actual: mediaPhase({
+      ...facts('completed', at(1_000), end, { ...chosen, openedAt: end }),
+      sourceVoided: true,
+    }),
+    expected: 'closed',
   });
 });

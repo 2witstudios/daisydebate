@@ -125,6 +125,7 @@ export function AssemblyHeader({
             <InvitePeople
               invitations={view.invitations}
               action={invitationAction}
+              competitor={view.rules.sides.length > 0 ? 'side' : 'speaker'}
             />
           ) : null}
           {hostOfOpenRoom ? (

@@ -1,14 +1,16 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAuthorizationSubject } from './authorization.test-support';
-import { createBotSeat } from './bot-seat.test-support';
+import { createBotActor } from './bot-seat.test-support';
 import {
   forfeitCommand,
   played,
   present,
   profileOf,
   roomRound,
+  seatName,
   tally,
+  winnerOf,
   withProfileFixture,
 } from './member-profile.test-support';
 import { at } from './standings-fixtures';
@@ -74,20 +76,31 @@ describe('member profile reads (ISSUE-600)', () => {
         day: 4,
         visibility: 'private',
       });
-      const judged = await roomRound(fixture, {
-        status: 'completed',
-        outcome: 'negative',
-        started_at: at(5, 11),
-        completed_at: at(5),
-      });
-      await fixture.participant(judged, 'judge', 0, member);
-      const proof = await fixture.round({
-        status: 'completed',
-        outcome: 'affirmative',
-        started_at: at(6, 11),
-        completed_at: at(6),
-      });
-      await fixture.participant(proof, 'affirmative', 0, member);
+      await roomRound(
+        fixture,
+        {
+          status: 'completed',
+          winning_side: 'negative',
+          started_at: at(5, 11),
+          completed_at: at(5),
+        },
+        'public',
+        [
+          { seat: 'affirmative' },
+          { seat: 'negative' },
+          { seat: 'judge', actorId: member },
+        ],
+      );
+
+      await fixture.roundWithCast(
+        {
+          status: 'completed',
+          winning_side: 'affirmative',
+          started_at: at(6, 11),
+          completed_at: at(6),
+        },
+        [{ seat: 'affirmative', actorId: member }, { seat: 'negative' }],
+      );
       const username = subject.userId;
       const owner = await profileOf(database, { username, caller: subject });
       const peer = await profileOf(database, { username, caller: other });
@@ -142,22 +155,33 @@ describe('member profile reads (ISSUE-600)', () => {
         outcome: 'affirmative',
         day: 2,
         visibility: 'private',
+        judgeActorId: (await createAuthorizationSubject(fixture)).actorId,
       });
       await forfeitCommand(fixture, middle.id, member);
-      await fixture.participant(middle.id, 'judge', 0);
-      const newest = await roomRound(fixture, {
-        status: 'completed',
-        outcome: null,
-        started_at: at(3, 11),
-        completed_at: at(3),
-      });
-      await fixture.participant(newest, 'affirmative', 0, member);
-      await createBotSeat(fixture, newest, 'negative');
-      const abandoned = await roomRound(fixture, {
-        status: 'abandoned',
-        completed_at: at(4),
-      });
-      await fixture.participant(abandoned, 'affirmative', 0, member);
+      const bot = await createBotActor(fixture);
+      const newest = await roomRound(
+        fixture,
+        {
+          status: 'completed',
+          winning_side: null,
+          started_at: at(3, 11),
+          completed_at: at(3),
+        },
+        'public',
+        [
+          { seat: 'affirmative', actorId: member },
+          { seat: 'negative', actorId: bot },
+        ],
+      );
+      await roomRound(
+        fixture,
+        {
+          status: 'abandoned',
+          completed_at: at(4),
+        },
+        'public',
+        [{ seat: 'affirmative', actorId: member }, { seat: 'negative' }],
+      );
 
       const first = await present(
         profileOf(database, {
@@ -196,16 +220,26 @@ describe('member profile reads (ISSUE-600)', () => {
         should:
           'name the member and the bot opponent, never the judge, and mark only the forfeit',
         actual: [
-          first.rows[0]?.seats.map((s) => [s.role, s.kind, s.label]),
-          first.rows[1]?.seats.find((s) => s.role === 'judge'),
-          first.rows.map((r) => [r.role, r.outcome, r.forfeit, r.visibility]),
+          first.rows[0]?.seats.map((s) => [seatName(s.seat), s.kind, s.label]),
+          first.rows[1]?.seats.find((s) => s.seat.kind === 'judge'),
+          first.rows.map((r) => [
+            seatName(r.seat),
+            winnerOf(r.outcome),
+            r.forfeit,
+            r.visibility,
+          ]),
         ],
         expected: [
           [
             ['affirmative', 'human', username],
             ['negative', 'bot', 'Fixture bot'],
           ],
-          { role: 'judge', kind: 'human', label: null, closed: false },
+          {
+            seat: { kind: 'judge', slot: 0 },
+            kind: 'human',
+            label: null,
+            closed: false,
+          },
           [
             ['affirmative', null, false, 'public'],
             ['negative', 'affirmative', true, 'private'],

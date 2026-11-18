@@ -13,12 +13,18 @@ type Fixture = Parameters<Parameters<typeof withFixture>[1]>[0];
 
 /** An active Round with one seat and its first speech segment, all before the cutoff. */
 async function liveSegment(f: Fixture) {
-  const roundId = await f.round({
-    status: 'active',
-    current_stage: 'live',
-    started_at: new Date('2026-10-21T00:00:00Z'),
-  });
-  const seat = await f.seat(roundId, 'affirmative');
+  const {
+    id: roundId,
+    seats: [seat],
+  } = await f.roundWithCast(
+    {
+      status: 'active',
+      current_stage: 'live',
+      started_at: new Date('2026-10-21T00:00:00Z'),
+    },
+    [{ seat: 'affirmative' }],
+  );
+  if (!seat) throw new Error('Initial attendance seat missing');
   const segmentId = createId();
   const rule = validRules.segments.find((rule) => rule.type === 'speech')!;
   await f.insert('round_segments', {
@@ -182,6 +188,40 @@ test('command retention skips receipts a speaking interval still references and 
       });
     } finally {
       await f.sql`delete from round_speaking_intervals where round_id=${roundId}`;
+      await f.sql`delete from rounds where id=${roundId}`;
+    }
+  }));
+
+test('command retention keeps the receipt a Round finalisation references (ISSUE-1408)', async () =>
+  withFixture(databaseUrl, async (f) => {
+    const { roundId, seat } = await liveSegment(f);
+    const finalisingId = createId(),
+      disposableId = createId();
+    await expiredCommands(f, roundId, seat.actorId, [
+      finalisingId,
+      disposableId,
+    ]);
+    await f.sql`insert into round_finalizations(round_id,command_id,resulting_version) values(${roundId},${finalisingId},1)`;
+    try {
+      const commands = commandRetention({
+        database: drizzle({ client: f.sql }),
+      });
+      const deleted = await commands.purgeExpiredRoundCommands({
+        before,
+        limit: 10,
+      });
+      const left: { command_id: string }[] =
+        await f.sql`select command_id from round_commands where round_id=${roundId} order by command_id`;
+      assert({
+        given:
+          'a judged Round whose finalising command is past retention, and a receipt nothing references',
+        should:
+          'purge the disposable receipt and keep the finalising one, never failing the batch',
+        actual: { deleted, commands: left.map((row) => row.command_id) },
+        expected: { deleted: 1, commands: [finalisingId] },
+      });
+    } finally {
+      await f.sql`delete from round_finalizations where round_id=${roundId}`;
       await f.sql`delete from rounds where id=${roundId}`;
     }
   }));

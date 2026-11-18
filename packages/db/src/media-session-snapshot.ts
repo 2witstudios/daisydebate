@@ -2,6 +2,7 @@ import {
   readMediaBotLeases,
   mediaHearingSeats,
   mediaPublicationParticipants,
+  mediaWithdrawnSeats,
 } from './media-publication-authority';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { createAppError } from '@daisy/errors';
@@ -106,7 +107,10 @@ export async function lockedMediaSnapshot(
       tick.now,
     ),
     /** Seats whose media grants are withdrawn by a lost participant access (ISSUE-714). */
-    withdrawn: withdrawnSeats(authority.participants, accounts, input.admits),
+    withdrawn: mediaWithdrawnSeats(
+      withdrawnSeats(authority.participants, accounts, input.admits),
+      round,
+    ),
     bindings,
     now: tick.now,
     finalSegmentEndedAt: tick.finalSegmentEndedAt,

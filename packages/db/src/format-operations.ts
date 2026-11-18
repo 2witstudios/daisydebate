@@ -61,7 +61,7 @@ export type FormatSelectionFactsRecord = FormatSelectionFacts;
  * pure policy decides.
  */
 export async function readFormatSelectionFacts(
-  client: BunSQLDatabase,
+  client: Pick<BunSQLDatabase, 'select'>,
   { formatId, formatVersion, presetVersion }: SelectionTuple,
 ): Promise<FormatSelectionFactsRecord | null> {
   const [row] = await client

@@ -1,4 +1,8 @@
-import type { RoomInvitationRefusal, RoomSeatKind } from '@daisy/protocol';
+import {
+  seatKindSchema,
+  type RoomInvitationRefusal,
+  type SeatKind,
+} from '@daisy/protocol';
 import {
   idle,
   refusedWith,
@@ -35,13 +39,19 @@ const text = (form: FormData, key: string) => {
 
 type InviteChoice = {
   readonly username: string;
-  readonly seat: RoomSeatKind;
+  readonly seat: SeatKind;
+};
+
+/** The seat kind a form names; anything unreadable is a side's seat, the default choice. */
+const seatKindOf = (value: unknown): SeatKind => {
+  const parsed = seatKindSchema.safeParse(value);
+  return parsed.success ? parsed.data : 'side';
 };
 
 /** The member and seat kind an invite form names. */
 const inviteChoice = (form: FormData): InviteChoice => ({
   username: text(form, 'username').replace(/^@/, ''),
-  seat: text(form, 'seat') === 'judge' ? 'judge' : 'debater',
+  seat: seatKindOf(text(form, 'seat')),
 });
 
 /** What a refusal hands back to be shown again: an invite's choice, else nothing. */
@@ -63,33 +73,34 @@ export const invitationFormUnavailable = (
  */
 export type InvitationFields = {
   readonly username: string;
-  readonly seat: RoomSeatKind;
+  readonly seat: SeatKind;
   readonly notice: string | undefined;
   readonly fieldKey: string;
 };
 
 export function invitationFields(
   answer: InvitationFormState,
+  competitor: 'side' | 'speaker',
 ): InvitationFields {
   switch (answer.kind) {
     case 'idle':
       return {
         username: '',
-        seat: 'debater',
+        seat: competitor,
         notice: undefined,
         fieldKey: 'draft',
       };
     case 'refused':
       return {
         username: answer.values['username'] ?? '',
-        seat: answer.values['seat'] === 'judge' ? 'judge' : 'debater',
+        seat: seatKindOf(answer.values['seat']),
         notice: answer.error,
         fieldKey: 'draft',
       };
     case 'accepted':
       return {
         username: '',
-        seat: 'debater',
+        seat: competitor,
         notice: answer.notice,
         fieldKey: answer.notice,
       };

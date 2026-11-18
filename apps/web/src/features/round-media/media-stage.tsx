@@ -1,6 +1,10 @@
 'use client';
 import { Fragment, useEffect, useRef } from 'react';
-import type { RoundView, RoundMediaState } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  type RoundView,
+  type RoundMediaState,
+} from '@daisy/protocol';
 import type { TrackHandle } from './adapters/livekit-room';
 import type { ObservedPeer, ObservedTrack } from './model/media-state';
 import type { MediaConnectionLabel } from './model/media-status';
@@ -81,7 +85,7 @@ export function MediaStage({
       aria-label="Round participants"
     >
       {view.participants
-        .filter((seat) => seat.role !== 'judge' && 'id' in seat)
+        .filter((seat) => !isJudgeSeat(seat.seat) && 'id' in seat)
         .map((seat) => {
           if (!('id' in seat)) return null;
           const peer = media?.peers.find(

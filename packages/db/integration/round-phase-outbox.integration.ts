@@ -74,6 +74,7 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
     const segmentId = createId();
     try {
       await createScheduledRound(authoring, 'Revision completeness');
+      const participant = await fixture.seat(roundId, 'affirmative');
       const initial = await database.getRound(roundId);
       if (!initial) throw new Error('Round missing');
       await database.executeRoundCommand({
@@ -104,7 +105,6 @@ test('floor and live-to-live catchup signal revisions, no-op and rollback do not
       });
       const started = await database.getRound(roundId);
       if (!started) throw new Error('Round missing');
-      const participant = await fixture.seat(roundId, 'affirmative');
       if (started.status !== 'active') throw new Error('Round not active');
       const base = {
         status: started.status,

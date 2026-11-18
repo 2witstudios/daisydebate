@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AuthorizationCapability } from './authorization';
 import { idSchema } from './primitives';
 
 /**
@@ -23,6 +24,9 @@ const topicFamilies = [
   'standings',
   'channel',
   'online',
+  'lobby',
+  'lobby:host',
+  'organization:host',
 ] as const;
 const topicFamilySchema = z.enum(topicFamilies);
 export type TopicFamily = z.infer<typeof topicFamilySchema>;
@@ -31,7 +35,14 @@ type ParsedTopic =
   | {
       readonly family: Exclude<
         TopicFamily,
-        'user:inbox' | 'standings' | 'channel' | 'room' | 'online'
+        | 'user:inbox'
+        | 'standings'
+        | 'channel'
+        | 'room'
+        | 'online'
+        | 'lobby'
+        | 'lobby:host'
+        | 'organization:host'
       >;
       readonly roundId: string;
     }
@@ -39,7 +50,9 @@ type ParsedTopic =
   | { readonly family: 'room'; readonly roomId: string }
   | { readonly family: 'user:inbox'; readonly actorId: string }
   | { readonly family: 'channel'; readonly channelId: string }
-  | { readonly family: 'standings'; readonly season: string };
+  | { readonly family: 'standings'; readonly season: string }
+  | { readonly family: 'lobby' | 'lobby:host'; readonly lobbyId: string }
+  | { readonly family: 'organization:host'; readonly organizationId: string };
 
 /** `<head>:<key>` or `<head>:<key>:<suffix>` names the family `<head>[:<suffix>]`. */
 function familyOf(segments: readonly string[]): string | undefined {
@@ -51,7 +64,7 @@ function familyOf(segments: readonly string[]): string | undefined {
 /**
  * Parses a topic string into its family and ids, validating every id
  * segment against cuid2 (and `standings`'s season slug). Returns `undefined`
- * for anything that is not one of the five known shapes exactly, including
+ * for anything that is not one of the known shapes exactly, including
  * extra segments or a missing/malformed id — parsing never normalizes or
  * repairs input (ADR 0023).
  *
@@ -71,11 +84,30 @@ export function parseTopic(topic: string): ParsedTopic | undefined {
       ? { family: 'standings', season: key }
       : undefined;
   if (!idSchema.safeParse(key).success) return undefined;
-  if (family.data === 'channel') return { family: 'channel', channelId: key };
-  if (family.data === 'room') return { family: 'room', roomId: key };
-  return family.data === 'user:inbox'
-    ? { family: 'user:inbox', actorId: key }
-    : { family: family.data, roundId: key };
+  return keyed(family.data, key);
+}
+
+/** The families keyed by one cuid2 id, from that id. */
+function keyed(
+  family: Exclude<TopicFamily, 'online' | 'standings'>,
+  key: string,
+): ParsedTopic {
+  switch (family) {
+    case 'channel':
+      return { family, channelId: key };
+    case 'room':
+      return { family, roomId: key };
+    case 'lobby':
+    case 'lobby:host':
+      return { family, lobbyId: key };
+    case 'organization:host':
+      return { family, organizationId: key };
+    case 'user:inbox':
+      return { family, actorId: key };
+    case 'round':
+    case 'round:presence':
+      return { family, roundId: key };
+  }
 }
 
 /**
@@ -118,3 +150,27 @@ export const buildChannelTopic = (channelId: string): string =>
   `channel:${idSchema.parse(channelId)}`;
 export const buildRoomTopic = (roomId: string): string =>
   `room:${idSchema.parse(roomId)}`;
+
+/**
+ * A lobby's doorbell: its listing, and for a tournament its posting, an
+ * audience opening, an announcement, standings or resolved settings changed.
+ */
+export const buildLobbyTopic = (lobbyId: string): string =>
+  `lobby:${idSchema.parse(lobbyId)}`;
+/** What a lobby's officials watch: entries, drafts, fixtures, slots, holds. */
+export const buildLobbyHostTopic = (lobbyId: string): string =>
+  `lobby:${idSchema.parse(lobbyId)}:host`;
+/** An organization's people, grants, templates, settings and sanctions. */
+export const buildOrganizationHostTopic = (organizationId: string): string =>
+  `organization:${idSchema.parse(organizationId)}:host`;
+
+/**
+ * The one capability a lobby or organization topic is subscribed under: a
+ * viewer may subscribe exactly when they may make the matching read
+ * (TAB-5.15).
+ */
+export const lobbyTopicCapability = {
+  lobby: 'lobby.read',
+  'lobby:host': 'lobby.host.read',
+  'organization:host': 'organization.host.read',
+} as const satisfies Partial<Record<TopicFamily, AuthorizationCapability>>;

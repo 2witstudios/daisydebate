@@ -14,5 +14,5 @@ export const readsRoomChatOnly = (
   roomCommunitySeatReadsOnly(
     view.participants
       .filter(isNamedSeat)
-      .find((seat) => seat.actorId === actorId)?.role ?? null,
+      .find((seat) => seat.actorId === actorId)?.seat.kind ?? null,
   );

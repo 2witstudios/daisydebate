@@ -116,7 +116,7 @@ describe('Room chat Messaging producer', () => {
                 store.readChat({ ...scope, ...who }, async (frame) => {
                   if (
                     Object.keys(frame.fact).sort().join() !==
-                    'actorId,channelId,endedAt,host,kind,policyKey,policyRevision,revision,roomId,seatRole,status,visibility'
+                    'actorId,channelId,endedAt,host,kind,policyKey,policyRevision,revision,roomId,seatKind,status,visibility'
                   )
                     throw new Error('The fact carries more than its contract');
                   return null;
@@ -178,7 +178,7 @@ describe('Room chat Messaging producer', () => {
         const own = (who: { userId: string; actorId: string }) =>
           store.readChat({ ...scope, ...who }, async ({ fact }) => [
             fact.host,
-            fact.seatRole,
+            fact.seatKind,
             fact.visibility,
           ]);
         const readOnly = async (who: { userId: string; actorId: string }) =>
@@ -222,7 +222,7 @@ describe('Room chat Messaging producer', () => {
           expected: {
             host: [true, null, 'private'],
             judge: [false, 'judge', 'private'],
-            debater: [false, 'negative', 'private'],
+            debater: [false, 'side', 'private'],
             stranger: 'AUTHORIZATION',
             readOnly: [false, true, false],
             judgePost: 'AUTHORIZATION',
@@ -571,7 +571,7 @@ describe('Room chat Messaging producer', () => {
             .sort();
         const all = [mover.actorId, scope.actorId].sort();
         const whileDebater = await labelled(debater);
-        await f.sql`update room_participants set role='judge' where room_id=${scope.roomId} and actor_id=${mover.actorId}`;
+        await f.sql`update room_participants set seat_kind='judge',side=null where room_id=${scope.roomId} and actor_id=${mover.actorId}`;
         const asJudge = {
           debater: await labelled(debater),
           self: await labelled(mover),
@@ -621,8 +621,8 @@ describe('Room chat Messaging producer', () => {
           { channelId: scope.channelId, viewers },
           async (frame) => ({
             facts: viewers.map((viewer) => {
-              const { host, seatRole } = frame.factFor(viewer.actorId);
-              return [host, seatRole];
+              const { host, seatKind } = frame.factFor(viewer.actorId);
+              return [host, seatKind];
             }),
             revision: frame.factFor(scope.actorId).revision === revision,
             content: frame.contentRevision,

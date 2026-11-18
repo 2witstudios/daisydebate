@@ -1,4 +1,3 @@
-import type { RoundPanelCompletion } from '@daisy/protocol';
 import { invariantIdOf as invariantId } from './invariant-error';
 import { fixedIds, type IdGenerator } from '@daisy/clock';
 import {
@@ -11,15 +10,23 @@ import {
   resolveRoomConfiguration,
   type RoundCommand,
   type RoundPosition,
-  type RoundRules,
 } from '@daisy/debate-engine';
-import type {
-  DebateSide,
-  HydratedSegment,
-  RoundOutcome,
-  RoundParticipantSeat,
-  RoundProjection,
-  RoundStage,
+import {
+  daisyBallotFor,
+  emptyRuntimeCheckpointFor,
+  isJudgeSeat,
+  judgeSeat,
+  panelRuleFor,
+  sideSeat,
+  type HydratedSegment,
+  type RoundOutcome,
+  type RoundPanelCompletion,
+  type RoundParticipantSeat,
+  type RoundProjection,
+  type RoundRules,
+  type RoundStage,
+  type SeatRef,
+  type SideKey,
 } from '@daisy/protocol';
 
 /** The reference formats a scenario plays, each with its sanctioned config. */
@@ -38,14 +45,16 @@ function resolveFormat(formatId: ScenarioFormat) {
     scenarioConfigs[formatId],
   );
   if (!outcome.ok) throw new Error(outcome.refusal.message);
-  const seatRoles = Object.entries(outcome.rules.seats).flatMap(
-    ([role, count]) =>
-      Array.from(
-        { length: count },
-        () => role as 'affirmative' | 'negative' | 'judge',
+  const { rules } = outcome;
+  const seats: readonly SeatRef[] = [
+    ...rules.sides.flatMap(({ key }) =>
+      Array.from({ length: rules.seats.sides[key] ?? 0 }, (_, slot) =>
+        sideSeat(key, slot),
       ),
-  );
-  return { rules: outcome.rules, seatRoles };
+    ),
+    ...Array.from({ length: rules.seats.judges }, (_, slot) => judgeSeat(slot)),
+  ];
+  return { rules, seats };
 }
 
 export type ScenarioAction =
@@ -64,7 +73,7 @@ export type ScenarioAction =
       readonly rulings: readonly {
         /** The judge's seat, 1-based in seat order. */
         readonly judge: number;
-        readonly winner: DebateSide;
+        readonly winner: SideKey;
       }[];
     }
   | {
@@ -165,17 +174,14 @@ type Run = {
 
 /** One deterministic run: fixed ids, a movable clock, the real runtime. */
 function startRun(scenario: DebateScenario): Run {
-  const { rules, seatRoles } = resolveFormat(
-    scenario.given.format ?? 'foundation',
-  );
+  const { rules, seats } = resolveFormat(scenario.given.format ?? 'foundation');
   const ids: IdGenerator = fixedIds(scenario.given.ids);
   const id = ids.next();
-  const actorIds = seatRoles.map(() => ids.next());
-  const participants = seatRoles.map((role, index) => ({
+  const actorIds = seats.map(() => ids.next());
+  const participants = seats.map((seat, index) => ({
     id: ids.next(),
     actorId: actorIds[index]!,
-    role,
-    slot: 0,
+    seat,
   }));
   const runtime = createRoundRuntime({
     round: {
@@ -186,18 +192,9 @@ function startRun(scenario: DebateScenario): Run {
       completedAt: null,
       outcome: null,
     },
-    rules: rules as RoundRules,
+    rules,
     participants,
-    checkpoint: {
-      version: 1,
-      prep_consumed_ms: { affirmative: 0, negative: 0 },
-      active_prep: null,
-      floor: null,
-      incident: { phase: 'none' },
-      prep_ended_at: null,
-      start_gate: null,
-      clock_stops: [],
-    },
+    checkpoint: emptyRuntimeCheckpointFor(rules),
     segments: [],
     nextSegmentId: () => ids.next(),
   });
@@ -210,7 +207,11 @@ function startRun(scenario: DebateScenario): Run {
     for (const insert of writes.segmentInserts)
       opened.push(insert.rulesSegmentKey);
     segments.push(
-      ...writes.segmentInserts.map((insert) => ({ ...insert, endedAt: null })),
+      ...writes.segmentInserts.map((insert) => ({
+        ...insert,
+        endedAt: null,
+        returnedMs: 0,
+      })),
     );
     segments = segments.map((segment) => ({
       ...segment,
@@ -257,11 +258,17 @@ export function runScenario(scenario: DebateScenario): ScenarioObservation {
     if (action.type === 'ballots') {
       // As the ballot operation: every judge's ruling, then one panel decision.
       const [first, ...rest] = run.participants
-        .filter((seat) => seat.role === 'judge')
-        .map((seat) => seat.id);
+        .filter(({ seat }) => isJudgeSeat(seat))
+        .map(({ id }) => id);
       const now = new Date(run.nowMs()).toISOString();
+      const ballot = daisyBallotFor(run.facts().rules.outcome);
+      if (ballot === null)
+        throw new Error(
+          `Scenario "${scenario.name}" judges an unjudged format`,
+        );
       run.completePanel({
         now,
+        judging: { ballot, panel: panelRuleFor(ballot) },
         ballots: action.rulings.map(({ judge, winner }) => ({
           judgeParticipantId: seatOf(run, judge).id,
           winner,

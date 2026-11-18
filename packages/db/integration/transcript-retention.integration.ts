@@ -174,7 +174,7 @@ test('judging stage records are cleared 180 days after receipt, not before (DEC-
 
 test('a ranked Round keeps its transcript past the window, as its waiver says', () =>
   withSpokenRound(recordedAt, async ({ fixture, lines, roundId, state }) => {
-    await fixture.sql`update rounds set competition_type='ranked', format_id='freestyle',
+    await fixture.sql`update rounds set competition_type='ranked', format_id='freestyle', format_version=1,
       ladder_id='freestyle', preset_version=1 where id=${roundId}`;
     const retention = transcriptRetention({
       database: drizzle({ client: fixture.sql }),

@@ -236,6 +236,7 @@ export function BroadcastViewer({
               key={`${screen.stream.manifestUrl}:${attempt}`}
               stream={screen.stream}
               captions={timeline.captions}
+              seating={timeline}
               onFinished={() =>
                 dispatch({
                   kind: 'finished',

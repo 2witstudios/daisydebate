@@ -13,7 +13,7 @@ import { type FormAction } from '../../form-action/form-action';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
 import { DrawFields } from './assembly-draw-fields';
-import { seatLabel } from './assembly-controls';
+import { segmentSeatLabel } from './assembly-controls';
 import { speechName } from '../../../features/debate-room/vocabulary';
 import { openOnInvalid } from './room-setup-modal';
 
@@ -70,7 +70,7 @@ export function AssemblySettingsFields({
                   key={segment.key}
                   name={`segment.${segment.key}`}
                   label={speechName(segment)}
-                  hint={seatLabel(segment.side, segment.slot)}
+                  hint={segmentSeatLabel(view.rules.sides, segment.speak)}
                   ms={segment.durationMs}
                   min={bounds.min}
                   max={bounds.max}

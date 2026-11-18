@@ -3,6 +3,7 @@ import {
   notificationChoicePairs,
   notificationKinds,
   notificationSubjects,
+  tournamentNotificationKinds,
   type NotificationSubjectKind,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -28,6 +29,9 @@ import { challenges } from './challenges';
 import { friendships } from './friends';
 import { roomInvitations } from './room-invitations';
 import { rounds } from './rounds';
+import { fixtures } from './fixtures';
+import { lobbies } from './lobbies';
+import { actionHistory } from './grants';
 import { users } from './users';
 
 /**
@@ -39,6 +43,7 @@ export const notificationSubjectColumns = {
   room_invitation: ['room_invitation_id'],
   challenge: ['challenge_id'],
   friendship: ['friendship_low_actor_id', 'friendship_high_actor_id'],
+  fixture: ['fixture_id', 'notification_lobby_id', 'tab_command_id'],
 } as const satisfies Record<NotificationSubjectKind, readonly string[]>;
 
 /** A row names exactly the subject its kind requires, and no other. */
@@ -62,7 +67,7 @@ const watchFanoutKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
  * A stored notification (WATCH-12, ADR 0124). There is no text, result or
  * score column, so an outcome cannot be stored in one: a row says what kind
  * of thing happened and names exactly the subject its kind requires (a
- * Round, a Room invitation or a challenge), and the words come from the
+ * Round, a Room invitation, a challenge, a friendship or a Tab fixture), and the words come from the
  * kind when it is read. `actor_id` is who it is about: the followed
  * debater, the inviting host or the challenger. Kept 90 days after read.
  */
@@ -90,6 +95,18 @@ export const notifications = pgTable(
     actorId: text('actor_id').references(() => actors.id, {
       onDelete: 'cascade',
     }),
+    /** A Tab fixture, its lobby and the applied command that changed it (NTF-15). */
+    fixtureId: text('fixture_id').references(() => fixtures.id, {
+      onDelete: 'cascade',
+    }),
+    notificationLobbyId: text('notification_lobby_id').references(
+      () => lobbies.id,
+      { onDelete: 'cascade' },
+    ),
+    tabCommandId: text('tab_command_id').references(
+      () => actionHistory.commandId,
+      { onDelete: 'cascade' },
+    ),
     /** The member's batched email this one is gathered into, if any. */
     digestId: text('digest_id').references(() => notificationDigests.id, {
       onDelete: 'set null',
@@ -137,11 +154,37 @@ export const notifications = pgTable(
       columns: [table.friendshipLowActorId, table.friendshipHighActorId],
       foreignColumns: [friendships.lowActorId, friendships.highActorId],
     }).onDelete('cascade'),
+    foreignKey({
+      name: 'notifications_fixture_lobby_fk',
+      columns: [table.fixtureId, table.notificationLobbyId],
+      foreignColumns: [fixtures.id, fixtures.lobbyId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'notifications_command_lobby_fk',
+      columns: [table.tabCommandId, table.notificationLobbyId],
+      foreignColumns: [actionHistory.commandId, actionHistory.lobbyId],
+    }).onDelete('cascade'),
+    uniqueIndex('notifications_fixture_command_once').on(
+      table.userId,
+      table.kind,
+      table.fixtureId,
+      table.tabCommandId,
+    ),
+    index('notifications_fixture_idx').on(
+      table.fixtureId,
+      table.notificationLobbyId,
+    ),
+    index('notifications_lobby_idx').on(table.notificationLobbyId),
+    index('notifications_tab_command_idx').on(
+      table.tabCommandId,
+      table.notificationLobbyId,
+    ),
     check('notifications_subject_check', subjectCheck),
     check(
       'notifications_actor_check',
-      // These are about a Round alone: nobody in particular brought them.
-      sql`(${oneOf(table.kind, ['recording_ready', 'round_started'])}) = (${table.actorId} is null)`,
+      // These are about a Round, or a tournament fixture, alone: nobody in
+      // particular brought them.
+      sql`(${oneOf(table.kind, ['recording_ready', 'round_started', ...tournamentNotificationKinds])}) = (${table.actorId} is null)`,
     ),
   ],
 );

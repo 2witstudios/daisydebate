@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { judgeSeat, sideSeat } from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
 import { oneOnOneSettings } from './runtime.test-support';
@@ -9,17 +10,16 @@ setupRitewayBun();
 test('claim and leave operate on the caller seat while removal targets the seat id', () => {
   const room = {
     ...state(),
-    rules: { ...state().rules, seats: { ...state().rules.seats, judge: 1 } },
+    rules: { ...state().rules, seats: { ...state().rules.seats, judges: 1 } },
   };
   const newJudge = {
     id: 'candidate',
     actorId: 'new-human',
     label: 'New human',
     kind: 'human' as const,
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(),
     eligible: true,
-    seatRole: null,
+    aiRole: null,
     consentVersion: 0,
     teamOpen: false,
     positionOpen: false,
@@ -32,8 +32,7 @@ test('claim and leave operate on the caller seat while removal targets the seat 
       type: 'claim-seat',
       commandId: 'claim',
       expectedVersion: room.version,
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     },
     consent,
     { ...edges, target: newJudge },
@@ -83,8 +82,7 @@ test('seat and configuration refusals leave the room intact', () => {
       type: 'claim-seat',
       commandId: 'taken-seat',
       expectedVersion: room.version,
-      role: 'negative',
-      slot: 0,
+      seat: sideSeat('negative'),
     },
     consent,
     {
@@ -94,10 +92,9 @@ test('seat and configuration refusals leave the room intact', () => {
         actorId: 'extra',
         label: 'Extra',
         kind: 'human',
-        role: 'negative',
-        slot: 0,
+        seat: sideSeat('negative'),
         eligible: true,
-        seatRole: null,
+        aiRole: null,
         consentVersion: 0,
         teamOpen: false,
         positionOpen: false,
@@ -112,8 +109,7 @@ test('seat and configuration refusals leave the room intact', () => {
       commandId: 'unjoined-human',
       expectedVersion: room.version,
       actorId: 'outside-human',
-      role: 'affirmative',
-      slot: 0,
+      seat: sideSeat('affirmative'),
     },
     consent,
     {
@@ -123,10 +119,9 @@ test('seat and configuration refusals leave the room intact', () => {
         actorId: 'outside-human',
         label: 'Outside',
         kind: 'human',
-        role: 'affirmative',
-        slot: 0,
+        seat: sideSeat('affirmative'),
         eligible: true,
-        seatRole: null,
+        aiRole: null,
         consentVersion: 0,
         teamOpen: false,
         positionOpen: false,
@@ -169,10 +164,9 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
     actorId: 'wren-bot',
     label: 'Wren',
     kind: 'bot' as const,
-    role: 'negative' as const,
-    slot: 0,
+    seat: sideSeat('negative'),
     eligible: true,
-    seatRole: 'debater' as const,
+    aiRole: 'debater' as const,
     consentVersion: 0,
     teamOpen: false,
     positionOpen: false,
@@ -185,8 +179,7 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
       commandId: 'replace',
       expectedVersion: room.version,
       actorId: 'wren-bot',
-      role: 'negative',
-      slot: 0,
+      seat: sideSeat('negative'),
     },
     consent,
     { ...edges, target: wren },
@@ -196,14 +189,10 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
     should: 'seat the bot and free the human in the same mutation',
     actual:
       replaced.ok &&
-      replaced.mutation.state.participants.map((p) => [
-        p.actorId,
-        p.role,
-        p.slot,
-      ]),
+      replaced.mutation.state.participants.map((p) => [p.actorId, p.seat]),
     expected: [
-      ['host', 'affirmative', 0],
-      ['wren-bot', 'negative', 0],
+      ['host', sideSeat('affirmative')],
+      ['wren-bot', sideSeat('negative')],
     ],
   });
   const held = {
@@ -211,7 +200,7 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
     seatHolds: [
       {
         actorId: 'alice',
-        seat: 'debater' as const,
+        seat: 'side' as const,
         until: '2026-10-09T00:10:00.000Z',
       },
     ],
@@ -224,8 +213,7 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
       commandId: 'replace-held',
       expectedVersion: held.version,
       actorId: 'wren-bot',
-      role: 'negative',
-      slot: 0,
+      seat: sideSeat('negative'),
     },
     consent,
     { ...edges, target: wren },
@@ -242,7 +230,13 @@ test("one assign moves the target and displaces the target seat's occupant", () 
   const room = state();
   const wide = {
     ...room,
-    rules: { ...room.rules, seats: { ...room.rules.seats, negative: 2 } },
+    rules: {
+      ...room.rules,
+      seats: {
+        ...room.rules.seats,
+        sides: { ...room.rules.seats.sides, negative: 2 },
+      },
+    },
     participants: [
       ...room.participants,
       {
@@ -250,8 +244,7 @@ test("one assign moves the target and displaces the target seat's occupant", () 
         actorId: 'third',
         label: 'Third',
         kind: 'human' as const,
-        role: 'negative' as const,
-        slot: 1,
+        seat: sideSeat('negative', 1),
         eligible: true,
         consentVersion: 0,
         teamOpen: false,
@@ -269,8 +262,7 @@ test("one assign moves the target and displaces the target seat's occupant", () 
       commandId: 'move',
       expectedVersion: wide.version,
       actorId: 'other',
-      role: 'negative',
-      slot: 1,
+      seat: sideSeat('negative', 1),
     },
     consent,
     {
@@ -279,7 +271,7 @@ test("one assign moves the target and displaces the target seat's occupant", () 
         ...other!,
         id: 'p2',
         kind: 'human' as const,
-        seatRole: null,
+        aiRole: null,
       },
     },
   );
@@ -288,7 +280,7 @@ test("one assign moves the target and displaces the target seat's occupant", () 
     should: 'move the member and free both their old seat and the occupant',
     actual:
       moved.ok &&
-      moved.mutation.state.participants.map((p) => [p.actorId, p.slot]),
+      moved.mutation.state.participants.map((p) => [p.actorId, p.seat.slot]),
     expected: [
       ['host', 0],
       ['other', 1],
@@ -302,8 +294,7 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
     actorId: 'judge-human',
     label: 'Judge',
     kind: 'human' as const,
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(),
     eligible: true,
     consentVersion: 0,
     teamOpen: false,
@@ -312,7 +303,7 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
   };
   const withJudge = {
     ...state(),
-    rules: { ...state().rules, seats: { ...state().rules.seats, judge: 1 } },
+    rules: { ...state().rules, seats: { ...state().rules.seats, judges: 1 } },
     participants: [...state().participants, seatedJudge],
   };
   const panel = {
@@ -320,10 +311,9 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
     actorId: 'panel-bot',
     label: 'The Panel',
     kind: 'bot' as const,
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(),
     eligible: true,
-    seatRole: 'judge' as const,
+    aiRole: 'judge' as const,
     consentVersion: 0,
     teamOpen: false,
     positionOpen: false,
@@ -337,8 +327,7 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
         commandId: 'replace-judge',
         expectedVersion: room.version,
         actorId: 'panel-bot',
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
       },
       consent,
       { ...edges, target: panel },
@@ -359,7 +348,7 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
     should: 'accept and seat the AI judge in the same mutation',
     actual:
       replaced.ok &&
-      replaced.mutation.state.participants.find((p) => p.role === 'judge'),
+      replaced.mutation.state.participants.find((p) => p.seat.kind === 'judge'),
     expected: { ...panel, id: edges.participantId, consentCommandId: null },
   });
 });
@@ -370,16 +359,16 @@ test('ranked edits and format seat shrink are refused without mutation', () => {
     ...base,
     definition: {
       ...base.definition,
-      seats: { ...base.definition.seats, judge: 1 },
+      seats: { ...base.definition.seats, judges: 1 },
     },
-    rules: { ...base.rules, seats: { ...base.rules.seats, judge: 1 } },
+    rules: { ...base.rules, seats: { ...base.rules.seats, judges: 1 } },
     participants: [
       ...base.participants,
       {
         ...base.participants[0]!,
         id: 'judge-seat',
         actorId: 'judge',
-        role: 'judge' as const,
+        seat: judgeSeat(),
       },
     ],
   };
@@ -397,7 +386,7 @@ test('ranked edits and format seat shrink are refused without mutation', () => {
   );
   const noJudgeSeats = {
     ...room.definition,
-    seats: { ...room.definition.seats, judge: 0 },
+    seats: { ...room.definition.seats, judges: 0 },
   };
   const crowded = executeRoomCommand(
     room,
@@ -430,8 +419,7 @@ test('seat admission refuses missing targets, bot claims and absent memberships'
     type: 'claim-seat' as const,
     commandId: 'claim',
     expectedVersion: room.version,
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(),
   };
   const absentTarget = executeRoomCommand(
     room,
@@ -447,10 +435,9 @@ test('seat admission refuses missing targets, bot claims and absent memberships'
       actorId: 'judge-bot',
       label: 'Judge bot',
       kind: 'bot',
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
       eligible: true,
-      seatRole: 'judge',
+      aiRole: 'judge',
       consentVersion: 0,
       teamOpen: false,
       positionOpen: false,
@@ -521,10 +508,9 @@ test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
         actorId: 'wren-bot',
         label: 'Wren',
         kind: 'bot' as const,
-        role: 'negative' as const,
-        slot: 0,
+        seat: sideSeat('negative'),
         eligible: true,
-        seatRole: 'debater' as const,
+        aiRole: 'debater' as const,
         consentVersion: 0,
         teamOpen: false,
         positionOpen: false,
@@ -592,10 +578,9 @@ test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
     actorId: 'panel-bot',
     label: 'The Panel',
     kind: 'bot' as const,
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(),
     eligible: true,
-    seatRole: 'judge' as const,
+    aiRole: 'judge' as const,
     consentVersion: 0,
     teamOpen: false,
     positionOpen: false,
@@ -603,7 +588,7 @@ test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
   };
   const room = {
     ...state(),
-    rules: { ...state().rules, seats: { ...state().rules.seats, judge: 1 } },
+    rules: { ...state().rules, seats: { ...state().rules.seats, judges: 1 } },
     participants: [...state().participants, seatedPanel],
   };
   const nextPanel = {
@@ -620,8 +605,7 @@ test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
       commandId: 'swap-ai-judge',
       expectedVersion: room.version,
       actorId: 'panel-two-bot',
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     },
     consent,
     { ...edges, target: nextPanel },
@@ -632,7 +616,7 @@ test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
       'accept the swap, because bots are public: only human judges are unnamed (DEC-331)',
     actual:
       swapped.ok &&
-      swapped.mutation.state.participants.find((p) => p.role === 'judge'),
+      swapped.mutation.state.participants.find((p) => p.seat.kind === 'judge'),
     expected: {
       ...nextPanel,
       id: edges.participantId,
@@ -647,8 +631,7 @@ test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
       commandId: 'heir-swap',
       expectedVersion: room.version,
       actorId: 'panel-two-bot',
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     },
     consent,
     { ...edges, target: nextPanel },

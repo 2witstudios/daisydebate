@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { FormatDefinition } from './format';
 import type { FormatSettings } from './format-settings';
 import { interruptionRuleSchema } from './format';
-import { debateRoleSchema } from './primitives';
+import { sideKeySchema } from './seats';
 import { frozenResolutionDrawSchema } from './resolution-draw';
 
 const msSchema = z.int().min(0);
@@ -19,7 +19,11 @@ const yieldSchema = z
 const formatChangeSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('seats'),
-    role: debateRoleSchema,
+    /** A side's seats, or every seat of an unsided kind. */
+    of: z.union([
+      z.strictObject({ kind: z.literal('side'), side: sideKeySchema }),
+      z.strictObject({ kind: z.enum(['speaker', 'judge', 'moderator']) }),
+    ]),
     from: z.int().min(0),
     to: z.int().min(0),
   }),

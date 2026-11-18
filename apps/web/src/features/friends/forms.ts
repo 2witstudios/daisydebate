@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { FriendRelation } from '@daisy/protocol';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import type { Idle, Refused } from '../forms/form-state';
 
 /** What each friend form button asks; `cancel` withdraws one's own request. */

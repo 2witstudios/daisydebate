@@ -45,14 +45,14 @@ test('a historical Round badge uses its posting rather than later established st
           deviationBefore: 350,
           deviationAfter: 200,
           occurredAt: at,
-          role: p === aff ? ('affirmative' as const) : ('negative' as const),
-          outcome: 'affirmative' as const,
+          side: p === aff ? ('affirmative' as const) : ('negative' as const),
+          outcome: { kind: 'winner' as const, side: 'affirmative' },
         })),
       }),
     },
     {
       round: {
-        ...asCompleted(view, 'affirmative'),
+        ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
         ladderId: 'freestyle',
       },
       now: at,
@@ -112,14 +112,14 @@ test('a blinded debater hides the posting, and only both blinded hide that it ra
             deviationBefore: 350,
             deviationAfter: 200,
             occurredAt: at,
-            role: p === aff ? ('affirmative' as const) : ('negative' as const),
-            outcome: 'affirmative' as const,
+            side: p === aff ? ('affirmative' as const) : ('negative' as const),
+            outcome: { kind: 'winner' as const, side: 'affirmative' },
           })),
         }),
       },
       {
         round: {
-          ...asCompleted(view, 'affirmative'),
+          ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
           ladderId: 'freestyle',
         },
         now: at,
@@ -166,7 +166,7 @@ test('a decided Round is pending exactly when the rating writer would still rate
                 competitionType: 'ranked',
                 ladderId: 'freestyle',
                 status: 'completed',
-                outcome: 'affirmative',
+                outcome: { kind: 'winner', side: 'affirmative' },
                 completedAt: at,
                 alreadyRated: false,
                 ending: 'forfeit',
@@ -182,7 +182,7 @@ test('a decided Round is pending exactly when the rating writer would still rate
       } as never,
       {
         round: {
-          ...asCompleted(view, 'affirmative'),
+          ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
           ladderId: 'freestyle',
         },
         now: at,

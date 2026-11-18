@@ -4,6 +4,8 @@ import { z } from 'zod';
 import type { Account } from './room-command-facts';
 import { createAppError } from '@daisy/errors';
 import { loadAuthorizationAccount } from './authorization';
+import { seatKinds, type SeatRef, type SideKey } from '@daisy/protocol';
+import { seatOfColumns } from './seat-columns';
 
 const accessRow = z.object({
   roundId: z.string(),
@@ -15,7 +17,8 @@ const accessRow = z.object({
     z.object({
       id: z.string(),
       actorId: z.string(),
-      role: z.string(),
+      seatKind: z.enum(seatKinds),
+      side: z.string().nullable(),
       slot: z.number().int(),
       userId: z.string().nullable(),
     }),
@@ -28,14 +31,14 @@ export type RoundAnalysisAccess = {
     readonly kind: 'round';
     readonly participants: readonly {
       readonly actorId: string;
-      readonly role: string;
-      readonly slot: number;
+      readonly seat: SeatRef;
     }[];
   };
+  /** A human debater's side seat: Round analysis reads a side's case. */
   readonly seat: {
     readonly id: string;
     readonly actorId: string;
-    readonly side: 'affirmative' | 'negative';
+    readonly side: SideKey;
     readonly slot: number;
   };
   readonly account: Account;
@@ -53,7 +56,7 @@ export async function readRoundAnalysisAccess(
   const [row] =
     await tx.execute(sql`select r.id as "roundId", r.created_by_actor_id as "createdByActorId",
     r.visibility, r.status, r.version as revision,
-    coalesce((select json_agg(json_build_object('id', p.id, 'actorId', p.actor_id, 'role', p.role, 'slot', p.slot, 'userId', a.user_id) order by p.id)
+    coalesce((select json_agg(json_build_object('id', p.id, 'actorId', p.actor_id, 'seatKind', p.seat_kind, 'side', p.side, 'slot', p.slot, 'userId', a.user_id) order by p.id)
       from round_participants p join actors a on a.id = p.actor_id
       where p.round_id = r.id), '[]'::json) as participants
     from rounds r where r.id = ${target.roundId}`);
@@ -61,26 +64,22 @@ export async function readRoundAnalysisAccess(
     throw createAppError('NOT_FOUND');
   const { participants, ...round } = accessRow.parse(row);
   const seat = participants.find((p) => p.id === target.roundParticipantId);
-  if (
-    !seat?.userId ||
-    (seat.role !== 'affirmative' && seat.role !== 'negative')
-  )
+  if (!seat?.userId || seat.seatKind !== 'side' || seat.side === null)
     throw createAppError('NOT_FOUND');
   const account = await loadAuthorizationAccount(tx, seat.userId);
   return {
     round: {
       ...round,
       kind: 'round',
-      participants: participants.map(({ actorId, role, slot }) => ({
+      participants: participants.map(({ actorId, ...seat }) => ({
         actorId,
-        role,
-        slot,
+        seat: seatOfColumns(seat),
       })),
     },
     seat: {
       id: seat.id,
       actorId: seat.actorId,
-      side: seat.role,
+      side: seat.side,
       slot: seat.slot,
     },
     account,

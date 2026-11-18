@@ -12,6 +12,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   id: 'rec',
   roundId: 'round',
   lifecycle: { status: 'requested' },
+  eligibility: { kind: 'ranked' },
   competitionType: 'ranked',
   roundCapture: null,
   roundStatus: 'active',
@@ -27,11 +28,13 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 const casualOwn = {
   competitionType: 'casual',
-  roundCapture: { broadcast: null, recording: true },
+  eligibility: { kind: 'host_opt_in', hostActorId: 'host' },
+  roundCapture: { broadcast: null, recordingPolicy: 'released' },
   broadcast: null,
 };
 
 const setup = (over: {
+  readonly captureUntilMs?: number;
   readonly processing?: readonly unknown[];
   readonly open?: readonly unknown[];
   readonly jobs?: readonly unknown[];
@@ -54,6 +57,8 @@ const setup = (over: {
   const sweep = createRecordingCaptureSweep({
     store: {
       discoverUnrecorded: async () => over.unrecorded ?? [],
+      listExpiredTournamentAdmissions: async () => [],
+      settleUndispatchedTournamentAdmission: log('settleUndispatched', true),
       listOpen: async () => over.open ?? [],
       listJobs: async (_limit: number, after: string | null) => {
         cursors.push(after);
@@ -66,6 +71,8 @@ const setup = (over: {
       openOwn: log('openOwn'),
       claimOwn: async () => over.claim ?? true,
       holdOwn: log('holdOwn'),
+      beginOwnEgressAttempt: log('beginOwnEgressAttempt', true),
+      settleOwnEgressAttempt: log('settleOwnEgressAttempt', true),
       recordOwnEgressStarted: log(
         'recordOwnEgressStarted',
         over.startWon ?? true,
@@ -82,8 +89,10 @@ const setup = (over: {
         ],
         knownThroughMs: 90_000,
         captureFromMs: 0,
+        captureUntilMs: over.captureUntilMs ?? null,
         prepStartsAtMs: [],
       }),
+      stripSources: log('stripSources'),
       discardSources: log('discardSources'),
       listProcessingUnalerted: async () => over.processing ?? [],
       markDelayAlerted: log('markDelayAlerted', true),
@@ -98,6 +107,7 @@ const setup = (over: {
     egress: {
       start: log('egress.start', 'EG_NEW') as never,
       stop: log('egress.stop') as never,
+      readStageAttempt: async () => ({ kind: 'unresolved' }),
       read: (async () => over.egressRead ?? { kind: 'none' }) as never,
       revokeObserver: log('egress.revoke'),
       restoreObserver: log('egress.restore'),
@@ -121,8 +131,9 @@ describe('discovery', () => {
           roundId: 'round',
           competitionType: 'casual',
           hostActorId: 'host',
-          capture: { broadcast: null, recording: true },
+          capture: { broadcast: null, recordingPolicy: 'released' },
           hostGrants: [],
+          tournamentAdmission: null,
         },
       ],
     });
@@ -140,6 +151,8 @@ describe('discovery', () => {
             hostActorId: 'host',
             hostOptedIn: true,
             hostHoldsRecording: true,
+            tournamentAdmission: null,
+            now: at,
           },
         ],
       ],
@@ -201,9 +214,13 @@ describe('a Recording with no Broadcast', () => {
         ['openOwn', { recordingId: 'rec', roundId: 'round' }],
         ['holdOwn', { recordingId: 'rec', until: new Date(NOW + 15_000) }],
         [
+          'beginOwnEgressAttempt',
+          { recordingId: 'rec', generation: 1, stageCredentialHash: 'digest' },
+        ],
+        [
           'egress.start',
           {
-            stageUrl: 'https://app.test/stage/rec?c=s3cret',
+            stageUrl: 'https://app.test/stage/rec?c=s3cret&g=1',
             holdPrefix: 'recording-hold/rec/1/',
             segmentSeconds: 4,
           },
@@ -235,6 +252,7 @@ describe('a Recording with no Broadcast', () => {
       expected: [
         ['openOwn'],
         ['holdOwn'],
+        ['beginOwnEgressAttempt'],
         ['egress.start'],
         ['recordOwnEgressStarted'],
         ['report', 'recording.egress.start_lost'],
@@ -252,6 +270,48 @@ describe('a Recording with no Broadcast', () => {
       should: 'do nothing beyond ensuring the row',
       actual: calls.map(([name]) => name),
       expected: ['openOwn'],
+    });
+  });
+  test('an own Egress LiveKit no longer knows settles and says why, instead of failing', async () => {
+    const { sweep, calls } = setup({
+      open: [
+        row({
+          ...casualOwn,
+          roundStatus: 'completed',
+          own: {
+            recordingId: 'rec',
+            egressId: 'EG_old',
+            attempt: 1,
+            egressStartedAt: new Date(0),
+            egressDispatchedAt: null,
+            egressSettledAt: null,
+            stageCredentialHash: null,
+            observerRevokedAt: new Date(0),
+            revocationFailures: 0,
+          },
+        }),
+      ],
+      egressRead: { kind: 'failed', id: 'EG_old', reason: 'not_found' },
+    });
+    await sweep();
+    assert({
+      given: 'a pre-Tab capture of an over Round whose Egress LiveKit dropped',
+      should: 'settle that exact attempt and report it settled as absent',
+      actual: calls.filter(
+        ([name]) => name === 'settleOwnEgressAttempt' || name === 'report',
+      ),
+      expected: [
+        [
+          'settleOwnEgressAttempt',
+          {
+            recordingId: 'rec',
+            generation: 1,
+            egressId: 'EG_old',
+            observation: { kind: 'failed', id: 'EG_old', reason: 'not_found' },
+          },
+        ],
+        ['report', 'recording.egress.settled_absent'],
+      ],
     });
   });
 });
@@ -415,5 +475,50 @@ test('a full page of jobs continues from the last row\u2019s own id', async () =
       'ask for the next by the id the store sorts on, not the pass\u2019s key',
     actual: cursors,
     expected: [null, 'rec-63'],
+  });
+});
+
+test('late physical capture never extends a finite authorization in either queued or retained sources', async () => {
+  const { sweep, calls } = setup({
+    captureUntilMs: 30_000,
+    jobs: [
+      {
+        recordingId: 'queue',
+        state: { status: 'waiting' },
+        lifecycle: {
+          status: 'processing',
+          capture: {
+            source: { kind: 'own_capture' },
+            startedAt: at,
+            endedAt: at,
+            attempts: [{ attempt: 1, egressId: 'EG_1', startedAt: at }],
+          },
+        },
+        sourcesInUse: false,
+      },
+      {
+        recordingId: 'strip',
+        state: { status: 'failed' },
+        lifecycle: { status: 'failed' },
+        sourcesInUse: false,
+      },
+    ],
+  });
+  await sweep();
+  assert({
+    given:
+      'committed speech and physical sources extending past the immutable deadline',
+    should:
+      'pass the same deadline-clipped public interval to both build and private-source stripping',
+    actual: calls
+      .filter(([name]) => name === 'queueJob' || name === 'stripSources')
+      .map(([name, input]) => [
+        name,
+        (input as { publicIntervals: unknown }).publicIntervals,
+      ]),
+    expected: [
+      ['queueJob', [{ fromMs: 2301, toMs: 30_000 }]],
+      ['stripSources', [{ fromMs: 2301, toMs: 30_000 }]],
+    ],
   });
 });

@@ -15,6 +15,7 @@ type StageStore = {
       readonly stoppedAt: Date | null;
       /** No control plane has reached this capture lately: nothing can revoke it. */
       readonly heartbeatStale: boolean;
+      readonly captureDeadlineExpired: boolean;
     };
     readonly round: Parameters<typeof createRoundRuntime>[0]['round'] &
       Pick<
@@ -64,7 +65,7 @@ export const createStageRoute =
     )
       return refuse();
     // Only someone holding the credential learns this: the stage ends its own Egress.
-    if (read.capture.heartbeatStale)
+    if (read.capture.heartbeatStale || read.capture.captureDeadlineExpired)
       return Response.json(null, {
         status: STAGE_ENDS_STATUS,
         headers: { 'cache-control': 'no-store' },
@@ -77,7 +78,11 @@ export const createStageRoute =
     }).position(new Date(nowMs).toISOString());
     return Response.json(
       {
-        ...stageSnapshot({ position, seats: read.seats }),
+        ...stageSnapshot({
+          position,
+          seating: read.round.rules,
+          seats: read.seats,
+        }),
         nowMs,
         // A Round that is over has no stage: its session's room may by now be a
         // post-round call's, which nothing ever observes (ADR 0127).

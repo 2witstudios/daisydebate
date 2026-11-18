@@ -37,12 +37,18 @@ test('NotificationPreferencesForm', () => {
       'Someone asks to be friends | In Daisy',
       'Someone asks to be friends | Email',
       'Someone accepts my friend request | In Daisy',
+      'I am assigned to judge | In Daisy',
+      'My judging assignment is replaced | In Daisy',
+      'I am unassigned from judging | In Daisy',
+      'My tournament draw changes | In Daisy',
+      'My tournament Room is ready | In Daisy',
+      'My tournament results are released | In Daisy',
     ],
   });
   assert({
     given: 'friend request email turned off',
     should: 'leave only that switch unchecked',
     actual: (html.match(/checked=""/g) ?? []).length,
-    expected: 11,
+    expected: 17,
   });
 });

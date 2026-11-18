@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  emptyRuntimeCheckpoint,
+  emptyRuntimeCheckpointFor,
+  twoSides,
   isRoundEndState,
   isRoundLifecycle,
   roundStatuses,
@@ -14,7 +15,10 @@ const started = '2026-10-12T18:00:00.000Z';
 const ended = '2026-10-12T18:30:00.000Z';
 const instants = [null, started] as const;
 const endings = [null, ended] as const;
-const outcomes: readonly (RoundOutcome | null)[] = [null, 'affirmative'];
+const outcomes: readonly (RoundOutcome | null)[] = [
+  null,
+  { kind: 'winner', side: 'affirmative' },
+];
 
 /** Every way the four lifecycle columns can be filled, as `status/started/ended/outcome`. */
 const combinations = roundStatuses.flatMap((status) =>
@@ -29,7 +33,7 @@ const named = (round: (typeof combinations)[number]) =>
     round.status,
     round.startedAt === null ? '-' : 'started',
     round.completedAt === null ? '-' : 'ended',
-    round.outcome ?? '-',
+    round.outcome?.kind === 'winner' ? round.outcome.side : '-',
   ].join('/');
 
 describe('the Round lifecycle contract', () => {
@@ -77,10 +81,16 @@ describe('the runtime checkpoint', () => {
         'a checkpoint in prep, one in the lead after prep, and one claiming both',
       should: 'accept each alone and refuse both at once',
       actual: [
-        parses({ ...emptyRuntimeCheckpoint, active_prep: prep }),
-        parses({ ...emptyRuntimeCheckpoint, prep_ended_at: ended }),
         parses({
-          ...emptyRuntimeCheckpoint,
+          ...emptyRuntimeCheckpointFor({ sides: twoSides }),
+          active_prep: prep,
+        }),
+        parses({
+          ...emptyRuntimeCheckpointFor({ sides: twoSides }),
+          prep_ended_at: ended,
+        }),
+        parses({
+          ...emptyRuntimeCheckpointFor({ sides: twoSides }),
           active_prep: prep,
           prep_ended_at: ended,
         }),

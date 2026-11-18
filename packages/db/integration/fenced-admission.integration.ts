@@ -32,13 +32,18 @@ type Fixture = Parameters<Parameters<typeof withFixture>[1]>[0];
 
 /** A live Round with two verified human debaters and the media store. */
 async function liveRound(fixture: Fixture) {
-  const roundId = await fixture.round({
-    status: 'active',
-    current_stage: 'live',
-    started_at: new Date('2026-10-22T05:00:00Z'),
-  });
-  const revoked = await fixture.seat(roundId, 'affirmative');
-  const opponent = await fixture.seat(roundId, 'negative');
+  const {
+    id: roundId,
+    seats: [revoked, opponent],
+  } = await fixture.roundWithCast(
+    {
+      status: 'active',
+      current_stage: 'live',
+      started_at: new Date('2026-10-22T05:00:00Z'),
+    },
+    [{ seat: 'affirmative' }, { seat: 'negative' }],
+  );
+  if (!revoked || !opponent) throw new Error('Initial media cast missing');
   // A media seat also needs a verified member account.
   await fixture.sql`update users set email_verified = true where id in (select user_id from actors where id in (${revoked.actorId}, ${opponent.actorId}))`;
   const media = mediaTestStore(fixture.sql);

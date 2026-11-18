@@ -1,0 +1,477 @@
+[
+  {
+    "ballots": [],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [],
+      "outcome": null,
+      "ruling": "unjudged"
+    },
+    "name": "unjudged",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "h1",
+        "winner": "negative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [],
+      "outcome": {
+        "kind": "winner",
+        "side": "negative"
+      },
+      "ruling": "ruled"
+    },
+    "name": "ruled",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "h1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "h2",
+        "winner": "negative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [],
+      "outcome": null,
+      "ruling": "judges-split"
+    },
+    "name": "split",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1",
+          "h2"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "h1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "h2",
+        "winner": "negative"
+      },
+      {
+        "judgeParticipantId": "h3",
+        "winner": "affirmative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [],
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
+      "ruling": "ruled"
+    },
+    "name": "majority",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1",
+          "h2",
+          "h3"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "h1",
+        "winner": "affirmative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "pending",
+      "waiting": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "on": "human_window"
+      }
+    },
+    "name": "pending-human-window",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1",
+          "h2"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "h1",
+        "winner": "affirmative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [
+        "h2",
+        "h3"
+      ],
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
+      "ruling": "partial"
+    },
+    "name": "partial",
+    "nowMs": 1791277202000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1",
+          "h2",
+          "h3"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "h1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "h2",
+        "winner": "negative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [
+        "h3"
+      ],
+      "outcome": null,
+      "ruling": "judges-did-not-rule"
+    },
+    "name": "partial-split",
+    "nowMs": 1791277202000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1",
+          "h2",
+          "h3"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [
+        "h1"
+      ],
+      "outcome": null,
+      "ruling": "judges-did-not-rule"
+    },
+    "name": "judges-did-not-rule",
+    "nowMs": 1791277202000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "stranger",
+        "winner": "affirmative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [
+        "h1"
+      ],
+      "outcome": null,
+      "ruling": "judges-did-not-rule"
+    },
+    "name": "foreign-ballot-ignored",
+    "nowMs": 1791277202000,
+    "panel": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1"
+        ]
+      }
+    }
+  },
+  {
+    "ballots": [],
+    "completeness": "incomplete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [
+        "ai1"
+      ],
+      "outcome": null,
+      "ruling": "transcript-incomplete"
+    },
+    "name": "transcript-incomplete",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "not_dispatched"
+          }
+        }
+      ],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [
+        "ai1"
+      ],
+      "outcome": null,
+      "ruling": "judging-failed"
+    },
+    "name": "judging-failed",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "ended"
+          }
+        }
+      ],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [],
+    "completeness": "complete",
+    "decision": {
+      "kind": "pending",
+      "waiting": {
+        "deadlineAt": "2026-10-06T09:00:05.000Z",
+        "on": "ai_generating"
+      }
+    },
+    "name": "ai-generating",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "deadlineAt": "2026-10-06T09:00:05.000Z",
+            "state": "generating"
+          }
+        }
+      ],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [],
+    "completeness": "complete",
+    "decision": {
+      "kind": "pending",
+      "waiting": {
+        "on": "ai_recovering"
+      }
+    },
+    "name": "ai-recovering",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "recovering"
+          }
+        }
+      ],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [],
+    "completeness": "complete",
+    "decision": {
+      "kind": "pending",
+      "waiting": {
+        "on": "ai_blocked"
+      }
+    },
+    "name": "ai-blocked",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "blocked"
+          }
+        }
+      ],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [],
+    "completeness": "complete",
+    "decision": {
+      "kind": "pending",
+      "waiting": {
+        "on": "held_ballot"
+      }
+    },
+    "name": "ai-holding-ballot",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "holding_ballot"
+          }
+        }
+      ],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "ai1",
+        "winner": "negative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [],
+      "outcome": {
+        "kind": "winner",
+        "side": "negative"
+      },
+      "ruling": "ruled"
+    },
+    "name": "ai-succeeded",
+    "nowMs": 1791277200000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "succeeded"
+          }
+        }
+      ],
+      "humanWindow": null
+    }
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "h1",
+        "winner": "affirmative"
+      }
+    ],
+    "completeness": "complete",
+    "decision": {
+      "kind": "complete",
+      "noRuling": [
+        "ai1"
+      ],
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
+      "ruling": "partial"
+    },
+    "name": "human-and-failed-ai",
+    "nowMs": 1791277202000,
+    "panel": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "ended"
+          }
+        }
+      ],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1"
+        ]
+      }
+    }
+  }
+]

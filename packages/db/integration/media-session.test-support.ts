@@ -68,8 +68,13 @@ export async function mediaTestHuman(
   fixture: Parameters<
     Parameters<typeof import('./constraint-helpers').withFixture>[1]
   >[0],
+  makeRound: (
+    fixture: Parameters<
+      Parameters<typeof import('./constraint-helpers').withFixture>[1]
+    >[0],
+  ) => Promise<string> = (fixture) => fixture.round(),
 ) {
-  const roundId = await fixture.round();
+  const roundId = await makeRound(fixture);
   const seat = await fixture.seat(roundId, 'affirmative');
   await fixture.sql.unsafe(
     'update users set email_verified=true where id=(select user_id from actors where id=$1)',

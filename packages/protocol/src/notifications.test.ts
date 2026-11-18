@@ -15,7 +15,7 @@ test('notification kinds', () => {
   assert({
     given: 'the accepted kinds (WATCH-12, ADR 0124, ADR 0144)',
     should:
-      'name Watch’s two released events, a Round starting and its decision, a Room invitation, a challenge and its acceptance, and a friend request and its acceptance',
+      'name Watch’s two released events, a Round starting and its decision, a Room invitation, a challenge and its acceptance, a friend request and its acceptance, and Tab’s tournament changes',
     actual: notificationKinds,
     expected: [
       'followed_debater_live',
@@ -27,6 +27,12 @@ test('notification kinds', () => {
       'challenge_accepted',
       'friend_request_received',
       'friend_request_accepted',
+      'judge_assigned',
+      'judge_replaced',
+      'judge_unassigned',
+      'tournament_draw_changed',
+      'tournament_room_ready',
+      'tournament_results_released',
     ],
   });
 });
@@ -51,6 +57,12 @@ test('choice pairs', () => {
       'friend_request_received.in_app',
       'friend_request_received.email',
       'friend_request_accepted.in_app',
+      'judge_assigned.in_app',
+      'judge_replaced.in_app',
+      'judge_unassigned.in_app',
+      'tournament_draw_changed.in_app',
+      'tournament_room_ready.in_app',
+      'tournament_results_released.in_app',
     ],
   });
 });
@@ -107,6 +119,7 @@ test('catalogue', () => {
       kindsAbout('round'),
       kindsAbout('challenge'),
       kindsAbout('friendship'),
+      kindsAbout('fixture'),
     ],
     expected: [
       [
@@ -117,6 +130,14 @@ test('catalogue', () => {
       ],
       ['challenge_received', 'challenge_accepted'],
       ['friend_request_received', 'friend_request_accepted'],
+      [
+        'judge_assigned',
+        'judge_replaced',
+        'judge_unassigned',
+        'tournament_draw_changed',
+        'tournament_room_ready',
+        'tournament_results_released',
+      ],
     ],
   });
 });

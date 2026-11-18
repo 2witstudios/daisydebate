@@ -1,4 +1,4 @@
-import type { RecordingLifecycle } from '@daisy/protocol';
+import { twoSides, type RecordingLifecycle } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { BroadcastRelease, RecordingViewer } from './audience';
 import {
@@ -26,12 +26,23 @@ const round: HistoryRound = {
   hostActorId: 'host',
   completedAtMs: nowMs,
   seatedActorIds: ['aff', 'neg'],
+  recordingPolicy: 'released',
+  officialActorIds: [],
   title: 'Semifinal',
   resolution: 'Resolved: x',
-  outcome: 'negative',
+  sides: twoSides,
+  outcome: { kind: 'winner', side: 'negative' },
   debaters: [
-    { roundParticipantId: 'p-aff', role: 'affirmative', label: 'ada' },
-    { roundParticipantId: 'p-neg', role: 'negative', label: null },
+    {
+      roundParticipantId: 'p-aff',
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
+      label: 'ada',
+    },
+    {
+      roundParticipantId: 'p-neg',
+      seat: { kind: 'side', side: 'negative', slot: 0 },
+      label: null,
+    },
   ],
 };
 const transcript = {

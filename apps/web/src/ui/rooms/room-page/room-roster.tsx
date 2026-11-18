@@ -1,10 +1,19 @@
 import type { ReactNode } from 'react';
 import {
+  affirmativeSide,
+  aiRoleFits,
   freeSeatsOf,
+  isDebatingSeat,
+  isJudgeSeat,
+  isModeratorSeat,
   isNamedSeat,
-  seatKindOf,
+  negativeSide,
+  sameSeat,
+  seatKey,
+  seatKinds,
   type RoomCastChoice,
   type RoomView,
+  type SeatRef,
 } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
@@ -25,7 +34,9 @@ import { EndInvitationForm } from './end-invitation-form';
 import { HeldUntil } from './held-until';
 import { ROOM_TITLE_ID } from './room-setup-modal';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
+import { officialTone, sideTone, speakerTone } from './side-tone';
 import {
+  isEventRoom,
   ordinalOf,
   rosterBoxes,
   showsTeams,
@@ -35,7 +46,7 @@ import {
 } from './roster-seat';
 
 type SeatIds = RoomCommandIds['seats'][number];
-type Seat = ReturnType<typeof declaredSeats>[number];
+type Seat = SeatRef;
 type Participant = RoomView['participants'][number];
 type Named = Extract<Participant, { actorId: string }>;
 
@@ -51,9 +62,20 @@ export type RosterProps = {
   readonly invitationAction: FormAction<InvitationFormState>;
 };
 
+/**
+ * The AI actors a seat may hold: a bot debater for a side's or a speaker's
+ * seat, the AI judge for a judge's, and none for a moderator's (TAB-6.18).
+ */
+export const botsForSeat = (
+  bots: readonly RoomCastChoice[],
+  seat: SeatRef,
+): readonly RoomCastChoice[] =>
+  bots.filter((bot) => aiRoleFits(bot.aiRole, seat));
+
+const twoSideTones = [{ key: affirmativeSide }, { key: negativeSide }];
 const boxTone: Readonly<Record<SideMark, string>> = {
-  affirmative: 'bg-hue-sky-soft text-hue-sky',
-  negative: 'bg-hue-clay-soft text-hue-clay',
+  [affirmativeSide]: sideTone(twoSideTones, affirmativeSide),
+  [negativeSide]: sideTone(twoSideTones, negativeSide),
   '?': 'border-2 border-dashed border-gold-border bg-gold-soft text-ink',
 };
 const boxClass =
@@ -199,21 +221,31 @@ function ReadyMark({ seat }: { readonly seat: Participant }) {
   );
 }
 
-const avatarTone = {
-  affirmative: 'bg-hue-sky-soft text-hue-sky',
-  negative: 'bg-hue-clay-soft text-hue-clay',
-  judge: 'bg-hue-teal-soft text-hue-teal',
-} as const;
+/** A seat's avatar tone: its side's, the speakers' shared one, or the officials'. */
+const avatarTone = (
+  sides: readonly { readonly key: string }[],
+  seat: Seat,
+): string => {
+  switch (seat.kind) {
+    case 'side':
+      return sideTone(sides, seat.side);
+    case 'speaker':
+      return speakerTone;
+    case 'judge':
+    case 'moderator':
+      return officialTone;
+  }
+};
 
 /** The name, an inline rating, and who they are to this viewer. */
 function Who({
   props,
   seat,
-  role,
+  place,
 }: {
   readonly props: RosterProps;
   readonly seat: Named | null;
-  readonly role: Seat['role'];
+  readonly place: Seat;
 }) {
   const meta = seat
     ? [
@@ -227,7 +259,7 @@ function Who({
     <div className="flex min-w-0 items-center gap-2">
       <span
         aria-hidden="true"
-        className={`flex size-roster-avatar shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
+        className={`flex size-roster-avatar shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone(props.view.rules.sides, place)}`}
       >
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
@@ -329,17 +361,17 @@ function FillSeat({
         .map((p) => [p.actorId, p]),
     ).values(),
   ];
-  const bots = props.bots.filter(
+  const judge = isJudgeSeat(seat);
+  const bots = botsForSeat(props.bots, seat).filter(
     (bot) =>
-      bot.seatRole === (seat.role === 'judge' ? 'judge' : 'debater') &&
       bot.eligible &&
-      !(bot.seatRole === 'judge' && !aiJudgeSeatable(view.aiJudgeSeating)) &&
-      !(view.competitionType === 'ranked' && bot.seatRole === 'debater'),
+      !(judge && !aiJudgeSeatable(view.aiJudgeSeating)) &&
+      !(view.competitionType === 'ranked' && !judge),
   );
   const choices = people.length + bots.length > 0;
   if (!choices && !aiJudge) return null;
-  const id = `assign-${seat.role}-${seat.slot}`;
-  const seatName = roomSeatLabel(view, seat.role, seat.slot);
+  const id = `assign-${seatKey(seat).replace(':', '-')}`;
+  const seatName = roomSeatLabel(view, seat);
   // The menu opens over the row, natively, with focus on its first choice.
   return (
     <>
@@ -364,8 +396,7 @@ function FillSeat({
               version={view.version}
               commandId={ids.assign}
             />
-            <input type="hidden" name="role" value={seat.role} />
-            <input type="hidden" name="slot" value={String(seat.slot)} />
+            <input type="hidden" name="seat" value={JSON.stringify(seat)} />
             <label className="sr-only" htmlFor={id}>
               Seat someone in {seatName}
             </label>
@@ -404,11 +435,7 @@ function FillSeat({
             props={props}
             type="assign-seat"
             commandId={ids.ai}
-            fields={{
-              role: seat.role,
-              slot: String(seat.slot),
-              actorId: aiJudge.actorId,
-            }}
+            fields={{ seat: JSON.stringify(seat), actorId: aiJudge.actorId }}
             label="AI judge"
             className={menuItem}
           />
@@ -419,10 +446,9 @@ function FillSeat({
 }
 
 /** Whether every free seat of this kind is held for someone other than this viewer. */
-const heldFromViewer = (view: RoomView, role: Seat['role']) => {
-  const kind = seatKindOf(role);
-  const held = view.seatsHeldFromViewer[kind];
-  return held > 0 && freeSeatsOf(view, kind) <= held;
+const heldFromViewer = (view: RoomView, seat: Seat) => {
+  const held = view.seatsHeldFromViewer[seat.kind];
+  return held > 0 && freeSeatsOf(view, seat.kind) <= held;
 };
 
 /** An open seat: take it, invite someone, seat an AI judge, or (host) seat anyone. */
@@ -439,11 +465,14 @@ function OpenSeat({
   readonly invited: RoomView['invitations'][number] | undefined;
 }) {
   const { view } = props;
-  const position = { role: seat.role, slot: String(seat.slot) };
+  const position = { seat: JSON.stringify(seat) };
   const aiJudge =
-    seat.role === 'judge' && aiJudgeSeatable(view.aiJudgeSeating)
-      ? props.bots.find((bot) => bot.seatRole === 'judge' && bot.eligible)
+    isJudgeSeat(seat) && aiJudgeSeatable(view.aiJudgeSeating)
+      ? botsForSeat(props.bots, seat).find((bot) => bot.eligible)
       : undefined;
+  // An event Room's seats are the organiser's: nobody takes or invites into
+  // one from the roster (ADR 0145, Tab).
+  const event = isEventRoom(view);
   return (
     <>
       <span aria-hidden="true" />
@@ -459,18 +488,19 @@ function OpenSeat({
           )}
         </p>
         <div className="flex flex-wrap items-center justify-end gap-1">
-          {view.capabilities.canClaimSeat &&
-          !heldFromViewer(view, seat.role) ? (
+          {!event &&
+          view.capabilities.canClaimSeat &&
+          !heldFromViewer(view, seat) ? (
             <CommandButton
               props={props}
               type="claim-seat"
               commandId={ids.claim}
               fields={position}
               label="Take seat"
-              name={`Take ${roomSeatLabel(view, seat.role, seat.slot)}`}
+              name={`Take ${roomSeatLabel(view, seat)}`}
             />
           ) : null}
-          {!invited ? (
+          {event ? null : !invited ? (
             <RoomInvite
               roomId={view.id}
               visibility={view.visibility}
@@ -511,16 +541,14 @@ function Row({
   readonly invited: RoomView['invitations'][number] | undefined;
 }) {
   const { view } = props;
-  const occupant = view.participants.find(
-    (p) => p.role === seat.role && p.slot === seat.slot,
-  );
+  const occupant = view.participants.find((p) => sameSeat(p.seat, seat));
   const named = occupant && isNamedSeat(occupant) ? occupant : null;
   const boxes = occupant
     ? rosterBoxes(view, occupant, props.viewer.actorId)
     : null;
   return (
     <li
-      aria-label={named?.label ?? roomSeatLabel(view, seat.role, seat.slot)}
+      aria-label={named?.label ?? roomSeatLabel(view, seat)}
       className={`grid min-h-room-target items-center gap-x-3 border-t border-border py-1 first:border-t-0 ${teams ? 'room-roster-teams' : 'room-roster-sides'}`}
     >
       {!occupant ? (
@@ -528,7 +556,7 @@ function Row({
       ) : (
         <>
           <ReadyMark seat={occupant} />
-          <Who props={props} seat={named} role={seat.role} />
+          <Who props={props} seat={named} place={seat} />
           {named && boxes ? (
             <SeatBoxes
               props={props}
@@ -539,7 +567,9 @@ function Row({
             />
           ) : null}
           <div className="room-roster-action flex justify-end empty:hidden">
-            {named && named.actorId === props.viewer.actorId ? (
+            {named &&
+            named.actorId === props.viewer.actorId &&
+            !isEventRoom(view) ? (
               <CommandButton
                 props={props}
                 type="leave-seat"
@@ -569,19 +599,17 @@ function Row({
 /** Pending invitations of each kind, kept for that kind's first open seats. */
 function invitationsBySeat(view: RoomView, seats: readonly Seat[]) {
   const open = seats.filter(
-    (seat) =>
-      !view.participants.some(
-        (p) => p.role === seat.role && p.slot === seat.slot,
-      ),
+    (seat) => !view.participants.some((p) => sameSeat(p.seat, seat)),
   );
   const kept = new Map<string, RoomView['invitations'][number]>();
-  for (const kind of ['debater', 'judge'] as const) {
+  // Every kind an invitation may hold: a side's seat, a speaker's, a judge's.
+  for (const kind of seatKinds) {
     const pending = view.invitations.filter((i) => i.seat === kind);
     open
-      .filter((seat) => seatKindOf(seat.role) === kind)
+      .filter((seat) => seat.kind === kind)
       .forEach((seat, index) => {
         const invitation = pending[index];
-        if (invitation) kept.set(`${seat.role}:${seat.slot}`, invitation);
+        if (invitation) kept.set(seatKey(seat), invitation);
       });
   }
   return kept;
@@ -595,27 +623,27 @@ function invitationsBySeat(view: RoomView, seats: readonly Seat[]) {
  */
 export function RoomRoster(props: RosterProps) {
   const { view } = props;
-  const seats = declaredSeats(view.definition.seats);
-  const teams = showsTeams(view.definition.seats);
+  const seats = declaredSeats(view.rules);
+  const teams = showsTeams(view.definition);
   const invited = invitationsBySeat(view, seats);
-  const debaters = seats.filter((seat) => seat.role !== 'judge');
-  const judges = seats.filter((seat) => seat.role === 'judge');
-  const filled = (role: 'debater' | 'judge') =>
-    view.participants.filter((p) => (p.role === 'judge') === (role === 'judge'))
-      .length;
+  const debaters = seats.filter(isDebatingSeat);
+  const officials = seats.filter((seat) => !isDebatingSeat(seat));
+  const filled = (debating: boolean) =>
+    view.participants.filter((p) => isDebatingSeat(p.seat) === debating).length;
   const plural = (n: number, word: string) =>
     `${n} ${word}${n === 1 ? '' : 's'}`;
+  const officialWord = officials.some(isModeratorSeat) ? 'official' : 'judge';
   const row = (seat: Seat) => {
     const ids = props.commandIds.seats[seats.indexOf(seat)];
     if (!ids) throw new Error('Missing Room seat command identities');
     return (
       <Row
-        key={`${seat.role}:${seat.slot}`}
+        key={seatKey(seat)}
         props={props}
         seat={seat}
         ids={ids}
         teams={teams}
-        invited={invited.get(`${seat.role}:${seat.slot}`)}
+        invited={invited.get(seatKey(seat))}
       />
     );
   };
@@ -629,12 +657,19 @@ export function RoomRoster(props: RosterProps) {
           Players
         </h2>
         <p className="text-sm text-ink-muted tabular-nums">
-          {`${filled('debater')} of ${plural(debaters.length, 'debater')}`}
-          {judges.length > 0
-            ? ` · ${filled('judge')} of ${plural(judges.length, 'judge')}`
+          {`${filled(true)} of ${plural(debaters.length, 'debater')}`}
+          {officials.length > 0
+            ? ` · ${filled(false)} of ${plural(officials.length, officialWord)}`
             : null}
         </p>
       </div>
+      {isEventRoom(view) ? (
+        // A published event Room: the organiser seated it from the draw,
+        // which also decided its sides; nobody hosts it (ADR 0145, Tab).
+        <p className="text-sm text-ink-muted">
+          Seated by the organiser. Sides come from the draw.
+        </p>
+      ) : null}
       <div
         aria-hidden="true"
         className={`grid gap-x-3 text-xs font-semibold text-ink-muted ${teams ? 'room-roster-teams' : 'room-roster-sides'}`}
@@ -646,12 +681,12 @@ export function RoomRoster(props: RosterProps) {
         {teams ? <span className="justify-self-center">Position</span> : null}
       </div>
       <ul className="flex flex-col">{debaters.map(row)}</ul>
-      {judges.length > 0 ? (
+      {officials.length > 0 ? (
         <>
           <h3 className="mt-1 text-xs font-semibold tracking-wider text-ink-muted uppercase">
-            Judges
+            {officials.some(isModeratorSeat) ? 'Officials' : 'Judges'}
           </h3>
-          <ul className="flex flex-col">{judges.map(row)}</ul>
+          <ul className="flex flex-col">{officials.map(row)}</ul>
           <AiJudgeNotice view={view} />
         </>
       ) : null}

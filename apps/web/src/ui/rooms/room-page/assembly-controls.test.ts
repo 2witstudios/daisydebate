@@ -1,7 +1,22 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { twoSides, type SeatRef } from '@daisy/protocol';
 import { declaredSeats, readinessControl } from './assembly-controls';
 
 setupRitewayBun();
+
+const seating = (affirmative: number, negative: number, judges: number) => ({
+  sides: twoSides,
+  seats: {
+    sides: { affirmative, negative },
+    speakers: 0,
+    judges,
+    moderators: 0,
+  },
+});
+const seatOf = (role: 'affirmative' | 'judge'): SeatRef =>
+  role === 'judge'
+    ? { kind: 'judge', slot: 0 }
+    : { kind: 'side', side: role, slot: 0 };
 
 const participant = (role: 'affirmative' | 'judge') => ({
   id: 'participant',
@@ -9,8 +24,7 @@ const participant = (role: 'affirmative' | 'judge') => ({
   label: 'Member',
   consentVersion: 0,
   kind: 'human' as const,
-  role,
-  slot: 0,
+  seat: seatOf(role),
   teamOpen: false,
   positionOpen: false,
   rating: null,
@@ -52,15 +66,15 @@ describe('canonical room assembly controls', () => {
     assert({
       given: 'two affirmative seats, three negative seats and two judges',
       should: 'render every declared slot in role order',
-      actual: declaredSeats({ affirmative: 2, negative: 3, judge: 2 }),
+      actual: declaredSeats(seating(2, 3, 2)),
       expected: [
-        { role: 'affirmative', slot: 0 },
-        { role: 'affirmative', slot: 1 },
-        { role: 'negative', slot: 0 },
-        { role: 'negative', slot: 1 },
-        { role: 'negative', slot: 2 },
-        { role: 'judge', slot: 0 },
-        { role: 'judge', slot: 1 },
+        { kind: 'side', side: 'affirmative', slot: 0 },
+        { kind: 'side', side: 'affirmative', slot: 1 },
+        { kind: 'side', side: 'negative', slot: 0 },
+        { kind: 'side', side: 'negative', slot: 1 },
+        { kind: 'side', side: 'negative', slot: 2 },
+        { kind: 'judge', slot: 0 },
+        { kind: 'judge', slot: 1 },
       ],
     });
   });
@@ -178,13 +192,13 @@ test('unsafe seat expansion fails before allocation instead of truncating', () =
   }) as typeof Array.from;
   try {
     for (const seats of [
-      { affirmative: 1_000_000_000, negative: 1, judge: 0 },
-      { affirmative: 1, negative: 1, judge: 1_000_000_000 },
-      { affirmative: 1, negative: 1_000_000_000, judge: 0 },
-      { affirmative: 128, negative: 128, judge: 1 },
-      { affirmative: 1, negative: 0, judge: 0 },
-      { affirmative: -1, negative: 1, judge: 0 },
-      { affirmative: 1.5, negative: 1, judge: 0 },
+      seating(1_000_000_000, 1, 0),
+      seating(1, 1, 1_000_000_000),
+      seating(1, 1_000_000_000, 0),
+      seating(128, 128, 1),
+      seating(1, 0, 0),
+      seating(-1, 1, 0),
+      seating(1.5, 1, 0),
     ]) {
       try {
         declaredSeats(seats);
@@ -206,15 +220,15 @@ test('unsafe seat expansion fails before allocation instead of truncating', () =
 });
 
 test('seat expansion includes the complete resource boundary', () => {
-  const seats = declaredSeats({ affirmative: 255, negative: 1, judge: 0 });
+  const seats = declaredSeats(seating(255, 1, 0));
   assert({
     given: 'unequal sides at exactly 256 total seats',
     should: 'expand all declared seats without truncation',
     actual: [seats.length, seats[254], seats[255]],
     expected: [
       256,
-      { role: 'affirmative', slot: 254 },
-      { role: 'negative', slot: 0 },
+      { kind: 'side', side: 'affirmative', slot: 254 },
+      { kind: 'side', side: 'negative', slot: 0 },
     ],
   });
 });

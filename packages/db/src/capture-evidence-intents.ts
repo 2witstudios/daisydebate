@@ -65,8 +65,7 @@ export async function reserveCaptureEvidenceIntent(
       roundParticipantId: seat.id,
       actorId: seat.actorId,
       kind: seat.kind,
-      role: seat.role,
-      slot: seat.slot,
+      seat: seat.seat,
     },
   );
   if (!parsedSpeaker.success)

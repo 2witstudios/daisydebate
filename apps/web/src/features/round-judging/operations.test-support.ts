@@ -1,15 +1,29 @@
+import { aiJudgeFor } from '@daisy/ai-voice';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
+import { daisyWinnerBallot, panelRuleFor, twoSides } from '@daisy/protocol';
 import { createRoundJudgingOperations } from './operations';
 import {
   frozen,
   round,
 } from '../round-runtime/transcript-evidence.test-support';
 
+/** The frozen Round as a claim carries it: judged on Daisy's winner ballot over two sides. */
+export const judgedRound = {
+  ...round,
+  rules: { sides: twoSides, segments: [{ key: 'AC' }] },
+  judging: {
+    ballot: daisyWinnerBallot,
+    panel: panelRuleFor(daisyWinnerBallot),
+  },
+};
+/** That Round's AI judge. */
+export const judge = aiJudgeFor(daisyWinnerBallot, judgedRound.rules);
+
 export const claim = {
   scope: {},
   token: 't',
   model: 'm',
-  round,
+  round: judgedRound,
   frozen,
 } as never;
 type Stage = 'first' | 'map' | 'final';

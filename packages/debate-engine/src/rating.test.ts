@@ -1,5 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { winnerOutcome } from '@daisy/protocol';
 import { rateDebate, ratingPolicy, type DebaterRating } from './rating';
 
 setupRitewayBun();
@@ -27,7 +28,7 @@ describe('rateDebate', () => {
     const result = rateDebate({
       affirmative: newcomer,
       negative: newcomer,
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
       occurredAt: at,
     });
     assert({
@@ -64,7 +65,7 @@ describe('rateDebate', () => {
     const negativeWin = rateDebate({
       affirmative: newcomer,
       negative: newcomer,
-      outcome: 'negative',
+      outcome: winnerOutcome('negative'),
       occurredAt: at,
     });
     assert({
@@ -83,7 +84,7 @@ describe('rateDebate', () => {
     const result = rateDebate({
       affirmative: strong,
       negative: newcomer,
-      outcome: 'negative',
+      outcome: winnerOutcome('negative'),
       occurredAt: at,
     });
     const winnerMove = result.negative.after.rating - 1500;
@@ -100,13 +101,13 @@ describe('rateDebate', () => {
     const idle = rateDebate({
       affirmative: { ...settled(1600, 60), lastRatedAt: daysBefore(365) },
       negative: settled(1600, 60),
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
       occurredAt: at,
     });
     const active = rateDebate({
       affirmative: settled(1600, 60),
       negative: settled(1600, 60),
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
       occurredAt: at,
     });
     assert({
@@ -127,13 +128,13 @@ describe('rateDebate', () => {
     const top = rateDebate({
       affirmative: settled(3999, 350),
       negative: settled(3999, 350),
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
       occurredAt: at,
     });
     const steady = rateDebate({
       affirmative: settled(1500, 30, 0.001),
       negative: settled(1500, 30, 0.001),
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
       occurredAt: at,
     });
     assert({
@@ -176,7 +177,7 @@ describe('rateDebate', () => {
           rateDebate({
             affirmative: { state, lastRatedAt: null },
             negative: newcomer,
-            outcome: 'affirmative',
+            outcome: winnerOutcome('affirmative'),
             occurredAt: at,
           }),
         code: 'INVARIANT',
@@ -196,7 +197,7 @@ describe('rateDebate', () => {
           rateDebate({
             affirmative,
             negative: newcomer,
-            outcome: 'affirmative',
+            outcome: winnerOutcome('affirmative'),
             occurredAt: 'yesterday',
           }),
         code: 'VALIDATION',

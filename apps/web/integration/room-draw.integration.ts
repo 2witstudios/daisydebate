@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import {
   captureRule,
   readRoundOpening,
@@ -66,6 +67,8 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       expected: [5, 5, 1, 'opening', null, 'debater', false],
     });
     const ballotRead = await f.store.readRoundBallot({
+      ballotAccess: (_round, _account, owner) =>
+        eventBallotAccess(f.outsider, owner),
       caller: f.outsider,
       roundId,
       authorize: () => true,
@@ -216,6 +219,7 @@ test('a seated debater who is no longer eligible is not offered the strike', asy
           () => true,
           readRoundOpening,
           roundWaitingOn,
+          () => false,
         )
       ).opening?.canStrike;
     const eligible = await canStrike();

@@ -1,4 +1,11 @@
-import type { FormatDefinition, FormatSettings } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  negativeSide,
+  sideSeat,
+  twoSides,
+  type FormatDefinition,
+  type FormatSettings,
+} from '@daisy/protocol';
 
 /**
  * The reference formats, as TypeScript, for tooling that runs without a
@@ -18,65 +25,80 @@ const referenceInRoundPrepCapability: FormatDefinition['configurable']['inRoundP
     expiresAtSegment: null,
   };
 
+/** Each side's one seat speaks a speech; in cross-ex every debater speaks and the asker leads. */
+const speech = (side: string) => ({
+  rights: 'one' as const,
+  seat: sideSeat(side),
+});
+const crossEx = (asker: string) => ({
+  rights: 'all' as const,
+  lead: sideSeat(asker),
+});
+
+/** A two-sided format of one debater a side and `judges` judges, decided by a winner. */
+const oneEach = (judges: number) => ({
+  version: 2 as const,
+  sides: [...twoSides],
+  seats: {
+    sides: { [affirmativeSide]: 1, [negativeSide]: 1 },
+    speakers: 0,
+    judges,
+    moderators: 0 as const,
+  },
+  outcome: { kind: 'winner' as const },
+});
+
 /** One-on-one as first published, its 1AR at 5:00; Rooms and Rounds pinned to it keep it. */
 const oneOnOneRevision1: FormatDefinition = {
-  version: 1,
-  seats: { affirmative: 1, negative: 1, judge: 1 },
+  ...oneEach(1),
   segments: [
     {
       key: 'AC',
       label: 'Affirmative constructive',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: speech(affirmativeSide),
       defaultDurationMs: 300_000,
     },
     {
       key: 'CX1',
       label: 'Cross-examination of the affirmative',
       type: 'cross_ex',
-      side: 'negative',
-      slot: 0,
+      speak: crossEx(negativeSide),
       defaultDurationMs: 120_000,
     },
     {
       key: 'NC',
       label: 'Negative constructive',
       type: 'speech',
-      side: 'negative',
-      slot: 0,
+      speak: speech(negativeSide),
       defaultDurationMs: 360_000,
     },
     {
       key: 'CX2',
       label: 'Cross-examination of the negative',
       type: 'cross_ex',
-      side: 'affirmative',
-      slot: 0,
+      speak: crossEx(affirmativeSide),
       defaultDurationMs: 120_000,
     },
     {
       key: '1AR',
       label: 'First affirmative rebuttal',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: speech(affirmativeSide),
       defaultDurationMs: 300_000,
     },
     {
       key: 'NR',
       label: 'Negative rebuttal',
       type: 'speech',
-      side: 'negative',
-      slot: 0,
+      speak: speech(negativeSide),
       defaultDurationMs: 300_000,
     },
     {
       key: '2AR',
       label: 'Second affirmative rebuttal',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: speech(affirmativeSide),
       defaultDurationMs: 180_000,
     },
   ],
@@ -125,23 +147,20 @@ export const oneOnOneDefinition: FormatDefinition = {
 
 /** The architectural proof format: two speeches, unjudged, no interaction. */
 export const foundationDefinition: FormatDefinition = {
-  version: 1,
-  seats: { affirmative: 1, negative: 1, judge: 0 },
+  ...oneEach(0),
   segments: [
     {
       key: 'AC',
       label: 'Affirmative constructive',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: speech(affirmativeSide),
       defaultDurationMs: 240_000,
     },
     {
       key: 'NC',
       label: 'Negative constructive',
       type: 'speech',
-      side: 'negative',
-      slot: 0,
+      speak: speech(negativeSide),
       defaultDurationMs: 240_000,
     },
   ],

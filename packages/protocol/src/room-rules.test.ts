@@ -1,11 +1,14 @@
+import type { z } from 'zod';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ballotCategories,
-  ballotScoresSchema,
+  ballotSchemaFor,
+  daisyWinnerBallot,
   roomConfigSchema,
   roundRulesSchema,
   runtimeCheckpointSchema,
-  emptyRuntimeCheckpoint,
+  emptyRuntimeCheckpointFor,
+  twoSides,
 } from './index';
 import { parseOutcome } from './parse-outcome.test-support';
 
@@ -74,23 +77,34 @@ describe('room config', () => {
 
 describe('round rules', () => {
   const rules = {
-    version: 2,
-    seats: { affirmative: 1, negative: 1, judge: 1 },
+    version: 3,
+    sides: [...twoSides],
+    seats: {
+      sides: { affirmative: 1, negative: 1 },
+      speakers: 0,
+      judges: 1,
+      moderators: 0,
+    },
+    outcome: { kind: 'winner' },
     segments: [
       {
         key: 'A1',
         label: 'Affirmative speech',
         type: 'speech',
-        side: 'affirmative',
-        slot: 0,
+        speak: {
+          rights: 'one',
+          seat: { kind: 'side', side: 'affirmative', slot: 0 },
+        },
         durationMs: 60_000,
       },
       {
         key: 'CX',
         label: 'Cross-examination',
         type: 'cross_ex',
-        side: 'negative',
-        slot: 0,
+        speak: {
+          rights: 'all',
+          lead: { kind: 'side', side: 'negative', slot: 0 },
+        },
         durationMs: 45_000,
       },
     ],
@@ -142,7 +156,10 @@ describe('runtime checkpoint', () => {
     assert({
       given: 'the checkpoint a fresh round hydrates with',
       should: 'parse to an equal value',
-      actual: parseOutcome(runtimeCheckpointSchema, emptyRuntimeCheckpoint),
+      actual: parseOutcome(
+        runtimeCheckpointSchema,
+        emptyRuntimeCheckpointFor({ sides: twoSides }),
+      ),
       expected: {
         data: {
           version: 1,
@@ -202,6 +219,11 @@ describe('runtime checkpoint', () => {
 });
 
 describe('ballot scores', () => {
+  const ballotScoresSchema = ballotSchemaFor(daisyWinnerBallot, {
+    sides: ['affirmative', 'negative'],
+    speakers: [],
+    segments: [],
+  }).shape.scores as z.ZodType;
   const scores = {
     affirmative: Object.fromEntries(
       ballotCategories.map((category, index) => [category, (index % 5) + 1]),

@@ -37,8 +37,7 @@ const seedWith = (person: {
           {
             id: 's1e2a3t4a5b6c7d8e9f0a1b2',
             actorId,
-            role: 'affirmative' as const,
-            slot: 0,
+            seat: { kind: 'side' as const, side: 'affirmative', slot: 0 },
           },
         ],
       },

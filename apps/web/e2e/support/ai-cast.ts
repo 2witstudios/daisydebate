@@ -35,8 +35,8 @@ export function aiCast(catalog: { readonly bots: readonly unknown[] }) {
   const bots = catalog.bots
     .map((bot) => roomCastChoiceSchema.parse(bot))
     .filter((bot) => bot.eligible);
-  const debater = bots.find((bot) => bot.seatRole === 'debater');
-  const aiJudge = bots.find((bot) => bot.seatRole === 'judge');
+  const debater = bots.find((bot) => bot.aiRole === 'debater');
+  const aiJudge = bots.find((bot) => bot.aiRole === 'judge');
   expect([Boolean(debater), Boolean(aiJudge)]).toEqual([true, true]);
   return { debater: debater!, aiJudge: aiJudge! };
 }

@@ -1,3 +1,5 @@
+import { participantAccess, insideBoundary } from '@daisy/auth/authorization';
+import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
 import type { Database } from '@daisy/db';
 import type {
   NotificationItem,
@@ -7,6 +9,28 @@ import type {
 import { notificationWords } from './notification-words';
 
 const PAGE = 50;
+
+/**
+ * Whether a member may read one tournament lobby's notifications now (NTF-15):
+ * the ordinary Tab read fences, so the inbox, its badge and its toasts all
+ * show a tournament notification exactly when its lobby is readable to them.
+ */
+export const canReadTournamentInbox: NonNullable<
+  Parameters<Database['readNotifications']>[0]['canReadTournament']
+> = (facts) => {
+  const account = facts.authorization.account;
+  if (!account?.member || account.erased || !participantAccess(account))
+    return false;
+  const resource = hostLobbyResource(
+    facts.lobby,
+    facts.authorization.organization,
+    facts.ownerActorId,
+  );
+  return (
+    resource.kind === 'lobby' &&
+    insideBoundary(account.boundary, resource.scope)
+  );
+};
 
 /** An account's stored notifications as its list reads them. */
 export const readNotificationItems = async (
@@ -23,6 +47,7 @@ export const readNotificationItems = async (
 }> => {
   const { rows, unread, next } = await store.readNotifications({
     userId: input.userId,
+    canReadTournament: canReadTournamentInbox,
     unreadOnly: input.query.unreadOnly,
     after: input.query.after,
     limit: PAGE,

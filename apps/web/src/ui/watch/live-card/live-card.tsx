@@ -10,7 +10,7 @@ export type LiveCardProps = {
   readonly card: LiveCardModel;
 };
 
-function Seat({ seat }: { seat: LiveCardModel['aff'] }) {
+function Seat({ seat }: { seat: LiveCardModel['seats'][number] }) {
   return (
     <span className="flex items-baseline gap-2">
       <span className="text-2xs font-bold tracking-wider text-ink-faint uppercase">
@@ -48,8 +48,9 @@ export function LiveCard({ card }: LiveCardProps) {
         <p className="line-clamp-2 text-sm text-ink-muted">{card.resolution}</p>
       ) : null}
       <div className="flex flex-col gap-1">
-        <Seat seat={card.aff} />
-        <Seat seat={card.neg} />
+        {card.seats.map((seat, index) => (
+          <Seat key={index} seat={seat} />
+        ))}
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex gap-1" aria-hidden="true">

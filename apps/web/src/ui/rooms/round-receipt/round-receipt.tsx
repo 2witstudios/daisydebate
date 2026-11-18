@@ -1,6 +1,7 @@
-import type { RoundView } from '@daisy/protocol';
+import { isJudgeSeat, seatKey, type RoundView } from '@daisy/protocol';
 import type { ReactNode } from 'react';
-import { seatLabel } from '../room-page/assembly-controls';
+import { seatLabel, segmentSeatLabel } from '../room-page/assembly-controls';
+import { sideName } from '../../../features/debate-room/seat-names';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { ruleRows, speechName } from '../../../features/debate-room/vocabulary';
 import { MediaPageLink } from '../../round-media/media-page-link';
@@ -20,7 +21,7 @@ export type RoundReceiptView = Pick<
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
   readonly rules: Pick<
     RoundView['rules'],
-    'segments' | 'countdownMs' | 'inRoundPrep' | 'interaction'
+    'sides' | 'segments' | 'countdownMs' | 'inRoundPrep' | 'interaction'
   >;
 };
 
@@ -39,21 +40,35 @@ const resultText = (round: RoundReceiptView) =>
   round.platformEnding
     ? 'Ended by a Daisy server failure. No result, no rating and no charge.'
     : round.outcome
-      ? resultLabel[round.outcome]
+      ? outcomeText(round.rules.sides, round.outcome)
       : round.panelRuling === 'transcript-incomplete'
         ? 'Transcript incomplete'
         : round.panelRuling === 'judging-failed'
           ? 'AI judge could not rule'
           : round.panelRuling === 'judges-split'
             ? 'Judges split'
-            : round.participants.some((seat) => seat.role === 'judge')
+            : round.participants.some((seat) => isJudgeSeat(seat.seat))
               ? 'Judges did not rule'
               : 'Unjudged';
-const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
-  {
-    affirmative: 'Affirmative won',
-    negative: 'Negative won',
-  };
+
+/** "Affirmative won"; a ranking reads its places in order. */
+const outcomeText = (
+  sides: RoundReceiptView['rules']['sides'],
+  outcome: NonNullable<RoundView['outcome']>,
+): string => {
+  switch (outcome.kind) {
+    case 'winner':
+      return `${sideName(sides, outcome.side)} won`;
+    case 'ranking':
+      return outcome.of === 'sides'
+        ? `Ranked ${outcome.places
+            .map((place) =>
+              place.map((key) => sideName(sides, key)).join(' and '),
+            )
+            .join(', then ')}`
+        : 'Speakers ranked';
+  }
+};
 
 type Participant = RoundReceiptView['participants'][number];
 
@@ -82,11 +97,14 @@ const settingRows = (round: RoundReceiptView) => {
  * A seat's line. A human judge stays anonymous until both debaters have
  * reviewed the ballot, which nothing records yet (DEC-98).
  */
-const participantLine = (participant: Participant) => {
-  const seat = seatLabel(participant.role, participant.slot);
+const participantLine = (
+  sides: RoundReceiptView['rules']['sides'],
+  participant: Participant,
+) => {
+  const seat = seatLabel(sides, participant.seat);
   if (
     'anonymous' in participant ||
-    (participant.role === 'judge' && participant.kind === 'human')
+    (isJudgeSeat(participant.seat) && participant.kind === 'human')
   )
     return seat;
   return `${seat} · ${participant.label}${participant.kind === 'bot' ? ' · AI' : ''}`;
@@ -147,14 +165,14 @@ export function RoundReceipt({
         <h2 className="font-strong">Participants</h2>
         <ul>
           {round.participants.map((participant) => (
-            <li key={`${participant.role}-${participant.slot}`}>
-              {participantLine(participant)}
+            <li key={seatKey(participant.seat)}>
+              {participantLine(round.rules.sides, participant)}
             </li>
           ))}
         </ul>
       </section>
       {round.resolutionAudit ? (
-        <DrawAudit audit={round.resolutionAudit} />
+        <DrawAudit audit={round.resolutionAudit} sides={round.rules.sides} />
       ) : null}
       <section
         aria-label="Frozen settings"
@@ -178,7 +196,8 @@ export function RoundReceipt({
         <ol>
           {round.rules.segments.map((segment) => (
             <li key={segment.key}>
-              {speechName(segment)} · {seatLabel(segment.side, segment.slot)} ·{' '}
+              {speechName(segment)} ·{' '}
+              {segmentSeatLabel(round.rules.sides, segment.speak)} ·{' '}
               {clockDuration(segment.durationMs)}
             </li>
           ))}
@@ -198,8 +217,10 @@ const strikeWho: Readonly<Record<'debater' | 'timeout' | 'automatic', string>> =
 /** How the resolution was chosen, once the Round has ended (ADR 0076). */
 function DrawAudit({
   audit,
+  sides,
 }: {
   readonly audit: NonNullable<RoundView['resolutionAudit']>;
+  readonly sides: RoundReceiptView['rules']['sides'];
 }) {
   // A spectator of a host list reads whose line it was; an erased one reads as removed.
   const text = (position: number) =>
@@ -218,8 +239,8 @@ function DrawAudit({
       <ol className="text-sm">
         {audit.strikes.map((strike) => (
           <li key={strike.ordinal}>
-            {strike.side === 'negative' ? 'Negative' : 'Affirmative'}{' '}
-            {strikeWho[strike.kind]} “{text(strike.position)}”
+            {sideName(sides, strike.side)} {strikeWho[strike.kind]} “
+            {text(strike.position)}”
           </li>
         ))}
       </ol>

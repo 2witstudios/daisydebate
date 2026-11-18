@@ -1,27 +1,45 @@
-import { debateSides, type StoredBallot } from '@daisy/protocol';
-import type { BallotDebaters } from '../../../features/judge/ballot';
+import type { Ballot } from '@daisy/protocol';
+import {
+  subjectOf,
+  type BallotPlan,
+} from '../../../features/judge/ballot-plan';
 import { Avatar } from '../../components/avatar/avatar';
 import { ballotEyebrowClass, ballotHeadingClass } from '../ballot-class';
 
+/** What a ballot decided, in a line: who it voted for, or the order it placed them in. */
+export const ballotVerdict = (plan: BallotPlan, ballot: Ballot): string => {
+  const name = (key: string) => subjectOf(plan, key)?.name ?? key;
+  if (ballot.ranking)
+    return `Ranked ${ballot.ranking.map((place) => place.map(name).join(' and ')).join(', then ')}`;
+  switch (ballot.decision ?? 'win') {
+    case 'win':
+      return `Voted ${ballot.winner ? name(ballot.winner) : 'no winner'}`;
+    case 'tie':
+      return 'Voted a tie';
+    case 'double_loss':
+      return 'Voted a double loss';
+  }
+};
+
 /**
- * One judge's written ballot: who they voted for, the reason both debaters
- * see, and the feedback each debater was given (on a released ballot, only
- * the reader's own).
+ * One judge's written ballot: what they decided, the reason the debaters
+ * see, and the feedback each was given (on a released ballot, only the
+ * reader's own).
  */
 export function BallotSummary({
   title,
   ballot,
-  debaters,
+  plan,
   feedbackTitle = 'Feedback',
 }: {
   readonly title: string;
-  readonly ballot: StoredBallot;
-  readonly debaters: BallotDebaters;
+  readonly ballot: Ballot;
+  readonly plan: BallotPlan;
   readonly feedbackTitle?: string;
 }) {
-  const feedback = debateSides.flatMap((side) => {
-    const text = ballot.feedback[side];
-    return text === undefined ? [] : [{ side, text }];
+  const feedback = plan.decided.flatMap((subject) => {
+    const text = ballot.feedback?.[subject.key];
+    return text === undefined ? [] : [{ subject, text }];
   });
   return (
     <section
@@ -30,26 +48,26 @@ export function BallotSummary({
     >
       <div className="flex flex-col gap-1">
         <h3 className={ballotHeadingClass}>{title}</h3>
-        <p className="text-sm text-ink-muted">
-          {`Voted ${debaters[ballot.winner].name}`}
-        </p>
+        <p className="text-sm text-ink-muted">{ballotVerdict(plan, ballot)}</p>
       </div>
-      <p className="text-base text-ink">{ballot.reason}</p>
+      {ballot.reason ? (
+        <p className="text-base text-ink">{ballot.reason}</p>
+      ) : null}
       {feedback.length > 0 ? (
         <div className="flex flex-col gap-3">
           <h4 className={ballotEyebrowClass}>{feedbackTitle}</h4>
           <ul className="flex flex-col gap-3">
-            {feedback.map(({ side, text }) => (
-              <li key={side} className="flex items-start gap-3">
+            {feedback.map(({ subject, text }) => (
+              <li key={subject.key} className="flex items-start gap-3">
                 <Avatar
-                  name={debaters[side].name}
-                  src={debaters[side].avatarSrc}
+                  name={subject.name}
+                  src={subject.avatarSrc}
                   size="sm"
                   nameVisible
                 />
                 <p className="min-w-0 text-base text-ink">
                   <span className="block text-sm font-strong">
-                    {debaters[side].name}
+                    {subject.name}
                   </span>
                   {text}
                 </p>

@@ -90,7 +90,7 @@ test('the baseline declares the integrity CHECKs the audit listed', async () => 
   });
 });
 
-test('every jsonb column carries a database CHECK for object shape (ISSUE-24)', async () => {
+test('every jsonb column carries a database CHECK for its shape: an object, or a ranking array (ISSUE-24, TAB-6)', async () => {
   const rows = await withClient(
     (client) => client`
       select col.table_name || '.' || col.column_name as col,
@@ -100,6 +100,14 @@ test('every jsonb column carries a database CHECK for object shape (ISSUE-24)', 
             and c.contype = 'c'
             and c.conname = col.table_name || '_' || col.column_name || '_is_object'
             and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''object''%'
+        ) or exists (
+          -- Ranking columns may be nullable; their own CHECK still requires an array.
+          select 1 from pg_constraint c
+          where c.conrelid = (quote_ident(col.table_name))::regclass
+            and c.contype = 'c'
+            and (select a.attnum from pg_attribute a
+                 where a.attrelid = c.conrelid and a.attname = col.column_name) = any(c.conkey)
+            and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''array''%'
         ) as guarded
       from information_schema.columns col
       where col.table_schema = 'public' and col.data_type = 'jsonb'
@@ -108,7 +116,8 @@ test('every jsonb column carries a database CHECK for object shape (ISSUE-24)', 
   );
   assert({
     given: 'every jsonb column in the public schema',
-    should: 'have a <table>_<column>_is_object CHECK on jsonb_typeof',
+    should:
+      'have a <table>_<column>_is_object CHECK on jsonb_typeof, or for a ranking a CHECK that it is an array',
     actual: rows.filter((row: { guarded: boolean }) => !row.guarded),
     expected: [],
   });
@@ -195,7 +204,12 @@ test('the baseline inserts the reference data every environment needs', async ()
     expected: {
       id: 'foundation',
       current_version: 1,
-      seats: { affirmative: 1, negative: 1, judge: 0 },
+      seats: {
+        sides: { affirmative: 1, negative: 1 },
+        speakers: 0,
+        judges: 0,
+        moderators: 0,
+      },
       first_segment: 'AC',
     },
   });
@@ -246,16 +260,29 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           ) from pg_attribute a
             where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped)
         -- ADR 0075 / ADR 0090 / ADR 0118: audit and terminal provenance are append-only.
-        when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots', 'flag_change_events') then
+        -- The action history and the tab record's facts are append-only too.
+        when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots', 'flag_change_events',
+          'ballots', 'action_history', 'results', 'result_entries', 'result_speakers', 'certifications', 'certification_results', 'releases', 'conflicts', 'ballot_definition_versions', 'tournament_sponsorship_versions', 'tournament_capture_admissions', 'tournament_rating_snapshots') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         -- Flag, analysis-request and original refund-action identities cannot be reset by runtime DELETE.
-        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations') then
+        -- A grant is revoked and a held command settled, never deleted; a membership period is closed, never deleted.
+        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations', 'grants', 'pending_commands', 'membership_periods') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')
+          and not has_table_privilege('daisy_web', c.oid, 'DELETE')
+        -- Hosting issuance remains outside the participant app; only the canonical source can be read here.
+        when c.relname in ('account_hosting_versions','fixture_room_sources','round_judge_slots','round_judge_assignments','round_finalization_judge_assignments','round_source_voids') then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
+        -- Closed until counsel answers on minors: read only.
+        when c.relname in ('guardian_links', 'restrictions', 'restriction_lobbies') then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT')
+          and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         else
           has_table_privilege('daisy_web', c.oid, 'SELECT')
@@ -286,20 +313,21 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
   const ddl = await asRole('daisy_web', (client) =>
     refused(() => client.unsafe('create table public.web_probe (id integer)')),
   );
-  const migrations = await asRole('daisy_web', (client) =>
+  // The release runner exposes provenance columns only; other metadata stays private.
+  const migrationDetails = await asRole('daisy_web', (client) =>
     refused(() =>
-      client.unsafe('select count(*) from drizzle.__drizzle_migrations'),
+      client.unsafe('select name from drizzle.__drizzle_migrations'),
     ),
   );
   assert({
-    given: 'the daisy_web runtime role the baseline creates',
+    given: 'the daisy_web runtime role after the release runner',
     should:
       'hold exact table DML scopes and sequence use, and nothing that alters schema',
     actual: {
       ...privileges[0],
       sequences: sequences[0]?.usable,
       ddl,
-      migrations,
+      migrationDetails,
     },
     expected: {
       dml: true,
@@ -311,7 +339,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
       create: false,
       sequences: true,
       ddl: '42501',
-      migrations: '42501',
+      migrationDetails: '42501',
     },
   });
 });

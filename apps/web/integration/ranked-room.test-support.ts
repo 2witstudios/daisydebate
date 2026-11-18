@@ -11,7 +11,7 @@ import {
 } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
-import type { Ballot, RatingLadder } from '@daisy/protocol';
+import { judgeSeat, type Ballot, type RatingLadder } from '@daisy/protocol';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { launchRuntimeRound } from './round-runtime.test-support';
 import { everyoneReady, playOut } from './round-judging.test-support';
@@ -48,16 +48,14 @@ export async function readyRankedRoom(
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
       })
     ).view;
   else
     room = (
       await f.command(f.host, room, {
         type: 'assign-seat',
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
         actorId: (await f.aiJudge()).actorId,
       })
     ).view;

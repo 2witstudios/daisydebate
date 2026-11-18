@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { systemId } from '@daisy/clock';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic, sideSeat, judgeSeat } from '@daisy/protocol';
 import {
   socketAuthorityFixture,
   issueAuthorityTicket,
@@ -27,17 +27,17 @@ test('native restricted-role audience table uses persisted Round seats and canon
       ['public outsider', (await rounds.seed('public')).topic, 'error'],
       [
         'private affirmative',
-        (await rounds.seed('private', 'affirmative')).topic,
+        (await rounds.seed('private', sideSeat('affirmative'))).topic,
         'subscribed',
       ],
       [
         'private negative',
-        (await rounds.seed('private', 'negative')).topic,
+        (await rounds.seed('private', sideSeat('negative'))).topic,
         'subscribed',
       ],
       [
         'private judge',
-        (await rounds.seed('private', 'judge')).topic,
+        (await rounds.seed('private', judgeSeat())).topic,
         'subscribed',
       ],
       ['private outsider', (await rounds.seed('private')).topic, 'error'],

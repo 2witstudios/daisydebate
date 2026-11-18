@@ -1,16 +1,24 @@
+import { currentRoundParticipant } from './round-current-participant';
+import { roundOutcomeForAudience } from './round-outcome-audience';
+import type { RoundBallotAccess } from './round-ballot-audience';
+import { ballotScreenings } from './schema/ballot-screenings';
+import type { RoundRoomAuthority } from './round-room-authority';
 import { withOpening, type ReadOpening } from './round-opening-read';
 import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import type { CaptureRule } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
+  ballotSubjectsFor,
   idSchema,
+  feedbackSubjectOf,
+  isJudgeSeat,
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
   type LaunchedRound,
   type RoundBallotRead,
 } from '@daisy/protocol';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
@@ -62,45 +70,102 @@ export const roundBallotReads = ({
 }: {
   readonly database: BunSQLDatabase;
 }) => ({
-  async listRoundJudgeAssignments(caller: Caller) {
+  async listRoundJudgeAssignments(input: {
+    readonly caller: Caller;
+    readonly authorize: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => boolean;
+    readonly readEventDecision: (owner: RoundRoomAuthority) => boolean;
+    readonly readOpening: ReadOpening;
+  }) {
     return database.transaction(async (tx) => {
-      const account = await sharedAccount(tx, caller);
+      const account = await sharedAccount(tx, input.caller);
       if (!account?.member || account.erased)
         throw createAppError('AUTHORIZATION');
-      const assignments = await tx
-        .select({
-          roundId: rounds.id,
-          resolution: rounds.resolution,
-          status: rounds.status,
-          outcome: rounds.outcome,
-          ballotSubmitted: sql<boolean>`${ballots.id} is not null`,
-          freezeRevision: roundTranscriptFreezes.revision,
-        })
+      const addresses = await tx
+        .select({ roundId: rounds.id })
         .from(roundParticipants)
         .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
-        .leftJoin(ballots, eq(ballots.judgeParticipantId, roundParticipants.id))
-        .leftJoin(
-          roundTranscriptFreezes,
-          eq(roundTranscriptFreezes.roundId, rounds.id),
-        )
         .where(
           and(
-            eq(roundParticipants.actorId, caller.actorId),
-            eq(roundParticipants.role, 'judge'),
+            eq(roundParticipants.actorId, input.caller.actorId),
+            eq(roundParticipants.seatKind, 'judge'),
+            currentRoundParticipant(roundParticipants.id),
           ),
         )
         .orderBy(desc(rounds.createdAt));
+      const assignments = [];
+      for (const address of addresses) {
+        // Roll back each read's locks before visiting another parent chain.
+        // The account fence predates the savepoint and survives every rollback.
+        await tx.execute(sql`savepoint judge_assignment`);
+        try {
+          const { round, account, owner } = await readAuthorizedRound(tx, {
+            ...input,
+            roundId: address.roundId,
+          });
+          const own = ownJudgeSeat(round.participants, input.caller.actorId);
+          if (!own) continue;
+          const [ballot] = await tx
+            .select({ id: ballots.id })
+            .from(ballots)
+            .where(eq(ballots.judgeParticipantId, own.id));
+          const [freeze] = await tx
+            .select({ revision: roundTranscriptFreezes.revision })
+            .from(roundTranscriptFreezes)
+            .where(eq(roundTranscriptFreezes.roundId, round.id));
+          const view = await withOpening(
+            tx,
+            round,
+            {
+              ...roundOutcomeForAudience(
+                roundViewFor(round, input.caller.actorId),
+                owner,
+                input.readEventDecision(owner),
+              ),
+              waitingOn: null,
+            },
+            { actorId: input.caller.actorId, account },
+            input.readOpening,
+          );
+          assignments.push({
+            roundId: round.id,
+            resolution: view.topic,
+            status: view.status,
+            outcome: view.outcome,
+            ballotSubmitted: ballot !== undefined,
+            freezeRevision: freeze?.revision ?? null,
+          });
+        } catch (error) {
+          if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
+        } finally {
+          await tx.execute(sql`rollback to savepoint judge_assignment`);
+          await tx.execute(sql`release savepoint judge_assignment`);
+        }
+      }
       return roundJudgeAssignmentsSchema.parse(assignments);
     });
   },
   async readRoundBallot(input: {
     readonly roundId: string;
     readonly caller: Caller;
-    readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    readonly authorize: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => boolean;
     readonly authorizeTranscript: (
       round: LaunchedRound,
       account: Account,
+      owner: RoundRoomAuthority,
     ) => boolean;
+    readonly ballotAccess: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => RoundBallotAccess;
     readonly readOpening: ReadOpening;
     /** The engine's decision, injected: an assigned judge's room shows it too. */
     readonly decideWaitingOn: (
@@ -111,19 +176,39 @@ export const roundBallotReads = ({
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
-      let currentAccount: Account = null;
-      const round = await readAuthorizedRound(tx, {
-        ...input,
-        authorize: (candidate, account) => {
-          currentAccount = account;
-          return input.authorize(candidate, account);
-        },
-      });
+      const {
+        round,
+        account: currentAccount,
+        owner,
+      } = await readAuthorizedRound(tx, input);
+      const access = input.ballotAccess(round, currentAccount, owner);
       const ownSeat = ownJudgeSeat(round.participants, input.caller.actorId);
+      const [frozenJudging] = await tx
+        .select({ judging: rounds.judging })
+        .from(rounds)
+        .where(eq(rounds.id, input.roundId));
       const rows = await tx
         .select()
         .from(ballots)
         .where(eq(ballots.roundId, input.roundId));
+      const screenings =
+        owner.kind === 'event' && owner.direction && rows.length > 0
+          ? await tx
+              .select()
+              .from(ballotScreenings)
+              .where(
+                and(
+                  eq(
+                    ballotScreenings.lobbyId,
+                    owner.direction.configuration.lobby.id,
+                  ),
+                  inArray(
+                    ballotScreenings.ballotId,
+                    rows.map((row) => row.id),
+                  ),
+                ),
+              )
+          : [];
       const frozen = ownSeat
         ? await readLockedFrozenRoundTranscript(tx, input.roundId)
         : null;
@@ -131,10 +216,13 @@ export const roundBallotReads = ({
         (p) => p.actorId === input.caller.actorId,
       );
       const completed = round.status === 'completed';
-      const viewerSide = seat && seat.role !== 'judge' ? seat.role : undefined;
+      const viewerSubject =
+        (seat &&
+          feedbackSubjectOf(frozenJudging?.judging?.ballot ?? null, seat)) ??
+        undefined;
       const aiJudgeSeatIds = new Set(
         round.participants
-          .filter((p) => p.role === 'judge' && p.kind === 'bot')
+          .filter((p) => isJudgeSeat(p.seat) && p.kind === 'bot')
           .map((p) => p.id),
       );
       const waitingOn = await readWaitingOn(tx, round, input.decideWaitingOn);
@@ -142,15 +230,36 @@ export const roundBallotReads = ({
         round: await withOpening(
           tx,
           round,
-          { ...roundViewFor(round, input.caller.actorId), waitingOn },
+          {
+            ...roundOutcomeForAudience(
+              roundViewFor(round, input.caller.actorId),
+              owner,
+              access.parts.includes('decision'),
+            ),
+            waitingOn,
+          },
           { actorId: input.caller.actorId, account: currentAccount },
           input.readOpening,
         ),
+        judging: frozenJudging?.judging ?? null,
         ...ballotReadView({
+          audience:
+            owner.kind === 'ordinary'
+              ? { kind: 'ordinary' }
+              : {
+                  kind: 'event',
+                  access,
+                  screenings: new Map(
+                    screenings.map((row) => [row.ballotId, row]),
+                  ),
+                },
           status: round.status,
           ownSeatId: ownSeat?.id,
-          viewerSide,
+          viewerSubject,
           aiJudgeSeatIds,
+          definition: frozenJudging?.judging?.ballot ?? null,
+          source: frozenJudging?.judging?.source ?? null,
+          subjects: ballotSubjectsFor(round.rules, round.participants),
           rows,
           frozen,
         }),
@@ -158,7 +267,7 @@ export const roundBallotReads = ({
         transcript: await audienceTranscript(
           tx,
           input.roundId,
-          completed && input.authorizeTranscript(round, currentAccount),
+          completed && input.authorizeTranscript(round, currentAccount, owner),
           input.captureRule,
         ),
       });

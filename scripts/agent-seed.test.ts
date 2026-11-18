@@ -53,30 +53,40 @@ describe('agentSeedRound', () => {
     assert({
       given: 'the seeded round seats',
       should: 'hold each agent actor once, one per side, at slot zero',
-      actual: agentSeedRound.seats.map(({ actorId, role, slot }) => ({
+      actual: agentSeedRound.seats.map(({ actorId, seat }) => ({
         actorId,
-        role,
-        slot,
+        seat,
       })),
       expected: [
-        { actorId: agentSeedUsers[0].actorId, role: 'affirmative', slot: 0 },
-        { actorId: agentSeedUsers[1].actorId, role: 'negative', slot: 0 },
+        {
+          actorId: agentSeedUsers[0].actorId,
+          seat: { kind: 'side', side: 'affirmative', slot: 0 },
+        },
+        {
+          actorId: agentSeedUsers[1].actorId,
+          seat: { kind: 'side', side: 'negative', slot: 0 },
+        },
       ],
     });
     assert({
       given: 'the seeded seats',
       should: 'match the seat counts the resolved rules demand',
       actual: agentSeedRound.rules.seats,
-      expected: { affirmative: 1, negative: 1, judge: 0 },
+      expected: {
+        sides: { affirmative: 1, negative: 1 },
+        speakers: 0,
+        judges: 0,
+        moderators: 0,
+      },
     });
   });
 
   test('marks the rules-carrying seed content with a new version', () => {
     assert({
-      given: 'seed content that moved onto the one Round model (ADR 0058)',
+      given: 'seed content that moved onto seats by kind and side (TAB-6)',
       should: 'advance the durable seed version marker',
       actual: agentSeedVersion,
-      expected: 'agent-seed-v5',
+      expected: 'agent-seed-v6',
     });
   });
 

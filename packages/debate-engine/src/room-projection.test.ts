@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { hostIdentityHidden, projectRoom } from './room-projection';
-import { roomViewSchema } from '@daisy/protocol';
+import { judgeSeat, roomViewSchema } from '@daisy/protocol';
 import { plainFormatSettings } from '@daisy/protocol/testing';
 import { state } from './room-assembly.test-support';
 
@@ -16,8 +16,7 @@ const room = {
       actorId: 'judge-actor',
       label: 'Riley Judge',
       kind: 'human' as const,
-      role: 'judge' as const,
-      slot: 0,
+      seat: judgeSeat(),
       eligible: true,
       teamOpen: false,
       positionOpen: false,
@@ -48,9 +47,8 @@ describe('projectRoom judge anonymity (DEC-174)', () => {
       actual: [seen.participants[2], leaks(seen)],
       expected: [
         {
-          role: 'judge',
+          seat: judgeSeat(),
           kind: 'human',
-          slot: 0,
           anonymous: true,
           needsReady: true,
           ready: 'ready',
@@ -99,7 +97,7 @@ describe('projectRoom judge anonymity when the host judges (DEC-174)', () => {
   const hostJudges = {
     ...room,
     participants: room.participants.map((p) =>
-      p.role === 'judge'
+      p.seat.kind === 'judge'
         ? { ...p, actorId: 'host', label: 'Host', id: 'p3-host' }
         : p,
     ),
@@ -122,9 +120,8 @@ describe('projectRoom judge anonymity when the host judges (DEC-174)', () => {
       ],
       expected: [
         {
-          role: 'judge',
+          seat: judgeSeat(),
           kind: 'human',
-          slot: 0,
           anonymous: true,
           needsReady: true,
           ready: 'ready',
@@ -329,7 +326,7 @@ describe('projectRoom for someone outside a started Room (WATCH-6)', () => {
     assert({
       given: 'the same draw Room read by a seat and by its host',
       should: 'say started and carry the resolution',
-      actual: ['judge-actor', drawn.hostActorId].map((viewer) => {
+      actual: ['judge-actor', 'host'].map((viewer) => {
         const seen = projectRoom(drawn, viewer, noConsent, now);
         return [seen.status, seen.topic];
       }),
@@ -360,7 +357,7 @@ describe('projectRoom round reference', () => {
     assert({
       given: 'the same Room read by its host and by a seated judge',
       should: 'carry the Round reference',
-      actual: [refFor(started.hostActorId), refFor('judge-actor')],
+      actual: [refFor('host'), refFor('judge-actor')],
       expected: [started.roundRef, started.roundRef],
     });
   });

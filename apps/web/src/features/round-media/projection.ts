@@ -1,3 +1,4 @@
+import { mediaBindingRevoked } from '@daisy/protocol';
 import {
   createRoundRuntime,
   inPreRoundPrep,
@@ -6,7 +7,11 @@ import {
   postRoundCallGrants,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
-import { conversational, type RoundMediaState } from '@daisy/protocol';
+import {
+  conversational,
+  isJudgeSeat,
+  type RoundMediaState,
+} from '@daisy/protocol';
 
 type Store = Database['mediaSessions'];
 export type MediaSnapshot = NonNullable<
@@ -35,11 +40,8 @@ const onCall = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
 export const ownSeatRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'>,
   participantId: string,
-) =>
-  snapshot.participants.some(
-    (seat) =>
-      seat.id === participantId && seat.kind === 'human' && !seat.eligible,
-  );
+) => mediaBindingRevoked(snapshot.participants, participantId);
+
 /** Issued old-room tokens require rotation; departed unbound seats cannot veto it. */
 export const admissionRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'> & {
@@ -47,13 +49,9 @@ export const admissionRevoked = (
   },
 ) =>
   snapshot.bindings.some((binding) =>
-    snapshot.participants.some(
-      (seat) =>
-        seat.id === binding.roundParticipantId &&
-        seat.kind === 'human' &&
-        !seat.eligible,
-    ),
+    mediaBindingRevoked(snapshot.participants, binding.roundParticipantId),
   );
+
 /**
  * A seat's media grants. A withdrawn seat (a human whose participant access
  * was revoked, ISSUE-714) gets none: the next reconcile demotes it in the
@@ -170,7 +168,7 @@ export function projectMedia(
           );
           // A bot is never on a post-round call.
           return seat &&
-            seat.role !== 'judge' &&
+            !isJudgeSeat(seat.seat) &&
             (seat.kind === 'human' || !onCall(snapshot))
             ? [
                 {
@@ -192,10 +190,10 @@ export function projectMedia(
             const seat = snapshot.participants.find(
               (seat) => seat.id === binding.roundParticipantId,
             );
-            return seat?.role === 'judge' && seat.kind === 'human'
+            return seat?.seat.kind === 'judge' && seat.kind === 'human'
               ? [
                   {
-                    slot: seat.slot,
+                    slot: seat.seat.slot,
                     identity: binding.identity,
                     microphone:
                       state === 'ready' &&

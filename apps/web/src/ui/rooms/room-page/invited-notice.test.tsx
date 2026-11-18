@@ -46,7 +46,7 @@ test('InvitedNotice', () => {
     given: 'a member invited as a debater',
     should: 'say a debater seat is held',
     actual: render(
-      { ...guest, invitations: [{ ...invitation, seat: 'debater' }] },
+      { ...guest, invitations: [{ ...invitation, seat: 'side' }] },
       'coach',
     ).includes('A debater seat below is held for you.'),
     expected: true,

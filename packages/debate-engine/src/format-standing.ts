@@ -1,5 +1,5 @@
+import { canonicalJson } from '@daisy/seeded-random';
 import type {
-  DebateRole,
   FormatChange,
   FormatDefinition,
   FormatSettings,
@@ -8,7 +8,7 @@ import type {
   RoomExecutionPlan,
   RoundRules,
 } from '@daisy/protocol';
-import { freezeRoomExecutionPlan } from '@daisy/protocol';
+import { freezeRoomExecutionPlan, sideKeysOf } from '@daisy/protocol';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 type ActiveFormat = {
@@ -42,10 +42,37 @@ const compile = (
   return outcome.ok ? { rules: outcome.rules, plan: outcome.roomPlan } : null;
 };
 
-const same = (a: unknown, b: unknown) =>
-  JSON.stringify(a) === JSON.stringify(b);
+/**
+ * Equal values, whatever their key order: a basis read back from jsonb lists
+ * an object's keys shortest first, and a record (TAB-6.2's side counts) keeps
+ * that order through its schema, so only canonical JSON compares them.
+ */
+const same = (a: unknown, b: unknown) => canonicalJson(a) === canonicalJson(b);
 
-const roles: readonly DebateRole[] = ['affirmative', 'negative', 'judge'];
+type SeatGroup = Extract<FormatChange, { kind: 'seats' }>['of'];
+
+/** Each seat group's count: every side either format declares, then the unsided kinds. */
+const seatGroups = (from: RoundRules, to: RoundRules) => {
+  const sides = [...new Set([...sideKeysOf(from), ...sideKeysOf(to)])].map(
+    (side): SeatGroup => ({ kind: 'side', side }),
+  );
+  const kinds = (['speaker', 'judge', 'moderator'] as const).map(
+    (kind): SeatGroup => ({ kind }),
+  );
+  return [...sides, ...kinds];
+};
+const countOf = (rules: RoundRules, group: SeatGroup): number => {
+  switch (group.kind) {
+    case 'side':
+      return rules.seats.sides[group.side] ?? 0;
+    case 'speaker':
+      return rules.seats.speakers;
+    case 'judge':
+      return rules.seats.judges;
+    case 'moderator':
+      return rules.seats.moderators;
+  }
+};
 
 function segmentChanges(from: RoundRules, to: RoundRules): FormatChange[] {
   const fromKeys = from.segments.map((s) => s.key);
@@ -59,7 +86,7 @@ function segmentChanges(from: RoundRules, to: RoundRules): FormatChange[] {
       .map((s) => s.key)
       .filter((k) => kept.includes(k))
       .indexOf(key);
-    return [order, segment.label, segment.type, segment.side, segment.slot];
+    return [order, segment.label, segment.type, segment.speak];
   };
   const structure = {
     kind: 'segments' as const,
@@ -86,15 +113,15 @@ function segmentChanges(from: RoundRules, to: RoundRules): FormatChange[] {
 
 /** Every rule that differs between two compiled formats, in a stable order. */
 function changesBetween(from: Compiled, to: Compiled): FormatChange[] {
-  const seats = roles.flatMap((role) =>
-    from.rules.seats[role] === to.rules.seats[role]
+  const seats = seatGroups(from.rules, to.rules).flatMap((of) =>
+    countOf(from.rules, of) === countOf(to.rules, of)
       ? []
       : [
           {
             kind: 'seats' as const,
-            role,
-            from: from.rules.seats[role],
-            to: to.rules.seats[role],
+            of,
+            from: countOf(from.rules, of),
+            to: countOf(to.rules, of),
           },
         ],
   );

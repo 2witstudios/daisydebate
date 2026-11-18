@@ -11,7 +11,7 @@ test('native structural editing previews without creating a room', () => {
   Object.entries(draftFormValues(createRoomDraft(unequalTemplate))).forEach(
     ([key, value]) => form.set(key, value),
   );
-  form.set('intent', 'add-affirmative');
+  form.set('intent', 'add-side:affirmative');
   form.set('title', 'Retained title');
   const result = prepareRoomDraft(form, [unequalTemplate]);
   assert({
@@ -63,7 +63,7 @@ test('schedule additions stay valid through the maximum schedule', () => {
   for (let index = draft.definition.segments.length; index < 64; index += 1) {
     draft = changeDraftSchedule(
       draft,
-      index % 2 ? 'add-negative' : 'add-affirmative',
+      index % 2 ? 'add-side:negative' : 'add-side:affirmative',
     );
   }
   const result = readRoomDraft(draftFormValues(draft), [unequalTemplate]);

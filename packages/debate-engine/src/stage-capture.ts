@@ -15,8 +15,14 @@ const REVOCATION_AHEAD_MS = 0;
 export type StageEgressFact =
   | { readonly kind: 'none' }
   | { readonly kind: 'starting' | 'active'; readonly id: string }
-  | { readonly kind: 'failed'; readonly id: string }
-  | { readonly kind: 'complete' };
+  | {
+      readonly kind: 'failed';
+      readonly id: string;
+      /** The vendor no longer knows this Egress: it ended long ago. */
+      readonly reason?: 'not_found';
+    }
+  | { readonly kind: 'complete' }
+  | { readonly kind: 'unresolved'; readonly id: string };
 
 export type StagePhaseFact =
   | { readonly kind: 'public' }
@@ -28,8 +34,12 @@ export const phasePrivateAt = (phase: StagePhaseFact, nowMs: number) =>
   phase.kind === 'private' ||
   (phase.kind === 'private-at' && phase.atMs - nowMs <= REVOCATION_AHEAD_MS);
 
-export const runningEgress = (egress: StageEgressFact) =>
-  egress.kind === 'starting' || egress.kind === 'active' ? egress : null;
+export const unsettledEgress = (egress: StageEgressFact) =>
+  egress.kind === 'starting' ||
+  egress.kind === 'active' ||
+  egress.kind === 'unresolved'
+    ? egress
+    : null;
 
 export type StagePrivacyAction =
   | { readonly type: 'revoke-observer' }
@@ -52,7 +62,7 @@ export const stagePrivacyActions = (facts: {
   readonly observerSubscribed: boolean;
   readonly revocationFailures: number;
 }): readonly StagePrivacyAction[] => {
-  const live = runningEgress(facts.egress);
+  const live = unsettledEgress(facts.egress);
   if (!phasePrivateAt(facts.phase, facts.nowMs))
     return facts.observerSubscribed
       ? []

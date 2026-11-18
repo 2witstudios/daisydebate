@@ -1,14 +1,15 @@
 import { createAppError } from '@daisy/errors';
 import {
-  debateSides,
   ratingLadders,
-  roundOutcomeSchema,
+  twoSideKeys,
   type RatingLadder,
-  type RoundOutcome,
+  type TwoSideKey,
+  type WinnerOutcome,
 } from '@daisy/protocol';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { isDebatingSeatSql } from './seat-columns';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
@@ -40,7 +41,7 @@ export type StandingRating = {
   readonly volatility: number;
 };
 
-/** One ledger posting, with the debater's seat and the debate's outcome. */
+/** One ledger posting, with the debater's side and the debate's winning side. */
 export type StandingChange = {
   readonly seasonId: string;
   readonly actorId: string;
@@ -50,8 +51,9 @@ export type StandingChange = {
   readonly deviationBefore: number;
   readonly deviationAfter: number;
   readonly occurredAt: string;
-  readonly role: 'affirmative' | 'negative';
-  readonly outcome: RoundOutcome;
+  /** A rating compares the two sides (ADR 0055): the preset's pair. */
+  readonly side: TwoSideKey;
+  readonly outcome: WinnerOutcome;
 };
 
 export type StandingsRead = {
@@ -59,23 +61,24 @@ export type StandingsRead = {
   readonly changes: readonly StandingChange[];
 };
 
+const isTwoSideKey = (key: string | null): key is TwoSideKey =>
+  (twoSideKeys as readonly (string | null)[]).includes(key);
+
 /**
- * A posting's seat and outcome as a rated result. A ledger row is only ever
- * written for a debater's side of a decided debate, so anything else is
+ * A posting's side and outcome as a rated result. A ledger row is only ever
+ * written for a debater's side of a Round a side won, so anything else is
  * corrupt data and is refused rather than guessed.
  */
 function ratedSeat(
-  role: string,
-  outcome: string | null,
-): Pick<StandingChange, 'role' | 'outcome'> {
-  const side = role === 'affirmative' || role === 'negative' ? role : null;
-  const result = roundOutcomeSchema.safeParse(outcome);
-  if (side === null || !result.success)
+  side: string | null,
+  winningSide: string | null,
+): Pick<StandingChange, 'side' | 'outcome'> {
+  if (!isTwoSideKey(side) || !isTwoSideKey(winningSide))
     throw createAppError(
       'INTERNAL',
       'A ledger posting has no rated seat or outcome',
     );
-  return { role: side, outcome: result.data };
+  return { side, outcome: { kind: 'winner', side: winningSide } };
 }
 
 export const standingsOperations = ({
@@ -90,8 +93,8 @@ export const standingsOperations = ({
     const rows =
       await database.execute(sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
-      join round_participants opponent on opponent.round_id=r.id and opponent.role in ('affirmative','negative')
-      where judge.actor_id=${viewerActorId} and judge.role='judge' and r.status in ('opening','active')
+      join round_participants opponent on opponent.round_id=r.id and ${isDebatingSeatSql(sql`opponent.seat_kind`)}
+      where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ('opening','active')
       and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`);
     return (rows as unknown as { actor_id: string }[]).map(
       (row) => row.actor_id,
@@ -180,8 +183,8 @@ export const standingsOperations = ({
               deviationAfter: ratingChanges.deviationAfter,
               volatilityBefore: ratingChanges.volatilityBefore,
               occurredAt: ratingChanges.occurredAt,
-              role: roundParticipants.role,
-              outcome: rounds.outcome,
+              side: roundParticipants.side,
+              winningSide: rounds.winningSide,
               released: sql<boolean>`${factReleasedSql(
                 sql`greatest(${ratingChanges.occurredAt},${rounds.completedAt})`,
                 rounds,
@@ -201,7 +204,8 @@ export const standingsOperations = ({
               and(
                 eq(ratingChanges.ladder, input.ladder),
                 inArray(ratingChanges.seasonId, [...input.seasonIds]),
-                inArray(roundParticipants.role, [...debateSides]),
+                eq(roundParticipants.seatKind, 'side'),
+                inArray(roundParticipants.side, [...twoSideKeys]),
               ),
             ),
         }),
@@ -213,13 +217,15 @@ export const standingsOperations = ({
           username: row.username ?? null,
           accountClosed: closedAt !== null,
         })),
-        changes: changeRows.map(({ released, volatilityBefore, ...row }) => ({
-          ...row,
-          occurredAt: row.occurredAt.toISOString(),
-          ...ratedSeat(row.role, row.outcome),
-          released: released || row.roundId === input.revealRoundId,
-          volatilityBefore,
-        })),
+        changes: changeRows.map(
+          ({ released, volatilityBefore, side, winningSide, ...row }) => ({
+            ...row,
+            occurredAt: row.occurredAt.toISOString(),
+            ...ratedSeat(side, winningSide),
+            released: released || row.roundId === input.revealRoundId,
+            volatilityBefore,
+          }),
+        ),
       });
     });
   },

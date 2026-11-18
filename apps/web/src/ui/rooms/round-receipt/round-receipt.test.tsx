@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { isJudgeSeat, twoSides } from '@daisy/protocol';
 import { RoundReceipt, type RoundReceiptView } from './round-receipt';
 
 setupRitewayBun();
@@ -14,6 +15,7 @@ const scheduled: RoundReceiptView = {
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {
+    sides: [...twoSides],
     countdownMs: 2000,
     inRoundPrep: null,
     interaction: {
@@ -25,16 +27,20 @@ const scheduled: RoundReceiptView = {
         key: 'A2',
         label: 'Aff reply',
         type: 'speech',
-        side: 'affirmative',
-        slot: 1,
+        speak: {
+          rights: 'one',
+          seat: { kind: 'side', side: 'affirmative', slot: 1 },
+        },
         durationMs: 125000,
       },
       {
         key: 'N1',
         label: 'Neg closing',
         type: 'speech',
-        side: 'negative',
-        slot: 0,
+        speak: {
+          rights: 'one',
+          seat: { kind: 'side', side: 'negative', slot: 0 },
+        },
         durationMs: 90000,
       },
     ],
@@ -45,16 +51,14 @@ const scheduled: RoundReceiptView = {
       actorId: 'actor-a',
       kind: 'human',
       label: 'Alice',
-      role: 'affirmative',
-      slot: 1,
+      seat: { kind: 'side', side: 'affirmative', slot: 1 },
     },
     {
       id: 'seat-j',
       actorId: 'actor-j',
       kind: 'bot',
       label: 'Judge Sage',
-      role: 'judge',
-      slot: 0,
+      seat: { kind: 'judge', slot: 0 },
     },
   ],
 };
@@ -101,16 +105,15 @@ test('persisted new Round renders the frozen asymmetric schedule and cast', () =
 const judged: RoundReceiptView = {
   ...scheduled,
   status: 'completed',
-  outcome: 'negative',
+  outcome: { kind: 'winner', side: 'negative' },
   participants: [
-    ...scheduled.participants.filter((p) => p.role !== 'judge'),
+    ...scheduled.participants.filter((p) => !isJudgeSeat(p.seat)),
     {
       id: 'seat-h',
       actorId: 'actor-h',
       kind: 'human',
       label: 'Riley Judge',
-      role: 'judge',
-      slot: 0,
+      seat: { kind: 'judge', slot: 0 },
     },
   ],
 };
@@ -122,7 +125,9 @@ test('a completed zero-judge Round presents an unjudged result without inventing
         ...scheduled,
         status: 'completed',
         outcome: null,
-        participants: scheduled.participants.filter((p) => p.role !== 'judge'),
+        participants: scheduled.participants.filter(
+          (p) => !isJudgeSeat(p.seat),
+        ),
       }}
     />,
   );

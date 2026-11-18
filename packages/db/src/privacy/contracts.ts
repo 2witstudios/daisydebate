@@ -1,4 +1,17 @@
 import type { AuthorizationTransaction } from '../authorization';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+
+/** A real atomic transaction or savepoint; subject-rights steps need statements, not rollback controls. */
+export type PrivacyDatabase = {
+  readonly transaction: <T>(
+    work: (
+      tx: Pick<
+        BunSQLDatabase,
+        'select' | 'insert' | 'update' | 'delete' | 'execute'
+      >,
+    ) => Promise<T>,
+  ) => Promise<T>;
+};
 
 /** When a step runs: before sign-in rows go, or after the account closes. */
 export const privacyPhases = ['before-auth', 'after-close'] as const;

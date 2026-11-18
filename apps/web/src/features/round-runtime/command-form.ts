@@ -98,7 +98,7 @@ export async function submitRoundForm(
       'This round command is invalid. Reload the round and try again.',
     );
   if (
-    ['yield', 'forfeit'].includes(envelope.command.type) &&
+    ['yield', 'forfeit', 'leave'].includes(envelope.command.type) &&
     form.get('confirmed') !== 'true'
   )
     return confirming(form);

@@ -18,6 +18,7 @@ test('a started Round reads back checkpoint and ordered segments that pass the R
       () => true,
       readRoundOpening,
       roundWaitingOn,
+      () => false,
     );
     const round = roundViewSchema.parse(read);
     assert({

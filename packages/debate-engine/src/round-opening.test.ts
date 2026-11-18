@@ -1,11 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
 import type { SeatDraw } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol';
 import {
   openingStep,
   projectOpening,
   settledOpeningTopic,
   settleOpening,
+  type OpeningSeat,
   type RoundOpening,
 } from './round-opening';
 import { begin } from './round-opening.test-support';
@@ -188,11 +190,21 @@ describe('projectOpening sides', () => {
       },
     ],
   };
-  const seats = [
-    { actorId: 'aff', role: 'affirmative', kind: 'human', eligible: true },
-    { actorId: 'neg', role: 'negative', kind: 'human', eligible: true },
-    { actorId: 'judge', role: 'judge', kind: 'human', eligible: true },
-  ] as const;
+  const seats: readonly OpeningSeat[] = [
+    {
+      actorId: 'aff',
+      seat: sideSeat('affirmative'),
+      kind: 'human',
+      eligible: true,
+    },
+    {
+      actorId: 'neg',
+      seat: sideSeat('negative'),
+      kind: 'human',
+      eligible: true,
+    },
+    { actorId: 'judge', seat: judgeSeat(), kind: 'human', eligible: true },
+  ];
   const read = (stored: RoundOpening, viewer: string | null, now: string) =>
     projectOpening(stored, null, seats, viewer, now).view;
 

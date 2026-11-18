@@ -10,15 +10,12 @@ setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 test('segment-only projection commits the same revision as event and command receipt', async () => {
-  const round = {
-    status: 'active',
-    current_stage: 'live',
-    started_at: new Date('2026-10-06T09:00:00.000Z'),
-  };
+  const round = {};
   await withAuthoredRound(url, round, async (fixture, authored) => {
     const { actorId, roundId, database } = authored;
     const commandId = createId();
     const participant = await fixture.seat(roundId, 'affirmative', 0, actorId);
+    await fixture.sql`update rounds set status='active',current_stage='live',started_at=${new Date('2026-10-06T09:00:00.000Z')} where id=${roundId}`;
     try {
       const before = await database.getRound(roundId);
       if (!before) throw new Error('Round missing');

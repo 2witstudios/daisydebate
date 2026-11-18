@@ -3,8 +3,8 @@ import { createFrameClock } from '@daisy/media/observation';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  withEvidenceIngress,
-  withEvidenceIngressCohort,
+  withRecognitionIngress as withEvidenceIngress,
+  withRecognitionIngressCohort as withEvidenceIngressCohort,
   type EvidenceIngressFixture,
 } from './necessary-evidence-ingress.test-support';
 import {

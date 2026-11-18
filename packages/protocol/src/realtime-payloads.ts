@@ -39,6 +39,9 @@ const doorbellKinds = [
   'round.phase-changed',
   'round.transcript-changed',
   'standings.updated',
+  'lobby.changed',
+  'lobby.host-changed',
+  'organization.host-changed',
 ] as const;
 const roomChangedPayloadSchema = z.strictObject({
   entityVersion: entityVersionSchema,
@@ -149,6 +152,9 @@ const storageFamilyPayloadKinds: Readonly<
     'actor.presence-preference-changed',
   ],
   standings: ['standings.updated'],
+  lobby: ['lobby.changed'],
+  'lobby:host': ['lobby.host-changed'],
+  'organization:host': ['organization.host-changed'],
 };
 
 /**

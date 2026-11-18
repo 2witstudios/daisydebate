@@ -8,11 +8,15 @@ import {
 import type { Database } from '@daisy/db';
 import { recordResult, tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
-import type {
-  JudgePanel,
-  MatchHistoryEntry,
-  MatchHistoryQuery,
-  MemberProfile,
+import {
+  isDebatingSeat,
+  isJudgeSeat,
+  sideOfSeat,
+  type JudgePanel,
+  type MatchHistoryEntry,
+  type MatchHistoryQuery,
+  type MemberProfile,
+  type SeatRef,
 } from '@daisy/protocol';
 
 export type ProfileStore = Pick<
@@ -76,40 +80,47 @@ const HISTORY_PAGE_SIZE = 20;
 
 /** Who ruled, from the Round's judge seats. */
 export const judgePanel = (
-  seats: readonly { readonly role: string; readonly kind: 'human' | 'bot' }[],
+  seats: readonly { readonly seat: SeatRef; readonly kind: 'human' | 'bot' }[],
 ): JudgePanel => {
   const kinds = new Set(
-    seats.filter((seat) => seat.role === 'judge').map((seat) => seat.kind),
+    seats.filter((seat) => isJudgeSeat(seat.seat)).map((seat) => seat.kind),
   );
   if (kinds.size === 0) return 'none';
   if (kinds.size === 2) return 'mixed';
   return kinds.has('bot') ? 'ai' : 'human';
 };
 
-const toEntry = (row: HistoryRow): MatchHistoryEntry => {
+/** A sided Round's line; an unsided speaker's Round has no side to list it by. */
+const toEntry = (row: HistoryRow): MatchHistoryEntry[] => {
   const result = recordResult(
     { status: 'completed', outcome: row.outcome },
-    row.role,
+    row.seat,
   );
+  const side = sideOfSeat(row.seat);
   if (result === null)
     throw createAppError('INTERNAL', 'A listed Round has no record result');
-  return {
-    roundId: row.roundId,
-    completedAt: row.completedAt,
-    resolution: row.resolution,
-    side: row.role,
-    opponents: row.seats
-      .filter((seat) => seat.role !== 'judge' && seat.role !== row.role)
-      .map((seat) => ({
-        kind: seat.kind,
-        label: seat.label,
-        closed: seat.closed,
-      })),
-    result,
-    forfeit: row.forfeit,
-    judges: judgePanel(row.seats),
-    visibility: row.visibility,
-  };
+  if (side === null) return [];
+  return [
+    {
+      roundId: row.roundId,
+      completedAt: row.completedAt,
+      resolution: row.resolution,
+      side,
+      opponents: row.seats
+        .filter(
+          (seat) => isDebatingSeat(seat.seat) && sideOfSeat(seat.seat) !== side,
+        )
+        .map((seat) => ({
+          kind: seat.kind,
+          label: seat.label,
+          closed: seat.closed,
+        })),
+      result,
+      forfeit: row.forfeit,
+      judges: judgePanel(row.seats),
+      visibility: row.visibility,
+    },
+  ];
 };
 
 /**
@@ -181,7 +192,7 @@ export async function readProfile(
     closed: read.member.closed,
     me: read.scope === 'owner',
     record: tallyRecord(read.groups),
-    history: read.rows.map(toEntry),
+    history: read.rows.flatMap(toEntry),
     nextBefore: read.nextBefore,
     shown,
   };

@@ -1,11 +1,20 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  affirmativeSide,
   attendanceTimingPolicy,
   isNamedSeat,
+  judgeSeat,
+  negativeSide,
   roundViewSchema,
+  sameSeat,
+  seatKey,
+  sideSeat,
+  twoSideKeys,
+  winnerOutcome,
   type RoomView,
   type RoundView,
+  type TwoSideKey,
 } from '@daisy/protocol';
 import { expectRoundResult } from './round-result-proof';
 import { expect, openPage } from './fixtures';
@@ -25,6 +34,7 @@ import {
 import { readBallotRound } from './human-ballot-round';
 import { attendanceEvidence } from './attendance-evidence';
 import { subscriptionLedger } from './subscription-ledger';
+import { leadSideOf } from './segment-lead';
 
 type Seat = 'Affirmative 1' | 'Negative 1' | 'Judge 1';
 export type Player = { readonly page: Page; readonly seat: Seat };
@@ -89,33 +99,30 @@ export async function expectAutomaticRoundEntry(
         ? new RegExp(`/rounds/${roundId}(/room)?$`)
         : `/rounds/${roundId}/room`,
     );
-    const role =
+    const expected =
       seat === 'Judge 1'
-        ? 'judge'
-        : seat === 'Affirmative 1'
-          ? 'affirmative'
-          : 'negative';
+        ? judgeSeat()
+        : sideSeat(seat === 'Affirmative 1' ? affirmativeSide : negativeSide);
     // A judge's name is hidden from the Room, so a judge's own read is the only source.
     const actual = await readRound(page, roundId);
     const own = actual.participants
       .filter(isNamedSeat)
-      .find((p) => p.role === role && p.slot === 0);
+      .find((p) => sameSeat(p.seat, expected));
     const named = room.participants
       .filter(isNamedSeat)
-      .find((p) => p.role === role && p.slot === 0);
+      .find((p) => sameSeat(p.seat, expected));
     expect(own).toBeDefined();
-    expect([actual.id, actual.roomId, own?.role, own?.slot]).toEqual([
+    expect([actual.id, actual.roomId, own?.seat]).toEqual([
       roundId,
       room.id,
-      role,
-      0,
+      expected,
     ]);
     if (named) expect(own?.actorId).toBe(named.actorId);
     expect((await reread(page.request, room.id)).roundRef?.id).toBe(roundId);
   }
 }
 
-type Debaters = Record<'affirmative' | 'negative', Page>;
+type Debaters = Record<TwoSideKey, Page>;
 
 /** Waits on the persisted Round until `key`'s segment is open (`ended` false) or closed. */
 async function untilSegment(
@@ -154,7 +161,9 @@ export async function playEveryTurn(
   const players = { ...debaters };
   const { rules } = await readRound(players.affirmative, roundId);
   for (const scheduled of rules.segments) {
-    let holder = players[scheduled.side];
+    const side = twoSideKeys.find((key) => key === leadSideOf(scheduled.speak));
+    if (!side) throw new Error(`${scheduled.key} is scheduled to no debater`);
+    let holder = players[side];
     if (scheduled.key === 'NC') {
       await holder
         .getByRole('button', { name: 'Take prep time', exact: true })
@@ -332,7 +341,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
     const finished = await readRound(host, first.roundId);
     expect([finished.status, finished.outcome]).toEqual([
       'completed',
-      'negative',
+      winnerOutcome(negativeSide),
     ]);
     const started = await reread(host.request, room.id);
     expect(started.roundRef?.id).toBe(first.roundId);
@@ -377,11 +386,11 @@ export async function proveThreeBrowserRound(browser: Browser) {
       finished,
     );
     const seats = (await readRound(host, second.roundId)).participants;
-    expect(seats.map((seat) => seat.role).sort()).toEqual([
-      'affirmative',
-      'judge',
-      'negative',
-    ]);
+    expect(seats.map((seat) => seatKey(seat.seat)).sort()).toEqual(
+      [sideSeat(affirmativeSide), judgeSeat(), sideSeat(negativeSide)]
+        .map(seatKey)
+        .sort(),
+    );
     expect(ledger.refusals).toEqual([]);
   } finally {
     await accounts.closeContexts();

@@ -55,14 +55,14 @@ export type RoomCommunityStanding = 'seated' | 'visitor' | 'judge' | null;
 export const roomCommunityStanding = ({
   visibility,
   host,
-  seatRole,
+  seatKind,
 }: Pick<
   RoomCommunityFact,
-  'visibility' | 'host' | 'seatRole'
+  'visibility' | 'host' | 'seatKind'
 >): RoomCommunityStanding => {
-  const seated = seatRole !== null;
+  const seated = seatKind !== null;
   if (!roomReadable({ visibility, host, seated })) return null;
-  if (roomCommunitySeatReadsOnly(seatRole)) return 'judge';
+  if (roomCommunitySeatReadsOnly(seatKind)) return 'judge';
   return host || seated ? 'seated' : 'visitor';
 };
 

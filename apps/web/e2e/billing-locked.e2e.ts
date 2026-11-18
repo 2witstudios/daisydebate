@@ -1,3 +1,4 @@
+import { judgeSeat } from '@daisy/protocol';
 import { test, expect } from './support/fixtures';
 import { signUpMember, origin } from './support/accounts';
 import { readRoomBotRoster } from './support/ai-cast';
@@ -29,10 +30,8 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
   const { username } = await signUpMember(page.request);
   await withdraw('ai-judge', username);
   const roster = await readRoomBotRoster(page.request),
-    opponent = roster.find(
-      (b) => b.label === 'Wren' && b.seatRole === 'debater',
-    ),
-    judge = roster.find((b) => b.seatRole === 'judge');
+    opponent = roster.find((b) => b.label === 'Wren' && b.aiRole === 'debater'),
+    judge = roster.find((b) => b.aiRole === 'judge');
   expect(opponent?.eligible).toBe(true);
   expect(judge).toBeDefined();
   await page.goto('/train?bot=' + opponent!.actorId);
@@ -48,7 +47,9 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
   await page
     .getByRole('button', { name: 'Save broadcast and recording', exact: true })
     .click();
-  expect((await reread(page.request, roomId)).capture?.recording).toBe(true);
+  expect((await reread(page.request, roomId)).capture?.recordingPolicy).toBe(
+    'released',
+  );
   await withdraw('capture', username);
   await page.goto('/rooms/' + roomId);
   const view = await reread(page.request, roomId);
@@ -82,8 +83,7 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
       commandId: systemId.next(),
       expectedVersion: view.version,
       actorId: judge!.actorId,
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     },
   });
   expect(forged.status()).toBe(409);

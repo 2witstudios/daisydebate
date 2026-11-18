@@ -1,6 +1,11 @@
-import type { DebateRole } from '@daisy/protocol';
+import { aiRoleOfSeat, type SeatKind } from '@daisy/protocol';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
 
-/** A Room role as the AI seat that fills it: anything but a judge debates. */
-export const aiSeatOf = (role: DebateRole): keyof AiSeatAvailability =>
-  role === 'judge' ? 'judge' : 'debater';
+/** Whether this deployment serves an AI in a kind of seat (no AI moderates). */
+export const aiServesSeat = (
+  available: AiSeatAvailability,
+  kind: SeatKind,
+): boolean => {
+  const role = aiRoleOfSeat(kind);
+  return role !== null && available[role];
+};

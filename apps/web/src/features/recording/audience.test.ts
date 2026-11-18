@@ -3,6 +3,8 @@ import { audienceLinkHash } from '../audience-link/audience-link';
 import {
   mayDownload,
   mayRequestRemoval,
+  OFFICIALS_RECORDING_RETENTION_MS,
+  recordingDeletionDueMs,
   recordingMediaState,
   roundEvidencePermissions as permissionsWithLink,
   type BroadcastRelease,
@@ -20,12 +22,14 @@ const round: RecordingRound = {
   hostActorId: 'host',
   completedAtMs: 100_000,
   seatedActorIds: ['aff', 'neg', 'judge'],
+  recordingPolicy: 'released',
+  officialActorIds: ['judge'],
 };
 const roundEvidencePermissions = (
   input: RecordingRound,
   release: BroadcastRelease,
   viewer: RecordingViewer,
-) => permissionsWithLink(input, release, viewer, null);
+) => permissionsWithLink(input, release, viewer, null, 100_000);
 const visitor: RecordingViewer = { kind: 'visitor' };
 const account = (actorId: string): RecordingViewer => ({
   kind: 'account',
@@ -147,13 +151,20 @@ describe('roundEvidencePermissions', () => {
     assert({
       given: 'an unlisted Round and someone with its current link',
       should: 'admit them',
-      actual: permissionsWithLink(unlisted, passed, visitor, link).media,
+      actual: permissionsWithLink(unlisted, passed, visitor, link, 100_000)
+        .media,
       expected: true,
     });
     assert({
       given: 'an unlisted Round and no link',
       should: 'answer exactly as a missing Round',
-      actual: permissionsWithLink(unlisted, passed, account('stranger'), null),
+      actual: permissionsWithLink(
+        unlisted,
+        passed,
+        account('stranger'),
+        null,
+        100_000,
+      ),
       expected: nothing,
     });
     assert({
@@ -164,6 +175,7 @@ describe('roundEvidencePermissions', () => {
         passed,
         visitor,
         audienceLinkHash('old-link'),
+        100_000,
       ),
       expected: nothing,
     });
@@ -176,12 +188,14 @@ describe('roundEvidencePermissions', () => {
           passed,
           account('host'),
           null,
+          100_000,
         ).open,
         permissionsWithLink(
           { ...unlisted, audienceLinkHash: null },
           passed,
           account('aff'),
           null,
+          100_000,
         ).open,
       ],
       expected: [true, true],
@@ -308,6 +322,48 @@ describe('mayRequestRemoval', () => {
       should: 'not offer it',
       actual: mayRequestRemoval({ ...casual, status: 'removing' }),
       expected: false,
+    });
+  });
+});
+
+describe('roundEvidencePermissions under the officials policy (TAB-6.15)', () => {
+  const kept: RecordingRound = {
+    ...round,
+    competitionType: 'casual',
+    recordingPolicy: 'officials',
+  };
+  const at = (nowMs: number, viewer: RecordingViewer) =>
+    permissionsWithLink(kept, passed, viewer, null, nowMs);
+  const due = 100_000 + OFFICIALS_RECORDING_RETENTION_MS;
+  test('only the officials and the host see the video, until its deletion date', () => {
+    assert({
+      given: 'a judge, the host, a debater and a visitor before the date',
+      should:
+        'show the video to the judge and the host, the rest of the record to the debater, nothing to the visitor',
+      actual: [
+        at(200_000, account('judge')).media,
+        at(200_000, account('host')).media,
+        at(200_000, account('aff')),
+        at(200_000, visitor),
+      ],
+      expected: [
+        true,
+        true,
+        { open: true, media: false, transcript: true, result: true },
+        nothing,
+      ],
+    });
+    assert({
+      given: 'the judge on and after the deletion date',
+      should: 'no longer show the video',
+      actual: [at(due - 1, account('judge')).media, at(due, account('judge'))],
+      expected: [true, { ...everything, media: false }],
+    });
+    assert({
+      given: 'a Recording released as any other',
+      should: 'have no deletion date',
+      actual: [recordingDeletionDueMs(round), recordingDeletionDueMs(kept)],
+      expected: [null, due],
     });
   });
 });

@@ -1,7 +1,10 @@
 import { recordingPreparationSchema } from './recording-processing';
 import { z } from 'zod';
-import { storedBallotScoresSchema } from './ballot';
-import { debateSideSchema, idSchema } from './primitives';
+import { ballotScoresRecordSchema } from './ballot-schema';
+import { segmentTypes } from './format';
+import { idSchema } from './primitives';
+import { roundOutcomeSchema } from './round-outcome';
+import { seatRefSchema, sideKeySchema, sideSchema } from './seats';
 
 const spectatorStageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('upcoming') }),
@@ -20,9 +23,10 @@ const spectatorStageSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('floor'),
-    segment: z.enum(['speech', 'cross_ex']),
+    segment: z.enum(segmentTypes),
     label: z.string(),
-    side: debateSideSchema,
+    /** The seat the segment is scheduled to; null for an open floor. */
+    lead: seatRefSchema.nullable(),
     /** The clock as the released video shows it. */
     remainingMs: z.int().nonnegative(),
   }),
@@ -70,9 +74,11 @@ export const spectatorTimelineSchema = z.strictObject({
   /** Present while `recording` is `processing`: what is happening to it now. */
   recordingPreparation: recordingPreparationSchema.optional(),
   resolution: z.string().nullable(),
+  /** The format's declared sides, so a seat and a result read by their own names. */
+  sides: z.array(sideSchema).max(4),
   seats: z.array(
     z.strictObject({
-      side: debateSideSchema,
+      seat: seatRefSchema,
       kind: z.enum(['human', 'bot']),
       label: z.string().nullable(),
     }),
@@ -80,18 +86,19 @@ export const spectatorTimelineSchema = z.strictObject({
   stage: spectatorStageSchema,
   result: z
     .strictObject({
-      /** Null is a tie or an ending with no winner, never a draw. */
-      winner: debateSideSchema.nullable(),
+      /** Null is a tie or an ending with no result, never a draw. */
+      outcome: roundOutcomeSchema.nullable(),
       ballots: z.array(
         z.strictObject({
-          winner: debateSideSchema,
-          scores: storedBallotScoresSchema,
-          reason: z.string(),
+          /** Null for a ballot that named no winning side. */
+          winner: sideKeySchema.nullable(),
+          scores: ballotScoresRecordSchema,
+          reason: z.string().nullable(),
         }),
       ),
       ratings: z.array(
         z.strictObject({
-          side: debateSideSchema,
+          side: sideKeySchema,
           before: z.int(),
           after: z.int(),
         }),
@@ -102,7 +109,7 @@ export const spectatorTimelineSchema = z.strictObject({
   captions: z.array(
     z.strictObject({
       id: idSchema,
-      side: debateSideSchema,
+      seat: seatRefSchema,
       text: z.string(),
     }),
   ),

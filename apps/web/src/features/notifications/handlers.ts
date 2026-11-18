@@ -13,6 +13,7 @@ import {
   type AccountRouteDeps,
 } from '../../server/account-route';
 import { parseValidated } from '../../server/http';
+import { canReadTournamentInbox } from './read-notifications';
 import { notificationWords } from './notification-words';
 
 const WRITE_LIMIT = { max: 120, windowSeconds: 3600 };
@@ -92,6 +93,7 @@ export const createNotificationShellRoute = (
       const [inbox, presentation] = await Promise.all([
         deps.store.readNotifications({
           userId,
+          canReadTournament: canReadTournamentInbox,
           unreadOnly: true,
           limit: NOTIFICATIONS_SHELL_RECENT,
           now: deps.clock.now(),

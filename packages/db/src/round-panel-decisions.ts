@@ -3,6 +3,7 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import {
   idSchema,
   roundPanelReceiptSchema,
+  type RoundOutcome,
   type RoundProjection,
   type RoundPanelReceipt,
 } from '@daisy/protocol';
@@ -108,12 +109,31 @@ export function recordedPanelRuling(
 
 /** A replayed receipt stands only while the Round is still completed with its recorded outcome. */
 export function requirePanelTerminal(
-  round: { readonly status: string; readonly outcome: string | null },
-  recorded: string | null,
+  round: { readonly status: string; readonly outcome: RoundOutcome | null },
+  recorded: RoundOutcome | null,
 ): void {
-  if (round.status !== 'completed' || round.outcome !== recorded)
+  if (round.status !== 'completed' || !sameOutcome(round.outcome, recorded))
     throw receiptConflict();
 }
+
+/** Two outcomes say the same: the same winning side, or the same places. */
+export const sameOutcome = (
+  a: RoundOutcome | null,
+  b: RoundOutcome | null,
+): boolean => {
+  if (a === null || b === null) return a === b;
+  if (a.kind === 'winner' || b.kind === 'winner')
+    return a.kind === 'winner' && b.kind === 'winner' && a.side === b.side;
+  return (
+    a.of === b.of &&
+    a.places.length === b.places.length &&
+    a.places.every(
+      (place, index) =>
+        place.length === b.places[index]?.length &&
+        place.every((id, at) => b.places[index]?.[at] === id),
+    )
+  );
+};
 
 /** A Round with every segment played; its judges, if any, may not have ruled. */
 export function requirePanelRound(

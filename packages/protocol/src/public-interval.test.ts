@@ -416,3 +416,23 @@ describe('the boundary going into prep', () => {
     });
   });
 });
+
+test('finite capture authorization bounds output independently of late physical settlement', () => {
+  assert({
+    given:
+      'a committed speech past a finite deadline, a later speech and a source that settled much later',
+    should:
+      'clip the first speech at the authorization deadline and omit later speech without extending to the later commit',
+    actual: [
+      publicIntervalsBeforePrep(
+        [closed(0, 60_000), closed(61_000, 90_000)],
+        120_000,
+        0,
+        [],
+        30_000,
+      ),
+      publicIntervalsBeforePrep([closed(0, 60_000)], 120_000, 0, [], 1000),
+    ],
+    expected: [[{ fromMs: LAG, toMs: 30_000 }], []],
+  });
+});

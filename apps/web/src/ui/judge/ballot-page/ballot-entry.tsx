@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import type { RoundBallotRead } from '@daisy/protocol';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
-import type { BallotDebaters } from '../../../features/judge/ballot';
+import type { BallotPlan } from '../../../features/judge/ballot-plan';
 import { buttonClass } from '../../components/button/button-class';
 import { BallotFields } from './ballot-form';
 export const roundBallotErrorId = 'round-ballot-refusal';
@@ -22,7 +22,7 @@ type EntryProps = {
   readonly post: (form: FormData) => void;
   readonly pending: boolean;
   readonly commandId: string;
-  readonly debaters: BallotDebaters;
+  readonly plan: BallotPlan;
   /** How long until submitting can succeed; null when nothing is left to wait for. */
   readonly opensInMs: number | null;
 };
@@ -102,7 +102,7 @@ function OpenBallot({
   commandId,
   post,
   pending,
-  debaters,
+  plan,
   answer,
   fieldsRevision,
   fieldValues,
@@ -130,7 +130,7 @@ function OpenBallot({
       <fieldset disabled={pending} className="contents">
         <BallotFields
           key={fieldsRevision}
-          debaters={debaters}
+          plan={plan}
           values={fieldValues}
           error={answer.error}
           errorId={roundBallotErrorId}

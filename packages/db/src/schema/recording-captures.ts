@@ -28,6 +28,10 @@ export const recordingCaptures = pgTable(
       .references(() => rounds.id, { onDelete: 'restrict' }),
     egressId: text('egress_id'),
     egressStartedAt: timestampColumn('egress_started_at'),
+    /** Durably dispatched before calling the provider; an unknown answer keeps this attempt open. */
+    egressDispatchedAt: timestampColumn('egress_dispatched_at'),
+    /** Confirmed physical completion or absence, separate from logical Round/feed completion. */
+    egressSettledAt: timestampColumn('egress_settled_at'),
     /** Each Egress attempt holds under its own number, so a restart overwrites nothing. */
     egressGeneration: integer('egress_generation').notNull().default(0),
     /** SHA3-256 of the current attempt's stage secret; the secret is never stored. */
@@ -47,6 +51,11 @@ export const recordingCaptures = pgTable(
     index('recording_captures_open_idx')
       .on(table.recordingId)
       .where(sql`${table.endedAt} is null`),
+    index('recording_captures_physical_unsettled_idx')
+      .on(table.roundId)
+      .where(
+        sql`(${table.egressId} is not null or ${table.egressDispatchedAt} is not null) and (${table.egressSettledAt} is null or ${table.observerRevokedAt} is null)`,
+      ),
     check(
       'recording_captures_counters_check',
       sql`${table.egressGeneration} >= 0 and ${table.revocationFailures} >= 0`,

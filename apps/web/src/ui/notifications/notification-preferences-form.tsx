@@ -20,6 +20,12 @@ import { Button } from '../components/button/button';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 
 const kindLabel: Record<NotificationKind, string> = {
+  judge_assigned: 'I am assigned to judge',
+  judge_replaced: 'My judging assignment is replaced',
+  judge_unassigned: 'I am unassigned from judging',
+  tournament_draw_changed: 'My tournament draw changes',
+  tournament_room_ready: 'My tournament Room is ready',
+  tournament_results_released: 'My tournament results are released',
   followed_debater_live: 'A debater I follow is on air',
   recording_ready: 'A recording is ready to watch',
   round_started: 'My Round starts',

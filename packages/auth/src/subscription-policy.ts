@@ -1,4 +1,4 @@
-import type { EntitlementGrant } from '@daisy/protocol';
+import type { EntitlementGrant, PremiumEntitlementKind } from '@daisy/protocol';
 import type {
   BillingAccess,
   SubscriptionEvidence,
@@ -103,7 +103,7 @@ const premiumCapabilities = {
   casual_capture: 'paid-and-grace',
   recording_download: 'paid-and-grace',
 } as const satisfies Record<
-  EntitlementGrant['entitlement'],
+  PremiumEntitlementKind,
   'paid-and-grace' | 'paid-only'
 >;
 

@@ -10,6 +10,8 @@ export const notificationSubjects = [
   'room_invitation',
   'challenge',
   'friendship',
+  // One applied Tab command on one published fixture, in its lobby.
+  'fixture',
 ] as const;
 export type NotificationSubjectKind = (typeof notificationSubjects)[number];
 
@@ -69,6 +71,26 @@ export const notificationCatalogue = {
     urgency: 'durable',
     email: 'none',
   },
+  // Tab (NTF-15): what one applied command on a published fixture changed for
+  // the people it seats. Each waits, in-app, for the lobby's own read fences.
+  judge_assigned: { subject: 'fixture', urgency: 'durable', email: 'none' },
+  judge_replaced: { subject: 'fixture', urgency: 'durable', email: 'none' },
+  judge_unassigned: { subject: 'fixture', urgency: 'durable', email: 'none' },
+  tournament_draw_changed: {
+    subject: 'fixture',
+    urgency: 'durable',
+    email: 'none',
+  },
+  tournament_room_ready: {
+    subject: 'fixture',
+    urgency: 'durable',
+    email: 'none',
+  },
+  tournament_results_released: {
+    subject: 'fixture',
+    urgency: 'durable',
+    email: 'none',
+  },
 } as const satisfies Record<string, NotificationKindSpec>;
 
 type Catalogue = typeof notificationCatalogue;
@@ -85,6 +107,11 @@ export type SubjectOf<K extends NotificationKind> = Catalogue[K]['subject'];
 
 export const subjectOf = <K extends NotificationKind>(kind: K): SubjectOf<K> =>
   notificationCatalogue[kind].subject;
+
+/** Tab's kinds: those about a tournament fixture (NTF-15). */
+export type TournamentNotificationKind = {
+  [K in NotificationKind]: SubjectOf<K> extends 'fixture' ? K : never;
+}[NotificationKind];
 
 /** The kinds that name one subject, in catalogue order. */
 export const kindsAbout = (
@@ -251,3 +278,8 @@ export const notificationShellSchema = z.strictObject({
   presentation: notificationPresentationSchema.omit({ version: true }),
 });
 export type NotificationShell = z.infer<typeof notificationShellSchema>;
+
+/** Tab's kinds, in catalogue order. */
+export const tournamentNotificationKinds = kindsAbout(
+  'fixture',
+) as readonly TournamentNotificationKind[];

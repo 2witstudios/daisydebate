@@ -1,5 +1,4 @@
 import {
-  ballotSchema,
   caseMapSchema,
   type CaseMap,
   judgingBallotFields,
@@ -110,14 +109,21 @@ function contractAnswer<T>(
   );
 }
 
+export type { JudgedAnswer, ModelAnswer };
+
 /**
  * A judge model's answer as the one ballot contract the human judging UI
- * produces (ADR 0058 §6), or the safe reason it is not.
+ * produces (ADR 0058 §6), or the safe reason it is not. The schema is the
+ * Round's frozen definition's (`ballotSchemaFor`); every ballot it accepts is
+ * a ballot record.
  */
-export function judgeAnswer(answer: ModelAnswer): JudgedAnswer {
+export function ballotAnswer(
+  answer: ModelAnswer,
+  schema: z.ZodType<Ballot>,
+): JudgedAnswer {
   const judged = contractAnswer(
     answer,
-    ballotSchema,
+    schema,
     'The judge answered malformed JSON',
   );
   return judged.ok ? { ok: true, ballot: judged.value } : judged;

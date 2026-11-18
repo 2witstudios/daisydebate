@@ -1,7 +1,8 @@
-import type { RoomView } from '@daisy/protocol';
+import { leadSeatOf, sideOfSeat, type RoomView } from '@daisy/protocol';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { speechName } from '../../../features/debate-room/vocabulary';
-import { seatLabel } from './assembly-controls';
+import { segmentSeatLabel } from './assembly-controls';
+import { sideTone } from './side-tone';
 import {
   formatLine,
   formatTitle,
@@ -11,10 +12,18 @@ import {
 } from './room-labels';
 import { ROOM_SETUP_HOME } from './room-setup-modal';
 
-const speechTone = {
-  affirmative: 'bg-hue-sky-soft text-hue-sky',
-  negative: 'bg-hue-clay-soft text-hue-clay',
-} as const;
+const neutralTone = 'bg-surface-sunken text-ink-muted';
+
+/** A speech's tone is its speaker's side's; a cross-examination or an open floor is neutral. */
+function speechTone(
+  view: RoomView,
+  segment: RoomView['rules']['segments'][number],
+): string {
+  if (segment.type !== 'speech') return neutralTone;
+  const lead = leadSeatOf(segment.speak);
+  const side = lead ? sideOfSeat(lead) : null;
+  return side === null ? neutralTone : sideTone(view.rules.sides, side);
+}
 
 /** The saved speech order at a glance, each speech as wide as its share of the clock. */
 function SpeechBar({ view }: { readonly view: RoomView }) {
@@ -24,10 +33,10 @@ function SpeechBar({ view }: { readonly view: RoomView }) {
         <li
           key={segment.key}
           title={`${speechName(segment)} · ${clockDuration(segment.durationMs)}`}
-          className={`flex min-w-0 basis-0 justify-center rounded-sm py-2 text-xs font-strong ${speechGrow(segment.durationMs)} ${segment.type === 'cross_ex' ? 'bg-surface-sunken text-ink-muted' : speechTone[segment.side]}`}
+          className={`flex min-w-0 basis-0 justify-center rounded-sm py-2 text-xs font-strong ${speechGrow(segment.durationMs)} ${speechTone(view, segment)}`}
         >
           <span className="truncate">{segment.key}</span>
-          <span className="sr-only">{`: ${speechName(segment)}, ${seatLabel(segment.side, segment.slot)}, ${clockDuration(segment.durationMs)}`}</span>
+          <span className="sr-only">{`: ${speechName(segment)}, ${segmentSeatLabel(view.rules.sides, segment.speak)}, ${clockDuration(segment.durationMs)}`}</span>
         </li>
       ))}
     </ol>

@@ -75,7 +75,7 @@ test('an invitation answer is exactly one kind for each way a post can end', asy
   const invite = formOf({
     intent: 'invite',
     username: 'coach',
-    seat: 'debater',
+    seat: 'side',
   });
   const outcomes = {
     invited: await submitInvitationForm(
@@ -138,7 +138,7 @@ test('an invitation answer is exactly one kind for each way a post can end', asy
       declined: { kind: 'accepted', notice: 'Invitation declined.' },
       inviteRefused: {
         kind: 'refused',
-        values: { username: 'coach', seat: 'debater' },
+        values: { username: 'coach', seat: 'side' },
         error: 'That member is already in a seat.',
       },
       withdrawRefused: {
@@ -148,12 +148,12 @@ test('an invitation answer is exactly one kind for each way a post can end', asy
       },
       limited: {
         kind: 'refused',
-        values: { username: 'coach', seat: 'debater' },
+        values: { username: 'coach', seat: 'side' },
         error: 'Too many invitations. Try again later.',
       },
       unreachable: {
         kind: 'refused',
-        values: { username: 'coach', seat: 'debater' },
+        values: { username: 'coach', seat: 'side' },
         error: 'That did not work. Try again.',
       },
       unknownIntent: {
@@ -181,16 +181,22 @@ test('what the invite form shows follows from the one kind it was answered with'
     should:
       'start empty as a debater, keep the refused username and seat beside the reason, and empty the field under a new key once accepted',
     actual: [
-      invitationFields(initialInvitationForm),
-      invitationFields({
-        kind: 'refused',
-        values: { username: 'coach', seat: 'judge' },
-        error: 'That member cannot be invited.',
-      }),
-      invitationFields({ kind: 'accepted', notice: 'Invitation withdrawn.' }),
+      invitationFields(initialInvitationForm, 'side'),
+      invitationFields(
+        {
+          kind: 'refused',
+          values: { username: 'coach', seat: 'judge' },
+          error: 'That member cannot be invited.',
+        },
+        'side',
+      ),
+      invitationFields(
+        { kind: 'accepted', notice: 'Invitation withdrawn.' },
+        'side',
+      ),
     ],
     expected: [
-      { username: '', seat: 'debater', notice: undefined, fieldKey: 'draft' },
+      { username: '', seat: 'side', notice: undefined, fieldKey: 'draft' },
       {
         username: 'coach',
         seat: 'judge',
@@ -199,7 +205,7 @@ test('what the invite form shows follows from the one kind it was answered with'
       },
       {
         username: '',
-        seat: 'debater',
+        seat: 'side',
         notice: 'Invitation withdrawn.',
         fieldKey: 'Invitation withdrawn.',
       },

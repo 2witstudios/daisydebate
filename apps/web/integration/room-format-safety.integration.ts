@@ -7,6 +7,7 @@ import {
   invalidFormatDefinitions,
   unsafeFormatDefinitions,
 } from '@daisy/protocol/testing';
+import { sideOfSeat } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 
@@ -31,7 +32,11 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
           kind: 'custom',
           definition: {
             ...oneOnOneFormatFixture,
-            seats: { affirmative: 2, negative: 1, judge: 0 },
+            seats: {
+              ...oneOnOneFormatFixture.seats,
+              sides: { affirmative: 2, negative: 1 },
+              judges: 0,
+            },
           },
           config,
           competitionType: 'casual',
@@ -45,7 +50,11 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
       should:
         'persist successfully so unsafe refusals cannot come from unrelated config',
       actual: valid.view.definition.seats,
-      expected: { affirmative: 2, negative: 1, judge: 0 },
+      expected: {
+        ...oneOnOneFormatFixture.seats,
+        sides: { affirmative: 2, negative: 1 },
+        judges: 0,
+      },
     });
     const snapshot = await f.snapshot(view.id);
     const inventory = async () =>
@@ -136,8 +145,10 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
                     ),
                   },
                   participants:
-                    definition.seats.negative === 0
-                      ? room.participants.filter((p) => p.role !== 'negative')
+                    definition.seats.sides.negative === 0
+                      ? room.participants.filter(
+                          (p) => sideOfSeat(p.seat) !== 'negative',
+                        )
                       : room.participants,
                 },
                 f.host.actorId,

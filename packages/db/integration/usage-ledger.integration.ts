@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -66,7 +67,7 @@ test('the final beta bot use admits one racing Round and same-attempt recovery n
 
 test('abandoned undispatched free bundle releases together and stale original identity cannot dispatch or rebind', async () => {
   await withBoundedRound(async (f, run, roundId) => {
-    const replacement = await f.round();
+    const replacement = await judgedRound(f);
     const actorId = await admissionSponsor(f, [roundId, replacement]);
     await f.sql`delete from account_entitlement_grants where user_id=(select user_id from actors where id=${actorId})`;
     const judgeActor = createId();
@@ -128,5 +129,5 @@ test('abandoned undispatched free bundle releases together and stale original id
           });
         }),
     });
-  });
+  }, judgedRound);
 });

@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import type { RoundBallotRead } from '@daisy/protocol';
 import { sampleJudgeBallot } from '../mock/judge.test-support';
 import {
@@ -8,15 +9,21 @@ import {
   rules,
   startOf,
 } from '../debate-room/live-round.test-support';
+import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 
 const played = ran(2, true);
 
 /** A completed Round read by its affirmative debater: one human and one AI ballot. */
 export const completed: RoundBallotRead = {
+  judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
+    ballot: daisyWinnerBallot,
+    panel: panelRuleFor(daisyWinnerBallot),
+  },
   round: {
     ...played,
     status: 'completed',
-    outcome: 'affirmative',
+    outcome: { kind: 'winner', side: 'affirmative' },
     completedAt: at(startOf(2)),
   },
   own: null,

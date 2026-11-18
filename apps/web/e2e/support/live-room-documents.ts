@@ -1,3 +1,4 @@
+import { affirmativeSide, sameSeat, sideSeat } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { origin } from './accounts';
@@ -163,8 +164,6 @@ export const test = base.extend<{
  * (ISSUE-471-r1).
  */
 const forfeitAsHost = (request: APIRequestContext, roundId: string) =>
-  forfeitOwnSeat(
-    request,
-    roundId,
-    (seat) => seat.role === 'affirmative' && seat.slot === 0,
+  forfeitOwnSeat(request, roundId, (seat) =>
+    sameSeat(seat.seat, sideSeat(affirmativeSide)),
   );

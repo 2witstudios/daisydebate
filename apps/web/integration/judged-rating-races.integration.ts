@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { affirmativeSide, negativeSide, winnerOutcome } from '@daisy/protocol';
 import { ratingAwaited } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -126,9 +127,9 @@ test('a posting queued behind the deciding ballot sees the committed finalizatio
             rows: (await readLedger(f, roundId)).length,
           },
           expected: {
-            decided: 'affirmative',
+            decided: winnerOutcome(affirmativeSide),
             result: 'rated',
-            outcome: 'affirmative',
+            outcome: winnerOutcome(affirmativeSide),
             rows: 2,
           },
         });
@@ -163,7 +164,7 @@ test('two judges ruling together with sweeps running decide once and post once',
             versions: await readVersions(f),
           },
           expected: {
-            outcome: 'negative',
+            outcome: winnerOutcome(negativeSide),
             counts: { finalized: 1, ballots: 2 },
             rows: 2,
             versions: [1, 1],
@@ -207,7 +208,7 @@ test('two instances completing at the ballot deadline while rating decide once a
             versions: await readVersions(f),
           },
           expected: {
-            outcome: 'negative',
+            outcome: winnerOutcome(negativeSide),
             completes: 1,
             counts: { finalized: 1, ballots: 1 },
             rows: 2,

@@ -13,6 +13,8 @@ import {
 } from './round-command-legality';
 import { positionAtState, roundPositionOf } from './round-position-projection';
 export type { RoundPosition, RoundCommandOption };
+/** Whether leaving forfeits to the other side, or is absence (TAB-6.8). */
+export { forfeitsToOpponent } from './round-outcome';
 
 /** One authorized durable snapshot and explicit time; safe in the browser CSP. */
 export const roundPositionAt = (input: {

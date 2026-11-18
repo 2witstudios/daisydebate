@@ -1,0 +1,60 @@
+{
+  "ballot": {
+    "feedback": {
+      "affirmative": "Weigh your impacts earlier.",
+      "negative": "Extend the maintenance argument."
+    },
+    "reason": "The affirmative answered the funding question.",
+    "rubricVersion": "speaker-10@9",
+    "scores": {
+      "affirmative": {
+        "answering": 4,
+        "burdens": 4,
+        "coherence": 4,
+        "delivery": 4,
+        "organization": 4,
+        "questioning": 4,
+        "refutation": 4,
+        "thesis": 4,
+        "warrants": 4,
+        "weighing": 4
+      },
+      "negative": {
+        "answering": 3,
+        "burdens": 3,
+        "coherence": 3,
+        "delivery": 3,
+        "organization": 3,
+        "questioning": 3,
+        "refutation": 3,
+        "thesis": 3,
+        "warrants": 3,
+        "weighing": 3
+      }
+    },
+    "winner": "affirmative"
+  },
+  "stored": {
+    "issues": [
+      {
+        "code": "invalid_union",
+        "path": [
+          "rubricVersion"
+        ]
+      }
+    ],
+    "success": false
+  },
+  "totals": null,
+  "write": {
+    "issues": [
+      {
+        "code": "invalid_value",
+        "path": [
+          "rubricVersion"
+        ]
+      }
+    ],
+    "success": false
+  }
+}

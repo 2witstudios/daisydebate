@@ -184,7 +184,10 @@ test('native format, resolution and speech editing create a room without JavaScr
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     const view = await createConfiguredRoom(page);
     roomId = view.id;
-    expect(view.capture).toEqual({ broadcast: null, recording: true });
+    expect(view.capture).toEqual({
+      broadcast: null,
+      recordingPolicy: 'released',
+    });
     expect(view.topic).toBe('Cities should build more homes.');
     expect(view.format.standing.kind).toBe('custom');
   } finally {
@@ -332,7 +335,10 @@ test('Record match stays visible and Ranked shows automatic recording without lo
   await form.getByLabel('Room name', { exact: true }).fill('Recorded match');
   const view = await createConfiguredRoom(page);
   try {
-    expect(view.capture).toEqual({ broadcast: null, recording: true });
+    expect(view.capture).toEqual({
+      broadcast: null,
+      recordingPolicy: 'released',
+    });
     await page.reload();
     await page
       .getByRole('link', { name: 'Edit settings', exact: true })

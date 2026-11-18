@@ -48,7 +48,7 @@ const withEndedRound = async (
           format_id: 'freestyle',
           preset_version: 1,
           ladder_id: 'freestyle',
-          outcome: 'affirmative',
+          winning_side: 'affirmative',
           started_at: started,
           completed_at: ended,
         });

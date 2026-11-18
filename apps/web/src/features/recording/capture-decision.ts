@@ -1,5 +1,5 @@
 import {
-  runningEgress,
+  unsettledEgress,
   stagePrivacyActions,
   type StageEgressFact,
   type StagePhaseFact,
@@ -39,6 +39,8 @@ type OwnPath = {
   readonly egress: StageEgressFact;
   readonly phase: StagePhaseFact;
   readonly observerSubscribed: boolean;
+  readonly pendingDispatch: boolean;
+  readonly physicallySettled: boolean;
   readonly revocationFailures: number;
 };
 
@@ -47,6 +49,7 @@ export type RecordingCaptureFacts = {
   readonly lifecycle: RecordingLifecycle;
   /** The Round completed or was abandoned. */
   readonly roundEnded: boolean;
+  readonly captureDeadlineAtMs: number | null;
   readonly path: BroadcastPath | OwnPath;
 };
 
@@ -59,6 +62,8 @@ export type RecordingCaptureAction =
   | { readonly type: 'report-ended' }
   | { readonly type: 'report-failed' }
   | { readonly type: 'start-egress' }
+  | { readonly type: 'recover-egress' }
+  | { readonly type: 'settle-egress' }
   | { readonly type: 'stop-egress'; readonly id: string }
   | { readonly type: 'close-own-capture' }
   | Exclude<StagePrivacyAction, { type: 'stop-egress' }>;
@@ -101,22 +106,48 @@ const decideBroadcastPath = (
   // Report each attempt before anything else, so none is lost to a Round that ended.
   if (started.length > 0) return started;
   const noMoreMedia =
-    (facts.roundEnded || path.stopped) && !runningEgress(path.egress);
+    (facts.roundEnded || path.stopped) && !unsettledEgress(path.egress);
   return noMoreMedia ? [endOf(facts.lifecycle)] : [];
 };
+
+const captureMustEnd = (facts: RecordingCaptureFacts) =>
+  facts.roundEnded ||
+  (facts.captureDeadlineAtMs !== null &&
+    facts.nowMs >= facts.captureDeadlineAtMs);
 
 const decideOwnPath = (
   facts: RecordingCaptureFacts,
   path: OwnPath,
 ): readonly RecordingCaptureAction[] => {
-  const live = runningEgress(path.egress);
+  const live = unsettledEgress(path.egress);
+  if (path.pendingDispatch)
+    return [
+      ...((captureMustEnd(facts) ||
+        !isOpen(facts.lifecycle) ||
+        path.phase.kind === 'private') &&
+      path.observerSubscribed
+        ? [{ type: 'revoke-observer' } as const]
+        : []),
+      { type: 'recover-egress' },
+    ];
+  if (!live && !path.physicallySettled && path.latest !== null)
+    return [{ type: 'settle-egress' }];
   // Taken down or removed mid-capture, or the Round over: nothing more is captured.
-  if (!isOpen(facts.lifecycle) || facts.roundEnded) {
-    if (live) return [{ type: 'stop-egress', id: live.id }];
+  if (!isOpen(facts.lifecycle) || captureMustEnd(facts)) {
+    if (live)
+      return [
+        {
+          type: path.observerSubscribed
+            ? 'revoke-observer'
+            : 'reassert-revocation',
+        },
+        { type: 'stop-egress', id: live.id },
+      ];
     const started = isOpen(facts.lifecycle)
       ? newAttempt(facts, { kind: 'own_capture' })
       : [];
     if (started.length > 0) return started;
+    if (path.observerSubscribed) return [{ type: 'revoke-observer' }];
     return [
       ...(isOpen(facts.lifecycle) ? [endOf(facts.lifecycle)] : []),
       { type: 'close-own-capture' },

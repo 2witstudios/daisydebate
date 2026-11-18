@@ -113,7 +113,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
         evaluate: async () => ({ kind: 'undecided' as const }),
       }).finalize(roundId);
       const [facts] =
-        await f.sql`select status,outcome,(select count(*)::int from round_commands where round_id=${roundId} and type='complete') receipts,(select count(*)::int from ballots where round_id=${roundId}) ballots,(select count(*)::int from rating_changes where round_id=${roundId}) ratings from rounds where id=${roundId}`;
+        await f.sql`select status,winning_side as outcome,(select count(*)::int from round_commands where round_id=${roundId} and type='complete') receipts,(select count(*)::int from ballots where round_id=${roundId}) ballots,(select count(*)::int from rating_changes where round_id=${roundId}) ratings from rounds where id=${roundId}`;
       assert({
         given:
           'concurrent internal maintenance and restart after actual freeze/settlement',

@@ -1,3 +1,4 @@
+import { judgedRound as createJudgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
@@ -166,18 +167,14 @@ test('exporting a member includes their competitive record and nothing of anothe
       rules_snapshot: validRules,
       status: 'assembling',
     });
-    const judgedRound = await fixture.round({
-      status: 'completed',
-      outcome: 'affirmative',
-      started_at: at(3, 11),
-      completed_at: at(3),
-    });
+    const judgedRound = await createJudgedRound(fixture);
     const judgeSeat = await fixture.seat(
       judgedRound,
       'judge',
       0,
       subject.actorId,
     );
+    await fixture.sql`update rounds set status='completed',winning_side='affirmative',started_at=${at(3, 11)},completed_at=${at(3)} where id=${judgedRound}`;
     await fixture.freeze(judgedRound);
     const ballotId = createId();
     await fixture.insert('ballots', {

@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { withEvidenceIngress } from './necessary-evidence-ingress.test-support';
+import { withRecognitionIngress as withEvidenceIngress } from './necessary-evidence-ingress.test-support';
 import {
   readyRecognition as ready,
   recognitionTestOptions as options,

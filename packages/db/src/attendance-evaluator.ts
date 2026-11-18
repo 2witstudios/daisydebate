@@ -16,7 +16,10 @@ import {
   writeProjectionWithPhaseSignal,
 } from './round-projection-writer';
 import { writeSpeakingProjection } from './round-speaking-writer';
-import { sampleRoundExecutionTime } from './round-execution-time';
+import {
+  sampleRoundExecutionTime,
+  type RoundTimeSource,
+} from './round-execution-time';
 import { eligibleCompetitorIds } from './seat-eligibility';
 import {
   adjudicationColumns,
@@ -73,7 +76,10 @@ export type AttendanceEvaluation =
   | { readonly kind: 'held'; readonly reason: 'platform_incident' }
   | { readonly kind: 'decided'; readonly resolution: AttendanceResolution };
 /** One Round fence, immutable ordered receipts, and the SAME engine projection/history/outbox writer. */
-export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
+export function createAttendanceEvaluator(
+  transaction: AttendanceTransaction,
+  roundTime?: RoundTimeSource,
+) {
   return async (input: {
     readonly roundId: string;
     readonly commandId: string;
@@ -123,7 +129,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
         const rows = await tx.execute(
           sql`select participant_id,segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id}`,
         );
-        const now = await sampleRoundExecutionTime(tx);
+        const now = await sampleRoundExecutionTime(tx, roundTime);
         const facts: AttendanceReceiptFacts = {
           round,
           finalizedSegmentIds,

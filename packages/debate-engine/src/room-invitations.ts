@@ -6,7 +6,7 @@ import {
   type PendingRoomInvitation,
   type RoomAssemblyState,
   type RoomInvitationRefusal,
-  type RoomSeatKind,
+  type SeatKind,
 } from '@daisy/protocol';
 import { freeSeatsOf, isOpenRoomStatus } from '@daisy/protocol';
 import { seatsHeldFrom } from './room-edit-transitions';
@@ -30,7 +30,7 @@ export function decideRoomInvitation(input: {
   >;
   readonly callerActorId: string;
   readonly invitee: InviteeFacts;
-  readonly seat: RoomSeatKind;
+  readonly seat: SeatKind;
   readonly pending: readonly PendingRoomInvitation[];
   readonly now: string;
 }): InvitationDecision {

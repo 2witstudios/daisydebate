@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { agentRuns } from './schema/agent-runs';
@@ -48,7 +49,12 @@ export async function assertLockedJudgingLease(
   const [job] = await tx
     .select()
     .from(roundJudgingJobs)
-    .where(judgingJobWhere(scope))
+    .where(
+      and(
+        judgingJobWhere(scope),
+        currentRoundParticipant(roundJudgingJobs.judgeParticipantId),
+      ),
+    )
     .for('update');
   requireCurrentJob(job, scope);
   requireAgentLeaseToken(token, job.leaseTokenDigest ?? '');

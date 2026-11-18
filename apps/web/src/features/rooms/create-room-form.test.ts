@@ -27,7 +27,7 @@ test('creation refusals answer with what happened, and an active Room returns it
               id: 'm'.repeat(24),
               title: 'Current room',
               phase: 'live',
-              role: 'debater',
+              role: 'side',
               seated: true,
               href,
             },

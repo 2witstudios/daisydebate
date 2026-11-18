@@ -1,3 +1,4 @@
+import type { ConfirmationCommandRefusal } from './lobby/confirmation-command';
 import type { AttendanceRefusal } from './attendance';
 import type { BillingEconomicsRefusal } from './billing-economics';
 import type { CaptureRefusal } from './capture-refusal';
@@ -45,6 +46,7 @@ type AudienceRefusal =
  * closed words, never on a message, which stays free text for a person.
  */
 export type RefusalReason =
+  | ConfirmationCommandRefusal
   | AttendanceRefusal
   | BillingEconomicsRefusal
   | TranscriptRefusal

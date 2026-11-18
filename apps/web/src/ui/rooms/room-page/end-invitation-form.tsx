@@ -44,7 +44,8 @@ export function EndInvitationForm({
   useFocusAfterAnswer(answer, focusAfterAnswer, !pending, {
     onlyWhenLost: true,
   });
-  const fields = invitationFields(answer);
+  // Ending an invitation names no seat: only the notice is read.
+  const fields = invitationFields(answer, 'side');
   return (
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />

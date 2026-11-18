@@ -64,7 +64,80 @@ test('reading an Egress that LiveKit no longer lists is not treated as running',
     given: 'an id LiveKit does not list',
     should: 'report failed, so a dead job cannot look alive',
     actual: await egress.read('EG_gone'),
-    expected: { kind: 'failed', id: 'EG_gone' },
+    expected: { kind: 'failed', id: 'EG_gone', reason: 'not_found' },
+  });
+});
+
+test('an Egress LiveKit no longer knows settles; any other refusal still surfaces', async () => {
+  const refusing = (error: Error) =>
+    createBroadcastEgress({
+      config,
+      client: {
+        listEgress: async () => {
+          throw error;
+        },
+      } as never,
+      rooms: {} as never,
+    });
+  const read = (error: Error) =>
+    refusing(error)
+      .read('EG_gone')
+      .catch(() => 'thrown');
+  assert({
+    given: "LiveKit's not_found, by status or by code, for a long-ended Egress",
+    should: 'report it failed and not found, so its attempt settles',
+    actual: [
+      await read(new ServerError('not_found', 'egress does not exist', 404)),
+      await read(new ServerError('x', 'egress does not exist', 0, 'not_found')),
+    ],
+    expected: [
+      { kind: 'failed', id: 'EG_gone', reason: 'not_found' },
+      { kind: 'failed', id: 'EG_gone', reason: 'not_found' },
+    ],
+  });
+  assert({
+    given: 'an unavailable LiveKit, a refused credential or a network fault',
+    should: 'throw, so nothing is settled on an unknown answer',
+    actual: [
+      await read(new ServerError('unavailable', 'down', 503)),
+      await read(new ServerError('unauthenticated', 'no', 401)),
+      await read(new Error('ECONNRESET')),
+    ],
+    expected: ['thrown', 'thrown', 'thrown'],
+  });
+});
+
+test('stopping an Egress that is gone or already ended is done; other refusals surface', async () => {
+  const stop = (error: Error) =>
+    createBroadcastEgress({
+      config,
+      client: {
+        stopEgress: async () => {
+          throw error;
+        },
+      } as never,
+      rooms: {} as never,
+    })
+      .stop('EG_old')
+      .then(
+        () => 'stopped',
+        () => 'thrown',
+      );
+  assert({
+    given: 'not_found, an ended Egress (failed_precondition), and an outage',
+    should: 'treat the first two as stopped and throw on the outage',
+    actual: [
+      await stop(new ServerError('not_found', 'gone', 404)),
+      await stop(
+        new ServerError(
+          'failed_precondition',
+          'egress with status EGRESS_COMPLETE cannot be stopped',
+          412,
+        ),
+      ),
+      await stop(new ServerError('unavailable', 'down', 503)),
+    ],
+    expected: ['stopped', 'stopped', 'thrown'],
   });
 });
 
@@ -343,5 +416,61 @@ describe('one Egress across the media nodes', () => {
       actual: calls,
       expected: ['a:start'],
     });
+  });
+});
+
+test('unknown provider status remains unresolved rather than proving physical failure', () => {
+  assert({
+    given: 'an unrecognized vendor status for a known Egress identity',
+    should: 'keep the physical job unresolved',
+    actual: egressFact({ egressId: 'EG_unknown', status: 999 as EgressStatus }),
+    expected: { kind: 'unresolved', id: 'EG_unknown' },
+  });
+});
+
+test('exact-attempt recovery returns only matching deployment path/generation and never returns stage credentials', async () => {
+  const entry = (egressId: string, url: string) => ({
+    egressId,
+    status: EgressStatus.EGRESS_ACTIVE,
+    request: { case: 'web', value: { url } },
+  });
+  let observed = [
+    entry('EG_current', 'https://daisy.test/stage/owned?c=private-secret&g=2'),
+    entry('EG_old', 'https://daisy.test/stage/owned?c=old-secret&g=1'),
+    entry('EG_foreign', 'https://foreign.test/stage/owned?g=2'),
+    entry('EG_other', 'https://daisy.test/stage/other?g=2'),
+  ];
+  const adapter = createBroadcastEgress({
+    config,
+    client: { listEgress: async () => observed } as never,
+    rooms: {} as never,
+  });
+  const read = () =>
+    adapter.readStageAttempt({
+      stageUrl: 'https://daisy.test/stage/owned?c=',
+      generation: 2,
+    });
+  const found = await read();
+  observed = [];
+  const absent = await read();
+  observed = [
+    entry('EG_a', 'https://daisy.test/stage/owned?g=2'),
+    entry('EG_b', 'https://daisy.test/stage/owned?g=2'),
+  ];
+  assert({
+    given:
+      'one exact observed attempt, a missing listing and an ambiguous duplicate listing',
+    should:
+      'recover only the exact observed identity and hold unknown cases without exposing credentials',
+    actual: [found, absent, await read()],
+    expected: [
+      {
+        kind: 'observed',
+        egressId: 'EG_current',
+        fact: { kind: 'active', id: 'EG_current' },
+      },
+      { kind: 'unresolved' },
+      { kind: 'unresolved' },
+    ],
   });
 });

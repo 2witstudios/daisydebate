@@ -1,4 +1,4 @@
-import type { RoomAssemblyState } from '@daisy/protocol';
+import { isJudgeSeat, type RoomAssemblyState } from '@daisy/protocol';
 
 /**
  * Owner decision 2026-11-02 (WATCH-16): seating an AI judge is free on a
@@ -16,4 +16,4 @@ export const castHoldsUnadmittedAiJudge = (
   hostMaySeatCasualAiJudge: boolean,
 ): boolean =>
   !aiJudgeSeatAdmitted(room, hostMaySeatCasualAiJudge) &&
-  room.participants.some((p) => p.kind === 'bot' && p.role === 'judge');
+  room.participants.some((p) => p.kind === 'bot' && isJudgeSeat(p.seat));

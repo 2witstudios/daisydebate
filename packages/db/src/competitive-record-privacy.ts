@@ -39,7 +39,7 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
       ),
     ),
     room_participants: await rows(
-      tx.execute(sql`select id, room_id, actor_id, role, slot
+      tx.execute(sql`select id, room_id, actor_id, seat_kind, side, slot
         from room_participants where actor_id = ${subject.actorId} order by id`),
     ),
     round_resolution_strikes: await rows(
@@ -49,12 +49,32 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         where actor_id = ${subject.actorId} order by draw_id, ordinal`),
     ),
     round_participants: await rows(
-      tx.execute(sql`select id, round_id, actor_id, role, slot
+      tx.execute(sql`select id, round_id, actor_id, seat_kind, side, slot
         from round_participants where actor_id = ${subject.actorId} order by id`),
+    ),
+
+    round_judge_slots: await rows(
+      tx.execute(sql`select round_id,slot,current_version,participant_id,actor_id
+        from round_judge_slots where actor_id=${subject.actorId} order by round_id,slot`),
+    ),
+    round_judge_assignments: await rows(
+      tx.execute(sql`select round_id,slot,version,previous_version,participant_id,actor_id,source,command_id,
+        ${iso('recorded_at', 'recorded_at')} from round_judge_assignments
+        where actor_id=${subject.actorId} order by round_id,slot,version`),
+    ),
+    round_finalization_judge_assignments: await rows(
+      tx.execute(sql`select a.round_id,a.slot,a.assignment_version,a.participant_id
+        from round_finalization_judge_assignments a join round_participants p on p.id=a.participant_id
+        where p.actor_id=${subject.actorId} order by a.round_id,a.slot`),
+    ),
+    round_source_voids: await rows(
+      tx.execute(sql`select v.round_id,v.command_id,${iso('v.recorded_at', 'recorded_at')}
+        from round_source_voids v where exists(select 1 from round_participants p
+          where p.round_id=v.round_id and p.actor_id=${subject.actorId}) order by v.round_id`),
     ),
     rounds: await rows(
       tx.execute(sql`select r.id, r.room_id, r.visibility, r.resolution,
-          r.competition_type, r.status, r.outcome, r.ladder_id,
+          r.competition_type, r.status, r.winning_side, r.ranking, r.ladder_id,
           r.resolution_evidence,
           ${iso('r.created_at', 'created_at')}, ${iso('r.started_at', 'started_at')},
           ${iso('r.completed_at', 'completed_at')}
@@ -64,7 +84,7 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         order by r.id`),
     ),
     ballots: await rows(
-      tx.execute(sql`select b.id, b.round_id, b.rubric_version, b.winner,
+      tx.execute(sql`select b.id, b.round_id, b.rubric_version, b.decision, b.winner, b.ranking,
           b.scores, b.reason, b.feedback, b.citations,
           ${iso('b.submitted_at', 'submitted_at')}
         from ballots b

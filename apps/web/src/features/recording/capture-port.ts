@@ -31,6 +31,12 @@ export type RecordingCapturePort = {
     readonly hostActorId: string | null;
     readonly hostOptedIn: boolean;
     readonly hostHoldsRecording: boolean;
+    readonly tournamentAdmission?: {
+      readonly admissionId: string;
+      readonly roundId: string;
+      readonly deadlineAt: string;
+    } | null;
+    readonly now?: string;
   }) => Promise<RecordingRecord | null>;
   /** Each Egress attempt reports once it runs; a crash adds the next attempt. */
   readonly captureStarted: (

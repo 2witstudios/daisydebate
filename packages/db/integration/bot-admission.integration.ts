@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -195,14 +196,14 @@ test('actual global capacity fails closed', async () => {
 
 test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', async () => {
   await withBoundedRound(async (fixture, run, firstRound) => {
-    const judged = await fixture.round();
+    const judged = await judgedRound(fixture);
     const finished = await fixture.round();
     const unseated = await fixture.round();
     const refused = await fixture.round();
     const actorId = await admissionSponsor(fixture, [firstRound, refused]);
     await createBotSeat(fixture, judged, 'judge');
     await createBotSeat(fixture, finished, 'negative');
-    await fixture.sql`update rounds set status='completed',started_at=${new Date('2026-10-22T10:00:00.000Z')},completed_at=${new Date('2026-10-22T10:01:00.000Z')},current_stage=null,outcome=null where id=${finished}`;
+    await fixture.sql`update rounds set status='completed',started_at=${new Date('2026-10-22T10:00:00.000Z')},completed_at=${new Date('2026-10-22T10:01:00.000Z')},current_stage=null,winning_side=null where id=${finished}`;
     const admission = testBotAdmission(run, 1);
     const admitted = await admission.reserve({ actorId, roundId: firstRound });
     assert({
@@ -243,8 +244,8 @@ test('two bot-debater Rounds racing for the last capacity slot admit exactly one
     const launch = (roundId: string, botActor: string) =>
       run(async (tx) => {
         await admission.lock(tx);
-        await tx.execute(sql`insert into round_participants (id, round_id, actor_id, role, slot)
-          values (${createId()}, ${roundId}, ${botActor}, 'negative', 0)`);
+        await tx.execute(sql`insert into round_participants (id, round_id, actor_id, seat_kind, side, slot)
+          values (${createId()}, ${roundId}, ${botActor}, 'side', 'negative', 0)`);
         return admission.reserveLocked(tx, { actorId, roundId });
       });
     const attempts = await Promise.allSettled([

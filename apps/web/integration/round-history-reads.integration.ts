@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import {
   captureRule,
   readRoundOpening,
@@ -7,6 +8,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { isJudgeSeat, sideOfSeat } from '@daisy/protocol';
 import {
   launchRuntimeRound,
   withRoomRuntime,
@@ -27,7 +29,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
         kind: 'custom',
         definition: {
           ...oneOnOneDefinition,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
+          seats: { ...oneOnOneDefinition.seats, judges: 0 },
         },
         competitionType: 'casual',
         config: {
@@ -162,8 +164,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
@@ -182,7 +183,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       },
     );
     const view = await f.roundView(f.guest, roundId);
-    const judge = raw.participants.find((p) => p.role === 'judge')!;
+    const judge = raw.participants.find((p) => isJudgeSeat(p.seat))!;
     assert({
       given: 'a terminal Round read by its debater',
       should: 'retain live timing history and hide human judge identity',
@@ -202,15 +203,19 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       },
     });
     const segment = view.segments[0]!;
-    const speaker = raw.participants.find((p) => p.role === 'affirmative')!;
+    const speaker = raw.participants.find(
+      (p) => sideOfSeat(p.seat) === 'affirmative',
+    )!;
     // Private-reader storage fixture, not a capture or generation producer.
     await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete) values(${createId()},${roundId},${segment.id},${speaker.id},0,'Private transcript',true)`;
     const read = (caller: typeof f.host) =>
       f.store.readRoundTranscript({
+        readEventDecision: () => false,
         captureRule,
         caller,
         roundId,
-        authorize: (r, a) => canReadTranscript(caller, r, a),
+        authorize: (r, a, authority) =>
+          canReadTranscript(caller, r, a, authority),
       });
     assert({
       given: 'a seated debater and the hidden judge',
@@ -232,6 +237,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     // A test audience adapter, not a production spectator grant: neither
     // persistence nor presentation is allowed to add a second seat veto.
     const futureAudience = await f.store.readRoundTranscript({
+      readEventDecision: () => false,
       captureRule,
       caller: spectator,
       roundId,
@@ -239,6 +245,8 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     });
     await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     const completedAudience = await f.store.readRoundBallot({
+      ballotAccess: (_round, _account, owner) =>
+        eventBallotAccess(spectator, owner),
       readOpening: readRoundOpening,
       decideWaitingOn: roundWaitingOn,
       captureRule,

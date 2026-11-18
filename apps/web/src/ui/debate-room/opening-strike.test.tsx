@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView } from '@daisy/protocol';
+import { twoSides, type RoundView } from '@daisy/protocol';
 import { OpeningChosen, OpeningStatus, OpeningStrike } from './opening-strike';
 
 setupRitewayBun();
@@ -40,22 +40,21 @@ const view = {
   config: {
     resolutionDraw: { enabled: true, firstStriker: 'negative' },
   },
+  rules: { sides: twoSides },
   participants: [
     {
       id: 'a'.repeat(24),
       actorId: 'aff',
-      role: 'affirmative',
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
       label: 'Ana',
       kind: 'human',
-      slot: 0,
     },
     {
       id: 'n'.repeat(24),
       actorId: 'neg',
-      role: 'negative',
+      seat: { kind: 'side', side: 'negative', slot: 0 },
       label: 'Noor',
       kind: 'human',
-      slot: 0,
     },
   ],
 } as unknown as RoundView;

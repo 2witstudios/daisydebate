@@ -3,7 +3,7 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import type { FormatSettings } from '@daisy/protocol';
+import { sideOfSeat, type FormatSettings } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
@@ -33,7 +33,7 @@ async function playedBotRound(
         kind: 'custom',
         definition: {
           ...oneOnOneDefinition,
-          seats: { ...oneOnOneDefinition.seats, judge: 1 },
+          seats: { ...oneOnOneDefinition.seats, judges: 1 },
           configurable: {
             ...oneOnOneDefinition.configurable,
             interaction: {
@@ -64,9 +64,9 @@ async function playedBotRound(
     buildProjection: roundTickProjection(createId),
   });
   const debaters = await f.sql<
-    { id: string; kind: string; role: string }[]
-  >`select p.id,a.kind,p.role from round_participants p join actors a on a.id=p.actor_id
-    where p.round_id=${roundId} and p.role<>'judge'`;
+    { id: string; kind: string; side: string }[]
+  >`select p.id,a.kind,p.side from round_participants p join actors a on a.id=p.actor_id
+    where p.round_id=${roundId} and p.seat_kind='side'`;
   const seatOf = (kind: string) => debaters.find((p) => p.kind === kind)!;
   const human = seatOf('human');
   const bots = seatOf('bot');
@@ -76,7 +76,12 @@ async function playedBotRound(
   const crossEx = (side: string) =>
     segments.find((segment) => {
       const rule = round.rules.segments[segment.sequence]!;
-      return rule.type === 'cross_ex' && rule.side === side;
+      return (
+        rule.type === 'cross_ex' &&
+        rule.speak.rights === 'all' &&
+        rule.speak.lead !== null &&
+        sideOfSeat(rule.speak.lead) === side
+      );
     })!.id;
   return {
     roundId,
@@ -84,9 +89,9 @@ async function playedBotRound(
     bot: bots,
     segments,
     /** The cross-examination the human opens: the bot only answers. */
-    answering: crossEx(human.role),
+    answering: crossEx(human.side),
     /** The cross-examination the bot is scheduled to open. */
-    asking: crossEx(bots.role),
+    asking: crossEx(bots.side),
   };
 }
 
@@ -221,7 +226,7 @@ test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
     >`select sequence from round_segments where id=${played.answering}`;
     await f.sql.begin(async (tx) => {
       await tx`set local session_replication_role = replica`;
-      await tx`update rounds set rules_snapshot=rules_snapshot #- ${`{segments,${segment!.sequence},side}`}::text[] where id=${played.roundId}`;
+      await tx`update rounds set rules_snapshot=jsonb_set(rules_snapshot, ${`{segments,${segment!.sequence},speak,lead}`}::text[], 'null'::jsonb) where id=${played.roundId}`;
     });
     assert({
       given:
@@ -242,7 +247,10 @@ test("a bot silent during open questioning in another seat's speech owes nothing
     const round = (await f.store.getRound(played.roundId))!;
     const humanSpeech = played.segments.find((segment) => {
       const rule = round.rules.segments[segment.sequence]!;
-      return rule.type === 'speech' && rule.side === played.human.role;
+      return (
+        rule.speak.rights === 'one' &&
+        sideOfSeat(rule.speak.seat) === played.human.side
+      );
     })!.id;
     await speakAllExcept(f, played, humanSpeech);
     assert({

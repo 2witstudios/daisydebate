@@ -59,7 +59,7 @@ test('owning Round erasure removes captured text while direct seat deletion stay
           seat.id,
         ]),
       ),
-      expected: 'utterances_participant_round_fk',
+      expected: 'round_participants_identity_immutable',
     });
     assert({
       given: 'an owning Round erased with captured private transcript text',

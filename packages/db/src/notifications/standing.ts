@@ -23,11 +23,26 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
     and fr.high_actor_id=n.friendship_high_actor_id`;
 
 /**
+ * The tournament notifications Tab's own read found standing, as a `jsonb`
+ * array of ids (NTF-15). Tab's rows are behind lobby-scoped row security, so Tab reads
+ * each lobby in its own scope before this query and hands over the ids;
+ * a read that asked Tab nothing (a digest: no Tab kind is emailed) passes none.
+ */
+export type TournamentStanding = SQL;
+export const noTournamentStanding: TournamentStanding = sql`'[]'::jsonb`;
+export const tournamentStanding = (ids: Iterable<string>): TournamentStanding =>
+  sql`${JSON.stringify([...ids])}::text::jsonb`;
+
+/**
  * Whether a notification of this kind still stands at `now`: what the
  * subject's own feature publishes (ADR 0144). Notifications owns no status
  * words of its own, so a new kind adds its owner's read here and nowhere else.
  */
-const subjectStands = (kind: NotificationKind, now: SQL): SQL => {
+const subjectStands = (
+  kind: NotificationKind,
+  now: SQL,
+  tournament: TournamentStanding,
+): SQL => {
   switch (kind) {
     case 'followed_debater_live':
       // A follower is sent only to a public Round on air, by a live account.
@@ -49,6 +64,13 @@ const subjectStands = (kind: NotificationKind, now: SQL): SQL => {
       return friendRequestOpen(sql`fr`);
     case 'friend_request_accepted':
       return friendshipAccepted(sql`fr`);
+    case 'judge_assigned':
+    case 'judge_replaced':
+    case 'judge_unassigned':
+    case 'tournament_draw_changed':
+    case 'tournament_room_ready':
+    case 'tournament_results_released':
+      return sql`(n.id in (select jsonb_array_elements_text(${tournament})))`;
   }
 };
 
@@ -56,10 +78,14 @@ const subjectStands = (kind: NotificationKind, now: SQL): SQL => {
  * The one standing rule over every kind: a stored row's subject still stands
  * at `now`. The inbox also asks the in-app choice, a digest the email one.
  */
-export const notificationStands = (now: SQL): SQL =>
+export const notificationStands = (
+  now: SQL,
+  tournament: TournamentStanding = noTournamentStanding,
+): SQL =>
   sql`(${sql.join(
     notificationKinds.map(
-      (kind) => sql`(n.kind=${kind} and ${subjectStands(kind, now)})`,
+      (kind) =>
+        sql`(n.kind=${kind} and ${subjectStands(kind, now, tournament)})`,
     ),
     sql` or `,
   )})`;

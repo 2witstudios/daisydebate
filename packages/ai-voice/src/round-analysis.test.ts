@@ -1,3 +1,4 @@
+import { daisyWinnerBallot, sideSeat, twoSides } from '@daisy/protocol';
 import { assertRejects } from '@daisy/errors/testing';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -16,24 +17,28 @@ const evidence = {
     {
       segmentSequence: 0,
       sequence: 0,
-      side: 'affirmative' as const,
-      slot: 0,
+      seat: sideSeat('affirmative'),
       text: 'Access improves.',
       complete: true,
       interrupted: false,
     },
   ],
 };
-const seat = { side: 'affirmative' as const, slot: 0 };
+const seat = sideSeat('affirmative');
 const skills = Object.fromEntries(
   Object.entries(report.skills).map(([skill, { score }]) => [skill, score]),
 ) as Record<keyof typeof report.skills, number>;
 
 describe('roundAnalysisMessages', () => {
   test('analyses one seat from the freeze, without a rubric or a decision', () => {
-    const messages = roundAnalysisMessages({ evidence, seat, history: [] });
+    const messages = roundAnalysisMessages({
+      evidence,
+      seat,
+      sides: twoSides,
+      history: [],
+    });
     const all = messages.map((m) => m.content).join('\n');
-    const judge = roundJudgeMessages(evidence);
+    const judge = roundJudgeMessages(evidence, daisyWinnerBallot, twoSides);
     const evidenceOf = (content: string) =>
       content.split('Frozen evidence:\n')[1]!.split('\n\n')[0];
     assert({
@@ -41,7 +46,7 @@ describe('roundAnalysisMessages', () => {
       should:
         'name that seat, read the same neutral evidence as judging, and carry no ballot rubric or ballot shape',
       actual: {
-        seat: all.includes('Analyse the affirmative debater in slot 0'),
+        seat: all.includes('Analyse the Affirmative debater in slot 0'),
         sameEvidence:
           evidenceOf(messages[1]!.content) === evidenceOf(judge[1]!.content),
         rubric: /Score every category|rubricVersion|"winner"/.test(all),
@@ -57,10 +62,16 @@ describe('roundAnalysisMessages', () => {
   });
 
   test('carries the debater’s own earlier skill scores only when there are any', () => {
-    const none = roundAnalysisMessages({ evidence, seat, history: [] });
+    const none = roundAnalysisMessages({
+      evidence,
+      seat,
+      sides: twoSides,
+      history: [],
+    });
     const some = roundAnalysisMessages({
       evidence,
       seat,
+      sides: twoSides,
       history: [skills, skills, skills, skills, skills, skills],
     });
     const historyOf = (content: string) =>

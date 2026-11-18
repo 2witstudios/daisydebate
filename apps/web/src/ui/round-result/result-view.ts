@@ -1,11 +1,14 @@
 import {
   isNamedSeat,
+  leadSeatOf,
   partialReasonsStateLoss,
-  type StoredBallot,
+  sideOfSeat,
+  type Ballot,
   type RoundBallotRead,
   type LiveTranscriptRead,
+  type SeatRef,
 } from '@daisy/protocol';
-import { seatLabel } from '../rooms/room-page/assembly-controls';
+import { segmentSeatLabel } from '../rooms/room-page/assembly-controls';
 import { speechName } from '../../features/debate-room/vocabulary';
 
 type Released = RoundBallotRead['ballots'][number];
@@ -16,7 +19,7 @@ export type ResultBallot = {
   readonly author: string;
   /** The heading over this ballot's feedback for the reader. */
   readonly feedbackTitle: string;
-  readonly ballot: StoredBallot;
+  readonly ballot: Ballot;
   /** Set when this reader may report this ballot's feedback (WATCH-7). */
   readonly reportableFeedbackId: string | null;
 };
@@ -24,7 +27,8 @@ export type ResultBallot = {
 export type TranscriptSection = {
   readonly key: string;
   readonly heading: string;
-  readonly side: 'affirmative' | 'negative';
+  /** The speech's colour: its lead side's place in the declared order, or its seat's. */
+  readonly tone: number;
   readonly status?: 'capturing' | 'partial' | 'complete' | 'pending';
   readonly lines: readonly TranscriptLine[];
   /** Required speech with no capture; the live read reports these. */
@@ -184,6 +188,18 @@ const lossRow = (
   speaker: speakerOf(round, stream.roundParticipantId),
 });
 
+/** A seat's colour: its side's place in the declared order, or its own slot. */
+const toneOf = (round: TranscriptRound, seat: SeatRef | null): number => {
+  if (seat === null) return 0;
+  const side = sideOfSeat(seat);
+  return side === null
+    ? seat.slot
+    : Math.max(
+        0,
+        round.rules.sides.findIndex((each) => each.key === side),
+      );
+};
+
 /** The Round's fields a transcript renders; any fuller view satisfies it. */
 type TranscriptRound = LiveTranscriptRead['round'];
 
@@ -278,9 +294,9 @@ function emptySection(
   return {
     key: `${sequence}`,
     heading: rules
-      ? `${speechName(rules)} · ${seatLabel(rules.side, rules.slot)}`
+      ? `${speechName(rules)} · ${segmentSeatLabel(round.rules.sides, rules.speak)}`
       : `Speech ${sequence + 1}`,
-    side: rules?.side ?? 'affirmative',
+    tone: rules ? toneOf(round, leadSeatOf(rules.speak)) : 0,
     lines: [],
   };
 }

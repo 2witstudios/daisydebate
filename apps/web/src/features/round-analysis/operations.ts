@@ -46,7 +46,8 @@ export function createRoundAnalysisOperations(input: {
           evidence = transcriptEvidenceInput(claim);
           messages = roundAnalysisMessages({
             evidence,
-            seat: claim.seat,
+            seat: claim.seat.seat,
+            sides: claim.sides,
             history: claim.history,
           });
           voice = input.voice();

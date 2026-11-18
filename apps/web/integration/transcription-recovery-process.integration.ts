@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { withEvidenceIngress } from './necessary-evidence-ingress.test-support';
+import { withRecognitionIngress as withEvidenceIngress } from './necessary-evidence-ingress.test-support';
 import { readyRecognition } from './transcription-recovery.test-support';
 import { spawnRecognitionProcess } from './transcription-recovery-process.test-support';
 setupRitewayBun();

@@ -73,15 +73,13 @@ test('only an explicit request admits one seat, counts its first call, and reuse
     },
   ));
 
-test('ballots remain independent of a requested analysis', async () =>
-  withCompletedRound(
+test('ballots remain independent of a requested analysis', async () => {
+  let judgeId: string;
+  return withCompletedRound(
     async ({ fixture, roundId, aff, seats, jobs, request, facts }) => {
-      const actor = createId();
-      await fixture.insert('actors', { id: actor, kind: 'bot' });
-      const judge = await fixture.seat(roundId, 'judge', 0, actor);
       await fixture.insert('ballots', {
         id: createId(),
-        judge_participant_id: judge.id,
+        judge_participant_id: judgeId,
         round_id: roundId,
         freeze_revision: 1,
         rubric_version: 'speaker-10@2',
@@ -112,7 +110,17 @@ test('ballots remain independent of a requested analysis', async () =>
         expected: ['succeeded', true],
       });
     },
-  ));
+    {
+      judged: true,
+      beforeStart: async (fixture, roundId) => {
+        const actor = createId();
+        await fixture.insert('actors', { id: actor, kind: 'bot' });
+        const judge = await fixture.seat(roundId, 'judge', 0, actor);
+        judgeId = judge.id;
+      },
+    },
+  );
+});
 
 test('requested history reads only the same debater’s earlier completed reports', async () =>
   withCompletedRound(async ({ fixture, aff, seats, jobs, request }) => {

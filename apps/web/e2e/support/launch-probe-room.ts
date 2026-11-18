@@ -1,9 +1,16 @@
 import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  affirmativeSide,
+  attendanceReceiptSchema,
+  judgeSeat,
+  negativeSide,
   roomViewSchema,
   roundViewSchema,
-  attendanceReceiptSchema,
+  sameSeat,
+  sideOfSeat,
+  sideSeat,
+  twoSideKeys,
   type RoomView,
   type RoundView,
 } from '@daisy/protocol';
@@ -61,19 +68,19 @@ async function createProbeRoom(
     });
     room = roomViewSchema.parse(response.view);
   };
-  const roles = ['affirmative', 'negative', 'judge'] as const;
+  const seats = [
+    sideSeat(affirmativeSide),
+    sideSeat(negativeSide),
+    judgeSeat(),
+  ] as const;
   for (const [index, member] of members.entries())
-    await roomCommand(member, {
-      type: 'claim-seat',
-      role: roles[index],
-      slot: 0,
-    });
+    await roomCommand(member, { type: 'claim-seat', seat: seats[index] });
   for (const [index, member] of members.entries()) {
     const own = roomViewSchema.parse(
       await json(member, `/api/rooms/${room.id}`),
     );
     const seat = own.participants.find(
-      (seat) => seat.role === roles[index] && 'consentVersion' in seat,
+      (seat) => sameSeat(seat.seat, seats[index]!) && 'consentVersion' in seat,
     );
     if (!seat || !('consentVersion' in seat))
       throw new Error('Public probe own consent missing');
@@ -97,7 +104,6 @@ async function endProbeSpeeches(
   members: readonly LaunchProbeMember[],
   roundId: string,
 ) {
-  const roles = ['affirmative', 'negative'] as const;
   await json(members[0]!, `/api/rounds/${roundId}/media/session`, {});
   const read = async () => {
     await json(members[0]!, `/api/rounds/${roundId}/media/reconcile`, {});
@@ -139,7 +145,7 @@ async function endProbeSpeeches(
       );
     round = await read();
     const speaker = round.participants.find(
-      (seat) => seat.role === roles[sequence] && 'id' in seat,
+      (seat) => sideOfSeat(seat.seat) === twoSideKeys[sequence] && 'id' in seat,
     );
     if (!speaker || !('id' in speaker))
       throw new Error('Public probe actual speaker missing');
@@ -153,7 +159,7 @@ async function endProbeSpeeches(
 const probeTarget = (round: RoundView) => {
   const last = round.segments.at(-1),
     participant = round.participants.find(
-      (seat) => seat.role === 'negative' && 'id' in seat,
+      (seat) => sideOfSeat(seat.seat) === negativeSide && 'id' in seat,
     );
   if (
     round.status !== 'active' ||

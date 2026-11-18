@@ -11,28 +11,6 @@ import { z } from 'zod';
 export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
 
 /**
- * The one side vocabulary: the two debating sides. Seat maps, outcomes,
- * ballot decisions and the engine's seat rules all derive from it.
- */
-export const debateSides = ['affirmative', 'negative'] as const;
-export const debateSideSchema = z.enum(debateSides);
-export type DebateSide = (typeof debateSides)[number];
-
-/** The side that won. A tie has no outcome: it is null (DEC-277). Abandonment is a status, not an outcome. */
-export const roundOutcomeSchema = z.enum(debateSides);
-export type RoundOutcome = z.infer<typeof roundOutcomeSchema>;
-
-/**
- * The one debate role vocabulary (ADR 0029): the two sides plus the judge.
- * Every seat map, CHECK constraint and role rule derives from this array;
- * spectators are Redis presence, not a durable role. Widening it is a
- * forward migration.
- */
-export const debateRoles = [...debateSides, 'judge'] as const;
-export const debateRoleSchema = z.enum(debateRoles);
-export type DebateRole = (typeof debateRoles)[number];
-
-/**
  * Daisy's rating ladders (ADR 0142): Freestyle, the one standard, is the one
  * ladder. The rating key stays (actor, ladder, season), and the ladder
  * CHECKs on `ratings`, `rating_changes`, `rounds` and `challenges` derive

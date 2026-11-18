@@ -1,7 +1,12 @@
+import { ballotPlanFor } from './ballot-plan';
 import { ballotCategories, type BallotCategory } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { postedForm } from '../../lib/testing/posted-form';
-import { parseBallot } from './ballot';
+import { parseBallot, readScore, ballotFieldNames } from './ballot';
+import {
+  sampleBallotPlan as debaters,
+  sampleBallotRound,
+} from './ballot-plan.test-support';
 
 setupRitewayBun();
 
@@ -14,11 +19,6 @@ const valid = {
   ...scoresFor('negative', '3'),
   reason: 'The affirmative answered the main objection.',
   'feedback-negative': 'Weigh your impacts against theirs.',
-};
-
-const debaters = {
-  affirmative: { name: 'Maya Singh' },
-  negative: { name: 'Daniel Kim' },
 };
 
 const allAt = (score: number) =>
@@ -96,8 +96,8 @@ describe('parseBallot', () => {
         'a reason within the textarea’s limit whose line breaks the browser posts as two characters',
       should: 'accept it, counting and keeping each line break once',
       actual: result.ok && [
-        result.value.ballot.reason.length,
-        result.value.ballot.feedback.negative,
+        result.value.ballot.reason?.length,
+        result.value.ballot.feedback?.negative,
       ],
       expected: [599, 'a\nb'],
     });
@@ -127,5 +127,118 @@ describe('parseBallot', () => {
         true,
       ],
     });
+  });
+});
+
+test('custom posted scores use the same minimum-anchored exact lattice', () => {
+  const scale = { min: 0.25, max: 0.56, step: 0.1 };
+  assert({
+    given: 'valid decimal lattice values and off-lattice caps',
+    should:
+      'accept exact canonical values without binary remainder failures or rounding',
+    actual: ['0.25', '0.35', '0.45', '0.55', '0.56', '0.3', '0.350'].map(
+      (value) => readScore(scale, value),
+    ),
+    expected: [0.25, 0.35, 0.45, 0.55, null, null, null],
+  });
+});
+
+test('the real form parses an authored speaker ranking and preserves its draft fields', () => {
+  const definition = {
+    ...debaters.definition,
+    key: 'custom-human',
+    revision: 1,
+    points: {
+      ...debaters.definition.points!,
+      criteria: { kind: 'holistic' as const },
+      scale: { min: 0.25, max: 0.56, step: 0.1 },
+      default: 0.35,
+    },
+    speakerRanks: true,
+    written: { reason: null, feedback: null },
+  };
+  const plan = ballotPlanFor(sampleBallotRound, definition);
+  const values = {
+    winner: 'affirmative',
+    'points-affirmative': '0.55',
+    'points-negative': '0.35',
+    'speaker-place-1': 'n'.repeat(24),
+    'speaker-place-2': 'a'.repeat(24),
+  };
+  assert({
+    given:
+      'an actual two-competitor plan with explicit additional speaker ranks and written fields off',
+    should:
+      'parse the real posted ranking and exact decimal scores, retain rank draft fields, refuse duplicate speakers and forbidden words',
+    actual: [
+      parseBallot(postedForm(values), plan),
+      ballotFieldNames(plan).filter((name) =>
+        name.startsWith('speaker-place-'),
+      ),
+      parseBallot(
+        postedForm({ ...values, 'speaker-place-2': 'n'.repeat(24) }),
+        plan,
+      ).ok,
+      parseBallot(postedForm({ ...values, privateNote: 'held' }), plan).ok,
+      parseBallot(postedForm({ ...values, reason: 'off' }), plan).ok,
+    ],
+    expected: [
+      {
+        ok: true,
+        value: {
+          ballot: {
+            rubricVersion: 'custom-human@1',
+            winner: 'affirmative',
+            scores: { affirmative: 0.55, negative: 0.35 },
+            speakerRanks: [['n'.repeat(24)], ['a'.repeat(24)]],
+          },
+        },
+      },
+      ['speaker-place-1', 'speaker-place-2'],
+      false,
+      false,
+      false,
+    ],
+  });
+});
+test('ranking forms collect permitted dense ties without omitting any actual subject', () => {
+  const definition = {
+    ...debaters.definition,
+    key: 'tied-human',
+    revision: 1,
+    decision: { kind: 'ranking' as const, of: 'sides' as const, ties: true },
+    points: null,
+    speakerRanks: false,
+    written: { reason: null, feedback: null },
+  };
+  const plan = ballotPlanFor(sampleBallotRound, definition);
+  const values = { 'rank-affirmative': '1', 'rank-negative': '1' };
+  assert({
+    given: 'a ranking definition explicitly permitting ties',
+    should:
+      'record both subjects together and refuse missing or skipped places',
+    actual: [
+      parseBallot(postedForm(values), plan),
+      parseBallot(postedForm({ 'rank-affirmative': '1' }), plan).ok,
+      parseBallot(
+        postedForm({ 'rank-affirmative': '2', 'rank-negative': '2' }),
+        plan,
+      ).ok,
+      ballotFieldNames(plan),
+    ],
+    expected: [
+      {
+        ok: true,
+        value: {
+          ballot: {
+            rubricVersion: 'tied-human@1',
+            ranking: [['affirmative', 'negative']],
+          },
+        },
+      },
+      false,
+      false,
+      ['rank-affirmative', 'rank-negative'],
+    ],
   });
 });

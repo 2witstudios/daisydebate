@@ -13,6 +13,7 @@ const timeline: SpectatorTimeline = {
   broadcast: { state: 'starting' },
   recording: 'none',
   resolution: null,
+  sides: [],
   seats: [],
   stage: { kind: 'slate', moment: 'unreleased' },
   result: null,

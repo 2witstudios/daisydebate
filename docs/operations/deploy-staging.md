@@ -22,6 +22,9 @@ Fly machine in the same org and Redis is Fly-native Upstash (owner decision, Sep
 through the `DATABASE_URL` / `MIGRATION_DATABASE_URL` / `REDIS_URL`
 contract — no new client libraries.
 
+For the temporary Daisy Tab parent deployment and hold of automatic main
+deployments, follow [Daisy Tab staging handover](daisy-tab-staging.md).
+
 ## Image workspace inputs (ISSUE-405)
 
 The web and release-only migrator share `apps/web/Dockerfile`. Both the

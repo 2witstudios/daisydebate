@@ -3,7 +3,8 @@ import {
   type CompetitionType,
   type NotificationKind,
   type RatingLadder,
-  type RoomSeatKind,
+  type SeatKind,
+  type TournamentNotificationKind,
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -11,7 +12,16 @@ import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
 import { rowsOf } from '../raw-rows';
 import { wants } from './preferences';
-import { notificationStands, standingJoins } from './standing';
+import {
+  notificationStands,
+  standingJoins,
+  tournamentStanding,
+} from './standing';
+import {
+  standingTournamentNotifications,
+  type TournamentInboxAccess,
+  type TournamentNotificationFacts,
+} from './tournament-inbox';
 
 /** A position in the inbox, newest first: the last row a page showed. */
 export type InboxCursor = { readonly surfacedAt: string; readonly id: string };
@@ -39,7 +49,7 @@ export type InboxRow = {
   | {
       readonly kind: 'room_invitation';
       readonly roomId: string;
-      readonly seat: RoomSeatKind;
+      readonly seat: SeatKind;
       readonly host: string | null;
     }
   | {
@@ -59,6 +69,9 @@ export type InboxRow = {
       /** The other member, or null once their account is gone. */
       readonly friend: string | null;
     }
+  | (TournamentNotificationFacts & {
+      readonly kind: TournamentNotificationKind;
+    })
 );
 
 type FlatRow = {
@@ -67,7 +80,7 @@ type FlatRow = {
   roundId: string | null;
   roomId: string | null;
   challengeRoomId: string | null;
-  seat: RoomSeatKind | null;
+  seat: SeatKind | null;
   about: string | null;
   mode: CompetitionType | null;
   format: RatingLadder | null;
@@ -75,7 +88,10 @@ type FlatRow = {
   surfacedAt: string;
 };
 
-const inboxRow = (row: FlatRow): InboxRow => {
+const inboxRow = (
+  row: FlatRow,
+  tournament: ReadonlyMap<string, TournamentNotificationFacts>,
+): InboxRow => {
   const base = {
     id: row.id,
     readAt: row.readAt,
@@ -125,6 +141,17 @@ const inboxRow = (row: FlatRow): InboxRow => {
     case 'friend_request_received':
     case 'friend_request_accepted':
       return { ...base, kind: row.kind, friend: row.about };
+    case 'judge_assigned':
+    case 'judge_replaced':
+    case 'judge_unassigned':
+    case 'tournament_draw_changed':
+    case 'tournament_room_ready':
+    case 'tournament_results_released': {
+      // Standing named it, so Tab's own read supplied its facts (NTF-15).
+      const facts = tournament.get(row.id);
+      if (!facts) throw new Error('A standing tournament row has no facts');
+      return { ...base, ...facts, kind: row.kind };
+    }
   }
 };
 
@@ -139,7 +166,12 @@ const iso = (column: string) =>
  */
 export const readInboxRows = async (
   database: Pick<BunSQLDatabase, 'execute'>,
-  input: { readonly where: SQL; readonly limit: number },
+  input: {
+    readonly where: SQL;
+    readonly limit: number;
+    /** Tab's standing tournament rows and their facts; none for a digest. */
+    readonly tournament?: ReadonlyMap<string, TournamentNotificationFacts>;
+  },
 ): Promise<readonly InboxRow[]> =>
   (
     await rowsOf<FlatRow>(
@@ -151,7 +183,7 @@ export const readInboxRows = async (
         from notifications n ${standingJoins} where ${input.where}
         order by n.surfaced_at desc,n.id desc limit ${input.limit}`,
     )
-  ).map(inboxRow);
+  ).map((row) => inboxRow(row, input.tournament ?? new Map()));
 
 /** The inbox: reads, read state and retention, over every kind. */
 export const notificationInboxOperations = ({
@@ -167,6 +199,11 @@ export const notificationInboxOperations = ({
    */
   readNotifications(input: {
     readonly userId: string;
+    /**
+     * Whether this member may read one tournament lobby now: the ordinary Tab
+     * read fences. Without it no tournament notification stands (NTF-15).
+     */
+    readonly canReadTournament?: TournamentInboxAccess | undefined;
     readonly unreadOnly: boolean;
     readonly limit: number;
     readonly now: string;
@@ -179,8 +216,16 @@ export const notificationInboxOperations = ({
     readonly next: InboxCursor | null;
   }> {
     return instrumented(eventSink, 'readNotifications', async () => {
+      const tournament = await standingTournamentNotifications(database, {
+        userId: input.userId,
+        canReadTournament: input.canReadTournament,
+        unreadOnly: input.unreadOnly,
+      });
       const shown = sql`n.user_id=${input.userId}
-        and ${notificationStands(sql`${input.now}::timestamptz`)}
+        and ${notificationStands(
+          sql`${input.now}::timestamptz`,
+          tournamentStanding(tournament.keys()),
+        )}
         and ${wants(sql`n.kind`, 'in_app', sql`n.user_id`)}`;
       const after =
         input.after === null
@@ -189,6 +234,7 @@ export const notificationInboxOperations = ({
       const rows = await readInboxRows(database, {
         where: sql`${shown} ${input.unreadOnly ? sql`and n.read_at is null` : sql``} ${after}`,
         limit: input.limit + 1,
+        tournament,
       });
       const [count] = await rowsOf<{ unread: number | string }>(
         database,

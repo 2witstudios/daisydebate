@@ -8,7 +8,6 @@ import {
   type BotMediaPrincipal,
 } from './bot-publication-context';
 import { and, eq } from 'drizzle-orm';
-import { noPostRoundCall } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
@@ -103,12 +102,10 @@ export function createMediaSessionStore({
         // dead claim the tick.
         await verifyBotMediaPrincipal(tx, input.principal);
         // A bot speaks only in its Round: it is never on a post-round call.
-        requireMediaWindow(input.mediaPhase, {
-          status: 'active',
-          now: tick.now,
-          finalSegmentEndedAt: tick.finalSegmentEndedAt,
-          postRoundCall: noPostRoundCall('active'),
-        });
+        requireMediaWindow(
+          input.mediaPhase,
+          await readMediaWindowFacts(tx, scope.roundId, tick),
+        );
         return binding;
       });
     },

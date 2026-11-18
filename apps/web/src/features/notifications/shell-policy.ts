@@ -41,6 +41,13 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'recording_ready':
     case 'round_decision_released':
     case 'friend_request_accepted':
+    case 'judge_assigned':
+    case 'judge_replaced':
+    case 'judge_unassigned':
+    case 'tournament_draw_changed':
+    case 'tournament_room_ready':
+    case 'tournament_results_released':
+      // Tab's tournament notices tell; the tournament's pages are where to act.
       return false;
   }
 };
@@ -62,6 +69,12 @@ export const toasted = (kind: NotificationKind): boolean => {
     case 'friend_request_accepted':
     case 'round_started':
     case 'round_decision_released':
+    case 'judge_assigned':
+    case 'judge_replaced':
+    case 'judge_unassigned':
+    case 'tournament_draw_changed':
+    case 'tournament_room_ready':
+    case 'tournament_results_released':
       return true;
   }
 };
