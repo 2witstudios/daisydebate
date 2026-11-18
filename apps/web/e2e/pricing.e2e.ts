@@ -25,11 +25,11 @@ const setFlag = (key: string, state: 'enabled' | 'default') =>
     ],
     { timeout: 20000, maxBuffer: 4096 },
   );
-const setPricing = (state: 'enabled' | 'default') =>
-  Promise.all([
-    setFlag('pricing-page', state),
-    setFlag('premium-checkout', state),
-  ]);
+// One write at a time, so a failed write never races the cleanup's reset.
+const setPricing = async (state: 'enabled' | 'default') => {
+  await setFlag('pricing-page', state);
+  await setFlag('premium-checkout', state);
+};
 
 test.describe.configure({ mode: 'serial' });
 // Every test starts from the page open, so any one can run on its own.
@@ -43,7 +43,9 @@ test.afterAll(async () => {
 test('/pricing does not exist while its release flag is closed', async ({
   page,
 }) => {
-  await setPricing('default');
+  // Only the page's own flag closes; checkout stays open, so this proves
+  // the route reads pricing-page and not premium-checkout.
+  await setFlag('pricing-page', 'default');
   const response = await page.goto('/pricing');
   expect(response?.status()).toBe(404);
 });
