@@ -35,6 +35,28 @@ export const scopeTransaction = async (
 };
 
 /**
+ * The scope the open transaction holds now, so a step that sets its own can
+ * hand the caller's back. An unset part reads as absent.
+ */
+export const currentTenantScope = async (
+  transaction: ScopedExecutor,
+): Promise<TenantScope> => {
+  const [row] = (await transaction.execute(sql`select
+    current_setting('daisy.organization_scope', true) as organization,
+    current_setting('daisy.lobby_scope', true) as lobby,
+    current_setting('daisy.subject_scope', true) as subject`)) as unknown as {
+    organization: string | null;
+    lobby: string | null;
+    subject: string | null;
+  }[];
+  return {
+    organizationId: row?.organization || undefined,
+    lobbyId: row?.lobby || undefined,
+    subjectUserId: row?.subject || undefined,
+  };
+};
+
+/**
  * Opens a transaction fenced to one scope. Row-level security is a fence,
  * not the decision: it stops a query that forgot its WHERE from reaching
  * another tenant's rows. The scope is transaction-local, so with none set,

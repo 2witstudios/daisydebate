@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { isDebatingSeatSql } from './seat-columns';
-import { scopeTransaction } from './tenant-scope';
+import { currentTenantScope, scopeTransaction } from './tenant-scope';
 
 /** A connection or a transaction: each read below runs on the caller's. */
 type Tx = Pick<BunSQLDatabase, 'execute'>;
@@ -26,16 +26,7 @@ export const readLinkedAdultUserIds = async (
   debaterUserId: string,
 ): Promise<readonly string[]> => {
   // Each step sets its own scope; the caller's comes back at the end.
-  const [caller] = await rows<{
-    organization: string | null;
-    lobby: string | null;
-    subject: string | null;
-  }>(
-    tx,
-    sql`select current_setting('daisy.organization_scope', true) as organization,
-      current_setting('daisy.lobby_scope', true) as lobby,
-      current_setting('daisy.subject_scope', true) as subject`,
-  );
+  const caller = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: debaterUserId });
   const guardians = await rows<{ user_id: string }>(
     tx,
@@ -72,11 +63,7 @@ export const readLinkedAdultUserIds = async (
     );
     staff.push(...found.map((row) => row.user_id));
   }
-  await scopeTransaction(tx, {
-    organizationId: caller?.organization || undefined,
-    lobbyId: caller?.lobby || undefined,
-    subjectUserId: caller?.subject || undefined,
-  });
+  await scopeTransaction(tx, caller);
   return [
     ...new Set([...guardians.map((row) => row.user_id), ...staff]),
   ].filter((userId) => userId !== debaterUserId);
