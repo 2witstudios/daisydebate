@@ -3,6 +3,9 @@
 Status: accepted under delegated Round delivery authority (DEC-181, ISSUE-429).
 This extends ADR 0039 with one named exception; its rules remain unchanged.
 
+Retired 2026-11-18 by [ADR 0151](0151-scoped-overrides-clear-audit-exceptions.md):
+a scoped `overrides` pin to the patched version replaced these exceptions.
+
 ## Context
 
 [GHSA-qxg6-89mg-rqv8](https://github.com/advisories/GHSA-qxg6-89mg-rqv8)

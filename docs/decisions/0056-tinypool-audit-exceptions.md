@@ -4,6 +4,9 @@ Status: accepted (owner decision of 2026-10-05, DEC-115). This extends
 ADR 0039 with a fourth and fifth dated exception; ADR 0039's rules apply
 unchanged.
 
+Retired 2026-11-18 by [ADR 0151](0151-scoped-overrides-clear-audit-exceptions.md):
+a scoped `overrides` pin to the patched version replaced these exceptions.
+
 ## Context
 
 Two critical advisories affect `tinypool`:
