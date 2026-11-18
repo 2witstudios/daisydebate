@@ -70,7 +70,10 @@ const divisionOf = (form: FormData): RatingDivision | null => {
     : null;
 };
 
-/** The tournament the form makes: the host owns it; it admits no minors. */
+/**
+ * The tournament the form makes: the host owns it, and a Youth one declares
+ * that it admits minors (who still pass the guardian and counsel gate).
+ */
 export function createTournamentEnvelope(
   untrusted: CreateTournamentContext,
   form: FormData,
@@ -92,7 +95,7 @@ export function createTournamentEnvelope(
         owner: { kind: 'self' },
         name,
         handle,
-        lobby: { kind: 'tournament', admitsMinors: false },
+        lobby: { kind: 'tournament', admitsMinors: division === 'youth' },
       },
     }),
   };
@@ -175,3 +178,56 @@ export const createTournamentAnswer = (
       : 'This tournament could not be made. Reload this page.',
   );
 };
+
+/** A command post as the form sees it: the receipt's facts, or the form's answer. */
+type CommandAnswer =
+  | {
+      readonly kind: 'accepted';
+      readonly lobbyId: string;
+      readonly version: number;
+    }
+  | CreateTournamentState;
+
+/**
+ * The create form's steps (decision 80, PYL-16): the tournament, then its
+ * Youth division, then its Freestyle event. The ports post one command each.
+ * A Youth tournament whose division write is lost or refused never moves on,
+ * because left Open it would admit adults; the resent form replays by id.
+ */
+export async function runCreateTournament(
+  ports: {
+    readonly lobbyCommand: (envelope: unknown) => Promise<CommandAnswer>;
+    readonly settingCommand: (envelope: unknown) => Promise<CommandAnswer>;
+  },
+  context: CreateTournamentContext,
+  form: FormData,
+): Promise<
+  { readonly kind: 'made'; readonly handle: string } | CreateTournamentState
+> {
+  let made;
+  try {
+    made = createTournamentEnvelope(context, form);
+  } catch {
+    return createTournamentRefused(form, 'Reload this page and try again.');
+  }
+  if (made === null)
+    return createTournamentRefused(form, 'Name the tournament.');
+  try {
+    const lobby = await ports.lobbyCommand(made.envelope);
+    if (lobby.kind !== 'accepted') return lobby;
+    if (made.division === 'youth') {
+      const division = await ports.settingCommand(
+        divisionSettingEnvelope(context, lobby.lobbyId),
+      );
+      if (division.kind !== 'accepted')
+        return createTournamentUnacknowledged(form);
+    }
+    // The tournament exists either way; Setup lets the host add the event.
+    await ports.lobbyCommand(
+      freestyleEventEnvelope(context, lobby.lobbyId, lobby.version),
+    );
+  } catch {
+    return createTournamentUnacknowledged(form);
+  }
+  return { kind: 'made', handle: made.handle };
+}

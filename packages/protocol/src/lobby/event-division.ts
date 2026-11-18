@@ -40,7 +40,12 @@ export const tournamentFirstDay = (
     slotStarts[0] ?? now,
   );
 
-/** Why an entry was refused, as the entrant reads it (RTabEntryRefused). */
+/**
+ * Why an entry was refused, as the entrant reads it (RTabEntryRefused). Its
+ * reader is the public tournament page's entry panel (ISSUE-1472).
+ * `no-age-record` is the domain's `age-band` refusal, which that panel shows
+ * in these words too.
+ */
 export function divisionRefusalWords(
   reason: DivisionRefusal,
   tournament: string,

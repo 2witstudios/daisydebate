@@ -107,6 +107,7 @@ const facts = (overrides: Partial<SettingFacts> = {}): SettingFacts => ({
   formatRevision: { organizationId: null },
   ballotDefinition: null,
   hostingTier: null,
+  tournamentEntries: 0,
   ...overrides,
 });
 const refusalOf = (given: SettingFacts, command: SettingCommand) => {
@@ -141,6 +142,21 @@ const atEvent = {
 const floor = (interruptions: boolean): SettingValues['room.floor'] => ({
   interruptions: interruptions ? { mode: 'disabled', minRemainingMs: 0 } : null,
   yielding: { allowed: true, returnsTime: false },
+});
+
+describe('decideSetting: a tournament division is fixed once entries exist (PYL-16)', () => {
+  test('the division changes only before anyone has entered', () => {
+    const youth = set(cup, 'entry.age_division', { value: 'youth' });
+    assert({
+      given: 'a tournament with no entries, and one with an entry',
+      should: 'accept the change, then refuse it with entries-exist',
+      actual: [
+        refusalOf(facts({ tournamentEntries: 0 }), youth),
+        refusalOf(facts({ tournamentEntries: 1 }), youth),
+      ],
+      expected: ['accepted', 'entries-exist'],
+    });
+  });
 });
 
 describe('decideSetting: paid hosting features (PYL-14)', () => {

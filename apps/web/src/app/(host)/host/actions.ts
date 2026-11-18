@@ -2,11 +2,9 @@
 import { headers } from 'next/headers';
 import {
   createTournamentAnswer,
-  createTournamentEnvelope,
   createTournamentRefused,
   createTournamentUnacknowledged,
-  divisionSettingEnvelope,
-  freestyleEventEnvelope,
+  runCreateTournament,
   type CreateTournamentContext,
   type CreateTournamentState,
 } from '../../../features/hosting-purchases/create-tournament-form';
@@ -22,24 +20,13 @@ export async function createTournamentAction(
   _previous: CreateTournamentState,
   form: FormData,
 ): Promise<CreateTournamentState> {
-  let made;
-  try {
-    made = createTournamentEnvelope(context, form);
-  } catch {
-    return createTournamentRefused(form, 'Reload this page and try again.');
-  }
-  if (made === null)
-    return createTournamentRefused(form, 'Name the tournament.');
   const incoming = new Headers(await headers());
-  const send = async (body: unknown) => {
-    const response = await inProcessFetch(POST, incoming)(
-      '/api/tab/lobby-command',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      },
-    );
+  const post = (route: typeof POST, path: string) => async (body: unknown) => {
+    const response = await inProcessFetch(route, incoming)(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
     if (!response.ok)
       return response.status >= 500
         ? createTournamentUnacknowledged(form)
@@ -49,28 +36,15 @@ export async function createTournamentAction(
           );
     return createTournamentAnswer(form, await response.json());
   };
-  try {
-    const lobby = await send(made.envelope);
-    if (lobby.kind !== 'accepted') return lobby;
-    if (made.division === 'youth') {
-      const division = await inProcessFetch(settingsPOST, incoming)(
-        '/api/tab/settings-command',
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(divisionSettingEnvelope(context, lobby.lobbyId)),
-        },
-      );
-      // The tournament exists either way; Setup shows its division to change.
-      void division;
-    }
-    const event = await send(
-      freestyleEventEnvelope(context, lobby.lobbyId, lobby.version),
-    );
-    // The tournament exists either way; Setup lets the host add the event.
-    void event;
-  } catch {
-    return createTournamentUnacknowledged(form);
-  }
-  return moveOn(incoming, hostRoutes.setup(made.handle));
+  const result = await runCreateTournament(
+    {
+      lobbyCommand: post(POST, '/api/tab/lobby-command'),
+      settingCommand: post(settingsPOST, '/api/tab/settings-command'),
+    },
+    context,
+    form,
+  );
+  return result.kind === 'made'
+    ? moveOn(incoming, hostRoutes.setup(result.handle))
+    : result;
 }

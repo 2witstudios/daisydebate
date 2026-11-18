@@ -3,6 +3,7 @@ import {
   createTournamentAnswer,
   createTournamentEnvelope,
   freestyleEventEnvelope,
+  runCreateTournament,
   tournamentHandle,
 } from './create-tournament-form';
 
@@ -43,7 +44,8 @@ test('tournamentHandle', () => {
 test('createTournamentEnvelope', () => {
   assert({
     given: 'a name',
-    should: 'create a tournament the sender owns, admitting no minors',
+    should:
+      'create a tournament the sender owns, an Open one admitting no minors',
     actual: createTournamentEnvelope(context, form('  Friday scrimmage '))
       ?.envelope.command,
     expected: {
@@ -62,6 +64,17 @@ test('createTournamentEnvelope', () => {
       createTournamentEnvelope(context, form('x'.repeat(121))),
     ],
     expected: [null, null],
+  });
+  assert({
+    given: 'the Youth division',
+    should: 'declare that the tournament admits minors and carry the division',
+    actual: (({ division, envelope }) => [
+      division,
+      envelope.command.type === 'create-lobby' &&
+        envelope.command.lobby.kind === 'tournament' &&
+        envelope.command.lobby.admitsMinors,
+    ])(createTournamentEnvelope(context, form('Winter Classic', 'youth'))!),
+    expected: ['youth', true],
   });
   assert({
     given: 'the created tournament',
@@ -90,5 +103,67 @@ test('createTournamentAnswer', () => {
       },
       'unacknowledged',
     ],
+  });
+});
+
+test('runCreateTournament', async () => {
+  const lobby = {
+    kind: 'accepted' as const,
+    lobbyId: 'l'.padEnd(24, '1'),
+    version: 1,
+  };
+  const sent: string[] = [];
+  const ports = (setting: 'accepted' | 'refused') => ({
+    lobbyCommand: async (envelope: unknown) => {
+      sent.push((envelope as { command: { type: string } }).command.type);
+      return lobby;
+    },
+    settingCommand: async (envelope: unknown) => {
+      sent.push((envelope as { command: { key: string } }).command.key);
+      return setting === 'accepted'
+        ? lobby
+        : { kind: 'refused' as const, values: {}, error: 'Refused' };
+    },
+  });
+  const refusedYouth = await runCreateTournament(
+    ports('refused'),
+    context,
+    form('Winter Classic', 'youth'),
+  );
+  const refusedSteps = [...sent];
+  sent.length = 0;
+  const youth = await runCreateTournament(
+    ports('accepted'),
+    context,
+    form('Winter Classic', 'youth'),
+  );
+  const youthSteps = [...sent];
+  sent.length = 0;
+  const open = await runCreateTournament(
+    ports('refused'),
+    context,
+    form('Spring Open', 'open'),
+  );
+  assert({
+    given:
+      'a Youth tournament whose division write is refused, one whose write succeeds, and an Open one',
+    should:
+      'not move on without the division (no event added), make the Youth one with its division, and make the Open one with no setting write',
+    actual: {
+      refused: refusedYouth.kind,
+      refusedSteps,
+      youth: youth.kind,
+      youthSteps,
+      open: open.kind,
+      openSteps: sent,
+    },
+    expected: {
+      refused: 'unacknowledged',
+      refusedSteps: ['create-lobby', 'entry.age_division'],
+      youth: 'made',
+      youthSteps: ['create-lobby', 'entry.age_division', 'add-event'],
+      open: 'made',
+      openSteps: ['create-lobby', 'add-event'],
+    },
   });
 });
