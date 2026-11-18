@@ -49,7 +49,6 @@ describe('audit command', () => {
         '--ignore=GHSA-qxg6-89mg-rqv8',
         '--ignore=GHSA-3g3m-2fjr-6pw4',
         '--ignore=GHSA-g3hv-75wg-m249',
-        '--ignore=GHSA-fc5q-39xc-vjpf',
       ],
     });
   });
@@ -115,7 +114,6 @@ describe('audit exception registry', () => {
           ['GHSA-qxg6-89mg-rqv8', ['@vitest/mocker']],
           ['GHSA-3g3m-2fjr-6pw4', ['glob']],
           ['GHSA-g3hv-75wg-m249', ['minimatch']],
-          ['GHSA-fc5q-39xc-vjpf', ['picomatch']],
         ]),
       }),
       expected: [],
