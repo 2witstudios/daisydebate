@@ -52,12 +52,18 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
   id: 'media-releases',
   phase: 'before-auth',
   erase: async (tx, subject) => {
-    await endPublicationsOf(tx, subject.userId);
+    // The minor's account row orders every release command about them, so a
+    // co-debater's share either commits first (and is ended below) or waits
+    // and then finds the releases withdrawn.
+    await tx.execute(
+      sql`select 1 from users where id = ${subject.userId} for update`,
+    );
     await tx.execute(
       sql`update media_releases set withdrawn_at = clock_timestamp(),
           withdrawn_by = 'erasure'
         where user_id = ${subject.userId} and withdrawn_at is null`,
     );
+    await endPublicationsOf(tx, subject.userId);
     await tx.execute(
       sql`delete from media_release_requests where user_id = ${subject.userId}`,
     );

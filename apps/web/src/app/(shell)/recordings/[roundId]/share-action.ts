@@ -16,11 +16,9 @@ export async function shareYouthRecordingAction(
   if (!roundIdPattern.test(roundId)) redirect('/recordings');
   let notice = 'unavailable';
   try {
-    const response = await post(
-      route,
-      `/api/recordings/${roundId}/publish`,
-      {},
-    );
+    const response = await post(route, '/api/media-releases/publish', {
+      roundId,
+    });
     if (response.ok) {
       const answer = (await response.json().catch(() => null)) as {
         readonly kind?: string;
