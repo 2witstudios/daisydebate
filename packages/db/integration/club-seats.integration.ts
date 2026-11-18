@@ -11,7 +11,7 @@ import { readEntitlementGrants } from '../src/entitlement-grants';
 import { completeControlledBillingPurchase } from '../src/testing-billing-purchase';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
 import { flagCommand } from './flags.test-support';
-import type { Fixture } from './constraint-helpers';
+import { rejectedBy, type Fixture } from './constraint-helpers';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -664,4 +664,30 @@ test('erasing an account gives up its seat and the invitations addressed to it',
       });
     },
   );
+});
+
+test('a billing row is owned by exactly one account or organisation', async () => {
+  await withPaidClub(1, async ({ fixture, owner, organizationId }) => {
+    const refused = rejectedBy;
+    assert({
+      given:
+        'a club’s customer, subscription and purchase given an account too, or no owner at all',
+      should: 'refuse each as a check violation (the one-owner checks)',
+      actual: [
+        await refused(
+          () =>
+            fixture.sql`update billing_customers set user_id=${owner.userId} where organization_id=${organizationId}`,
+        ),
+        await refused(
+          () =>
+            fixture.sql`update billing_subscriptions set organization_id=null where organization_id=${organizationId}`,
+        ),
+        await refused(
+          () =>
+            fixture.sql`update billing_purchases set user_id=${owner.userId} where organization_id=${organizationId}`,
+        ),
+      ],
+      expected: ['23514', '23514', '23514'],
+    });
+  });
 });
