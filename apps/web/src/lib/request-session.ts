@@ -23,6 +23,7 @@ import { idle } from '../features/forms/form-state';
 import { createAppError } from '@daisy/errors';
 import { readLadder } from '../features/leaderboard/read-leaderboard';
 import { readMemberStandings } from '../features/ratings/read-member';
+import { readSeasonHistory } from '../features/profile/season-history';
 import { readRoundRatings } from '../features/ratings/read-round';
 import { cache } from 'react';
 import { createRequestFlagReader } from '../features/flags/reader';
@@ -237,7 +238,7 @@ export const requestOptionalAnswersAdmitted = cache(
 );
 
 /**
- * This render's member's ladder division (ADR 0146), so a page names their
+ * This render's member's ladder division (ADR 0147), so a page names their
  * ladder and offers ranked seats on it. Null for anyone else and for a member
  * with no age record. It only shapes the page: every ranked command decides
  * again under its fence.
@@ -470,6 +471,20 @@ export async function requestMemberStandings(username: string) {
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
   const app = processApp();
   return readMemberStandings(app.database, {
+    username,
+    now: app.clock.now(),
+    ...(identity.state === 'member'
+      ? { viewerActorId: identity.principal.actorId }
+      : {}),
+  });
+}
+
+/** A member's closed seasons per ladder, newest first, for their profile. */
+export async function requestSeasonHistory(username: string) {
+  const identity = await requestIdentity();
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  const app = processApp();
+  return readSeasonHistory(app.database, {
     username,
     now: app.clock.now(),
     ...(identity.state === 'member'

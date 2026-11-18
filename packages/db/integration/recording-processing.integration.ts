@@ -70,6 +70,7 @@ const withStores = async (
                     competition_type: 'ranked',
                     format_id: 'freestyle',
                     ladder_id: 'freestyle',
+                    ladder_division: 'open',
                     preset_version: 1,
                   }
                 : {},

@@ -4,7 +4,7 @@ import type { CompetitionType } from './round';
 import { isDebatingSeat, type SeatRef } from './seats';
 
 /**
- * A ladder is a style in a division (owner decision 79, ADR 0146): Open –
+ * A ladder is a style in a division (owner decision 79, ADR 0147): Open –
  * Freestyle and Youth – Freestyle. The style says what is debated; the
  * division says who may debate it. Every rule over the pair lives here,
  * beside the vocabulary, so the adapters, the auth rules and the UI share one

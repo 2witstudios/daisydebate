@@ -34,7 +34,7 @@ const challengeSummary = {
   username: z.string(),
   mode: z.enum(competitionTypes),
   format: z.enum(ratingStyles),
-  /** A ranked offer's ladder division (ADR 0146), set at send; null when casual. */
+  /** A ranked offer's ladder division (ADR 0147), set at send; null when casual. */
   division: z.enum(ratingDivisions).nullable(),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),

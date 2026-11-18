@@ -4,7 +4,7 @@ import { daisyOrganizationId } from './daisy-reference';
 import { accountAge } from './schema/account-age';
 
 /**
- * The age band a member's ladder division is read from (ADR 0146): ADR 0075's
+ * The age band a member's ladder division is read from (ADR 0147): ADR 0075's
  * one band rule, aged on the start of Daisy's active Youth season, so a
  * member who turns 18 mid-season finishes that season on Youth and Open
  * starts with the next. The record must be valid now; only the age is taken

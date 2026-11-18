@@ -21,7 +21,7 @@ import { messagePersonAction } from '../messages/new/actions';
 import { reportAction } from '../reports/actions';
 import { setPeopleRail } from './actions';
 import { readPeople } from './read-people';
-import { requestRankedPlayAdmitted } from '../../../lib/request-session';
+import { requestMemberDivision } from '../../../lib/request-session';
 
 /** Every action the list's menu posts; `ui/` never imports from `app/`. */
 export const personActions = {
@@ -60,13 +60,13 @@ export async function PeopleShell({
   readonly preference: PeopleRailPreference;
   readonly activeRoomId: string | null;
 }) {
-  const [list, challenges, notifications, rankedAgeAdmitted] =
-    await Promise.all([
-      readPeople(),
-      readChallenges().catch(() => null),
-      readNotificationShell().catch(() => null),
-      requestRankedPlayAdmitted().catch(() => false),
-    ]);
+  const [list, challenges, notifications, memberDivision] = await Promise.all([
+    readPeople(),
+    readChallenges().catch(() => null),
+    readNotificationShell().catch(() => null),
+    // Unread is no ladder: ranked stays off until the next render.
+    requestMemberDivision().catch(() => null),
+  ]);
   return {
     preference,
     rail: (
@@ -93,7 +93,7 @@ export async function PeopleShell({
             initialChallenges={challenges?.list ?? noChallenges}
             actorId={challenges?.actorId ?? null}
             socketUrl={challenges?.socketUrl ?? null}
-            rankedAgeAdmitted={rankedAgeAdmitted}
+            memberDivision={memberDivision}
           >
             {shell}
           </ChallengeProvider>

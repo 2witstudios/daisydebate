@@ -1,7 +1,7 @@
 import type { Ladder, RatingDivision } from '@daisy/protocol';
 
 /**
- * The ladder the leaderboard and Seasons pages show (ADR 0146): Freestyle in
+ * The ladder the leaderboard and Seasons pages show (ADR 0147): Freestyle in
  * the division asked for, else the viewer's own, else Open.
  */
 export const boardLadder = (

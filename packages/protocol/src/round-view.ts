@@ -111,7 +111,7 @@ const roundViewFields = z.strictObject({
   version: z.int().positive(),
   status: roundStatusSchema,
   competitionType: z.enum(competitionTypes),
-  /** The ladder the Round rates on (ADR 0146); null when it never rates. */
+  /** The ladder the Round rates on (ADR 0147); null when it never rates. */
   ladder: ladderSchema.nullable(),
   /** Null until a draw's reveal; stays null when a Round ended before its reveal. */
   topic: z.string().min(1).nullable(),

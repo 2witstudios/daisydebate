@@ -1,3 +1,4 @@
+import type { RatingDivision } from '@daisy/protocol';
 import type { MemberStanding } from '../../../features/ratings/read-member';
 
 /** Who the shell is showing: derived on the server from the durable session. */
@@ -26,5 +27,7 @@ export type ShellRatings =
   | {
       readonly state: 'ready';
       readonly standings: readonly MemberStanding[];
+      /** The division they debate on (ADR 0147); null with no age on record. */
+      readonly division: RatingDivision | null;
     }
   | { readonly state: 'unavailable' };

@@ -35,6 +35,7 @@ const seated = {
       teamOpen: false,
       positionOpen: false,
       rating: null,
+      division: null,
       needsReady: true,
       ready: 'not-ready' as const,
       eligible: true,
@@ -207,6 +208,32 @@ test('the resolution is labelled as the resolution', () => {
       html.includes('argues for it'),
       html.includes('argues against it'),
       html.includes('>Edit<'),
+    ],
+    expected: [true, true, true, true, false],
+  });
+});
+
+test('the status line carries a ranked Room’s ladder (ADR 0147)', () => {
+  const render = (more: Partial<RoomView>) =>
+    renderToStaticMarkup(
+      header({ ...seated, competitionType: 'ranked', ...more }, 'v'.repeat(24)),
+    );
+  const status = (html: string) =>
+    html.match(/<p class="[^"]*text-hue-teal">(.*?)<\/p>/)?.[1] ?? '';
+  const youth = render({ ladder: 'youth' });
+  const mixed = render({ ladder: 'mixed' });
+  const unset = render({ ladder: 'unset' });
+  const casual = renderToStaticMarkup(header(seated, 'v'.repeat(24)));
+  assert({
+    given: 'a Youth, a mixed and an unset ranked Room, and a casual Room',
+    should:
+      'badge the ladder beside the seat count, say a mixed Room is ranked but playing casual, and badge nothing casual',
+    actual: [
+      status(youth).includes('text-hue-plum">Youth – Freestyle</span>'),
+      status(mixed).includes('text-gold">Plays casual · mixed ladders</span>'),
+      mixed.includes('Listed in the lobby · Ranked, playing casual'),
+      status(unset).includes('>Ladder set by who sits</span>'),
+      status(casual).includes('<span'),
     ],
     expected: [true, true, true, true, false],
   });

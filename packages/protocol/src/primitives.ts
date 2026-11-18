@@ -11,7 +11,7 @@ import { z } from 'zod';
 export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
 
 /**
- * Daisy's rating styles (ADR 0142, ADR 0146): Freestyle, the one standard, is
+ * Daisy's rating styles (ADR 0142, ADR 0147): Freestyle, the one standard, is
  * the one style. A ladder is a style in a division (`./ladder`), so a style
  * added here yields its Open and Youth ladders; the style CHECKs on
  * `ratings`, `rating_changes`, `rounds` and `challenges` derive from this

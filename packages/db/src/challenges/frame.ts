@@ -175,7 +175,7 @@ export function challengeFrame(
       // One answer with a block, no such member and no lease: never which.
       if (theirs.placement !== null || theirs.chosen !== 'online')
         throw createAppError('NOT_FOUND');
-      // A ranked offer is on one ladder (ADR 0146): both members' division,
+      // A ranked offer is on one ladder (ADR 0147): both members' division,
       // read under the pair's lock. Across divisions only casual is offered.
       const division =
         mode === 'ranked' ? await pairDivision(tx, input.actorId, other) : null;

@@ -5,7 +5,7 @@ export const styleLabels: Readonly<Record<RatingStyle, string>> = {
   freestyle: 'Freestyle',
 };
 
-/** The name each ladder division shows (ADR 0146). */
+/** The name each ladder division shows (ADR 0147). */
 export const divisionLabels: Readonly<Record<RatingDivision, string>> = {
   open: 'Open',
   youth: 'Youth',

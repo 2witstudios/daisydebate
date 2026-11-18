@@ -66,7 +66,7 @@ export const seasons = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: 'restrict' }),
     /**
-     * The division whose ladders this season rates (ADR 0146), fixed when the
+     * The division whose ladders this season rates (ADR 0147), fixed when the
      * season opens. A league's season is Open until its league has a
      * division (PYL S9).
      */
@@ -112,7 +112,7 @@ const ratingScope = () => ({
     .notNull()
     .references(() => ladders.id, { onDelete: 'restrict' }),
   /**
-   * The ladder's division (ADR 0146). The season is joined on it, so a
+   * The ladder's division (ADR 0147). The season is joined on it, so a
    * rating can never sit on the other division's season.
    */
   division: text('division').$type<RatingDivision>().notNull(),

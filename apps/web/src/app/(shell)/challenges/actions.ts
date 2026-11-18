@@ -43,6 +43,14 @@ const routes = {
 
 const roomVersion = z.object({ version: z.number() });
 
+/** The closed refusal word a 409 names, if any. */
+const refusalOf = async (response: Response): Promise<string | null> => {
+  const body = z
+    .object({ refusal: z.string() })
+    .safeParse(await response.json().catch(() => null));
+  return body.success ? body.data.refusal : null;
+};
+
 /** Offers a debate: nothing exists until the other member accepts. */
 export async function sendChallengeAction(
   _previous: ChallengeFormState,
@@ -57,7 +65,13 @@ export async function sendChallengeAction(
       format: text(form, 'format'),
     });
     if (!response.ok)
-      return challengeRefused(challengeRefusal('send', response.status));
+      return challengeRefused(
+        challengeRefusal(
+          'send',
+          response.status,
+          await refusalOf(response),
+        ),
+      );
     return challengeResultSchema.safeParse(await response.json()).success
       ? challengeSent
       : challengeFormUnavailable();

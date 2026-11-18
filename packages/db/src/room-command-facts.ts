@@ -89,7 +89,7 @@ export type Actor = {
   readonly label: string;
   readonly eligible: boolean;
   /**
-   * The person's ladder division as read now (ADR 0146), fixed for the
+   * The person's ladder division as read now (ADR 0147), fixed for the
    * season; null for a bot and for a person with no valid age record.
    */
   readonly division: RatingDivision | null;

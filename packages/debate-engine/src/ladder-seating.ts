@@ -8,7 +8,7 @@ import {
 } from '@daisy/protocol';
 
 /**
- * A ranked Room's ladder follows who sits (owner decision 79, ADR 0146): its
+ * A ranked Room's ladder follows who sits (owner decision 79, ADR 0147): its
  * seated human debaters set the division, judges never do, and a bot holds
  * no ranked debater seat at all.
  */

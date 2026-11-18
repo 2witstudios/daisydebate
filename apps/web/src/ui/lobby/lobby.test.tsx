@@ -23,6 +23,8 @@ const entry: RoomListEntry = {
   waitingSince: '2026-10-26T11:55:00.000Z',
   live: null,
   hostRating: 1712,
+  ladder: null,
+  openJudgeSeats: 0,
 };
 const now = Date.parse('2026-10-26T12:00:00.000Z');
 const query = (over: Partial<RoomListQuery> = {}): RoomListQuery => ({
@@ -39,6 +41,7 @@ const render = (props: Partial<LobbyProps> = {}) =>
       retry={false}
       activeRoom={null}
       now={now}
+      viewerDivision={null}
       {...props}
     />,
   );
@@ -318,6 +321,75 @@ describe('Lobby', () => {
         html.includes('class="sr-only">:'),
       ],
       expected: [true, false],
+    });
+  });
+
+  test('ranked rows carry their ladder and the seats the viewer may take', () => {
+    const ranked = (over: Partial<RoomListEntry>): RoomListEntry => ({
+      ...entry,
+      competitionType: 'ranked',
+      visibility: 'public',
+      ...over,
+    });
+    const html = render({
+      viewerDivision: 'youth',
+      rooms: [
+        ranked({ id: id('a'), title: 'Youth scrimmage', ladder: 'youth' }),
+        ranked({ id: id('b'), title: 'Late-night', ladder: 'open' }),
+        ranked({
+          id: id('c'),
+          title: 'Judge wanted',
+          ladder: 'open',
+          openJudgeSeats: 1,
+        }),
+        ranked({ id: id('d'), title: 'Warm-up', ladder: 'unset' }),
+        ranked({ id: id('e'), title: 'Club night', ladder: 'mixed' }),
+      ],
+    });
+    assert({
+      given:
+        'a youth member over a Youth, an Open, an Open-with-judge-seat, an unset and a mixed ranked Room',
+      should:
+        'chip each ladder, Join the Youth Room, lock the Open seat, offer Judge, and say who sets an unset ladder',
+      actual: [
+        html.includes('text-hue-plum">Youth – Freestyle</span>'),
+        html.includes('text-accent">Open – Freestyle</span>'),
+        html.includes('>Ladder set by who sits</span>'),
+        html.includes('>Plays casual · mixed ladders</span>'),
+        /<a[^>]*aria-label="Join: Youth scrimmage"[^>]*>Join<\/a>/.test(html),
+        /<button[^>]*disabled=""[^>]*aria-label="Debater seats are 18 and over: Late-night"[^>]*>.*?18 and over<\/button>/.test(
+          html,
+        ),
+        html.includes('Debater seats: 18 and over.'),
+        new RegExp(
+          `href="/rooms/${id('c')}"[^>]*aria-label="Judge: Judge wanted"[^>]*>Judge</a>`,
+        ).test(html),
+        html.includes('Judge seat open to everyone.'),
+        html.includes(
+          'The first debater to sit sets the ladder: Youth or Open.',
+        ),
+      ],
+      expected: [true, true, true, true, true, true, true, true, true, true],
+    });
+  });
+
+  test('a Division filter sits beside Ranked or casual', () => {
+    const html = render({ query: query({ division: 'youth' }) });
+    assert({
+      given: 'the Lobby narrowed to the Youth division',
+      should:
+        'select Youth in a Division select before the mode, count it on Filters, and offer Clear',
+      actual: [
+        /<select name="division" aria-label="Division"/.test(html),
+        /<option value="youth" selected="">Youth \(under 18\)<\/option>/.test(
+          html,
+        ),
+        html.includes('<option value="any">Any division</option>'),
+        html.includes('<option value="open">Open (18 and over)</option>'),
+        html.indexOf('name="division"') < html.indexOf('name="mode"'),
+        html.includes('Clear'),
+      ],
+      expected: [true, true, true, true, true, true],
     });
   });
 });

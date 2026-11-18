@@ -9,7 +9,9 @@ confirmed by the point guard on Delivery). Supersedes
 [ADR 0103](0103-whos-online.md) (rating visibility), and restates
 [ADR 0131](0131-the-lobby-is-the-one-container.md) §5 for one ladder. DEC-265's three-ladder
 vocabulary and DEC-266's per-standard admission clauses are superseded by
-this record.
+this record. Amended by [ADR 0147](0147-ladder-style-and-division.md): a
+ladder is a style in a division (Open – Freestyle, Youth – Freestyle), so §2's
+key gains the division and §5's single rating becomes one per ladder.
 
 ## Context
 

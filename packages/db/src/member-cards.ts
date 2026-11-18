@@ -21,7 +21,7 @@ import {
 
 type CardRatingRow = {
   readonly actorId: string;
-  /** The ladder's style and division (ADR 0146). */
+  /** The ladder's style and division (ADR 0147). */
   readonly ladder: RatingStyle;
   readonly division: RatingDivision;
   readonly rating: number;

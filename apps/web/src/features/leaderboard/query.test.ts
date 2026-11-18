@@ -5,6 +5,7 @@ import {
   closeDetailHref,
   debaterHref,
   defaultQuery,
+  divisionHref,
   isFiltered,
   ladderHref,
   pageHref,
@@ -30,6 +31,7 @@ describe('parseLadderQuery', () => {
         'every parameter set to a valid value, plus retired ladder, band and region filters',
       should: 'parse each one and read no ladder, band or region',
       actual: parseLadderQuery({
+        division: 'youth',
         season: 'ssssssssssssssssssssssss',
         scope: 'around',
         q: '  @Debater-A ',
@@ -43,6 +45,7 @@ describe('parseLadderQuery', () => {
         step: '7',
       }),
       expected: {
+        division: 'youth',
         season: 'ssssssssssssssssssssssss',
         scope: 'around',
         q: '@Debater-A',
@@ -60,6 +63,7 @@ describe('parseLadderQuery', () => {
       given: 'values outside every allowed set',
       should: 'fall back to the defaults without throwing',
       actual: parseLadderQuery({
+        division: 'adult',
         season: '-1',
         scope: 'nope',
         status: '%00',
@@ -160,6 +164,37 @@ describe('hrefs', () => {
         '/leaderboard?season=3',
         '/leaderboard?season=3&page=3',
         '/leaderboard?season=3&scope=around&view=table&step=4',
+      ],
+    });
+  });
+
+  test('division links', () => {
+    const query = {
+      ...defaultQuery,
+      season: '3',
+      scope: 'around',
+      q: 'abc',
+      status: 'everyone',
+      page: 2,
+      debater: 'debater-b',
+      view: 'table',
+      step: 4,
+    } as const;
+    assert({
+      given: 'a query on one season with a search and an open detail',
+      should:
+        'switch division keeping scope, search and status, and carry the division on every link after',
+      actual: [
+        divisionHref(query, 'youth'),
+        divisionHref(defaultQuery, 'open'),
+        pageHref({ ...defaultQuery, division: 'youth' }, 2),
+        clearFiltersHref({ ...query, division: 'youth' }),
+      ],
+      expected: [
+        '/leaderboard?division=youth&scope=around&q=abc&status=everyone',
+        '/leaderboard?division=open',
+        '/leaderboard?division=youth&page=2',
+        '/leaderboard?division=youth&season=3&scope=around&debater=debater-b&view=table&step=4',
       ],
     });
   });

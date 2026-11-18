@@ -16,6 +16,7 @@ export const season = async (
 ) => {
   const id = createId();
   await fixture.insert('seasons', {
+    division: 'open',
     id,
     name: `Season ${status}`,
     starts_at: startsAt,
@@ -54,6 +55,7 @@ export const completed = async (
       runtime_state: emptyRuntimeCheckpointFor(validRules),
       judging: frozenJudgingFor(validRules),
       ladder_id: input.formatId,
+      ladder_division: 'open',
       started_at: at(5, 11),
       completed_at: at(5),
     },
@@ -85,6 +87,7 @@ export const change = (
     format_id: row.formatId,
     season_id: row.seasonId,
     ladder: row.ladder,
+    division: 'open',
     rating_before: row.before,
     rating_after: row.after,
     deviation_before: 350,
@@ -111,6 +114,7 @@ export const rating = (
       actor_id: row.actorId,
       season_id: row.seasonId,
       ladder: row.ladder,
+      division: 'open',
       rating: row.rating,
       deviation: 300,
       volatility: 0.06,

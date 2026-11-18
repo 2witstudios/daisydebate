@@ -112,7 +112,7 @@ export function LadderTable({ view, query, toolbar }: LadderTableProps) {
             provisionalHits={view.provisionalHits}
             clearHref={clearFiltersHref(query)}
             everyoneHref={everyoneHref(query)}
-            previousSeasonHref={before ? seasonHref(before.id) : null}
+            previousSeasonHref={before ? seasonHref(query, before.id) : null}
             previousSeason={before?.id ?? null}
           />
         )}

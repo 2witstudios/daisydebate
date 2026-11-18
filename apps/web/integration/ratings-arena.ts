@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { RatingStyle } from '@daisy/protocol';
+import type { RatingDivision, RatingStyle } from '@daisy/protocol';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import {
@@ -31,6 +31,8 @@ export const minute = (n: number) =>
 
 type RoundInput = {
   readonly ladder?: RatingStyle;
+  /** The ranked Round's division; Open unless named. */
+  readonly division?: RatingDivision;
   readonly affirmative: string;
   readonly negative: string;
   /** `ladderId` null marks a casual round. */
@@ -63,14 +65,18 @@ export async function arena(
   const users: string[] = [];
   const actors: string[] = [];
   const rounds: string[] = [];
-  const season = async (status: 'active' | 'closed', startsAt: string) => {
+  const season = async (
+    status: 'active' | 'closed',
+    startsAt: string,
+    division: RatingDivision = 'open',
+  ) => {
     const id = createId();
     seasonIds.push(id);
     await withSql(
       (
         sql,
-      ) => sql`insert into seasons (organization_id, id, name, starts_at, ends_at, status)
-        values (${daisyOrganizationId}, ${id}, 'Season', ${new Date(startsAt)},
+      ) => sql`insert into seasons (organization_id, id, name, division, starts_at, ends_at, status)
+        values (${daisyOrganizationId}, ${id}, 'Season', ${division}, ${new Date(startsAt)},
                 ${status === 'closed' ? new Date('2026-10-01T00:00:00.000Z') : null}, ${status})`,
     );
     return id;
@@ -98,6 +104,8 @@ export async function arena(
     const status = input.status ?? 'completed';
     const competitionType = input.competitionType ?? 'ranked';
     const ladderId = competitionType === 'ranked' ? formatId : null;
+    const ladderDivision =
+      competitionType === 'ranked' ? (input.division ?? 'open') : null;
     // Abandonment is lifecycle, not outcome: it carries completed_at like any
     // ended round (ADR 0058 §8).
     const completedAt =
@@ -107,8 +115,8 @@ export async function arena(
         // A ranked round is constructed from a sanctioned preset, so it pins
         // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
         // presets, so the arena only has to name the version it resolved from.
-        await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id, runtime_state)
-        values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, 'opening', null, null, null, null, ${ladderId}, ${emptyRuntimeCheckpointFor(rules)})`;
+        await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id, ladder_division, runtime_state)
+        values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, 'opening', null, null, null, null, ${ladderId}, ${ladderDivision}, ${emptyRuntimeCheckpointFor(rules)})`;
         for (const [side, actorId] of [
           [affirmativeSide, input.affirmative],
           [negativeSide, input.negative],

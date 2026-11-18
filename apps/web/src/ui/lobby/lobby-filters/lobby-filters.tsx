@@ -1,10 +1,13 @@
 import { roomListDefaultPageSize, type RoomListQuery } from '@daisy/protocol';
 import {
+  filterCount,
   isFiltered,
+  lobbyDivisionChoices,
   lobbyHref,
   lobbyModeChoices,
   lobbySortChoices,
   lobbyStatusChoices,
+  type LobbyDivision,
   type LobbyMode,
   type LobbySort,
   type LobbyStatus,
@@ -42,6 +45,17 @@ const modeOptions = lobbyModeChoices.map(
   (mode) => [mode, modeLabels[mode]] as const,
 );
 
+/** Who debates on each division, as the filter names it (ADR 0147). */
+const divisionLabels: Readonly<Record<LobbyDivision, string>> = {
+  any: 'Any division',
+  youth: 'Youth (under 18)',
+  open: 'Open (18 and over)',
+};
+
+const divisionOptions = lobbyDivisionChoices.map(
+  (division) => [division, divisionLabels[division]] as const,
+);
+
 const sortLabels: Readonly<Record<LobbySort, string>> = {
   newest: 'Newest',
   'longest-waiting': 'Longest waiting',
@@ -55,9 +69,9 @@ const sortOptions = lobbySortChoices.map(
 const MAX_SEARCH_LENGTH = 100;
 
 /**
- * Status tabs plus search, mode and sort as one GET form: the URL carries
+ * Status tabs plus search, division, mode and sort as one GET form: the URL carries
  * the state, so the Lobby filters and sorts on the server with no script. On
- * the phone the mode and sort sit in a panel behind "Filters"; the sort is an
+ * the phone the division, mode and sort sit in a panel behind "Filters"; the sort is an
  * order, not a filter, so it never counts toward the Filters badge.
  */
 export function LobbyFilters({
@@ -103,8 +117,15 @@ export function LobbyFilters({
       />
       <details className={`contents ${panelClass}`}>
         <summary className={summaryClass}>
-          <FiltersLabel active={isFiltered(query) ? 1 : 0} />
+          <FiltersLabel active={filterCount(query)} />
         </summary>
+        <FilterSelect
+          name="division"
+          label="Division"
+          value={query.division ?? 'any'}
+          options={divisionOptions}
+          className="order-5 max-compact:order-none"
+        />
         <FilterSelect
           name="mode"
           label="Ranked or casual"

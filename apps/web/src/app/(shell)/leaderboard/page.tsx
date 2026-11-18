@@ -5,7 +5,10 @@ import { buildDetail } from '../../../features/leaderboard/detail';
 import { buildLadder } from '../../../features/leaderboard/ladder';
 import { boardLadder } from '../../../features/leaderboard/board-ladder';
 import { parseLadderQuery } from '../../../features/leaderboard/query';
-import { requestLadder, requestMemberDivision } from '../../../lib/request-session';
+import {
+  requestLadder,
+  requestMemberDivision,
+} from '../../../lib/request-session';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
 
 export const metadata: Metadata = { title: 'Leaderboard' };
@@ -44,6 +47,7 @@ export default async function LeaderboardPage({
         );
   return (
     <Leaderboard
+      ladder={read.ladder}
       view={view}
       query={query}
       now={now}

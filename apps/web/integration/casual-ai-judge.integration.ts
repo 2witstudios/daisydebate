@@ -162,7 +162,7 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
     await withSeasons(databaseUrl, (seasons) =>
-      seasons.activateBetaSeason({ id: seasonId }),
+      seasons.activateBetaSeason({ id: seasonId, division: 'open' }),
     );
     try {
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;

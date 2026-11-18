@@ -16,7 +16,7 @@ export type ContentWaiverStanding = 'signed' | 'unsigned' | 'no-active-season';
 
 /**
  * The member's own active season under FOR SHARE: Daisy's season on the
- * member's ladder division (ADR 0146), so a Youth member signs for the Youth
+ * member's ladder division (ADR 0147), so a Youth member signs for the Youth
  * season. FOR SHARE, so a rollover cannot change which season a Ready stands
  * on before this transaction commits. None without a division.
  */

@@ -1,13 +1,17 @@
 import type { CreateRoomDraft } from '../../../features/rooms/create-room-draft';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { shapeLabel } from '../../../features/debate-room/seat-names';
+import { RankedLadderSummary } from './ranked-ladder';
 
 export function DraftPreview({
   draft,
   title,
+  ranked,
 }: {
   readonly draft: CreateRoomDraft;
   readonly title: string;
+  /** Ranked as the form will create it: chosen, and open to this member. */
+  readonly ranked: boolean;
 }) {
   const { config, definition } = draft;
   const durations = definition.segments.map(
@@ -32,7 +36,7 @@ export function DraftPreview({
       <span className="create-room-eyebrow">Your room</span>
       <div className="create-room-preview-stage">
         <span className="create-room-eyebrow">
-          {draft.ranked ? 'Ranked' : 'Unranked'} ·{' '}
+          {ranked ? 'Ranked' : 'Unranked'} ·{' '}
           {draft.custom ? 'Custom' : draft.basis.label}
         </span>
         <h2>{title || 'Your next debate'}</h2>
@@ -43,6 +47,7 @@ export function DraftPreview({
         </p>
         {draft.custom ? <p>Based on {draft.basis.label}</p> : null}
       </div>
+      {ranked ? <RankedLadderSummary /> : null}
       <div className="create-room-preview-stats">
         <div>
           <strong>{shapeLabel(definition)}</strong>

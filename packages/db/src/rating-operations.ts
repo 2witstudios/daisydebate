@@ -188,7 +188,7 @@ async function rateOnce(
     .select({ id: seasons.id })
     .from(seasons)
     // Daisy's own season on the Round's division: every organization may
-    // have an active one per division (ADR 0146).
+    // have an active one per division (ADR 0147).
     .where(
       and(
         eq(seasons.status, 'active'),

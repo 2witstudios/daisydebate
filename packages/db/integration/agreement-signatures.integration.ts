@@ -23,19 +23,30 @@ const count = async (
     )) as { c: number }[]
   )[0]!.c;
 
-/** An active season for the test; its signatures go with it. */
+/**
+ * An active Open season for the test, and an adult age record for its member
+ * so the waiver stands on that season (ADR 0147); its signatures go with it.
+ */
 const withActiveSeason = async (
   client: { unsafe: (query: string, values?: unknown[]) => Promise<unknown> },
+  userId: string,
   run: (seasonId: string) => Promise<void>,
 ) => {
   const seasonId = createId();
   await client.unsafe(
-    `insert into seasons (id, organization_id, name, starts_at, status) values ($1, $2, 'Waiver fixture', '2000-01-01T00:00:00Z', 'active')`,
+    `insert into seasons (id, organization_id, division, name, starts_at, status) values ($1, $2, 'open', 'Waiver fixture', '2000-01-01T00:00:00Z', 'active')`,
     [seasonId, daisyOrganizationId],
+  );
+  await client.unsafe(
+    `insert into account_age (user_id, birth_month, version, recorded_at) values ($1, '1990-01', 1, '2001-01-01T00:00:00Z') on conflict do nothing`,
+    [userId],
   );
   try {
     await run(seasonId);
   } finally {
+    await client.unsafe('delete from account_age where user_id = $1', [
+      userId,
+    ]);
     await client.unsafe(
       'delete from agreement_signatures where season_id = $1',
       [seasonId],
@@ -46,7 +57,7 @@ const withActiveSeason = async (
 
 test('a signature records account, version, season and time, once', async () => {
   await withPrivacySubject(async ({ client, database, userId }) => {
-    await withActiveSeason(client, async (seasonId) => {
+    await withActiveSeason(client, userId, async (seasonId) => {
       const agreements = agreementSignatureOperations({ database });
       const before = await agreements.readContentWaiverStanding(
         userId,
@@ -105,7 +116,7 @@ test('a signature records account, version, season and time, once', async () => 
 
 test('the scope follows the agreement', async () => {
   await withPrivacySubject(async ({ client, userId }) => {
-    await withActiveSeason(client, async (seasonId) => {
+    await withActiveSeason(client, userId, async (seasonId) => {
       const insert = (agreement: string, season: unknown, room: unknown) =>
         client
           .unsafe(
@@ -135,7 +146,7 @@ test('the scope follows the agreement', async () => {
 
 test('erasure keeps the signature as evidence, and export returns it', async () => {
   await withPrivacySubject(async ({ client, database, userId, actorId }) => {
-    await withActiveSeason(client, async () => {
+    await withActiveSeason(client, userId, async () => {
       await agreementSignatureOperations({ database }).signContentWaiver({
         id: createId(),
         userId,

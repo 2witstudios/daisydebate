@@ -21,7 +21,7 @@ for (const ladder of ratingStyles)
       let roundId: string | undefined;
       try {
         await withSeasons(databaseUrl, (s) =>
-          s.activateBetaSeason({ id: seasonId }),
+          s.activateBetaSeason({ id: seasonId, division: 'open' }),
         );
         const started = await launchRuntimeRound(
           f,

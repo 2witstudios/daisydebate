@@ -32,7 +32,7 @@ const participant = z.strictObject({
     .strictObject({ value: z.int(), provisional: z.boolean() })
     .nullable(),
   /**
-   * A ranked Room's human debater's ladder division (ADR 0146), so the host
+   * A ranked Room's human debater's ladder division (ADR 0147), so the host
    * sees each debater's ladder, never an age. Null for a judge, a bot and on
    * a casual Room.
    */
@@ -77,7 +77,7 @@ export const roomRefusalSchema = z.enum([
   'ballot-definition-unavailable',
   'ranked-unavailable',
   /**
-   * The caller's own division is not the ladder's (ADR 0146): a debater seat
+   * The caller's own division is not the ladder's (ADR 0147): a debater seat
    * of a ranked Room whose seated debaters are on the other division, or a
    * league ladder's while the caller is under 18. A caller with no division
    * (no valid age record) takes no rated debater seat.
@@ -193,7 +193,7 @@ const roomViewFields = z.strictObject({
   }),
   competitionType: z.enum(competitionTypes),
   /**
-   * A ranked Room's ladder division as its seated debaters set it (ADR 0146):
+   * A ranked Room's ladder division as its seated debaters set it (ADR 0147):
    * unset until one sits, mixed when they are on both, and then the Round
    * plays casual. Null on a casual Room.
    */

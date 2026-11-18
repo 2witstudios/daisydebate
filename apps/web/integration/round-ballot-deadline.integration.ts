@@ -363,14 +363,14 @@ for (const captured of [true, false])
       const seat = started.participants.find(
         (p) => p.actorId === judges[0]!.actorId,
       )!;
-      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
       await playOut(f, roundId, captured);
       if ((await finalizeAsWeb(f, roundId)).status !== 'frozen')
         throw Error('Expected actual finalizer freeze');
       await seedSettledAttendanceLedger(f, roundId);
       try {
         await withSeasons(databaseUrl, (s) =>
-          s.activateBetaSeason({ id: seasonId }),
+          s.activateBetaSeason({ id: seasonId, division: 'open' }),
         );
         await submitAs(f, judges[0]!, roundId, seat.id, 'negative');
         await passBallotDeadline(f.sql, roundId);
@@ -660,7 +660,7 @@ test('a forfeit on an incomplete freeze still has a rating coming', async () => 
   await withRoomRuntime(async (f) => {
     const { room } = await readyTwoHumanJudgeRoom(f);
     const { roundId } = await launchRuntimeRound(f, room);
-    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
     await playOut(f, roundId, false);
     if ((await finalizeAsWeb(f, roundId)).status !== 'frozen')
       throw Error('Expected actual finalizer freeze');

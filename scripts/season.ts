@@ -29,7 +29,7 @@ type NewSeason = {
 
 export type SeasonCommand =
   | { readonly kind: 'list' }
-  /** Each division's Season 1 (ADR 0146), each with its own id. */
+  /** Each division's Season 1 (ADR 0147), each with its own id. */
   | {
       readonly kind: 'activate-beta';
       readonly seasons: readonly {

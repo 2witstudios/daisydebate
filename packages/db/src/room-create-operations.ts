@@ -130,7 +130,7 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
-        // A ranked Room's ladder is set by who sits (ADR 0146), so opening
+        // A ranked Room's ladder is set by who sits (ADR 0147), so opening
         // one needs a Daisy season on some division; Start checks the
         // seated division's own season. The host's age decides nothing.
         if (input.room.competitionType === 'ranked') {

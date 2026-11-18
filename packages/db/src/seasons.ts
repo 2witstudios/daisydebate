@@ -15,7 +15,7 @@ import {
 /**
  * Season operations for the `bun season` CLI (ADR 0055): a season is opened
  * from an operator's terminal, never from a route in `apps/web` (ADR 0043).
- * Each division has its own season (ADR 0146), one per division, never
+ * Each division has its own season (ADR 0147), one per division, never
  * closed, until DEC-111 decides how a debater carries into the next: a rating
  * refuses on a prior season's standing, so a second season on a division
  * would stop rating every returning debater there.

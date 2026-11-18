@@ -26,7 +26,7 @@ async function holdRatingKey(actorId: string) {
   const ready = Promise.withResolvers<number>();
   const release = Promise.withResolvers<void>();
   const work = client.begin(async (tx) => {
-    await tx`select pg_advisory_xact_lock(59090,hashtext(${'freestyle:' + actorId}))`;
+    await tx`select pg_advisory_xact_lock(59090,hashtext(${'freestyle:open:' + actorId}))`;
     const [row] = await tx`select pg_backend_pid() as pid`;
     ready.resolve(row!.pid as number);
     await release.promise;

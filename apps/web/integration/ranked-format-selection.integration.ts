@@ -12,7 +12,7 @@ test('only Freestyle is creatable ranked: generic One-on-one and a league templa
     const seasonId = createId();
     try {
       await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId }),
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
       );
       const [current] =
         await f.sql`select f.current_version as "formatVersion", p.version as "presetVersion" from formats f join format_presets p on p.format_id=f.id and p.format_version=f.current_version and p.superseded_at is null where f.id='one-on-one'`;
@@ -74,7 +74,7 @@ test('a ranked Room is refused on each casual template: only one seat a side, on
     const seasonId = createId();
     try {
       await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId }),
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
       );
       const templates = [
         'panel-debate',

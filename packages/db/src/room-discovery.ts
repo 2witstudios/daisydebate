@@ -73,7 +73,7 @@ const modeMatches = (mode: RoomListQuery['mode']) =>
 /**
  * A division filter keeps casual Rooms, open ranked Rooms whose seated
  * debaters are all on it (none yet included), and launched ranked Rooms whose
- * Round rates on it (ADR 0146).
+ * Round rates on it (ADR 0147).
  */
 const divisionMatches = (division: RoomListQuery['division']) =>
   division === undefined
@@ -127,7 +127,7 @@ const pageOrder = (
   };
 };
 /**
- * A ranked Room's ladder for its row (ADR 0146): a launched Room's Round's,
+ * A ranked Room's ladder for its row (ADR 0147): a launched Room's Round's,
  * mixed when that Round plays casual; an open Room's from its seated
  * debaters. A casual Room has none.
  */

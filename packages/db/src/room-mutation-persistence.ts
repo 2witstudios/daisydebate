@@ -133,7 +133,7 @@ export const persistRoomMutation = async (
       .select({ leagueLadderId: rooms.leagueLadderId })
       .from(rooms)
       .where(eq(rooms.id, next.id));
-    // The Round's ladder follows who sat (ADR 0146): one division rates on
+    // The Round's ladder follows who sat (ADR 0147): one division rates on
     // its own season, a mixed seating plays casual in a ranked Room.
     const competition = roundCompetition(
       next,

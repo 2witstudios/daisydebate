@@ -9,8 +9,14 @@ import { ResumeRound } from '../../ui/active-room/resume-round';
 import {
   requestIdentity,
   requestLeadingLive,
+  requestMemberDivision,
+  requestMemberStandings,
   requestSeasonGlance,
 } from '../../lib/request-session';
+import {
+  homeLadderOf,
+  leaderboardTagline,
+} from '../../ui/dashboard/home-ladder';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 
@@ -39,16 +45,31 @@ export default async function HomePage() {
         audience="visitor"
         liveNow={liveNow}
         seasonGlance={seasonGlance}
+        ladder={{
+          playCaption: null,
+          leaderboardTagline: leaderboardTagline(null),
+        }}
         hero={<HeroBanner requestLink={requestLinkAction.bind(null, '/')} />}
       />
     );
   }
-  const activeRoom = await requestActiveRoom();
+  const [activeRoom, ladder] = await Promise.all([
+    requestActiveRoom(),
+    // The notes keep their own words when the ratings cannot be read.
+    Promise.all([
+      requestMemberStandings(identity.username),
+      requestMemberDivision(),
+    ]).then(
+      ([standings, division]) => homeLadderOf(standings, division),
+      () => undefined,
+    ),
+  ]);
   return (
     <Dashboard
       audience="member"
       liveNow={liveNow}
       seasonGlance={seasonGlance}
+      {...(ladder ? { ladder } : {})}
       hero={
         <>
           <ResumeRound room={activeRoom} actorId={identity.principal.actorId} />

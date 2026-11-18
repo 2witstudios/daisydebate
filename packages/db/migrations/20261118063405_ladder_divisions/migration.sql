@@ -1,4 +1,4 @@
--- ADR 0146: a ladder is a style in a division. Every existing season,
+-- ADR 0147: a ladder is a style in a division. Every existing season,
 -- rating, ledger row, ranked Round and ranked challenge is Open – Freestyle,
 -- so each column is added with 'open' for the rows already there and then
 -- loses its default: every later writer names the division. No rating value

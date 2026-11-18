@@ -150,7 +150,7 @@ export const rounds = pgTable(
     leagueLadderId: text('league_ladder_id'),
     ladderId: text('ladder_id').$type<RatingStyle>(),
     /**
-     * The division of the ladder the Round rates on (ADR 0146), frozen at
+     * The division of the ladder the Round rates on (ADR 0147), frozen at
      * Start from who sat: the ladder is (`ladder_id`, `ladder_division`), and
      * both are null together on a casual Round.
      */

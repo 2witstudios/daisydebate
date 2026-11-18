@@ -8,7 +8,7 @@ type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 
 /**
  * A ranked Round needs Daisy's active season on its ladder's division (ADR
- * 0146), held FOR SHARE so the season cannot close under the Start that
+ * 0147), held FOR SHARE so the season cannot close under the Start that
  * freezes the Round. With none, the Room cannot start ranked.
  */
 export async function lockLadderSeason(

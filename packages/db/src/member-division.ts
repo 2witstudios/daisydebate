@@ -6,7 +6,7 @@ import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { rowsOf } from './raw-rows';
 
 /**
- * A member's ladder division as their pages show it (ADR 0146): the same
+ * A member's ladder division as their pages show it (ADR 0147): the same
  * season-fixed rule every ranked command decides again under its fence.
  * Null without a valid age record. The birth month never leaves SQL.
  */

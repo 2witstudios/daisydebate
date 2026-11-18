@@ -54,7 +54,7 @@ type ChallengeRowFacts = {
   readonly username: string;
   readonly mode: CompetitionType;
   readonly format: RatingStyle;
-  /** A ranked offer's ladder division (ADR 0146); null when casual. */
+  /** A ranked offer's ladder division (ADR 0147); null when casual. */
   readonly division: RatingDivision | null;
   readonly createdAt: string;
   readonly expiresAt: string;

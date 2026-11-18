@@ -44,7 +44,11 @@ import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
-import { rankedAgeReason } from '../../features/play/ranked-age';
+import {
+  offersRanked,
+  rankedChallengeLine,
+  rankedChallengeOf,
+} from '../../features/challenges/challenge-ladder';
 import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
@@ -221,18 +225,20 @@ function wasSent(answer: ChallengeFormState): boolean {
 
 function ChallengeView({
   action,
-  username,
+  member,
   onBack,
   onDone,
 }: {
   readonly action: PersonActions['sendChallenge'];
-  readonly username: string;
+  readonly member: Pick<Person, 'username' | 'division'>;
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
-  const { rankedAgeAdmitted } = useChallenges();
+  const { username } = member;
+  const { memberDivision } = useChallenges();
+  const ranked = rankedChallengeOf(memberDivision, member.division);
   const [mode, setMode] = useState<CompetitionType>(
-    rankedAgeAdmitted ? 'ranked' : 'casual',
+    offersRanked(ranked) ? 'ranked' : 'casual',
   );
   const [answer, post, pending] = useFormAction(
     action,
@@ -254,7 +260,7 @@ function ChallengeView({
             key={value}
             type="button"
             aria-pressed={mode === value}
-            disabled={value === 'ranked' && !rankedAgeAdmitted}
+            disabled={value === 'ranked' && !offersRanked(ranked)}
             onClick={() => setMode(value)}
             className={chip}
           >
@@ -262,9 +268,11 @@ function ChallengeView({
           </button>
         ))}
       </div>
-      {rankedAgeAdmitted ? null : (
-        <p className="text-sm text-ink-muted">{rankedAgeReason}</p>
-      )}
+      {mode === 'ranked' || !offersRanked(ranked) ? (
+        <p className="text-sm text-ink-muted">
+          {rankedChallengeLine(ranked, username)}
+        </p>
+      ) : null}
       {refusal ? (
         <p role="status" className="text-sm text-ink-muted">
           {refusal}
@@ -494,7 +502,7 @@ export function PersonMenu({
         {view === 'challenge' ? (
           <ChallengeView
             action={actions.sendChallenge}
-            username={username}
+            member={member}
             onBack={() => setView('menu')}
             onDone={finish}
           />

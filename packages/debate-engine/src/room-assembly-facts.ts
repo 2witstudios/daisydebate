@@ -21,7 +21,7 @@ import type { DrawStartFacts } from './room-draw-start';
 
 type Target = RoomParticipant & {
   readonly eligible: boolean;
-  /** The person's ladder division (ADR 0146); null for a bot or no record. */
+  /** The person's ladder division (ADR 0147); null for a bot or no record. */
   readonly division: RatingDivision | null;
   /**
    * Which AI the actor is (ISSUE-750), and so which seats it may hold: a bot

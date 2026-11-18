@@ -305,15 +305,28 @@ content waiver, signed once per season, is the ranked agreement, and it alone
 fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
 
-A Room that rates (ranked, or a league Room on a league ladder) seats only
-members at or over `RANKED_AGE_FLOOR` (18, decision 79), read from the stored
-birth month under the account fence when the command runs. A person under it
-is not seat-eligible there, so claim, assign, every initial cast and Start all
-refuse through seat eligibility. The caller's own claim and a ranked create
-answer `ranked-age`; a host's assignment and Start answer `actor-ineligible`,
-so nobody learns someone else's age. Round writers keep their own eligibility,
-so a running Round is never changed by it. See
-[compliance](../operations/compliance.md#children).
+A ranked Room's ladder follows who sits
+([ADR 0147](../decisions/0147-ladder-style-and-division.md)). The Room stores
+no division: its seated human debaters set it. It is unset until one sits,
+then Open – Freestyle (all 18 and over) or Youth – Freestyle (all under 18),
+or mixed. Each person's division comes from the stored birth month, aged on
+the start of the active Youth season.
+
+- **Own claims.** A member's own claim of a ranked debater seat is refused with
+  `ranked-division` when the others are on the other ladder or the member has
+  no division (`rankedSeatClaimRefusal`).
+- **Host assignments.** A host's assignment and an initial cast may mix ladders.
+- **Start.** Start freezes the Round's ladder (`roundCompetition`). One
+  division rates on that division's active season, and Start refuses with
+  `ranked-unavailable` when there is none. A mixed seating starts a casual
+  Round while the Room stays ranked, and the host is told before Start.
+- **Judges.** Judge seats take anyone.
+- **League ladders.** A league Room on a league ladder seats only Open members
+  until leagues carry a division (PYL S9). A caller's own claim there answers
+  `ranked-division`, and a host's assignment answers `actor-ineligible`.
+
+Round writers keep their own eligibility, so a running Round is never changed
+by any of this. See [compliance](../operations/compliance.md#children).
 
 A seated human judge reads their own ballot, and once the Round has completed,
 every ballot of it. Only the Round's seats and its seatless host read a Round at

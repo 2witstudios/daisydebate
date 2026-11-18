@@ -26,7 +26,7 @@ export const challenges = pgTable(
     formatId: text('format_id').notNull(),
     /**
      * The ladder's division a ranked offer is on, decided at send from both
-     * members (ADR 0146); null on a casual offer.
+     * members (ADR 0147); null on a casual offer.
      */
     division: text('division').$type<RatingDivision>(),
     roomId: text('room_id')

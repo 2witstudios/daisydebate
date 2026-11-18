@@ -454,7 +454,7 @@ export type RoomAssemblyState = RoomRoundLink & {
     readonly label: string;
     readonly eligible: boolean;
     /**
-     * The person's ladder division as read with the Room (ADR 0146): fixed
+     * The person's ladder division as read with the Room (ADR 0147): fixed
      * for the season from the stored birth month. Null for a bot and for a
      * person with no valid age record.
      */
@@ -520,7 +520,7 @@ export const roomListQuerySchema = z.strictObject({
   status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
   /**
-   * Narrows ranked Rooms to one ladder division (ADR 0146): those whose seated
+   * Narrows ranked Rooms to one ladder division (ADR 0147): those whose seated
    * debaters are on it, or whose ladder no debater has set yet. A casual Room
    * has no division and is kept.
    */
@@ -563,7 +563,7 @@ const roomListEntryFields = z.strictObject({
    */
   hostRating: z.int().nullable(),
   /**
-   * A ranked Room's ladder division as its seats set it (ADR 0146): unset
+   * A ranked Room's ladder division as its seats set it (ADR 0147): unset
    * until a debater sits, mixed when its debaters are on both; a launched
    * Room's is its Round's, mixed when that Round plays casual. Null on a
    * casual Room.

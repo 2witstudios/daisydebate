@@ -4,7 +4,7 @@ import type { Ladder } from '@daisy/protocol';
 import { readRatingStandings } from './read';
 
 /**
- * A member's standing on one ladder (ADR 0146): the current season's when
+ * A member's standing on one ladder (ADR 0147): the current season's when
  * they are rated in it; otherwise their last rated season's, kept as history
  * (a member who turned 18 keeps their Youth rating there); otherwise the
  * current season, unrated.

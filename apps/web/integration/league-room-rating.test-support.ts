@@ -131,8 +131,9 @@ export async function leagueRoomRating(world: World) {
     async (f) => {
       const host = world.bots.Director!;
       let view = await f.operations.view(host, roomId);
-      // Decision 79: a Room on a league ladder rates, so it seats nobody under
-      // 18 on the day; the same member at 18 sits as before.
+      // Decision 79: a league ladder is Open until leagues carry a division
+      // (ADR 0147, PYL S9), so it seats nobody under 18; the same member at
+      // 18 sits as before.
       const minor = world.bots['Debater 2']!;
       const [kept] =
         await world.sql`select birth_month from account_age where user_id=${minor.userId}`;
@@ -150,9 +151,9 @@ export async function leagueRoomRating(world: World) {
       assert({
         given:
           'a debater aged 17 years 11 months claiming a league-ladder seat',
-        should: 'refuse them on their own age',
+        should: 'refuse them on their own ladder, never naming an age',
         actual: underAge,
-        expected: 'ranked-age',
+        expected: 'ranked-division',
       });
       for (const [side, person] of [
         ['affirmative', world.bots['Debater 1']!],

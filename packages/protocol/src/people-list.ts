@@ -1,12 +1,14 @@
 import { z } from 'zod';
 import { memberStatuses } from './presence-setting';
-import { idSchema, ratingStyles } from './primitives';
+import { idSchema } from './primitives';
+import { ladderSchema, ratingDivisions } from './ladder';
 
 const count = z.number().int().nonnegative().safe();
 
 /** One rating a member shows; null is a ladder they have not played. */
 const shownRatingSchema = z.strictObject({
-  ladder: z.enum(ratingStyles),
+  /** The ladder: a style in a division (ADR 0147). */
+  ladder: ladderSchema,
   rating: z.number().int().nullable(),
   provisional: z.boolean(),
   /** A judge may not see this debater's rating before their ballot. */
@@ -22,7 +24,13 @@ const personSchema = z.strictObject({
   photoId: idSchema.nullable(),
   status: z.enum(memberStatuses),
   relation: z.enum(['none', 'friends', 'outgoing', 'incoming']),
-  ratings: z.array(shownRatingSchema).min(1).max(3),
+  /** One per Daisy ladder (style and division). */
+  ratings: z.array(shownRatingSchema).min(1).max(4),
+  /**
+   * The division they are rated on this season (ADR 0147), when their ratings
+   * name exactly one; null when unknown. A ladder, never an age.
+   */
+  division: z.enum(ratingDivisions).nullable(),
   wins: count,
   losses: count,
 });

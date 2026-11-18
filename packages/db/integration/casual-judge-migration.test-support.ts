@@ -75,7 +75,7 @@ export async function seedHistoricalJudge(f: Fixture, mode: JudgeCase) {
     if (mode === 'erased')
       await f.sql`update users set deleted_at=clock_timestamp() where id=(select user_id from actors where id=${actorId})`;
     if (mode === 'ranked')
-      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
     if (mode === 'service')
       await f.sql`update rounds set created_by_actor_id=null where id=${roundId}`;
     if (mode === 'host_changed') {

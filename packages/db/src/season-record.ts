@@ -11,7 +11,7 @@ import { seasons, type seasonStatuses } from './schema/ratings';
 export type SeasonRecord = {
   readonly id: string;
   readonly name: string;
-  /** The division whose ladders the season rates (ADR 0146). */
+  /** The division whose ladders the season rates (ADR 0147). */
   readonly division: RatingDivision;
   readonly startsAt: string;
   readonly endsAt: string | null;

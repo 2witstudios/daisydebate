@@ -2,7 +2,7 @@ import {
   ADMITTED_AGE_BANDS,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand, RatingDivision } from '@daisy/protocol';
 import { tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type {
@@ -17,7 +17,7 @@ import type {
   SeatRef,
 } from '@daisy/protocol';
 import type { PublicProfileCard } from '@daisy/db';
-import { ratingStyles } from '@daisy/protocol';
+import { daisyLadders } from '@daisy/protocol';
 import type {
   PeopleListCursor,
   PersonRow,
@@ -63,6 +63,7 @@ export type PeopleListDependencies = {
     readonly ratings: readonly (RatingState & {
       readonly actorId: string;
       readonly ladder: RatingStyle;
+      readonly division: RatingDivision;
       readonly lastRatedAt: string | null;
     })[];
     readonly records: readonly {
@@ -121,6 +122,20 @@ export function decodePeopleListCursor(
   }
   throw createAppError('VALIDATION');
 }
+
+/**
+ * The division a member's card ratings name (ADR 0147): their ratings are in
+ * each division's active season, so one division is the ladder they debate on
+ * now. None, or both, says nothing, so it stays unknown. Read before any
+ * blinding: a ladder is no rating.
+ */
+export const ratedDivisionOf = (
+  ratings: readonly { readonly division: RatingDivision }[],
+): RatingDivision | null => {
+  const divisions = new Set(ratings.map((rating) => rating.division));
+  const [only] = divisions;
+  return divisions.size === 1 && only !== undefined ? only : null;
+};
 
 const relationOf = (row: PersonRow, viewer: string): Person['relation'] => {
   if (row.friendshipState === 'accepted') return 'friends';
@@ -188,16 +203,20 @@ export async function readPeopleList(
         })),
     );
     const profile = profiles.get(row.actorId);
+    const rated = cards.ratings.filter(
+      (rating) => rating.actorId === row.actorId,
+    );
     people.push({
       username: row.username,
       displayName: profile?.displayName ?? null,
       photoId: profile?.photoId ?? null,
       status,
       relation: relationOf(row, actorId),
-      ratings: ratingStyles.map((ladder) => {
-        const state = cards.ratings.find(
+      ratings: daisyLadders.map((ladder) => {
+        const state = rated.find(
           (rating) =>
-            rating.actorId === row.actorId && rating.ladder === ladder,
+            rating.ladder === ladder.style &&
+            rating.division === ladder.division,
         );
         if (hidden.has(row.actorId))
           return { ladder, rating: null, provisional: false, hidden: true };
@@ -211,6 +230,7 @@ export async function readPeopleList(
           hidden: false,
         };
       }),
+      division: ratedDivisionOf(rated),
       wins: record.wins,
       losses: record.losses,
     });

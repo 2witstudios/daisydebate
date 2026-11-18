@@ -49,7 +49,7 @@ for (const ladder of ratingStyles)
             let roundId: string | undefined;
             try {
               const season = await withSeasons(databaseUrl, (s) =>
-                s.activateBetaSeason({ id: seasonId }),
+                s.activateBetaSeason({ id: seasonId, division: 'open' }),
               );
               const room = await readyRankedRoom(f, ladder, judgeKind);
               ({ roundId } = await launchRuntimeRound(f, room));
@@ -118,7 +118,7 @@ for (const ladder of ratingStyles)
               ).toISOString();
               const leaderboard = await readLadder(f.store, {
                 seasonId: season.id,
-                ladder,
+                ladder: { style: ladder, division: 'open' },
                 now,
                 username: null,
               });
@@ -150,7 +150,9 @@ for (const ladder of ratingStyles)
                 should:
                   'show the exact same host rating on profile, leaderboard and Round',
                 actual: [
-                  member.find((r) => r.ladder === ladder)?.rating,
+                  member.find(
+                    (r) => r.ladder.style === ladder && r.ladder.division === 'open',
+                  )?.rating,
                   Math.round(
                     leaderboard!.data.entries.find(
                       (e) => e.id === f.host.actorId,

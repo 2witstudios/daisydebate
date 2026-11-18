@@ -38,6 +38,7 @@ describe('season operations (RATE-1.2)', () => {
         const opened = await seasons.openSeason({
           id: first,
           name: 'Season 1',
+          division: 'open',
           startsAt: october,
         });
         assert({
@@ -50,7 +51,12 @@ describe('season operations (RATE-1.2)', () => {
           given: 'an active season already open',
           should: 'refuse a second as a conflict',
           actual: () =>
-            seasons.openSeason({ id: second, name: 'Two', startsAt: january }),
+            seasons.openSeason({
+              id: second,
+              name: 'Two',
+              division: 'open',
+              startsAt: january,
+            }),
           code: 'CONFLICT',
         });
         assert({
@@ -58,6 +64,20 @@ describe('season operations (RATE-1.2)', () => {
           should: 'write nothing for it',
           actual: await statusOf(fixture, second),
           expected: null,
+        });
+        const youth = tracked(fixture);
+        assert({
+          given: 'an active Open season and a first Youth season',
+          should: 'open the Youth season beside it (ADR 0147)',
+          actual: (
+            await seasons.openSeason({
+              id: youth,
+              name: 'Season 1',
+              division: 'youth',
+              startsAt: october,
+            })
+          ).division,
+          expected: 'youth',
         });
         assert({
           given: 'the open season',
@@ -77,6 +97,7 @@ describe('season operations (RATE-1.2)', () => {
         await seasons.openSeason({
           id: current,
           name: 'Season 1',
+          division: 'open',
           startsAt: october,
         });
         const open = await seasons.listSeasons();
@@ -98,7 +119,12 @@ describe('season operations (RATE-1.2)', () => {
           given: 'a closed earlier season and unresolved DEC-111',
           should: 'refuse to open another',
           actual: () =>
-            seasons.openSeason({ id: next, name: 'Two', startsAt: january }),
+            seasons.openSeason({
+              id: next,
+              name: 'Two',
+              division: 'open',
+              startsAt: january,
+            }),
           code: 'CONFLICT',
         });
         assert({
