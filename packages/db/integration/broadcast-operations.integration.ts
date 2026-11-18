@@ -33,6 +33,7 @@ import {
   recordSegmentReleased,
   renewBroadcastLease,
   stopBroadcast,
+  endYouthBroadcasts,
 } from '../src/broadcast-operations';
 import { broadcasts } from '../src/schema/broadcasts';
 import { rejectedBy, withFixture } from './constraint-helpers';
@@ -72,6 +73,30 @@ const withOps = async (
     await client.close();
   }
 };
+
+test('ending Youth Broadcasts leaves every other Broadcast running (ADR 0149)', async () => {
+  await withOps(async (db, roundId, client) => {
+    const id = createId();
+    await openBroadcast(db, {
+      id,
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const stopped = await db.transaction((tx) => endYouthBroadcasts(tx, now));
+    const [row] =
+      await client`select stopped_at, media_withheld from broadcasts where id=${id}`;
+    assert({
+      given: 'an open Broadcast of a Round that is not a Youth Round',
+      should: 'stop nothing and withhold nothing',
+      actual: { stopped, row },
+      expected: {
+        stopped: [],
+        row: { stopped_at: null, media_withheld: false },
+      },
+    });
+  });
+});
 
 test('one Broadcast per Round, and its policy is kept', async () => {
   await withOps(async (db, roundId) => {
