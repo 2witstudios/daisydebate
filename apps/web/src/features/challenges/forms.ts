@@ -1,3 +1,4 @@
+import { rankedAgeReason } from '../play/ranked-age';
 import {
   done,
   idle,
@@ -53,6 +54,18 @@ export function challengeFields(answer: ChallengeFormState): ChallengeFields {
       return unreachable(answer);
   }
 }
+
+/**
+ * A refused offer's words: the sender's own ranked age by name (decision 79),
+ * otherwise the status's. The body is read only for that one closed word.
+ */
+export const sendRefusal = (status: number, body: unknown): string =>
+  typeof body === 'object' &&
+  body !== null &&
+  'refusal' in body &&
+  body.refusal === 'ranked-age'
+    ? rankedAgeReason
+    : challengeRefusal('send', status);
 
 /** The refusal for an HTTP status, never naming a block or a status. */
 export function challengeRefusal(

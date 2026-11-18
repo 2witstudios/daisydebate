@@ -26,7 +26,13 @@ const snapshot = (
 
 test('resolver precedence and logical expiry', () => {
   const resolve = (facts: FlagSnapshot, key = entry.key) =>
-    resolveFlag({ catalogue: [entry], snapshot: facts, key, now });
+    resolveFlag({
+      catalogue: [entry],
+      snapshot: facts,
+      key,
+      now,
+      releaseDefault: false,
+    });
   assert({
     given: 'unknown, killed, targeted, expired, stored and missing flag states',
     should: 'resolve in order without relying on a sweep',
@@ -64,7 +70,14 @@ test('every dependency must be active and invalid graphs fail closed', () => {
   const resolve = (
     catalogue: readonly FlagDefinition[],
     facts = snapshot('enabled'),
-  ) => resolveFlag({ catalogue, snapshot: facts, key: entry.key, now });
+  ) =>
+    resolveFlag({
+      catalogue,
+      snapshot: facts,
+      key: entry.key,
+      now,
+      releaseDefault: false,
+    });
   assert({
     given:
       'an active dependency, an inactive dependency, a missing dependency, a cycle and a duplicate key',
@@ -92,18 +105,21 @@ test('ops safe defaults apply during storage failure, with dependencies', () => 
         snapshot: { kind: 'unavailable' },
         key: ops.key,
         now,
+        releaseDefault: false,
       }),
       resolveFlag({
         catalogue: [entry],
         snapshot: { kind: 'unavailable' },
         key: entry.key,
         now,
+        releaseDefault: false,
       }),
       resolveFlag({
         catalogue: [ops],
         snapshot: snapshot('enabled'),
         key: ops.key,
         now: NaN,
+        releaseDefault: false,
       }),
     ].map((result) => result.enabled),
     expected: [true, false, false],
@@ -122,8 +138,89 @@ test('release expiry closes a stored or targeted release even with no policy run
           snapshot: snapshot('enabled', true, expires + 10),
           key: entry.key,
           now: instant,
+          releaseDefault: false,
         }).enabled,
     ),
     expected: [true, false],
+  });
+});
+
+test('the deployment release default sits below every stored choice', () => {
+  const ops: FlagDefinition = { ...entry, key: 'test-ops', kind: 'ops' };
+  const resolve = (
+    facts: FlagSnapshot,
+    releaseDefault: boolean,
+    key: string = entry.key,
+    instant = now,
+  ) =>
+    resolveFlag({
+      catalogue: [entry, ops],
+      snapshot: facts,
+      key,
+      now: instant,
+      releaseDefault,
+    });
+  const stored = (state: FlagState): FlagSnapshot => ({
+    kind: 'available',
+    flags: [{ key: entry.key, revision: 1, state, override: null }],
+  });
+  const none: FlagSnapshot = { kind: 'available', flags: [] };
+  assert({
+    given:
+      'the environment default with no row, a default row, a disabled row, a targeted override, a killed row, expiry, an unreadable store, an ops flag, and no environment default',
+    should:
+      'open only release flags with no stored choice, leaving rows, overrides, kills, expiry, failures and ops flags unchanged',
+    actual: [
+      resolve(none, true),
+      resolve(stored('default'), true),
+      resolve(stored('disabled'), true),
+      resolve(snapshot('default', false), true),
+      resolve(stored('killed'), true),
+      resolve(none, true, entry.key, Date.parse(entry.expiresOn) + 86_400_000),
+      resolve({ kind: 'unavailable' }, true),
+      resolve(none, true, ops.key),
+      resolve(none, false),
+    ],
+    expected: [
+      { enabled: true, reason: 'ENVIRONMENT' },
+      { enabled: true, reason: 'ENVIRONMENT' },
+      { enabled: false, reason: 'STATIC' },
+      { enabled: false, reason: 'TARGETING_MATCH' },
+      { enabled: false, reason: 'DISABLED' },
+      { enabled: false, reason: 'EXPIRED' },
+      { enabled: false, reason: 'ERROR' },
+      { enabled: false, reason: 'DEFAULT' },
+      { enabled: false, reason: 'DEFAULT' },
+    ],
+  });
+});
+
+test('the release default still requires every dependency', () => {
+  const parent: FlagDefinition = { ...entry, key: 'parent' };
+  const child: FlagDefinition = { ...entry, dependencies: [parent.key] };
+  const parentOff: FlagSnapshot = {
+    kind: 'available',
+    flags: [
+      { key: parent.key, revision: 1, state: 'disabled', override: null },
+    ],
+  };
+  assert({
+    given:
+      'the environment default with the dependency open, then turned off by its row',
+    should: 'open the dependent release, then close it',
+    actual: [{ kind: 'available', flags: [] } as const, parentOff].map(
+      (facts) =>
+        resolveFlag({
+          catalogue: [parent, child],
+          snapshot: facts,
+          key: child.key,
+          now,
+          releaseDefault: true,
+        }),
+    ),
+    expected: [
+      { enabled: true, reason: 'ENVIRONMENT' },
+      { enabled: false, reason: 'DEPENDENCY' },
+    ],
   });
 });

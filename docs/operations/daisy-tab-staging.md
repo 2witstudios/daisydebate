@@ -6,6 +6,37 @@ Tab decision 59). This document authorizes no deployment or data operation.
 Use the existing staging apps, credentials and workflow described in
 [deploy-staging](deploy-staging.md). Never run development seeds on staging.
 
+## Release flags on staging
+
+Staging gets every feature. Its `fly.toml` sets
+`DAISY_RELEASE_FLAG_DEFAULT=enabled`, so `daisy-tab`, `daisy-tab-minors` and
+`premium-checkout` (and any later release flag) are on for every staging
+account unless a stored choice says otherwise ([ADR 0118](../decisions/0118-release-and-ops-flags.md#staging-release-default-amendment-2026-11-17)).
+Production never sets it and keeps each flag's safe default (off); the web app
+refuses to start if the variable is present without the staging operator
+audience.
+
+- **Check the effective default** after a deploy:
+  `fly logs -a daisy-debate-staging --no-tail` shows one
+  `flags.release_default` line per process start, with `source: environment` on staging (`catalogue` means
+  safe defaults).
+- **Turn one flag off on staging** by storing state `disabled` or `killed`
+  through the signed operator route (`/operator/v1/flags/<key>/state`). A
+  stored `disabled`, `killed` or account override beats the environment
+  default; storing `default` hands the flag back to it. That route has **no
+  supported caller yet**: the admin app has no Flags page (ADR 0118 left admin
+  UI to a later leaf). Until the admin Flags slice lands, each change is an
+  owner-approved one-off operator call on Delivery, like the one that stored
+  staging's flags `enabled`. It is a staging data action with the usual
+  sign-off. When nobody is available to approve a call, the reliable way to
+  close everything is the next item.
+- **Turn the default off** by removing the line from `fly.toml` and
+  redeploying; every release flag then falls back to its stored state or its
+  safe default.
+
+Where the procedure below expects Tab's flag to be closed, that holds only
+before this default reaches staging, or with `daisy-tab` stored `disabled`.
+
 ## Before the first parent migration
 
 1. Record the reviewed parent SHA and its green `CI gate` from the standing

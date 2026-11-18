@@ -305,6 +305,16 @@ content waiver, signed once per season, is the ranked agreement, and it alone
 fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
 
+A Room that rates (ranked, or a league Room on a league ladder) seats only
+members at or over `RANKED_AGE_FLOOR` (18, decision 79), read from the stored
+birth month under the account fence when the command runs. A person under it
+is not seat-eligible there, so claim, assign, every initial cast and Start all
+refuse through seat eligibility. The caller's own claim and a ranked create
+answer `ranked-age`; a host's assignment and Start answer `actor-ineligible`,
+so nobody learns someone else's age. Round writers keep their own eligibility,
+so a running Round is never changed by it. See
+[compliance](../operations/compliance.md#children).
+
 A seated human judge reads their own ballot, and once the Round has completed,
 every ballot of it. Only the Round's seats and its seatless host read a Round at
 all (ADR 0099). Anyone else reads no ballot here: signing in opens nothing. The

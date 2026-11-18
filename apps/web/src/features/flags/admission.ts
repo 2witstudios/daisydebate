@@ -3,8 +3,15 @@ import { flagCatalogue, type ReleaseFlagKey } from './catalogue';
 import { catalogueProblems } from './catalogue-validation';
 import { resolveFlag } from './resolver';
 
-/** Only this trusted server catalogue supplies the complete admission closure. */
-export function releaseAdmission(key: ReleaseFlagKey): ReleaseAdmission {
+/**
+ * Only this trusted server catalogue supplies the complete admission closure.
+ * `releaseDefault` is the same deployment default the display reader uses,
+ * so staging admits what it shows.
+ */
+export function releaseAdmission(
+  key: ReleaseFlagKey,
+  releaseDefault: boolean,
+): ReleaseAdmission {
   if (catalogueProblems(flagCatalogue).length > 0)
     return { keys: [key], decide: () => false };
   const entries = new Map<string, { readonly dependencies: readonly string[] }>(
@@ -20,6 +27,12 @@ export function releaseAdmission(key: ReleaseFlagKey): ReleaseAdmission {
   return {
     keys: [...keys].sort(),
     decide: (snapshot, now) =>
-      resolveFlag({ catalogue: flagCatalogue, snapshot, key, now }).enabled,
+      resolveFlag({
+        catalogue: flagCatalogue,
+        snapshot,
+        key,
+        now,
+        releaseDefault,
+      }).enabled,
   };
 }

@@ -13,6 +13,7 @@ export type RoomCreateRefusal =
   | 'rate-limited'
   | 'replayed'
   | 'ranked-unavailable'
+  | 'ranked-age'
   | 'actor-ineligible'
   | 'seat-unavailable'
   | 'ai-judge-premium'
@@ -36,6 +37,7 @@ const conflictAnswer = (
     case 'active-room':
       return { kind: 'active-room', href: body.activeRoom?.href ?? null };
     case 'ranked-unavailable':
+    case 'ranked-age':
     case 'actor-ineligible':
     case 'seat-unavailable':
     case 'ai-judge-premium':

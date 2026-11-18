@@ -26,6 +26,7 @@ import { readMemberStandings } from '../features/ratings/read-member';
 import { readRoundRatings } from '../features/ratings/read-round';
 import { cache } from 'react';
 import { createRequestFlagReader } from '../features/flags/reader';
+import { releaseFlagDefault } from '../features/flags/release-default';
 import type { ReleaseFlagKey } from '../features/flags/catalogue';
 
 import { headers } from 'next/headers';
@@ -72,6 +73,7 @@ const requestFlagReader = cache(() => {
         { operation: 'flags.read', cause: 'unavailable' },
         'Release control read failed',
       ),
+    releaseDefault: releaseFlagDefault(app.config),
   });
 });
 
@@ -233,6 +235,15 @@ export const requestOptionalAnswersAdmitted = cache(
     });
   },
 );
+
+/**
+ * Whether this render's member meets the ranked age floor now (decision 79),
+ * from the participation read the session already made, so a page offers
+ * ranked play only to them. False for anyone else. It only shapes the page:
+ * every ranked command decides again under the account fence.
+ */
+export const requestRankedPlayAdmitted = async (): Promise<boolean> =>
+  (await requestSession()).rankedAgeAdmitted;
 
 /**
  * A member's profile as this render's viewer may see it, read in the server

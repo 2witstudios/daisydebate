@@ -35,6 +35,11 @@ type ChallengeView = {
   readonly forgetCancelled: (id: string) => void;
   /** Re-reads at once, after the member's own action. */
   readonly refresh: () => void;
+  /**
+   * The member meets the ranked age floor (decision 79): ranked offers are
+   * theirs to send and accept. A hint; the commands decide again.
+   */
+  readonly rankedAgeAdmitted: boolean;
 };
 
 const ChallengeContext = createContext<ChallengeView | null>(null);
@@ -71,11 +76,13 @@ export function ChallengeProvider({
   initialChallenges,
   actorId,
   socketUrl,
+  rankedAgeAdmitted,
   children,
 }: {
   readonly initialChallenges: ChallengeList;
   readonly actorId: string | null;
   readonly socketUrl: string | null;
+  readonly rankedAgeAdmitted: boolean;
   readonly children: ReactNode;
 }) {
   // The first render's list: a later render of the shell never restarts the sync.
@@ -114,7 +121,10 @@ export function ChallengeProvider({
     }),
     [driver],
   );
-  const view = useMemo(() => ({ ...shown, ...commands }), [commands, shown]);
+  const view = useMemo(
+    () => ({ ...shown, ...commands, rankedAgeAdmitted }),
+    [commands, shown, rankedAgeAdmitted],
+  );
   return (
     <ChallengeContext.Provider value={view}>
       {children}

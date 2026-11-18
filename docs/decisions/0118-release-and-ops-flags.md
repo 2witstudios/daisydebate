@@ -22,6 +22,33 @@ Every dependency must be active. A release past its expiry is off at runtime
 and fails policy. An override expires logically even if maintenance stops.
 Keys and ownership cannot be silently repurposed, and retired keys stay retired.
 
+### Staging release default (amendment, 2026-11-17)
+
+Owner instruction: staging gets every feature; production keeps release flags.
+`DAISY_RELEASE_FLAG_DEFAULT=enabled`, set only in staging's committed
+`fly.toml` `[env]`, makes a release flag with **no stored choice** (no
+`release_flags` row, or a row in state `default`) resolve on, with reason
+`ENVIRONMENT`. Precedence is otherwise unchanged: killed, then logical expiry,
+then storage failure (safe default), then an unexpired account override, then
+stored `enabled`/`disabled`, then this environment default, then the catalogue
+safe default. A flag can therefore still be turned off on staging through the
+operator command, and every dependency must still be active. Ops flags ignore
+it. The display reader and `releaseAdmission` receive the same value, so
+staging admits what it shows.
+
+Server config validates it at startup: any value but `enabled` is refused, and
+a `NODE_ENV=production` process refuses it unless `OPERATOR_AUDIENCE` is
+`daisy-web:staging` (staging and production share `NODE_ENV`). Production
+therefore fails fast if the variable reaches it. The web server logs
+`flags.release_default` once at startup with `source` `environment` or
+`catalogue`. The guard borrows the operator signature audience as staging's
+only committed deployment identity: renaming or moving that audience must
+update `packages/config/src/release-flag-default.ts` too (the failure is safe:
+staging refuses to start).
+
+`resolveFlag` requires `releaseDefault`, so no caller can resolve without
+choosing it. The catalogue's release safe defaults stay false.
+
 ## Reads and admission
 
 `features/flags/server.ts` publishes
@@ -39,7 +66,7 @@ principal. Only booleans reach UI clients. Client chunks are public. No flag
 read belongs in a proxy or a `use cache` scope. Read failures use safe defaults
 with bounded diagnostics containing no account or raw error.
 
-A display boolean never authorizes durable work. `releaseAdmission(key)`
+A display boolean never authorizes durable work. `releaseAdmission(key, releaseDefault)`
 derives a bounded, deduplicated dependency closure from the trusted catalogue
 and returns the synchronous pure `ReleaseAdmission` policy. The public
 `@daisy/db/flags` adapter `requireFlagAdmission(tx, accountId, policy)` locks

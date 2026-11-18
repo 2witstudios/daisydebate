@@ -7,6 +7,7 @@ import {
   challengeRefused,
   challengeSent,
   initialChallengeForm,
+  sendRefusal,
   type ChallengeFormState,
 } from './forms';
 
@@ -68,5 +69,20 @@ test('a challenge form says something only when refused or sent', () => {
       values: {},
       error: 'Could not reach Daisy. Try again.',
     },
+  });
+});
+
+test('a ranked offer refused on the sender’s age says so, not leave your room', () => {
+  assert({
+    given: 'a 409 naming ranked-age, then a 409 naming nothing',
+    should: 'give the ranked age reason, then the status words',
+    actual: [
+      sendRefusal(409, { code: 'CONFLICT', refusal: 'ranked-age' }),
+      sendRefusal(409, null),
+    ],
+    expected: [
+      'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
+      'Leave your room first.',
+    ],
   });
 });

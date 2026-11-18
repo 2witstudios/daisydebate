@@ -32,15 +32,18 @@ function Hold({ hold }: { readonly hold: (held: Held) => void }) {
 export function CardsProbe({
   initialChallenges,
   hold,
+  rankedAgeAdmitted = true,
 }: {
   readonly initialChallenges: ChallengeList;
   readonly hold: (held: Held) => void;
+  readonly rankedAgeAdmitted?: boolean;
 }) {
   return (
     <ChallengeProvider
       initialChallenges={initialChallenges}
       actorId={null}
       socketUrl={null}
+      rankedAgeAdmitted={rankedAgeAdmitted}
     >
       <Hold hold={hold} />
       <ChallengeCards actions={actions} activeRoomId={null} />

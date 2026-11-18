@@ -3,6 +3,7 @@ import type { RoomTemplate } from '../rooms/read-catalog';
 import { acceptOffer, type AcceptOfferPorts } from './accept-offer';
 import { moved, refusedWith } from '../forms/form-state';
 import { challengeRefusal, challengeRefused } from './forms';
+import { rankedAgeCreateRefusal } from '../rooms/create-room-form';
 
 setupRitewayBun();
 
@@ -31,6 +32,7 @@ const ports = (
   nextId: () => 'd'.repeat(24),
   readOffers: async () => [offer],
   inARoom: async () => false,
+  rankedAgeAdmitted: async () => true,
   readCatalog: async () => ({
     kind: 'found',
     choices: [template],
@@ -46,6 +48,50 @@ const ports = (
 });
 
 describe('acceptOffer', () => {
+  test('a ranked create refused on the acceptor’s own age keeps that reason', async () => {
+    const reason =
+      'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.';
+    const answer = await acceptOffer(
+      input,
+      ports({
+        readOffers: async () => [{ ...offer, mode: 'ranked' }],
+        openRoom: async () => refusedWith({}, rankedAgeCreateRefusal),
+      }),
+    );
+    assert({
+      given: 'a hint that let Accept through, and a create refused on age',
+      should: 'answer the age reason, not that ranked is down',
+      actual: answer,
+      expected: challengeRefused(reason),
+    });
+  });
+
+  test('a ranked offer to a member under the ranked floor opens nothing and says why', async () => {
+    let opened = 0;
+    const answer = await acceptOffer(
+      input,
+      ports({
+        readOffers: async () => [{ ...offer, mode: 'ranked' }],
+        rankedAgeAdmitted: async () => false,
+        openRoom: async () => {
+          opened += 1;
+          return moved('/rooms/room');
+        },
+      }),
+    );
+    assert({
+      given: 'a ranked challenge accepted by a 16-17 member',
+      should: 'refuse with the plain reason and open no room',
+      actual: { answer, opened },
+      expected: {
+        answer: challengeRefused(
+          'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
+        ),
+        opened: 0,
+      },
+    });
+  });
+
   test('opens the room, names it and moves on', async () => {
     const named: string[] = [];
     const forms: FormData[] = [];
