@@ -139,8 +139,9 @@ export const eventRegistry = {
   'profile.photo.image.failed': 'warn',
   'profile.photo.budget_unavailable': 'warn',
   'db.capacity.holder': 'warn',
-  'db.lane.gauge': 'info',
+  'db.lane.window': 'info',
   'db.lane.hold': 'info',
+  'worker.wake.unavailable': 'warn',
   'retention.sweep.completed': 'info',
   'retention.sweep.failed': 'error',
   'retention.run.completed': 'info',
@@ -261,4 +262,5 @@ export const loggableFields = {
   holds: 'count',
   maxMs: 'count',
   p95Ms: 'count',
+  waits: 'count',
 } as const satisfies Record<string, FieldKind>;

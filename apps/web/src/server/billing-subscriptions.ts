@@ -9,10 +9,9 @@ import {
   subscriptionStalenessObserver,
 } from './billing-subscription-staleness';
 import { workerFailures } from './recoverable-failure';
-import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../lib/worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
+import { passOf } from '../lib/idle-backoff';
+import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** Scheduled repair uses original claim offers and current service authority, independently of the purchase flag. */
 export function startBillingSubscriptions(input: {
@@ -47,15 +46,15 @@ export function startBillingSubscriptions(input: {
     store: app.database.billingSubscriptionStaleness(input.instanceId),
     ...subscriptionStalenessObserver(app, failed),
   });
-  const schedule = startSingleFlightWorker({
+  const schedule = startWorkerLoop({
     run: async () => {
       try {
-        await reconciliation.run();
+        return passOf(await reconciliation.run());
       } finally {
         await staleness.run();
       }
     },
-    everyMs: 5_000,
+    backoff: { busyMs: 5_000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => failed(error, 'tick'),
   });

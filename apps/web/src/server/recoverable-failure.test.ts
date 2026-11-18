@@ -75,7 +75,7 @@ test('an untyped failure never claims a code it does not carry', () => {
 test('capacity backpressure stays silent within its bound', () => {
   const capacity = createAppError(
     'INFRASTRUCTURE',
-    'Transcript transaction capacity unavailable',
+    'Bounded transaction capacity unavailable',
   );
   const { lines, captured, failed } = record((error) => error === capacity);
   for (let i = 0; i < 8; i++) failed(capacity, 'tick');
@@ -109,7 +109,7 @@ test('capacity backpressure stays silent within its bound', () => {
 test('a slow stage that keeps being refused is still reported', () => {
   const capacity = createAppError(
     'INFRASTRUCTURE',
-    'Transcript transaction capacity unavailable',
+    'Bounded transaction capacity unavailable',
   );
   const { lines, failed } = record((error) => error === capacity);
   for (let i = 0; i < 18; i++) failed(capacity, 'renew');

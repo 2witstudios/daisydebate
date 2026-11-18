@@ -25,7 +25,8 @@ const server = [config.webServer].flat()[0];
 if (!server) throw new Error('Launch server missing');
 const stack = Bun.spawn(['sh', '-c', server.command], {
   cwd: server.cwd ?? web,
-  env: { ...stackEnv, ...server.env, ...launchEnv },
+  // Debug names every operation's lane holds each window; the report reads them.
+  env: { ...stackEnv, ...server.env, ...launchEnv, LOG_LEVEL: 'debug' },
   stdout: 'inherit',
   stderr: 'inherit',
 });

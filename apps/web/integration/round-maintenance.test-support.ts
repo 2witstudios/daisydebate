@@ -98,11 +98,20 @@ export const passBallotDeadline = (sql: SQL, roundId: string) =>
   });
 
 export const maintenanceTestTimers = {
+  now: () => performance.now(),
   setInterval: (pulse: () => void, ms: number) => {
     const handle = setInterval(pulse, ms);
     return () => clearInterval(handle);
   },
   clearInterval: (stop: unknown) => {
+    if (typeof stop !== 'function') throw new Error('Unknown test timer');
+    stop();
+  },
+  setTimeout: (run: () => unknown, ms: number) => {
+    const handle = setTimeout(() => void run(), ms);
+    return () => clearTimeout(handle);
+  },
+  clearTimeout: (stop: unknown) => {
     if (typeof stop !== 'function') throw new Error('Unknown test timer');
     stop();
   },

@@ -4,10 +4,12 @@ import {
   createBroadcastEgress,
 } from '@daisy/media/broadcast';
 import { createMediaNodes } from '@daisy/media';
+import type { WorkerTimers } from '../../lib/worker-timers';
+import { passOf } from '../../lib/idle-backoff';
 import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../../lib/worker-timers';
+  HOUSEKEEPING_IDLE_MAX_MS,
+  startWorkerLoop,
+} from '../../lib/worker-loop';
 import type { App } from '../../server/app';
 import { createStageRoute } from './stage-route';
 import { createStrayEgressSweep } from './stray-egress-sweep';
@@ -113,28 +115,32 @@ export const startStrayEgressSweep = (app: App, timers: WorkerTimers) => {
   };
   const report = (event: Parameters<typeof app.logger.log>[0]) =>
     app.logger.log(event, {}, 'Stage capture');
-  return startSingleFlightWorker({
-    run: createStrayEgressSweep({
-      listStages: () => egress.listStages(app.config.PUBLIC_APP_URL),
-      stop: egress.stop,
-      owners: [
-        {
-          recordedEgress: app.database.broadcasts.readEgress,
-          claim: (id) =>
-            app.database.broadcasts.claimReconcile({ id, ...lease() }),
-        },
-        {
-          recordedEgress: app.database.recordingCaptures.readOwnEgress,
-          claim: (recordingId) =>
-            app.database.recordingCaptures.claimOwn({
-              recordingId,
-              ...lease(),
-            }),
-        },
-      ],
-      report,
-    }),
-    everyMs: STRAY_SWEEP_EVERY_MS,
+  const sweep = createStrayEgressSweep({
+    listStages: () => egress.listStages(app.config.PUBLIC_APP_URL),
+    stop: egress.stop,
+    owners: [
+      {
+        recordedEgress: app.database.broadcasts.readEgress,
+        claim: (id) =>
+          app.database.broadcasts.claimReconcile({ id, ...lease() }),
+      },
+      {
+        recordedEgress: app.database.recordingCaptures.readOwnEgress,
+        claim: (recordingId) =>
+          app.database.recordingCaptures.claimOwn({
+            recordingId,
+            ...lease(),
+          }),
+      },
+    ],
+    report,
+  });
+  return startWorkerLoop({
+    run: () => sweep().then(passOf),
+    backoff: {
+      busyMs: STRAY_SWEEP_EVERY_MS,
+      idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS,
+    },
     timers,
     failed: () => report('stage.stray_sweep_failed'),
   });

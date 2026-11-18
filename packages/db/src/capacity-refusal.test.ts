@@ -32,7 +32,7 @@ test('capacity identity survives native error wrappers without trusting messages
       driver,
       wrapped,
       createAppError('INFRASTRUCTURE', refusal.message),
-      new Error('Transcript transaction budget exceeded'),
+      new Error('Bounded transaction budget exceeded'),
       { cause: refusal },
       cyclic,
       accessor,

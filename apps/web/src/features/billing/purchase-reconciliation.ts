@@ -69,8 +69,9 @@ export function createPurchaseReconciliation(input: {
       throw createAppError('CONFLICT');
   }
   return {
-    async run() {
-      if (stopped) return;
+    /** One pass; returns how many rows it handled. */
+    async run(): Promise<number> {
+      if (stopped) return 0;
       try {
         const page = await input.store.purchases({
           mode: input.mode,
@@ -78,7 +79,7 @@ export function createPurchaseReconciliation(input: {
           ...(afterId === undefined ? {} : { afterId }),
         });
         for (const { purchaseId } of page.rows) {
-          if (stopped) return;
+          if (stopped) return page.rows.length;
           try {
             await recover(purchaseId);
           } catch (error) {
@@ -86,8 +87,10 @@ export function createPurchaseReconciliation(input: {
           }
         }
         afterId = page.exhausted ? undefined : (page.afterId ?? undefined);
+        return page.rows.length;
       } catch (error) {
         input.failed(error, 'discover');
+        return 0;
       }
     },
     stop() {

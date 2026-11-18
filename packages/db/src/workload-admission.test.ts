@@ -230,13 +230,13 @@ test('the deployed profiles are valid and sized as the plan states', () => {
   assert({
     given: 'the web, realtime and observer profiles',
     should:
-      'validate and hold 33, 7 and 11 connections, dedicated ones included',
+      'validate and hold 34, 7 and 11 connections, dedicated ones included',
     actual: [
       WORKLOAD_PROFILES.web,
       WORKLOAD_PROFILES.realtime,
       WORKLOAD_PROFILES['realtime-observer'],
     ].map((profile) => profileConnections(validateWorkloadProfile(profile))),
-    expected: [33, 7, 11],
+    expected: [34, 7, 11],
   });
 });
 
@@ -313,7 +313,7 @@ test('a lane reports how long each operation held its connections', async () => 
   assert({
     given: 'one hold of 30 ms released twice',
     should: 'count it once under the operation that asked',
-    actual: gate.drainHolds(),
+    actual: gate.drainHolds().operations,
     expected: [
       {
         operation: 'claimMediaReconcile',
@@ -321,7 +321,41 @@ test('a lane reports how long each operation held its connections', async () => 
         totalMs: 30,
         maxMs: 30,
         p95Ms: 30,
+        waits: 0,
       },
     ],
+  });
+});
+
+test('a lane counts the holds that queued before their grant', async () => {
+  let now = 0;
+  const gate = createLaneGate(
+    'competitive',
+    { connections: 1, queue: 4, maxWaitMs: 1000 },
+    undefined,
+    () => now,
+  );
+  const first = await withLaneOperation('scanRoundJudgingJobs', () =>
+    gate.admit(),
+  );
+  const queued = withLaneOperation('claimRoundJudgingJob', () => gate.admit());
+  now = 5;
+  first();
+  (await queued)();
+  const { total, operations } = gate.drainHolds();
+  assert({
+    given: 'a second operation queued behind the only connection',
+    should: 'count one wait, on that operation and on the lane',
+    actual: {
+      lane: total.waits,
+      byOperation: operations.map(({ operation, waits }) => [operation, waits]),
+    },
+    expected: {
+      lane: 1,
+      byOperation: [
+        ['scanRoundJudgingJobs', 0],
+        ['claimRoundJudgingJob', 1],
+      ],
+    },
   });
 });

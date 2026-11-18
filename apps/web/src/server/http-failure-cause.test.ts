@@ -30,17 +30,13 @@ const failWith = async (error: unknown) => {
 
 test('a transaction recovery failure logs its recovery state and inner code (ISSUE-618, ISSUE-630)', async () => {
   const failed = await failWith(
-    createAppError(
-      'INFRASTRUCTURE',
-      'Transcript transaction recovery pending',
-      {
-        recovery: 'pending',
-        cause: createAppError(
-          'INVARIANT',
-          'Check-in marker closure was not durably confirmed',
-        ),
-      },
-    ),
+    createAppError('INFRASTRUCTURE', 'Bounded transaction recovery pending', {
+      recovery: 'pending',
+      cause: createAppError(
+        'INVARIANT',
+        'Check-in marker closure was not durably confirmed',
+      ),
+    }),
   );
   assert({
     given: 'a 503 whose transaction recovery could not be confirmed',
@@ -61,7 +57,7 @@ test('a transaction recovery failure logs its recovery state and inner code (ISS
 
 test('a rolled-back transaction failure logs its recovery state alone', async () => {
   const failed = await failWith(
-    createAppError('INFRASTRUCTURE', 'Transcript transaction budget exceeded', {
+    createAppError('INFRASTRUCTURE', 'Bounded transaction budget exceeded', {
       recovery: 'rolled-back',
     }),
   );

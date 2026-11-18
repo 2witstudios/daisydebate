@@ -52,6 +52,8 @@ import { createRetentionSweep, retentionTargets } from './retention-sweep';
 import { startProductionServer } from './listen-first';
 import { SHUTDOWN_DRAIN_DEADLINE_MS } from './shutdown-budget';
 import { waitForHealthy } from './wait-for-healthy';
+import { createWorkWakes, keepWorkWakesListening } from './work-wakes';
+import { readPublicCheckInProbe } from '../features/availability/configuration';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port, host } = processStartOptions();
@@ -98,6 +100,41 @@ app.logger.log(
   },
   'Release flag default resolved',
 );
+/** Process one-shot timers: worker loop passes and deadlines; `unref` never holds the process open. */
+const oneShotTimer: OneShotTimer = {
+  setTimeout: (run, ms) => setTimeout(() => void run(), ms).unref(),
+  clearTimeout: (handle) =>
+    clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
+// ADR 0154: each worker loop wakes on the work it looks for. Lossy hints:
+// while the LISTEN cannot start, every loop runs at its idle cap, and it is
+// tried again with back-off.
+const workWakes = createWorkWakes();
+const workWakeListen = keepWorkWakesListening({
+  subscribe: () =>
+    app.database.listenWorkWakes({
+      onNotify: workWakes.wake,
+      onListen: workWakes.wakeAll,
+    }),
+  unavailable: (cause) =>
+    app.logger.log(
+      'worker.wake.unavailable',
+      { operation: 'worker.wake', cause },
+      'Worker wakes unavailable; loops poll at their idle cap',
+    ),
+  timers: oneShotTimer,
+});
+/** Process timers for the background workers; `unref` never holds the process open. */
+const workerTimers: WorkerTimers = {
+  ...oneShotTimer,
+  now: () => performance.now(),
+  setInterval: (tick, ms) =>
+    setInterval(() => {
+      void tick();
+    }, ms).unref(),
+  clearInterval: (handle) =>
+    clearInterval(handle as ReturnType<typeof setInterval>),
+};
 // ADR 0079: the private operator listener, only when keys are configured.
 // Its unexpected failures go to the app's scrubbed reporter (ADR 0037):
 // uninitialized without a DSN, so an unconfigured deployment stays inert.
@@ -107,7 +144,8 @@ const mediaRuntime = mediaConfigured(app.config)
   : null;
 const mediaRecovery = mediaRuntime
   ? startRoundMediaRecovery({
-      recover: () => mediaRuntime.operations().recoverActiveSessions(),
+      recover: (listed) =>
+        mediaRuntime.operations().recoverActiveSessions(listed),
       failed: (error) =>
         app.logger.log(
           'round.media.recovery_failed',
@@ -118,37 +156,32 @@ const mediaRecovery = mediaRuntime
           },
           'Media recovery remains pending',
         ),
-      every: (ms, tick) => {
-        const handle = setInterval(tick, ms).unref();
-        return { stop: () => clearInterval(handle) };
-      },
+      timers: workerTimers,
+      wake: workWakes.of('round'),
+      probeRoundId:
+        readPublicCheckInProbe(
+          app.config.ATTENDANCE_PUBLIC_PROBE,
+          app.config.PUBLIC_APP_URL,
+        )?.roundId ?? null,
     })
   : null;
 const laneGauges = startLaneGauges({
   gauges: app.database.laneGauges,
   drainHolds: app.database.drainLaneHolds,
-  log: (event, fields) =>
-    app.logger.log(event, fields, 'One window of database lane use'),
+  log: ({ event, fields }) =>
+    app.logger.log(
+      event,
+      fields,
+      event === 'db.lane.window'
+        ? 'One window of database lane use'
+        : 'One operation held a database lane',
+    ),
+  detail: ['debug', 'trace'].includes(app.config.LOG_LEVEL),
   every: (ms, run) => {
     const handle = setInterval(run, ms).unref();
     return { stop: () => clearInterval(handle) };
   },
 });
-/** Process timers for the async worker loops; `unref` never holds the process open. */
-const workerTimers: WorkerTimers = {
-  setInterval: (tick, ms) =>
-    setInterval(() => {
-      void tick();
-    }, ms).unref(),
-  clearInterval: (handle) =>
-    clearInterval(handle as ReturnType<typeof setInterval>),
-};
-/** Process one-shot timers for worker deadlines; `unref` never holds the process open. */
-const oneShotTimer: OneShotTimer = {
-  setTimeout: (run, ms) => setTimeout(run, ms).unref(),
-  clearTimeout: (handle) =>
-    clearTimeout(handle as ReturnType<typeof setTimeout>),
-};
 const availability = startRoundAvailability({
   app,
   fetch: fetchPublicAttendanceProbe,
@@ -163,6 +196,8 @@ const roundMaintenance = startRoundCompetitiveMaintenance({
   app,
   instanceId: availability.instanceId,
   timers: workerTimers,
+  wake: workWakes.of('round'),
+  ratingWake: workWakes.of('rating'),
   reporter: app.reporter,
 });
 const usageRecovery = startUsageRecovery({
@@ -217,6 +252,7 @@ const roundWorkers = startRoundWorkers({
       }
     : null,
   timers: workerTimers,
+  wakes: workWakes,
   deadlineTimer: oneShotTimer,
   reporter: app.reporter,
 });
@@ -318,10 +354,18 @@ const photoDeletions = startPhotoDeletions({
   logger: app.logger,
   timers: workerTimers,
 });
-const broadcastSweep = startBroadcastSweep(app, workerTimers);
+const broadcastSweep = startBroadcastSweep(
+  app,
+  workerTimers,
+  workWakes.of('round'),
+);
 const strayEgressSweep = startStrayEgressSweep(app, workerTimers);
 const notificationSweep = startNotificationSweep(app, workerTimers);
-const recordingCapture = startRecordingCapture(app, workerTimers);
+const recordingCapture = startRecordingCapture(
+  app,
+  workerTimers,
+  workWakes.of('round'),
+);
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
@@ -353,6 +397,7 @@ async function shutdown() {
   const mediaRecoveryStopped = mediaRecovery?.stop();
   const roundMaintenanceStopped = roundMaintenance.stop();
   const roomMaintenanceStopped = roomMaintenance.stop();
+  const workWakesStopped = workWakeListen.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -399,6 +444,7 @@ async function shutdown() {
         workersStopped,
         mediaRecoveryStopped,
         roundMaintenanceStopped,
+        workWakesStopped,
         roomMaintenanceStopped,
       ]);
       await closeProcessApp();

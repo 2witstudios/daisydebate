@@ -4,6 +4,7 @@ import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { startRoundMediaRecovery } from '../src/server/round-media-recovery';
 import { mediaDependencies, withMediaRound } from './round-media.test-support';
+import { realWorkerTimers } from '../src/lib/worker-timers.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -155,14 +156,11 @@ test('a Round whose provider call hangs does not hold another Round on the recov
       deadline: (work) => work,
     });
     const recovery = startRoundMediaRecovery({
-      recover: () => operations.recoverActiveSessions(),
+      recover: (listed) => operations.recoverActiveSessions(listed),
       failed: () => {
         throw Error('unexpected recovery failure');
       },
-      every: (ms, tick) => {
-        const timer = setInterval(tick, ms);
-        return { stop: () => clearInterval(timer) };
-      },
+      timers: realWorkerTimers,
     });
     try {
       const served = async () =>

@@ -5,7 +5,6 @@ import { tiles } from './tiles';
 import type { SeasonGlance } from '../../features/leaderboard/season';
 import { BetaOpenTeaser } from './beta-open-teaser/beta-open-teaser';
 import { AboutStrip } from './about-strip/about-strip';
-import type { HomeLadder } from './home-ladder';
 
 /**
  * Main-column composition of the home dashboard. Pure layout: owns the
@@ -18,7 +17,6 @@ export function Dashboard({
   hero,
   liveNow,
   seasonGlance = null,
-  ladder = { playCaption: null },
 }: {
   readonly audience: 'visitor' | 'member';
   readonly hero: ReactNode;
@@ -26,8 +24,6 @@ export function Dashboard({
   readonly liveNow: ReactNode;
   /** The Seasons note's reveal; null when no season is running. */
   readonly seasonGlance?: SeasonGlance | null;
-  /** The member's ladder words for the Play note. */
-  readonly ladder?: HomeLadder;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8">
@@ -43,8 +39,6 @@ export function Dashboard({
           <li key={tile.href} className="min-w-0">
             <ActionTile
               {...tile}
-              description={tile.description}
-              caption={tile.destination === 'lobby' ? ladder.playCaption : null}
               seasonGlance={
                 tile.destination === 'seasons' ? seasonGlance : null
               }

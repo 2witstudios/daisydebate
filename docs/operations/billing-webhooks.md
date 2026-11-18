@@ -28,8 +28,9 @@ receipt into acknowledgment or replace the retry response. No raw database or
 vendor exception enters those signals. An unconfigured Sentry adapter remains
 inert; source submission is not proof of operator delivery.
 
-The process starts single-flight subscription repair every five seconds when
-Stripe is configured. Receipt and customer keyset pages remain bounded; failed
+The process runs subscription repair on its worker loop when Stripe is
+configured: every five seconds while it finds work, backing off to a minute when
+idle (ADR 0154). Receipt and customer keyset pages remain bounded; failed
 identities stay durable while later identities can advance. Each current-service
 claim carries the original completed purchase price, rechecked under the canonical
 account fence at apply. Replacement new-purchase configuration cannot rewrite it.

@@ -21,10 +21,8 @@ import {
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
 import { workerFailures } from './recoverable-failure';
-import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../lib/worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
+import { startWorkerLoop } from '../lib/worker-loop';
 
 /** The current-service source and a provisioned private sink; absent inputs never become measured zero. */
 export function composeBillingEconomics(
@@ -220,9 +218,10 @@ export function startBillingEconomics(input: {
     if (settled) collectRaised = new Set();
     if (!settled) raiseOnce(month, 'report_failed', submitted.cause);
   };
-  return startSingleFlightWorker({
+  return startWorkerLoop({
     timers: input.timers,
-    everyMs: 3_600_000,
+    // A fixed hourly cadence: a collection is due by the calendar, not found.
+    backoff: { busyMs: 3_600_000, idleMaxMs: 3_600_000 },
     // A failure outside any collection (an invalid clock, a defect) is raised once per month and
     // reason until a collection completes.
     failed: (error) => {
@@ -250,6 +249,7 @@ export function startBillingEconomics(input: {
         );
       collecting = window.startsAt.slice(0, 7);
       raise(await collector.run(window));
+      return 'idle' as const;
     },
   });
 }

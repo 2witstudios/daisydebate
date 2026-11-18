@@ -7,10 +7,9 @@ import {
 } from '../features/billing/checkout-vendor';
 import { discoverCheckout } from '../features/billing/checkout-discovery';
 import { workerFailures } from './recoverable-failure';
-import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../lib/worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
+import { passOf } from '../lib/idle-backoff';
+import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** Only existing admitted attempts are inspected; creation stays in the explicit native member operation. */
 export function startBillingPurchases(input: {
@@ -37,9 +36,9 @@ export function startBillingPurchases(input: {
     discover: (purchase) => discoverCheckout({ port, mode }, purchase),
     failed,
   });
-  const schedule = startSingleFlightWorker({
-    run: () => reconciliation.run(),
-    everyMs: 5_000,
+  const schedule = startWorkerLoop({
+    run: () => reconciliation.run().then(passOf),
+    backoff: { busyMs: 5_000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => failed(error, 'discover'),
   });

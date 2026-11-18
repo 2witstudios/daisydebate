@@ -1,73 +1,62 @@
 import type { Database } from '@daisy/db';
+import {
+  laneWindowLines,
+  sampled,
+  type LaneOccupancy,
+  type LaneWindowLine,
+} from './lane-window';
 
 type Gauge = ReturnType<Database['laneGauges']>[number];
-type Hold = ReturnType<Database['drainLaneHolds']>[number];
-type Window = {
-  connections: number;
-  samples: number;
-  activeSum: number;
-  activeMax: number;
-  waitingSum: number;
-  waitingMax: number;
-};
 /** Fine enough for a time average; a lane read is two integers. */
 const SAMPLE_MS = 250;
-const SAMPLES_PER_WINDOW = 20;
-
-const added = (window: Window | undefined, gauge: Gauge): Window => ({
-  connections: gauge.connections,
-  samples: (window?.samples ?? 0) + 1,
-  activeSum: (window?.activeSum ?? 0) + gauge.active,
-  activeMax: Math.max(window?.activeMax ?? 0, gauge.active),
-  waitingSum: (window?.waitingSum ?? 0) + gauge.waiting,
-  waitingMax: Math.max(window?.waitingMax ?? 0, gauge.waiting),
-});
+/** One window a minute: an idle process writes one line per lane per minute. */
+const SAMPLES_PER_WINDOW = 240;
+/** At debug (the floor run), five-second windows: a short stall stays visible. */
+const DETAIL_SAMPLES_PER_WINDOW = 20;
 
 /**
- * Each lane's occupancy as a continuous time average, and how long each
- * operation held it (FLOOR-2). No Round or person appears: lane names and
- * operation names only.
+ * Each lane's occupancy as a continuous time average, and how long its
+ * operations held it (FLOOR-2), as one line per lane per window. No Round or
+ * person appears: lane names and operation names only.
  */
 export function startLaneGauges(input: {
   readonly gauges: () => readonly Gauge[];
-  readonly drainHolds: () => readonly Hold[];
-  readonly log: (
-    event: 'db.lane.gauge' | 'db.lane.hold',
-    fields: Record<string, string | number>,
-  ) => void;
+  readonly drainHolds: Database['drainLaneHolds'];
+  readonly log: (line: LaneWindowLine) => void;
   readonly every: (
     ms: number,
     run: () => void,
   ) => { readonly stop: () => void };
+  /** Every operation's holds each window, not only slow ones (LOG_LEVEL debug). */
+  readonly detail: boolean;
   readonly samplesPerWindow?: number;
 }) {
-  const size = input.samplesPerWindow ?? SAMPLES_PER_WINDOW;
-  let windows = new Map<string, Window>();
-  let sampled = 0;
-  return input.every(SAMPLE_MS, () => {
+  const size =
+    input.samplesPerWindow ??
+    (input.detail ? DETAIL_SAMPLES_PER_WINDOW : SAMPLES_PER_WINDOW);
+  let occupancy = new Map<string, LaneOccupancy>();
+  let samples = 0;
+  const flush = () => {
+    for (const line of laneWindowLines({
+      occupancy,
+      holds: input.drainHolds(),
+      detail: input.detail,
+    }))
+      input.log(line);
+    occupancy = new Map();
+    samples = 0;
+  };
+  const timer = input.every(SAMPLE_MS, () => {
     for (const gauge of input.gauges())
-      windows.set(gauge.lane, added(windows.get(gauge.lane), gauge));
-    sampled += 1;
-    if (sampled < size) return;
-    for (const [lane, window] of windows)
-      input.log('db.lane.gauge', { lane, ...window });
-    for (const {
-      lane,
-      operation,
-      count,
-      totalMs,
-      maxMs,
-      p95Ms,
-    } of input.drainHolds())
-      input.log('db.lane.hold', {
-        lane,
-        operation,
-        holds: count,
-        durationMs: totalMs,
-        maxMs,
-        p95Ms,
-      });
-    windows = new Map();
-    sampled = 0;
+      occupancy.set(gauge.lane, sampled(occupancy.get(gauge.lane), gauge));
+    samples += 1;
+    if (samples >= size) flush();
   });
+  return {
+    /** Stops sampling and logs the window in progress: a shutdown keeps its evidence. */
+    stop() {
+      timer.stop();
+      if (samples > 0) flush();
+    },
+  };
 }

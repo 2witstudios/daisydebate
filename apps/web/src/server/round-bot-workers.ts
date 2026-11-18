@@ -13,6 +13,7 @@ import {
 } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
+import type { WorkWake } from '../lib/worker-loop';
 
 /** Bot debaters' own workers: seat control and live speech on the competitive provider budget. */
 export function startRoundBotWorkers(input: {
@@ -35,6 +36,7 @@ export function startRoundBotWorkers(input: {
    * (ISSUE-789), and wakes a speaker again after a refusal.
    */
   readonly deadlineTimer: OneShotTimer;
+  readonly wake?: WorkWake | undefined;
   readonly reporter?: ErrorReporter;
 }) {
   const { app, policy } = input;
@@ -97,6 +99,7 @@ export function startRoundBotWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
+    wake: input.wake,
     overdue: endingDeadline(policy, input.deadlineTimer),
     failed: failure(
       'round.control.failed',

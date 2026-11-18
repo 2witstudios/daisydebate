@@ -104,7 +104,7 @@ test('a server log gives refusals, cost per floor change and lane use', () => {
       vendorCallsOutsidePasses: 0,
     },
     {
-      event: 'db.lane.gauge',
+      event: 'db.lane.window',
       lane: 'competitive',
       connections: 10,
       samples: 20,

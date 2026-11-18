@@ -14,6 +14,7 @@ import { createSweepPass } from '../../lib/sweep-pass';
 import { reconcileFacts } from './reconcile-facts';
 import { releaseOverdue } from './release-lag';
 import { reconcileStep, type ReconcilePorts } from './reconcile-step';
+import type { LoopPass } from '../../lib/idle-backoff';
 
 type Database = ReturnType<typeof createDatabase>;
 type Store = Database['broadcasts'];
@@ -230,7 +231,9 @@ export const createBroadcastSweep = (deps: {
     );
   };
   const pass = createSweepPass(deps.passBudget);
-  const sweep = async () => {
+  /** One pass; it worked while any Broadcast is due, open or stopping. */
+  const sweep = async (): Promise<LoopPass> => {
+    let rows = 0;
     // A Youth Round is never broadcast (ADR 0150), including one opened before that rule.
     // A failure here is reported and retried next pass; it never holds up the
     // other Broadcasts, and a Youth Round still opens none (plannedBroadcast).
@@ -238,12 +241,14 @@ export const createBroadcastSweep = (deps: {
       const youthStopped = await deps.store.endYouthBroadcasts(
         new Date(deps.now()),
       );
+      rows += youthStopped.length;
       if (youthStopped.length > 0) deps.report('broadcast.youth_round_stopped');
     } catch {
       deps.report('broadcast.reconcile_failed');
     }
     for (const round of await deps.store.discoverUnopened(BATCH)) {
       const plan = plannedBroadcast(round);
+      if (plan) rows += 1;
       if (plan)
         await deps.store.open({
           id: deps.nextId(),
@@ -252,7 +257,7 @@ export const createBroadcastSweep = (deps: {
           ...plan,
         });
     }
-    await pass.overPages(
+    rows += await pass.overPages(
       BATCH,
       (after) => deps.store.listOpen(BATCH, after),
       (broadcast) => broadcast.id,
@@ -272,6 +277,7 @@ export const createBroadcastSweep = (deps: {
       },
       () => deps.report('broadcast.reconcile_failed'),
     );
+    return rows > 0 ? 'worked' : 'idle';
   };
   return Object.assign(sweep, { settled: pass.settled });
 };

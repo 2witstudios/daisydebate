@@ -98,7 +98,7 @@ test('one Room that cannot be maintained does not stop the rest of the sweep (PR
   });
 });
 
-test('Room maintenance runs on its own 500 ms single-flight timer (ISSUE-771)', async () => {
+test('Room maintenance runs on its own 500 ms worker loop (ISSUE-771)', async () => {
   const { tasks, timers } = manualTimers();
   const { failures, failed } = failureLog();
   const pageFailure = new Error('page read failed');
@@ -115,12 +115,29 @@ test('Room maintenance runs on its own 500 ms single-flight timer (ISSUE-771)', 
   assert({
     given: 'a pass whose page read fails, then a stop',
     should:
-      'pulse every 500 ms, report the failure at the discover stage and clear its interval',
+      'arm the next pass at 500 ms, report the failure at the discover stage and clear it on stop',
     actual: { pulsed: pulse !== undefined, failures, cleared: !tasks.has(500) },
     expected: {
       pulsed: true,
       failures: [[pageFailure, 'discover']],
       cleared: true,
     },
+  });
+});
+
+test('a candidate Room the engine declines is no work, so the loop backs off', async () => {
+  const { failed } = failureLog();
+  const pass = await createRoomMaintenance({
+    store: {
+      readMaintenanceCandidates: async () => ['room-a'],
+      maintainRoom: async () => false,
+    },
+    idleTimeoutMs: 60_000,
+  })(failed);
+  assert({
+    given: 'an idle candidate whose Round still runs, declined every pass',
+    should: 'report the pass idle',
+    actual: pass,
+    expected: 'idle',
   });
 });

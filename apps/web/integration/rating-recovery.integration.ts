@@ -38,7 +38,10 @@ test('real PostgreSQL recovery crosses full pages after unavailable season and r
           given: 'two finalized results but no active season',
           should: 'retain failed rows and advance the bounded keyset',
           actual: [first, failures],
-          expected: [{ afterId: ids[1], exhausted: false }, ids.slice(0, 2)],
+          expected: [
+            { afterId: ids[1], exhausted: false, rated: 0 },
+            ids.slice(0, 2),
+          ],
         });
         await arena.season('active', minute(0));
         let cursor = first.afterId;

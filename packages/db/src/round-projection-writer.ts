@@ -39,6 +39,7 @@ import { roundCommands } from './schema/round-commands';
 import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
+import { notifyWork, type WorkKind } from './work-wake';
 
 type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 
@@ -98,6 +99,19 @@ const endsRound = (current: LockedRound, projection: RoundProjection) =>
   isRoundOver(projection.round.status) &&
   !isRoundOver(current.status);
 
+/**
+ * The worker wakes a changed Round write sends (ADR 0154): every write may
+ * hand a live loop work (a bot's turn, a due step), and a completion may owe
+ * a rating. The transaction already notifies the outbox, so these add no
+ * commit serialization.
+ */
+export const workKindsOf = (
+  projection: Pick<RoundProjection, 'round'>,
+): readonly WorkKind[] =>
+  projection.round && isRoundCompleted(projection.round.status)
+    ? ['round', 'rating']
+    : ['round'];
+
 /** Persist a projection and announce exactly the revision it advances to. */
 export async function writeProjectionWithPhaseSignal(
   tx: Tx,
@@ -137,6 +151,8 @@ export async function writeProjectionWithPhaseSignal(
   // An opening that ends starts the debate's clock (ADR 0144).
   if (projection.round && roundBegan(current.status, projection.round.status))
     await oweRoundStarted(tx, { roundId, at: now });
+  // Lossy hints, delivered on commit (ADR 0154).
+  for (const kind of workKindsOf(projection)) await notifyWork(tx, kind);
   // The engine rules when a Round stops holding its Room's members (ADR 0070).
   if (projection.releasesRoomMembers)
     await releaseRoundRoomMembers(tx, roundId);

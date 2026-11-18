@@ -101,8 +101,8 @@ export function createRoundMediaRuntime(
     const passes = createRoundMediaOperations(floor.input);
     const operations: typeof passes = {
       ...passes,
-      recoverActiveSessions: () =>
-        floor.asMover('tick', passes.recoverActiveSessions),
+      recoverActiveSessions: (listed) =>
+        floor.asMover('tick', () => passes.recoverActiveSessions(listed)),
       holdForCapture: (sessionId, work) =>
         floor.asMover('capture', () => passes.holdForCapture(sessionId, work)),
     };

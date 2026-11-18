@@ -114,6 +114,7 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `holds`                      | count |
 | `maxMs`                      | count |
 | `p95Ms`                      | count |
+| `waits`                      | count |
 | `nodeIndex`                  | count |
 
 Kinds: **code**, a letter followed by up to 79 letters, digits, `_`, `.` or

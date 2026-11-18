@@ -1,11 +1,15 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
 import { isDebatingSeat, type RoundView } from '@daisy/protocol';
 import { createAttendanceHttpClient } from './http-client';
-import { createAttendanceClient } from './client';
+import { ATTENDANCE_HEARTBEAT_MS, createAttendanceClient } from './client';
 
-/** HTTP receipt production is independent of realtime, visibility and microphone permission. */
+/**
+ * HTTP receipt production is independent of realtime, visibility and
+ * microphone permission. Returns whether check-in stopped because the
+ * session is gone, so the Round can say sign in again.
+ */
 export function useRoundAttendance({
   view,
   actorId,
@@ -16,7 +20,7 @@ export function useRoundAttendance({
   readonly reconnect?: {
     readonly subscribe: (listener: () => void) => () => void;
   };
-}): void {
+}): { readonly signedOut: boolean } {
   const eligible = view.participants.some(
     (seat) =>
       'actorId' in seat &&
@@ -24,9 +28,14 @@ export function useRoundAttendance({
       seat.kind === 'human' &&
       isDebatingSeat(seat.seat),
   );
+  // Keyed by the client that hit the 401 (its Round and eligibility): a new
+  // client, such as the Room's next Round, shows no stale signed-out state.
+  const clientKey = `${view.id}:${eligible}`;
+  const [signedOutKey, setSignedOutKey] = useState<string | null>(null);
   const client = useRef<ReturnType<typeof createAttendanceClient> | null>(null);
   useEffect(() => {
     if (!eligible) return;
+    const key = `${view.id}:${eligible}`;
     const http = createAttendanceHttpClient({
       roundId: view.id,
       fetch: (url, init) => fetch(url, init),
@@ -34,8 +43,10 @@ export function useRoundAttendance({
     });
     const consumer = createAttendanceClient({
       nextCommandId: () => systemId.next(),
+      nowMs: () => performance.now(),
       read: http.read,
       send: http.send,
+      signedOut: () => setSignedOutKey(key),
     });
     client.current = consumer;
     const reconnect = () => {
@@ -49,7 +60,7 @@ export function useRoundAttendance({
     document.addEventListener('visibilitychange', visible);
     const timer = window.setInterval(() => {
       void consumer.heartbeat();
-    }, 15000);
+    }, ATTENDANCE_HEARTBEAT_MS);
     return () => {
       client.current = null;
       consumer.stop();
@@ -62,4 +73,5 @@ export function useRoundAttendance({
   useEffect(() => {
     void client.current?.update(view);
   }, [view, eligible]);
+  return { signedOut: signedOutKey === clientKey };
 }

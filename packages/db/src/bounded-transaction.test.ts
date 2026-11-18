@@ -186,7 +186,7 @@ test('the execution budget is checked after the callback and before commit', asy
         ),
     },
     expected: {
-      message: 'Transcript transaction budget exceeded',
+      message: 'Bounded transaction budget exceeded',
       recovery: 'rolled-back',
       writerCommitted: false,
     },

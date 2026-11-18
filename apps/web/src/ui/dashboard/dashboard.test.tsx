@@ -149,24 +149,28 @@ describe('Dashboard', () => {
 });
 
 describe('Dashboard ladder words', () => {
-  test('Play carries the member’s rating; Leaderboard keeps its own words (YHomeActive)', () => {
+  test('Play and Leaderboard keep their own words (YHomeActive)', () => {
     const html = renderInStore(
       h(Dashboard, {
         audience: 'member',
         hero: null,
         liveNow: null,
-        ladder: { playCaption: 'Freestyle · 1526' },
       }),
     );
+    const play = (
+      /<a[^>]*href="\/lobby"[^>]*>[\s\S]*?<\/a>/.exec(html)?.[0] ?? ''
+    ).replace(/<[^>]*>/g, '');
+    const playTile = tiles.find((tile) => tile.destination === 'lobby');
     assert({
-      given: 'a youth member rated 1526',
+      given: 'a youth member on Home',
       should:
-        'caption Play with the style and rating, and keep the Leaderboard tagline',
+        'show Play with only its title and tagline, and Leaderboard with its shipped tagline, naming no division',
       actual: [
-        html.includes('>Freestyle · 1526<'),
+        play,
+        html.includes('Freestyle ladders.'),
         html.includes('The season ladder.'),
       ],
-      expected: [true, true],
+      expected: [`${playTile?.title}${playTile?.description}`, false, true],
     });
   });
 });

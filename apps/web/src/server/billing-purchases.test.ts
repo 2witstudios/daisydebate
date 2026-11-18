@@ -10,6 +10,7 @@ import {
   checkoutSession,
 } from '../features/billing/checkout.test-support';
 import type { BillingFetch } from './billing-stripe';
+import { withOneShots } from '../lib/worker-timers.test-support';
 
 setupRitewayBun();
 test('scheduled SDK recovery discovers the original closed attempt without creating or repricing it', async () => {
@@ -101,7 +102,7 @@ test('scheduled SDK recovery discovers the original closed attempt without creat
     },
     instanceId: 'current-service-fixture',
     fetch,
-    timers: {
+    timers: withOneShots({
       setInterval: (run, ms) => {
         tick = run;
         calls.push(ms);
@@ -110,7 +111,7 @@ test('scheduled SDK recovery discovers the original closed attempt without creat
       clearInterval: () => {
         calls.push('clear');
       },
-    },
+    }),
   })!;
   await service.started;
   await service.stop();
@@ -122,7 +123,7 @@ test('scheduled SDK recovery discovers the original closed attempt without creat
       'perform only bounded original Session reads and retain its exact positive effect through current-service recovery',
     actual: [calls, requests, records],
     expected: [
-      ['current-service-fixture', 5000, { mode: 'test', limit: 3 }, 'clear'],
+      ['current-service-fixture', { mode: 'test', limit: 3 }, 5000, 'clear'],
       [
         ['GET', '/v1/checkout/sessions'],
         ['GET', `/v1/checkout/sessions/${session.id}`],
