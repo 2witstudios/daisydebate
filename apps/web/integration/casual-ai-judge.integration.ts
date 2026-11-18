@@ -86,13 +86,13 @@ test('a casual AI judge seat needs the host’s own grant, refused on the server
     assert({
       given: 'that refused seat',
       should:
-        'name the premium refusal, leave the Room exactly unchanged, and tell the host',
+        'name the premium refusal, leave the Room exactly unchanged, and tell the host the free AI judge comes with the free bot Round',
       actual: [
         refusal,
         await f.snapshot(open.view.id),
         (await f.operations.view(other, open.view.id)).aiJudgeSeating,
       ],
-      expected: ['ai-judge-premium', before, 'premium'],
+      expected: ['ai-judge-premium', before, 'with-bot'],
     });
   });
 });

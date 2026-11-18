@@ -93,13 +93,15 @@ test('without the capture grant', () => {
   assert({
     given: 'a casual host without Premium, then a Room that offers no capture',
     should:
-      'point to Premium instead of a switch, then show who can join alone',
+      'show two off switches that post nothing and no panel until reached for, then who can join alone',
     actual: [
-      (html.match(/href="\/premium"/g) ?? []).length,
-      html.includes('role="switch"'),
+      (html.match(/role="switch"/g) ?? []).length,
+      /name="(broadcast|recording)"/.test(html),
+      html.includes('href="/premium"'),
+      html.includes('Recording and broadcast are Premium'),
       none.includes('Broadcast'),
     ],
-    expected: [2, false, false],
+    expected: [2, false, false, false, false],
   });
 });
 

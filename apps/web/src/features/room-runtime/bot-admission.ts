@@ -22,7 +22,10 @@ export async function roomBotAdmission(
   if (!castSeatsBotDebater(state)) return null;
   try {
     const status = await read(actorId);
-    return status ? { kind: 'allowance', ...status } : { kind: 'unavailable' };
+    // Only the decision reaches the Room, never a count (PYL-10).
+    return status
+      ? { kind: 'allowance', refusal: status.refusal }
+      : { kind: 'unavailable' };
   } catch {
     return { kind: 'unavailable' };
   }
