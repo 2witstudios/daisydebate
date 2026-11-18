@@ -76,3 +76,35 @@ test('discovery buffers count only pages the Room and Round scans touch', () => 
     expected: [46, 46],
   });
 });
+
+test('discovery buffers attribute a bitmap index walk to its Room/Round scan', () => {
+  const heap = (indexPages: number): DiscoveryPlan => ({
+    'Node Type': 'Bitmap Heap Scan',
+    'Relation Name': 'rooms',
+    'Actual Rows': 2,
+    'Actual Loops': 1,
+    'Shared Hit Blocks': 6 + indexPages,
+    Plans: [
+      {
+        'Node Type': 'BitmapAnd',
+        'Actual Rows': 0,
+        'Actual Loops': 1,
+        'Shared Hit Blocks': indexPages,
+        Plans: [
+          {
+            'Node Type': 'Bitmap Index Scan',
+            'Actual Rows': 2,
+            'Actual Loops': 1,
+            'Shared Hit Blocks': indexPages,
+          },
+        ],
+      },
+    ],
+  });
+  assert({
+    given: 'a Room bitmap heap scan whose index walk grows with history',
+    should: 'count the index pages with the scan, so the growth is visible',
+    actual: [heap(2), heap(200)].map(discoveryRelationBuffers),
+    expected: [8, 206],
+  });
+});

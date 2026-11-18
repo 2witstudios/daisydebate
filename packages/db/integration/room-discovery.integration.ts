@@ -23,12 +23,13 @@ test('reapplying the committed migration chain records no new migrations', async
     const folder = resolve(import.meta.dir, '../migrations');
     const [initial] =
       await f.sql`select count(*)::int n from drizzle.__drizzle_migrations`;
-    await runMigrations({ databaseUrl, migrationsFolder: folder });
+    for (let i = 0; i < 2; i++)
+      await runMigrations({ databaseUrl, migrationsFolder: folder });
     const [reapplied] =
       await f.sql`select count(*)::int n from drizzle.__drizzle_migrations`;
     assert({
       given: 'this run already applied the whole forward chain',
-      should: 'apply again without duplicate migration records',
+      should: 'apply twice again without duplicate migration records',
       actual: reapplied!.n,
       expected: initial!.n,
     });
@@ -165,6 +166,13 @@ test('discovery work is independent of historical Room and Round volume', async 
       // Room. Count filtered rows and loops too, so a history scan (at least
       // HISTORY_PER_STEP rows, well above this bound) cannot hide behind LIMIT.
       const activeWorkBound = 3 * (liveIds.length / 2 + 2);
+      // Room/Round scan pages, index walks included, measured 49 then 47 on a
+      // fresh run database. Doubling history adds about 1-3 index leaf pages
+      // per step, so the slack stays below that: a walk over the new entries
+      // fails. The whole plan's pages (101 then 99) keep a looser bound so a
+      // history-proportional probe of any other joined table also fails.
+      const pages = (plan: typeof before) =>
+        (plan['Shared Hit Blocks'] ?? 0) + (plan['Shared Read Blocks'] ?? 0);
       assert({
         given:
           'historical Room/Round count doubles while live candidates remain fixed',
@@ -174,9 +182,10 @@ test('discovery work is independent of historical Room and Round volume', async 
           before['Actual Rows'],
           after['Actual Rows'],
           discoveryRelationBuffers(after) <=
-            discoveryRelationBuffers(before) + 10,
+            discoveryRelationBuffers(before) + 1,
+          pages(after) <= pages(before) + 10,
         ],
-        expected: [3, 3, true],
+        expected: [3, 3, true, true],
       });
       assert({
         given:
