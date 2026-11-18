@@ -103,6 +103,9 @@ export function AccountMenu({
         <Link href="/help" className={navFlyoutLinkClass}>
           Help
         </Link>
+        <Link href="/about" className={navFlyoutLinkClass}>
+          About Daisy
+        </Link>
         <Link href="/terms" className={navFlyoutLinkClass}>
           Terms
         </Link>

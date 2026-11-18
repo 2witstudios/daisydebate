@@ -11,7 +11,20 @@
     "packages/*"
   ],
   "overrides": {
-    "happy-dom": "21.0.4"
+    "happy-dom": "21.0.4",
+    "vitest": "4.1.12",
+    "@sentry/bundler-plugins": {
+      "glob": "14.0.6"
+    },
+    "riteway": {
+      "glob": "14.0.6"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.9"
+    },
+    "jsonpath": {
+      "underscore": "1.13.8"
+    }
   },
   "scripts": {
     "dev": "bun scripts/heavy.ts bun --env-file=.env run turbo run dev",

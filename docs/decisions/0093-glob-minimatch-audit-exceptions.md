@@ -4,6 +4,9 @@ Status: accepted (agent decision on the owner's behalf of 2026-10-31,
 DEC-270, pending confirmation). This extends ADR 0039 with two more dated
 exceptions; ADR 0039's rules apply unchanged.
 
+Retired 2026-11-18 by [ADR 0152](0152-scoped-overrides-clear-audit-exceptions.md):
+a scoped `overrides` pin to the patched version replaced these exceptions.
+
 ## Context
 
 Two moderate advisories, both published after main's last green audit run,

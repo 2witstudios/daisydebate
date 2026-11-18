@@ -97,7 +97,7 @@ export function strikeLabel(
 
 const FIVE_MINUTES = 300_000;
 
-/** "about 30 min": speeches, their countdowns and every side's prep, to five minutes. */
+/** "about 45 min": speeches, their countdowns and every side's prep, to five minutes. */
 export function roundLength({
   speechesMs,
   countdownMs,

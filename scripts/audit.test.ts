@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   auditCommand,
+  documentedOverrides,
+  flattenOverrides,
+  overrideProblems,
   liveAdvisories,
   liveAuditProblems,
   validateAuditExceptions,
@@ -11,9 +14,6 @@ import committed from '../policy/audit-exceptions.json';
 setupRitewayBun();
 
 const adr = 'docs/decisions/0039-dated-dependency-audit-exceptions.md';
-const tinypoolAdr = 'docs/decisions/0056-tinypool-audit-exceptions.md';
-const mockerAdr = 'docs/decisions/0068-vitest-manual-mock-audit-exception.md';
-const globAdr = 'docs/decisions/0093-glob-minimatch-audit-exceptions.md';
 const entry = (overrides: Partial<AuditException> = {}): AuditException => ({
   advisory: 'GHSA-82fw-gwwq-j7x9',
   packages: ['@vitest/mocker', 'vitest'],
@@ -33,23 +33,12 @@ const live = new Map([['GHSA-82fw-gwwq-j7x9', ['@vitest/mocker', 'vitest']]]);
 const options = { today: '2026-09-23', knownPaths: new Set([adr]), live };
 
 describe('audit command', () => {
-  test('ignores exactly the committed advisories and nothing broader', () => {
+  test('the committed registry ignores nothing', () => {
     assert({
-      given: 'the committed audit exception registry',
-      should:
-        'run bun audit with one --ignore per listed advisory, no --audit-level',
+      given: 'the committed audit exception registry, every advisory fixed',
+      should: 'run plain bun audit with no --ignore and no --audit-level',
       actual: auditCommand(committed),
-      expected: [
-        'bun',
-        'audit',
-        '--ignore=GHSA-82fw-gwwq-j7x9',
-        '--ignore=GHSA-qpx9-hpmf-5gmw',
-        '--ignore=GHSA-5gmw-xhrv-c9v3',
-        '--ignore=GHSA-85c8-ppgw-ccpr',
-        '--ignore=GHSA-qxg6-89mg-rqv8',
-        '--ignore=GHSA-3g3m-2fjr-6pw4',
-        '--ignore=GHSA-g3hv-75wg-m249',
-      ],
+      expected: ['bun', 'audit'],
     });
   });
 
@@ -99,22 +88,14 @@ describe('live advisories', () => {
 });
 
 describe('audit exception registry', () => {
-  test('accepts the committed registry shape against its live advisories', () => {
+  test('accepts the committed, empty registry against a clean audit', () => {
     assert({
-      given: 'the committed registry, its ADRs and all eight advisories live',
+      given: 'the committed registry and no live advisories',
       should: 'report no problems',
       actual: validateAuditExceptions(committed, {
-        today: '2026-09-23',
-        knownPaths: new Set([adr, tinypoolAdr, mockerAdr, globAdr]),
-        live: new Map([
-          ['GHSA-82fw-gwwq-j7x9', ['@vitest/mocker', 'vitest']],
-          ['GHSA-qpx9-hpmf-5gmw', ['underscore']],
-          ['GHSA-5gmw-xhrv-c9v3', ['tinypool']],
-          ['GHSA-85c8-ppgw-ccpr', ['tinypool']],
-          ['GHSA-qxg6-89mg-rqv8', ['@vitest/mocker']],
-          ['GHSA-3g3m-2fjr-6pw4', ['glob']],
-          ['GHSA-g3hv-75wg-m249', ['minimatch']],
-        ]),
+        today: '2026-11-18',
+        knownPaths: new Set(),
+        live: new Map(),
       }),
       expected: [],
     });
@@ -287,6 +268,89 @@ describe('audit policy check', () => {
       expected: [
         'audit: could not read live advisories (bun audit --json exited 0)',
       ],
+    });
+  });
+});
+
+const overridesDoc = (...rows: readonly string[]) =>
+  [
+    '### Security overrides',
+    '',
+    '| Override | Clears | Notes |',
+    '| --- | --- | --- |',
+    ...rows,
+    '',
+    'Prose after the table.',
+  ].join('\n');
+
+describe('security overrides record', () => {
+  test('flattens root and parent-scoped overrides', () => {
+    assert({
+      given: 'a root pin and a parent-scoped pin',
+      should: 'name each as package@version, the scoped one under its parent',
+      actual: flattenOverrides({
+        vitest: '4.1.12',
+        jsonpath: { underscore: '1.13.8' },
+      }),
+      expected: ['vitest@4.1.12', 'jsonpath > underscore@1.13.8'],
+    });
+  });
+
+  test('reads the documented overrides from the table', () => {
+    assert({
+      given: 'a Security overrides table with a root and a scoped row',
+      should: 'read each first cell as the same flattened pin',
+      actual: documentedOverrides(
+        overridesDoc(
+          '| `vitest` → `4.1.12` | GHSA | note |',
+          '| `jsonpath` → `underscore` `1.13.8` | GHSA | note |',
+        ),
+      ),
+      expected: ['vitest@4.1.12', 'jsonpath > underscore@1.13.8'],
+    });
+  });
+
+  test('a documented pin set matching package.json passes', () => {
+    assert({
+      given: 'overrides that the table records exactly',
+      should: 'report no problems',
+      actual: overrideProblems(
+        { jsonpath: { underscore: '1.13.8' } },
+        overridesDoc('| `jsonpath` → `underscore` `1.13.8` | GHSA | note |'),
+      ),
+      expected: [],
+    });
+  });
+
+  test('an undocumented override and a stale row both fail', () => {
+    assert({
+      given: 'a pin the table omits and a row whose version moved',
+      should: 'name the undocumented pin and the stale row',
+      actual: overrideProblems(
+        { vitest: '4.1.13' },
+        overridesDoc('| `vitest` → `4.1.12` | GHSA | note |'),
+      ),
+      expected: [
+        'overrides: vitest@4.1.13 is not in docs/dependencies.md § Security overrides',
+        'overrides: docs/dependencies.md lists vitest@4.1.12, which package.json overrides does not pin',
+      ],
+    });
+  });
+
+  test('the committed overrides are all documented', async () => {
+    const manifest = (await Bun.file(
+      new URL('../package.json', import.meta.url),
+    ).json()) as { readonly overrides?: unknown };
+    assert({
+      given: 'the committed package.json and docs/dependencies.md',
+      should: 'report no problems',
+      actual: overrideProblems(
+        manifest.overrides,
+        await Bun.file(
+          new URL('../docs/dependencies.md', import.meta.url),
+        ).text(),
+      ),
+      expected: [],
     });
   });
 });

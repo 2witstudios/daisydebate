@@ -1,33 +1,26 @@
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
+import { DrawFigure } from './draw-figure';
+import { NumberedSteps } from './intro-parts';
+import { drawSize, preRoundPrepMinutes } from './freestyle';
 import { heading, type IntroStepProps } from './intro';
 
-/** Daisy's two choices: the ranked Freestyle standard, and Custom for any rules. */
-const choices = [
-  {
-    name: 'Freestyle',
-    tag: 'Ranked',
-    summary: 'Daisy’s standard, with its own ladder.',
-    detail: [
-      'The topic is revealed at the table: five resolutions are drawn from Daisy’s bank, and the sides strike them in turn until one is left. Neg strikes first.',
-      'Then 20 minutes of prep, and the round begins.',
-    ],
-  },
-  {
-    name: 'Custom',
-    tag: 'Unranked',
-    summary: 'Any rules, any kind of debate.',
-    detail: [
-      'Start from a league template such as NSDA Lincoln-Douglas, NCFCA Team Policy or Public Forum, or write your own.',
-      'Practice or compete, just not ranked.',
-    ],
-  },
-] as const;
-
-const pill =
-  'shrink-0 rounded-round px-3 py-1 text-xs font-strong whitespace-nowrap';
-
+/** Step 2: Freestyle, and how its resolution is chosen at the table. */
 export function StylesStep({ nextHref, backHref, skip }: IntroStepProps) {
+  const steps = [
+    [
+      `${drawSize} resolutions are drawn`,
+      'Daisy draws them at random from its bank when the round starts.',
+    ],
+    [
+      'The sides strike in turn',
+      'Neg strikes first, then Aff, until one resolution is left. That’s the one you debate.',
+    ],
+    [
+      `${preRoundPrepMinutes} minutes of prep, then go live`,
+      'Ranked results move your rating on the season’s ladder.',
+    ],
+  ] as const;
   return (
     <OnboardingFrame
       step={stepNumber('styles')}
@@ -35,40 +28,15 @@ export function StylesStep({ nextHref, backHref, skip }: IntroStepProps) {
       skip={skip}
     >
       <h1 id="onboarding-title" className={heading}>
-        Freestyle and Custom
+        Freestyle, Daisy’s standard
       </h1>
       <p className="max-w-reading text-md leading-normal text-ink-muted">
-        Play Freestyle to climb the ladder. Run anything else as a custom
-        debate.
+        The ranked format, built on American parliamentary debate. Nobody preps
+        a case in advance: the resolution is chosen at the table.
       </p>
-      <div className="grid grid-cols-2 gap-4 max-narrow:grid-cols-1">
-        {choices.map(({ name, tag, summary, detail }) => (
-          <div
-            key={name}
-            className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-4"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display text-xl font-semibold text-ink">
-                {name}
-              </h2>
-              <span
-                className={
-                  tag === 'Ranked'
-                    ? `${pill} bg-accent text-accent-ink`
-                    : `${pill} border border-border-strong text-ink`
-                }
-              >
-                {tag}
-              </span>
-            </div>
-            <p className="text-sm font-strong text-ink">{summary}</p>
-            {detail.map((line) => (
-              <p key={line} className="text-sm leading-normal text-ink-muted">
-                {line}
-              </p>
-            ))}
-          </div>
-        ))}
+      <div className="grid grid-cols-2 items-start gap-6 max-narrow:grid-cols-1">
+        <NumberedSteps steps={steps} markerClass="bg-accent text-accent-ink" />
+        <DrawFigure />
       </div>
       <StepFooter
         backHref={backHref}

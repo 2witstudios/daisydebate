@@ -54,6 +54,7 @@ const betterAuthRoutes = [
 /** Every App Router pattern of `apps/web` and `apps/admin`. */
 const appRoutes = [
   '/',
+  '/about',
   '/accounts',
   '/api/account/age',
   '/api/account/onboarding',
@@ -256,7 +257,9 @@ const appRoutes = [
   '/onboarding/daisy',
   '/onboarding/debate',
   '/onboarding/experience',
+  '/onboarding/host',
   '/onboarding/passkey',
+  '/onboarding/practice',
   '/onboarding/ready',
   '/onboarding/styles',
   '/onboarding/topics',

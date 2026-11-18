@@ -88,4 +88,17 @@ describe('HeroBanner', () => {
       expected: [false],
     });
   });
+
+  test('leads to About Daisy under the join', () => {
+    const html = render();
+    assert({
+      given: 'the visitor hero',
+      should: 'link Learn about Daisy to /about after the join form',
+      actual: [
+        html.includes('href="/about"'),
+        html.indexOf('</form>') < html.indexOf('href="/about"'),
+      ],
+      expected: [true, true],
+    });
+  });
 });
