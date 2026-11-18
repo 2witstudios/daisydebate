@@ -4729,19 +4729,6 @@
       "table": "club_seat_invitations"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "token_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -25207,27 +25194,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "token_digest",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "club_seat_invitations_token_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "club_seat_invitations"
     },
     {
       "nameExplicit": true,
@@ -47932,13 +47898,6 @@
     {
       "value": "\"email\" = lower(btrim(\"email\")) and length(\"email\") between 3 and 320",
       "name": "club_seat_invitations_email_normalized",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "value": "\"token_digest\" is null or \"token_digest\" ~ '^[0-9a-f]{64}$'",
-      "name": "club_seat_invitations_token_check",
       "entityType": "checks",
       "schema": "public",
       "table": "club_seat_invitations"

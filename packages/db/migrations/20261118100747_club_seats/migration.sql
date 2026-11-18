@@ -3,11 +3,9 @@ CREATE TABLE "club_seat_invitations" (
 	"organization_id" text NOT NULL,
 	"email" text NOT NULL,
 	"invited_by_user_id" text,
-	"token_digest" text,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "club_seat_invitations_email_normalized" CHECK ("email" = lower(btrim("email")) and length("email") between 3 and 320),
-	CONSTRAINT "club_seat_invitations_token_check" CHECK ("token_digest" is null or "token_digest" ~ '^[0-9a-f]{64}$'),
 	CONSTRAINT "club_seat_invitations_expiry_check" CHECK (isfinite("expires_at") and "expires_at" > "created_at")
 );
 --> statement-breakpoint
@@ -34,7 +32,6 @@ CREATE UNIQUE INDEX "billing_purchases_pending_organization_unique" ON "billing_
 CREATE INDEX "billing_purchases_organization_idx" ON "billing_purchases" ("organization_id","admitted_at","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "billing_subscriptions_current_organization_unique" ON "billing_subscriptions" ("organization_id") WHERE "current";--> statement-breakpoint
 CREATE INDEX "billing_subscriptions_organization_idx" ON "billing_subscriptions" ("organization_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "club_seat_invitations_token_unique" ON "club_seat_invitations" ("token_digest");--> statement-breakpoint
 CREATE INDEX "club_seat_invitations_organization_idx" ON "club_seat_invitations" ("organization_id","expires_at");--> statement-breakpoint
 CREATE INDEX "club_seat_invitations_email_idx" ON "club_seat_invitations" ("email");--> statement-breakpoint
 CREATE UNIQUE INDEX "club_seats_user_unique" ON "club_seats" ("user_id");--> statement-breakpoint

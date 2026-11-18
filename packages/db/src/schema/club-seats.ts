@@ -36,10 +36,10 @@ export const clubSeats = pgTable(
 
 /**
  * An emailed offer of a seat that holds a seat while it lives. The address is
- * normalised; the link's token exists only in the email: the mail worker
- * issues it at send time and stores its SHA3-256 digest here, so a resend
- * replaces the digest and the old link dies. Accepting, declining or
- * cancelling deletes the row; a lapsed row holds nothing.
+ * normalised. The link names the invitation and carries no credential: only a
+ * signed-in account with this verified address may accept it. Accepting,
+ * declining or cancelling deletes the row; a lapsed row holds nothing and is
+ * purged 30 days after it lapses.
  */
 export const clubSeatInvitations = pgTable(
   'club_seat_invitations',
@@ -52,12 +52,10 @@ export const clubSeatInvitations = pgTable(
     invitedByUserId: text('invited_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
-    tokenDigest: text('token_digest'),
     expiresAt: timestampColumn('expires_at').notNull(),
     createdAt: createdAtColumn(),
   },
   (table) => [
-    uniqueIndex('club_seat_invitations_token_unique').on(table.tokenDigest),
     index('club_seat_invitations_organization_idx').on(
       table.organizationId,
       table.expiresAt,
@@ -66,10 +64,6 @@ export const clubSeatInvitations = pgTable(
     check(
       'club_seat_invitations_email_normalized',
       sql`${table.email} = lower(btrim(${table.email})) and length(${table.email}) between 3 and 320`,
-    ),
-    check(
-      'club_seat_invitations_token_check',
-      sql`${table.tokenDigest} is null or ${table.tokenDigest} ~ '^[0-9a-f]{64}$'`,
     ),
     check(
       'club_seat_invitations_expiry_check',
