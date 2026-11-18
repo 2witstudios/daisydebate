@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Ladder } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { broadcasts } from './schema/broadcasts';
@@ -27,6 +28,8 @@ const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 export type LiveBroadcastFilter = {
   readonly mode: 'any' | 'ranked' | 'casual';
   readonly q: string;
+  /** Narrows to one ladder's ranked Rounds; absent or null is every ladder. */
+  readonly ladder?: Ladder | null;
 };
 
 /** A Youth Round is private (ADR 0107, PYL-5): never listed, counted or sent to Watch. */
@@ -78,6 +81,14 @@ const seatedAny = (usernames: readonly string[] | undefined) =>
 
 const moded = (mode: LiveBroadcastFilter['mode']) =>
   mode === 'any' ? undefined : eq(rounds.competitionType, mode);
+
+const laddered = (ladder: LiveBroadcastFilter['ladder']) =>
+  ladder
+    ? and(
+        eq(rounds.ladderId, ladder.style),
+        eq(rounds.ladderDivision, ladder.division),
+      )
+    : undefined;
 
 const cursorRound = {
   id: sql`c.id`,
@@ -153,6 +164,8 @@ export const liveBroadcastReads = ({
             resolution: rounds.resolution,
             rules: rounds.rulesSnapshot,
             startedAt: rounds.startedAt,
+            ladderStyle: rounds.ladderId,
+            ladderDivision: rounds.ladderDivision,
             horizon: sql<
               Date | string | null
             >`${spectatorHorizonSql(roundColumns, input.clock)}`,
@@ -164,6 +177,7 @@ export const liveBroadcastReads = ({
             and(
               onLive(input.clock),
               moded(input.filter.mode),
+              laddered(input.filter.ladder),
               searched(input.filter.q),
               seatedAny(input.seatedUsernames),
               afterCursor(input.before, input.clock),
@@ -222,8 +236,12 @@ export const liveBroadcastReads = ({
           )
           .orderBy(roundSegments.roundId, desc(roundSegments.sequence));
         return {
-          rows: shown.map((row) => ({
+          rows: shown.map(({ ladderStyle, ladderDivision, ...row }) => ({
             ...row,
+            ladder:
+              ladderStyle !== null && ladderDivision !== null
+                ? { style: ladderStyle, division: ladderDivision }
+                : null,
             competitionType: row.competitionType as 'ranked' | 'casual',
             horizonMs:
               row.horizon === null ? null : new Date(row.horizon).getTime(),

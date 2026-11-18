@@ -9,6 +9,7 @@ const query = (over: Partial<LiveQuery> = {}): LiveQuery => ({
   tab: 'live',
   mode: 'any',
   q: '',
+  ladder: '',
   before: '',
   ...over,
 });

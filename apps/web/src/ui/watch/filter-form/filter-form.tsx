@@ -25,6 +25,8 @@ export type FilterFormProps = {
   };
   /** Extra controls before the mode toggle, such as the archive's scope. */
   readonly leading?: ReactNode;
+  /** Extra controls after the mode toggle, such as the Live tab's ladder. */
+  readonly trailing?: ReactNode;
   /** Where Clear goes; null when no filter is set. */
   readonly clearHref: string | null;
 };
@@ -41,6 +43,7 @@ export function FilterForm({
   mode,
   sort,
   leading,
+  trailing,
   clearHref,
 }: FilterFormProps) {
   return (
@@ -69,6 +72,7 @@ export function FilterForm({
       </label>
       {leading}
       <ModeToggle value={mode} />
+      {trailing}
       {sort ? (
         <select
           name="sort"

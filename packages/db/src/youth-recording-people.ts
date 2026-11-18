@@ -3,7 +3,8 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
 
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+/** A connection or a transaction: each read below runs on the caller's. */
+type Tx = Pick<BunSQLDatabase, 'execute'>;
 
 const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
   (await tx.execute(query)) as unknown as Row[];
@@ -20,7 +21,7 @@ const adultUser = (userId: ReturnType<typeof sql>) =>
  * `school.roster.manage`. Each relation is read under its own scope: the
  * debater's own rows under the subject scope, each school's under its own.
  */
-const linkedAdultUserIds = async (
+export const readLinkedAdultUserIds = async (
   tx: Tx,
   debaterUserId: string,
 ): Promise<readonly string[]> => {
@@ -89,7 +90,7 @@ export const readYouthRecordingPeople = async (tx: Tx, roundId: string) => {
   );
   const people = [];
   for (const debater of debaters) {
-    const adults = await linkedAdultUserIds(tx, debater.user_id);
+    const adults = await readLinkedAdultUserIds(tx, debater.user_id);
     const actors =
       adults.length === 0
         ? []

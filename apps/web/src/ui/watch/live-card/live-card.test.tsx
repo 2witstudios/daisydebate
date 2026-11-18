@@ -27,4 +27,15 @@ describe('LiveCard', () => {
       expected: [true, true, true, true, true, true, false, true, 1],
     });
   });
+
+  test('names its ladder beside Ranked (PYL-5 board)', () => {
+    assert({
+      given: 'a ranked Round on Open – Freestyle',
+      should: 'show the ladder badge',
+      actual: renderToString(h(LiveCard, { card: liveCard() })).includes(
+        'Open – Freestyle',
+      ),
+      expected: true,
+    });
+  });
 });

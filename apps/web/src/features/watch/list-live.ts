@@ -1,7 +1,7 @@
 import type { Database } from '@daisy/db';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { liveCardOf, type LiveCard } from './live-card';
-import type { LiveQuery } from './live-query';
+import { ladderOfQuery, type LiveQuery } from './live-query';
 
 /** How many live Rounds one page of the listing holds. */
 const LIVE_PAGE_SIZE = 24;
@@ -30,7 +30,7 @@ export async function listLive(
   const { query } = input;
   const [page, total] = await Promise.all([
     store.listLiveBroadcasts({
-      filter: { mode: query.mode, q: query.q },
+      filter: { mode: query.mode, q: query.q, ladder: ladderOfQuery(query) },
       before: query.before,
       clock,
       limit: LIVE_PAGE_SIZE,

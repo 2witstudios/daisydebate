@@ -12,6 +12,7 @@ export const liveRow = (over: Partial<LiveRow> = {}): LiveRow => ({
   title: 'Friday night',
   status: 'active',
   competitionType: 'ranked',
+  ladder: { style: 'freestyle', division: 'open' },
   resolution: 'A drawn resolution',
   rules: {
     sides: twoSides,

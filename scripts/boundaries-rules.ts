@@ -334,8 +334,10 @@ export const stageSurfaceIssue = (
  * are the onboarding choice of wanting to coach, the guardian link a
  * school's coach holds for a minor, Daisy Tab, where a coach is the
  * person who enters a school's debaters, billing, where a Club's coach
- * seats students (ADR 0146), and /pricing, where Club is sold to coaches,
- * schools and families (decision 78). All of them mean a human.
+ * seats students (ADR 0146), /pricing, where Club is sold to coaches,
+ * schools and families (decision 78), and a Youth Round's Recording, which a
+ * youth debater's school coach may see and take down (ADR 0107, PYL-5). All
+ * of them mean a human.
  */
 const humanCoaching = [
   'packages/protocol/src/onboarding.ts',
@@ -349,6 +351,7 @@ const humanCoaching = [
   'apps/web/src/features/billing/settings-view.ts',
   'apps/web/src/ui/billing/',
   'apps/web/src/ui/pricing/',
+  'apps/web/src/ui/recording/recording-history/recording-history.tsx',
 ];
 export const reservedWordIssue = (file: string, word: string): string | null =>
   /coach/i.test(word) &&
