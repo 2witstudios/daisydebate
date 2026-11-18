@@ -336,7 +336,8 @@ export const stageSurfaceIssue = (
  * person who enters a school's debaters, billing, where a Club's coach
  * seats students (ADR 0146), /pricing, where Club is sold to coaches,
  * schools and families (decision 78), and a Youth Round's Recording, which a
- * youth debater's school coach may see and take down (ADR 0107, PYL-5). All
+ * youth debater's school coach may see and take down (ADR 0107, PYL-5), and
+ * a minor's media release, which their school coach may hold (ADR 0151). All
  * of them mean a human.
  */
 const humanCoaching = [
@@ -352,6 +353,8 @@ const humanCoaching = [
   'apps/web/src/ui/billing/',
   'apps/web/src/ui/pricing/',
   'apps/web/src/ui/recording/recording-history/recording-history.tsx',
+  // A minor's media release, which their school coach may hold (ADR 0151).
+  'apps/web/src/ui/settings/media-release/media-release-section.tsx',
 ];
 export const reservedWordIssue = (file: string, word: string): string | null =>
   /coach/i.test(word) &&

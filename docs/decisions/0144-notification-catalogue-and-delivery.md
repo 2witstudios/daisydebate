@@ -80,7 +80,14 @@ needs people to know when something needs them, and to be pulled back.
    `round_started` (urgent: the Round goes active and its timer runs; prep and a
    topic draw are not a start) and `round_decision_released` (durable, emailed;
    a Round frozen with `decision_release = 'held'` waits for its owner's
-   release, which names its recipients).
+   release, which names its recipients). Media releases
+   ([ADR 0151](0151-media-releases.md)) add seven durable, in-app kinds:
+   `media_release_requested` and `media_release_declined` (about a request),
+   `media_release_signed`, `media_release_club_confirmed` and
+   `media_release_withdrawn` (about a release; a withdrawal also tells the
+   minor's school staff), `media_release_club_asked` (to a club's owner and
+   staff) and `youth_round_published` (to a shared Youth Round's other
+   debaters).
 9. **Kept apart.** Messages stay Messaging's: their badge and unread email are
    Messaging's, and they never toast. Tab's judge assignments, draws and room
    readiness stay Tab's concepts and adopt this writer and standing when the

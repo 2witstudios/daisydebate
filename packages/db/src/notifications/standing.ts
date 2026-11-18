@@ -6,11 +6,17 @@ import { broadcastOnAir } from '../live-broadcast-reads';
 import { recordingReady } from '../recording-round-reads';
 import { roundDecisionReleased, roundUnderway } from '../round-standing';
 import { invitationOpen } from '../room-invitations/open';
+import {
+  releaseRequestWaiting,
+  youthRoundPublic,
+} from '../media-release-standing';
 
 /**
  * The rows the inbox read joins, by alias: `n` the notification, `r` its
  * Round, `u` the live account it is about, `rc` the Round's Recording, `i`
- * and `ro` the invitation and its Room, `c` the challenge, `fr` the friendship.
+ * and `ro` the invitation and its Room, `c` the challenge, `fr` the friendship,
+ * `mrq` a media release request, `mr` a release and `mru` its minor, `mca` and
+ * `mco` a club ask and its club, `yp` a Youth Round's publication.
  */
 export const standingJoins = sql`left join rounds r on r.id=n.round_id
   left join actors a on a.id=n.actor_id
@@ -20,7 +26,13 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
   left join rooms ro on ro.id=i.room_id
   left join challenges c on c.id=n.challenge_id
   left join friendships fr on fr.low_actor_id=n.friendship_low_actor_id
-    and fr.high_actor_id=n.friendship_high_actor_id`;
+    and fr.high_actor_id=n.friendship_high_actor_id
+  left join media_release_requests mrq on mrq.id=n.media_release_request_id
+  left join media_releases mr on mr.id=n.media_release_id
+  left join users mru on mru.id=mr.user_id and mru.deleted_at is null
+  left join media_release_club_asks mca on mca.id=n.media_release_club_ask_id
+  left join organizations mco on mco.id=mca.organization_id and mco.closed_at is null
+  left join youth_round_publications yp on yp.round_id=n.round_id`;
 
 /**
  * The tournament notifications Tab's own read found standing, as a `jsonb`
@@ -64,6 +76,18 @@ const subjectStands = (
       return friendRequestOpen(sql`fr`);
     case 'friend_request_accepted':
       return friendshipAccepted(sql`fr`);
+    case 'media_release_requested':
+      return releaseRequestWaiting(now, sql`mrq`);
+    case 'media_release_declined':
+      return sql`(mrq.id is not null)`;
+    case 'media_release_signed':
+    case 'media_release_club_confirmed':
+    case 'media_release_withdrawn':
+      return sql`(mr.id is not null)`;
+    case 'media_release_club_asked':
+      return sql`(mco.id is not null)`;
+    case 'youth_round_published':
+      return youthRoundPublic(sql`yp`);
     case 'judge_assigned':
     case 'judge_replaced':
     case 'judge_unassigned':

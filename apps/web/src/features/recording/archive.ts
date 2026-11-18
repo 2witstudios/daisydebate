@@ -55,9 +55,12 @@ export type RecordingArchiveStore = {
     readonly viewerActorId: string | null;
     readonly clock: ReturnType<typeof spectatorClockAt>;
     readonly limit: number;
+    /** The youth-publishing release flag (ADR 0151). */
+    readonly youthPublishing: boolean;
   }) => Promise<ArchivePage>;
   readonly countPublicArchive: (input: {
     readonly clock: ReturnType<typeof spectatorClockAt>;
+    readonly youthPublishing: boolean;
   }) => Promise<number>;
 };
 

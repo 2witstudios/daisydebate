@@ -300,6 +300,7 @@ test('a Recording taken down during an open Broadcast comes back to its audience
             viewerActorId: null,
             clock: spectatorClockAt(new Date().toISOString()),
             limit: 50,
+            youthPublishing: false,
           })
         ).rows
           .filter((row) => row.id === roundId)
@@ -379,6 +380,7 @@ test('a Recording of an abandoned Round can be found, and a participant can remo
             viewerActorId,
             clock: spectatorClockAt(new Date().toISOString()),
             limit: 50,
+            youthPublishing: false,
           })
         ).rows.map((row) => row.id);
       const actorOf = (viewer: RecordingViewer) =>

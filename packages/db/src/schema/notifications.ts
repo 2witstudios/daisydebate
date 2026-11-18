@@ -33,6 +33,11 @@ import { fixtures } from './fixtures';
 import { lobbies } from './lobbies';
 import { actionHistory } from './grants';
 import { users } from './users';
+import {
+  mediaReleaseClubAsks,
+  mediaReleaseRequests,
+  mediaReleases,
+} from './media-releases';
 
 /**
  * The stored columns that name each subject: the one place a subject meets
@@ -44,6 +49,9 @@ export const notificationSubjectColumns = {
   challenge: ['challenge_id'],
   friendship: ['friendship_low_actor_id', 'friendship_high_actor_id'],
   fixture: ['fixture_id', 'notification_lobby_id', 'tab_command_id'],
+  media_release_request: ['media_release_request_id'],
+  media_release: ['media_release_id'],
+  media_release_club_ask: ['media_release_club_ask_id'],
 } as const satisfies Record<NotificationSubjectKind, readonly string[]>;
 
 /** A row names exactly the subject its kind requires, and no other. */
@@ -59,6 +67,15 @@ const subjectCheck = sql.raw(
     )
     .join(' and '),
 );
+
+/** A media release's own notices: about the release itself, brought by nobody in particular. */
+const mediaReleaseNotificationKinds = [
+  'media_release_requested',
+  'media_release_declined',
+  'media_release_signed',
+  'media_release_club_confirmed',
+  'media_release_withdrawn',
+] as const;
 
 /** The kinds Watch's fan-out writes from released Round facts (WATCH-12). */
 const watchFanoutKinds = sql.raw(`'followed_debater_live', 'recording_ready'`);
@@ -105,6 +122,19 @@ export const notifications = pgTable(
     ),
     tabCommandId: text('tab_command_id').references(
       () => actionHistory.commandId,
+      { onDelete: 'cascade' },
+    ),
+    /** A media release request, release, or ask to a club (ADR 0151). */
+    mediaReleaseRequestId: text('media_release_request_id').references(
+      () => mediaReleaseRequests.id,
+      { onDelete: 'cascade' },
+    ),
+    mediaReleaseId: text('media_release_id').references(
+      () => mediaReleases.id,
+      { onDelete: 'cascade' },
+    ),
+    mediaReleaseClubAskId: text('media_release_club_ask_id').references(
+      () => mediaReleaseClubAsks.id,
       { onDelete: 'cascade' },
     ),
     /** The member's batched email this one is gathered into, if any. */
@@ -179,12 +209,28 @@ export const notifications = pgTable(
       table.tabCommandId,
       table.notificationLobbyId,
     ),
+    uniqueIndex('notifications_media_release_request_once')
+      .on(table.userId, table.kind, table.mediaReleaseRequestId)
+      .where(sql`${table.mediaReleaseRequestId} is not null`),
+    uniqueIndex('notifications_media_release_once')
+      .on(table.userId, table.kind, table.mediaReleaseId)
+      .where(sql`${table.mediaReleaseId} is not null`),
+    uniqueIndex('notifications_media_release_club_ask_once')
+      .on(table.userId, table.kind, table.mediaReleaseClubAskId)
+      .where(sql`${table.mediaReleaseClubAskId} is not null`),
+    index('notifications_media_release_request_idx').on(
+      table.mediaReleaseRequestId,
+    ),
+    index('notifications_media_release_idx').on(table.mediaReleaseId),
+    index('notifications_media_release_club_ask_idx').on(
+      table.mediaReleaseClubAskId,
+    ),
     check('notifications_subject_check', subjectCheck),
     check(
       'notifications_actor_check',
       // These are about a Round, or a tournament fixture, alone: nobody in
       // particular brought them.
-      sql`(${oneOf(table.kind, ['recording_ready', 'round_started', ...tournamentNotificationKinds])}) = (${table.actorId} is null)`,
+      sql`(${oneOf(table.kind, ['recording_ready', 'round_started', ...tournamentNotificationKinds, ...mediaReleaseNotificationKinds])}) = (${table.actorId} is null)`,
     ),
   ],
 );

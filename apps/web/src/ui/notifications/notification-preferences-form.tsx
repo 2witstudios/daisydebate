@@ -35,6 +35,13 @@ const kindLabel: Record<NotificationKind, string> = {
   challenge_accepted: 'Someone accepts my challenge',
   friend_request_received: 'Someone asks to be friends',
   friend_request_accepted: 'Someone accepts my friend request',
+  media_release_requested: 'My media release request is sent',
+  media_release_declined: 'My media release is declined',
+  media_release_signed: 'My media release is signed',
+  media_release_club_confirmed: 'My club confirms my media release',
+  media_release_withdrawn: 'A media release is withdrawn',
+  media_release_club_asked: 'A student asks my club to confirm their release',
+  youth_round_published: 'One of my Youth Rounds is made public',
 };
 const channelLabel: Record<NotificationChannel, string> = {
   in_app: 'In Daisy',

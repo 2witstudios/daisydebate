@@ -29,6 +29,13 @@ test('choicesFromForm', () => {
       challenge_accepted: { in_app: false },
       friend_request_received: { in_app: false, email: true },
       friend_request_accepted: { in_app: false },
+      media_release_requested: { in_app: false },
+      media_release_declined: { in_app: false },
+      media_release_signed: { in_app: false },
+      media_release_club_confirmed: { in_app: false },
+      media_release_withdrawn: { in_app: false },
+      media_release_club_asked: { in_app: false },
+      youth_round_published: { in_app: false },
     },
   });
 });

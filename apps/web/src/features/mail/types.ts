@@ -38,7 +38,7 @@ export type DeliveryLedger = {
 
 /** Why a mail is sent; every transport event carries it. */
 export type MailPurpose =
-  'auth' | 'beta-access' | 'notification' | 'league-request';
+  'auth' | 'beta-access' | 'notification' | 'league-request' | 'media-release';
 
 /**
  * The one suppression-honouring path (`send-mail.ts`): `suppressed` when the

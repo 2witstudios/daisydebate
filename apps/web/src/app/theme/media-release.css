@@ -1,0 +1,12 @@
+/* Component-owned size tokens for the parent's media release pages, /release (ADR 0028, ADR 0151). Theme variables only; classes stay in the markup. */
+@theme {
+  /* Every control on these pages is at least a 44px touch target. */
+  --spacing-release-target: 44px;
+  /* The page, its reading column, and the request card beside it; they stack below compact. */
+  --spacing-release-page: 1120px;
+  --spacing-release-column: 720px;
+  --spacing-release-aside: 20rem;
+  /* The signer's name takes more of the row than the relation select. */
+  --spacing-release-name: 15rem;
+  --spacing-release-relation: 10rem;
+}

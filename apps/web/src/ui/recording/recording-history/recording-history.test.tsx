@@ -143,6 +143,8 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
         { actorId: 'jules', name: '@jules', released: false },
       ],
       releasesComplete: false,
+      public: false,
+      viewerDebated: true,
     },
     removal: { recordingId: 'rec', version: 4 },
   });
@@ -199,6 +201,8 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
           youth: {
             debaters: [{ actorId: 'maya', name: '@maya', released: true }],
             releasesComplete: true,
+            public: false,
+            viewerDebated: true,
           },
         },
         notice: null,
@@ -208,6 +212,58 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       given: 'every youth debater released, the flag closed',
       should: 'say sharing is not open yet',
       actual: released.includes('Sharing Youth recordings is not open yet.'),
+      expected: true,
+    });
+  });
+
+  const shared = (youth: {
+    readonly releasesComplete: boolean;
+    readonly public: boolean;
+    readonly viewerDebated: boolean;
+  }) =>
+    renderToString(
+      h(RecordingHistory, {
+        screen: {
+          ...screen,
+          ranked: true,
+          youth: {
+            debaters: [{ actorId: 'maya', name: '@maya', released: true }],
+            ...youth,
+          },
+        },
+        notice: null,
+        youthPublishing: true,
+        share: async () => {},
+      }),
+    );
+
+  test('with every release and publishing open (ADR 0151)', () => {
+    assert({
+      given: 'a debater of the Round',
+      should: 'offer Share publicly as a form',
+      actual: /<form[^>]*>.*Share publicly/s.test(
+        shared({ releasesComplete: true, public: false, viewerDebated: true }),
+      ),
+      expected: true,
+    });
+    assert({
+      given: 'a linked adult who did not debate',
+      should: 'leave Share publicly disabled and say who can share',
+      actual: shared({
+        releasesComplete: true,
+        public: false,
+        viewerDebated: false,
+      }).includes('A debater in this Round can share it.'),
+      expected: true,
+    });
+    assert({
+      given: 'a Recording already shared',
+      should: 'say it is public on Watch',
+      actual: shared({
+        releasesComplete: true,
+        public: true,
+        viewerDebated: true,
+      }).includes('on Watch, labelled'),
       expected: true,
     });
   });

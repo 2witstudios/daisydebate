@@ -9,6 +9,7 @@ import {
   requestAudienceSettings,
   requestOnboardingAnswers,
   requestOptionalAnswersAdmitted,
+  requestMediaReleaseSettings,
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
@@ -30,6 +31,13 @@ import { ProfilePhotoControl } from '../../../ui/settings/preferences/profile-ph
 import { StatusForm } from '../../../ui/people/status-form';
 import { setStatusAction } from '../people/actions';
 import { readChosenStatus } from '../people/read-people';
+import { MediaReleaseSection } from '../../../ui/settings/media-release/media-release-section';
+import {
+  askClubAction,
+  askReleaseAction,
+  cancelReleaseAction,
+  resendReleaseAction,
+} from './media-release-actions';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -106,11 +114,14 @@ export default async function SettingsRoute({
   const username = claimedUsername(identity);
   // A restricted member may still read and clear what they show (ADR 0143);
   // the route decides, and answers nothing to anyone else.
-  const [publicProfile, chosen] = await Promise.all([
+  const [publicProfile, chosen, mediaRelease] = await Promise.all([
     'principal' in identity && identity.principal.kind === 'user'
       ? publicProfileSection(username)
       : null,
     identity.state === 'member' ? readChosenStatus() : null,
+    identity.state === 'member'
+      ? requestMediaReleaseSettings(identity.principal.userId)
+      : null,
   ]);
   return (
     <SettingsPage
@@ -119,6 +130,19 @@ export default async function SettingsRoute({
         : {})}
       username={username}
       publicProfile={publicProfile}
+      mediaRelease={
+        mediaRelease ? (
+          <MediaReleaseSection
+            view={mediaRelease}
+            actions={{
+              ask: askReleaseAction,
+              resend: resendReleaseAction,
+              cancel: cancelReleaseAction,
+              askClub: askClubAction,
+            }}
+          />
+        ) : null
+      }
       status={
         chosen ? <StatusForm action={setStatusAction} chosen={chosen} /> : null
       }

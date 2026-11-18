@@ -73,9 +73,11 @@ export const flagCatalogue = [
     dependencies: [],
   },
   {
-    // Publishing a Youth Round's Recording once every youth debater holds a
-    // media release (PYL-5, S4); closed in production until counsel approves
-    // the release wording (decision 81, PYL-8).
+    // Media releases and publishing Youth Rounds (PYL-5, ADR 0151): the
+    // minor's request, the parent's pages, a club's confirmation and Share
+    // publicly; closed in production until counsel approves the release
+    // wording (decision 81, PYL-8). An opt-out from release requests works
+    // whatever it says.
     key: 'youth-publishing',
     kind: 'release',
     owner: 'Recording (@2witstudios)',

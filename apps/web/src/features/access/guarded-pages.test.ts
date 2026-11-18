@@ -40,6 +40,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestNow: () => '2027-03-06T08:00:00.000Z',
   // The sample Room pages reach the release reader through their form action.
   requestReleaseEnabled: async () => false,
+  requestMediaReleaseSettings: async () => null,
   requestMemberDrive: () => null,
   requestLadder: async () => null,
   // A stored league read answers no league for the placeholder slug.
@@ -194,6 +195,10 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/clubs/new/page'),
     '(shell)/clubs/[club]/seats/page.tsx': () =>
       import('../../app/(shell)/clubs/[club]/seats/page'),
+    '(shell)/clubs/[club]/releases/page.tsx': () =>
+      import('../../app/(shell)/clubs/[club]/releases/page'),
+    '(shell)/clubs/[club]/youth/page.tsx': () =>
+      import('../../app/(shell)/clubs/[club]/youth/page'),
     '(shell)/clubs/[club]/billing/page.tsx': () =>
       import('../../app/(shell)/clubs/[club]/billing/page'),
     '(shell)/clubs/invitations/[invitation]/page.tsx': () =>

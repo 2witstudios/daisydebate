@@ -19,6 +19,8 @@ import {
 import { ReportForm } from '../../../../ui/content-moderation/report-form';
 import { reportFromPageAction } from '../../audience/actions';
 import { SpectateRefusal } from '../../../../ui/watch/spectate-refusal/spectate-refusal';
+import { shareYouthRecordingAction } from './share-action';
+import { shareNoticeOf } from '../../../../features/media-releases/release-words';
 
 export const metadata: Metadata = { title: 'Recording' };
 
@@ -53,16 +55,15 @@ export default async function RecordingPage({
   // A Youth Round publishes only once this flag opens, after counsel (PYL-8).
   const youthPublishing =
     screen.kind === 'history' && screen.youth !== null
-      ? await requestReleaseEnabled(
-          'youth-publishing',
-          identity.state === 'member' ? identity.principal.userId : null,
-        )
+      ? await requestReleaseEnabled('youth-publishing', null)
       : false;
   return screen.kind === 'history' ? (
     <RecordingHistory
       screen={screen}
       notice={isNotice(notice) ? notice : null}
       youthPublishing={youthPublishing}
+      share={shareYouthRecordingAction.bind(null, roundId)}
+      shareNotice={shareNoticeOf(firstOf(search['share']))}
       report={
         accountOf(identity) ? (
           <>

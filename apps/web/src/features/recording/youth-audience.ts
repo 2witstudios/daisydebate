@@ -1,4 +1,8 @@
 import type { RecordingStatus } from '@daisy/protocol';
+import {
+  everyDebaterReleased,
+  type MediaReleaseRecord,
+} from '@daisy/protocol/media-release';
 import type { RecordingRound, RecordingViewer } from './audience';
 
 /**
@@ -9,7 +13,8 @@ import type { RecordingRound, RecordingViewer } from './audience';
  * never listed, never broadcast, never downloaded, and any youth debater or
  * linked adult may take it down. It becomes publishable only when every youth
  * debater holds an active media release (S4) and the youth-publishing release
- * flag is open.
+ * flag is open (ADR 0151); a debater then shares it, and it is public on its
+ * page and in the archive while every release holds.
  */
 
 /** One youth debater of the Round, with the adults linked to them. */
@@ -24,6 +29,13 @@ export type YouthDebater = {
 export type YouthRoundPeople = {
   readonly debaters: readonly YouthDebater[];
 };
+
+/**
+ * A Youth Round as recording reads it: its people, and whether its Recording
+ * is public now (ADR 0151): shared by a debater, every release still holding,
+ * and the youth-publishing flag open.
+ */
+export type YouthRound = YouthRoundPeople & { readonly public: boolean };
 
 /** A Youth Round as these rules read it. */
 export type YouthRecordingRound = Pick<
@@ -67,34 +79,34 @@ export const recordingAudience = (
     : denied('not_in_audience');
 };
 
-/** A media release as S4 will record it: whose, and whether it still holds. */
-export type MediaRelease = {
-  readonly subjectUserId: string;
-  readonly status: 'active' | 'withdrawn';
-};
+/**
+ * A media release as recording reads it (ADR 0151's named input): whose, of
+ * which scope, and whether it was withdrawn.
+ */
+export type MediaRelease = Pick<
+  MediaReleaseRecord,
+  'subjectUserId' | 'scope' | 'withdrawnAt'
+>;
 
 /**
- * Whether every youth debater holds an active media release. A Round with no
- * youth debater has nothing to release. S4 feeds the releases; until then
- * there are none, so no Youth Round is publishable. Publishing also needs the
+ * Whether every youth debater holds an active publish release: the one rule
+ * in `@daisy/protocol/media-release`. Publishing also needs the
  * youth-publishing release flag, read at the boundary.
  */
 export const youthRoundPublishable = (
-  { debaters }: YouthRoundPeople,
+  { debaters }: Pick<YouthRoundPeople, 'debaters'>,
   releases: readonly MediaRelease[],
 ): boolean =>
-  debaters.length > 0 &&
-  debaters.every((debater) => holdsActiveRelease(debater, releases));
+  everyDebaterReleased(
+    debaters.map((debater) => debater.userId),
+    releases,
+  );
 
-/** Whether this youth debater holds an active media release: the one test. */
+/** Whether this youth debater holds an active publish release. */
 export const holdsActiveRelease = (
   debater: Pick<YouthDebater, 'userId'>,
   releases: readonly MediaRelease[],
-): boolean =>
-  releases.some(
-    (release) =>
-      release.subjectUserId === debater.userId && release.status === 'active',
-  );
+): boolean => everyDebaterReleased([debater.userId], releases);
 
 /** A Recording that exists and is not already going: what any removal may act on. */
 export const removableStatus = (status: RecordingStatus | null): boolean =>

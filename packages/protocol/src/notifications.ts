@@ -12,6 +12,10 @@ export const notificationSubjects = [
   'friendship',
   // One applied Tab command on one published fixture, in its lobby.
   'fixture',
+  // A minor's media release request, release, or ask to their club (ADR 0151).
+  'media_release_request',
+  'media_release',
+  'media_release_club_ask',
 ] as const;
 export type NotificationSubjectKind = (typeof notificationSubjects)[number];
 
@@ -88,6 +92,42 @@ export const notificationCatalogue = {
   },
   tournament_results_released: {
     subject: 'fixture',
+    urgency: 'durable',
+    email: 'none',
+  },
+  // Media releases (ADR 0151): in-app only; a minor gets no release email.
+  media_release_requested: {
+    subject: 'media_release_request',
+    urgency: 'durable',
+    email: 'none',
+  },
+  media_release_declined: {
+    subject: 'media_release_request',
+    urgency: 'durable',
+    email: 'none',
+  },
+  media_release_signed: {
+    subject: 'media_release',
+    urgency: 'durable',
+    email: 'none',
+  },
+  media_release_club_confirmed: {
+    subject: 'media_release',
+    urgency: 'durable',
+    email: 'none',
+  },
+  media_release_withdrawn: {
+    subject: 'media_release',
+    urgency: 'durable',
+    email: 'none',
+  },
+  media_release_club_asked: {
+    subject: 'media_release_club_ask',
+    urgency: 'durable',
+    email: 'none',
+  },
+  youth_round_published: {
+    subject: 'round',
     urgency: 'durable',
     email: 'none',
   },

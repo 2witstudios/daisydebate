@@ -83,6 +83,8 @@ test(
               // Club seats arrive later (ADR 0148).
               'club_seats',
               'club_seat_invitations',
+              // Media releases arrive later (ADR 0151).
+              'media_release_club_attestations',
             ].includes(table.table),
         )
         .map((table) =>
@@ -90,6 +92,9 @@ test(
             ? { ...table, key: 'either' as const }
             : table,
         ),
+      exempt: tenantIsolationManifest.exempt.filter(
+        (entry) => entry.table !== 'media_release_club_asks',
+      ),
     });
     await scratch.migrate(() => true);
     const afterAllFolders = await problemsOf(scratch.url);
@@ -107,8 +112,9 @@ test(
       expected: {
         before:
           tenantIsolationManifest.tables.length +
-          // rooms, seasons and the other altered tables exist already.
-          0,
+          // rooms, seasons and the other altered tables exist already; the
+          // media release club asks (exempt, ADR 0151) arrive later.
+          1,
         firstBefore: 'organizations is declared but does not exist',
         afterSchema: [],
         afterAllFolders: [],

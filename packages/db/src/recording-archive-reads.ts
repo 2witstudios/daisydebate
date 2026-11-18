@@ -1,3 +1,4 @@
+import { youthRoundPublic } from './media-release-standing';
 import { currentRoundParticipant } from './round-current-participant';
 import {
   isJudgeSeat,
@@ -32,7 +33,20 @@ export type ArchiveInput = {
   readonly viewerActorId: string | null;
   readonly clock: SpectatorClock;
   readonly limit: number;
+  /** The youth-publishing release flag, read by the caller (ADR 0151). */
+  readonly youthPublishing: boolean;
 };
+
+/**
+ * A Youth Round's Recording that one of its debaters shared and that still
+ * stands, with publishing open (ADR 0151); every other Youth Round is private
+ * (ADR 0150).
+ */
+const youthShared = (round: SQL, youthPublishing: boolean): SQL =>
+  youthPublishing
+    ? sql`exists (select 1 from youth_round_publications yp
+        where yp.round_id = ${round} and ${youthRoundPublic(sql`yp`)})`
+    : sql`false`;
 
 const visibility = sql<
   'public' | 'unlisted' | 'private'
@@ -64,11 +78,11 @@ const moderationHid = sql<boolean>`coalesce(${recordings.status} = 'taken_down' 
  * text. A ranked Round whose Recording was taken down is not listed, even with its
  * transcript (point guard, 2026-11-03).
  */
-const publicScope = (clock: SpectatorClock) =>
+const publicScope = (clock: SpectatorClock, youthPublishing: boolean) =>
   and(
     sql`${visibility} = 'public'`,
-    // A Youth Round is private (ADR 0107, PYL-5): never in the public archive.
-    sql`${rounds.ladderDivision} is distinct from 'youth'`,
+    // A Youth Round is private (ADR 0150) until a debater shares it (ADR 0151).
+    sql`(${rounds.ladderDivision} is distinct from 'youth' or ${youthShared(sql`${rounds.id}`, youthPublishing)})`,
     factReleasedSql(rounds.completedAt, roundColumns, clock),
     sql`((${recordings.status} = 'ready' and ${broadcasts.mediaWithheld} is not true) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
   );
@@ -117,7 +131,7 @@ const cursorInScope = (input: ArchiveInput): SQL =>
       ? sql`false`
       : sql`exists (select 1 from round_participants p where p.round_id = c.id and p.actor_id = ${input.viewerActorId} and public.daisy_round_participant_is_current(p.id))`
     : sql`coalesce((select v.visibility from rooms v where v.id = c.room_id), c.visibility, 'private') = 'public'
-        and c.ladder_division is distinct from 'youth'
+        and (c.ladder_division is distinct from 'youth' or ${youthShared(sql`c.id`, input.youthPublishing)})
         and ${factReleasedSql(sql`c.completed_at`, cursorRound, input.clock)}`;
 
 /** Compared in SQL against the cursor's own row, so no precision is lost in JS. */
@@ -157,6 +171,10 @@ export const recordingArchiveReadOperations = ({
           rules: rounds.rulesSnapshot,
           capture: rounds.capture,
           ladderDivision: rounds.ladderDivision,
+          youthPublic: youthShared(
+            sql`${rounds.id}`,
+            input.youthPublishing,
+          ).mapWith(Boolean),
           status: recordings.status,
           durationMs,
           hasTranscript,
@@ -175,7 +193,7 @@ export const recordingArchiveReadOperations = ({
             finishedWithSomethingToFind,
             query.scope === 'mine'
               ? seatedScope(input.viewerActorId)
-              : publicScope(input.clock),
+              : publicScope(input.clock, input.youthPublishing),
             query.mode === 'any'
               ? undefined
               : eq(rounds.competitionType, query.mode),
@@ -221,6 +239,8 @@ export const recordingArchiveReadOperations = ({
           /** A Youth Round reaches only its own seated people's list (PYL-5). */
           youthRound:
             row.competitionType === 'ranked' && row.ladderDivision === 'youth',
+          /** Shared by a debater, with publishing open (ADR 0151). */
+          youthPublic: row.youthPublic === true,
           sides: row.rules.sides,
           outcome: outcomeOfColumns(row, row.rules),
           status: row.status as RecordingStatus | null,
@@ -247,14 +267,22 @@ export const recordingArchiveReadOperations = ({
     });
   },
 
-  async countPublicRecordingArchive(input: { readonly clock: SpectatorClock }) {
+  async countPublicRecordingArchive(input: {
+    readonly clock: SpectatorClock;
+    readonly youthPublishing: boolean;
+  }) {
     const [row] = await database
       .select({ count: sql<number>`count(*)::int` })
       .from(rounds)
       .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(recordings, eq(recordings.roundId, rounds.id))
       .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
-      .where(and(finishedWithSomethingToFind, publicScope(input.clock)));
+      .where(
+        and(
+          finishedWithSomethingToFind,
+          publicScope(input.clock, input.youthPublishing),
+        ),
+      );
     return row?.count ?? 0;
   },
 });

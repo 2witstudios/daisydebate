@@ -17,6 +17,7 @@
     "./sanction-check": "./src/settings/sanction-check.ts",
     "./billing": "./src/billing.ts",
     "./club-seats": "./src/club-seats.ts",
+    "./media-release": "./src/media-release.ts",
     "./billing-economics": "./src/billing-economics.ts",
     "./testing": "./src/format-fixtures.test-support.ts",
     "./format-bounds-testing": "./src/format-bounds.test-support.ts",

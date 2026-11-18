@@ -47,7 +47,15 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'tournament_draw_changed':
     case 'tournament_room_ready':
     case 'tournament_results_released':
-      // Tab's tournament notices tell; the tournament's pages are where to act.
+    case 'media_release_requested':
+    case 'media_release_declined':
+    case 'media_release_signed':
+    case 'media_release_club_confirmed':
+    case 'media_release_withdrawn':
+    case 'media_release_club_asked':
+    case 'youth_round_published':
+      // Tab's tournament notices and media release notices tell; the
+      // tournament's pages, Settings and the club's page are where to act.
       return false;
   }
 };
@@ -75,6 +83,13 @@ export const toasted = (kind: NotificationKind): boolean => {
     case 'tournament_draw_changed':
     case 'tournament_room_ready':
     case 'tournament_results_released':
+    case 'media_release_requested':
+    case 'media_release_declined':
+    case 'media_release_signed':
+    case 'media_release_club_confirmed':
+    case 'media_release_withdrawn':
+    case 'media_release_club_asked':
+    case 'youth_round_published':
       return true;
   }
 };

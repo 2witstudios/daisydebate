@@ -13,6 +13,8 @@ import { GET } from '../../../../api/clubs/[club]/seats/route';
 import { requireClubRelease } from '../../release';
 import { clubSeatAction } from '../../actions';
 
+import { readClubReleaseTabs } from '../releases/read';
+
 export const metadata: Metadata = { title: 'Club seats' };
 
 const clubId = /^[a-z0-9]{24}$/;
@@ -41,6 +43,7 @@ export default async function ClubSeats({
     : 'everyone';
   return (
     <ClubSeatsPage
+      releases={await readClubReleaseTabs(club)}
       view={view}
       filter={filter}
       action={clubSeatAction.bind(null, club)}

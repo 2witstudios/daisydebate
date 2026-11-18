@@ -10,6 +10,7 @@ import { accountAgePrivacyAdopter } from '../account-age';
 import { accountTermsPrivacyAdopter } from '../age-step';
 import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
 import { clubSeatPrivacyAdopter } from '../club-seat-privacy';
+import { mediaReleasePrivacyAdopter } from '../media-release-privacy';
 import { documentsPrivacyAdopter } from '../documents-privacy';
 import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
 import { organizationAuthorityPrivacyAdopter } from '../organization-authority-privacy';
@@ -52,6 +53,7 @@ export const subjectRightsAdoption = (
   agreementSignaturePrivacyAdopter,
   betaAccessPrivacyAdopter,
   clubSeatPrivacyAdopter,
+  mediaReleasePrivacyAdopter,
   documentsPrivacyAdopter,
   entitlementGrantPrivacyAdopter,
   usagePrivacyAdopter,

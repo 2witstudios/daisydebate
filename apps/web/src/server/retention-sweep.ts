@@ -72,6 +72,8 @@ export function retentionTargets({
     readonly purgeExpiredMailIntents: (batch: Batch) => Promise<number>;
     readonly purgeLapsedClubSeatInvitations: (batch: Batch) => Promise<number>;
     readonly purgeExpiredLeagueRequests: (batch: Batch) => Promise<number>;
+    readonly purgeEndedMediaReleaseRequests: (batch: Batch) => Promise<number>;
+    readonly purgeWithdrawnMediaReleases: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCheckInAttempts: (
@@ -249,6 +251,32 @@ export function retentionTargets({
       purge: ({ now, limit }) =>
         database.purgeExpiredLeagueRequests({
           before: cutoff(now, 365 * DAY_MS),
+          limit,
+        }),
+    },
+    /**
+     * ADR 0151: a media release request (the parent's address) is kept 30
+     * days after it ends or lapses, with its links and mail; a signed one
+     * stays while a release it produced is active.
+     */
+    {
+      name: 'retention.media_release_requests',
+      batchSize: 500,
+      maxBatches: 4,
+      purge: ({ now, limit }) =>
+        database.purgeEndedMediaReleaseRequests({
+          before: cutoff(now, 30 * DAY_MS),
+          limit,
+        }),
+    },
+    /** ADR 0151: a withdrawn media release is kept 3 years as consent evidence. */
+    {
+      name: 'retention.media_releases',
+      batchSize: 500,
+      maxBatches: 4,
+      purge: ({ now, limit }) =>
+        database.purgeWithdrawnMediaReleases({
+          before: cutoff(now, 3 * 365 * DAY_MS),
           limit,
         }),
     },

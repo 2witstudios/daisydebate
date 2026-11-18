@@ -60,6 +60,7 @@ export const youthRound: RecordingRound = {
       { actorId: 'aff', userId: 'u-aff', linkedAdultActorIds: ['coach'] },
       { actorId: 'neg', userId: 'u-neg', linkedAdultActorIds: ['parent'] },
     ],
+    public: false,
   },
 };
 export const account = (actorId: string): RecordingViewer => ({

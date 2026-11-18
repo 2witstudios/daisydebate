@@ -21,14 +21,15 @@ export const recordingPersistence = ({
     const page = await database.listRecordingArchive(input);
     return {
       nextBefore: page.nextBefore,
-      rows: page.rows.map(({ capture, youthRound, ...row }) => ({
+      rows: page.rows.map(({ capture, youthRound, youthPublic, ...row }) => ({
         ...row,
         recordingPolicy: plannedRecording({
           competitionType: row.competitionType,
           capture,
         }),
-        // A listing is read by a seated viewer only, so no linked adult is needed.
-        youth: youthRound ? { debaters: [] } : null,
+        // A private one is listed to a seated viewer only, so no linked adult
+        // is needed; a shared one is listed to everyone (ADR 0151).
+        youth: youthRound ? { debaters: [], public: youthPublic } : null,
       })),
     };
   },
