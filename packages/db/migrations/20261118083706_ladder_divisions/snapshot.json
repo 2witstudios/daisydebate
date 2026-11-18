@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "20b79acb-741b-46c9-ae5b-5b7485fc5e05",
+  "id": "72f1e8b9-bbfd-494c-884c-0ff1d5d2c8ba",
   "prevIds": [
     "6fa565de-8861-4ef6-98d1-6b4f8972df16"
   ],
@@ -30296,6 +30296,62 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "season_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "division",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rating_changes_season_division_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "division",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rating_changes_round_division_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "round_id",
           "isExpression": false,
           "asc": true,
@@ -30526,6 +30582,34 @@
       "method": "btree",
       "concurrently": false,
       "name": "ratings_ladder_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ratings"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "season_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "division",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ratings_season_division_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "ratings"

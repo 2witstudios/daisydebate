@@ -27,7 +27,9 @@ const scratch = scratchDatabase(databaseUrl, 'stagingrehearsal');
 afterAll(() => scratch.drop());
 
 // Every feature-only folder, including the wiring migration. The initial
-// database runs every main folder; each sorts before the first Tab folder.
+// database runs every main folder that sorts before the first Tab folder;
+// main folders after the Tab merge (ladder divisions, ADR 0147) build on it
+// and run with the rest at the end.
 const parentFolders = new Set([
   '20261117122348_tab_schema',
   '20261117122349_tab_schema_checks_validated',
@@ -100,7 +102,8 @@ test(
   'main data survives every parent migration with the same competitive and social meaning',
   async () => {
     await scratch.create();
-    await scratch.migrate((folder) => !parentFolders.has(folder));
+    const firstParentFolder = [...parentFolders].sort()[0]!;
+    await scratch.migrate((folder) => folder < firstParentFolder);
     const sql = new SQL(scratch.url, { max: 1 });
     const f = new Fixture(sql);
     try {
@@ -600,14 +603,20 @@ test(
       assert({
         given: 'every Room assembly seat and rating season',
         should:
-          'retain seats and all season fields while assigning Daisy ownership',
+          'retain seats and all season fields while assigning Daisy ownership and the Open division (ADR 0147)',
         actual: {
           seats:
             await sql`select id, case when seat_kind = 'side' then side else seat_kind end as role, slot from room_participants order by id`,
           seasons:
-            await sql`select to_jsonb(s) - 'organization_id' as row from seasons s order by id`,
+            await sql`select to_jsonb(s) - 'organization_id' - 'division' as row from seasons s order by id`,
+          divisions:
+            await sql`select distinct division from seasons`,
         },
-        expected: { seats: roomSeatsBefore, seasons: seasonsBefore },
+        expected: {
+          seats: roomSeatsBefore,
+          seasons: seasonsBefore,
+          divisions: [{ division: 'open' }],
+        },
       });
       assert({
         given: 'an existing seated member holding an active Room',
@@ -625,7 +634,7 @@ test(
         rooms:
           await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host'] as row from rooms r order by id`,
         rounds:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id'] as row from rounds r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id','ladder_division'] as row from rounds r order by id`,
         roomParticipants:
           await sql`select to_jsonb(p) - array['seat_kind','side'] as row from room_participants p order by id`,
         roundParticipants:

@@ -14,7 +14,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261118063405_ladder_divisions';
+const migration = '20261118083706_ladder_divisions';
 const scratch = scratchDatabase(url, 'ladderdivisions');
 
 afterAll(() => scratch.drop());

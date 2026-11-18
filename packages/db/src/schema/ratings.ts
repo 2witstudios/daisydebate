@@ -144,6 +144,7 @@ export const ratings = pgTable(
     ),
     index('ratings_season_idx').on(table.seasonId),
     index('ratings_ladder_idx').on(table.ladder),
+    index('ratings_season_division_idx').on(table.seasonId, table.division),
     foreignKey({
       name: 'ratings_season_division_fk',
       columns: [table.seasonId, table.division],
@@ -194,6 +195,14 @@ export const ratingChanges = pgTable(
         roundParticipants.ratingActorId,
       ],
     }).onDelete('restrict'),
+    index('rating_changes_season_division_idx').on(
+      table.seasonId,
+      table.division,
+    ),
+    index('rating_changes_round_division_idx').on(
+      table.roundId,
+      table.division,
+    ),
     foreignKey({
       name: 'rating_changes_season_division_fk',
       columns: [table.seasonId, table.division],
