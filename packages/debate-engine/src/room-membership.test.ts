@@ -233,7 +233,6 @@ describe('my active Room', () => {
     roundRef: null,
     seatKind: null,
     debateEnded: false,
-    ladder: null,
   };
   test('the read names the phase, the page and the member role', () => {
     assert({
@@ -263,7 +262,6 @@ describe('my active Room', () => {
           phase: 'assembling',
           role: 'host',
           seated: false,
-          ladder: null,
           href: `/rooms/${facts.room.id}`,
         },
         {
@@ -273,7 +271,6 @@ describe('my active Room', () => {
           phase: 'ready',
           role: 'side',
           seated: true,
-          ladder: null,
           href: `/rooms/${facts.room.id}`,
         },
         {
@@ -283,7 +280,6 @@ describe('my active Room', () => {
           phase: 'live',
           role: 'judge',
           seated: true,
-          ladder: null,
           href: `/rounds/${'o'.repeat(24)}/room`,
         },
       ],
@@ -395,7 +391,6 @@ describe('a started Room and its Round', () => {
       room: { id: 'r'.repeat(24), title: room.title, hostActorId: 'host' },
       seatKind: null,
       debateEnded,
-      ladder: null,
     });
     const rooms = [
       state(),

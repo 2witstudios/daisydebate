@@ -14,6 +14,7 @@ import {
   freeSeatsOf,
   isJudgeSeat,
   sameSeat,
+  seatAllowed,
   seatExists,
 } from '@daisy/protocol';
 
@@ -21,7 +22,6 @@ import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
 
 import { aiJudgeSeatAdmitted } from './ai-judge-seating';
-import { rankedSeatClaimRefusal } from './ladder-seating';
 import {
   acceptedRoomMutation,
   hostNamesJudges,
@@ -276,7 +276,9 @@ const seatAdmission = (
     return 'actor-ineligible';
   if (unassignableHuman(room, actorId, command.type, target))
     return 'actor-ineligible';
-  return rankedSeatClaimRefusal(room, command, target);
+  // Debater seats are for the Room's own lobby, judges for anyone (ADR 0155):
+  // a member's claim and a host's assignment alike.
+  return seatAllowed(target, room, command.seat) ? null : 'other-division';
 };
 export const claimSeat = (
   room: RoomAssemblyState,

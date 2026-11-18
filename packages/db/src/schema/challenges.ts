@@ -25,10 +25,10 @@ export const challenges = pgTable(
     mode: text('mode').notNull(),
     formatId: text('format_id').notNull(),
     /**
-     * The ladder's division a ranked offer is on, decided at send from both
-     * members (ADR 0147); null on a casual offer.
+     * The lobby both members share, decided at send (ADR 0155): the
+     * challenge's Room opens in it, and a ranked offer rates on its ladder.
      */
-    division: text('division').$type<RatingDivision>(),
+    division: text('division').$type<RatingDivision>().notNull(),
     roomId: text('room_id')
       .unique()
       .references(() => rooms.id, { onDelete: 'cascade' }),
@@ -58,7 +58,7 @@ export const challenges = pgTable(
     check('challenges_format_check', oneOf(table.formatId, ratingStyles)),
     check(
       'challenges_division_check',
-      sql`(${table.mode} = 'ranked') = (${table.division} is not null) and (${table.division} is null or ${oneOf(table.division, ratingDivisions)})`,
+      oneOf(table.division, ratingDivisions),
     ),
   ],
 );

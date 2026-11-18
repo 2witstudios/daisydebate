@@ -1,6 +1,7 @@
 import { ladders } from './ladders';
 import {
   competitionTypes,
+  ratingDivisions,
   twoSideKeys,
   type TwoSideKey,
   roomCaptureSchema,
@@ -11,6 +12,7 @@ import {
   roomExecutionPlanSchema,
   roundRulesSchema,
   type CompetitionType,
+  type RatingDivision,
   type SeatKind,
 } from '@daisy/protocol';
 import type { lobbyKinds } from '@daisy/protocol/lobby';
@@ -100,6 +102,12 @@ export const rooms = pgTable(
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
+    /**
+     * The lobby the Room was created in (ADR 0155), fixed for its life: its
+     * debater seats are for that division's members, and a ranked Round
+     * rates on its ladder. Not written after insert.
+     */
+    division: text('division').$type<RatingDivision>().notNull(),
     /**
      * Team 1's side, or null while the sides are open to the coin flip at
      * Start round (ADR 0145). Team 1 sits in the affirmative seats.
@@ -251,6 +259,7 @@ export const rooms = pgTable(
       'rooms_ranked_public_check',
       sql`${table.competitionType} <> 'ranked' or ${table.visibility} = 'public'`,
     ),
+    check('rooms_division_check', oneOf(table.division, ratingDivisions)),
     check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
     check(
       'rooms_topic_nonempty',

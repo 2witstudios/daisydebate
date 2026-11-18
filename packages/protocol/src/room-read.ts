@@ -30,12 +30,6 @@ const participant = z.strictObject({
   rating: z
     .strictObject({ value: z.int(), provisional: z.boolean() })
     .nullable(),
-  /**
-   * A ranked Room's human debater's ladder division (ADR 0147), so the host
-   * sees each debater's ladder, never an age. Null for a judge, a bot and on
-   * a casual Room.
-   */
-  division: z.enum(ratingDivisions).nullable(),
 });
 const seatState = {
   needsReady: z.boolean(),
@@ -75,12 +69,13 @@ export const roomRefusalSchema = z.enum([
   'ballot-definition-unavailable',
   'ranked-unavailable',
   /**
-   * The caller's own division is not the ladder's (ADR 0147): a debater seat
-   * of a ranked Room whose seated debaters are on the other division, or a
-   * league ladder's while the caller is under 18. A caller with no division
-   * (no valid age record) takes no rated debater seat.
+   * The seat or Room is for the other lobby (ADR 0155): a debater seat of a
+   * Room created in the other division, or a league ladder's while the
+   * caller is under 18, or a Room created in a lobby the creator may not
+   * open. A caller with no division (no valid age record) debates only in an
+   * Open casual Room.
    */
-  'ranked-division',
+  'other-division',
   /** The draw's source cannot supply enough resolutions. */
   'draw-unavailable',
   /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
@@ -200,11 +195,10 @@ const roomViewFields = z.strictObject({
   }),
   competitionType: z.enum(competitionTypes),
   /**
-   * A ranked Room's ladder division as its seated debaters set it (ADR 0147):
-   * unset until one sits, mixed when they are on both, and then the Round
-   * plays casual. Null on a casual Room.
+   * The lobby the Room was created in (ADR 0155): its debater seats are for
+   * that division's members, and a ranked Round rates on its ladder.
    */
-  ladder: z.enum([...ratingDivisions, 'unset', 'mixed']).nullable(),
+  division: z.enum(ratingDivisions),
   definition: formatDefinitionSchema,
   config: frozenRoomConfigSchema,
   executionPlan: frozenRoomExecutionPlanSchema,

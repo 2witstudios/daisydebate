@@ -33,19 +33,17 @@ describe('Segmented', () => {
     });
   });
 
-  test('a captioned row', () => {
-    const segments = [{ label: 'Youth', href: '/a', selected: true }];
-    const captioned = renderToString(
-      h(Segmented, { label: 'Division', segments, captioned: true }),
+  test('no label inside the group', () => {
+    const html = renderToString(
+      h(Segmented, {
+        label: 'Lobby',
+        segments: [{ label: 'Open lobby', href: '/lobby', selected: true }],
+      }),
     );
-    const plain = renderToString(h(Segmented, { label: 'Division', segments }));
     assert({
-      given: 'the same row with and without a caption',
-      should: 'show the label as text only when captioned',
-      actual: [
-        captioned.includes('>Division</span>'),
-        plain.includes('>Division</span>'),
-      ],
+      given: 'a labelled group',
+      should: 'name it for assistive technology only, never as visible text',
+      actual: [html.includes('aria-label="Lobby"'), html.includes('>Lobby<')],
       expected: [true, false],
     });
   });

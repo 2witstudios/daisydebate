@@ -442,6 +442,11 @@ export type RoomAssemblyState = RoomRoundLink & {
    */
   readonly holdsHost?: boolean;
   readonly competitionType: CompetitionType;
+  /**
+   * The lobby the Room was created in, fixed for its life (ADR 0155): its
+   * debater seats are for that division's members.
+   */
+  readonly division: RatingDivision;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
   /** The casual host's capture choice; null when nothing is chosen, and always on ranked. */
@@ -453,12 +458,6 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly participants: readonly (RoomParticipant & {
     readonly label: string;
     readonly eligible: boolean;
-    /**
-     * The person's ladder division as read with the Room (ADR 0147): fixed
-     * for the season from the stored birth month. Null for a bot and for a
-     * person with no valid age record.
-     */
-    readonly division: RatingDivision | null;
     readonly consentCommandId: string | null;
   })[];
 };
@@ -520,9 +519,8 @@ export const roomListQuerySchema = z.strictObject({
   status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
   /**
-   * Narrows ranked Rooms to one ladder division (ADR 0147): those whose seated
-   * debaters are on it, or whose ladder no debater has set yet. A casual Room
-   * has no division and is kept.
+   * The lobby (ADR 0155): Rooms created in this division, casual and ranked.
+   * The Lobby page always names one; omitted lists both.
    */
   division: z.enum(ratingDivisions).optional(),
 });
@@ -562,14 +560,9 @@ const roomListEntryFields = z.strictObject({
    * otherwise, while no ladder is set, or hidden.
    */
   hostRating: z.int().nullable(),
-  /**
-   * A ranked Room's ladder division as its seats set it (ADR 0147): unset
-   * until a debater sits, mixed when its debaters are on both; a launched
-   * Room's is its Round's, mixed when that Round plays casual. Null on a
-   * casual Room.
-   */
-  ladder: z.enum([...ratingDivisions, 'unset', 'mixed']).nullable(),
-  /** Free judge seats: anyone may judge, whatever the ladder. */
+  /** The lobby the Room was created in (ADR 0155). */
+  division: z.enum(ratingDivisions),
+  /** Free judge seats: anyone may judge, whatever the lobby. */
   openJudgeSeats: z.int().nonnegative(),
 });
 /** A listed Room is open and waiting, or started with its Round and that Round's live facts. */

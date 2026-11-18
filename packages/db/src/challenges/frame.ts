@@ -4,7 +4,7 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
 import {
   buildUserInboxTopic,
-  divisionForSeatedDebaters,
+  lobbyOf,
   idSchema,
   type RatingDivision,
   type RatingStyle,
@@ -126,11 +126,16 @@ export const challengeContactReactions = {
   },
 };
 
-/** The division both members debate on, or null when they differ or lack one. */
-async function pairDivision(
+/**
+ * The lobby both members share (ADR 0155), or null when they are in
+ * different lobbies; a ranked offer also needs both to hold a division (an
+ * age record), as a ranked debater seat does.
+ */
+async function pairLobby(
   tx: Tx,
   challenger: string,
   challenged: string,
+  mode: 'ranked' | 'casual',
 ): Promise<RatingDivision | null> {
   const rows = await rowsOf<{ division: RatingDivision | null }>(
     tx,
@@ -138,11 +143,12 @@ async function pairDivision(
       from actors member left join account_age on account_age.user_id = member.user_id
       where member.id in (${challenger}, ${challenged})`,
   );
-  const divisions = rows.map((row) => row.division);
-  const shared = divisionForSeatedDebaters(divisions);
-  return rows.length === 2 && (shared === 'open' || shared === 'youth')
-    ? shared
-    : null;
+  const [first, second] = rows;
+  if (rows.length !== 2 || !first || !second) return null;
+  if (mode === 'ranked' && (first.division === null || second.division === null))
+    return null;
+  const lobby = lobbyOf(first);
+  return lobby === lobbyOf(second) ? lobby : null;
 }
 
 /**
@@ -175,12 +181,10 @@ export function challengeFrame(
       // One answer with a block, no such member and no lease: never which.
       if (theirs.placement !== null || theirs.chosen !== 'online')
         throw createAppError('NOT_FOUND');
-      // A ranked offer is on one ladder (ADR 0147): both members' division,
-      // read under the pair's lock. Across divisions only casual is offered.
-      const division =
-        mode === 'ranked' ? await pairDivision(tx, input.actorId, other) : null;
-      if (mode === 'ranked' && division === null)
-        throw createRefusal('CONFLICT', 'ranked-division');
+      // A challenge stays inside one lobby (ADR 0155): both members',
+      // read under the pair's lock.
+      const division = await pairLobby(tx, input.actorId, other, mode);
+      if (division === null) throw createRefusal('CONFLICT', 'other-division');
       await tx.execute(sql`
         delete from challenges
         where challenger_actor_id = ${input.actorId} and challenged_actor_id = ${other}

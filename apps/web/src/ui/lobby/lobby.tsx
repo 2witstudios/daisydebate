@@ -1,15 +1,17 @@
 import Link from 'next/link';
-import type {
-  RatingDivision,
-  RoomListEntry,
-  RoomListQuery,
+import {
+  ratingDivisions,
+  type RatingDivision,
+  type RoomListEntry,
+  type RoomListQuery,
 } from '@daisy/protocol';
 import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
-import { lobbySections } from '../../features/lobby/rows';
+import { lobbySections, type LobbyViewer } from '../../features/lobby/rows';
 import { openRoomHref, playOptions } from '../../features/play/options';
 import { YourRoom, type ActiveRoomSummary } from '../active-room/your-room';
 import { buttonClass } from '../components/button/button-class';
 import { PageHeader } from '../components/page-header/page-header';
+import { Segmented } from '../components/segmented/segmented';
 import { watchRoutes } from '../../features/watch/routes';
 import { PlayChoices } from '../play/play-choices/play-choices';
 import { PlayDialog } from '../play/play-dialog/play-dialog';
@@ -17,8 +19,11 @@ import { LobbyFilters } from './lobby-filters/lobby-filters';
 import { RoomList } from './room-list/room-list';
 
 export type LobbyProps = {
-  /** The canonical listing query: the URL's one source of filter state. */
-  readonly query: RoomListQuery;
+  /**
+   * The canonical listing query: the URL's one source of filter state, its
+   * lobby resolved (the viewer's own when the URL names none).
+   */
+  readonly query: RoomListQuery & { readonly division: RatingDivision };
   /** One page of the canonical listing, already narrowed by the query. */
   readonly rooms: readonly RoomListEntry[];
   readonly nextCursor: string | null;
@@ -27,12 +32,32 @@ export type LobbyProps = {
   readonly activeRoom: ActiveRoomSummary | null;
   /** When the page is read (epoch ms), for how long open Rooms have waited. */
   readonly now: number;
-  /**
-   * The viewer's ladder division (ADR 0147): which ranked debater seats are
-   * theirs. Null for a visitor or a member with no age on record.
-   */
-  readonly viewerDivision: RatingDivision | null;
+  /** Who reads the Lobby: which seats are theirs and which live Rounds they may watch. */
+  readonly viewer: LobbyViewer;
 };
+
+const lobbyNames: Readonly<Record<RatingDivision, string>> = {
+  open: 'Open lobby',
+  youth: 'Youth lobby',
+};
+
+/**
+ * The two lobbies (ADR 0155, YLLobbySwitch): plain links, so the switch works
+ * before hydration and the choice lives in the URL.
+ */
+function LobbySwitch({ query }: { readonly query: LobbyProps['query'] }) {
+  return (
+    <Segmented
+      label="Lobby"
+      fillOnPhone
+      segments={ratingDivisions.map((division) => ({
+        label: lobbyNames[division],
+        href: lobbyHref({ ...query, division, cursor: undefined }),
+        selected: query.division === division,
+      }))}
+    />
+  );
+}
 
 const emptyClass =
   'flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-raised px-5 py-8 text-center';
@@ -59,7 +84,11 @@ function Empty({ query }: { readonly query: RoomListQuery }) {
     <div role="status" className={emptyClass}>
       <p className="text-lg font-strong">No rooms match</p>
       <Link
-        href={lobbyHref({ q: '', pageSize: query.pageSize })}
+        href={lobbyHref({
+          q: '',
+          pageSize: query.pageSize,
+          division: query.division,
+        })}
         className="font-strong"
       >
         Clear search and filters
@@ -80,9 +109,9 @@ export function Lobby({
   retry,
   activeRoom,
   now,
-  viewerDivision,
+  viewer,
 }: LobbyProps) {
-  const sections = lobbySections(now, rooms, viewerDivision);
+  const sections = lobbySections(now, rooms, viewer);
   const { cursor } = query;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:px-4">
@@ -102,6 +131,7 @@ export function Lobby({
           </>
         }
       />
+      <LobbySwitch query={query} />
       {activeRoom ? <YourRoom room={activeRoom} /> : null}
       <LobbyFilters query={query} resultCount={rooms.length} />
       {retry ? (

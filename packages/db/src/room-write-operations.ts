@@ -248,7 +248,7 @@ async function executeOnce(
     claimant &&
     !leagueLadderSeatFits(league, claimant)
   )
-    throw createRefusal('CONFLICT', 'ranked-division');
+    throw createRefusal('CONFLICT', 'other-division');
   const target = seatableInRoom(league, claimant);
   // FOR SHARE: a concurrent publication (FOR UPDATE on the format
   // row) serializes with this selection, so the policy judges facts

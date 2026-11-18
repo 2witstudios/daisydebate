@@ -289,6 +289,7 @@ const hydrateRoom = async (
     },
     basis,
     competitionType: row.competitionType,
+    division: row.division,
     capture: row.capture,
     postRoundCall: row.postRoundCall,
     teamOneSide: row.teamOneSide,

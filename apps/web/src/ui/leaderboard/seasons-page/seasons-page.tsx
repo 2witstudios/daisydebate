@@ -9,7 +9,7 @@ import type { SeasonsView } from '../../../features/leaderboard/seasons';
 import { Badge } from '../../components/badge/badge';
 import { LadderRow } from '../ladder-row/ladder-row';
 import { LadderHeading } from '../ladder-row/ladder-heading';
-import { Segmented } from '../segmented/segmented';
+import { Segmented } from '../../components/segmented/segmented';
 import { seasonsCardClass, seasonsEyebrowClass } from './seasons-class';
 import { cn } from '../../cn';
 

@@ -124,6 +124,7 @@ describe('competitive schema rules', () => {
             'rooms_change_version_positive',
             'rooms_competition_type_check',
             'rooms_config_is_object',
+            'rooms_division_check',
             'rooms_event_is_casual',
             'rooms_event_recording',
             'rooms_execution_plan_is_object',

@@ -27,7 +27,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import { controlClass } from '../../components/filter-bar/filter-bar-class';
-import { Segmented } from '../segmented/segmented';
+import { Segmented } from '../../components/segmented/segmented';
 
 export type LadderFiltersProps = {
   readonly query: LadderQuery;
@@ -85,10 +85,10 @@ function FiltersSummary({ active }: { readonly active: number }): ReactNode {
   );
 }
 
-/** Youth first, as the board shows them. */
+/** Open, then Youth, as the lobby switch shows them (YLeaderboard). */
 const divisionOrder = [
-  'youth',
   'open',
+  'youth',
 ] as const satisfies readonly RatingDivision[];
 
 const statusOptions: readonly Option[] = [
@@ -131,8 +131,7 @@ export function LadderFilters({
         <input type="hidden" name="scope" value="around" />
       ) : null}
       <Segmented
-        label="Division"
-        captioned
+        label="Lobby"
         segments={divisionOrder.map((division) => ({
           label: divisionLabels[division],
           href: divisionHref(query, division),
@@ -152,7 +151,6 @@ export function LadderFilters({
       {hasStanding ? (
         <Segmented
           label="Scope"
-          captioned
           segments={[
             {
               label: 'Top of the ladder',

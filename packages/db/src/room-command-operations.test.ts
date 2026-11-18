@@ -22,6 +22,12 @@ test('Room create command writes its receipt and exactly one change event', asyn
     [],
     [],
     [],
+    // the creator's division, scope, club staff, scope back (ADR 0155)
+    [],
+    [],
+    [],
+    [],
+    [],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }],
     [], // public lobby has no league ladder selection
     [],
@@ -35,6 +41,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
 
   const receipt = await database.createRoomCommand({
     room,
+    lobbyChoice: null,
     membersOf: () => [room.hostActorId],
     commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
     payloadDigest: 'a'.repeat(64),
@@ -95,6 +102,7 @@ test('Room create rechecks its catalog selection under the create transaction (P
     actual: () =>
       database.createRoomCommand({
         room,
+        lobbyChoice: null,
         membersOf: () => [room.hostActorId],
         commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
         payloadDigest: 'a'.repeat(64),

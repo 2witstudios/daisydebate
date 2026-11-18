@@ -18,7 +18,7 @@ import {
   ResultLine,
   resultTone,
 } from '../detail-parts/detail-parts';
-import { Segmented } from '../segmented/segmented';
+import { Segmented } from '../../components/segmented/segmented';
 
 export type DebaterDrawerProps = {
   readonly detail: DebaterDetail;

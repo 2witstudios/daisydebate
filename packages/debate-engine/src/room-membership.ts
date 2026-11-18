@@ -90,7 +90,6 @@ export function projectActiveRoom(
     phase: hold.phase,
     role,
     seated: facts.seatKind !== null,
-    ladder: facts.ladder,
     href: activeRoomHref({ ...hold, roomId: facts.room.id }),
   };
 }

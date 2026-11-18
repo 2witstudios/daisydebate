@@ -36,22 +36,29 @@ export {
   ageBands,
   daisyLadders,
   daisyLaddersOf,
-  divisionForSeatedDebaters,
   divisionOfAgeBand,
   ladderKey,
   ladderSchema,
   ratingDivisions,
-  roomLadderOf,
   roundCompetition,
-  seatedDivision,
 } from './ladder';
 export type {
   AgeBand,
   Ladder,
   RatingDivision,
   RoundCompetition,
-  SeatedDivision,
 } from './ladder';
+export {
+  canWatchLive,
+  lobbyOf,
+  roomLobbyAtCreation,
+  seatAllowed,
+} from './division-lobby';
+export type {
+  LiveStanding,
+  RoomCreator,
+  SeatTaker,
+} from './division-lobby';
 export { aiRoleFits, aiRoleOfSeat, aiRoleSchema, aiRoles } from './ai-roles';
 export type { AiRole } from './ai-roles';
 export {
