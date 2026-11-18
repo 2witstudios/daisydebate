@@ -1,5 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { acquisitionCommands, preparationDeadline } from './ci-ffmpeg';
+import {
+  acquisitionCommands,
+  listsReusable,
+  offlineCheckCommand,
+  preparationDeadline,
+  prefillCommand,
+  runnerImage,
+} from './ci-ffmpeg';
 
 setupRitewayBun();
 
@@ -29,6 +36,55 @@ describe('ffmpeg preparation budget', () => {
           'ffmpeg',
         ],
       ],
+    });
+  });
+});
+
+describe('ffmpeg package cache', () => {
+  const image = runnerImage({
+    ImageOS: 'ubuntu24',
+    ImageVersion: '20261111.127.1',
+  });
+
+  test('names the runner image', () => {
+    assert({
+      given: 'the runner image variables',
+      should: 'identify the image the lists came from',
+      actual: image,
+      expected: 'ubuntu24/20261111.127.1',
+    });
+  });
+  test('reuses lists only on the image that wrote them', () => {
+    assert({
+      given:
+        'a staged image file from the same, another, an unknown or no image',
+      should: 'reuse lists only for the same known image',
+      actual: [
+        listsReusable('ubuntu24/20261111.127.1\n', image),
+        listsReusable('ubuntu24/20261103.120.1\n', image),
+        listsReusable('unknown/unknown\n', runnerImage({})),
+        listsReusable(undefined, image),
+      ],
+      expected: [true, false, false, false],
+    });
+  });
+  test('prefills lists only when they are reusable', () => {
+    assert({
+      given: 'a stage from another image',
+      should: 'copy its .debs but not its lists',
+      actual: prefillCommand('/stage', false)
+        .join(' ')
+        .includes('/var/lib/apt/lists'),
+      expected: false,
+    });
+  });
+  test('checks offline readiness without dpkg or downloads', () => {
+    const script = offlineCheckCommand().at(-1)!;
+    assert({
+      given: 'the offline readiness check',
+      should: 'only print the URIs apt would still fetch',
+      actual: [script.includes('--print-uris'), script.includes('-y')],
+      expected: [true, false],
     });
   });
 });

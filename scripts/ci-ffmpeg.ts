@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { spawn } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 /** Linux boot-relative elapsed time, shared with the workflow launch stamp. */
 const elapsedBootMs = () =>
@@ -33,6 +33,96 @@ export const acquisitionCommands = () => [
     'ffmpeg',
   ],
 ];
+
+/**
+ * The warm cache (docs/development/testing.md): apt's signature-verified
+ * lists and the exact .deb set one successful run used, restored by the
+ * workflow into a runner-owned directory. Lists are only reused on the exact
+ * runner image that produced them; .debs from any image prefill apt's
+ * archive, where apt checks each against the index's hash before use.
+ */
+export const stagePaths = (stage: string) => ({
+  archives: `${stage}/archives`,
+  lists: `${stage}/lists`,
+  image: `${stage}/image`,
+});
+
+export const runnerImage = (env: Record<string, string | undefined>) =>
+  `${env.ImageOS ?? 'unknown'}/${env.ImageVersion ?? 'unknown'}`;
+
+/** A cache entry may supply lists only for the image that wrote them. */
+export const listsReusable = (stagedImage: string | undefined, image: string) =>
+  stagedImage !== undefined &&
+  stagedImage.trim() === image &&
+  !image.includes('unknown');
+
+const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+
+export const prefillCommand = (stage: string, withLists: boolean) => {
+  const paths = stagePaths(stage);
+  return [
+    'sh',
+    '-ec',
+    [
+      `if [ -d ${quote(paths.archives)} ]; then find ${quote(paths.archives)} -maxdepth 1 -name '*.deb' -exec cp {} /var/cache/apt/archives/ \\; ; fi`,
+      withLists ? `cp -R ${quote(paths.lists)}/. /var/lib/apt/lists/` : 'true',
+      'echo "prefilled $(find /var/cache/apt/archives -maxdepth 1 -name \'*.deb\' | wc -l) archives"',
+    ].join('\n'),
+  ];
+};
+
+/**
+ * Exit 0 only when the current lists resolve ffmpeg and every archive the
+ * install needs is already present: --print-uris prints exactly the files
+ * apt would still download, and runs no dpkg.
+ */
+export const offlineCheckCommand = () => [
+  'sh',
+  '-ec',
+  `missing=$(${['apt-get', '-o', 'Dpkg::Use-Pty=0', 'install', '-qq', '--print-uris', '--no-install-recommends', 'ffmpeg'].join(' ')})\nif [ -n "$missing" ]; then echo "$missing" | wc -l | xargs echo "archives still to download:"; exit 1; fi`,
+];
+
+/**
+ * Copies apt's archive aside before dpkg runs: an image whose apt hook cleans
+ * the archive after installation (Ubuntu's docker-clean) still leaves a set.
+ */
+export const holdArchivesCommand = (stage: string) => {
+  const next = stagePaths(`${stage}.next`);
+  return [
+    'sh',
+    '-ec',
+    [
+      `rm -rf ${quote(`${stage}.next`)}`,
+      `mkdir -p ${quote(next.archives)}`,
+      `find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp {} ${quote(next.archives)}/ \\;`,
+    ].join('\n'),
+  ];
+};
+
+/** After a verified install: keep what was installed, with its lists. */
+export const refreshStageCommand = (
+  stage: string,
+  image: string,
+  owner: string,
+) => {
+  const next = stagePaths(`${stage}.next`);
+  return [
+    'sh',
+    '-ec',
+    [
+      // Only the versions now installed, so older images' .debs do not pile up.
+      `for deb in ${quote(next.archives)}/*.deb; do [ -f "$deb" ] || continue; package=$(dpkg-deb -f "$deb" Package); version=$(dpkg-deb -f "$deb" Version); if [ "$(dpkg-query -W -f='\${Version}' "$package" 2>/dev/null || true)" != "$version" ]; then rm "$deb"; fi; done`,
+      `mkdir -p ${quote(next.lists)}`,
+      `find /var/lib/apt/lists -maxdepth 1 -type f ! -name lock -exec cp {} ${quote(next.lists)}/ \\;`,
+      // Written last: lists are reused only beside it.
+      `printf '%s\\n' ${quote(image)} > ${quote(next.image)}`,
+      `rm -rf ${quote(stage)}`,
+      `mv ${quote(`${stage}.next`)} ${quote(stage)}`,
+      `chown -R ${quote(owner)} ${quote(stage)}`,
+      `echo "staged $(ls ${quote(stagePaths(stage).archives)} | wc -l) archives, $(du -sh ${quote(stage)} | cut -f1)"`,
+    ].join('\n'),
+  ];
+};
 
 /** Zombies cannot perform work or hold package locks; their parent reaps them. */
 function liveGroupMembers(group: number) {
@@ -168,7 +258,92 @@ function createPreparation(launchSeconds: number, cancellation: AbortSignal) {
 const sourceFiles =
   '/etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources /etc/apt/apt-mirrors.txt';
 
-async function prepareFfmpeg(runner: ReturnType<typeof createPreparation>) {
+type Cache = { stage: string; image: string; owner: string };
+
+/**
+ * A cache phase whose failure costs only the next run's warm start. Unproven
+ * group cleanup still stops preparation: no phase follows a possible survivor.
+ */
+async function optional(
+  runner: ReturnType<typeof createPreparation>,
+  phase: string,
+  command: readonly string[],
+) {
+  try {
+    await runner.run(phase, command);
+  } catch (error) {
+    if (error instanceof Error && error.cause === 'cleanup-unproven')
+      throw error;
+    runner.log(`${phase} skipped: ${String(error)}`);
+  }
+}
+
+/** True when the restored cache lets installation run with no network. */
+async function restoreFromCache(
+  runner: ReturnType<typeof createPreparation>,
+  cache: Cache,
+) {
+  const imageFile = stagePaths(cache.stage).image;
+  const staged = existsSync(imageFile)
+    ? readFileSync(imageFile, 'utf8')
+    : undefined;
+  const withLists = listsReusable(staged, cache.image);
+  runner.log(
+    `cache: staged image ${staged?.trim() ?? 'none'}; lists ${withLists ? 'reused' : 'not reused'}`,
+  );
+  await runner.run(
+    'prefill from cache',
+    prefillCommand(cache.stage, withLists),
+  );
+  if (!withLists) return false;
+  try {
+    await runner.run('offline readiness', offlineCheckCommand());
+    return true;
+  } catch (error) {
+    runner.log(String(error));
+    if (!(error instanceof Error) || error.cause !== 'acquisition-failure')
+      throw error;
+    return false;
+  }
+}
+
+async function prepareFfmpeg(
+  runner: ReturnType<typeof createPreparation>,
+  cache: Cache | undefined,
+) {
+  const offline = cache ? await restoreFromCache(runner, cache) : false;
+  if (!offline) {
+    await acquire(runner);
+    if (cache)
+      await optional(runner, 'hold archives', holdArchivesCommand(cache.stage));
+  }
+  // No dpkg work can be entered by an acquisition retry.
+  await runner.run('install (no downloads, no retry)', [
+    ...apt,
+    'install',
+    '-y',
+    '--no-install-recommends',
+    '--no-download',
+    'ffmpeg',
+  ]);
+  await runner.run('verify ffmpeg', ['ffmpeg', '-version']);
+  await runner.run('verify ffprobe', ['ffprobe', '-version']);
+  runner.checkReady();
+  // A cold run leaves its verified lists and .debs for the workflow to save.
+  // ffmpeg is ready either way: a failed stage only costs the next run its
+  // offline path, because lists are reused only beside a written image file.
+  if (cache && !offline)
+    await optional(
+      runner,
+      'stage cache',
+      refreshStageCommand(cache.stage, cache.image, cache.owner),
+    );
+  runner.log(
+    `PASS: ffmpeg and ffprobe ready (${offline ? 'offline from cache' : 'acquired'})`,
+  );
+}
+
+async function acquire(runner: ReturnType<typeof createPreparation>) {
   await runner.run('configured package sources', [
     'sh',
     '-ec',
@@ -204,19 +379,6 @@ async function prepareFfmpeg(runner: ReturnType<typeof createPreparation>) {
       ]);
     }
   }
-  // No dpkg work can be entered by an acquisition retry.
-  await runner.run('install (no downloads, no retry)', [
-    ...apt,
-    'install',
-    '-y',
-    '--no-install-recommends',
-    '--no-download',
-    'ffmpeg',
-  ]);
-  await runner.run('verify ffmpeg', ['ffmpeg', '-version']);
-  await runner.run('verify ffprobe', ['ffprobe', '-version']);
-  runner.checkReady();
-  runner.log('PASS: ffmpeg and ffprobe ready');
 }
 
 if (import.meta.main) {
@@ -233,10 +395,12 @@ if (import.meta.main) {
     )
       throw new Error('root and an original non-future launch stamp required');
     const runner = createPreparation(launchSeconds, cancellation.signal);
-    runner.log(
-      `runner image ${process.env.ImageOS ?? 'unknown'}/${process.env.ImageVersion ?? 'unknown'}`,
-    );
-    await prepareFfmpeg(runner);
+    const image = runnerImage(process.env);
+    runner.log(`runner image ${image}`);
+    // Optional: the runner-owned cache directory the workflow restores and saves.
+    const stage = process.argv[3];
+    const owner = `${process.env.SUDO_UID ?? '0'}:${process.env.SUDO_GID ?? '0'}`;
+    await prepareFfmpeg(runner, stage ? { stage, image, owner } : undefined);
   } catch (error) {
     console.error(`ffmpeg preparation FAIL: ${String(error)}`);
     // A failed bounded reap must not leave a referenced child handle keeping

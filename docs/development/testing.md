@@ -683,6 +683,29 @@ runs once with `--no-download`, after acquisition, followed by both `ffmpeg
 -version` and `ffprobe -version` under the original deadline. No lock is deleted
 and no interrupted installation is retried.
 
+A warm cache skips acquisition entirely. The workflow restores
+`~/.cache/daisy-ffmpeg-apt` keyed on runner architecture and image
+(`ImageOS`/`ImageVersion`), falling back to the newest entry for an earlier
+image, and saves it straight after a preparation that was not an exact hit. The
+directory holds apt's lists, the `.deb` versions that run installed (copied
+aside before dpkg, filtered to installed versions afterwards) and the image that
+wrote them. Every run prefills apt's archive with those `.debs`, which apt checks
+against the index hashes before use. Only on the exact image that wrote them are
+the lists restored too; then `apt-get install --print-uris` (no dpkg, no
+download) must report nothing left to fetch, and installation proceeds with no
+network at all. Otherwise the bounded acquisition above runs, downloading only
+what the cached `.debs` lack. Restored lists are not re-verified: cache entries
+are written only by this repository's workflows, main's only by pushes to main,
+the same trust that already governs `ci.yml`. A failure to stage the cache does
+not fail the step; it only costs the next run its offline path, because lists
+are reused only beside the image file written last.
+
+Proof (2026-11-18, Ubuntu 24.04 arm64 container with `docker-clean` removed to
+match the runner): a cold run staged 195 archives; the same image with
+`--network none` passed offline in 12 s; a different image or no cache under
+`--network none` failed; a new image with network downloaded 0 B of 127 MB. In
+CI, the shards of a commit that blackholed the mirror passed from the warm cache.
+
 Apt runs with `Dpkg::Use-Pty=0`: apt2.8.3 otherwise starts mutating dpkg
 in a new session for its PTY, outside the tracked apt group. The versioned
 [upstream implementation](https://salsa.debian.org/apt-team/apt/-/raw/2.8.3/apt-pkg/deb/dpkgpm.cc)
