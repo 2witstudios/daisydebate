@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
-import type { RoomCatalogChoice } from '@daisy/protocol';
+import type { RatingDivision, RoomCatalogChoice } from '@daisy/protocol';
 import {
   changeRoomValue,
   chooseRoomChoice,
@@ -19,7 +19,8 @@ import { buttonClass } from '../../components/button/button-class';
 import { FormError } from '../../components/form-field/form-field';
 import { DraftSettings } from './draft-settings';
 import { DraftPreview } from './draft-preview';
-import { rankedAgeReason } from '../../../features/play/ranked-age';
+import { noLadderReason } from '../../../features/play/ladder-division-words';
+import { RankedLadderNote } from './ranked-ladder';
 
 /** Daisy's one standard, or any rules of your own (ADR 0142). */
 const formats = [
@@ -33,7 +34,7 @@ export function CreateRoomEditor({
   values: kept,
   commandId,
   initialRanked,
-  rankedAgeAdmitted,
+  memberDivision,
   pending,
   error,
 }: {
@@ -42,23 +43,22 @@ export function CreateRoomEditor({
   readonly values: Readonly<Record<string, string>>;
   readonly commandId: string;
   readonly initialRanked: boolean;
-  /** The member meets the ranked age floor (decision 79); a hint, the create decides again. */
-  readonly rankedAgeAdmitted: boolean;
+  /**
+   * The member's ladder division (ADR 0147): any division may create a
+   * ranked Room, whose debaters then set its ladder. Null with no age on
+   * record, so no ranked play.
+   */
+  readonly memberDivision: RatingDivision | null;
   readonly pending: boolean;
   readonly error?: string | undefined;
 }) {
   const [model, setModel] = useState(() =>
-    initialRoomModel(
-      initialChoice,
-      choices,
-      // A kept Ranked choice never reaches a member under the floor's draft.
-      rankedAgeAdmitted ? kept : { ...kept, ranked: '' },
-      initialRanked,
-    ),
+    initialRoomModel(initialChoice, choices, kept, initialRanked),
   );
   const { values, draft } = model;
   const isCustom = draft.custom;
-  const isRanked = rankedAgeAdmitted && values.ranked === 'on' && !isCustom;
+  const mayRank = memberDivision !== null;
+  const isRanked = mayRank && values.ranked === 'on' && !isCustom;
   const change = (name: string, value: string) =>
     setModel((current) => changeRoomValue(current, name, value, choices));
   const metadata = (name: string, value: string) =>
@@ -153,38 +153,41 @@ export function CreateRoomEditor({
               Apply format
             </button>
           </noscript>
-          <div className="create-room-ranked">
-            <label>
-              <input
-                type="checkbox"
-                name="ranked"
-                value="on"
-                checked={isRanked}
-                disabled={
-                  !rankedAgeAdmitted ||
-                  isCustom ||
-                  !draft.basis.preset.rankedEligible
-                }
-                onChange={(event) => {
-                  const ranked = event.target.checked;
-                  setModel((current) => ({
-                    values: { ...current.values, ranked: ranked ? 'on' : '' },
-                    draft: { ...current.draft, ranked },
-                  }));
-                }}
-              />
-              Ranked
-            </label>
-            <span>
-              {!rankedAgeAdmitted
-                ? rankedAgeReason
-                : isCustom
+          {mayRank ? (
+            <div className="create-room-ranked">
+              <label>
+                <input
+                  type="checkbox"
+                  name="ranked"
+                  value="on"
+                  checked={isRanked}
+                  disabled={isCustom || !draft.basis.preset.rankedEligible}
+                  onChange={(event) => {
+                    const ranked = event.target.checked;
+                    setModel((current) => ({
+                      values: {
+                        ...current.values,
+                        ranked: ranked ? 'on' : '',
+                      },
+                      draft: { ...current.draft, ranked },
+                    }));
+                  }}
+                />
+                Ranked
+              </label>
+              <span>
+                {isCustom
                   ? 'Standard settings required'
                   : draft.basis.preset.rankedEligible
-                    ? `${draft.basis.label} ladder`
+                    ? `${draft.basis.label} · Open or Youth, set by the debaters`
                     : 'Ranked unavailable'}
-            </span>
-          </div>
+              </span>
+            </div>
+          ) : (
+            // No age on record: no ladder, so no ranked control at all.
+            <p className="text-sm text-ink-muted">{noLadderReason}</p>
+          )}
+          {isRanked ? <RankedLadderNote /> : null}
           <div className="create-room-ranked">
             <label>
               <input
@@ -390,7 +393,11 @@ export function CreateRoomEditor({
           </button>
         </div>
       </fieldset>
-      <DraftPreview draft={draft} title={values.title ?? ''} />
+      <DraftPreview
+        draft={draft}
+        title={values.title ?? ''}
+        ranked={isRanked}
+      />
     </div>
   );
 }

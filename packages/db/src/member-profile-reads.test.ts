@@ -95,6 +95,8 @@ describe('readMemberProfile', () => {
         ['round-2', 'side', 'negative', 0, 'human', 'closed-b', at, null],
       ],
       [{ roundId: 'round-2' }],
+      // The listed Round's ladder: a ranked Open Freestyle Round.
+      [['round-2', 'freestyle', 'open']],
     ]);
     const profile = await read(database, { caller, decide });
     assert({
@@ -160,6 +162,7 @@ describe('readMemberProfile', () => {
                   closed: true,
                 },
               ],
+              ladder: { style: 'freestyle', division: 'open' },
             },
           ],
           nextBefore: 'round-2',

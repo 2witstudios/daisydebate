@@ -13,12 +13,14 @@ describe('destinations', () => {
       actual: [
         leaderboardDestinations.findMatch,
         everyoneHref({ ...defaultQuery, q: 'abc', page: 3 }),
-        seasonHref('3'),
+        seasonHref(defaultQuery, '3'),
+        seasonHref({ ...defaultQuery, division: 'youth', q: 'abc' }, '3'),
       ],
       expected: [
         '/ranked',
         '/leaderboard?q=abc&status=everyone',
         '/leaderboard?season=3',
+        '/leaderboard?division=youth&season=3',
       ],
     });
   });

@@ -7,8 +7,6 @@ import {
   type ChallengeFormState,
 } from './forms';
 import { challengeRoomForm, templateFor } from './room';
-import { rankedAgeReason } from '../play/ranked-age';
-import { rankedAgeCreateRefusal } from '../rooms/create-room-form';
 
 type Offer = ChallengeList['incoming'][number];
 
@@ -17,11 +15,6 @@ export type AcceptOfferPorts = {
   readonly nextId: () => string;
   readonly readOffers: () => Promise<readonly Offer[] | null>;
   readonly inARoom: () => Promise<boolean>;
-  /**
-   * The acceptor meets the ranked age floor (decision 79). A hint that names
-   * the reason before a ranked room opens; the room's create decides again.
-   */
-  readonly rankedAgeAdmitted: () => Promise<boolean>;
   readonly readCatalog: () => Promise<
     | {
         readonly kind: 'found';
@@ -66,8 +59,6 @@ export async function acceptOffer(
   // A member already in a room finishes there first; nothing else is opened.
   if (await ports.inARoom())
     return challengeRefused(challengeRefusal('accept-placed', 409));
-  if (offer.mode === 'ranked' && !(await ports.rankedAgeAdmitted()))
-    return challengeRefused(rankedAgeReason);
   const catalog = await ports.readCatalog();
   const template =
     catalog.kind === 'found'
@@ -108,10 +99,7 @@ export async function acceptOffer(
       return challengeRefused(
         notNamed ??
           (offer.mode === 'ranked'
-            ? // The create answers a ranked-age refusal in exactly these words.
-              created.error === rankedAgeCreateRefusal
-              ? rankedAgeReason
-              : challengeRefusal('accept-ranked', 500)
+            ? challengeRefusal('accept-ranked', 500)
             : created.error),
       );
   }

@@ -11,15 +11,11 @@ import {
   challengeRefusal,
   challengeRefused,
   challengeSent,
-  sendRefusal,
   type ChallengeFormState,
 } from '../../../features/challenges/forms';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
-import {
-  requestIdentity,
-  requestRankedPlayAdmitted,
-} from '../../../lib/request-session';
+import { requestIdentity } from '../../../lib/request-session';
 import { activeRoomRead } from '../actions';
 import { post, text } from '../form-post';
 import { moveOn } from '../../../server/form-action';
@@ -47,6 +43,14 @@ const routes = {
 
 const roomVersion = z.object({ version: z.number() });
 
+/** The closed refusal word a 409 names, if any. */
+const refusalOf = async (response: Response): Promise<string | null> => {
+  const body = z
+    .object({ refusal: z.string() })
+    .safeParse(await response.json().catch(() => null));
+  return body.success ? body.data.refusal : null;
+};
+
 /** Offers a debate: nothing exists until the other member accepts. */
 export async function sendChallengeAction(
   _previous: ChallengeFormState,
@@ -62,7 +66,7 @@ export async function sendChallengeAction(
     });
     if (!response.ok)
       return challengeRefused(
-        sendRefusal(response.status, await response.json().catch(() => null)),
+        challengeRefusal('send', response.status, await refusalOf(response)),
       );
     return challengeResultSchema.safeParse(await response.json()).success
       ? challengeSent
@@ -102,7 +106,6 @@ export async function acceptChallengeAction(
           return list.success ? list.data.incoming : null;
         },
         inARoom: async () => (await activeRoomRead()) !== null,
-        rankedAgeAdmitted: requestRankedPlayAdmitted,
         readCatalog: () =>
           readRoomTemplates(inProcessFetch(routes.catalog, incoming)),
         openRoom: (room, beforeMoveOn) =>

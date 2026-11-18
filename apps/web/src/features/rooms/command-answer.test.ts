@@ -176,6 +176,7 @@ test('a hydrated refusal stays on the room with its reason', () => {
           seat: JSON.stringify({ kind: 'side', side: 'negative', slot: 0 }),
         },
         error: 'The room changed. Review the latest room and try again.',
+        reason: 'version-conflict',
       },
       'That seat just went: someone has it, or it is held for another member.',
       undefined,

@@ -9,7 +9,7 @@ import { CreateRoomPage } from '../../../../../ui/rooms/create-room/create-room-
 import { roomTemplates } from '../../../play/actions';
 import { roomAssembly } from '../actions';
 import {
-  requestRankedPlayAdmitted,
+  requestMemberDivision,
   requestRoomDraftAnswer,
 } from '../../../../../lib/request-session';
 export default async function FreshRoomPage({
@@ -40,7 +40,7 @@ export default async function FreshRoomPage({
       )}
       choices={templates.choices}
       commandId={systemId.next()}
-      rankedAgeAdmitted={await requestRankedPlayAdmitted()}
+      memberDivision={await requestMemberDivision()}
     />
   );
 }

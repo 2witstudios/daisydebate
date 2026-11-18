@@ -421,7 +421,7 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
       const recordedOnly = await f.round();
       const nothing = await f.round();
       await client`update rounds set visibility='public' where id=${chosen}`;
-      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
+      await client`update rounds set competition_type='casual', ladder_id=null,ladder_division=null, capture=${JSON.stringify(
         {
           broadcast: {
             release: { kind: 'delay', seconds: 300 },
@@ -430,10 +430,10 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
           recordingPolicy: 'off',
         },
       )}::text::jsonb where id=${chosen}`;
-      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
+      await client`update rounds set competition_type='casual', ladder_id=null,ladder_division=null, capture=${JSON.stringify(
         { broadcast: null, recordingPolicy: 'released' },
       )}::text::jsonb where id=${recordedOnly}`;
-      await client`update rounds set competition_type='casual', ladder_id=null, capture=null where id=${nothing}`;
+      await client`update rounds set competition_type='casual', ladder_id=null,ladder_division=null, capture=null where id=${nothing}`;
       const found = (
         await discoverUnopenedBroadcastRounds(drizzle({ client }), 1000)
       ).map((row) => row.roundId);

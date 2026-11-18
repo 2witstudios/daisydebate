@@ -22,10 +22,18 @@ const entry = {
   waitingSince: '2026-10-09T00:00:00.000Z',
   live: null,
   hostRating: null,
+  ladder: null,
+  openJudgeSeats: 0,
+} as const;
+/** The raw ladder facts a listed row carries before the row reads them. */
+const raw = {
+  hostRatings: null,
+  debaterDivisions: null,
+  roundDivision: null,
 } as const;
 test('discovery bounds SQL before Room locks and reads no aggregate', async () => {
   const { database, queries } = discoveryFixture([
-    { ...entry, seatKind: null, side: null, slot: null },
+    { ...entry, ...raw, seatKind: null, side: null, slot: null },
   ]);
   const page = await database.listRoomPage(
     caller,
@@ -88,7 +96,7 @@ test('adapter refuses malformed page before any SQL', async () => {
 test('lock-wait privacy changes never disclose an inaccessible cursor', async () => {
   for (const rows of [
     [],
-    [{ ...entry, seatKind: null, side: null, slot: null }],
+    [{ ...entry, ...raw, seatKind: null, side: null, slot: null }],
   ]) {
     const { database, queries } = discoveryFixture(rows);
     const page = await database.listRoomPage(
@@ -118,10 +126,17 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
     roundRef: { id: ids[1]!, status: 'active' as const },
     waitingSince: null,
     live: { stage: 'live', startedAt: '2026-10-09T00:05:00+00:00' },
-    hostRating: 1512,
   };
   const { database, queries } = discoveryFixture([
-    { ...started, seatKind: null, side: null, slot: null },
+    {
+      ...started,
+      hostRatings: { youth: 1512 },
+      debaterDivisions: null,
+      roundDivision: 'youth',
+      seatKind: null,
+      side: null,
+      slot: null,
+    },
   ]);
   const page = await database.listRoomPage(
     caller,
@@ -142,12 +157,14 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
       queries[1]!.query.includes('competition_type'),
       page.rooms[0]?.live,
       [page.rooms[0]?.hostLabel, page.rooms[0]?.hostRating],
+      page.rooms[0]?.ladder,
     ],
     expected: [
       true,
       true,
       { stage: 'live', startedAt: '2026-10-09T00:05:00.000Z' },
       [null, null],
+      'youth',
     ],
   });
 });
@@ -166,7 +183,7 @@ function discoveryFixture(rows: readonly Record<string, unknown>[]) {
 test('discovery keys oldest and newest pages on immutable creation time and Room id', async () => {
   for (const sort of ['longest-waiting', 'newest'] as const) {
     const { database, queries } = discoveryFixture([
-      { ...entry, seatKind: null, side: null, slot: null },
+      { ...entry, ...raw, seatKind: null, side: null, slot: null },
     ]);
     await database.listRoomPage(
       caller,

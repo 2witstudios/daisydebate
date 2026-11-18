@@ -12,7 +12,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ratingLadders, sideOfSeat, type SeatRef } from '@daisy/protocol';
+import { ratingStyles, sideOfSeat, type SeatRef } from '@daisy/protocol';
 import {
   withRoomRuntime,
   launchRuntimeRound,
@@ -39,7 +39,7 @@ const { databaseUrl } = requireTestServices(process.env);
 /** The stored seat order a Round reads in: by side, else by seat kind (as before TAB-6). */
 const storedOrderKey = (seat: SeatRef) => sideOfSeat(seat) ?? seat.kind;
 
-for (const ladder of ratingLadders)
+for (const ladder of ratingStyles)
   for (const judgeKind of ['human', 'ai'] as const)
     for (const outcome of ['affirmative', 'negative'] as const)
       test(`${ladder}/${judgeKind}/${outcome}: shared setup, frozen membership and restart-safe rated displays`, async () => {
@@ -49,7 +49,7 @@ for (const ladder of ratingLadders)
             let roundId: string | undefined;
             try {
               const season = await withSeasons(databaseUrl, (s) =>
-                s.activateBetaSeason({ id: seasonId }),
+                s.activateBetaSeason({ id: seasonId, division: 'open' }),
               );
               const room = await readyRankedRoom(f, ladder, judgeKind);
               ({ roundId } = await launchRuntimeRound(f, room));
@@ -118,7 +118,7 @@ for (const ladder of ratingLadders)
               ).toISOString();
               const leaderboard = await readLadder(f.store, {
                 seasonId: season.id,
-                ladder,
+                ladder: { style: ladder, division: 'open' },
                 now,
                 username: null,
               });
@@ -150,7 +150,10 @@ for (const ladder of ratingLadders)
                 should:
                   'show the exact same host rating on profile, leaderboard and Round',
                 actual: [
-                  member.find((r) => r.ladder === ladder)?.rating,
+                  member.find(
+                    (r) =>
+                      r.ladder.style === ladder && r.ladder.division === 'open',
+                  )?.rating,
                   Math.round(
                     leaderboard!.data.entries.find(
                       (e) => e.id === f.host.actorId,

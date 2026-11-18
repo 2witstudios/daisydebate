@@ -8,7 +8,7 @@ import {
   type TwoSideKey,
 } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
-import type { RatingLadder, RoundView } from '@daisy/protocol';
+import type { Ladder, RoundView } from '@daisy/protocol';
 import { rateDebate, ratingAwaited } from '@daisy/debate-engine';
 import { ratingClassification, ratingStanding } from './standing';
 import { readRatingStandings } from './read';
@@ -23,7 +23,7 @@ type RoundRating = {
   readonly hidden?: boolean;
 };
 export type RoundRatingsView = {
-  readonly ladder: RatingLadder;
+  readonly ladder: Ladder;
   readonly season: string;
   readonly rows: readonly RoundRating[];
   /** What this viewer may see of the posting: a blinded debater's is not read. */
@@ -54,15 +54,15 @@ export async function readRoundRatings(
   },
 ): Promise<RoundRatingsView | null> {
   const { round, now } = input;
-  if (round.ladderId === null) return null;
+  if (round.ladder === null) return null;
   const noSeason: RoundRatingsView = {
-    ladder: round.ladderId,
+    ladder: round.ladder,
     season: 'No active season',
     rows: [],
     posting: 'none',
   };
   const published = await readRatingStandings(store, {
-    ladder: round.ladderId,
+    ladder: round.ladder,
     seasonId: null,
     now,
     revealRoundId: round.id,
@@ -104,7 +104,7 @@ export async function readRoundRatings(
   const winA = staked ? calculate(affirmativeSide) : null;
   const winN = staked ? calculate(negativeSide) : null;
   return {
-    ladder: round.ladderId,
+    ladder: round.ladder,
     season: season.name,
     posting: rated
       ? 'rated'

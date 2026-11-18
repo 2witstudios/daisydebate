@@ -26,12 +26,14 @@ describe('ratings schema rules', () => {
       },
       expected: {
         seasons: [
+          'seasons_division_check',
           'seasons_ends_after_starts',
           'seasons_status_check',
           'seasons_version_positive',
         ],
         ratings: [
           'ratings_deviation_positive',
+          'ratings_division_check',
           'ratings_ladder_check',
           'ratings_rating_range',
           'ratings_version_positive',
@@ -39,6 +41,7 @@ describe('ratings schema rules', () => {
         ],
         changes: [
           'rating_changes_deviation_positive',
+          'rating_changes_division_check',
           'rating_changes_ladder_check',
           'rating_changes_rating_range',
           'rating_changes_volatility_positive',

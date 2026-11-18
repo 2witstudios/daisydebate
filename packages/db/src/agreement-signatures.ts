@@ -7,17 +7,23 @@ import { exportRows } from './privacy/export-rows';
 import { agreementSignatures } from './schema/agreement-signatures';
 import { seasons } from './schema/ratings';
 import { transactionNow } from './room-command-facts';
+import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert'>;
 
-/** Where a member stands on a version of the active season's waiver. */
+/** Where a member stands on a version of their division's active season's waiver. */
 export type ContentWaiverStanding = 'signed' | 'unsigned' | 'no-active-season';
 
 /**
- * The active season under FOR SHARE, so a rollover cannot change which season
- * a Ready stands on before this transaction commits.
+ * The member's own active season under FOR SHARE: Daisy's season on the
+ * member's ladder division (ADR 0147), so a Youth member signs for the Youth
+ * season. FOR SHARE, so a rollover cannot change which season a Ready stands
+ * on before this transaction commits. None without a division.
  */
-const activeSeasonId = async (tx: Tx): Promise<string | null> => {
+const activeSeasonId = async (
+  tx: Tx,
+  userId: string,
+): Promise<string | null> => {
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
@@ -26,6 +32,10 @@ const activeSeasonId = async (tx: Tx): Promise<string | null> => {
       and(
         eq(seasons.status, 'active'),
         eq(seasons.organizationId, daisyOrganizationId),
+        eq(
+          seasons.division,
+          sql`(select ${divisionOfBandSql(divisionAgeBand())} from account_age where account_age.user_id = ${userId})`,
+        ),
       ),
     )
     .for('share');
@@ -37,7 +47,7 @@ export async function readContentWaiverStanding(
   userId: string,
   version: string,
 ): Promise<ContentWaiverStanding> {
-  const seasonId = await activeSeasonId(tx);
+  const seasonId = await activeSeasonId(tx, userId);
   if (!seasonId) return 'no-active-season';
   const [row] = await tx
     .select({ id: agreementSignatures.id })
@@ -103,7 +113,7 @@ export const agreementSignatureOperations = ({
     }): Promise<'signed' | 'no-active-season'> =>
       instrumented(eventSink, 'signContentWaiver', () =>
         transaction(async (tx) => {
-          const seasonId = await activeSeasonId(tx);
+          const seasonId = await activeSeasonId(tx, input.userId);
           if (!seasonId) return 'no-active-season';
           await tx
             .insert(agreementSignatures)

@@ -277,6 +277,8 @@ export const loadSampleTournament = async (sql: SQL) => {
     await write('seasons', {
       id: ids.season,
       organization_id: ids.league,
+      // A league has no division yet (PYL S9): its seasons are Open.
+      division: 'open',
       name: 'Sample season',
       starts_at: at(0),
       status: 'active',

@@ -10,6 +10,7 @@ setupRitewayBun();
 
 const seasonId = 's'.repeat(24);
 const at = '2026-10-28T00:00:00.000Z';
+const youth = { style: 'freestyle', division: 'youth' } as const;
 
 test('a historical Round badge uses its posting rather than later established standing', async () => {
   const result = await readRoundRatings(
@@ -21,6 +22,16 @@ test('a historical Round badge uses its posting rather than later established st
           startsAt: at,
           endsAt: null,
           status: 'active',
+          division: 'youth',
+          version: 1,
+        },
+        {
+          id: 'o'.repeat(24),
+          name: 'Open Season 1',
+          startsAt: at,
+          endsAt: null,
+          status: 'active',
+          division: 'open',
           version: 1,
         },
       ],
@@ -53,7 +64,7 @@ test('a historical Round badge uses its posting rather than later established st
     {
       round: {
         ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
-        ladderId: 'freestyle',
+        ladder: youth,
       },
       now: at,
       viewerActorId: null,
@@ -75,6 +86,12 @@ test('a historical Round badge uses its posting rather than later established st
     actual: result?.posting,
     expected: 'rated',
   });
+  assert({
+    given: 'a Youth Round beside an Open season running at the same time',
+    should: 'name the Round’s own ladder and its division’s season',
+    actual: [result?.ladder, result?.season],
+    expected: [youth, 'Season 1'],
+  });
 });
 
 test('a blinded debater hides the posting, and only both blinded hide that it rated', async () => {
@@ -88,6 +105,7 @@ test('a blinded debater hides the posting, and only both blinded hide that it ra
             startsAt: at,
             endsAt: null,
             status: 'active',
+            division: 'youth',
             version: 1,
           },
         ],
@@ -120,7 +138,7 @@ test('a blinded debater hides the posting, and only both blinded hide that it ra
       {
         round: {
           ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
-          ladderId: 'freestyle',
+          ladder: youth,
         },
         now: at,
         viewerActorId: 'judge-viewer',
@@ -155,6 +173,7 @@ test('a decided Round is pending exactly when the rating writer would still rate
             startsAt: at,
             endsAt: null,
             status: 'active',
+            division: 'youth',
             version: 1,
           },
         ],
@@ -164,7 +183,7 @@ test('a decided Round is pending exactly when the rating writer would still rate
           awaits
             ? {
                 competitionType: 'ranked',
-                ladderId: 'freestyle',
+                ladder: youth,
                 status: 'completed',
                 outcome: { kind: 'winner', side: 'affirmative' },
                 completedAt: at,
@@ -183,7 +202,7 @@ test('a decided Round is pending exactly when the rating writer would still rate
       {
         round: {
           ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
-          ladderId: 'freestyle',
+          ladder: youth,
         },
         now: at,
         viewerActorId: null,

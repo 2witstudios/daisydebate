@@ -234,7 +234,7 @@ const judgingOptions = {
 test('a failed AI judge ends a ranked Round honestly: no human countdown, no winner, no rating, Room released', async () => {
   await withRoomRuntime(async (f) => {
     const { roundId } = await frozenBotJudgeRound(f, true);
-    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
     const seen = () =>
       f.store.readLaunchedRound(
         roundId,
@@ -304,13 +304,13 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
     const { roundId } = await launchRuntimeRound(f, room);
-    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
     await playOut(f, roundId, true);
     await finalizeAsWeb(f, roundId);
     await seedSettledAttendanceLedger(f, roundId);
     try {
       await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId }),
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
       );
       await f.sql`update round_judging_jobs set status='failed',terminal_reason='attempts_exhausted' where round_id=${roundId}`;
       const seen = () =>

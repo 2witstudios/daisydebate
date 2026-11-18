@@ -1,5 +1,7 @@
-import { leaderboardDestinations } from '../../features/leaderboard/actions';
+import type { Ladder } from '@daisy/protocol';
 import Link from 'next/link';
+import { leaderboardDestinations } from '../../features/leaderboard/actions';
+import { ladderName } from '../../features/leaderboard/ladder-name';
 import { seasonsHref } from '../../features/leaderboard/seasons';
 import type { DebaterDetail } from '../../features/leaderboard/detail';
 import type { LadderView } from '../../features/leaderboard/ladder-view';
@@ -11,6 +13,7 @@ import {
 } from '../../features/leaderboard/season';
 import { DebaterDrawer } from './debater-drawer/debater-drawer';
 import { LadderFilters } from './ladder-filters/ladder-filters';
+import { LadderName } from './ladder-name/ladder-name';
 import {
   EarlyBanner,
   FinalBanner,
@@ -22,6 +25,8 @@ import {
 import { LadderTable } from './ladder-table/ladder-table';
 
 export type LeaderboardProps = {
+  /** The ladder on screen: a style in a division (ADR 0147). */
+  readonly ladder: Ladder;
   readonly view: LadderView;
   readonly query: LadderQuery;
   /** ISO timestamp the season's day counts from. */
@@ -33,10 +38,12 @@ export type LeaderboardProps = {
 };
 
 /**
- * The leaderboard: one ladder per season, public to read. Search, filters,
- * season and the open detail all live in the URL.
+ * The leaderboard: one ladder per division and style, and per season, public
+ * to read. Division, search, filters, season and the open detail all live in
+ * the URL.
  */
 export function Leaderboard({
+  ladder,
   view,
   query,
   now,
@@ -44,6 +51,7 @@ export function Leaderboard({
   detail,
 }: LeaderboardProps) {
   const closed = isClosed(view.season);
+  const seasons = seasonsHref(view.season.id, query.division);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 max-compact:gap-4 max-compact:px-4">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
@@ -67,10 +75,8 @@ export function Leaderboard({
           aria-label="About the ladder"
           className="flex gap-4 text-sm font-strong"
         >
-          <Link href={seasonsHref(view.season.id)}>Seasons</Link>
-          <Link href={`${seasonsHref(view.season.id)}#how-rating-works`}>
-            How ratings work
-          </Link>
+          <Link href={seasons}>Seasons</Link>
+          <Link href={`${seasons}#how-rating-works`}>How ratings work</Link>
         </nav>
       </header>
       {judging ? <JudgeNotice /> : null}
@@ -94,12 +100,18 @@ export function Leaderboard({
         view={view}
         query={query}
         toolbar={
-          <LadderFilters
-            query={query}
-            seasons={view.seasons}
-            season={view.season}
-            hasStanding={view.hasStanding}
-          />
+          <div className="flex flex-col gap-3">
+            <LadderFilters
+              query={query}
+              ladder={ladder}
+              seasons={view.seasons}
+              season={view.season}
+              hasStanding={view.hasStanding}
+            />
+            <LadderName
+              name={ladderName(ladder, view.established + view.provisional)}
+            />
+          </div>
         }
       />
       {view.empty === 'new-season' && view.previousChampion ? (

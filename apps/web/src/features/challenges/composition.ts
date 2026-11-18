@@ -1,4 +1,3 @@
-import { challengeSendFence } from './send-fence';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
@@ -59,8 +58,6 @@ const ports = (
     (await app.redis.readActorsPresence([actorId])).get(actorId) ?? null,
   store: (capability) =>
     app.database.challengeStore(contactPairFence({ principal, capability })),
-  sendStore: (mode) =>
-    app.database.challengeStore(challengeSendFence({ principal, mode })),
   counterpart: (actorId, challengeId) =>
     app.database.readChallengeCounterpart(actorId, challengeId),
 });

@@ -113,6 +113,8 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         'waitingSince',
         'live',
         'hostRating',
+        'ladder',
+        'openJudgeSeats',
       ].sort(),
     });
   });

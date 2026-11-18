@@ -1,10 +1,5 @@
 import { isTemporaryRefusal } from '@daisy/db/capacity';
-import {
-  resolveIdentity,
-  type Identity,
-  type Participation,
-} from '@daisy/auth';
-import { rankedAgeAdmitted } from '@daisy/auth/age-floor';
+import { resolveIdentity, type Identity } from '@daisy/auth';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
 import type { AuthServer } from '../features/auth/server';
 
@@ -48,24 +43,14 @@ export async function resolveSession(
 ): Promise<{
   readonly identity: Identity;
   readonly sessionExpiresAt: string | null;
-  /**
-   * A member who meets the ranked age floor (decision 79), from the same
-   * participation read the identity was decided on. A page hint only.
-   */
-  readonly rankedAgeAdmitted: boolean;
 }> {
   const { readSession, clock, logger } = auth;
   const cookie = requestHeaders.get('cookie');
   let expiresAt: string | null = null;
-  // Assigned in the read callback; a holder keeps TypeScript from narrowing it.
-  const read: { participation: Participation | null } = { participation: null };
   const identity = await resolveIdentity({
     // No session cookie at all: nothing to look up, and no budget spent.
     readActor: auth.getActorByUserId,
-    readParticipation: async (userId) => {
-      read.participation = await auth.getParticipationByUserId(userId);
-      return read.participation;
-    },
+    readParticipation: auth.getParticipationByUserId,
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
     isTemporary: isTemporaryRefusal,
@@ -95,11 +80,5 @@ export async function resolveSession(
     identity.state === 'waitlisted' ||
     identity.state === 'restricted' ||
     identity.state === 'member';
-  return {
-    identity,
-    sessionExpiresAt: signedIn ? expiresAt : null,
-    rankedAgeAdmitted:
-      identity.state === 'member' &&
-      rankedAgeAdmitted(read.participation?.ageBand ?? null),
-  };
+  return { identity, sessionExpiresAt: signedIn ? expiresAt : null };
 }

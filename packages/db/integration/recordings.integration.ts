@@ -571,6 +571,7 @@ test('a cursor outside the archive scope tells nothing of that Round', async () 
       competition_type: 'ranked',
       format_id: formatId,
       ladder_id: formatId,
+      ladder_division: 'open',
       preset_version: 1,
       visibility: 'public',
     };
@@ -640,6 +641,7 @@ test('a ranked Round leaves the archive when its Recording is taken down, transc
         competition_type: 'ranked',
         format_id: formatId,
         ladder_id: formatId,
+        ladder_division: 'open',
         preset_version: 1,
         visibility: 'public',
         started_at: at,

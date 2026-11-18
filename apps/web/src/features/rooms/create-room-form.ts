@@ -1,4 +1,3 @@
-import { rankedAgeReason } from '../play/ranked-age';
 import { aiJudgePremiumText } from './ai-judge-copy';
 import { createAssembly } from './create-assembly';
 import type { RoomCreateRefusal } from './room-create-response';
@@ -104,15 +103,11 @@ export async function submitRoomCreation(
   return refused(submitted, creationRefusal(result));
 }
 
-/** A create refused on the host's own ranked age (decision 79), in its one wording. */
-export const rankedAgeCreateRefusal = `${rankedAgeReason} Turn Ranked off to play casual.`;
-
 const settingsRefusal =
   'The room could not be created. Review your settings and try again.';
 const refusals: Readonly<Record<RoomCreateRefusal, string>> = {
   'ranked-unavailable':
     'Ranked rooms are unavailable right now. Turn Ranked off or try again later.',
-  'ranked-age': rankedAgeCreateRefusal,
   settings: settingsRefusal,
   // A created Room's form sends no cast, so neither reaches a person here.
   'actor-ineligible': settingsRefusal,

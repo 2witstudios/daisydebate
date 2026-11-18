@@ -70,6 +70,7 @@ export const state: RoomAssemblyState = {
       consentCommandId: 'c4n6p8r2t4v6x8z1k3b5c7d9',
       seat: { kind: 'side', side: 'affirmative', slot: 0 },
       eligible: true,
+      division: null,
     },
   ],
   roundRef: null,

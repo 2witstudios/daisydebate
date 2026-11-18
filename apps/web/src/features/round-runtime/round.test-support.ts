@@ -18,7 +18,7 @@ export const launched: LaunchedRound = {
   roomId: state.id,
   version: 1,
   status: 'opening',
-  ladderId: null,
+  ladder: null,
   competitionType: 'casual',
   topic: state.topic ?? '',
   visibility: 'private',

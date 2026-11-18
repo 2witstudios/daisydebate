@@ -6,6 +6,21 @@ import { validRules } from './round-fixtures';
 
 /** Fixtures for the standings reads suite (RATE-1.4.1). */
 
+/**
+ * The Open division for a row of `table` once ADR 0147's ladder-division
+ * migration has run, and nothing before it: migration proofs seed through
+ * these fixtures on earlier schemas too.
+ */
+const openDivision = async (
+  fixture: Fixture,
+  table: string,
+  column = 'division',
+): Promise<Record<string, string>> => {
+  const [found] = (await fixture.sql`select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = ${table} and column_name = ${column}`) as unknown[];
+  return found ? { [column]: 'open' } : {};
+};
+
 export const at = (day: number, hour = 12) =>
   new Date(Date.UTC(2026, 9, day, hour));
 
@@ -16,6 +31,7 @@ export const season = async (
 ) => {
   const id = createId();
   await fixture.insert('seasons', {
+    ...(await openDivision(fixture, 'seasons')),
     id,
     name: `Season ${status}`,
     starts_at: startsAt,
@@ -54,6 +70,7 @@ export const completed = async (
       runtime_state: emptyRuntimeCheckpointFor(validRules),
       judging: frozenJudgingFor(validRules),
       ladder_id: input.formatId,
+      ...(await openDivision(fixture, 'rounds', 'ladder_division')),
       started_at: at(5, 11),
       completed_at: at(5),
     },
@@ -65,7 +82,7 @@ export const completed = async (
   return id;
 };
 
-export const change = (
+export const change = async (
   fixture: Fixture,
   row: {
     roundId: string;
@@ -85,6 +102,7 @@ export const change = (
     format_id: row.formatId,
     season_id: row.seasonId,
     ladder: row.ladder,
+    ...(await openDivision(fixture, 'rating_changes')),
     rating_before: row.before,
     rating_after: row.after,
     deviation_before: 350,
@@ -95,7 +113,7 @@ export const change = (
     occurred_at: row.occurredAt,
   });
 
-export const rating = (
+export const rating = async (
   fixture: Fixture,
   row: {
     actorId: string;
@@ -111,6 +129,7 @@ export const rating = (
       actor_id: row.actorId,
       season_id: row.seasonId,
       ladder: row.ladder,
+      ...(await openDivision(fixture, 'ratings')),
       rating: row.rating,
       deviation: 300,
       volatility: 0.06,

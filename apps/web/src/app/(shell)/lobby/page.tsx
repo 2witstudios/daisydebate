@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
+import { requestMemberDivision } from '../../../lib/request-session';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
@@ -24,10 +25,12 @@ export default async function LobbyPage({
     identity.state === 'member' ? identity.principal.actorId : null;
   const query = parseRoomDiscoveryQuery(await searchParams);
   if (!query.success) throw createAppError('VALIDATION');
-  const [listing, activeRoom, hosted] = await Promise.all([
+  const [listing, activeRoom, hosted, viewerDivision] = await Promise.all([
     roomListing(query.data),
     requestActiveRoom(),
     actorId === null ? [] : hostedRoomsRead(),
+    // Only a row's seat hint reads it; the Room's own seat check decides.
+    requestMemberDivision().catch(() => null),
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = Date.parse(systemClock.now());
@@ -42,6 +45,7 @@ export default async function LobbyPage({
         retry={listing.retry}
         activeRoom={activeRoom}
         now={now}
+        viewerDivision={viewerDivision}
       />
     </>
   );

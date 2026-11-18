@@ -1,16 +1,16 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { canonicalRatingLadder, ratingLadders } from './primitives';
+import { canonicalRatingStyle, ratingStyles } from './primitives';
 
 setupRitewayBun();
 
-describe('canonicalRatingLadder', () => {
+describe('canonicalRatingStyle', () => {
   test('only Freestyle, the one Daisy standard, names a rating pool', () => {
     assert({
       given:
         'the Freestyle ID, the deleted Policy and Value IDs, and custom or legacy format IDs',
       should: 'map exactly the one ladder without label or revision inference',
       actual: {
-        ladders: ratingLadders,
+        ladders: ratingStyles,
         mapped: [
           'freestyle',
           'policy',
@@ -18,7 +18,7 @@ describe('canonicalRatingLadder', () => {
           'one-on-one',
           'custom',
           'Policy',
-        ].map(canonicalRatingLadder),
+        ].map(canonicalRatingStyle),
       },
       expected: {
         ladders: ['freestyle'],

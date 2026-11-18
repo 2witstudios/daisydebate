@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { seatKinds, type SeatKind } from './seats';
+import { ratingDivisions, type SeatedDivision } from './ladder';
 import type { RoomRoundLink } from './room-contract';
 
 /**
@@ -33,6 +34,8 @@ export const activeRoomSchema = z
     role: z.enum(['host', ...seatKinds]),
     /** Holds a seat in this Room; `host` outranks the seat in `role`. */
     seated: z.boolean(),
+    /** A ranked Room's ladder as its seats or Round set it (ADR 0147); null when casual. */
+    ladder: z.enum([...ratingDivisions, 'unset', 'mixed']).nullable(),
     href: z.string(),
   })
   .refine((room) =>
@@ -54,4 +57,6 @@ export type ActiveRoomFacts = RoomRoundLink & {
   readonly seatKind: SeatKind | null;
   /** Whether the launched Round's last speech has ended. */
   readonly debateEnded: boolean;
+  /** The Room's ladder (ADR 0147), as `roomLadderOf` reads it; null when casual. */
+  readonly ladder: SeatedDivision | null;
 };

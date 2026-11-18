@@ -1,4 +1,3 @@
-import { RANKED_AGE_FLOOR } from '@daisy/auth/age-floor';
 import {
   isNamedSeat,
   isOpenRoomStatus,
@@ -25,6 +24,7 @@ import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { roomVisibilityLabels } from '../../../features/rooms/room-visibility';
 import { declaredSeats, seatLabel } from './assembly-controls';
 import { ordinalOf, showsTeams } from './roster-seat';
+import { competitionWords } from './room-ladder';
 
 type Participant = RoomView['participants'][number];
 type Definition = Pick<RoomView['definition'], 'sides' | 'seats'>;
@@ -118,20 +118,21 @@ export function roomStatus(
   return `${view.participants.length} of ${seats} seats filled`;
 }
 
-const competitionLabels = {
-  ranked: 'Ranked',
-  casual: 'Casual',
-} as const;
-
-/** Host, who can join, and whether the result is ranked: the header's meta line. */
+/**
+ * Host, who can join, and whether the result is ranked: the header's meta
+ * line. A ranked Room whose debaters mix ladders says it is playing casual.
+ */
 export function roomMeta(
-  view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
+  view: Pick<
+    RoomView,
+    'hostLabel' | 'visibility' | 'competitionType' | 'ladder'
+  >,
 ): readonly string[] {
   return [
     // A Room no person hosts (a Tab event Room) names no host.
     ...(view.hostLabel ? [`Hosted by ${view.hostLabel}`] : []),
     roomVisibilityLabels[view.visibility],
-    competitionLabels[view.competitionType],
+    competitionWords(view),
   ];
 }
 
@@ -180,8 +181,8 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
-  // Reaches only the caller about their own age (decision 79); another's seat answers actor-ineligible.
-  'ranked-age': `members ${RANKED_AGE_FLOOR} and over`,
+  // A seat names the caller's own ladder only; Start never refuses on it.
+  'ranked-division': 'a debater seat on your own ladder',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
   'ai-judge-premium':

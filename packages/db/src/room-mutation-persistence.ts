@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
+import { roundCompetition, seatedDivision } from '@daisy/protocol';
 import {
   emptyRuntimeCheckpointFor,
   aiBallotAdmissionRefusal,
@@ -15,7 +16,8 @@ import { insertRoundDraw } from './room-draw-persistence';
 import { rooms, roomParticipants } from './schema/rooms';
 import { roundDrawSeeds } from './schema/round-seeds';
 import { challenges } from './schema/challenges';
-import { roundLadder, rounds } from './schema/rounds';
+import { rounds } from './schema/rounds';
+import { lockLadderSeason } from './ladder-season';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { oweRoundStarted } from './round-began';
@@ -131,6 +133,13 @@ export const persistRoomMutation = async (
       .select({ leagueLadderId: rooms.leagueLadderId })
       .from(rooms)
       .where(eq(rooms.id, next.id));
+    // The Round's ladder follows who sat (ADR 0147): one division rates on
+    // its own season, a mixed seating plays casual in a ranked Room.
+    const competition = roundCompetition(
+      next,
+      seatedDivision(next.participants),
+    );
+    if (competition.ladder) await lockLadderSeason(tx, competition.ladder);
     await tx.insert(rounds).values({
       leagueLadderId: source?.leagueLadderId ?? null,
       id: roundId,
@@ -139,10 +148,11 @@ export const persistRoomMutation = async (
       hostInherited: next.hostInherited,
       resolution: next.topic,
       preRoundPrepMs: prepMs,
-      competitionType: next.competitionType,
+      competitionType: competition.competitionType,
       formatId: next.formatId,
       formatVersion: next.formatVersion,
-      presetVersion: next.presetVersion,
+      presetVersion:
+        competition.competitionType === 'ranked' ? next.presetVersion : null,
       roomConfigSnapshot: freezeRoomConfig(next.config),
       capture: next.capture,
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
@@ -155,7 +165,8 @@ export const persistRoomMutation = async (
       ...(opens
         ? {}
         : { currentStage: 'countdown' as const, startedAt: new Date(now) }),
-      ladderId: roundLadder(next.competitionType, next.formatId),
+      ladderId: competition.ladder?.style ?? null,
+      ladderDivision: competition.ladder?.division ?? null,
       createdAt: new Date(now),
       updatedAt: new Date(now),
     });

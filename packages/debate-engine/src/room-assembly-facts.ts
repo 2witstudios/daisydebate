@@ -6,6 +6,7 @@ import type {
   RoomParticipant,
   RoomRefusal,
   AiRole,
+  RatingDivision,
 } from '@daisy/protocol';
 import {
   formatDefinitionSchema,
@@ -20,6 +21,8 @@ import type { DrawStartFacts } from './room-draw-start';
 
 type Target = RoomParticipant & {
   readonly eligible: boolean;
+  /** The person's ladder division (ADR 0147); null for a bot or no record. */
+  readonly division: RatingDivision | null;
   /**
    * Which AI the actor is (ISSUE-750), and so which seats it may hold: a bot
    * debater a competitor's, the AI judge a judge's. Null for a human.

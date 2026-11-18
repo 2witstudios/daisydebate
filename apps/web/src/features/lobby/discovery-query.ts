@@ -1,5 +1,6 @@
 import {
   competitionTypes,
+  ratingDivisions,
   roomListSorts,
   roomListDefaultPageSize,
   roomListQuerySchema,
@@ -22,6 +23,11 @@ export const lobbyModeChoices = ['any', ...competitionTypes] as const;
 
 export type LobbyMode = (typeof lobbyModeChoices)[number];
 
+/** The division select: any division, then each ladder division (ADR 0147). */
+export const lobbyDivisionChoices = ['any', ...ratingDivisions] as const;
+
+export type LobbyDivision = (typeof lobbyDivisionChoices)[number];
+
 /** The sort select: Newest, the default, then the other orders the listing keeps stable under paging. */
 export const lobbySortChoices = roomListSorts;
 
@@ -43,6 +49,7 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
     sort: narrowing(raw.sort, 'newest'),
     status: narrowing(raw.status, 'all'),
     mode: narrowing(raw.mode, 'any'),
+    division: narrowing(raw.division, 'any'),
     ...(raw.pageSize === undefined
       ? {}
       : {
@@ -66,12 +73,17 @@ export function lobbyHref(query: RoomListQuery, cursor?: string): string {
     params.set('pageSize', String(query.pageSize));
   if (query.status) params.set('status', query.status);
   if (query.mode) params.set('mode', query.mode);
+  if (query.division) params.set('division', query.division);
   if (query.sort) params.set('sort', query.sort);
   if (cursor !== undefined) params.set('cursor', cursor);
   const search = params.toString();
   return search === '' ? '/lobby' : `/lobby?${search}`;
 }
 
+/** How many filters in the Filters panel (not the status tab or sort) are set. */
+export const filterCount = (query: RoomListQuery): number =>
+  [query.mode, query.division].filter((value) => value !== undefined).length;
+
 /** True when a filter in the Filters panel (not the status tab) is set. */
 export const isFiltered = (query: RoomListQuery): boolean =>
-  query.mode !== undefined;
+  filterCount(query) > 0;

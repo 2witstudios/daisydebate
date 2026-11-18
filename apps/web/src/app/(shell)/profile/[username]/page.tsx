@@ -9,6 +9,11 @@ import {
   requestMemberStandings,
 } from '../../../../lib/request-session';
 import { MemberStandings } from '../../../../ui/ranked/member-standings';
+import {
+  currentDivisionOf,
+  profileLadders,
+} from '../../../../features/profile/profile-ladders';
+import type { RatingDivision } from '@daisy/protocol';
 import { parseUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
 import { matchHistoryQuerySchema } from '@daisy/protocol';
@@ -19,7 +24,8 @@ import { ProfilePage } from '../../../../ui/profile/profile-page/profile-page';
 import {
   requestIdentity,
   requestLiveRoundsOf,
-  requestRankedPlayAdmitted,
+  requestMemberDivision,
+  requestSeasonHistory,
   requestMemberProfile,
 } from '../../../../lib/request-session';
 import { ProfileFriendActions } from '../../../../ui/friends/profile-friend-actions';
@@ -57,13 +63,29 @@ export default async function ProfileRoute({
   // Round the viewer may list. Either way there is no such page.
   const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
-  const standings = await requestMemberStandings(profile.username);
+  const [standings, seasonHistory, ownDivision] = await Promise.all([
+    requestMemberStandings(profile.username),
+    requestSeasonHistory(profile.username),
+    requestMemberDivision(),
+  ]);
+  const ladders = {
+    memberDivision: ownDivision,
+    theirDivision: currentDivisionOf(standings),
+  };
   const live = await requestLiveRoundsOf([profile.username]);
   const toward = !profile.me && !profile.closed;
   const member = (await requestIdentity()).state === 'member';
   return (
     <ProfilePage
-      ratings={<MemberStandings standings={standings} />}
+      ratings={
+        <MemberStandings
+          standings={profileLadders(
+            standings,
+            ownLadderOn(profile, ownDivision),
+          )}
+          seasonHistory={seasonHistory}
+        />
+      }
       profile={profile}
       liveRound={live.get(profile.username) ?? null}
       paged={query.data.before !== undefined}
@@ -79,10 +101,18 @@ export default async function ProfileRoute({
           />
         ) : null
       }
-      actions={toward ? await friendActionsFor(profile.username) : null}
+      actions={
+        toward ? await friendActionsFor(profile.username, ladders) : null
+      }
     />
   );
 }
+
+/** The viewer's own ladder shows unrated on their own profile only. */
+const ownLadderOn = (
+  profile: { readonly me: boolean },
+  division: RatingDivision | null,
+): RatingDivision | null => (profile.me ? division : null);
 
 /** Following needs an account, not admission; the block rule lives in the store. */
 async function ProfileFollow({ username }: { readonly username: string }) {
@@ -111,7 +141,13 @@ async function ProfileFollow({ username }: { readonly username: string }) {
  * nothing for a visitor. Message goes through the ordinary DM request, so a
  * friendship never bypasses DM admission.
  */
-async function friendActionsFor(username: string) {
+async function friendActionsFor(
+  username: string,
+  ladders: {
+    readonly memberDivision: RatingDivision | null;
+    readonly theirDivision: RatingDivision | null;
+  },
+) {
   if ((await requestIdentity()).state !== 'member') return null;
   const list = await readFriends();
   return (
@@ -131,7 +167,8 @@ async function friendActionsFor(username: string) {
       />
       <ProfilePersonActions
         username={username}
-        rankedAgeAdmitted={await requestRankedPlayAdmitted()}
+        memberDivision={ladders.memberDivision}
+        theirDivision={ladders.theirDivision}
         actions={{
           sendChallenge: sendChallengeAction,
           report: reportAction,

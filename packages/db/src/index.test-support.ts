@@ -89,6 +89,7 @@ export const roundRow = (record: {
   judging?: unknown;
   leagueLadderId?: string | null;
   ladderId: string | null;
+  ladderDivision?: string | null;
   startedAt: string | null;
   completedAt: string | null;
   checkpoint: unknown;
@@ -125,6 +126,7 @@ export const roundRow = (record: {
   null, // generated stored-ballot version
   record.leagueLadderId ?? null,
   record.ladderId,
+  record.ladderDivision ?? (record.ladderId === null ? null : 'open'),
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),
   record.checkpoint,
