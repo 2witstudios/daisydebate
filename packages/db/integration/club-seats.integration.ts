@@ -269,7 +269,7 @@ test('seats used never pass the seat count, and one account holds one seat acros
           mail!.n,
           (
             await fixture.sql`select email from club_seat_invitations where organization_id=${organizationId}`
-          ).map((row) => row.email),
+          ).map((row: { email: string }) => row.email),
         ],
         expected: [1, ['second@club.example']],
       });
@@ -512,7 +512,7 @@ test('lowering the seat count below seats used needs the released seats named', 
             : null,
           (
             await fixture.sql`select user_id from club_seats where organization_id=${organizationId}`
-          ).map((row) => row.user_id),
+          ).map((row: { user_id: string }) => row.user_id),
         ],
         expected: [
           { kind: 'refused', reason: 'choose-released-seats' },
@@ -554,4 +554,46 @@ test('only the club’s manager changes its seats', async () => {
       });
     },
   );
+});
+
+test('a lapsed seat invitation is purged 30 days after it lapses, with its unsent mail cancelled', async () => {
+  await withPaidClub(2, async ({ fixture, organizationId, owner }) => {
+    const { mailIntentOperations } = await import('../src/mail-intents');
+    const old = createId(),
+      recent = createId();
+    for (const [id, lapsedDaysAgo] of [
+      [old, 31],
+      [recent, 2],
+    ] as const)
+      await fixture.sql`insert into club_seat_invitations
+        (id, organization_id, email, invited_by_user_id, created_at, expires_at)
+        values (${id}, ${organizationId}, ${`${id}@club.example`}, ${owner.userId},
+          now() - make_interval(days => ${lapsedDaysAgo + 14}), now() - make_interval(days => ${lapsedDaysAgo}))`;
+    const mail = createId();
+    await fixture.sql`insert into mail_intents (id, purpose, club_seat_invitation_id, dedupe_key, next_attempt_at)
+      values (${mail}, 'club-seat-invitation', ${old}, ${`club-seat-invitation:${organizationId}:${old}:${mail}`}, now())`;
+    const operations = mailIntentOperations({
+      database: (await import('drizzle-orm/bun-sql/postgres')).drizzle({
+        client: fixture.sql,
+      }),
+      eventSink: undefined,
+    });
+    const deleted = await operations.purgeLapsedClubSeatInvitations({
+      before: new Date(Date.now() - 30 * day).toISOString(),
+      limit: 500,
+    });
+    assert({
+      given: 'one invitation lapsed 31 days ago and one 2 days ago',
+      should: 'purge only the older, cancelling its queued mail first',
+      actual: [
+        deleted,
+        (
+          await fixture.sql`select id from club_seat_invitations where organization_id=${organizationId}`
+        ).map((row: { id: string }) => row.id),
+        (await fixture.sql`select state from mail_intents where id=${mail}`)[0]
+          ?.state,
+      ],
+      expected: [1, [recent], 'cancelled'],
+    });
+  });
 });

@@ -211,6 +211,42 @@ export function mailIntentOperations({
       instrumented(eventSink, 'settleMailIntent', () =>
         mailIntentQueue.settle(database, input),
       ),
+    /**
+     * Lapsed Club seat invitations (ADR 0148) hold an invitee's address and
+     * nothing else; they go 30 days after they lapse. Each club is reached
+     * under its own scope, a page of clubs at a time.
+     */
+    purgeLapsedClubSeatInvitations: (batch: RetentionBatch) =>
+      instrumented(eventSink, 'purgeLapsedClubSeatInvitations', async () => {
+        let deleted = 0;
+        let after = '';
+        for (;;) {
+          const clubs = (await database.execute(sql`select id from organizations
+            where kind in ('school', 'family') and id > ${after}
+            order by id limit 100`)) as unknown as { id: string }[];
+          for (const club of clubs) {
+            if (deleted >= batch.limit) return deleted;
+            deleted += await database.transaction(async (tx) => {
+              await scopeTransaction(tx, { organizationId: club.id });
+              await tx.execute(sql`update mail_intents set state='cancelled', last_error_code='not-owed',
+                  completed_at=clock_timestamp(), lease_token_digest=null, lease_expires_at=null
+                where state in ('queued', 'leased') and club_seat_invitation_id in (
+                  select id from club_seat_invitations where organization_id=${club.id}
+                    and expires_at < ${batch.before}::timestamptz)`);
+              const rows =
+                await tx.execute(sql`delete from club_seat_invitations
+                where organization_id=${club.id} and id in (
+                  select id from club_seat_invitations where organization_id=${club.id}
+                    and expires_at < ${batch.before}::timestamptz
+                  order by expires_at limit ${batch.limit - deleted})
+                returning id`);
+              return (rows as unknown as unknown[]).length;
+            });
+          }
+          if (clubs.length < 100) return deleted;
+          after = clubs.at(-1)!.id;
+        }
+      }),
     /** Terminal intents only: a queued or leased intent has no `completed_at`. */
     purgeExpiredMailIntents: (batch: RetentionBatch) =>
       instrumented(eventSink, 'purgeExpiredMailIntents', () =>
