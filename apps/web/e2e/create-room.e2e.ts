@@ -82,7 +82,40 @@ test('Custom POI, exact timing and custom resolution persist through the real cr
   }
 });
 
-test('a new Room opens as just the room: no seat dialog until someone asks for one', async ({
+/**
+ * Every Fill seat menu is out of sight until its own opener asks for it, and
+ * closes back out of sight. The menus are found with includeHidden, so a menu
+ * that is closed but still laid out on the page (SEAT-14a: a bare `flex`
+ * beat the browser's closed-popover rule) fails here, where a
+ * `:popover-open` count could not see it.
+ */
+const fillMenusStayHiddenUntilAsked = async (
+  page: import('@playwright/test').Page,
+) => {
+  const menus = page.getByRole('dialog', {
+    name: /^Fill /,
+    includeHidden: true,
+  });
+  const openers = page.getByRole('button', { name: /^Fill / });
+  const count = await openers.count();
+  expect(count).toBeGreaterThan(0);
+  await expect(menus).toHaveCount(count);
+  for (const menu of await menus.all()) await expect(menu).toBeHidden();
+  for (const opener of await openers.all()) {
+    const name = (await opener.getAttribute('aria-label')) ?? '';
+    const menu = page.getByRole('dialog', {
+      name,
+      exact: true,
+      includeHidden: true,
+    });
+    await opener.click();
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+  }
+};
+
+test('a new Room opens as just the room: no seat menu shows until someone asks for one', async ({
   page,
 }) => {
   await signUpMember(page.request);
@@ -102,14 +135,42 @@ test('a new Room opens as just the room: no seat dialog until someone asks for o
         () => document.activeElement?.closest('[popover]') ?? null,
       ),
     ).toBeNull();
-    await expect(page.locator('[popover]:popover-open')).toHaveCount(0);
+    await fillMenusStayHiddenUntilAsked(page);
     await opener.click();
-    await expect(page.locator('[popover]:popover-open')).toHaveCount(1);
     // Opening it still moves focus to the choice.
     await expect(
-      page.locator('[popover]:popover-open select[name="actorId"]'),
+      page
+        .getByRole('dialog', { name: /^Fill / })
+        .locator('select[name="actorId"]'),
     ).toBeFocused();
   } finally {
+    await closeRoom(page.request, view.id);
+  }
+});
+
+test('without JavaScript a new Room shows no seat menu until its opener is pressed', async ({
+  browser,
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/play/room');
+  await hydrated(formOf(page));
+  await formOf(page)
+    .getByLabel('Room name', { exact: true })
+    .fill(`Native ${createId().slice(0, 8)}`);
+  const view = await createConfiguredRoom(page);
+  const context = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+    javaScriptEnabled: false,
+    storageState: await page.context().storageState(),
+  });
+  try {
+    const native = await openPage(context, 'native room page');
+    await native.goto(`/rooms/${view.id}`);
+    await fillMenusStayHiddenUntilAsked(native);
+  } finally {
+    await context.close();
     await closeRoom(page.request, view.id);
   }
 });

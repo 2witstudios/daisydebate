@@ -12,7 +12,7 @@ import {
 } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
-import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
+import { PopoverDialog } from '../../components/popover/popover-dialog';
 import {
   ownSeat,
   readinessControl,
@@ -149,7 +149,7 @@ function ReadyConfirm({
     <PopoverDialog
       id={confirmId}
       aria-labelledby={`${confirmId}-title`}
-      className="m-auto w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex"
+      className="m-auto w-room-dialog max-w-full gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim/50"
     >
       <h2 id={`${confirmId}-title`} className="font-display text-lg">
         Ready?

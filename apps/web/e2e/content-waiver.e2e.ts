@@ -49,10 +49,20 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
         name: 'Sign the ranked content waiver',
       });
       // The waiver waits behind I'm ready, in its confirmation (ADR 0145).
+      // The confirmation is found with includeHidden, so one closed but still
+      // laid out on the page fails here (ADR 0153).
+      const confirmation = page.getByRole('dialog', {
+        name: 'Ready?',
+        exact: true,
+        includeHidden: true,
+      });
+      await expect(confirmation).toHaveCount(1);
+      await expect(confirmation).toBeHidden();
       await expect(waiver).toBeHidden();
       await page
         .getByRole('button', { name: 'I’m ready', exact: true })
         .click();
+      await expect(confirmation).toBeVisible();
       await expect(waiver).toBeVisible();
       await expect(
         page.getByText('has not been reviewed by counsel').first(),
