@@ -32,7 +32,6 @@ const facts = (overrides: Partial<LobbyFacts> = {}): LobbyFacts => ({
   now,
   newId: id('n'),
   actorUserId: id('u'),
-  planAllows: true,
   handleTaken: false,
   organization: { id: leagueId, kind: 'league' },
   lobby: standing,
@@ -160,7 +159,6 @@ describe('create-lobby', () => {
           createStanding,
         ),
         refusalOf(facts({ organization: null }), createStanding),
-        refusalOf(facts({ planAllows: false }), createTournament),
         refusalOf(facts({ handleTaken: true }), createStanding),
       ],
       expected: [
@@ -168,7 +166,6 @@ describe('create-lobby', () => {
         'owner-not-organization',
         'owner-not-league',
         'not-found',
-        'plan-required',
         'handle-taken',
       ],
     });
