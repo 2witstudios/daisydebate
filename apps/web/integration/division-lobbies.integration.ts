@@ -192,16 +192,22 @@ test('debater seats are for the Room’s own lobby; judges may be anyone', async
       const adultJudges = await claim(f, f.guest, youthRoom, true);
       const judged = await f.operations.view(f.host, youthRoom.id);
       const minorClaim = await claim(f, f.outsider, judged);
-      const openCasual = (await f.create({}, f.guest)).view;
+      // Fresh members: each holds one active Room at a time (ADR 0070).
+      const adults = await f.freshCast();
+      const minor = (await f.freshCast()).host;
+      await setAge(f, adults.host, 'adult');
+      await setAge(f, adults.guest, 'adult');
+      await setAge(f, minor, 'seventeen');
+      const openCasual = (await f.create({}, adults.host)).view;
       const minorCasualClaim = await refusalOf(
-        f.command(f.outsider, openCasual, {
+        f.command(minor, openCasual, {
           type: 'claim-seat',
           seat: sideSeat(affirmativeSide),
         }),
       );
-      const openRanked = await rankedRoomSetBy(f, f.guest);
-      const minorRankedClaim = await claim(f, f.outsider, openRanked);
-      const minorJudgesOpen = await claim(f, f.outsider, openRanked, true);
+      const openRanked = await rankedRoomSetBy(f, adults.guest);
+      const minorRankedClaim = await claim(f, minor, openRanked);
+      const minorJudgesOpen = await claim(f, minor, openRanked, true);
       assert({
         given:
           'a Youth ranked Room, then an Open casual and an Open ranked Room, each with members of both lobbies claiming seats',
@@ -384,11 +390,15 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
 
 test('a Youth Room’s live Round has no public audience; an Open one does (ADR 0156)', async () => {
   await withRoomRuntime(async (f) => {
+    // A fresh pair each: a member holds one active Room (ADR 0070).
     const liveRound = async (age: keyof typeof ages) => {
-      await setAge(f, f.host, age);
-      await setAge(f, f.guest, age);
-      const room = await f.assemble();
-      const launched = await f.command(f.host, room, { type: 'start-round' });
+      const cast = await f.freshCast();
+      await setAge(f, cast.host, age);
+      await setAge(f, cast.guest, age);
+      const room = await f.assemble({}, cast);
+      const launched = await f.command(cast.host, room, {
+        type: 'start-round',
+      });
       return launched.view.roundRef!.id;
     };
     const watch = async (roundId: string) =>
@@ -400,8 +410,6 @@ test('a Youth Room’s live Round has no public audience; an Open one does (ADR 
         : 'watching';
     const youth = await liveRound('seventeen');
     const youthWatch = await watch(youth);
-    // A fresh pair: each member holds one active Room (ADR 0070).
-    await f.sql`update rounds set status='complete', completed_at=now() where id=${youth}`;
     const open = await liveRound('adult');
     assert({
       given: 'a live casual Round in a Youth Room, then one in an Open Room',

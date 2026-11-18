@@ -38,6 +38,7 @@ export const roomRound = async (
     format_id: formatId,
     format_version: formatVersion,
     competition_type: 'casual',
+    division: 'open',
     config,
     execution_plan: {
       preRoundPrep: { enabled: false },

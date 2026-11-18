@@ -65,6 +65,7 @@ const withBotRoom = (
       format_id: formatId,
       format_version: judged ? 2 : 1,
       competition_type: 'casual',
+      division: 'open',
       config: judged ? oneOnOneSettings : validConfig,
       execution_plan: {
         preRoundPrep: { enabled: false },
