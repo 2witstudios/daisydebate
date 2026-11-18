@@ -62,14 +62,34 @@ test('Room chat creates nothing and shows no composer before its channel is know
 });
 
 test('a judge’s Room chat says why there is nowhere to write', () => {
-  const html = renderToString(h(RoomChat, { ...props, readOnlyHint: true }));
+  const html = renderToString(
+    h(RoomChat, { ...props, readOnlyHint: true, reader: 'judge' }),
+  );
   assert({
-    given: 'a Room chat whose reader may read and not post',
+    given: 'a Room chat whose judge may read and not post',
     should:
       'say that judges read and do not post, in the Room’s own words, with no message field',
     actual: [
       html.includes('Judges read this chat but don’t post in it.'),
       html.includes('is read-only'),
+      html.includes('<textarea'),
+      html.includes('<form'),
+    ],
+    expected: [true, false, false, false],
+  });
+});
+
+test('a Youth Room spectator’s Room chat says only the people in it chat (decision 84)', () => {
+  const html = renderToString(
+    h(RoomChat, { ...props, readOnlyHint: true, reader: 'spectator' }),
+  );
+  assert({
+    given: 'a seatless reader of a Youth Room’s chat',
+    should:
+      'say that only people in this Room can chat here, name no judge, age or ladder, and offer no message field',
+    actual: [
+      html.includes('Only people in this Room can chat here.'),
+      /\bjudges?\b|under 18|\byouth\b|\bage\b/i.test(html),
       html.includes('<textarea'),
       html.includes('<form'),
     ],

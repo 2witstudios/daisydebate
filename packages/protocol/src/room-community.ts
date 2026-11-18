@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import type { RoomStatus, RoomView } from './room-contract';
-import type { SeatKind } from './seats';
+import type { RatingDivision } from './ladder';
+import type { CompetitionType } from './round';
+import { isDebatingSeat, type SeatKind, type SeatRef } from './seats';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
@@ -29,6 +31,15 @@ export type RoomCommunityFact = {
   readonly host: boolean;
   /** This actor's own seat, or null when they hold none. */
   readonly seatKind: SeatKind | null;
+  /** The Room is a Youth Room (`youthRoomOf`, decision 84). */
+  readonly youthRoom: boolean;
+  /**
+   * This actor is club staff of a youth debater seated in the Room: an adult
+   * who owns, or holds a live grant whose role carries `school.roster.manage`
+   * in, a school where that debater is an active member. False outside a Youth
+   * Room.
+   */
+  readonly youthStaff: boolean;
 };
 /**
  * A human judge reads Room chat and never posts in it: a judge is anonymous to
@@ -38,6 +49,39 @@ export type RoomCommunityFact = {
 export const roomCommunitySeatReadsOnly = (
   seatKind: SeatKind | null,
 ): boolean => seatKind === 'judge';
+/**
+ * A Youth Room (decision 84): a ranked Room a human youth debater sits in,
+ * whoever else does, while ADR 0147's ladder follows who sits. Judges never
+ * make one, and a casual Room is never one. `daisy_room_community_fact` reads
+ * the same rule in SQL.
+ */
+export const youthRoomOf = (room: {
+  readonly competitionType: CompetitionType;
+  readonly participants: readonly {
+    readonly kind: 'human' | 'bot';
+    readonly seat: SeatRef;
+    readonly division: RatingDivision | null;
+  }[];
+}): boolean =>
+  room.competitionType === 'ranked' &&
+  room.participants.some(
+    (p) =>
+      p.kind === 'human' && isDebatingSeat(p.seat) && p.division === 'youth',
+  );
+/**
+ * Who reads Room chat while it gathers and never posts: a judge (DEC-174), and
+ * in a Youth Room anyone without a seat there (decision 84), adult or minor,
+ * unless they host it or are a seated youth debater's club staff. Nobody is
+ * told why from an age: the facts name seats and roles only.
+ */
+export const roomCommunityReadsOnly = (
+  fact: Pick<
+    RoomCommunityFact,
+    'seatKind' | 'host' | 'youthRoom' | 'youthStaff'
+  >,
+): boolean =>
+  roomCommunitySeatReadsOnly(fact.seatKind) ||
+  (fact.youthRoom && fact.seatKind === null && !fact.host && !fact.youthStaff);
 /** Rows outlive the conversation for reports, export and erasure only. */
 export const roomCommunityRetentionMs = 180 * 24 * 60 * 60 * 1000;
 

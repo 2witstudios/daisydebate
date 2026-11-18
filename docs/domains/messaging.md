@@ -29,12 +29,20 @@ names no Round, and a Round or social channel names no Room. The Room chat
 authority producer (`daisy_room_community_fact`) and `decideRoomCommunity`
 evaluate the caller's current account and Room facts under account → Room →
 channel locks. The fact is raw (status, visibility, end instant, whether the
-caller hosts, the caller's own seat) and never reaches a client; the pure
-decision derives the standing with the one `room.read` rule (`roomReadable`).
-The standing is `seated` for the host and a debater's seat, `visitor` for a
-member who may read a public or unlisted Room without a seat, `judge` for a
+caller hosts, the caller's own seat, whether the Room is a Youth Room and
+whether the caller is a seated youth debater's club staff) and never reaches a
+client; the pure decision derives the standing with the one `room.read` rule
+(`roomReadable`). The standing is `seated` for the host and a debater's seat,
+`visitor` for a member who may read a public or unlisted Room without a seat,
+`spectator` for such a member in a Youth Room who is not a seated youth
+debater's club staff (decision 84, `roomCommunityReadsOnly`), `judge` for a
 human in a judge's seat (the host included), and none otherwise. Seated members
-and visitors read and post while the Room is open. A judge reads and does not
+and visitors read and post while the Room is open; a spectator reads, is told
+their chat is read-only and why ("Only people in this Room can chat here."),
+and their page never opens the chat. A Youth Room is `youthRoomOf`: a ranked
+Room a human youth debater sits in. The SQL fact spells the lobby's ladder
+division rule verbatim, and `room-community-fact-division.test.ts` fails when
+the two differ. A judge reads and does not
 post, and is told their chat is read-only: a judge is anonymous to the debaters
 (DEC-174) and a message carries its author's username, so no message can name a
 judge. An author who posted and then took a judge's seat keeps their messages, and

@@ -8,20 +8,31 @@ import {
 
 export type RoomChatProps = Omit<ContextChatProps, 'ownerId'> & {
   readonly roomId: string;
+  /**
+   * Why this viewer may only read, as the Room view shows it: their judge
+   * seat, or no seat in a Youth Room (decision 84). It picks the notice's
+   * words; whether the chat is read-only is the hint's and the chat's own.
+   */
+  readonly reader?: 'judge' | 'spectator' | null;
 };
-const labels: ContextChatLabels = {
+/** Why the composer is missing, in words that name a seat, never an age. */
+const readOnlyNotices = {
+  judge: 'Judges read this chat but don’t post in it.',
+  spectator: 'Only people in this Room can chat here.',
+} as const;
+const labelsFor = (reader: RoomChatProps['reader']): ContextChatLabels => ({
   region: 'Room chat',
   heading: 'Room chat',
   audience: null,
   composer: 'Message everyone in the room',
   readOnly: {
-    notice: 'Judges read this chat but don’t post in it.',
+    notice: readOnlyNotices[reader === 'judge' ? 'judge' : 'spectator'],
     composer: 'none',
   },
   unnamedAuthor: 'A member',
   messages: 'Room chat messages',
   idPrefix: 'room-chat',
-};
+});
 /**
  * A Room's chat while it gathers (ADR 0126): the shared thread under the Room's
  * address and words. It fills the height its container gives it. `authorLabel`
@@ -31,6 +42,7 @@ const labels: ContextChatLabels = {
 export function RoomChat({
   roomId,
   authorLabel,
+  reader = null,
   ...props
 }: RoomChatProps & {
   readonly authorLabel?: ((actorId: string) => string | null) | undefined;
@@ -41,7 +53,7 @@ export function RoomChat({
         {...props}
         ownerId={roomId}
         context={roomChatContext}
-        labels={labels}
+        labels={labelsFor(reader)}
         authorLabel={authorLabel}
       />
     </div>
