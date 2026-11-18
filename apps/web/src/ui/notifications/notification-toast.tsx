@@ -30,10 +30,10 @@ type ToastLook = {
  * now sits on the stage colours.
  */
 /** A media release notice (ADR 0151): one look, its own icon and action. */
-const release = (icon: ToastLook['icon'], action: string): ToastLook => ({
+const release = (mark: IconName, action: string): ToastLook => ({
   hue: 'bg-hue-plum-soft text-hue-plum',
   ink: 'text-hue-plum',
-  icon,
+  icon: mark,
   eyebrow: 'Media release',
   action,
 });
