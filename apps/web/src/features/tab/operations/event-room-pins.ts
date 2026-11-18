@@ -11,6 +11,8 @@ import { eventSettingResolution } from './event-setting-resolution';
 import { orderedWordings } from './resolution-wording-order';
 import type { DrawFixtureFacts } from '../commands/draw';
 import { eventRoomCast } from './event-room-cast';
+import { eventAllowance } from '@daisy/protocol/lobby/hosting-tier';
+import { tournamentHostingTier } from '../hosting-tier';
 
 type Resolved = ReturnType<typeof eventSettingResolution>['settings'];
 const postingOpenedAt = (
@@ -142,10 +144,17 @@ export const eventRoomPins = (
   if (!parsed.success) return null;
   const compiled = resolveRoomConfiguration(definition, parsed.data);
   if (!compiled.ok) return null;
+  // A free tournament never records, whatever the setting says (ADR 0147).
+  const recordingAllowed =
+    loaded.hosting === null ||
+    eventAllowance(tournamentHostingTier(loaded.hosting, now), 0, 'recording')
+      .kind === 'allowed';
   const capture: RoomCapture = {
     broadcast: null,
     recordingPolicy:
-      settings['recording.capture'].value.value === 'on' ? 'officials' : 'off',
+      recordingAllowed && settings['recording.capture'].value.value === 'on'
+        ? 'officials'
+        : 'off',
   };
   return {
     definition,

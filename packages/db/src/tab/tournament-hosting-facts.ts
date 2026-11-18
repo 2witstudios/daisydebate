@@ -23,8 +23,10 @@ export type TournamentHostingFacts = {
 export const loadTournamentHostingFacts = async (
   tx: TabTransaction,
   lobbyId: string,
+  /** `read` for a command that only reads the tier and counts nothing against it. */
+  lock: 'update' | 'read' = 'update',
 ): Promise<TournamentHostingFacts | null> => {
-  const [tournament] = await tx
+  const query = tx
     .select({
       lobbyId: tournaments.lobbyId,
       ownerUserId: lobbies.ownerUserId,
@@ -32,8 +34,9 @@ export const loadTournamentHostingFacts = async (
     })
     .from(tournaments)
     .innerJoin(lobbies, eq(lobbies.id, tournaments.lobbyId))
-    .where(eq(tournaments.lobbyId, lobbyId))
-    .for('update', { of: tournaments });
+    .where(eq(tournaments.lobbyId, lobbyId));
+  const [tournament] =
+    lock === 'update' ? await query.for('update', { of: tournaments }) : await query;
   if (!tournament) return null;
   const paid = await tx
     .select({ tier: tournamentHostingPurchases.tier })

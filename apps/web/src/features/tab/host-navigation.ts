@@ -3,8 +3,14 @@ import { linkTo } from './action';
 import { hostRoutes } from './routes';
 import type { TimelineRail } from './tournament';
 
-/** Every item reflects an evaluated area, rather than the mere presence of a role. */
-export function hostNavigationRail(view: HostNavigationView): TimelineRail {
+/**
+ * Every item reflects an evaluated area, rather than the mere presence of a
+ * role. `billing` is the tournament's hosting Billing, for its managers
+ * while host tiers are released (ADR 0147).
+ */
+export function hostNavigationRail(
+  view: HostNavigationView & { readonly billing?: boolean },
+): TimelineRail {
   const has = (capability: HostNavigationView['areas'][number]) =>
     view.areas.includes(capability);
   const item = (id: string, label: string, href: string) => ({
@@ -56,16 +62,21 @@ export function hostNavigationRail(view: HostNavigationView): TimelineRail {
               : []),
           ],
     footHeading: null,
-    foot: has('lobby.host.people.read')
-      ? [
-          item(
-            'people',
-            'People',
-            view.kind === 'organization'
-              ? hostRoutes.leaguePeople(view.handle)
-              : hostRoutes.people(view.handle),
-          ),
-        ]
-      : [],
+    foot: [
+      ...(has('lobby.host.people.read')
+        ? [
+            item(
+              'people',
+              'People',
+              view.kind === 'organization'
+                ? hostRoutes.leaguePeople(view.handle)
+                : hostRoutes.people(view.handle),
+            ),
+          ]
+        : []),
+      ...(view.kind === 'lobby' && view.manageSetup && view.billing === true
+        ? [item('billing', 'Billing', hostRoutes.billing(view.handle))]
+        : []),
+    ],
   };
 }
