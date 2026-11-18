@@ -1,10 +1,10 @@
 import type { LeagueRequestNotice } from '@daisy/db';
+import { styleLabels } from '../ratings/ladder-labels';
 import { renderEmailLayout } from '../mail/layout';
 import {
   divisionsLabels,
   schoolCountLabels,
   seasonCountLabels,
-  styleLabels,
 } from './labels';
 
 type StoredRequest = Extract<

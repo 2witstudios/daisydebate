@@ -115,6 +115,24 @@ write with the owner credential, posted on Delivery first:
    [ADR 0135](../decisions/0135-leagues-are-organizations.md)) from the host
    area and brings their schools in.
 
+### The league's division
+
+A league carries one division (PYL-16, decision 79): **Open** (18 and over)
+or **Youth** (under 18). Its ladder shows it ("Youth – Freestyle"), its
+Rooms seat only debaters in it, and each of its seasons takes it when the
+season starts and keeps it. Every league is created Open. For a Youth
+league, set it once the league exists and before its first season starts,
+as an owner-approved data action:
+
+```sql
+update organizations set league_division = 'youth'
+  where id = '<league id>' and kind = 'league';
+```
+
+Changing it later moves the league's Rooms to the new division at once but
+leaves its running season on the division it started with; start a new
+season to rate the new division.
+
 Revoke by deleting the `account_entitlement_grants` row (the version row
 stays as history); the account keeps the league it made but cannot create
 another while it has no current grant.

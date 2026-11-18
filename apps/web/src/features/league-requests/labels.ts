@@ -3,7 +3,6 @@ import type {
   LeagueRequestSchoolCount,
   LeagueRequestSeasonCount,
 } from '@daisy/protocol/league-request';
-import type { RatingStyle } from '@daisy/protocol';
 
 /**
  * The words for each League request choice, in the canvas's order: the
@@ -24,10 +23,6 @@ export const seasonCountLabels: Readonly<
   '1': '1',
   '2': '2',
   '3-plus': '3 or more',
-};
-
-export const styleLabels: Readonly<Record<RatingStyle, string>> = {
-  freestyle: 'Freestyle',
 };
 
 export const divisionsLabels: Readonly<Record<LeagueRequestDivisions, string>> =

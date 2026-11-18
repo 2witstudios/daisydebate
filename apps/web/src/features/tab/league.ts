@@ -1,3 +1,4 @@
+import type { Ladder } from '@daisy/protocol';
 import type { StandingRoomCreation } from './standing-room-creation';
 import type { Choice, TabAction } from './action';
 import type { OrganizationView } from '@daisy/protocol/lobby/organization-read';
@@ -178,6 +179,8 @@ export type LeaguePanel =
 /** A league's standing lobby, as one of its members sees it. */
 export type LeagueLobby = {
   readonly name: string;
+  /** The league's own ladder: Freestyle in the league's division (PYL-16). */
+  readonly ladder: Ladder;
   readonly lede: string;
   /** Null for someone who is not a member: only members open rooms here. */
   readonly create: TabAction | null;
@@ -661,6 +664,8 @@ function leagueLobbyOf(
   const ladder = lobby.ladder;
   return {
     name: lobby.name,
+    // The sample league runs Youth – Freestyle, as the canvas draws it.
+    ladder: { style: 'freestyle', division: 'youth' },
     lede:
       ladder === null
         ? 'Not on the league ladder yet'

@@ -1,5 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
+import { styleLabels } from '../../features/ratings/ladder-labels';
 import {
   useFocusAfterAnswer,
   useFormAction,
@@ -19,7 +20,6 @@ import {
   divisionsLabels,
   schoolCountLabels,
   seasonCountLabels,
-  styleLabels,
 } from '../../features/league-requests/labels';
 import {
   honeypotField,

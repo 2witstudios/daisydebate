@@ -1,3 +1,4 @@
+import { ladderLabel } from '../ratings/ladder-labels';
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import { lockedSetting, openSetting, type SettingLine } from './settings';
 import type { LobbyLadder } from '@daisy/protocol/lobby/lobby-read';
@@ -134,9 +135,14 @@ export function storedLeagueLobbyOf(
         : view.tab === 'rooms'
           ? 'rooms'
           : 'season';
+  const leagueLadder = {
+    style: 'freestyle',
+    division: read.view.division,
+  } as const;
   return {
     name: read.view.organization.name,
-    lede: read.view.name,
+    ladder: leagueLadder,
+    lede: `${read.view.organization.name} · ${ladderLabel(leagueLadder)}`,
     create: rooms?.canCreate
       ? linkTo('New room', tabRoutes.newLeagueRoom(handle), true)
       : null,

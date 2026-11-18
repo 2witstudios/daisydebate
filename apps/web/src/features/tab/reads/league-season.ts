@@ -140,6 +140,7 @@ export function projectLeagueSeason(
         organizationId: facts.organization.id,
         name: facts.organization.name,
       },
+      division: facts.season.division,
       counting: facts.rule.counting,
       calendar: projectLeagueCalendar(facts, template.id),
       standings: {
