@@ -64,7 +64,7 @@ describe('Room chat contracts', () => {
   test('a Youth Room (decision 84)', () => {
     const human = (division: 'open' | 'youth' | null) => ({
       kind: 'human' as const,
-      seat: { kind: 'side', side: 'affirmative' } as const,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
       division,
     });
     const judge = {
