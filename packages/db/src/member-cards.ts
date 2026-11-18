@@ -2,8 +2,9 @@ import { sql, type SQL } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
-  ratingLadders,
-  type RatingLadder,
+  ratingStyles,
+  type RatingDivision,
+  type RatingStyle,
   type RoundOutcome,
   type SeatRef,
 } from '@daisy/protocol';
@@ -20,7 +21,9 @@ import {
 
 type CardRatingRow = {
   readonly actorId: string;
-  readonly ladder: RatingLadder;
+  /** The ladder's style and division (ADR 0147). */
+  readonly ladder: RatingStyle;
+  readonly division: RatingDivision;
   readonly rating: number;
   readonly deviation: number;
   readonly volatility: number;
@@ -72,7 +75,10 @@ type CardRecordRow = {
   readonly rounds: number;
 };
 
-/** Each actor's rating on each Daisy ladder in the active season, released. */
+/**
+ * Each actor's rating on each Daisy ladder (style and division) in that
+ * division's active season, released.
+ */
 const readCardRatings = async (
   database: BunSQLDatabase,
   ids: SQL,
@@ -84,9 +90,9 @@ const readCardRatings = async (
     clock,
   );
   const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
-    where c.actor_id = r.actor_id and c.ladder = r.ladder and c.season_id = r.season_id`;
+    where c.actor_id = r.actor_id and c.ladder = r.ladder and c.division = r.division and c.season_id = r.season_id`;
   const ratings = (await database.execute(sql`
-    select r.actor_id as "actorId", r.ladder, r.rating, r.deviation, r.volatility,
+    select r.actor_id as "actorId", r.ladder, r.division, r.rating, r.deviation, r.volatility,
       (select max(c.occurred_at) from ${postings} and ${postingReleased}) as "lastRatedAt",
       held.rating_before as "heldRating",
       held.deviation_before as "heldDeviation",
@@ -100,7 +106,7 @@ const readCardRatings = async (
     ) held on true
     where r.actor_id = any(${ids})`)) as unknown as CardRatingRead[];
   return ratings
-    .filter((row) => ratingLadders.includes(row.ladder))
+    .filter((row) => ratingStyles.includes(row.ladder))
     .flatMap((row) => releasedCardRating(row) ?? []);
 };
 

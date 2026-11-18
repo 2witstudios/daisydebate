@@ -71,6 +71,9 @@ test('the active room read maps the membership row, and no row reads as none', a
         'active',
         null,
         'side',
+        'ranked',
+        'open',
+        ['open'],
       ],
     ],
     [accountRow()],
@@ -79,8 +82,8 @@ test('the active room read maps the membership row, and no row reads as none', a
   const authorize = (fact: { member: boolean } | null) => fact?.member === true;
   assert({
     given:
-      'a host seated on a side of a live Room, then an actor no Room holds',
-    should: 'return the portable facts, then null',
+      'a host seated on a side of a live ranked Room on Open, then an actor no Room holds',
+    should: 'return the portable facts with the Round’s ladder, then null',
     actual: [
       await database.readActiveRoomFacts(caller, authorize),
       await database.readActiveRoomFacts(caller, authorize),
@@ -92,6 +95,7 @@ test('the active room read maps the membership row, and no row reads as none', a
         roundRef: { id: roundId, status: 'active' },
         seatKind: 'side',
         debateEnded: false,
+        ladder: 'open',
       },
       null,
     ],

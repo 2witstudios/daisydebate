@@ -4,10 +4,10 @@ import {
   challengeEnded,
   challengeFields,
   challengeFormUnavailable,
+  challengeRefusal,
   challengeRefused,
   challengeSent,
   initialChallengeForm,
-  sendRefusal,
   type ChallengeFormState,
 } from './forms';
 
@@ -72,16 +72,16 @@ test('a challenge form says something only when refused or sent', () => {
   });
 });
 
-test('a ranked offer refused on the sender’s age says so, not leave your room', () => {
+test('a ranked offer across ladders says why', () => {
   assert({
-    given: 'a 409 naming ranked-age, then a 409 naming nothing',
-    should: 'give the ranked age reason, then the status words',
+    given: 'a refused send whose refusal names the ladder rule',
+    should: 'tell the sender ranked needs one ladder, not to leave a room',
     actual: [
-      sendRefusal(409, { code: 'CONFLICT', refusal: 'ranked-age' }),
-      sendRefusal(409, null),
+      challengeRefusal('send', 409, 'ranked-division'),
+      challengeRefusal('send', 409),
     ],
     expected: [
-      'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
+      'Ranked needs you both on one ladder. Send a casual challenge.',
       'Leave your room first.',
     ],
   });

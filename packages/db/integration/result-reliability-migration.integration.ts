@@ -37,6 +37,8 @@ test(
         await f.sql`alter table rounds add column decision_release text not null default 'on_finalize'`;
         // ADR 0145's frozen seat draw, which the predecessor never wrote.
         await f.sql`alter table rounds add column seat_draw jsonb`;
+        // ADR 0147's ladder division beside the style.
+        await f.sql`alter table rounds add column ladder_division text`;
         // TAB-6's seat and outcome columns too, beside the role and outcome
         // columns it backfills them from.
         await f.sql`alter table rounds add column winning_side text, add column ranking jsonb, add column judging jsonb`;
@@ -89,6 +91,7 @@ test(
           await f.sql`alter table rounds drop column post_round_call, drop column league_ladder_id`;
           await f.sql`alter table rounds drop column decision_release`;
           await f.sql`alter table rounds drop column seat_draw`;
+          await f.sql`alter table rounds drop column ladder_division`;
           await f.sql`alter table rounds drop column winning_side, drop column ranking, drop column judging`;
           await removeAssignmentInterface();
           await f.sql`alter table round_participants drop column seat_kind, drop column side`;

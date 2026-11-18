@@ -3,8 +3,9 @@ import { daisyOrganizationId } from './daisy-reference';
 import {
   twoSideKeys,
   type DebaterStanding,
+  ladderKey,
+  type Ladder,
   type PlannedRatingChange,
-  type RatingLadder,
   type RatingState,
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
@@ -50,13 +51,14 @@ async function loadStanding(
   tx: Tx,
   scope: {
     readonly actorId: string;
-    readonly ladder: RatingLadder;
+    readonly ladder: Ladder;
     readonly seasonId: string | null;
   },
 ): Promise<DebaterStanding> {
   const onLadder = and(
     eq(ratings.actorId, scope.actorId),
-    eq(ratings.ladder, scope.ladder),
+    eq(ratings.ladder, scope.ladder.style),
+    eq(ratings.division, scope.ladder.division),
   );
   const [current] =
     scope.seasonId === null
@@ -86,7 +88,8 @@ async function loadStanding(
     .where(
       and(
         eq(ratingChanges.actorId, scope.actorId),
-        eq(ratingChanges.ladder, scope.ladder),
+        eq(ratingChanges.ladder, scope.ladder.style),
+        eq(ratingChanges.division, scope.ladder.division),
       ),
     );
   if (!current && previous)
@@ -107,7 +110,7 @@ async function writeProjection(
   tx: Tx,
   scope: {
     readonly seasonId: string;
-    readonly ladder: RatingLadder;
+    readonly ladder: Ladder;
   },
   change: PlannedRatingChange,
 ): Promise<void> {
@@ -115,7 +118,13 @@ async function writeProjection(
     change.expectedVersion === null
       ? await tx
           .insert(ratings)
-          .values({ ...scope, actorId: change.actorId, ...change.after })
+          .values({
+            seasonId: scope.seasonId,
+            ladder: scope.ladder.style,
+            division: scope.ladder.division,
+            actorId: change.actorId,
+            ...change.after,
+          })
           .onConflictDoNothing()
           .returning({ version: ratings.version })
       : await tx
@@ -129,7 +138,8 @@ async function writeProjection(
             and(
               eq(ratings.actorId, change.actorId),
               eq(ratings.seasonId, scope.seasonId),
-              eq(ratings.ladder, scope.ladder),
+              eq(ratings.ladder, scope.ladder.style),
+              eq(ratings.division, scope.ladder.division),
               eq(ratings.version, change.expectedVersion),
             ),
           )
@@ -177,11 +187,13 @@ async function rateOnce(
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
-    // Daisy's own season: every organization may have an active one.
+    // Daisy's own season on the Round's division: every organization may
+    // have an active one per division (ADR 0147).
     .where(
       and(
         eq(seasons.status, 'active'),
         eq(seasons.organizationId, daisyOrganizationId),
+        eq(seasons.division, eligibility.ladder.division),
       ),
     )
     .for('share');
@@ -192,7 +204,7 @@ async function rateOnce(
   // a hash collision only serializes unrelated ladder/actor pairs.
   const keys =
     await tx.execute(sql`select key::text as key from (select distinct
-    hashtext(${eligibility.ladder} || ':' || actor_id) as key
+    hashtext(${ladderKey(eligibility.ladder.style, eligibility.ladder.division)} || ':' || actor_id) as key
     from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
       twoSideKeys.map((side) => sql`${side}`),
       sql`, `,

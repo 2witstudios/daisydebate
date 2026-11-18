@@ -1,5 +1,5 @@
 export type BadgeTone =
-  'neutral' | 'live' | 'gold' | 'tier' | 'accent' | 'clay' | 'sky';
+  'neutral' | 'live' | 'gold' | 'tier' | 'accent' | 'clay' | 'sky' | 'plum';
 
 const base =
   'inline-flex items-center gap-1 rounded-badge px-badge-x py-badge-y text-badge leading-tight font-heavy tracking-wider whitespace-nowrap uppercase';
@@ -12,6 +12,7 @@ const tones: Readonly<Record<BadgeTone, string>> = {
   accent: 'bg-accent-soft text-accent',
   clay: 'bg-hue-clay-soft text-hue-clay',
   sky: 'bg-hue-sky-soft text-hue-sky',
+  plum: 'bg-hue-plum-soft text-hue-plum',
 };
 
 /** Classes for a badge of the given tone. */

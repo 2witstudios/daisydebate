@@ -92,6 +92,7 @@ test('invalid create selections refuse before transport; server refusals never b
     phase: 'ready',
     role: 'side',
     seated: true,
+    ladder: null,
     href: `/rooms/${'m'.repeat(24)}`,
   };
   for (const response of [

@@ -110,8 +110,6 @@ const refusalLines: Readonly<Record<RoomCreateRefusal, string>> = {
   'seat-unavailable': 'Someone took that seat first. Start again.',
   settings: 'Practice couldn’t start. Try again.',
   'ranked-unavailable': 'Practice couldn’t start. Try again.',
-  // Practice is casual, so the ranked age floor never reaches a person here.
-  'ranked-age': 'Practice couldn’t start. Try again.',
   'ai-judge-premium': aiJudgePremiumText,
   'capture-premium': 'Practice couldn’t start. Try again.',
   // Practice is casual and states no notice, so nothing reaches a person here.

@@ -5,7 +5,10 @@
       "ok": true,
       "value": {
         "kind": "rated",
-        "ladder": "freestyle",
+        "ladder": {
+          "division": "open",
+          "style": "freestyle"
+        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
         "outcome": {
           "kind": "winner",
@@ -25,7 +28,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -40,7 +46,10 @@
       "ok": true,
       "value": {
         "kind": "rated",
-        "ladder": "freestyle",
+        "ladder": {
+          "division": "open",
+          "style": "freestyle"
+        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
         "outcome": {
           "kind": "winner",
@@ -60,7 +69,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "negative"
@@ -90,7 +102,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": null,
       "status": "completed"
     },
@@ -117,7 +132,7 @@
       "competitionType": "casual",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": null,
+      "ladder": null,
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -147,7 +162,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": null,
       "status": "abandoned"
     },
@@ -173,7 +191,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -188,7 +209,10 @@
       "ok": true,
       "value": {
         "kind": "rated",
-        "ladder": "freestyle",
+        "ladder": {
+          "division": "open",
+          "style": "freestyle"
+        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
         "outcome": {
           "kind": "winner",
@@ -208,7 +232,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "forfeit",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -238,7 +265,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "unjudged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -268,7 +298,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "unrecorded",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -298,7 +331,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -342,7 +378,10 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
@@ -372,7 +411,10 @@
       "competitionType": "ranked",
       "completedAt": null,
       "ending": "judged",
-      "ladderId": "freestyle",
+      "ladder": {
+        "division": "open",
+        "style": "freestyle"
+      },
       "outcome": null,
       "status": "active"
     },

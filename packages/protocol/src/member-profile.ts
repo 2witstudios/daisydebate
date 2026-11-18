@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import type { Ladder } from './ladder';
 import type { SideKey } from './seats';
 
 /** What one completed Round means for one debater's record. */
@@ -31,6 +32,8 @@ export type MatchHistoryEntry = {
   readonly forfeit: boolean;
   readonly judges: JudgePanel;
   readonly visibility: 'public' | 'unlisted' | 'private';
+  /** The ladder a ranked Round rated on (ADR 0147); null for a casual one. */
+  readonly ladder: Ladder | null;
 };
 
 /** The history page a profile asks for: newest first, after `before`. */

@@ -1,3 +1,4 @@
+import type { RatingDivision } from '@daisy/protocol';
 import Link from 'next/link';
 import { buttonClass } from '../../components/button/button-class';
 import { PageHeader } from '../../components/page-header/page-header';
@@ -13,12 +14,12 @@ export function CreateRoomPage({
   choices,
   freshRoom = false,
   initialRanked = false,
-  rankedAgeAdmitted,
+  memberDivision,
 }: {
   readonly freshRoom?: boolean;
   readonly initialRanked?: boolean;
-  /** The member meets the ranked age floor (decision 79); a hint, the create decides again. */
-  readonly rankedAgeAdmitted: boolean;
+  /** The member's ladder division (ADR 0147); null with no age on record, so no ranked play. */
+  readonly memberDivision: RatingDivision | null;
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
@@ -47,7 +48,7 @@ export function CreateRoomPage({
       ) : null}
       <CreateAssemblyForm
         initialRanked={initialRanked}
-        rankedAgeAdmitted={rankedAgeAdmitted}
+        memberDivision={memberDivision}
         {...(initialState ? { initialState } : {})}
         {...(sourceRoomId ? { sourceRoomId } : {})}
         commandId={commandId}

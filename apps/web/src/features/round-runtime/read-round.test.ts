@@ -65,7 +65,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     transcriptCompleteness: null,
     resolutionAudit: null,
     status: 'opening',
-    ladderId: null,
+    ladder: null,
     competitionType: 'casual',
     topic: 'Frozen launch topic',
     participants: [

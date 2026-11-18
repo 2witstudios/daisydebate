@@ -9,6 +9,8 @@ import { InvitePeople } from './invite-people';
 import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import { ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
+import { SeatedLadderBadge } from '../../ladder-badge/ladder-badge';
+import { roomLadder } from './room-ladder';
 
 /** The resolution, with what each side argues. */
 export function RoomResolution({
@@ -84,6 +86,7 @@ export function AssemblyHeader({
   const seated = view.participants
     .filter(isNamedSeat)
     .some((seat) => seat.actorId === actorId);
+  const ladder = roomLadder(view);
   return (
     <header className="flex flex-col gap-3">
       <Link
@@ -94,8 +97,9 @@ export function AssemblyHeader({
       </Link>
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="text-sm font-strong text-hue-teal">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-strong text-hue-teal">
             {roomStatus(view)}
+            {ladder === null ? null : <SeatedLadderBadge seated={ladder} />}
           </p>
           <h1
             id={ROOM_TITLE_ID}

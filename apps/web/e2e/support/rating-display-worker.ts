@@ -7,7 +7,7 @@ import {
   emptyRuntimeCheckpointFor,
   idSchema,
   negativeSide,
-  ratingLadders,
+  ratingStyles,
 } from '@daisy/protocol';
 import { rateCompletedRound } from '../../src/features/ratings/rate-debate';
 import { betaAccessTarget } from './beta-access-target';
@@ -17,8 +17,8 @@ const { username, rooms } = z
   .object({
     username: z.string().regex(/^[a-z0-9-]{1,40}$/),
     rooms: z
-      .array(z.object({ ladder: z.enum(ratingLadders), id: idSchema }))
-      .length(ratingLadders.length),
+      .array(z.object({ ladder: z.enum(ratingStyles), id: idSchema }))
+      .length(ratingStyles.length),
   })
   .parse(JSON.parse(await Bun.stdin.text()));
 const url = betaAccessTarget(process.env);
@@ -36,7 +36,7 @@ try {
   await sql`insert into users(id,username) values(${user},${`proof-${user}`})`;
   await sql`insert into actors(id,kind,user_id) values(${opponent},'human',${user})`;
   const evidence = [];
-  for (const ladder of ratingLadders) {
+  for (const ladder of ratingStyles) {
     const id = createId(),
       command = createId();
     const roomId = rooms.find((r) => r.ladder === ladder)!.id;
@@ -45,7 +45,7 @@ try {
         await tx`select rules_snapshot from rooms where id=${roomId} and host_actor_id=${member.id}`;
       if (!room) throw new Error('Display fixture room missing');
       const checkpoint = emptyRuntimeCheckpointFor(room.rules_snapshot);
-      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${ladder},clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,ladder_division,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${ladder},'open',clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
       for (const [side, actor] of [
         [affirmativeSide, member.id],
         [negativeSide, opponent],

@@ -16,7 +16,7 @@ const state = (rating: number) => ({
   volatility: 0.06,
 });
 const plan: RatingPlan = {
-  ladder: 'standard',
+  ladder: { style: 'freestyle', division: 'youth' },
   seasonId: 'season',
   occurredAt: '2026-10-22T12:00:00.000Z',
   calculationVersion: 'glicko2@1',
@@ -47,20 +47,54 @@ test('only ranked Rounds pin a preset and ladder', async () => {
         competitionType: 'ranked',
         presetVersion: 1,
         ladderId: 'ladder',
+        ladderDivision: 'youth',
       }),
       assertRankedRoundIntegrity({
         competitionType: 'casual',
         presetVersion: null,
         ladderId: null,
+        ladderDivision: null,
       }),
     ],
     expected: [undefined, undefined],
   });
   for (const round of [
-    { competitionType: 'ranked', presetVersion: null, ladderId: 'ladder' },
-    { competitionType: 'ranked', presetVersion: 1, ladderId: null },
-    { competitionType: 'casual', presetVersion: 1, ladderId: null },
-    { competitionType: 'casual', presetVersion: null, ladderId: 'ladder' },
+    {
+      competitionType: 'ranked',
+      presetVersion: null,
+      ladderId: 'ladder',
+      ladderDivision: 'open',
+    },
+    {
+      competitionType: 'ranked',
+      presetVersion: 1,
+      ladderId: null,
+      ladderDivision: null,
+    },
+    {
+      competitionType: 'ranked',
+      presetVersion: 1,
+      ladderId: 'ladder',
+      ladderDivision: null,
+    },
+    {
+      competitionType: 'casual',
+      presetVersion: 1,
+      ladderId: null,
+      ladderDivision: null,
+    },
+    {
+      competitionType: 'casual',
+      presetVersion: null,
+      ladderId: 'ladder',
+      ladderDivision: 'open',
+    },
+    {
+      competitionType: 'casual',
+      presetVersion: null,
+      ladderId: null,
+      ladderDivision: 'open',
+    },
   ])
     await assertRejects({
       given: `a ${round.competitionType} Round with preset ${round.presetVersion} and ladder ${round.ladderId}`,
@@ -85,6 +119,7 @@ test('one plan becomes paired ledger rows and a rated result', () => {
         row.formatId,
         row.seasonId,
         row.ladder,
+        row.division,
         row.ratingBefore,
         row.ratingAfter,
         row.calculationVersion,
@@ -100,7 +135,8 @@ test('one plan becomes paired ledger rows and a rated result', () => {
           'round',
           'format',
           'season',
-          'standard',
+          'freestyle',
+          'youth',
           1500,
           1520,
           'glicko2@1',
@@ -112,7 +148,8 @@ test('one plan becomes paired ledger rows and a rated result', () => {
           'round',
           'format',
           'season',
-          'standard',
+          'freestyle',
+          'youth',
           1600,
           1580,
           'glicko2@1',
@@ -121,7 +158,7 @@ test('one plan becomes paired ledger rows and a rated result', () => {
       ],
       result: {
         kind: 'rated',
-        ladder: 'standard',
+        ladder: { style: 'freestyle', division: 'youth' },
         seasonId: 'season',
         changes: [
           {

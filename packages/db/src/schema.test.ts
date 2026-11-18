@@ -182,6 +182,7 @@ describe('competitive schema rules', () => {
             'rounds_judging_is_object',
             'rounds_judging_source_check',
             'rounds_ladder_check',
+            'rounds_ladder_division_check',
             'rounds_league_ladder_source_check',
             'rounds_lifecycle_check',
             'rounds_outcome_check',
@@ -212,7 +213,11 @@ describe('competitive schema rules', () => {
             'rounds_room_league_ladder_idx',
             'rounds_status_competition_created_idx',
           ],
-          uniques: ['rounds_id_format_unique', 'rounds_room_unique'],
+          uniques: [
+            'rounds_id_format_unique',
+            'rounds_id_ladder_division_unique',
+            'rounds_room_unique',
+          ],
           namedKeys: [
             'rounds_ballot_definition_fk',
             'rounds_definition_revision_fk',

@@ -8,9 +8,15 @@ import { SeasonsPage } from './seasons-page';
 
 setupRitewayBun();
 
+const open = { style: 'freestyle', division: 'open' } as const;
+
 const render = (season: string | null, entries?: 'none') => {
   const data = readLadder(season, NOW, null).data;
-  const view = buildSeasonsView(entries ? { ...data, entries: [] } : data, NOW);
+  const view = buildSeasonsView(
+    entries ? { ...data, entries: [] } : data,
+    open,
+    NOW,
+  );
   return renderToString(h(SeasonsPage, { view })).replace(/<!-- -->/g, '');
 };
 
@@ -23,14 +29,14 @@ describe('SeasonsPage', () => {
         'show one h1, season chips as links, the leader, ten rows and the explainer anchor',
       actual: [
         html.match(/<h1/g)?.length,
-        html.includes('href="/leaderboard/seasons?season=3"'),
+        html.includes('href="/leaderboard/seasons?division=open&amp;season=3"'),
         html.includes('Leading now'),
         html.includes('Standings now'),
         html.match(/<li class="border-t/g)?.length,
         html.includes('id="how-rating-works"'),
         html.includes('Provisional while rating deviation is above 110.'),
         html.includes('Current season'),
-        html.match(/href="\/leaderboard\?season=4"/g)?.length,
+        html.match(/href="\/leaderboard\?division=open&amp;season=4"/g)?.length,
         html.includes('One ladder per season'),
       ],
       expected: [1, true, true, true, 10, true, true, true, 2, true],
@@ -95,6 +101,7 @@ describe('SeasonsPage', () => {
     const data = readLadder('3', NOW, null).data;
     const view = buildSeasonsView(
       { ...data, seasons: data.seasons.filter(({ id }) => id !== '4') },
+      open,
       NOW,
     );
     const html = renderToString(h(SeasonsPage, { view })).replace(

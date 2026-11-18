@@ -1,7 +1,7 @@
 import type { CompetitionType } from './round';
 import type { RoundEndState } from './round-lifecycle';
 import type { AttendanceLedgerFacts } from './attendance';
-import type { RatingLadder } from './primitives';
+import type { Ladder } from './ladder';
 import type { WinnerOutcome } from './round-outcome';
 import type { SeatRef } from './seats';
 
@@ -38,8 +38,11 @@ export type EndingRatingFacts = RoundEndState & {
 /** What eligibility is decided from, as the adapter loads it: the Round's ending and what surrounds it. */
 export type RatingEligibilityFacts = EndingRatingFacts & {
   readonly competitionType: CompetitionType;
-  /** The round's stored ladder, derived by CHECK; null when unrated. */
-  readonly ladderId: RatingLadder | null;
+  /**
+   * The Round's frozen ladder (`ladder_id`, `ladder_division`), derived by
+   * CHECK; null when the Round never rates.
+   */
+  readonly ladder: Ladder | null;
   /** Whether the ledger already holds a change for this round. */
   readonly alreadyRated: boolean;
 };
@@ -73,7 +76,7 @@ export type EndingRating =
 export type RatingEligibility =
   | {
       readonly kind: 'rated';
-      readonly ladder: RatingLadder;
+      readonly ladder: Ladder;
       /** A rating compares two sides: only a two-sided Round's winner is rated. */
       readonly outcome: WinnerOutcome;
       readonly occurredAt: string;
@@ -83,7 +86,7 @@ export type RatingEligibility =
   | { readonly kind: 'attendance-unsettled' }
   | RatingUnrated;
 
-/** What the ledger holds for one debater on this format and ladder. */
+/** What the ledger holds for one debater on this ladder. */
 export type DebaterStanding = {
   /** This season's row and its version, if any. */
   readonly current: {
@@ -92,13 +95,13 @@ export type DebaterStanding = {
   } | null;
   /** The latest earlier season's state, if any. */
   readonly previous: RatingState | null;
-  /** The last time this debater was rated on this format and ladder. */
+  /** The last time this debater was rated on this ladder. */
   readonly lastRatedAt: string | null;
 };
 
 /** What a rating plan is computed from, as the adapter loads it. */
 export type RatingPlanFacts = {
-  readonly ladder: RatingLadder;
+  readonly ladder: Ladder;
   readonly outcome: WinnerOutcome;
   readonly occurredAt: string;
   readonly seasonId: string | null;
@@ -121,7 +124,7 @@ export type PlannedRatingChange = {
 };
 
 export type RatingPlan = {
-  readonly ladder: RatingLadder;
+  readonly ladder: Ladder;
   readonly seasonId: string;
   readonly occurredAt: string;
   readonly calculationVersion: string;

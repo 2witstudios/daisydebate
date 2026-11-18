@@ -1,9 +1,24 @@
-import { ladderLabels } from '../../features/ratings/ladder-labels';
+import type { Ladder } from '@daisy/protocol';
+import { ladderLabel } from '../../features/ratings/ladder-labels';
 import type { RoundRatingsView } from '../../features/ratings/read-round';
 import {
   markedRating,
   provisionalMarkClass,
 } from '../../features/ratings/provisional-mark';
+import { cn } from '../cn';
+import { LadderBadge } from '../ladder-badge/ladder-badge';
+
+/** A signed rating change as the receipt prints it: "+14", "−12", "0". */
+export const signedChange = (change: number): string =>
+  change > 0 ? `+${change}` : change < 0 ? `−${-change}` : '0';
+
+/** A posted change names the ladder it moved: "Youth – Freestyle +14". */
+export const ladderChangeText = (ladder: Ladder, change: number): string =>
+  `${ladderLabel(ladder)} ${signedChange(change)}`;
+
+/** Gains read green, losses clay, no change quiet. */
+export const changeToneClass = (change: number): string =>
+  change > 0 ? 'text-online' : change < 0 ? 'text-hue-clay' : 'text-ink-muted';
 
 export function RoundRatings({
   view,
@@ -16,46 +31,51 @@ export function RoundRatings({
       aria-label="Round ratings"
       className="flex flex-col gap-3 rounded-xl bg-surface p-4 shadow-1"
     >
-      <h2 className="text-base font-bold">
-        {ladderLabels[view.ladder]} · {view.season}
+      <h2 className="flex flex-wrap items-center gap-2 text-base font-bold">
+        <LadderBadge ladder={view.ladder} />
+        {` · ${view.season}`}
       </h2>
       {view.posting === 'rated' ? <p>Rated</p> : null}
       {view.posting === 'pending' ? (
         <p role="status">Rating update pending</p>
       ) : null}
       <dl className="flex flex-wrap gap-6">
-        {view.rows.map((row) => (
-          <div key={row.label}>
-            <dt>{row.label}</dt>
-            <dd
-              className={
-                row.provisional && row.rating !== null
-                  ? provisionalMarkClass
-                  : undefined
-              }
-              title={
-                row.provisional && row.rating !== null
-                  ? 'Provisional rating'
-                  : undefined
-              }
-            >
-              {row.hidden
-                ? 'Hidden while judging'
-                : row.rating === null
-                  ? 'Unrated'
-                  : markedRating(row.rating, row.provisional)}
-              {row.delta === null
-                ? ''
-                : ` (${row.delta > 0 ? '+' : ''}${row.delta})`}
-            </dd>
-            {row.win === null || row.loss === null ? null : (
-              <dd>
-                Win {row.win >= 0 ? '+' : ''}
-                {row.win} · Loss {row.loss}
+        {view.rows.map((row) => {
+          const marked = row.provisional && row.rating !== null;
+          return (
+            <div key={row.label}>
+              <dt className="font-strong">{row.label}</dt>
+              <dd
+                className={cn(
+                  'font-display text-3xl font-bold',
+                  marked && provisionalMarkClass,
+                )}
+                title={marked ? 'Provisional rating' : undefined}
+              >
+                {row.hidden
+                  ? 'Hidden while judging'
+                  : row.rating === null
+                    ? 'Unrated'
+                    : markedRating(row.rating, row.provisional)}
+                {row.delta === null ? null : (
+                  <span
+                    className={cn(
+                      'font-body text-base font-book not-italic',
+                      changeToneClass(row.delta),
+                    )}
+                  >
+                    {` ${ladderChangeText(view.ladder, row.delta)}`}
+                  </span>
+                )}
               </dd>
-            )}
-          </div>
-        ))}
+              {row.win === null || row.loss === null ? null : (
+                <dd className="text-sm text-ink-muted">
+                  {`Win ${signedChange(row.win)} · Loss ${signedChange(row.loss)}`}
+                </dd>
+              )}
+            </div>
+          );
+        })}
       </dl>
     </section>
   );

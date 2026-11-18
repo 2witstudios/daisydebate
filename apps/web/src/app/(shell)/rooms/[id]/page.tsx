@@ -14,6 +14,7 @@ import { roomWatchHref } from '../../../../features/watch/routes';
 import { requireAccess } from '../../../../lib/access';
 import {
   requestIdentity,
+  requestMemberDivision,
   requestWatchableRoundOfRoom,
 } from '../../../../lib/request-session';
 import { RoomLive } from '../../../../ui/rooms/room-page/room-live';
@@ -58,9 +59,11 @@ export default async function RoomRoute({
   const identity = await requireAccess(`/rooms/${id}`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
   if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-  const [result, catalog] = await Promise.all([
+  const [result, catalog, viewerDivision] = await Promise.all([
     roomAssembly(id),
     roomTemplates(),
+    // Only a refused seat's words read it; the Room's own seat check decides.
+    requestMemberDivision().catch(() => null),
   ]);
   if (result.kind === 'missing') notFound();
   if (result.kind !== 'found' || catalog.kind !== 'found')
@@ -76,6 +79,7 @@ export default async function RoomRoute({
         ids={roomCommandIds(view, () => systemId.next())}
         actorId={identity.principal.actorId}
         viewerLabel={identity.username}
+        viewerDivision={viewerDivision}
         bots={catalog.bots}
         choices={catalog.choices}
         socketUrl={result.socketUrl}

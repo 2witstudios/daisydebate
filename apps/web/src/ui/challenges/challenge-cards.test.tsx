@@ -10,6 +10,7 @@ const offer = (id: string, username: string) => ({
   username,
   mode: 'casual' as const,
   format: 'freestyle' as const,
+  division: null,
   createdAt: '2026-11-02T00:00:00.000Z',
   expiresAt: '2026-11-02T00:02:00.000Z',
 });

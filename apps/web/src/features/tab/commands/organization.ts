@@ -1,4 +1,4 @@
-import type { AgeBand } from '@daisy/auth';
+import type { AgeBand } from '@daisy/protocol';
 import type {
   OrganizationCommand,
   OrganizationRefusal,
