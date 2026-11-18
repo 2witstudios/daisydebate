@@ -11,6 +11,8 @@ type Gauge = ReturnType<Database['laneGauges']>[number];
 const SAMPLE_MS = 250;
 /** One window a minute: an idle process writes one line per lane per minute. */
 const SAMPLES_PER_WINDOW = 240;
+/** At debug (the floor run), five-second windows: a short stall stays visible. */
+const DETAIL_SAMPLES_PER_WINDOW = 20;
 
 /**
  * Each lane's occupancy as a continuous time average, and how long its
@@ -29,7 +31,9 @@ export function startLaneGauges(input: {
   readonly detail: boolean;
   readonly samplesPerWindow?: number;
 }) {
-  const size = input.samplesPerWindow ?? SAMPLES_PER_WINDOW;
+  const size =
+    input.samplesPerWindow ??
+    (input.detail ? DETAIL_SAMPLES_PER_WINDOW : SAMPLES_PER_WINDOW);
   let occupancy = new Map<string, LaneOccupancy>();
   let samples = 0;
   const flush = () => {

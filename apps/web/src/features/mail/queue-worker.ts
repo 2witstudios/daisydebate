@@ -1,9 +1,9 @@
 import type { WorkerTimers } from '../../lib/worker-timers';
 import { passOf } from '../../lib/idle-backoff';
-import {
-  HOUSEKEEPING_IDLE_MAX_MS,
-  startWorkerLoop,
-} from '../../lib/worker-loop';
+import { startWorkerLoop } from '../../lib/worker-loop';
+
+/** The longest an idle queue waits: a member's mail goes out within 15 s. */
+const MAIL_IDLE_MAX_MS = 15_000;
 
 /**
  * A durable mail queue's loop (beta mail intents, ADR 0075; notification
@@ -21,9 +21,10 @@ export function startMailQueueWorker(input: {
 }) {
   return startWorkerLoop({
     run: () => input.run(input.batch).then(passOf),
+    // Mail has no wake, so a member's mail waits at most this cap.
     backoff: {
       busyMs: input.everyMs,
-      idleMaxMs: Math.max(input.everyMs, HOUSEKEEPING_IDLE_MAX_MS),
+      idleMaxMs: Math.max(input.everyMs, MAIL_IDLE_MAX_MS),
     },
     timers: input.timers,
     failed: input.failed,

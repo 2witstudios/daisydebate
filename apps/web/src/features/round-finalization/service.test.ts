@@ -618,3 +618,47 @@ test('a Round that leaves discovery is forgotten: back again, it waits for nothi
   });
   await service.stop();
 });
+
+test('an opening waiting on the clock keeps discovery at its pace; none lets it back off', async () => {
+  const pace = async (openingsWaiting: boolean) => {
+    const armed = new Map<object, { ms: number; run: () => unknown }>();
+    const waits: number[] = [];
+    const service = startRoundMaintenance({
+      ...ports(),
+      discover: async () => ({ ...page([]), openingsWaiting }),
+      // Rating always busy, so only discovery's waits can grow.
+      rateUnrated: async () => 1,
+      timers: {
+        ...inertTimers,
+        setTimeout: (run, ms) => {
+          const handle = {};
+          armed.set(handle, { ms, run });
+          waits.push(ms);
+          return handle;
+        },
+        clearTimeout: (handle) => {
+          armed.delete(handle as object);
+        },
+      },
+    });
+    await service.ready;
+    for (let pulse = 0; pulse < 3; pulse += 1) {
+      const due = [...armed.values()];
+      armed.clear();
+      await Promise.all(due.map(({ run }) => run()));
+    }
+    await service.stop();
+    return waits;
+  };
+  const waiting = await pace(true);
+  const idle = await pace(false);
+  assert({
+    given: 'discovery passes with an opening waiting, then with none',
+    should: 'keep 500 ms while one waits, and back off without one',
+    actual: {
+      waiting: waiting.every((ms) => ms === 500),
+      idle: idle.includes(1000) && idle.includes(2000),
+    },
+    expected: { waiting: true, idle: true },
+  });
+});

@@ -1,4 +1,5 @@
 import { attendanceReceiptSchema, idSchema } from '@daisy/protocol';
+import { nextWaitMs, type IdleBackoff } from '../../lib/idle-backoff';
 export type PublicCheckInProbeConfiguration = {
   readonly origin: string;
   readonly roundId: string;
@@ -14,9 +15,11 @@ export type PublicCheckInProbeConfiguration = {
  * slides a session read this way once it is older than its update age.
  */
 export const PROBE_SESSION_REFRESH_MS = 60 * 60_000;
-/** After a 401 the probe asks again after this, doubling to the cap. */
-export const PROBE_REJECTED_RETRY_MS = 60_000;
-const PROBE_REJECTED_RETRY_CAP_MS = 60 * 60_000;
+/** After a 401 the probe asks again after a minute, doubling to an hour. */
+const PROBE_REJECTED_RETRY: IdleBackoff = {
+  busyMs: 60_000,
+  idleMaxMs: 60 * 60_000,
+};
 /** Credentials enter only from the process edge; missing configuration remains unhealthy. */
 export function createPublicCheckInProbe(input: {
   readonly configuration: PublicCheckInProbeConfiguration | null;
@@ -104,9 +107,11 @@ export function createPublicCheckInProbe(input: {
       if (response.status === 401) {
         await response.body?.cancel();
         if (!rejection) input.sessionRejected?.();
-        const waitMs = rejection
-          ? Math.min(PROBE_REJECTED_RETRY_CAP_MS, rejection.waitMs * 2)
-          : PROBE_REJECTED_RETRY_MS;
+        const waitMs = nextWaitMs(
+          PROBE_REJECTED_RETRY,
+          rejection?.waitMs ?? null,
+          'failed',
+        );
         rejection = { askAtMs: input.nowMs() + waitMs, waitMs };
         return false;
       }

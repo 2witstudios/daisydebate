@@ -1,3 +1,4 @@
+import { nextWaitMs, type IdleBackoff } from '../../lib/idle-backoff';
 type Snapshot = {
   readonly status: string;
   readonly segments: readonly { readonly id: string; readonly type: string }[];
@@ -9,17 +10,22 @@ type Pending = {
 };
 /** The heartbeat's cadence; a failing check-in waits longer between retries. */
 export const ATTENDANCE_HEARTBEAT_MS = 15_000;
-const RETRY_CAP_MS = 60_000;
-
 /**
- * How long heartbeats wait after `failures` consecutive unacknowledged
- * passes: the next heartbeat, then twice as long each time, up to a minute.
- * A reconnect, coming online or the tab showing again retries at once.
+ * A failing check-in waits for the next heartbeat, then twice as long each
+ * time, up to a minute: the shared worker back-off. A reconnect, coming
+ * online or the tab showing again retries at once.
  */
-export function attendanceRetryWaitMs(failures: number): number {
-  if (failures <= 0) return 0;
-  return Math.min(RETRY_CAP_MS, ATTENDANCE_HEARTBEAT_MS * 2 ** (failures - 1));
-}
+export const ATTENDANCE_RETRY: IdleBackoff = {
+  busyMs: ATTENDANCE_HEARTBEAT_MS,
+  idleMaxMs: 60_000,
+};
+/**
+ * Half a heartbeat of slack: a retry due at T is taken by any heartbeat from
+ * T - 7.5 s, so neither a timer firing a few ms early nor a failure on a view
+ * push between heartbeats makes the due heartbeat skip it. View pushes take
+ * no slack, so view churn never retries early.
+ */
+const RETRY_SLACK_MS = ATTENDANCE_HEARTBEAT_MS / 2;
 
 /**
  * An exact HTTP command survives an unknown acknowledgement. Socket state is
@@ -45,7 +51,8 @@ export function createAttendanceClient(deps: {
   let terminal = false;
   let inFlight: Promise<void> | null = null;
   let forceQueued = false;
-  let failures = 0;
+  /** The wait the last failing pass set, or null while check-ins succeed. */
+  let retryWaitMs: number | null = null;
   let retryAtMs = 0;
   const signOut = () => {
     if (stopped) return;
@@ -86,10 +93,12 @@ export function createAttendanceClient(deps: {
           failed = true;
         }
       }
-      failures = failed ? failures + 1 : 0;
-      // Measured from the tick's start, before its read: heartbeats tick
-      // exactly 15 s apart, so no request's latency can make one skip a retry.
-      retryAtMs = tickAt + attendanceRetryWaitMs(failures);
+      retryWaitMs = failed
+        ? nextWaitMs(ATTENDANCE_RETRY, retryWaitMs, 'failed')
+        : null;
+      // Measured from the tick's start, before its read, so no request's
+      // latency can make the due heartbeat skip a retry.
+      retryAtMs = tickAt + (retryWaitMs ?? 0);
     })();
     try {
       await inFlight;
@@ -131,8 +140,12 @@ export function createAttendanceClient(deps: {
    * Whether a tick sends: a reconnect always; otherwise when a speech is new
    * or the back-off has run out. Failing check-ins wait, new ones never do.
    */
-  const sends = (force: boolean, added: number, tickAt: number) =>
-    force || added > 0 || tickAt >= retryAtMs;
+  const sends = (
+    force: boolean,
+    added: number,
+    tickAt: number,
+    slackMs: number,
+  ) => force || added > 0 || tickAt >= retryAtMs - slackMs;
   const refresh = async (force: boolean) => {
     if (stopped || terminal) return;
     const tickAt = nowMs();
@@ -144,14 +157,15 @@ export function createAttendanceClient(deps: {
     }
     // Inside the back-off a heartbeat still reads, so a new speech is sent.
     const added = snapshot ? adopt(snapshot) : 0;
-    if (sends(force, added, tickAt)) await send(force, tickAt);
+    // A heartbeat takes half a heartbeat of slack; a view push takes none.
+    if (sends(force, added, tickAt, RETRY_SLACK_MS)) await send(force, tickAt);
   };
   return {
     /** A new view: the same back-off as a heartbeat, so view churn never retries. */
     async update(snapshot: Snapshot) {
       const tickAt = nowMs();
       const added = adopt(snapshot);
-      if (sends(false, added, tickAt)) await send(false, tickAt);
+      if (sends(false, added, tickAt, 0)) await send(false, tickAt);
     },
     reconnect: () => refresh(true),
     heartbeat: () => refresh(false),

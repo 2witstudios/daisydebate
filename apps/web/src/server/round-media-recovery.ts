@@ -28,23 +28,30 @@ export function startRoundMediaRecovery(input: {
   readonly wake?: WorkWake | undefined;
 }) {
   const running = new Set<Promise<void>>();
+  /**
+   * Resolves once the session list is in: `worked` or `idle` from it. A list
+   * that fails rejects, so the loop reports it and backs off as `failed`
+   * (and ignores wakes) while a failure after the list is the recovery's own.
+   */
   const pass = () =>
-    new Promise<LoopPass>((settle) => {
+    new Promise<LoopPass>((settle, refuse) => {
+      let listed = false;
       const tick: Promise<void> = Promise.resolve()
         .then(() =>
-          input.recover((roundIds) =>
+          input.recover((roundIds) => {
+            listed = true;
             settle(
               roundIds.some((id) => id !== input.probeRoundId)
                 ? 'worked'
                 : 'idle',
-            ),
-          ),
+            );
+          }),
         )
         .then(
           () => settle('idle'),
           (error: unknown) => {
-            input.failed(error);
-            settle('idle');
+            if (listed) input.failed(error);
+            else refuse(error);
           },
         )
         .finally(() => {

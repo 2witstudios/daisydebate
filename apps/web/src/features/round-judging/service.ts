@@ -118,9 +118,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
     })();
   };
   /**
-   * One discovery pass; it worked while any judging is held or found. A
-   * failed discovery claims what the other kinds found, then throws, so the
-   * loop reports it and backs off even while judging is held.
+   * One discovery pass; it worked while any judging is held or found. A kind
+   * whose scan is refused is reported and the others go on at pace, since
+   * held ballots retry on scan passes; when every kind is refused the pass
+   * throws, so the loop reports it and backs off, ignoring wakes.
    */
   const scan = async (): Promise<LoopPass> => {
     if (stopped) return 'idle';
@@ -134,7 +135,11 @@ export function startRoundJudgingService<C extends Claim>(input: {
       ),
     );
     const refused = discoveries.find((result) => result.status === 'rejected');
-    if (refused?.status === 'rejected') refusal = { reason: refused.reason };
+    if (refused?.status === 'rejected') {
+      if (discoveries.every((result) => result.status === 'rejected'))
+        refusal = { reason: refused.reason };
+      else input.failed(refused.reason, 'scan');
+    }
     const targets = discoveries.flatMap((result, index) =>
       result.status === 'fulfilled'
         ? result.value.filter(

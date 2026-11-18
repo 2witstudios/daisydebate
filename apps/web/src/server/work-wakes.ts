@@ -1,4 +1,5 @@
 import type { WorkKind } from '@daisy/db';
+import { nextWaitMs, type IdleBackoff } from '../lib/idle-backoff';
 import type { WorkWake } from '../lib/worker-loop';
 import type { OneShotTimer } from '../lib/worker-timers';
 
@@ -35,9 +36,8 @@ export function createWorkWakes() {
 }
 export type WorkWakes = ReturnType<typeof createWorkWakes>;
 
-/** The first retry of a LISTEN that could not start; it doubles to a minute. */
-const LISTEN_RETRY_MS = 1_000;
-const LISTEN_RETRY_CAP_MS = 60_000;
+/** A LISTEN that could not start is tried again after 1 s, doubling to a minute. */
+const LISTEN_RETRY: IdleBackoff = { busyMs: 1_000, idleMaxMs: 60_000 };
 
 /** A cause code a log field admits: the error's class name, never its message. */
 const causeOf = (error: unknown) =>
@@ -60,7 +60,7 @@ export function keepWorkWakesListening(input: {
   let handle: unknown = null;
   let subscription: { readonly unlisten: () => Promise<void> } | null = null;
   let attempt: Promise<void> = Promise.resolve();
-  const tryListen = (waitMs: number): Promise<void> =>
+  const tryListen = (previousMs: number | null): Promise<void> =>
     input.subscribe().then(
       async (listening) => {
         if (stopped) await listening.unlisten();
@@ -69,13 +69,14 @@ export function keepWorkWakesListening(input: {
       (error: unknown) => {
         if (stopped) return;
         input.unavailable(causeOf(error));
+        const waitMs = nextWaitMs(LISTEN_RETRY, previousMs, 'failed');
         handle = input.timers.setTimeout(() => {
           handle = null;
-          attempt = tryListen(Math.min(LISTEN_RETRY_CAP_MS, waitMs * 2));
+          attempt = tryListen(waitMs);
         }, waitMs);
       },
     );
-  attempt = tryListen(LISTEN_RETRY_MS);
+  attempt = tryListen(null);
   return {
     async stop() {
       stopped = true;

@@ -98,11 +98,17 @@ export function roundMaintenanceOperations(
         // An opening not yet due is still live: its prep end or strike window
         // falls due by the clock, not a write, so the worker loop must keep
         // its pace while one waits (ADR 0154).
-        const [waiting] = await tx
-          .select({ id: rounds.id })
-          .from(rounds)
-          .where(and(eq(rounds.status, 'opening'), isNotNull(rounds.roomId)))
-          .limit(1);
+        // Only asked when this page found nothing: any row already keeps the pace.
+        const [waiting] =
+          rows.length === 0
+            ? await tx
+                .select({ id: rounds.id })
+                .from(rounds)
+                .where(
+                  and(eq(rounds.status, 'opening'), isNotNull(rounds.roomId)),
+                )
+                .limit(1)
+            : [];
         return {
           openingsWaiting: waiting !== undefined,
           roundIds: rows.map((row) => row.id),

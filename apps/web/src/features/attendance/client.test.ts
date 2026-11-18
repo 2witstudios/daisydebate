@@ -271,12 +271,19 @@ test('failing heartbeats back off; a reconnect retries at once', async () => {
 });
 
 test('the retry wait doubles from the heartbeat to a one-minute cap', async () => {
-  const { attendanceRetryWaitMs } = await import('./client');
+  const { ATTENDANCE_RETRY } = await import('./client');
+  const { nextWaitMs } = await import('../../lib/idle-backoff');
+  const waits: number[] = [];
+  let previous: number | null = null;
+  for (let failure = 0; failure < 5; failure += 1) {
+    previous = nextWaitMs(ATTENDANCE_RETRY, previous, 'failed');
+    waits.push(previous);
+  }
   assert({
-    given: 'zero to five consecutive failures',
-    should: 'wait nothing, then 15 s doubling to 60 s',
-    actual: [0, 1, 2, 3, 4, 5].map(attendanceRetryWaitMs),
-    expected: [0, 15_000, 30_000, 60_000, 60_000, 60_000],
+    given: 'five consecutive failing passes on the shared back-off',
+    should: 'wait 15 s, then double to 60 s',
+    actual: waits,
+    expected: [15_000, 30_000, 60_000, 60_000, 60_000],
   });
 });
 
@@ -386,5 +393,58 @@ test('view changes inside the back-off never retry a failing check-in', async ()
     should: 'send once, then wait out the back-off',
     actual: sends,
     expected: 1,
+  });
+});
+
+test('a check-in failing on a view push retries on the next heartbeat', async () => {
+  let now = 0;
+  const attempts: number[] = [];
+  let segments: { id: string; type: 'speech' }[] = [];
+  const client = createAttendanceClient({
+    read: async () => ({ status: 'active', segments }),
+    nextCommandId: () => 'command',
+    nowMs: () => now,
+    send: async () => {
+      attempts.push(now);
+      return false;
+    },
+  });
+  await client.heartbeat();
+  now = 7_000;
+  segments = [{ id: 'speech-a', type: 'speech' }];
+  await client.update({ status: 'active', segments });
+  for (let tick = 15_000; tick <= 120_000; tick += 15_000) {
+    now = tick;
+    await client.heartbeat();
+  }
+  assert({
+    given: 'a new speech pushed at 7 s whose check-in always fails',
+    should: 'retry on the 15 s heartbeat, then 30 s and 60 s apart',
+    actual: attempts,
+    expected: [7_000, 15_000, 45_000, 105_000],
+  });
+});
+
+test('a heartbeat a few ms early still takes its retry', async () => {
+  let now = 3;
+  const attempts: number[] = [];
+  const one = { status: 'active' as const, segments: [snapshot.segments[0]!] };
+  const client = createAttendanceClient({
+    read: async () => one,
+    nextCommandId: () => 'command',
+    nowMs: () => now,
+    send: async () => {
+      attempts.push(now);
+      return false;
+    },
+  });
+  await client.heartbeat();
+  now = 15_000;
+  await client.heartbeat();
+  assert({
+    given: 'a failing heartbeat 3 ms late, the next on schedule',
+    should: 'retry on that next heartbeat',
+    actual: attempts,
+    expected: [3, 15_000],
   });
 });

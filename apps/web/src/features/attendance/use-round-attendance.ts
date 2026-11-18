@@ -28,10 +28,14 @@ export function useRoundAttendance({
       seat.kind === 'human' &&
       isDebatingSeat(seat.seat),
   );
-  const [signedOut, setSignedOut] = useState(false);
+  // Keyed by the client that hit the 401 (its Round and eligibility): a new
+  // client, such as the Room's next Round, shows no stale signed-out state.
+  const clientKey = `${view.id}:${eligible}`;
+  const [signedOutKey, setSignedOutKey] = useState<string | null>(null);
   const client = useRef<ReturnType<typeof createAttendanceClient> | null>(null);
   useEffect(() => {
     if (!eligible) return;
+    const key = `${view.id}:${eligible}`;
     const http = createAttendanceHttpClient({
       roundId: view.id,
       fetch: (url, init) => fetch(url, init),
@@ -42,7 +46,7 @@ export function useRoundAttendance({
       nowMs: () => performance.now(),
       read: http.read,
       send: http.send,
-      signedOut: () => setSignedOut(true),
+      signedOut: () => setSignedOutKey(key),
     });
     client.current = consumer;
     const reconnect = () => {
@@ -69,5 +73,5 @@ export function useRoundAttendance({
   useEffect(() => {
     void client.current?.update(view);
   }, [view, eligible]);
-  return { signedOut };
+  return { signedOut: signedOutKey === clientKey };
 }

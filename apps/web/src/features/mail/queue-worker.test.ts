@@ -14,7 +14,7 @@ test('a queue sending mail keeps its pace; an empty one backs off', async () => 
       return sent.shift() ?? 0;
     },
     batch: 10,
-    everyMs: 15_000,
+    everyMs: 5_000,
     timers,
     failed: () => {},
   });
@@ -30,7 +30,7 @@ test('a queue sending mail keeps its pace; an empty one backs off', async () => 
     actual: { limits, waits },
     expected: {
       limits: [10, 10, 10, 10],
-      waits: [15_000, 15_000, 30_000, 60_000],
+      waits: [5_000, 5_000, 10_000, 15_000],
     },
   });
 });

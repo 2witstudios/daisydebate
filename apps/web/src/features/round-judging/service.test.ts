@@ -308,3 +308,42 @@ test('a ballot waiting on attendance is no failure, whatever its message says (I
     expected: [],
   });
 });
+
+test('one refused judging kind is reported and scanning keeps its pace', async () => {
+  const { failures, failed } = failureLog();
+  const outage = new Error('submission scan outage');
+  const { timers, waits, nextPass } = manualTimers();
+  const service = startRoundJudgingService({
+    reserveCapacity: () => () => {},
+    store: {
+      scanRoundJudgingJobs: async (_limit, kind) => {
+        if (kind === 'submission') throw outage;
+        return [{ roundId: 'round', judgeParticipantId: 'judge' }];
+      },
+      claimRoundJudgingJob: async () => ({
+        scope: { roundId: 'round', judgeParticipantId: 'judge' },
+        token: 'memory-only',
+      }),
+      renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
+    },
+    execute: () => new Promise(() => {}),
+    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers,
+    failed,
+  });
+  await service.started;
+  await nextPass();
+  assert({
+    given: 'the submission scan refused while generation work is held',
+    should: 'report each refusal at the scan stage and keep the busy pace',
+    actual: {
+      stages: failures.map((entry) => (entry as [unknown, string])[1]),
+      waits,
+    },
+    expected: { stages: ['scan', 'scan'], waits: [500, 500] },
+  });
+  void service.stop();
+});
