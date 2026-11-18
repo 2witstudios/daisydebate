@@ -1,13 +1,22 @@
 import { createId } from '@paralleldrive/cuid2';
-import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
+import {
+  admitAllowance,
+  allowanceCeilings,
+  canUseAiAllowance,
+} from '@daisy/auth/authorization';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import type { Fixture } from './constraint-helpers';
 
-/** The beta quota policy production composes, at the beta cap of 20 (ISSUE-646). */
-export const betaAllowance = (monthlyCap = 20) => ({
+/**
+ * The policy production composes, with the bot Round per-day fair-use
+ * ceiling tightened to `dailyCeiling` so a test can reach it (ADR 0146).
+ */
+export const betaAllowance = (
+  dailyCeiling: number = allowanceCeilings.premiumPerDay.ai_round,
+) => ({
   accountEligible: canUseAiAllowance,
   allowance: (
     account: Parameters<typeof admitAllowance>[0],
@@ -16,9 +25,15 @@ export const betaAllowance = (monthlyCap = 20) => ({
     now: string,
   ) =>
     admitAllowance(account, facts, request, {
-      betaMonthlyCap: monthlyCap,
       betaGrantsPremium: true,
       now,
+      ceilings: {
+        ...allowanceCeilings,
+        premiumPerDay: {
+          ...allowanceCeilings.premiumPerDay,
+          ai_round: dailyCeiling,
+        },
+      },
     }),
 });
 
@@ -38,16 +53,16 @@ export async function admissionSponsor(
 export const testBotAdmission = (
   run: BoundedTransaction,
   busyCap = 4,
-  monthlyCap = 20,
+  dailyCeiling?: number,
 ) =>
   createRoundBotAdmission({
     run,
     nextId: createId,
     busyCap,
-    ...betaAllowance(monthlyCap),
+    ...betaAllowance(dailyCeiling),
   });
 
-/** Two Rounds hosted by one approved sponsoring member, with real admission at busy cap 4. */
+/** Two Rounds hosted by one approved sponsoring member, with real admission at busy cap 4 and an optional daily ceiling. */
 export const withTwoRoundAdmission = (
   work: (context: {
     readonly fixture: Fixture;
@@ -57,10 +72,11 @@ export const withTwoRoundAdmission = (
     readonly actorId: string;
     readonly admission: ReturnType<typeof createRoundBotAdmission>;
   }) => Promise<void>,
+  dailyCeiling?: number,
 ) =>
   withBoundedRound(async (fixture, run, firstRound) => {
     const secondRound = await fixture.round();
     const actorId = await admissionSponsor(fixture, [firstRound, secondRound]);
-    const admission = testBotAdmission(run);
+    const admission = testBotAdmission(run, 4, dailyCeiling);
     await work({ fixture, run, firstRound, secondRound, actorId, admission });
   });

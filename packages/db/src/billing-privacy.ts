@@ -28,7 +28,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from billing_customers where user_id=${subject.userId} order by id`);
     const subscriptions =
-      await tx.execute(sql`select id,vendor_subscription_id,evidence,current,
+      await tx.execute(sql`select id,vendor_subscription_id,evidence,current,renewal_off,amount_minor,
       to_char(observed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as observed_at,
       to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from billing_subscriptions where user_id=${subject.userId} order by created_at,id`);

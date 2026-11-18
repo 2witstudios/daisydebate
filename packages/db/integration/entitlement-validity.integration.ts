@@ -26,7 +26,7 @@ test('PostgreSQL grants expire at every capability read without a synchronizatio
           maxActors: 1,
         });
         const grants = await readEntitlementGrants(tx, subject.userId);
-        const policy = { now, betaGrantsPremium, betaMonthlyCap: 5 };
+        const policy = { now, betaGrantsPremium };
         return [
           ...Object.values(accountEntitlements(grants, policy)),
           admitAllowance(
@@ -49,6 +49,7 @@ test('PostgreSQL grants expire at every capability read without a synchronizatio
                 { kind: 'ai_round', source: { kind: 'lifetime' }, spent: 1 },
               ],
               freeBotRoundId: null,
+              today: null,
             },
             { kind: 'bot_debate', roundId: 'round', withJudge: false },
             policy,

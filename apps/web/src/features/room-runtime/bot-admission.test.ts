@@ -17,16 +17,7 @@ const withBot = (seat: SeatRef) => ({
   ],
 });
 const botRoom = withBot({ kind: 'side', side: 'negative', slot: 0 });
-const status = {
-  limit: 20,
-  remaining: 1,
-  source: {
-    kind: 'beta' as const,
-    startsAt: '2026-10-01T00:00:00.000Z',
-    endsAt: '2026-11-01T00:00:00.000Z',
-  },
-  refusal: null,
-};
+const status = { refusal: null };
 test('bot admission metadata is private to the current sponsoring human host', async () => {
   let reads = 0;
   const read = async () => {

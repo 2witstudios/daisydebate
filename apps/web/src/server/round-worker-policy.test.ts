@@ -2,14 +2,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectionOf } from '@daisy/errors/testing';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { readServerConfig } from '@daisy/config';
-import { AI_ROUND_MONTHLY_CAP_MAX } from '@daisy/protocol';
 import { createApp } from './app';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import { aiSeatAvailability, aiAdmissionOptions } from './round-worker-policy';
 setupRitewayBun();
 test('casual judge allowance remains available without bot-debater capacity', () => {
   const options = aiAdmissionOptions({
-    AI_ROUND_MONTHLY_CAP: 20,
     PREMIUM_BETA_GRANT: true,
   });
   const account = {
@@ -33,6 +31,7 @@ test('casual judge allowance remains available without bot-debater capacity', ()
         grants: [{ entitlement: 'casual_ai_judge', source: 'beta' }],
         usage: [],
         freeBotRoundId: null,
+        today: null,
       },
       { kind: 'casual_judge', roundId: 'r'.repeat(24) },
       '2026-11-05T00:00:00.000Z',
@@ -47,7 +46,6 @@ test('casual judge allowance remains available without bot-debater capacity', ()
             startsAt: '2026-11-01T00:00:00.000Z',
             endsAt: '2026-12-01T00:00:00.000Z',
           },
-          limit: null,
         },
       ],
     },
@@ -183,16 +181,14 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
   };
   const configured = aiAdmissionOptions({
     AI_ROUND_BUSY_CAP: 4,
-    AI_ROUND_MONTHLY_CAP: 20,
     PREMIUM_BETA_GRANT: true,
   });
   assert({
-    given: 'no busy cap, then a busy cap with the default monthly cap',
+    given: 'no busy cap, then a busy cap',
     should:
       'require capacity and select beta or lifetime attribution from locked facts',
     actual: [
       aiAdmissionOptions({
-        AI_ROUND_MONTHLY_CAP: 20,
         PREMIUM_BETA_GRANT: true,
       }).botAdmission,
       configured.botAdmission?.busyCap,
@@ -203,13 +199,20 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
           grants: [{ entitlement: 'ai_rounds', source: 'beta' }],
           usage: [],
           freeBotRoundId: null,
+          today: null,
         },
         { kind: 'bot_debate', roundId: 'r'.repeat(24), withJudge: false },
         '2026-11-05T00:00:00.000Z',
       ),
       configured.aiAllowance?.decide(
         approved,
-        { billing: null, grants: [], usage: [], freeBotRoundId: null },
+        {
+          billing: null,
+          grants: [],
+          usage: [],
+          freeBotRoundId: null,
+          today: null,
+        },
         { kind: 'bot_debate', roundId: 'r'.repeat(24), withJudge: false },
         '2026-11-05T00:00:00.000Z',
       ),
@@ -222,7 +225,6 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
         reservations: [
           {
             kind: 'ai_round',
-            limit: 20,
             source: {
               kind: 'beta',
               startsAt: '2026-11-01T00:00:00.000Z',
@@ -233,31 +235,9 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
       },
       {
         kind: 'admit',
-        reservations: [
-          { kind: 'ai_round', limit: 1, source: { kind: 'lifetime' } },
-        ],
+        reservations: [{ kind: 'ai_round', source: { kind: 'lifetime' } }],
       },
     ],
-  });
-});
-
-test('the configurable cap ceiling is the Room contract ceiling', () => {
-  const read = (AI_ROUND_MONTHLY_CAP: string) => {
-    try {
-      return readServerConfig({ ...env, AI_ROUND_MONTHLY_CAP })
-        .AI_ROUND_MONTHLY_CAP;
-    } catch {
-      return 'refused';
-    }
-  };
-  assert({
-    given: 'a cap at and just above the protocol maximum',
-    should: 'accept exactly what the botAdmission contract can carry',
-    actual: [
-      read(String(AI_ROUND_MONTHLY_CAP_MAX)),
-      read(String(AI_ROUND_MONTHLY_CAP_MAX + 1)),
-    ],
-    expected: [AI_ROUND_MONTHLY_CAP_MAX, 'refused'],
   });
 });
 

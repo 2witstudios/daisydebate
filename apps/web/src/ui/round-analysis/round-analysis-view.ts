@@ -45,7 +45,7 @@ export type RoundAnalysisPanel =
     }
   | { readonly kind: 'request'; readonly text: string }
   | { readonly kind: 'note'; readonly text: string }
-  | { readonly kind: 'locked'; readonly text: string };
+  | { readonly kind: 'locked' };
 
 const quoteOf = (lines: readonly CitedLine[], line: RoundAnalysisLine) =>
   lines.find(
@@ -104,9 +104,11 @@ export function roundAnalysisPanel(
         text: 'Round analysis is not available for this round.',
       };
     case 'locked':
+      return { kind: 'locked' };
+    case 'fair-use':
       return {
-        kind: 'locked',
-        text: 'Round analysis is premium: the key moments of your round, the strongest reply at each, the openings you missed, and a score for every skill.',
+        kind: 'note',
+        text: 'This account has reached today’s fair-use ceiling for analysis. Ask again tomorrow.',
       };
   }
 }

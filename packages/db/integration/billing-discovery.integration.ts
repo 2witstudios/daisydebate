@@ -7,7 +7,10 @@ import { createDatabase } from '../src/index';
 import { lockAuthorizationActors } from '../src/authorization';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { withHeldCommit } from './usage-ledger.test-support';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withBillingSynchronization,
+  renewing,
+} from './billing-synchronization.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -78,7 +81,7 @@ test('the public billing store recovers an early receipt after mapping and disco
             customers.exhausted,
             next.rows,
             next.exhausted,
-            await store.apply(claim, paid),
+            await store.apply(claim, paid, renewing),
           ],
           expected: [
             [receipt.eventId],
@@ -143,7 +146,7 @@ test('a billing worker that loses service authority during an account lock wait 
             }),
           );
           const pid = await held.entered;
-          const pending = held.observe(store.apply(claim, paid));
+          const pending = held.observe(store.apply(claim, paid, renewing));
           try {
             assert({
               given:

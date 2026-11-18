@@ -16,13 +16,9 @@ test('billing is inert without configuration and preserves beta operation', () =
   const config = readServerConfig(env);
   assert({
     given: 'the existing beta environment with no Stripe fields',
-    should: 'disable billing while keeping the beta grant and allowance',
-    actual: [
-      config.billing,
-      config.PREMIUM_BETA_GRANT,
-      config.AI_ROUND_MONTHLY_CAP,
-    ],
-    expected: [{ kind: 'disabled' }, true, 20],
+    should: 'disable billing while keeping the beta grant',
+    actual: [config.billing, config.PREMIUM_BETA_GRANT],
+    expected: [{ kind: 'disabled' }, true],
   });
 });
 

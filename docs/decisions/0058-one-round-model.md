@@ -252,7 +252,9 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   bot-debater Rounds. DEC183, as the owner amended it on 2026-10-26
   (ISSUE-646), supersedes the former rolling-daily allowance and the
   free-one/premium-ten grant periods with one flat beta policy: an approved,
-  live beta host may start up to the trusted `AI_ROUND_MONTHLY_CAP` (default 20)
+  live beta host may start up to the trusted `AI_ROUND_MONTHLY_CAP` (default 20;
+  retired by [ADR 0146](0146-premium-twenty-unlimited-fair-use.md), where a beta
+  grant is Premium up to a per-day fair-use ceiling)
   AI Rounds per exact UTC calendar month, and any other account fact admits
   none. The policy is applied to the account row locked by the admitting
   transaction; no grant table, grant setter or caller entitlement exists, and

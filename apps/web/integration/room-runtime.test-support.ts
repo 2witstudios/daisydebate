@@ -71,7 +71,6 @@ async function fixture(
     url: databaseUrl,
     nextActorId: createId,
     ...aiAdmissionOptions({
-      AI_ROUND_MONTHLY_CAP: 20,
       PREMIUM_BETA_GRANT: true,
     }),
     ...storeOptions,

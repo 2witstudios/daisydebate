@@ -28,6 +28,11 @@ export type BillingSynchronizationClaim = {
   readonly revision: number;
   readonly claimId: string;
 };
+/** Display terms from the same verified observation; never access authority. */
+export type SubscriptionTerms = {
+  readonly renewalOff: boolean;
+  readonly amountMinor: number;
+};
 type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
 async function currentSubscription(tx: Tx, userId: string) {
   const [row] = await tx
@@ -139,8 +144,17 @@ export function createBillingSynchronization(input: {
         },
       );
     },
-    apply(claim: BillingSynchronizationClaim, observed: SubscriptionEvidence) {
-      if (!validClaim(claim)) throw createAppError('VALIDATION');
+    apply(
+      claim: BillingSynchronizationClaim,
+      observed: SubscriptionEvidence,
+      terms: SubscriptionTerms,
+    ) {
+      if (
+        !validClaim(claim) ||
+        !Number.isSafeInteger(terms.amountMinor) ||
+        terms.amountMinor < 1
+      )
+        throw createAppError('VALIDATION');
       return input.run(async (tx) => {
         const locked = await lockBillingCustomer(tx, claim.customerId);
         if (!locked || !isCurrentMapping(locked, claim))
@@ -185,7 +199,7 @@ export function createBillingSynchronization(input: {
           throw createAppError('CONFLICT');
         await tx
           .update(billingSubscriptions)
-          .set({ evidence, observedAt: now })
+          .set({ evidence, observedAt: now, ...terms })
           .where(eq(billingSubscriptions.id, subscription.id));
         await replaceSubscriptionGrants(
           tx,

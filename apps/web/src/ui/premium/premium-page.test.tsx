@@ -3,18 +3,21 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { PremiumPage } from './premium-page';
 setupRitewayBun();
 
-test('public pricing explains the period and lifetime allowances without implying paid human play or private access', () => {
+test('public Premium terms say unlimited at $20 a month, with no counter', () => {
   const html = renderToStaticMarkup(<PremiumPage />);
   assert({
     given: 'the public Premium page',
     should:
-      'state the confirmed price, paid period, lifetime free use and continuing authorized reads',
+      'state the $20 price, unlimited AI use, the fair-use ceiling, lifetime free use and continuing authorized reads',
     actual: [
-      'USD 10/month',
-      'Five bot debates per billing period',
-      'Unlimited casual AI judging',
+      'Premium · $20/month',
+      'Get Premium · $20/month',
+      'Unlimited bot Rounds.',
+      'Unlimited casual AI judging.',
+      'Round analysis whenever you ask.',
+      'No counters to watch.',
       'Human debate stays free',
-      'do not reset each month',
+      'one bot Round, one AI-judged casual Round and one requested Round analysis, ever',
       'after Premium ends',
       'visibility rules',
     ].filter((text) => !html.includes(text)),
@@ -23,12 +26,14 @@ test('public pricing explains the period and lifetime allowances without implyin
   assert({
     given: 'an informational pricing read',
     should:
-      'link to free play without admitting a purchase or claiming private content access',
+      'send buying to billing and play to free play, with no form, no count and no old price',
     actual: [
+      html.includes('href="/settings/billing"'),
       html.includes('href="/play"'),
       html.includes('authorized to watch'),
       html.includes('<form'),
+      /USD 10|Five bot debates|remaining/.test(html),
     ],
-    expected: [true, true, false],
+    expected: [true, true, true, false, false],
   });
 });
