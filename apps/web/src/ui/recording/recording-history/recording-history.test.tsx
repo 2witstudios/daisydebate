@@ -187,4 +187,26 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       expected: [true, true, false],
     });
   });
+
+  test('with every release, still waits for the publishing flag', () => {
+    const released = renderToString(
+      h(RecordingHistory, {
+        screen: {
+          ...screen,
+          ranked: true,
+          youth: {
+            debaters: [{ name: '@maya', released: true }],
+            releasesComplete: true,
+          },
+        },
+        notice: null,
+      }),
+    );
+    assert({
+      given: 'every youth debater released, the flag closed',
+      should: 'say sharing is not open yet',
+      actual: released.includes('Sharing Youth recordings is not open yet.'),
+      expected: true,
+    });
+  });
 });

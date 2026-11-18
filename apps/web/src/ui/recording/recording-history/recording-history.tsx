@@ -174,7 +174,7 @@ const shareReason = (
   if (missing.length > 0)
     return `${names(missing)} ${missing.length === 1 ? 'has' : 'have'} no media release yet.`;
   return publishing
-    ? 'Sharing a Youth recording opens with media releases.'
+    ? 'Every youth debater has a media release.'
     : 'Sharing Youth recordings is not open yet.';
 };
 
