@@ -255,6 +255,7 @@ const appRoutes = [
   '/play/room/submit',
   '/prep',
   '/premium',
+  '/pricing',
   '/privacy',
   '/profile/[username]',
   '/ranked',

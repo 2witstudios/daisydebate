@@ -13,12 +13,24 @@ const secondary = `${buttonClass('secondary')} min-h-nav-target self-start white
  * open. Premium is unlimited: no counters, only an unseen fair-use ceiling
  * (ADR 0146). Buying happens on the billing page, which holds checkout.
  */
-export function PremiumPage() {
+export function PremiumPage({
+  comparePlans = false,
+}: {
+  /** Whether /pricing is open, so "Compare plans" has somewhere to go. */
+  readonly comparePlans?: boolean;
+} = {}) {
   return (
     <ReadingPage>
       <PageHeader
         title="Daisy Premium"
         lede="More ways to practise, review and share your debates."
+        actions={
+          comparePlans ? (
+            <Link href="/pricing" className={secondary}>
+              Compare plans
+            </Link>
+          ) : undefined
+        }
       />
       <Panel
         title={`Premium · ${premiumOfferPrice}`}

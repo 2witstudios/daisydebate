@@ -37,3 +37,17 @@ test('public Premium terms say unlimited at $20 a month, with no counter', () =>
     expected: [true, true, true, false, false],
   });
 });
+
+test('Compare plans appears only once /pricing is open', () => {
+  assert({
+    given: 'the pricing page closed, then open',
+    should: 'link to /pricing only when it is open',
+    actual: [
+      renderToStaticMarkup(<PremiumPage />).includes('href="/pricing"'),
+      renderToStaticMarkup(<PremiumPage comparePlans />).includes(
+        'href="/pricing"',
+      ),
+    ],
+    expected: [false, true],
+  });
+});

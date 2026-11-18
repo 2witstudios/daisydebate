@@ -9,6 +9,9 @@ export type HelpTopic = {
   readonly links: readonly Link[];
 };
 
+/** The topic that links to /pricing, shown only once that page opens. */
+const pricingTopicId = 'plans';
+
 /** The help topics, in the order people usually need them. */
 export const helpTopics: readonly HelpTopic[] = [
   {
@@ -53,6 +56,13 @@ export const helpTopics: readonly HelpTopic[] = [
     links: [{ label: 'Train', href: destinationHref('train') }],
   },
   {
+    id: pricingTopicId,
+    question: 'What does Daisy cost?',
+    answer:
+      'Debating people is free. Premium, Club, Host and League pay for AI practice, video and running events.',
+    links: [{ label: 'Plans and pricing', href: '/pricing' }],
+  },
+  {
     id: 'your-data',
     question: 'How do I see or delete my data?',
     answer:
@@ -66,3 +76,11 @@ export const helpTopics: readonly HelpTopic[] = [
     ],
   },
 ];
+
+/** The topics to show: the plans topic only while /pricing is open. */
+export const visibleHelpTopics = (
+  pricingOpen: boolean,
+): readonly HelpTopic[] =>
+  pricingOpen
+    ? helpTopics
+    : helpTopics.filter((topic) => topic.id !== pricingTopicId);
