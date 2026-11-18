@@ -63,6 +63,10 @@ const harness = (overrides: Partial<ChallengeDependencies> = {}) => {
       calls.push(['capability', capability]);
       return store;
     },
+    sendStore: (mode) => {
+      calls.push(['send fence', mode]);
+      return store;
+    },
     counterpart: async () => them,
     ...overrides,
   };
@@ -88,7 +92,7 @@ describe('sendChallenge', () => {
       expected: {
         answer: { challengeId: id, state: 'sent' },
         calls: [
-          ['capability', 'social.challenge.send'],
+          ['send fence', 'ranked'],
           ['fence', [me, them]],
           [
             'send',
@@ -138,7 +142,7 @@ describe('sendChallenge', () => {
 
   test('a block is indistinguishable from no such member', async () => {
     const { dependencies } = harness({
-      store: () => ({
+      sendStore: () => ({
         withContacts: async () => {
           throw createAppError('AUTHORIZATION');
         },

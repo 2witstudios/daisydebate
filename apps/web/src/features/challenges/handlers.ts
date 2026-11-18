@@ -51,6 +51,8 @@ export function createChallengeHandlers(dependencies: {
     runEvaluatedRoute(dependencies.boundary, request, {
       name: `challenges.${name}`,
       readOnly: false,
+      // A ranked offer from a member under the floor says so (decision 79).
+      refusals: ['ranked-age'],
       readInput: () => readJson(request, MAX_BODY_BYTES),
       operation: async (input, principal) =>
         challengeResultSchema.parse({

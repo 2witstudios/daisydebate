@@ -16,6 +16,7 @@ import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import type { PersonActions } from '../people/person-actions';
 import { useChallenges } from './challenge-provider';
+import { rankedAgeReason } from '../../features/play/ranked-age';
 
 const modeLabels = { ranked: 'Ranked', casual: 'Casual' } as const;
 
@@ -37,7 +38,8 @@ function IncomingCard({
   readonly actions: PersonActions;
   readonly className?: string;
 }) {
-  const { refresh } = useChallenges();
+  const { refresh, rankedAgeAdmitted } = useChallenges();
+  const mayAccept = offer.mode !== 'ranked' || rankedAgeAdmitted;
   const [accepted, accept, accepting] = useFormAction(
     actions.acceptChallenge,
     initialChallengeForm,
@@ -76,17 +78,22 @@ function IncomingCard({
           {notice}
         </p>
       ) : null}
+      {mayAccept ? null : (
+        <p className="text-sm text-stage-ink-muted">{rankedAgeReason}</p>
+      )}
       <div className="mt-1 flex gap-1">
-        <form action={accept}>
-          <input type="hidden" name="challengeId" value={offer.id} />
-          <button
-            type="submit"
-            disabled={accepting || next !== undefined}
-            className={stageAccept}
-          >
-            Accept
-          </button>
-        </form>
+        {mayAccept ? (
+          <form action={accept}>
+            <input type="hidden" name="challengeId" value={offer.id} />
+            <button
+              type="submit"
+              disabled={accepting || next !== undefined}
+              className={stageAccept}
+            >
+              Accept
+            </button>
+          </form>
+        ) : null}
         <form action={decline}>
           <input type="hidden" name="command" value="decline" />
           <input type="hidden" name="challengeId" value={offer.id} />

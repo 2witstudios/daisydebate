@@ -1,3 +1,4 @@
+import { rankedAgeReason } from '../play/ranked-age';
 import type { RoomRefusal, RoomView } from '@daisy/protocol';
 import {
   blankFields,
@@ -102,6 +103,7 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'readiness-unavailable':
     'Ready can’t be read right now. Try again in a moment.',
   'actor-ineligible': 'Someone in a seat can’t take part right now.',
+  'ranked-age': rankedAgeReason,
   'draw-unavailable':
     'There aren’t enough resolutions to draw from. Choose another source or add lines.',
   'bots-busy': 'Bots are busy right now. Try again shortly.',

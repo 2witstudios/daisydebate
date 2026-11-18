@@ -44,6 +44,7 @@ import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
+import { rankedAgeReason } from '../../features/play/ranked-age';
 import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
@@ -51,7 +52,7 @@ import { publicNameLabel } from '../profile/public-name';
 const item =
   'flex min-h-nav-target w-full items-center rounded-sm px-2 text-left text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline disabled:cursor-default disabled:text-ink-muted';
 const chip =
-  'min-h-nav-target flex-1 rounded-sm border border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink';
+  'min-h-nav-target flex-1 rounded-sm border border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink disabled:cursor-not-allowed disabled:opacity-50';
 
 const modeLabels: Readonly<Record<CompetitionType, string>> = {
   ranked: 'Ranked',
@@ -229,7 +230,10 @@ function ChallengeView({
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
-  const [mode, setMode] = useState<CompetitionType>('ranked');
+  const { rankedAgeAdmitted } = useChallenges();
+  const [mode, setMode] = useState<CompetitionType>(
+    rankedAgeAdmitted ? 'ranked' : 'casual',
+  );
   const [answer, post, pending] = useFormAction(
     action,
     initialChallengeForm,
@@ -250,6 +254,7 @@ function ChallengeView({
             key={value}
             type="button"
             aria-pressed={mode === value}
+            disabled={value === 'ranked' && !rankedAgeAdmitted}
             onClick={() => setMode(value)}
             className={chip}
           >
@@ -257,6 +262,9 @@ function ChallengeView({
           </button>
         ))}
       </div>
+      {rankedAgeAdmitted ? null : (
+        <p className="text-sm text-ink-muted">{rankedAgeReason}</p>
+      )}
       {refusal ? (
         <p role="status" className="text-sm text-ink-muted">
           {refusal}

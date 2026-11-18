@@ -19,6 +19,7 @@ import { ProfilePage } from '../../../../ui/profile/profile-page/profile-page';
 import {
   requestIdentity,
   requestLiveRoundsOf,
+  requestRankedPlayAdmitted,
   requestMemberProfile,
 } from '../../../../lib/request-session';
 import { ProfileFriendActions } from '../../../../ui/friends/profile-friend-actions';
@@ -130,6 +131,7 @@ async function friendActionsFor(username: string) {
       />
       <ProfilePersonActions
         username={username}
+        rankedAgeAdmitted={await requestRankedPlayAdmitted()}
         actions={{
           sendChallenge: sendChallengeAction,
           report: reportAction,

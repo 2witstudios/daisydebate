@@ -5,6 +5,8 @@ import { mockNextRouter } from '../../../lib/testing/mock-router';
 import { idle } from '../../../features/forms/form-state';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
 import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
+import { createRoomDraft } from '../../../features/rooms/create-room-draft';
+import { draftFormValues } from '../../../features/rooms/create-room-fields';
 
 setupRitewayBun();
 await mockNextRouter();
@@ -17,6 +19,7 @@ test('create page renders durable-create fields without a placeholder judge', ()
       initialState: idle(),
       choices: [],
       commandId: 'n'.repeat(24),
+      rankedAgeAdmitted: true,
     }),
   );
   assert({
@@ -50,6 +53,7 @@ test('the ranked create form explains why it is public and states no notice', ()
         initialChoice: template,
         values: {},
         commandId: 'n'.repeat(24),
+        rankedAgeAdmitted: true,
         initialRanked,
         pending: false,
       }),
@@ -77,6 +81,43 @@ test('the ranked create form explains why it is public and states no notice', ()
   });
 });
 
+test('a member under the ranked floor sees Ranked closed, with the reason', () => {
+  const template = {
+    ...unequalTemplate,
+    formatId: 'freestyle',
+    role: 'standard' as const,
+    preset: { ...unequalTemplate.preset, rankedEligible: true },
+  };
+  const html = renderToString(
+    h(CreateRoomEditor, {
+      choices: [template],
+      initialChoice: template,
+      commandId: 'n'.repeat(24),
+      // A kept draft that had Ranked on, for a member under the floor.
+      values: { ...draftFormValues(createRoomDraft(template)), ranked: 'on' },
+      initialRanked: true,
+      rankedAgeAdmitted: false,
+      pending: false,
+    }),
+  ).replaceAll('&#x27;', "'");
+  const ranked = /<input[^>]*name="ranked"[^>]*>/.exec(html)?.[0] ?? '';
+  assert({
+    given: 'a 16-17 member on a ranked-eligible format',
+    should:
+      'disable an unchecked Ranked, say why in plain words, keep the casual choices and preview it unranked',
+    actual: [
+      ranked.includes('disabled=""'),
+      ranked.includes('checked=""'),
+      html.includes(
+        'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
+      ),
+      html.includes('Choosing Ranked makes the Room public'),
+      /Unranked(<!-- -->)? ·/.test(html),
+    ],
+    expected: [true, false, true, true, true],
+  });
+});
+
 test('recording is a visible casual choice and automatically on for Ranked', () => {
   const template = {
     ...unequalTemplate,
@@ -90,6 +131,7 @@ test('recording is a visible casual choice and automatically on for Ranked', () 
         initialChoice: template,
         values,
         commandId: 'n'.repeat(24),
+        rankedAgeAdmitted: true,
         initialRanked,
         pending: false,
       }),
@@ -132,6 +174,7 @@ test('post-round feedback is a casual choice that Ranked switches off', () => {
         initialChoice: template,
         values,
         commandId: 'n'.repeat(24),
+        rankedAgeAdmitted: true,
         initialRanked,
         pending: false,
       }),
@@ -165,6 +208,7 @@ test('a casual Room is public unless its host chooses otherwise', () => {
         initialChoice: unequalTemplate,
         values,
         commandId: 'n'.repeat(24),
+        rankedAgeAdmitted: true,
         initialRanked: false,
         pending: false,
       }),

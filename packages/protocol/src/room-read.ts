@@ -69,6 +69,12 @@ export const roomRefusalSchema = z.enum([
   /** The exact pinned ballot cannot run on this Room; never substitute a default. */
   'ballot-definition-unavailable',
   'ranked-unavailable',
+  /**
+   * The caller is under the ranked age floor on this instant (decision 79):
+   * creating a ranked Room, or claiming, readying or starting in a rated Room
+   * where they hold the seat. Never about anyone else's age.
+   */
+  'ranked-age',
   /** The draw's source cannot supply enough resolutions. */
   'draw-unavailable',
   /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
