@@ -40,6 +40,16 @@ export const hostingOffers = {
   { readonly unitAmount: number; readonly lookupKey: string }
 >;
 
+/**
+ * How many of a paid tournament's event Rounds may record at once: half its
+ * entry cap for USD 99 (every pair in one round), and a fleet-bounded 64 for
+ * unlimited. A hosting grant carries its own limits instead.
+ */
+export const hostingCaptureConcurrency = {
+  event_64: 32,
+  event_unlimited: 64,
+} as const satisfies Record<PaidHostingTier, number>;
+
 const tierPrice = (tier: HostingTier): number =>
   tier === 'free' ? 0 : hostingOffers[tier].unitAmount;
 

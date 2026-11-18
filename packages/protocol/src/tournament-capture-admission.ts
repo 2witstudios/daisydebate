@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { tournamentHostingGrantSchema } from './tournament-hosting';
+import {
+  hostingCaptureConcurrency,
+  paidHostingTiers,
+} from './lobby/hosting-tier';
 import type { RoomExecutionPlan } from './room';
 import type { RoundRules } from './format';
 
@@ -38,7 +42,25 @@ export const tournamentCaptureAdmissionSchema = z
         sponsorshipVersionId: idSchema,
       }),
     ]),
-    grant: tournamentHostingGrantSchema,
+    /**
+     * What pays for the capture: a hosting grant covering the tournament, or
+     * the tournament's own paid hosting purchase (ADR 0147).
+     */
+    basis: z.discriminatedUnion('kind', [
+      z.strictObject({
+        kind: z.literal('grant'),
+        grant: tournamentHostingGrantSchema,
+      }),
+      z.strictObject({
+        kind: z.literal('hosting-purchase'),
+        purchase: z.strictObject({
+          id: idSchema,
+          lobbyId: idSchema,
+          tier: z.enum(paidHostingTiers),
+          paidAt: z.iso.datetime(),
+        }),
+      }),
+    ]),
     official: z.strictObject({
       userId: idSchema,
       actorId: idSchema,
@@ -57,18 +79,32 @@ export const tournamentCaptureAdmissionSchema = z
   .refine((value) => {
     const admitted = Date.parse(value.admittedAt),
       deadline = Date.parse(value.deadlineAt);
+    if (!(
+      admitted < deadline && deadline <= admitted + value.executionBudgetMs
+    ))
+      return false;
+    const { basis } = value;
+    if (basis.kind === 'hosting-purchase') {
+      const limit = hostingCaptureConcurrency[basis.purchase.tier];
+      return (
+        value.funding.kind === 'personal-owner' &&
+        basis.purchase.lobbyId === value.lobbyId &&
+        Date.parse(basis.purchase.paidAt) <= admitted &&
+        value.capacity.sponsorLimit === limit &&
+        value.capacity.tournamentLimit === limit
+      );
+    }
+    const { hosting } = basis.grant;
     return (
-      Date.parse(value.grant.hosting.startsAt) <= admitted &&
-      admitted < deadline &&
-      deadline <= Date.parse(value.grant.hosting.expiresAt) &&
-      deadline <= admitted + value.executionBudgetMs &&
-      value.grant.hosting.coverage.tournamentIds.includes(value.lobbyId) &&
+      Date.parse(hosting.startsAt) <= admitted &&
+      deadline <= Date.parse(hosting.expiresAt) &&
+      hosting.coverage.tournamentIds.includes(value.lobbyId) &&
       value.capacity.sponsorLimit ===
-        value.grant.hosting.coverage.sponsorConcurrencyLimit &&
+        hosting.coverage.sponsorConcurrencyLimit &&
       value.capacity.tournamentLimit ===
-        value.grant.hosting.coverage.tournamentConcurrencyLimit &&
+        hosting.coverage.tournamentConcurrencyLimit &&
       (value.funding.kind !== 'personal-owner' ||
-        value.funding.ownerUserId === value.grant.hosting.userId)
+        value.funding.ownerUserId === hosting.userId)
     );
   });
 export type TournamentCaptureAdmission = z.infer<

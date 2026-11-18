@@ -1,4 +1,5 @@
-import { eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
+import { tournamentHostingPurchases } from '../schema/tournament-hosting-purchases';
 import { lobbies } from '../schema/lobbies';
 import { actors } from '../schema/actors';
 import { scopeTransaction } from '../tenant-scope';
@@ -68,7 +69,44 @@ export const loadTournamentCaptureFunding = async (
     throw new TournamentCaptureFundingChanged();
   const account = await loadAuthorizationAccount(tx, current.userId);
   const hosting = await loadAccountHostingFacts(tx, current.userId);
-  return { ...current, account, hosting };
+  // A personal tournament paid for funds its own capture (ADR 0147).
+  const [hostingPurchase] =
+    current.ownerOrganizationId === null
+      ? await tx
+          .select({
+            id: tournamentHostingPurchases.id,
+            lobbyId: tournamentHostingPurchases.lobbyId,
+            tier: tournamentHostingPurchases.tier,
+            paidAt: tournamentHostingPurchases.paidAt,
+          })
+          .from(tournamentHostingPurchases)
+          .where(
+            and(
+              eq(tournamentHostingPurchases.lobbyId, current.lobbyId),
+              eq(tournamentHostingPurchases.state, 'paid'),
+            ),
+          )
+          // The highest tier: 'event_unlimited' sorts after 'event_64'.
+          .orderBy(
+            desc(tournamentHostingPurchases.tier),
+            desc(tournamentHostingPurchases.paidAt),
+          )
+          .limit(1)
+      : [];
+  return {
+    ...current,
+    account,
+    hosting,
+    hostingPurchase:
+      hostingPurchase && hostingPurchase.paidAt
+        ? {
+            id: hostingPurchase.id,
+            lobbyId: hostingPurchase.lobbyId,
+            tier: hostingPurchase.tier,
+            paidAt: hostingPurchase.paidAt.toISOString(),
+          }
+        : null,
+  };
 };
 export type TournamentCaptureFunding = Awaited<
   ReturnType<typeof loadTournamentCaptureFunding>

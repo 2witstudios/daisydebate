@@ -10,6 +10,7 @@ import {
   type TournamentOfficialAuthority,
 } from '@daisy/protocol';
 import { eventRoomDirectionDecision } from './event-room-direction';
+import { hostingCaptureConcurrency } from '@daisy/protocol/lobby/hosting-tier';
 
 /** Current acting authority and economic sponsorship are evaluated independently. */
 export const eventCaptureAdmission = (input: {
@@ -52,7 +53,14 @@ export const eventCaptureAdmission = (input: {
     versionId:
       sponsorship?.kind === 'active' ? sponsorship.hostingVersionId : null,
   });
-  if (!grant) return null;
+  // Without a grant, a personal tournament paid for funds its own capture (ADR 0147).
+  const purchase =
+    grant === null &&
+    funding.ownerOrganizationId === null &&
+    funding.ownerUserId === funding.userId
+      ? funding.hostingPurchase
+      : null;
+  if (!grant && !purchase) return null;
   const decision = eventRoomDirectionDecision(
     caller,
     'room.manage',
@@ -98,9 +106,18 @@ export const eventCaptureAdmission = (input: {
     room.executionPlan,
   );
   const deadline = Math.min(
-    Date.parse(grant.hosting.expiresAt),
+    grant ? Date.parse(grant.hosting.expiresAt) : Infinity,
     Date.parse(now) + executionBudgetMs,
   );
+  const limit = grant
+    ? {
+        sponsorLimit: grant.hosting.coverage.sponsorConcurrencyLimit,
+        tournamentLimit: grant.hosting.coverage.tournamentConcurrencyLimit,
+      }
+    : {
+        sponsorLimit: hostingCaptureConcurrency[purchase!.tier],
+        tournamentLimit: hostingCaptureConcurrency[purchase!.tier],
+      };
   if (
     !Number.isSafeInteger(executionBudgetMs) ||
     executionBudgetMs <= 0 ||
@@ -123,7 +140,9 @@ export const eventCaptureAdmission = (input: {
           organizationId: funding.ownerOrganizationId,
           sponsorshipVersionId: sponsorship?.id,
         },
-    grant,
+    basis: grant
+      ? { kind: 'grant', grant }
+      : { kind: 'hosting-purchase', purchase },
     official: { userId: caller.userId, actorId: caller.actorId, authority },
     admittedAt: now,
     deadlineAt: new Date(deadline).toISOString(),
@@ -131,8 +150,7 @@ export const eventCaptureAdmission = (input: {
     capacity: {
       kind: 'nonranked-egress',
       fleetLimit: 1,
-      sponsorLimit: grant.hosting.coverage.sponsorConcurrencyLimit,
-      tournamentLimit: grant.hosting.coverage.tournamentConcurrencyLimit,
+      ...limit,
     },
   });
   return parsed.success ? parsed.data : null;
