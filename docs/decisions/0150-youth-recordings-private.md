@@ -5,6 +5,8 @@ recordings, task PYL-5, decisions recorded in the
 [epic plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/dvjf9nlzrhaojb2vw4n5ufrw)).
 Amends [ADR 0107](0107-recording-and-retention.md): a ranked Recording is
 public and kept, except a Youth Round's.
+Amended by [ADR 0151](0151-media-releases.md): media releases and sharing a
+Youth Recording publicly.
 
 ## Context
 
