@@ -43,9 +43,12 @@ and the owner preferred fixes at the source. Bun 1.4.2 resolves nested
    review-by date it requires. It is allowed only for an advisory that has no
    patched version, or one whose patched version no override can reach
    without breaking a dependent.
-3. **Overrides are recorded.** Every security override is listed in
-   `docs/dependencies.md` with its advisory. An override is removed once its
-   parent ships the patched range itself.
+3. **Overrides are recorded, and the record cannot rot.** Every root
+   override is listed in `docs/dependencies.md` § Security overrides with its
+   advisory. `bun policy` fails an override missing from that table, and a
+   row whose exact pin `package.json` no longer carries. An override is
+   removed once its parent ships the patched range itself. The audit still
+   fails any new advisory on an overridden version.
 
 ## Consequences
 

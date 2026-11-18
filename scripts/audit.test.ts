@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   auditCommand,
+  documentedOverrides,
+  flattenOverrides,
+  overrideProblems,
   liveAdvisories,
   liveAuditProblems,
   validateAuditExceptions,
@@ -91,7 +94,7 @@ describe('audit exception registry', () => {
       should: 'report no problems',
       actual: validateAuditExceptions(committed, {
         today: '2026-11-18',
-        knownPaths: new Set([adr]),
+        knownPaths: new Set(),
         live: new Map(),
       }),
       expected: [],
@@ -265,6 +268,89 @@ describe('audit policy check', () => {
       expected: [
         'audit: could not read live advisories (bun audit --json exited 0)',
       ],
+    });
+  });
+});
+
+const overridesDoc = (...rows: readonly string[]) =>
+  [
+    '### Security overrides',
+    '',
+    '| Override | Clears | Notes |',
+    '| --- | --- | --- |',
+    ...rows,
+    '',
+    'Prose after the table.',
+  ].join('\n');
+
+describe('security overrides record', () => {
+  test('flattens root and parent-scoped overrides', () => {
+    assert({
+      given: 'a root pin and a parent-scoped pin',
+      should: 'name each as package@version, the scoped one under its parent',
+      actual: flattenOverrides({
+        vitest: '4.1.12',
+        jsonpath: { underscore: '1.13.8' },
+      }),
+      expected: ['vitest@4.1.12', 'jsonpath > underscore@1.13.8'],
+    });
+  });
+
+  test('reads the documented overrides from the table', () => {
+    assert({
+      given: 'a Security overrides table with a root and a scoped row',
+      should: 'read each first cell as the same flattened pin',
+      actual: documentedOverrides(
+        overridesDoc(
+          '| `vitest` → `4.1.12` | GHSA | note |',
+          '| `jsonpath` → `underscore` `1.13.8` | GHSA | note |',
+        ),
+      ),
+      expected: ['vitest@4.1.12', 'jsonpath > underscore@1.13.8'],
+    });
+  });
+
+  test('a documented pin set matching package.json passes', () => {
+    assert({
+      given: 'overrides that the table records exactly',
+      should: 'report no problems',
+      actual: overrideProblems(
+        { jsonpath: { underscore: '1.13.8' } },
+        overridesDoc('| `jsonpath` → `underscore` `1.13.8` | GHSA | note |'),
+      ),
+      expected: [],
+    });
+  });
+
+  test('an undocumented override and a stale row both fail', () => {
+    assert({
+      given: 'a pin the table omits and a row whose version moved',
+      should: 'name the undocumented pin and the stale row',
+      actual: overrideProblems(
+        { vitest: '4.1.13' },
+        overridesDoc('| `vitest` → `4.1.12` | GHSA | note |'),
+      ),
+      expected: [
+        'overrides: vitest@4.1.13 is not in docs/dependencies.md § Security overrides',
+        'overrides: docs/dependencies.md lists vitest@4.1.12, which package.json overrides does not pin',
+      ],
+    });
+  });
+
+  test('the committed overrides are all documented', async () => {
+    const manifest = (await Bun.file(
+      new URL('../package.json', import.meta.url),
+    ).json()) as { readonly overrides?: unknown };
+    assert({
+      given: 'the committed package.json and docs/dependencies.md',
+      should: 'report no problems',
+      actual: overrideProblems(
+        manifest.overrides,
+        await Bun.file(
+          new URL('../docs/dependencies.md', import.meta.url),
+        ).text(),
+      ),
+      expected: [],
     });
   });
 });

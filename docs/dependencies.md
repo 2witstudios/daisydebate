@@ -130,9 +130,11 @@ can reach one without breaking a dependent.
 | `riteway` → `glob` `14.0.6`                                   | [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)                                                                                                                                                                                                                                                                    | RITEway asks for `^11.0.3`. tape keeps its unaffected glob 7.2.3.                                                                                          |
 | `@typescript-eslint/typescript-estree` → `minimatch` `11.0.9` | [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)                                                                                                                                                                                                                                                                    | It asks for `^10.2.2`; glob 14 brings minimatch 11 itself. The eslint chains keep their unaffected minimatch 3.1.5.                                        |
 | `jsonpath` → `underscore` `1.13.8`                            | [GHSA-qpx9-hpmf-5gmw](https://github.com/advisories/GHSA-qpx9-hpmf-5gmw)                                                                                                                                                                                                                                                                    | A patch release past jsonpath 1.3.0's exact `1.13.6` pin (via `@adobe/data`).                                                                              |
+| `happy-dom` → `21.0.4`                                        | [GHSA-834v-8h66-3h79](https://github.com/advisories/GHSA-834v-8h66-3h79)                                                                                                                                                                                                                                                                    | `@tiptap/html`'s `^20.8.9` peer range would pull a second, vulnerable 20.x copy (ISSUE-525); see the application table.                                    |
 
-The `happy-dom` pin in the same block is recorded in the application table
-above. Remove an override once its parent ships the patched range itself.
+`bun policy` fails an override missing from this table and a row whose pin
+`package.json` no longer carries. Remove an override once its parent ships
+the patched range itself.
 
 ## Deliberately absent
 
