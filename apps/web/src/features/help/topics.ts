@@ -10,7 +10,7 @@ export type HelpTopic = {
 };
 
 /** The topic that links to /pricing, shown only once that page opens. */
-export const pricingTopicId = 'plans';
+const pricingTopicId = 'plans';
 
 /** The help topics, in the order people usually need them. */
 export const helpTopics: readonly HelpTopic[] = [
@@ -76,3 +76,11 @@ export const helpTopics: readonly HelpTopic[] = [
     ],
   },
 ];
+
+/** The topics to show: the plans topic only while /pricing is open. */
+export const visibleHelpTopics = (
+  pricingOpen: boolean,
+): readonly HelpTopic[] =>
+  pricingOpen
+    ? helpTopics
+    : helpTopics.filter((topic) => topic.id !== pricingTopicId);

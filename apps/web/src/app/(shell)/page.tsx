@@ -9,11 +9,11 @@ import { ResumeRound } from '../../ui/active-room/resume-round';
 import {
   requestIdentity,
   requestLeadingLive,
-  requestReleaseEnabled,
   requestSeasonGlance,
 } from '../../lib/request-session';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
+import { requestPricingOpen } from './pricing/releases';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -29,13 +29,14 @@ export default async function HomePage() {
   // a restricted one goes to its own.
   if (identity.state === 'waitlisted') redirect(betaHref('/'));
   if (identity.state === 'restricted') redirect(RESTRICTED_HREF);
-  const [rounds, seasonGlance, pricing] = await Promise.all([
+  const [rounds, seasonGlance] = await Promise.all([
     requestLeadingLive(),
     requestSeasonGlance(),
-    requestReleaseEnabled('pricing-page', null),
   ]);
   const liveNow = <LiveNow rounds={rounds} />;
   if (identity.state !== 'member') {
+    // Only the visitor's hero links to /pricing, so only a visitor reads it.
+    const pricing = await requestPricingOpen();
     return (
       <Dashboard
         audience="visitor"

@@ -73,7 +73,7 @@ export function PricingPage({
         title="Plans and pricing"
         lede="Debating people is free. Pay for AI, video and running events."
       />
-      <div className="grid grid-cols-4 items-stretch gap-4 max-reflow:grid-cols-2 max-narrow:grid-cols-1">
+      <div className="grid grid-cols-4 items-stretch gap-4 max-wide:grid-cols-2 max-narrow:grid-cols-1">
         <PlanCard
           featured
           audience="For one debater"

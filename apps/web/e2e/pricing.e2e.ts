@@ -32,6 +32,10 @@ const setPricing = (state: 'enabled' | 'default') =>
   ]);
 
 test.describe.configure({ mode: 'serial' });
+// Every test starts from the page open, so any one can run on its own.
+test.beforeEach(async () => {
+  await setPricing('enabled');
+});
 test.afterAll(async () => {
   await setPricing('default');
 });
@@ -42,7 +46,6 @@ test('/pricing does not exist while its release flag is closed', async ({
   await setPricing('default');
   const response = await page.goto('/pricing');
   expect(response?.status()).toBe(404);
-  await setPricing('enabled');
 });
 const widths = [
   { name: 'desktop', width: 1440, height: 1000, columns: 4 },

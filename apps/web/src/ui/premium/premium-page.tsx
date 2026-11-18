@@ -26,7 +26,7 @@ export function PremiumPage({
         lede="More ways to practise, review and share your debates."
         actions={
           comparePlans ? (
-            <Link href="/pricing" className={buttonClass('secondary')}>
+            <Link href="/pricing" className={secondary}>
               Compare plans
             </Link>
           ) : undefined
