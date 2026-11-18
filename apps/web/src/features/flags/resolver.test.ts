@@ -26,7 +26,13 @@ const snapshot = (
 
 test('resolver precedence and logical expiry', () => {
   const resolve = (facts: FlagSnapshot, key = entry.key) =>
-    resolveFlag({ catalogue: [entry], snapshot: facts, key, now });
+    resolveFlag({
+      catalogue: [entry],
+      snapshot: facts,
+      key,
+      now,
+      releaseDefault: false,
+    });
   assert({
     given: 'unknown, killed, targeted, expired, stored and missing flag states',
     should: 'resolve in order without relying on a sweep',
@@ -64,7 +70,14 @@ test('every dependency must be active and invalid graphs fail closed', () => {
   const resolve = (
     catalogue: readonly FlagDefinition[],
     facts = snapshot('enabled'),
-  ) => resolveFlag({ catalogue, snapshot: facts, key: entry.key, now });
+  ) =>
+    resolveFlag({
+      catalogue,
+      snapshot: facts,
+      key: entry.key,
+      now,
+      releaseDefault: false,
+    });
   assert({
     given:
       'an active dependency, an inactive dependency, a missing dependency, a cycle and a duplicate key',
@@ -92,18 +105,21 @@ test('ops safe defaults apply during storage failure, with dependencies', () => 
         snapshot: { kind: 'unavailable' },
         key: ops.key,
         now,
+        releaseDefault: false,
       }),
       resolveFlag({
         catalogue: [entry],
         snapshot: { kind: 'unavailable' },
         key: entry.key,
         now,
+        releaseDefault: false,
       }),
       resolveFlag({
         catalogue: [ops],
         snapshot: snapshot('enabled'),
         key: ops.key,
         now: NaN,
+        releaseDefault: false,
       }),
     ].map((result) => result.enabled),
     expected: [true, false, false],
@@ -122,6 +138,7 @@ test('release expiry closes a stored or targeted release even with no policy run
           snapshot: snapshot('enabled', true, expires + 10),
           key: entry.key,
           now: instant,
+          releaseDefault: false,
         }).enabled,
     ),
     expected: [true, false],

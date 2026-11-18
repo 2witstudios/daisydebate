@@ -42,13 +42,13 @@ export function resolveFlag({
   snapshot,
   key,
   now,
-  releaseDefault = false,
+  releaseDefault,
 }: {
   readonly catalogue: readonly FlagDefinition[];
   readonly snapshot: FlagSnapshot;
   readonly key: string;
   readonly now: number;
-  readonly releaseDefault?: boolean;
+  readonly releaseDefault: boolean;
 }): FlagResolution {
   const entries = new Map(catalogue.map((entry) => [entry.key, entry]));
   if (!entries.has(key)) return { enabled: false, reason: 'UNKNOWN' };

@@ -41,7 +41,13 @@ a `NODE_ENV=production` process refuses it unless `OPERATOR_AUDIENCE` is
 `daisy-web:staging` (staging and production share `NODE_ENV`). Production
 therefore fails fast if the variable reaches it. The web server logs
 `flags.release_default` once at startup with `source` `environment` or
-`catalogue`. The catalogue's release safe defaults stay false.
+`catalogue`. The guard borrows the operator signature audience as staging's
+only committed deployment identity: renaming or moving that audience must
+update `packages/config/src/release-flag-default.ts` too (the failure is safe:
+staging refuses to start).
+
+`resolveFlag` requires `releaseDefault`, so no caller can resolve without
+choosing it. The catalogue's release safe defaults stay false.
 
 ## Reads and admission
 
@@ -60,7 +66,7 @@ principal. Only booleans reach UI clients. Client chunks are public. No flag
 read belongs in a proxy or a `use cache` scope. Read failures use safe defaults
 with bounded diagnostics containing no account or raw error.
 
-A display boolean never authorizes durable work. `releaseAdmission(key)`
+A display boolean never authorizes durable work. `releaseAdmission(key, releaseDefault)`
 derives a bounded, deduplicated dependency closure from the trusted catalogue
 and returns the synchronous pure `ReleaseAdmission` policy. The public
 `@daisy/db/flags` adapter `requireFlagAdmission(tx, accountId, policy)` locks

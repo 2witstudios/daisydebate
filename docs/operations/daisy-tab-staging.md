@@ -20,11 +20,16 @@ audience.
   `fly logs -a daisy-debate-staging --no-tail` shows one
   `flags.release_default` line per process start, with `source: environment` on staging (`catalogue` means
   safe defaults).
-- **Turn one flag off on staging** with the signed operator command
-  (`/operator/v1/flags/<key>/state`, state `disabled` or `killed`). A stored
-  `disabled`, `killed` or account override beats the environment default;
-  storing `default` hands the flag back to it. This is a staging data action
-  and keeps the usual operator sign-off.
+- **Turn one flag off on staging** by storing state `disabled` or `killed`
+  through the signed operator route (`/operator/v1/flags/<key>/state`). A
+  stored `disabled`, `killed` or account override beats the environment
+  default; storing `default` hands the flag back to it. That route has **no
+  supported caller yet**: the admin app has no Flags page (ADR 0118 left admin
+  UI to a later leaf). Until the admin Flags slice lands, each change is an
+  owner-approved one-off operator call on Delivery, like the one that stored
+  staging's flags `enabled`. It is a staging data action with the usual
+  sign-off. When nobody is available to approve a call, the reliable way to
+  close everything is the next item.
 - **Turn the default off** by removing the line from `fly.toml` and
   redeploying; every release flag then falls back to its stored state or its
   safe default.
