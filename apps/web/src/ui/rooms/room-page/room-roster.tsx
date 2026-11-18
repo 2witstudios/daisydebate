@@ -372,7 +372,7 @@ function FillSeat({
   if (!choices && !aiJudge) return null;
   const id = `assign-${seatKey(seat).replace(':', '-')}`;
   const seatName = roomSeatLabel(view, seat);
-  // The menu opens over the row, natively, with focus on its first choice.
+  // The menu opens over the row, natively; PopoverDialog focuses the choice.
   return (
     <>
       <button
@@ -400,12 +400,9 @@ function FillSeat({
             <label className="sr-only" htmlFor={id}>
               Seat someone in {seatName}
             </label>
-            {/* Server-rendered autofocus lets the native popover focus the
-                choice before hydration and without script. */}
             <select
               id={id}
               name="actorId"
-              autoFocus
               data-initial-focus
               required
               defaultValue=""
