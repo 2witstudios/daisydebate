@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createWorkWakes } from './work-wakes';
+import { createWorkWakes, keepWorkWakesListening } from './work-wakes';
 
 setupRitewayBun();
 
@@ -37,5 +37,46 @@ test('a re-established listen wakes every loop once', () => {
     should: 'wake each loop exactly once',
     actual: woken,
     expected: 2,
+  });
+});
+
+test('a LISTEN that cannot start is retried, doubling, until it holds', async () => {
+  const shots: { ms: number; run: () => unknown }[] = [];
+  const causes: string[] = [];
+  let attempts = 0;
+  let unlistened = 0;
+  const listening = keepWorkWakesListening({
+    subscribe: async () => {
+      attempts += 1;
+      if (attempts < 3) throw new TypeError('connection refused');
+      return {
+        unlisten: async () => {
+          unlistened += 1;
+        },
+      };
+    },
+    unavailable: (cause) => causes.push(cause),
+    timers: {
+      setTimeout: (run, ms) => shots.push({ ms, run }),
+      clearTimeout: () => {},
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  shots[0]!.run();
+  await new Promise((settle) => setTimeout(settle, 0));
+  shots[1]!.run();
+  await new Promise((settle) => setTimeout(settle, 0));
+  await listening.stop();
+  assert({
+    given: 'two failed subscribes, then one that holds, then a stop',
+    should: 'report each failure by class, retry at 1 s then 2 s, and unlisten',
+    actual: { attempts, causes, waits: shots.map(({ ms }) => ms), unlistened },
+    expected: {
+      attempts: 3,
+      causes: ['TypeError', 'TypeError'],
+      waits: [1_000, 2_000],
+      unlistened: 1,
+    },
   });
 });

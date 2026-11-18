@@ -1,6 +1,6 @@
 import type { RoundTimeSource } from './round-execution-time';
 import { requireCurrentWeb } from './web-service-authority';
-import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gt, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
 import {
   roundResolutionDraws,
@@ -95,7 +95,16 @@ export function roundMaintenanceOperations(
           )
           .orderBy(asc(rounds.id))
           .limit(input.limit);
+        // An opening not yet due is still live: its prep end or strike window
+        // falls due by the clock, not a write, so the worker loop must keep
+        // its pace while one waits (ADR 0154).
+        const [waiting] = await tx
+          .select({ id: rounds.id })
+          .from(rounds)
+          .where(and(eq(rounds.status, 'opening'), isNotNull(rounds.roomId)))
+          .limit(1);
         return {
+          openingsWaiting: waiting !== undefined,
           roundIds: rows.map((row) => row.id),
           openingIds: rows
             .filter((row) => row.status === 'opening')

@@ -51,7 +51,6 @@ export const startBroadcastSweep = (
     backoff: { busyMs: FACT_LOG_EVERY_MS, idleMaxMs: FACT_LOG_EVERY_MS },
     timers,
     failed: () => log('spectator.fact_log_failed'),
-    wake,
   });
   const reconcile = startWorkerLoop({
     run: sweep,

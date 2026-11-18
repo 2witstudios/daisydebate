@@ -37,9 +37,11 @@ loop retried every tick and filled Sentry with deadline-expired errors
 
 3. **What counts as work.** A live-Round loop reports `worked` while
    anything is live, queued or due: a held claim, an owned seat, a
-   discovered Round, an open capture. Its clock deadlines then keep the busy
-   pace, and the loop backs off only when Daisy is idle. The availability
-   probe's Round never counts.
+   discovered Round, an open capture, an opening waiting on its prep or
+   strike window. Its clock deadlines then keep the busy pace, and the loop
+   backs off only when Daisy is idle. The availability probe's Round never
+   counts. A candidate the pass declines (a Room whose Round still runs, a
+   completed Round that awaits no rating) is not work.
 4. **Wake signal.** A command that creates work runs
    `pg_notify('daisy_work', kind)` in its own transaction. PostgreSQL
    delivers it only on commit.
@@ -49,19 +51,24 @@ loop retried every tick and filled Sentry with deadline-expired errors
    | `judging`  | a judging job is inserted                    |
    | `round`    | a Round is created, and on every Round write |
    | `analysis` | an analysis is requested                     |
+   | `rating`   | a Round completes                            |
 
    The web process LISTENs on one more dedicated connection
    (`WORKLOAD_PROFILES.web.dedicated` goes from 1 to 2). A wake resets the
    back-off of the loops for that kind and brings their next pass forward,
    never sooner than `busyMs` after the last pass started. Wakes in between
    coalesce into that one pass, so however often Rounds are written, the
-   busy interval stays a rate ceiling. When the LISTEN is established or
-   re-established, every loop is woken once.
+   busy interval stays a rate ceiling. After a failed pass a wake changes
+   nothing: a failing store keeps backing off however often Rounds are
+   written. When the LISTEN is established or re-established, every loop is
+   woken once. Every Round write already notifies the outbox in the same
+   transaction, so the wake adds no new commit serialization.
 
 5. **Wakes are lossy.** A wake is a hint: it grants nothing and carries no
    row. A lost wake costs at most the loop's idle cap. If the LISTEN cannot
-   start, the process logs `worker.wake.unavailable` and every loop still
-   runs.
+   start, the process logs `worker.wake.unavailable` with the error's class
+   as `cause`, tries again after 1 s, doubling to a minute, and every loop
+   still runs meanwhile.
 6. **Not polls.** Availability's one-second lease renewal and health sample
    is per-second evidence by contract (one `availability_samples` row a second, ADR 0033), so it keeps its cadence.
    Lease renewals for held claims, and the hourly or minute schedules on

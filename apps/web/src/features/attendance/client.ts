@@ -54,7 +54,8 @@ export function createAttendanceClient(deps: {
     pending.clear();
     deps.signedOut?.();
   };
-  const send = async (force: boolean): Promise<void> => {
+  /** `tickAt` is when the tick that asked began, before any read. */
+  const send = async (force: boolean, tickAt: number): Promise<void> => {
     if (!active) return;
     if (inFlight) {
       forceQueued ||= force;
@@ -62,9 +63,6 @@ export function createAttendanceClient(deps: {
       return;
     }
     inFlight = (async () => {
-      // Measured from the send's start: heartbeats tick exactly 15 s apart,
-      // so the retry tick is not skipped by a request's own latency.
-      const startedAt = nowMs();
       let failed = false;
       for (const item of [...pending.values()].reverse()) {
         if (!active) break;
@@ -89,7 +87,9 @@ export function createAttendanceClient(deps: {
         }
       }
       failures = failed ? failures + 1 : 0;
-      retryAtMs = startedAt + attendanceRetryWaitMs(failures);
+      // Measured from the tick's start, before its read: heartbeats tick
+      // exactly 15 s apart, so no request's latency can make one skip a retry.
+      retryAtMs = tickAt + attendanceRetryWaitMs(failures);
     })();
     try {
       await inFlight;
@@ -97,7 +97,7 @@ export function createAttendanceClient(deps: {
       inFlight = null;
       if (forceQueued) {
         forceQueued = false;
-        await send(true);
+        await send(true, nowMs());
       }
     }
   };
@@ -127,23 +127,31 @@ export function createAttendanceClient(deps: {
       }
     return added;
   };
+  /**
+   * Whether a tick sends: a reconnect always; otherwise when a speech is new
+   * or the back-off has run out. Failing check-ins wait, new ones never do.
+   */
+  const sends = (force: boolean, added: number, tickAt: number) =>
+    force || added > 0 || tickAt >= retryAtMs;
   const refresh = async (force: boolean) => {
     if (stopped || terminal) return;
+    const tickAt = nowMs();
     const snapshot = await deps.read().catch(() => null);
     if (stopped || terminal) return;
     if (snapshot === 'signed-out') {
       signOut();
       return;
     }
+    // Inside the back-off a heartbeat still reads, so a new speech is sent.
     const added = snapshot ? adopt(snapshot) : 0;
-    // Inside the back-off a heartbeat still reads, so a new speech is sent at
-    // once; only retries of the failing ones wait. A reconnect never waits.
-    if (force || added > 0 || nowMs() >= retryAtMs) await send(force);
+    if (sends(force, added, tickAt)) await send(force, tickAt);
   };
   return {
+    /** A new view: the same back-off as a heartbeat, so view churn never retries. */
     async update(snapshot: Snapshot) {
-      adopt(snapshot);
-      await send(false);
+      const tickAt = nowMs();
+      const added = adopt(snapshot);
+      if (sends(false, added, tickAt)) await send(false, tickAt);
     },
     reconnect: () => refresh(true),
     heartbeat: () => refresh(false),

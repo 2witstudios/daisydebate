@@ -27,7 +27,8 @@ export type WorkWake = {
  * wakes in between coalesce into that one pass, so the busy interval stays a
  * rate ceiling however often work is created. The back-off cap bounds how
  * late a lost wake can make work. A failed pass is reported and backs off
- * like an empty one. Other instances may run the same loop; each caller's
+ * like an empty one, and wakes do not cut that back-off short: a failing
+ * store is retried at a growing interval however often Rounds are written. Other instances may run the same loop; each caller's
  * store keeps them off each other's work.
  */
 export function startWorkerLoop(input: {
@@ -44,6 +45,8 @@ export function startWorkerLoop(input: {
   let waitMs: number | null = null;
   let wokenDuringPass = false;
   let lastStartedAt: number | null = null;
+  /** After a failed pass a wake changes nothing: the failure keeps backing off. */
+  let lastOutcome: LoopOutcome | null = null;
   /** How long until a pass may start without exceeding the busy rate. */
   const untilPaced = () =>
     lastStartedAt === null
@@ -88,13 +91,15 @@ export function startWorkerLoop(input: {
       )
       .then((outcome) => {
         running = null;
+        lastOutcome = outcome;
         if (stopped) return;
-        if (wokenDuringPass) {
+        if (wokenDuringPass && outcome !== 'failed') {
           wokenDuringPass = false;
           waitMs = null;
           passWhenPaced();
           return;
         }
+        wokenDuringPass = false;
         waitMs = nextWaitMs(backoff, waitMs, outcome);
         arm(waitMs);
       });
@@ -103,9 +108,11 @@ export function startWorkerLoop(input: {
   const wake = () => {
     if (stopped) return;
     if (running) {
+      // Judged when the pass ends: a failed pass ignores it.
       wokenDuringPass = true;
       return;
     }
+    if (lastOutcome === 'failed') return;
     waitMs = null;
     passWhenPaced();
   };

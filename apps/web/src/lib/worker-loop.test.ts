@@ -276,3 +276,34 @@ test('a reporter that throws never stops the loop', async () => {
     expected: { passes: 2, waits: [100, 200] },
   });
 });
+
+test("wakes never cut a failing loop's back-off short", async () => {
+  const clock = manualOneShot();
+  const signals = manualWake();
+  let passes = 0;
+  const loop = startWorkerLoop({
+    run: async () => {
+      passes += 1;
+      throw new Error('store down');
+    },
+    backoff: { busyMs: 100, idleMaxMs: 800 },
+    timers: clock.timers,
+    failed: () => undefined,
+    wake: signals.wake,
+  });
+  await loop.started;
+  await settle();
+  await clock.fire();
+  for (let wake = 0; wake < 10; wake += 1) {
+    clock.advance(50);
+    signals.signal();
+    await settle();
+  }
+  await loop.stop();
+  assert({
+    given: 'a store failing every pass and a wake every 50 ms',
+    should: 'keep backing off: no extra passes, the next wait doubled',
+    actual: { passes, waits: clock.waits },
+    expected: { passes: 2, waits: [100, 200] },
+  });
+});

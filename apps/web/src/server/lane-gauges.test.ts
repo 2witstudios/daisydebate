@@ -87,3 +87,19 @@ test('lanes report one time-average window, not refusal-time samples', () => {
     expected: 1,
   });
 });
+
+test('stopping mid-window logs that window once', () => {
+  const { lines, tick, gauges } = harness();
+  tick();
+  gauges.stop();
+  gauges.stop();
+  assert({
+    given: 'one sample of a window, then two stops',
+    should: 'log the partial window once, with its one sample',
+    actual: lines.map(({ event, fields }) => [
+      event,
+      'samples' in fields ? fields.samples : null,
+    ]),
+    expected: [['db.lane.window', 1]],
+  });
+});

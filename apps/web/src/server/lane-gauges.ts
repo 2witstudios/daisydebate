@@ -32,11 +32,7 @@ export function startLaneGauges(input: {
   const size = input.samplesPerWindow ?? SAMPLES_PER_WINDOW;
   let occupancy = new Map<string, LaneOccupancy>();
   let samples = 0;
-  return input.every(SAMPLE_MS, () => {
-    for (const gauge of input.gauges())
-      occupancy.set(gauge.lane, sampled(occupancy.get(gauge.lane), gauge));
-    samples += 1;
-    if (samples < size) return;
+  const flush = () => {
     for (const line of laneWindowLines({
       occupancy,
       holds: input.drainHolds(),
@@ -45,5 +41,18 @@ export function startLaneGauges(input: {
       input.log(line);
     occupancy = new Map();
     samples = 0;
+  };
+  const timer = input.every(SAMPLE_MS, () => {
+    for (const gauge of input.gauges())
+      occupancy.set(gauge.lane, sampled(occupancy.get(gauge.lane), gauge));
+    samples += 1;
+    if (samples >= size) flush();
   });
+  return {
+    /** Stops sampling and logs the window in progress: a shutdown keeps its evidence. */
+    stop() {
+      timer.stop();
+      if (samples > 0) flush();
+    },
+  };
 }

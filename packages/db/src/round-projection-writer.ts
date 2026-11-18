@@ -132,8 +132,11 @@ export async function writeProjectionWithPhaseSignal(
   if (endsRound(current, projection)) {
     await refundUnservedPracticeLocked(tx, roundId);
     await settleCasualJudgeUsageLocked(tx, roundId);
-    if (projection.round && isRoundCompleted(projection.round.status))
+    if (projection.round && isRoundCompleted(projection.round.status)) {
       await releaseFinalizedDecision(tx, { roundId, at: now });
+      // A completed Round may owe a rating (ADR 0154).
+      await notifyWork(tx, 'rating');
+    }
   }
   // An opening that ends starts the debate's clock (ADR 0144).
   if (projection.round && roundBegan(current.status, projection.round.status))

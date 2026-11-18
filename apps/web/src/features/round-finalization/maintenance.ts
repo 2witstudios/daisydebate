@@ -125,6 +125,7 @@ export function createRoundMaintenanceOperations(input: {
       return {
         roundIds: page.roundIds.filter((id) => id !== input.probeRoundId),
         openingIds: page.openingIds,
+        openingsWaiting: page.openingsWaiting,
         cycleComplete: page.exhausted,
       };
     },
@@ -178,7 +179,9 @@ export function createRoundMaintenanceOperations(input: {
         ...(ratingAfterId ? { afterId: ratingAfterId } : {}),
       });
       ratingAfterId = page.exhausted ? undefined : page.afterId;
-      return page.exhausted ? page.rated : Math.max(1, page.rated);
+      // Only a Round rated is work: a page of Rounds that await nothing (or
+      // never will) must not hold the loop at its busy pace.
+      return page.rated;
     },
   };
 }

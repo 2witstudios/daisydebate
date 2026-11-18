@@ -124,3 +124,20 @@ test('Room maintenance runs on its own 500 ms worker loop (ISSUE-771)', async ()
     },
   });
 });
+
+test('a candidate Room the engine declines is no work, so the loop backs off', async () => {
+  const { failed } = failureLog();
+  const pass = await createRoomMaintenance({
+    store: {
+      readMaintenanceCandidates: async () => ['room-a'],
+      maintainRoom: async () => false,
+    },
+    idleTimeoutMs: 60_000,
+  })(failed);
+  assert({
+    given: 'an idle candidate whose Round still runs, declined every pass',
+    should: 'report the pass idle',
+    actual: pass,
+    expected: 'idle',
+  });
+});

@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm';
  * grants nothing and carries no row, so a missed one costs at most a
  * loop's idle back-off cap.
  */
-export const WORK_KINDS = ['round', 'judging', 'analysis'] as const;
+export const WORK_KINDS = ['round', 'judging', 'analysis', 'rating'] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];
 /** The one channel; `subscribeWorkWakes` spells it as a literal (lint), tested equal. */
 export const WORK_CHANNEL = 'daisy_work';

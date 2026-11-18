@@ -35,8 +35,9 @@ export const createRoomMaintenance =
       idleTimeoutMs,
       limit: 64,
     });
-    for (const roomId of roomIds)
-      await input.store
+    let changed = 0;
+    for (const roomId of roomIds) {
+      const maintained = await input.store
         .maintainRoom({
           roomId,
           maintain: (state, facts) =>
@@ -46,8 +47,15 @@ export const createRoomMaintenance =
               idleTimeoutMs,
             }),
         })
-        .catch((error: unknown) => failed(error, 'maintain'));
-    return roomIds.length > 0 ? 'worked' : 'idle';
+        .catch((error: unknown) => {
+          failed(error, 'maintain');
+          return false;
+        });
+      if (maintained) changed += 1;
+    }
+    // Only a Room changed is work: a candidate the engine declines (its
+    // Round still running) or another writer holds comes back every pass.
+    return changed > 0 ? 'worked' : 'idle';
   };
 
 /** Runs Room maintenance on its own worker loop, apart from Round maintenance. */

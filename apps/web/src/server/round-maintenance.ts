@@ -13,6 +13,9 @@ export function startRoundCompetitiveMaintenance(input: {
   readonly instanceId: string;
   readonly timers: Parameters<typeof startRoundMaintenance>[0]['timers'];
   readonly wake?: Parameters<typeof startRoundMaintenance>[0]['wake'];
+  readonly ratingWake?: Parameters<
+    typeof startRoundMaintenance
+  >[0]['ratingWake'];
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;
 }) {
@@ -73,6 +76,7 @@ export function startRoundCompetitiveMaintenance(input: {
     }),
     timers: input.timers,
     wake: input.wake,
+    ratingWake: input.ratingWake,
     now: () => performance.now(),
     held: ({ rounds, oldestMs }) =>
       app.logger.log(

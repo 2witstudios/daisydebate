@@ -33,6 +33,8 @@ type DiscoveryPage = {
   readonly roundIds: readonly string[];
   /** Those still in their opening: only the clock can move them yet. */
   readonly openingIds?: readonly string[];
+  /** An opening exists that is not yet due: its deadline comes by the clock. */
+  readonly openingsWaiting?: boolean;
   readonly cycleComplete: boolean;
 };
 type MaintenancePorts = {
@@ -40,11 +42,13 @@ type MaintenancePorts = {
   readonly tick: (roundId: string) => Promise<unknown>;
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   readonly finalize: (roundId: string) => Promise<unknown>;
-  /** How many Rounds it rated, or more pages wait: zero is an idle sweep. */
+  /** How many Rounds it rated: zero is an idle sweep. */
   readonly rateUnrated: () => Promise<number>;
   readonly timers: WorkerTimers;
   /** A Round changed: discover now (ADR 0154). */
   readonly wake?: WorkWake | undefined;
+  /** A Round completed: a rating may be owed (ADR 0154). */
+  readonly ratingWake?: WorkWake | undefined;
   readonly failed: (error: unknown, stage: MaintenanceWork) => void;
   /** Monotonic milliseconds. */
   readonly now: () => number;
@@ -207,6 +211,7 @@ export function startRoundMaintenance(input: MaintenancePorts) {
     const page = await input.discover();
     if (!stopped) remember(page);
     return page.roundIds.length > 0 ||
+      page.openingsWaiting === true ||
       !page.cycleComplete ||
       active.size > 0 ||
       waiting.size > 0
@@ -231,7 +236,7 @@ export function startRoundMaintenance(input: MaintenancePorts) {
     backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => input.failed(error, 'rate'),
-    wake: input.wake,
+    wake: input.ratingWake,
   });
   let closing: Promise<void> | undefined;
   return {

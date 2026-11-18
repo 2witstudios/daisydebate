@@ -52,7 +52,7 @@ import { createRetentionSweep, retentionTargets } from './retention-sweep';
 import { startProductionServer } from './listen-first';
 import { SHUTDOWN_DRAIN_DEADLINE_MS } from './shutdown-budget';
 import { waitForHealthy } from './wait-for-healthy';
-import { createWorkWakes } from './work-wakes';
+import { createWorkWakes, keepWorkWakesListening } from './work-wakes';
 import { readPublicCheckInProbe } from '../features/availability/configuration';
 
 // Refuses anything but NODE_ENV=production before building the app.
@@ -100,25 +100,30 @@ app.logger.log(
   },
   'Release flag default resolved',
 );
-// ADR 0154: each worker loop wakes on the work it looks for. Lossy hints: a
-// LISTEN that cannot start leaves every loop on its idle back-off cap.
-const workWakes = createWorkWakes();
-const workWakeListen = app.database
-  .listenWorkWakes({ onNotify: workWakes.wake, onListen: workWakes.wakeAll })
-  .catch(() => {
-    app.logger.log(
-      'worker.wake.unavailable',
-      { operation: 'worker.wake' },
-      'Worker wakes unavailable; loops poll at their idle cap',
-    );
-    return null;
-  });
 /** Process one-shot timers: worker loop passes and deadlines; `unref` never holds the process open. */
 const oneShotTimer: OneShotTimer = {
   setTimeout: (run, ms) => setTimeout(() => void run(), ms).unref(),
   clearTimeout: (handle) =>
     clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
+// ADR 0154: each worker loop wakes on the work it looks for. Lossy hints:
+// while the LISTEN cannot start, every loop runs at its idle cap, and it is
+// tried again with back-off.
+const workWakes = createWorkWakes();
+const workWakeListen = keepWorkWakesListening({
+  subscribe: () =>
+    app.database.listenWorkWakes({
+      onNotify: workWakes.wake,
+      onListen: workWakes.wakeAll,
+    }),
+  unavailable: (cause) =>
+    app.logger.log(
+      'worker.wake.unavailable',
+      { operation: 'worker.wake', cause },
+      'Worker wakes unavailable; loops poll at their idle cap',
+    ),
+  timers: oneShotTimer,
+});
 /** Process timers for the background workers; `unref` never holds the process open. */
 const workerTimers: WorkerTimers = {
   ...oneShotTimer,
@@ -192,6 +197,7 @@ const roundMaintenance = startRoundCompetitiveMaintenance({
   instanceId: availability.instanceId,
   timers: workerTimers,
   wake: workWakes.of('round'),
+  ratingWake: workWakes.of('rating'),
   reporter: app.reporter,
 });
 const usageRecovery = startUsageRecovery({
@@ -391,7 +397,7 @@ async function shutdown() {
   const mediaRecoveryStopped = mediaRecovery?.stop();
   const roundMaintenanceStopped = roundMaintenance.stop();
   const roomMaintenanceStopped = roomMaintenance.stop();
-  const workWakesStopped = workWakeListen.then((listen) => listen?.unlisten());
+  const workWakesStopped = workWakeListen.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },

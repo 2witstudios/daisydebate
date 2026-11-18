@@ -333,3 +333,58 @@ test('inside the back-off a new speech is still checked in at once', async () =>
     expected: true,
   });
 });
+
+test('read latency never makes a heartbeat skip its retry', async () => {
+  let now = 0;
+  const attempts: number[] = [];
+  const reads = [300, 100];
+  const client = createAttendanceClient({
+    read: async () => {
+      now += reads[attempts.length % 2]!;
+      return { status: 'active', segments: [snapshot.segments[0]!] };
+    },
+    nextCommandId: () => 'command',
+    nowMs: () => now,
+    send: async () => {
+      attempts.push(now);
+      now += 50;
+      return false;
+    },
+  });
+  for (let tick = 0; tick <= 120_000; tick += 15_000) {
+    now = tick;
+    await client.heartbeat();
+  }
+  assert({
+    given: 'reads alternating 300 ms and 100 ms, sends always failing',
+    should: 'retry on the 15 s, 30 s and 60 s heartbeats after each failure',
+    actual: attempts.map((at) => Math.floor(at / 15_000) * 15_000),
+    expected: [0, 15_000, 45_000, 105_000],
+  });
+});
+
+test('view changes inside the back-off never retry a failing check-in', async () => {
+  let now = 0;
+  let sends = 0;
+  const one = { status: 'active' as const, segments: [snapshot.segments[0]!] };
+  const client = createAttendanceClient({
+    read: async () => one,
+    nextCommandId: () => 'command',
+    nowMs: () => now,
+    send: async () => {
+      sends += 1;
+      return false;
+    },
+  });
+  await client.update(one);
+  for (let push = 1; push <= 10; push += 1) {
+    now = push * 1_000;
+    await client.update(one);
+  }
+  assert({
+    given: 'a failing check-in and a view push every second for 10 s',
+    should: 'send once, then wait out the back-off',
+    actual: sends,
+    expected: 1,
+  });
+});
