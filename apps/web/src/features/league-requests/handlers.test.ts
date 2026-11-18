@@ -9,6 +9,7 @@ import {
   createLeagueRequestHandlers,
   leagueRequestClientRules,
   leagueRequestEveryoneRule,
+  leagueRequestProbeRule,
 } from './handlers';
 
 setupRitewayBun();
@@ -94,6 +95,10 @@ test('POST /api/league-requests', async () => {
         answer: { received: true },
         stored: [body],
         consumed: [
+          {
+            key: 'league-request:probe:198.18.0.7',
+            rule: leagueRequestProbeRule,
+          },
           ...leagueRequestClientRules.map((rule) => ({
             key: `league-request:client:198.18.0.7:${rule.windowSeconds}`,
             rule,
@@ -109,7 +114,8 @@ test('POST /api/league-requests', async () => {
     const response = await route.POST(post(body));
     assert({
       given: 'a resend of a request already stored unchanged',
-      should: 'answer received without spending allowance or writing',
+      should:
+        'answer received after the probe, without spending request allowance or writing',
       actual: {
         status: response.status,
         answer: await response.json(),
@@ -120,7 +126,12 @@ test('POST /api/league-requests', async () => {
         status: 200,
         answer: { received: true },
         stored: [],
-        consumed: [],
+        consumed: [
+          {
+            key: 'league-request:probe:198.18.0.7',
+            rule: leagueRequestProbeRule,
+          },
+        ],
       },
     });
   }
@@ -195,8 +206,11 @@ test('POST /api/league-requests', async () => {
     assert({
       given: 'a request the ingress stamped no client for',
       should: 'share one bucket rather than go unlimited',
-      actual: consumed[0]?.key,
-      expected: 'league-request:client:unresolved:3600',
+      actual: consumed.map(({ key }) => key).slice(0, 2),
+      expected: [
+        'league-request:probe:unresolved',
+        'league-request:client:unresolved:3600',
+      ],
     });
   }
 

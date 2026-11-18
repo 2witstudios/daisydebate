@@ -140,7 +140,9 @@ export function projectLeagueSeason(
         organizationId: facts.organization.id,
         name: facts.organization.name,
       },
-      division: facts.season.division,
+      // The league's own division; Daisy (kind league) has none, and its
+      // season's is the one it rates.
+      division: facts.organization.leagueDivision ?? facts.season.division,
       counting: facts.rule.counting,
       calendar: projectLeagueCalendar(facts, template.id),
       standings: {

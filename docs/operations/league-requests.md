@@ -120,18 +120,25 @@ write with the owner credential, posted on Delivery first:
 A league carries one division (PYL-16, decision 79): **Open** (18 and over)
 or **Youth** (under 18). Its ladder shows it ("Youth – Freestyle"), its
 Rooms seat only debaters in it, and each of its seasons takes it when the
-season starts and keeps it. Every league is created Open. For a Youth
-league, set it once the league exists and before its first season starts,
-as an owner-approved data action:
+season starts. Every league is created Open.
+
+The division is fixed once the league is in use. The league's ladder replays
+every completed league Round, whatever season it fell in, so a league that
+had rated adults must never become Youth (Youth and Open never share a
+ladder). A Youth league is therefore set once, right after it is created and
+before its first season or Room, as an owner-approved data action. The
+statement changes nothing once either exists:
 
 ```sql
 update organizations set league_division = 'youth'
-  where id = '<league id>' and kind = 'league';
+  where id = '<league id>' and kind = 'league'
+    and not exists (select 1 from seasons where organization_id = '<league id>')
+    and not exists (select 1 from rooms r join ladders l on l.id = r.league_ladder_id
+                    where l.organization_id = '<league id>');
 ```
 
-Changing it later moves the league's Rooms to the new division at once but
-leaves its running season on the division it started with; start a new
-season to rate the new division.
+It must report `UPDATE 1`. `UPDATE 0` means the league is already in use:
+a league that needs the other division is a new league.
 
 Revoke by deleting the `account_entitlement_grants` row (the version row
 stays as history); the account keeps the league it made but cannot create

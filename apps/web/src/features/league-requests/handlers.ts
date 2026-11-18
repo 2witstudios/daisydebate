@@ -28,6 +28,14 @@ export const leagueRequestClientRules: readonly RateRule[] = [
   { windowSeconds: 86_400, max: 10 },
 ];
 /**
+ * One client's posts of any kind, resends included: bounds the lookup a
+ * resend needs before the request allowance, far above what a person sends.
+ */
+export const leagueRequestProbeRule: RateRule = {
+  windowSeconds: 3_600,
+  max: 60,
+};
+/**
  * Every client together: caps what rotating addresses can put in the
  * owner's inbox, set high enough above any real day of leagues that a few
  * abusive clients cannot close the form to everyone else.
@@ -72,9 +80,14 @@ export const createLeagueRequestHandlers = (deps: {
           leagueRequestSchema,
           await readJson(request, MAX_BODY_BYTES),
         );
+        const client = request.headers.get(CLIENT_IP_HEADER) ?? 'unresolved';
+        await consumeOrThrow(
+          deps.limiter(),
+          `league-request:probe:${client}`,
+          leagueRequestProbeRule,
+        );
         if (await deps.store.leagueRequestUnchanged(body))
           return Response.json({ received: true });
-        const client = request.headers.get(CLIENT_IP_HEADER) ?? 'unresolved';
         await consumeWindowsOrThrow(
           deps.limiter(),
           `league-request:client:${client}`,

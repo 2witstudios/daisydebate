@@ -36,8 +36,9 @@ import { users } from './users';
  * is the operator, outside the participant database (ADR 0043).
  * `settings_version` is the optimistic counter of this scope's settings,
  * which moves apart from `version`. A league carries the division its
- * ladder, seasons and Rooms rate on (PYL-16, decision 79): Open or Youth;
- * no other kind has one.
+ * ladder, seasons and Rooms rate on (PYL-16, decision 79): Open or Youth.
+ * Daisy itself (kind league) runs every division and carries none; no other
+ * kind has one.
  */
 export const organizations = pgTable(
   'organizations',
@@ -69,7 +70,8 @@ export const organizations = pgTable(
     check('organizations_kind_check', oneOf(table.kind, organizationKinds)),
     check(
       'organizations_league_division_check',
-      sql`(${table.kind} = 'league') = (${table.leagueDivision} is not null) and (${table.leagueDivision} is null or ${oneOf(table.leagueDivision, ratingDivisions)})`,
+      // Daisy is kind league but runs every division; only other leagues carry one.
+      sql`(${table.kind} = 'league' and ${table.id} <> '${sql.raw(daisyOrganizationId)}') = (${table.leagueDivision} is not null) and (${table.leagueDivision} is null or ${oneOf(table.leagueDivision, ratingDivisions)})`,
     ),
     check(
       'organizations_has_owner',

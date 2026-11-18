@@ -52,7 +52,7 @@ export const seasonViewSchema = z.strictObject({
   seasonId: idSchema,
   name,
   organization: z.strictObject({ organizationId: idSchema, name }),
-  /** The division the season rates, the league's when it started (PYL-16). */
+  /** The league's division (PYL-16), which every one of its seasons rates. */
   division: z.enum(ratingDivisions),
   counting: z.enum(seasonCountings),
   calendar: z.array(seasonTournamentSchema),

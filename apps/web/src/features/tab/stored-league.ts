@@ -1,4 +1,3 @@
-import { ladderLabel } from '../ratings/ladder-labels';
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import { lockedSetting, openSetting, type SettingLine } from './settings';
 import type { LobbyLadder } from '@daisy/protocol/lobby/lobby-read';
@@ -142,7 +141,7 @@ export function storedLeagueLobbyOf(
   return {
     name: read.view.organization.name,
     ladder: leagueLadder,
-    lede: `${read.view.organization.name} · ${ladderLabel(leagueLadder)}`,
+    lede: read.view.name,
     create: rooms?.canCreate
       ? linkTo('New room', tabRoutes.newLeagueRoom(handle), true)
       : null,

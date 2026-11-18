@@ -1,10 +1,10 @@
 {
+  "id": "1a232b6f-5e9f-453f-a451-82bba314d1a5",
+  "prevIds": [
+    "d781d889-03ea-40f2-988d-ccc1754b8e50"
+  ],
   "version": "8",
   "dialect": "postgres",
-  "id": "bc4942dc-2470-4c98-b51f-26146235c367",
-  "prevIds": [
-    "c2afddf9-f753-407d-8c25-a2bb992ef63e"
-  ],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -49758,7 +49758,7 @@
       "table": "organizations"
     },
     {
-      "value": "(\"kind\" = 'league') = (\"league_division\" is not null) and (\"league_division\" is null or \"league_division\" in ('open', 'youth'))",
+      "value": "(\"kind\" = 'league' and \"id\" <> 'fo05z182lha0a3usciy9wr2r') = (\"league_division\" is not null) and (\"league_division\" is null or \"league_division\" in ('open', 'youth'))",
       "name": "organizations_league_division_check",
       "entityType": "checks",
       "schema": "public",

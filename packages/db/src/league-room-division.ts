@@ -8,7 +8,9 @@ import { organizations } from './schema/organizations';
 
 /**
  * The league facts a Room's seating reads: the division of the league whose
- * ladder the Room rates on, read in the caller's transaction.
+ * ladder the Room rates on, read in the caller's transaction FOR SHARE, so
+ * an administrative change to the division waits for the seating, or the
+ * seating sees it.
  */
 export const leagueRoomFacts = async (
   tx: Pick<BunSQLDatabase, 'select'>,
@@ -19,7 +21,8 @@ export const leagueRoomFacts = async (
     .select({ division: organizations.leagueDivision })
     .from(ladders)
     .innerJoin(organizations, eq(organizations.id, ladders.organizationId))
-    .where(eq(ladders.id, room.leagueLadderId));
+    .where(eq(ladders.id, room.leagueLadderId))
+    .for('share', { of: organizations });
   const division: RatingDivision | null | undefined = league?.division;
   // A ladder always belongs to a league, and every league has a division.
   if (!division) throw createAppError('INVARIANT');
