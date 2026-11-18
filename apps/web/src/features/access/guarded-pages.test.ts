@@ -190,6 +190,14 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/messages/groups/[channelId]/manage/page'),
     '(shell)/messages/groups/invitations/[channelId]/page.tsx': () =>
       import('../../app/(shell)/messages/groups/invitations/[channelId]/page'),
+    '(shell)/clubs/new/page.tsx': () =>
+      import('../../app/(shell)/clubs/new/page'),
+    '(shell)/clubs/[club]/seats/page.tsx': () =>
+      import('../../app/(shell)/clubs/[club]/seats/page'),
+    '(shell)/clubs/[club]/billing/page.tsx': () =>
+      import('../../app/(shell)/clubs/[club]/billing/page'),
+    '(shell)/clubs/invitations/[invitation]/page.tsx': () =>
+      import('../../app/(shell)/clubs/invitations/[invitation]/page'),
     '(shell)/play/page.tsx': () => import('../../app/(shell)/play/page'),
     '(shell)/ranked/page.tsx': () => import('../../app/(shell)/ranked/page'),
     '(shell)/ranked/host/page.tsx': () =>
@@ -292,6 +300,7 @@ describe('guarded pages', () => {
         ...new Set(guarded.map(({ route }) => guardedAreaFor(route))),
       ].sort(),
       expected: [
+        '/clubs',
         '/friends',
         '/host/leagues',
         '/judge',
