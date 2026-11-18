@@ -203,8 +203,14 @@ export function createClubSeatReads(input: {
     seatOf(subject: ClubSeatSubject) {
       return input.run(async (tx) => {
         await scopeTransaction(tx, { subjectUserId: subject.userId });
+        // Only a seat whose Premium is current: an unfunded seat or a lapsed plan shows nothing.
         const [seat] = await tx.execute(
-          sql`select organization_id from club_seats where user_id=${subject.userId}`,
+          sql`select s.organization_id from club_seats s
+            where s.user_id=${subject.userId} and exists (
+              select 1 from account_entitlement_grants g
+              where g.user_id=s.user_id and g.source='organization_seat'
+                and g.organization_id=s.organization_id
+                and g.starts_at <= now() and g.expires_at > now())`,
         );
         if (!seat) return null;
         const organizationId = String(seat.organization_id);

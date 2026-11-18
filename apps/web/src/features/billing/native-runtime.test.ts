@@ -12,6 +12,7 @@ test('changing or failed display Flags cannot substitute for durable admission o
   let admissions = 0;
   let portalCalls = 0;
   const runtime = createNativeBillingRuntime({
+    seat: async () => null,
     returnOrigin: 'https://daisy.example',
     clock: fixedClock('2026-11-06T00:00:00.000Z'),
     vendor: {

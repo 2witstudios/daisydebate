@@ -143,7 +143,7 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
                 <div>
                   <strong>Seat from {settings.club.name}</strong>
                   <div className="text-sm text-ink-muted">
-                    Coach: {settings.club.coach}
+                    Coach: {settings.club.manager}
                   </div>
                 </div>
               </div>

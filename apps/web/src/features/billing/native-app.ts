@@ -64,6 +64,7 @@ export function composeNativeBilling(
           betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         }),
     }),
+    seat: (subject) => app.database.clubSeatReads.seatOf(subject),
     release: (key, accountId) =>
       createRequestFlagReader({
         read: app.database.readFlagSnapshot,
