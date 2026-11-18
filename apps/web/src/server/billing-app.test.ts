@@ -109,6 +109,10 @@ test('actual native composition uses the injected public display reader afresh w
           mode: 'test' as const,
         }),
       }),
+      clubSeatReads: {
+        ...app.database.clubSeatReads,
+        seatOf: async () => null,
+      },
       readFlagSnapshot: async (accountId: string | null) => {
         reads.push(accountId);
         if (state === 'unavailable')
