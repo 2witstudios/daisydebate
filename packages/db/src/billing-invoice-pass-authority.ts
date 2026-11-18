@@ -35,7 +35,7 @@ export async function verifyInvoicePassOwner(
   if (owner.source.kind !== 'purchase') return true;
   const source = owner.source;
   const original = await readFrozenBillingOffer(tx, {
-    userId: owner.userId,
+    owner: { kind: 'account', userId: owner.userId },
     mode: owner.mode,
     customerId: owner.customerId,
     vendorSubscriptionId: source.vendorSubscriptionId,

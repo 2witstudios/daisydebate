@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import { subscriptionGrants } from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { createBillingSynchronization } from '../src/billing-synchronization';
 import { finishedOrBlockedBehind } from '../src/testing';
@@ -58,7 +58,7 @@ test('a terminated backend rolls back evidence, grants and completion together',
       let terminated = false;
       const crashing = createBillingSynchronization({
         nextId: createId,
-        grants: subscriptionGrants,
+        grants: { account: subscriptionGrants, club: clubSeatGrants },
         run: (callback, options) =>
           run(async (...args) => {
             const result = await callback(...args);

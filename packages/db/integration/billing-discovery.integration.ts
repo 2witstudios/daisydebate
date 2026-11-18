@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { subscriptionGrants } from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
 import { createDatabase } from '../src/index';
@@ -24,10 +24,10 @@ test('the public billing store recovers an early receipt after mapping and disco
         nextActorId: createId,
       });
       const instanceId = createId();
-      const store = database.billingSynchronization(
-        instanceId,
-        subscriptionGrants,
-      );
+      const store = database.billingSynchronization(instanceId, {
+        account: subscriptionGrants,
+        club: clubSeatGrants,
+      });
       const input = { mode: 'test' as const, limit: 1 };
       try {
         await assertRejects({
@@ -100,10 +100,10 @@ test('the public billing store recovers an early receipt after mapping and disco
         ).toISOString();
         const nextAt = new Date(clock.now.getTime() - 300_000).toISOString();
         await fixture.sql`update billing_customers set synchronization=${JSON.stringify({ kind: 'settled', revision: claim.revision, observedAt, nextAt })}::text::jsonb where id=${customerId}`;
-        const restarted = database.billingSynchronization(
-          instanceId,
-          subscriptionGrants,
-        );
+        const restarted = database.billingSynchronization(instanceId, {
+          account: subscriptionGrants,
+          club: clubSeatGrants,
+        });
         assert({
           given:
             'no new event and a restarted reconciler after the polling deadline',
@@ -130,10 +130,10 @@ test('a billing worker that loses service authority during an account lock wait 
         nextActorId: createId,
       });
       const instanceId = createId();
-      const store = database.billingSynchronization(
-        instanceId,
-        subscriptionGrants,
-      );
+      const store = database.billingSynchronization(instanceId, {
+        account: subscriptionGrants,
+        club: clubSeatGrants,
+      });
       await database.renewServiceInstance({ instanceId, role: 'web' });
       const claim = (await store.claim(customerId))!;
       const [before] =

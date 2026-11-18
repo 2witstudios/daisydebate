@@ -66,6 +66,13 @@ export type {
   PurchaseEvent,
   PurchaseObservation,
 } from './billing-purchase';
+export {
+  billingOwnerColumns,
+  billingOwnerOf,
+  billingOwnerSchema,
+  maxPurchaseQuantity,
+} from './billing-owner';
+export type { BillingOwner } from './billing-owner';
 export { reconcileSubscriptionEvidence } from './billing-reconciliation';
 export { advanceBillingSync, billingSyncStateSchema } from './billing-sync';
 import type { EntitlementGrant } from './entitlements';

@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
-import { advancePurchase, type PurchaseEvent } from '@daisy/protocol/billing';
+import {
+  advancePurchase,
+  billingOwnerColumns,
+  type PurchaseEvent,
+} from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
 import { lockPurchaseId, savePurchase } from './billing-purchase-authority';
 import { createBillingPurchaseDiscovery } from './billing-purchase-discovery';
@@ -30,7 +34,7 @@ async function retainClosedCustomer(
   }
   await tx.insert(billingCustomers).values({
     id: nextId(),
-    userId: purchase.userId,
+    ...billingOwnerColumns(purchase.owner),
     mode: purchase.mode,
     vendorCustomerId: state.customerId,
     createdAt: new Date(context.now),
@@ -68,10 +72,11 @@ export function createBillingPurchaseRecovery(input: {
         if (locked.context.authority === 'closed') {
           await retainClosedCustomer(tx, { ...locked, purchase }, input.nextId);
           // Cursor progress is not a new vendor fact. Identical observations return above.
-          if (event.kind === 'observe')
+          // Only an erased account closes this way; a club's checkout is denied, never closed.
+          if (event.kind === 'observe' && purchase.owner.kind === 'account')
             await enqueuePrivacyJob(tx, {
               id: input.nextId(),
-              subjectRef: purchase.userId,
+              subjectRef: purchase.owner.userId,
               vendor: 'stripe',
               createdAt: locked.context.now,
             });

@@ -209,6 +209,7 @@ test('verified renewal-off and the subscriber price persist with the evidence fo
       const applied = await store.apply(claim, paid, {
         renewalOff: true,
         amountMinor: 2000,
+        seatCount: null,
       });
       assert({
         given:

@@ -14,7 +14,7 @@ import {
   type BillingPurchasePolicies,
 } from './billing-purchase-store';
 
-type GrantProjection = Parameters<
+type GrantProjections = Parameters<
   typeof createBillingSynchronization
 >[0]['grants'];
 
@@ -59,7 +59,7 @@ export function billingOperations(input: {
       });
     },
     receiveBillingReceipt: createBillingInbox(input),
-    billingSynchronization(instanceId: string, grants: GrantProjection) {
+    billingSynchronization(instanceId: string, grants: GrantProjections) {
       const run = currentWebTransaction(input.run, instanceId);
       return {
         ...createBillingDiscovery(run),
