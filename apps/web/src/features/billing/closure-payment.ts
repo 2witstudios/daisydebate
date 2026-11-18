@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { subscribedAmounts } from './premium-price';
 import {
   closurePaymentDisposition,
   type RefundAction,
@@ -254,7 +255,7 @@ export function observeClosurePayment(input: {
   const facts = parsed.data;
   if (
     !ownsInvoice(facts) ||
-    facts.invoice.lines.data[0]!.amount !== 1000 ||
+    !subscribedAmounts.includes(facts.invoice.lines.data[0]!.amount) ||
     !ownsCharge(facts) ||
     !matchesPayment(facts)
   )

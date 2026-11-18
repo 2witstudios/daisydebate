@@ -110,7 +110,6 @@ const storeOptions = {
       admitAllowance(account, facts, request, {
         now,
         betaGrantsPremium: true,
-        betaMonthlyCap: 5,
       })) satisfies NonNullable<
       Parameters<typeof createDatabase>[0]['aiAllowance']
     >['decide'],

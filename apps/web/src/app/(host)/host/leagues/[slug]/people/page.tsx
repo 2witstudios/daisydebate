@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireTabRelease } from '../../../../../../features/tab/release';
+import { requireAccess } from '../../../../../../lib/access';
 import { hostRoutes } from '../../../../../../features/tab/routes';
 import { People } from '../../../../../../ui/tab/people/people';
 import { peopleControls } from './controls';
@@ -20,9 +21,10 @@ export default async function Page({
   readonly searchParams: Promise<{ role?: string | string[] }>;
 }) {
   const { slug } = await params;
+  const path = hostRoutes.leaguePeople(slug);
+  await requireAccess(path, searchParams);
   const { role } = await searchParams;
   const chosen = typeof role === 'string' ? role : null;
-  const path = hostRoutes.leaguePeople(slug);
   await requireTabRelease();
   const stored = await readStoredPeople(slug, chosen, path);
   if (stored === null) notFound();

@@ -87,3 +87,6 @@ export function withBillingSynchronization(
     }
   });
 }
+
+/** The display terms of an ordinary renewing $20 subscription (ADR 0146). */
+export const renewing = { renewalOff: false, amountMinor: 2000 } as const;

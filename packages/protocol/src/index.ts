@@ -460,7 +460,6 @@ export {
 } from './round-view';
 
 export {
-  AI_ROUND_MONTHLY_CAP_MAX,
   botDifficulties,
   roomViewSchema,
   roomCatalogChoiceSchema,

@@ -24,7 +24,7 @@ const withdraw = async (name: 'ai-judge' | 'capture', user: string) => {
   );
 };
 test.use({ javaScriptEnabled: false });
-test('locked features keep native withdrawal and lead by keyboard to honest member usage', async ({
+test('locked features show the upgrade panel in place, keep native withdrawal and never count', async ({
   page,
 }, info) => {
   const { username } = await signUpMember(page.request);
@@ -53,29 +53,29 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
   await withdraw('capture', username);
   await page.goto('/rooms/' + roomId);
   const view = await reread(page.request, roomId);
-  expect(view.aiJudgeSeating).toBe('premium');
+  expect(view.aiJudgeSeating).toBe('not-included');
   expect(view.captureOffer).toBe('premium');
   const judgeNotice = page
     .getByRole('status')
-    .filter({ hasText: 'Invite a person to judge instead' });
-  const captureNotice = page.getByRole('status').filter({
-    hasText:
-      'Broadcasting and recording a casual round come with a subscription.',
-  });
+    .filter({ hasText: 'AI judging on casual Rounds is Premium' });
+  const captureNotice = page
+    .getByRole('status')
+    .filter({ hasText: 'Recording and broadcast are Premium' });
   const judgeLink = judgeNotice.getByRole('link', {
-    name: 'Explore Premium',
+    name: 'Get Premium',
     exact: true,
   });
   await expect(judgeLink).toBeVisible();
   await expect(judgeLink).toHaveAttribute('href', '/premium');
+  await expect(
+    judgeNotice.getByRole('button', { name: 'Invite a judge', exact: true }),
+  ).toBeVisible();
   const admission = view.botAdmission;
   if (!admission || admission.kind === 'unavailable')
-    throw Error('Expected current bot allowance quote');
-  await expect(
-    page.getByRole('status').filter({ hasText: 'bot debates remaining' }),
-  ).toContainText(
-    `${admission.remaining} of ${admission.limit} bot debates remaining`,
-  );
+    throw Error('Expected current bot admission decision');
+  // PYL-10: the Room carries only the decision, and the page shows no count.
+  expect(Object.keys(admission).sort()).toEqual(['kind', 'refusal']);
+  await expect(page.getByText(/remaining|Explore Premium/)).toHaveCount(0);
   const forged = await page.request.post('/api/rooms/' + roomId + '/commands', {
     headers: { origin },
     data: {
@@ -91,8 +91,11 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
   expect((await reread(page.request, roomId)).version).toBe(view.version);
   await page.getByRole('link', { name: 'Edit settings', exact: true }).click();
   await expect(
-    captureNotice.getByRole('link', { name: 'Explore Premium', exact: true }),
+    captureNotice.getByRole('link', { name: 'Get Premium', exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('switch', { name: 'Record this round', exact: true }),
+  ).toBeDisabled();
   await page
     .getByRole('button', {
       name: 'Turn off broadcast and recording',
@@ -117,17 +120,12 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
   const settings = await (
     await page.request.get('/api/billing/settings')
   ).json();
-  expect(settings.plan).toBe('free');
-  expect(settings.botDebates.kind).toBe('limited');
-  expect(settings.botDebates.remaining).toBe(admission.remaining);
-  expect(settings.botDebates.limit).toBe(admission.limit);
-  await expect(
-    page.locator('p').filter({
-      hasText: `${admission.remaining} of ${admission.limit} debates remaining`,
-    }),
-  ).toBeVisible();
+  // A beta member holds Premium by grant (ADR 0146): nothing to buy, no counter.
+  expect(settings.plan).toBe('granted');
+  expect(settings).not.toHaveProperty('botDebates');
+  await expect(page.getByText(/remaining|Bot debates/)).toHaveCount(0);
   await page.screenshot({
-    path: info.outputPath('native-member-usage-after-locked-feature.png'),
+    path: info.outputPath('billing-without-counters-after-locked-feature.png'),
     fullPage: true,
   });
 });

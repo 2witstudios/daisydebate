@@ -15,7 +15,19 @@ export async function roomAiJudgeSeating(
     return null;
   if (state.competitionType === 'ranked') return 'free';
   const decision = await allowance();
-  if (decision.kind === 'refuse') return 'premium';
+  if (decision.kind === 'refuse')
+    switch (decision.reason) {
+      case 'abuse-ceiling':
+        return 'fair-use';
+      case 'free-judge-unbound':
+        return 'with-bot';
+      case 'free-limit-reached':
+        return 'premium';
+      case 'not-eligible':
+      case 'renewal-grace':
+      case 'invalid-facts':
+        return 'not-included';
+    }
   return decision.reservations.some((entry) => entry.source.kind === 'lifetime')
     ? 'free'
     : 'included';

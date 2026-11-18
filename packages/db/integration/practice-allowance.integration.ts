@@ -16,7 +16,7 @@ test('a practice that never reached a model call stops spending the allowance wh
     async ({ fixture, run, firstRound, secondRound, actorId, admission }) => {
       const status = async () => {
         const s = await admission.readStatus(actorId);
-        return [s.remaining, s.refusal];
+        return s.refusal;
       };
       const end = (roundId: string) =>
         run(async (tx) => {
@@ -48,14 +48,15 @@ test('a practice that never reached a model call stops spending the allowance wh
         should:
           'hold the slot while live, free it once ended uncounted, keep spending once counted, and record no refund',
         actual: { live, ended, counted, refunds: refunds!.n },
-        // At the beta cap of 20 (ISSUE-646): one held, given back, held again.
+        // At a daily ceiling of 1: held, given back, held again (ADR 0146).
         expected: {
-          live: [19, null],
-          ended: [20, null],
-          counted: [19, null],
+          live: 'abuse-ceiling',
+          ended: null,
+          counted: 'abuse-ceiling',
           refunds: 0,
         },
       });
     },
+    1,
   );
 });

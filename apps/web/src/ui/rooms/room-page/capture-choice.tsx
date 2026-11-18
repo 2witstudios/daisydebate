@@ -9,9 +9,7 @@ import {
 import type { FormAction } from '../../form-action/form-action';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
-
-export const capturePremiumText =
-  'Broadcasting and recording a casual round come with a subscription.';
+import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
 /**
  * The host's two separate choices and the release choice (WATCH-8). Plain
@@ -31,12 +29,23 @@ export function CaptureChoice({
   if (view.captureOffer === 'premium')
     return (
       <>
-        <p role="status" className="text-sm text-ink-muted">
-          {capturePremiumText}{' '}
-          <a href="/premium" className="underline">
-            Explore Premium
-          </a>
-        </p>
+        <div className="flex w-full flex-col gap-3">
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
+            <input type="checkbox" role="switch" disabled />
+            Broadcast this round to its audience
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
+            <input type="checkbox" role="switch" disabled />
+            Record this round
+          </label>
+          <UpgradePanel
+            title="Recording and broadcast are Premium"
+            alternative={{ kind: 'dismiss', label: 'Not now' }}
+          >
+            Record your casual Rounds, stream them to an audience and download
+            them with Premium.
+          </UpgradePanel>
+        </div>
         {/* Losing the grant never traps a Room: no choice posted clears it. */}
         {view.capture ? (
           <AssemblyCommandForm action={action} className="flex flex-col gap-3">

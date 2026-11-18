@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type {
   AllowanceDecision,
@@ -8,6 +8,7 @@ import type {
 } from '@daisy/protocol/billing';
 import {
   advanceUsage,
+  allowanceDay,
   usageHoldingStates,
   requestedUsageKinds,
   usageKindSchema,
@@ -52,36 +53,51 @@ async function currentBinding(tx: Tx, actorId: string): Promise<string | null> {
   return row?.roundId ?? null;
 }
 
-/** At most two indexed source/kind counts, independent of account history size. */
+/**
+ * Per requested kind, one indexed read of two counts: holding use for the
+ * quoted source and for the quote's UTC day. The verdict picks the one its
+ * tier needs (ADR 0146).
+ */
 async function readQuotedUse(
   tx: Tx,
   actorId: string,
   quote: Admission,
-): Promise<AllowanceFacts['usage']> {
+  now: string,
+): Promise<Pick<AllowanceFacts, 'usage' | 'today'>> {
+  const day = allowanceDay(now);
   const usage: AllowanceFacts['usage'][number][] = [];
+  const today: NonNullable<AllowanceFacts['today']>['usage'][number][] = [];
   for (const reservation of quote.reservations) {
-    if (reservation.limit === null) continue;
+    const inSource = eq(usageReservations.source, reservation.source);
+    const inDay = and(
+      gte(usageReservations.reservedAt, new Date(day.startsAt)),
+      lt(usageReservations.reservedAt, new Date(day.endsAt)),
+    );
     const [row] = await tx
-      .select({ spent: sql<number>`count(*)::int` })
+      .select({
+        period: sql<number>`count(*) filter (where ${inSource})::int`,
+        daily: sql<number>`count(*) filter (where ${inDay})::int`,
+      })
       .from(usageReservations)
       .where(
         and(
           eq(usageReservations.actorId, actorId),
           eq(usageReservations.kind, reservation.kind),
-          eq(usageReservations.source, reservation.source),
           inArray(
             sql<string>`${usageReservations.state}->>'kind'`,
             usageHoldingStates,
           ),
+          or(inSource, inDay),
         ),
       );
     usage.push({
       kind: reservation.kind,
       source: reservation.source,
-      spent: row?.spent ?? 0,
+      spent: row?.period ?? 0,
     });
+    today.push({ kind: reservation.kind, spent: row?.daily ?? 0 });
   }
-  return usage;
+  return { usage, today: { startsAt: day.startsAt, usage: today } };
 }
 function sameAttribution(left: Admission, right: Admission): boolean {
   return (
@@ -121,7 +137,7 @@ function requireCompleteQuote(quote: Admission, request: AllowanceRequest) {
     throw createAppError('INVARIANT', 'Incomplete allowance decision');
 }
 
-/** Account fence held; every source/period edge gets fresh bounded usage reads. */
+/** Account fence held; every source, period and day edge gets fresh bounded usage reads. */
 export async function readAllowanceLocked(tx: Tx, input: RequestInput) {
   const account = requireAccount(input.account);
   const { request } = input;
@@ -130,6 +146,7 @@ export async function readAllowanceLocked(tx: Tx, input: RequestInput) {
     grants: await readEntitlementGrants(tx, account.userId),
     freeBotRoundId: await currentBinding(tx, account.actorId),
     usage: [],
+    today: null,
   };
   let now = (await readDatabaseTime(tx)).toISOString();
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -137,14 +154,19 @@ export async function readAllowanceLocked(tx: Tx, input: RequestInput) {
     if (quote.kind === 'refuse')
       return { decision: quote, quote: null, facts, now };
     requireCompleteQuote(quote, request);
-    const usage = await readQuotedUse(tx, account.actorId, quote);
+    const read = now;
+    const usage = await readQuotedUse(tx, account.actorId, quote, read);
     now = (await readDatabaseTime(tx)).toISOString();
     // Requote after reads before using those counts: time may change the source.
     const current = input.decide(account, facts, request, now);
     if (current.kind === 'refuse')
       return { decision: current, quote: null, facts, now };
-    if (!sameAttribution(quote, current)) continue;
-    const measured = { ...facts, usage };
+    if (
+      !sameAttribution(quote, current) ||
+      allowanceDay(read).startsAt !== allowanceDay(now).startsAt
+    )
+      continue;
+    const measured = { ...facts, ...usage };
     return {
       decision: input.decide(account, measured, request, now),
       quote: current,

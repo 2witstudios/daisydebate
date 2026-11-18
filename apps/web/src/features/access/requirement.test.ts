@@ -49,6 +49,45 @@ describe('guarded areas under a public root', () => {
     });
   });
 
+  test('a league area is guarded beneath the public /host root', () => {
+    assert({
+      given:
+        'the public /host root, its guarded /host/leagues area, descendants and lookalikes',
+      should:
+        'guard only /leagues and /host/leagues and their descendants, leaving tournament host routes public',
+      actual: [
+        '/host',
+        '/host/x',
+        '/host/tournaments/x',
+        '/host/leagues',
+        '/host/leagues/x',
+        '/host/leagues//x',
+        '/host/leagues/x/people',
+        '/leagues',
+        '/leagues/x/rooms/new',
+        '/host/leaguesx',
+        '/hostile',
+        '/Host/leagues',
+        '/leaguesx',
+      ].map(requirementFor),
+      expected: [
+        null,
+        null,
+        null,
+        'participant',
+        'participant',
+        'participant',
+        'participant',
+        'participant',
+        'participant',
+        null,
+        null,
+        null,
+        null,
+      ],
+    });
+  });
+
   test('malformed paths never unguard an area', () => {
     assert({
       given: 'double slashes inside a guarded path and before a single segment',

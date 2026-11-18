@@ -55,18 +55,24 @@ test('a ready analysis shows the report, quoting the transcript lines it cites',
 
 test('every other state says where the analysis is or why there is none', () => {
   assert({
-    given: 'pending, unavailable and locked views',
+    given: 'pending, unavailable, locked and fair-use views',
     should:
-      'say it is being written, that there is none, and offer premium without any report content',
+      'say it is being written or that there is none, show the upgrade panel in place without report content, and name fair use without a number',
     actual: [
       render({ status: 'pending' }).includes('is being written'),
       render({ status: 'unavailable' }).includes(
         'not available for this round',
       ),
-      render({ status: 'locked' }).includes('Round analysis is premium'),
+      render({ status: 'locked' }).includes('You’ve used your free analysis'),
+      render({ status: 'locked' }).includes('href="/premium"'),
+      render({ status: 'locked' }).includes('Not now'),
       render({ status: 'locked' }).includes(report.summary),
+      render({ status: 'fair-use' }).includes('fair-use ceiling'),
+      /\d/.test(
+        render({ status: 'fair-use' }).replace(/<[^>]*>|&#?\w+;/g, ' '),
+      ),
     ],
-    expected: [true, true, true, false],
+    expected: [true, true, true, true, true, false, true, false],
   });
 });
 

@@ -45,6 +45,7 @@ test('a paid invoice grants its actual line period and preserves cancellation sc
       },
       cancelAtPeriodEnd: true,
       cancelAt: null,
+      amountMinor: 1000,
     },
   });
 });

@@ -4,7 +4,10 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { bindings } from './privacy.test-support';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withBillingSynchronization,
+  renewing,
+} from './billing-synchronization.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -98,7 +101,7 @@ test('full subject rights export isolates billing and closure prevents stale pay
             first.alreadyErased,
             second.alreadyErased,
             late,
-            await store.apply(claim, paid),
+            await store.apply(claim, paid, renewing),
             await store.claim(customerId),
             customer,
             counts,

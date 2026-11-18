@@ -1,4 +1,5 @@
 import { Button } from '../components/button/button';
+import { UpgradePanel } from '../components/upgrade-panel/upgrade-panel';
 import type { RoundAnalysisView } from '@daisy/protocol';
 import {
   roundAnalysisPanel,
@@ -144,6 +145,14 @@ export function RoundAnalysis({
       ) : null}
       {panel.kind === 'report' ? (
         <Report panel={panel} />
+      ) : panel.kind === 'locked' ? (
+        <UpgradePanel
+          title="You’ve used your free analysis"
+          alternative={{ kind: 'dismiss', label: 'Not now' }}
+        >
+          Premium gives you an analysis whenever you ask, on every Round you
+          debate.
+        </UpgradePanel>
       ) : (
         <p className="text-ink-muted">{panel.text}</p>
       )}
@@ -151,11 +160,6 @@ export function RoundAnalysis({
         <form method="post" action={`/api/rounds/${roundId}/round-analysis`}>
           <Button type="submit">Request analysis</Button>
         </form>
-      ) : null}
-      {panel.kind === 'locked' ? (
-        <a href="/premium" className="text-sm underline">
-          See Premium
-        </a>
       ) : null}
     </section>
   );

@@ -158,7 +158,35 @@ export type AllowanceFacts = {
     readonly spent: number;
   }[];
   readonly freeBotRoundId: string | null;
+  /**
+   * Holding use admitted during one UTC day, any source; null before it is
+   * read. Counts for a day other than the decision's own are not today's.
+   */
+  readonly today: {
+    readonly startsAt: string;
+    readonly usage: readonly {
+      readonly kind: UsageKind;
+      readonly spent: number;
+    }[];
+  } | null;
 };
+
+/** The UTC day an instant falls in: the window the fair-use ceiling counts. */
+export function allowanceDay(now: string): {
+  readonly startsAt: string;
+  readonly endsAt: string;
+} {
+  const at = new Date(now);
+  const start = Date.UTC(
+    at.getUTCFullYear(),
+    at.getUTCMonth(),
+    at.getUTCDate(),
+  );
+  return {
+    startsAt: new Date(start).toISOString(),
+    endsAt: new Date(start + 86_400_000).toISOString(),
+  };
+}
 
 /** Stable request identity shared by policy and persistence recovery. */
 export function requestedUsageKinds(
@@ -180,16 +208,17 @@ export type AllowanceDecision =
       readonly reason:
         | 'not-eligible'
         | 'invalid-facts'
-        | 'allowance'
+        | 'free-limit-reached'
+        | 'abuse-ceiling'
         | 'renewal-grace'
         | 'free-judge-unbound';
     }
   | {
       readonly kind: 'admit';
+      /** Attribution only: no count, limit or period ever leaves the decision. */
       readonly reservations: readonly {
         readonly kind: UsageKind;
         readonly source: UsageSource;
-        readonly limit: number | null;
       }[];
     };
 

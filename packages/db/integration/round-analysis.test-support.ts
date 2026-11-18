@@ -120,7 +120,6 @@ export const withCompletedRound = (
         decide: (account, facts, request, now) =>
           admitAllowance(account, facts, request, {
             now,
-            betaMonthlyCap: 5,
             betaGrantsPremium: options.betaGrantsPremium ?? true,
           }),
       };
