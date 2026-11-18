@@ -11,7 +11,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261118133532_host_tiers';
+const migration = '20261118150749_host_tiers';
 const scratch = scratchDatabase(url, 'paidcapturemig');
 
 afterAll(() => scratch.drop());

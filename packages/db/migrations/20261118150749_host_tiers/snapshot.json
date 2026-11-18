@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6ecf91da-9ecd-4f3a-95c7-80633ae52516",
+  "id": "283d1651-f65a-4b8c-9425-6d087eff45a3",
   "prevIds": [
-    "de2a8a95-3712-434b-b069-c4e6108a0c1e"
+    "1a232b6f-5e9f-453f-a451-82bba314d1a5"
   ],
   "ddl": [
     {
@@ -435,6 +435,12 @@
     {
       "isRlsEnabled": false,
       "name": "ladders",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "league_requests",
       "entityType": "tables",
       "schema": "public"
     },
@@ -9194,6 +9200,279 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "form_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "fields_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "league_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "schools",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "seasons",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "style",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "divisions",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "needs",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_role",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_phone",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'queued'",
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_token_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "next_attempt_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_error_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "league_schools"
     },
     {
@@ -13494,6 +13773,19 @@
       "generated": null,
       "identity": null,
       "name": "settings_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "league_division",
       "entityType": "columns",
       "schema": "public",
       "table": "organizations"
@@ -27985,6 +28277,83 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "ladders"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "form_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "fields_digest",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_requests_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "state",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "next_attempt_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_requests_due_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_requests_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_requests"
     },
     {
       "nameExplicit": true,
@@ -45327,6 +45696,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "league_requests_pkey",
+      "schema": "public",
+      "table": "league_requests",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "league_schools_pkey",
       "schema": "public",
       "table": "league_schools",
@@ -48774,6 +49153,83 @@
       "table": "ladders"
     },
     {
+      "value": "\"schools\" in ('under-10', '10-25', '26-50', 'over-50')",
+      "name": "league_requests_schools_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"seasons\" in ('1', '2', '3-plus')",
+      "name": "league_requests_seasons_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"style\" in ('freestyle')",
+      "name": "league_requests_style_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"divisions\" in ('youth', 'open', 'youth-and-open')",
+      "name": "league_requests_divisions_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "char_length(\"league_name\") between 1 and 120\n        and char_length(\"needs\") <= 4000\n        and char_length(\"contact_name\") between 1 and 120\n        and char_length(\"contact_role\") between 1 and 120\n        and char_length(\"contact_email\") between 3 and 320\n        and (\"contact_phone\" is null or char_length(\"contact_phone\") between 1 and 32)",
+      "name": "league_requests_text_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"state\" in ('queued', 'leased', 'sent', 'failed', 'cancelled')",
+      "name": "league_requests_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"attempts\" >= 0",
+      "name": "league_requests_attempts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "(\"state\" = 'leased') = (\"lease_token_digest\" is not null and \"lease_expires_at\" is not null) and (\"lease_token_digest\" is null or \"lease_token_digest\" ~ '^[0-9a-f]{64}$')",
+      "name": "league_requests_lease_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "(\"state\" in ('sent', 'failed', 'cancelled')) = (\"completed_at\" is not null)",
+      "name": "league_requests_completed_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'not-owed', 'unreadable')",
+      "name": "league_requests_error_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"fields_digest\" ~ '^[0-9a-f]{64}$'",
+      "name": "league_requests_digest_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
       "value": "\"status\" in ('invited', 'active', 'ended')",
       "name": "league_schools_status_check",
       "entityType": "checks",
@@ -49665,6 +50121,13 @@
     {
       "value": "\"kind\" in ('league', 'school')",
       "name": "organizations_kind_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
+      "value": "(\"kind\" = 'league' and \"id\" <> 'fo05z182lha0a3usciy9wr2r') = (\"league_division\" is not null) and (\"league_division\" is null or \"league_division\" in ('open', 'youth'))",
+      "name": "organizations_league_division_check",
       "entityType": "checks",
       "schema": "public",
       "table": "organizations"
@@ -51413,7 +51876,7 @@
       "table": "settings"
     },
     {
-      "value": "\"key\" in ('pairing.preset', 'pairing.method', 'pairing.section_size', 'pairing.rematch', 'pairing.same_school', 'pairing.side_balance', 'pairing.side_alternation', 'pairing.pull_up', 'pairing.position_balance', 'pairing.section_repeat', 'pairing.preference_order', 'bye.recipient', 'bye.result', 'bye.repeat', 'judging.panel', 'judging.availability', 'judging.strike', 'judging.conflict', 'judging.same_school', 'judging.repeat_judge', 'judging.unsubmitted_ballot', 'judging.load_balance', 'judging.chair', 'judging.panel_same_school', 'judging.preference_order', 'standings.tiebreaks', 'standings.rating_ladder', 'break.line', 'break.seeding', 'break.double_qualifier', 'entry.divisions', 'entry.registration', 'entry.approval', 'entry.cap', 'entry.judge_obligation', 'conflict.handling', 'recording.capture', 'judging.ai_judge', 'broadcast.live', 'audience.posting', 'audience.decision', 'audience.scores', 'audience.reason', 'audience.feedback', 'audience.video', 'ballot.screening', 'resolution.rule', 'resolution.own_text', 'room.own_format', 'room.visibility', 'room.timing', 'room.floor', 'staff.minimum_band')",
+      "value": "\"key\" in ('pairing.preset', 'pairing.method', 'pairing.section_size', 'pairing.rematch', 'pairing.same_school', 'pairing.side_balance', 'pairing.side_alternation', 'pairing.pull_up', 'pairing.position_balance', 'pairing.section_repeat', 'pairing.preference_order', 'bye.recipient', 'bye.result', 'bye.repeat', 'judging.panel', 'judging.availability', 'judging.strike', 'judging.conflict', 'judging.same_school', 'judging.repeat_judge', 'judging.unsubmitted_ballot', 'judging.load_balance', 'judging.chair', 'judging.panel_same_school', 'judging.preference_order', 'standings.tiebreaks', 'standings.rating_ladder', 'break.line', 'break.seeding', 'break.double_qualifier', 'entry.divisions', 'entry.registration', 'entry.approval', 'entry.cap', 'entry.age_division', 'entry.judge_obligation', 'conflict.handling', 'recording.capture', 'judging.ai_judge', 'broadcast.live', 'audience.posting', 'audience.decision', 'audience.scores', 'audience.reason', 'audience.feedback', 'audience.video', 'ballot.screening', 'resolution.rule', 'resolution.own_text', 'room.own_format', 'room.visibility', 'room.timing', 'room.floor', 'staff.minimum_band')",
       "name": "settings_key_check",
       "entityType": "checks",
       "schema": "public",
