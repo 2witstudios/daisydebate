@@ -140,16 +140,30 @@ test('Start reads every seat’s age on the Round’s own date', async () => {
       // A seat taken at 18 whose stored month then says 17: Start decides on it.
       await setAge(f, f.guest, 'seventeenElevenMonths');
       const view = await f.operations.view(f.host, room.id);
+      const readied = await refusalOf(f.consent(f.guest, view, 'unready'));
+      const again = await f.operations.view(f.guest, room.id);
+      const ready = await refusalOf(f.consent(f.guest, again, 'ready'));
+      const shown = (await f.operations.view(f.outsider, room.id)).participants
+        .filter((p) => 'actorId' in p && p.actorId === f.guest.actorId)
+        .map((p) => p.eligible);
       const started = await refusalOf(
         f.command(f.host, view, { type: 'start-round' }),
       );
       const rounds =
         await f.sql`select count(*)::int as c from rounds where room_id=${room.id}`;
       assert({
-        given: 'a ready ranked Room one of whose debaters is under 18 at Start',
-        should: 'refuse Start without naming whose age, and launch no Round',
-        actual: { started, rounds: rounds[0]!.c },
-        expected: { started: 'actor-ineligible', rounds: 0 },
+        given:
+          'a ranked Room one of whose debaters is under 18 on the day: their Ready, the roster, then Start',
+        should:
+          'tell them their own age at Ready, show nobody which seat it is, and refuse Start without naming whose age',
+        actual: { readied, ready, shown, started, rounds: rounds[0]!.c },
+        expected: {
+          readied: 'accepted',
+          ready: 'ranked-age',
+          shown: [true],
+          started: 'actor-ineligible',
+          rounds: 0,
+        },
       });
     }),
   );

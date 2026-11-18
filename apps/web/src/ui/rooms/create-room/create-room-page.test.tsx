@@ -5,6 +5,8 @@ import { mockNextRouter } from '../../../lib/testing/mock-router';
 import { idle } from '../../../features/forms/form-state';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
 import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
+import { createRoomDraft } from '../../../features/rooms/create-room-draft';
+import { draftFormValues } from '../../../features/rooms/create-room-fields';
 
 setupRitewayBun();
 await mockNextRouter();
@@ -90,9 +92,9 @@ test('a member under the ranked floor sees Ranked closed, with the reason', () =
     h(CreateRoomEditor, {
       choices: [template],
       initialChoice: template,
-      values: {},
       commandId: 'n'.repeat(24),
-      // Arrived from Create a ranked room, which they are not shown.
+      // A kept draft that had Ranked on, for a member under the floor.
+      values: { ...draftFormValues(createRoomDraft(template)), ranked: 'on' },
       initialRanked: true,
       rankedAgeAdmitted: false,
       pending: false,
@@ -102,7 +104,7 @@ test('a member under the ranked floor sees Ranked closed, with the reason', () =
   assert({
     given: 'a 16-17 member on a ranked-eligible format',
     should:
-      'disable an unchecked Ranked, say why in plain words and keep the casual choices',
+      'disable an unchecked Ranked, say why in plain words, keep the casual choices and preview it unranked',
     actual: [
       ranked.includes('disabled=""'),
       ranked.includes('checked=""'),
@@ -110,8 +112,9 @@ test('a member under the ranked floor sees Ranked closed, with the reason', () =
         'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
       ),
       html.includes('Choosing Ranked makes the Room public'),
+      html.includes('>Unranked<') || html.includes('Unranked'),
     ],
-    expected: [true, false, true, true],
+    expected: [true, false, true, true, true],
   });
 });
 

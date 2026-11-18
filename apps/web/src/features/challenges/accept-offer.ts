@@ -107,7 +107,10 @@ export async function acceptOffer(
       return challengeRefused(
         notNamed ??
           (offer.mode === 'ranked'
-            ? challengeRefusal('accept-ranked', 500)
+            ? // The create's own ranked-age words lead with the reason itself.
+              created.error.startsWith(rankedAgeReason)
+              ? rankedAgeReason
+              : challengeRefusal('accept-ranked', 500)
             : created.error),
       );
   }

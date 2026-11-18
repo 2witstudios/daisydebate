@@ -11,6 +11,7 @@ import {
   challengeRefusal,
   challengeRefused,
   challengeSent,
+  sendRefusal,
   type ChallengeFormState,
 } from '../../../features/challenges/forms';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
@@ -60,7 +61,9 @@ export async function sendChallengeAction(
       format: text(form, 'format'),
     });
     if (!response.ok)
-      return challengeRefused(challengeRefusal('send', response.status));
+      return challengeRefused(
+        sendRefusal(response.status, await response.json().catch(() => null)),
+      );
     return challengeResultSchema.safeParse(await response.json()).success
       ? challengeSent
       : challengeFormUnavailable();

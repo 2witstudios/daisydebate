@@ -239,7 +239,6 @@ test('Room creation hands the initial cast to the create transaction through the
     label: 'Practice bot',
     eligible: true,
     aiRole: 'debater' as const,
-    rankedAge: true,
   };
   const create = async (
     cast: RoomCreate['cast'],
@@ -291,7 +290,6 @@ test('Room creation hands the initial cast to the create transaction through the
       {
         ...botTarget,
         aiRole: 'judge',
-        rankedAge: true,
       },
       now,
       false,
@@ -510,7 +508,6 @@ test('a create seating the AI judge consumes its fresh allowance decision (BILL-
     label: 'AI judge',
     eligible: true,
     aiRole: 'judge' as const,
-    rankedAge: true,
   };
   const run = makeOperations({}, true);
   await run.operations

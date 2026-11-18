@@ -21,10 +21,6 @@ import { appendOutboxEvent } from './outbox';
 import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
-import { accountAge } from './schema/account-age';
-import type { AgeBand } from '@daisy/auth';
-import { rankedAgeAdmitted } from '@daisy/auth/age-floor';
-import { rankedAgeSeatFits } from './ranked-age-seat';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
@@ -88,11 +84,6 @@ export type Actor = {
   readonly kind: RoomParticipant['kind'];
   readonly label: string;
   readonly eligible: boolean;
-  /**
-   * The person meets the ranked age floor on the instant this was read
-   * (decision 79); a bot always does. A rated Room seats no one without it.
-   */
-  readonly rankedAge: boolean;
   /** Which AI the actor is (ISSUE-750); null for a human. */
   readonly aiRole: AiRole | null;
   /** The roster card's display facts; present for bot debaters only. */
@@ -121,12 +112,9 @@ export const actorFact = async (
       verified: users.emailVerified,
       botName: botProfiles.name,
       judgeName: aiJudgeProfiles.name,
-      // ADR 0075's one band rule, read now; the birth month stays in SQL.
-      ageBand: sql<AgeBand | null>`public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp())`,
     })
     .from(actors)
     .leftJoin(users, eq(users.id, actors.userId))
-    .leftJoin(accountAge, eq(accountAge.userId, actors.userId))
     .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
     .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
     .where(eq(actors.id, actorId));
@@ -140,7 +128,6 @@ export const actorFact = async (
         row.verified === true &&
         row.username !== null &&
         row.deletedAt === null,
-      rankedAge: rankedAgeAdmitted(row.ageBand),
       aiRole: null,
     };
   const aiRole = aiRoleOf(row.botName, row.judgeName);
@@ -149,7 +136,6 @@ export const actorFact = async (
     kind: row.kind,
     label: row.botName ?? row.judgeName ?? '',
     eligible: aiRole !== null,
-    rankedAge: true,
     aiRole,
   };
 };
@@ -223,7 +209,6 @@ const hydrateRoom = async (
     .from(roomParticipants)
     .where(eq(roomParticipants.roomId, row.id))
     .orderBy(...seatRowOrder(roomParticipants));
-  const room = row;
   const participants = await Promise.all(
     seats.map(async (row) => {
       const actor = await actorFact(tx, row.actorId);
@@ -234,7 +219,6 @@ const hydrateRoom = async (
         // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
         eligible:
           actor.eligible &&
-          rankedAgeSeatFits(room, actor) &&
           (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
         id: row.id,
         seat,

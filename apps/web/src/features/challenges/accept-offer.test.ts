@@ -47,6 +47,25 @@ const ports = (
 });
 
 describe('acceptOffer', () => {
+  test('a ranked create refused on the acceptor’s own age keeps that reason', async () => {
+    const reason =
+      'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.';
+    const answer = await acceptOffer(
+      input,
+      ports({
+        readOffers: async () => [{ ...offer, mode: 'ranked' }],
+        openRoom: async () =>
+          refusedWith({}, `${reason} Turn Ranked off to play casual.`),
+      }),
+    );
+    assert({
+      given: 'a hint that let Accept through, and a create refused on age',
+      should: 'answer the age reason, not that ranked is down',
+      actual: answer,
+      expected: challengeRefused(reason),
+    });
+  });
+
   test('a ranked offer to a member under the ranked floor opens nothing and says why', async () => {
     let opened = 0;
     const answer = await acceptOffer(

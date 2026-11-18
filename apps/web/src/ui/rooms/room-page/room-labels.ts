@@ -180,7 +180,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
-  // Start names the caller's own age only; another seat answers actor-ineligible.
+  // Reaches only the caller about their own age (decision 79); another's seat answers actor-ineligible.
   'ranked-age': `members ${RANKED_AGE_FLOOR} and over`,
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',

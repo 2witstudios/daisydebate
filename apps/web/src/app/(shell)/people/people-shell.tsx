@@ -65,7 +65,7 @@ export async function PeopleShell({
       readPeople(),
       readChallenges().catch(() => null),
       readNotificationShell().catch(() => null),
-      requestRankedPlayAdmitted().catch(() => false),
+      requestRankedPlayAdmitted(),
     ]);
   return {
     preference,

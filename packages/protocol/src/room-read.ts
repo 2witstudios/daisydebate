@@ -71,7 +71,8 @@ export const roomRefusalSchema = z.enum([
   'ranked-unavailable',
   /**
    * The caller is under the ranked age floor on this instant (decision 79):
-   * creating, seating themselves in or starting a rated Room.
+   * creating a ranked Room, or claiming, readying or starting in a rated Room
+   * where they hold the seat. Never about anyone else's age.
    */
   'ranked-age',
   /** The draw's source cannot supply enough resolutions. */

@@ -48,7 +48,13 @@ export function CreateRoomEditor({
   readonly error?: string | undefined;
 }) {
   const [model, setModel] = useState(() =>
-    initialRoomModel(initialChoice, choices, kept, initialRanked),
+    initialRoomModel(
+      initialChoice,
+      choices,
+      // A kept Ranked choice never reaches a member under the floor's draft.
+      rankedAgeAdmitted ? kept : { ...kept, ranked: '' },
+      initialRanked,
+    ),
   );
   const { values, draft } = model;
   const isCustom = draft.custom;

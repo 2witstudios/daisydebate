@@ -14,21 +14,19 @@ export const ACCOUNT_AGE_FLOOR: AgeFloor = 16;
  * The one trusted floor for ranked play, in whole years (owner decision 79):
  * ranked Rounds are published and licensed to Daisy, which a minor cannot
  * agree to alone. Membership keeps ACCOUNT_AGE_FLOOR; a member between the
- * two plays casual only. Change it here and nowhere else.
+ * two plays casual only. Its type pins it to the band edge the rule below
+ * reads, so a different floor fails to compile until a band edge matches it.
  */
-export const RANKED_AGE_FLOOR = 18;
-
-/** The bands at or above RANKED_AGE_FLOOR; the bands' last edge is 18. */
-const RANKED_AGE_BANDS: Record<typeof RANKED_AGE_FLOOR, readonly AgeBand[]> = {
-  18: ['adult'],
-};
+export const RANKED_AGE_FLOOR = 18 as const;
 
 /**
  * Whether a durable age band, computed on the Round's instant, meets the
- * ranked floor. No record never does.
+ * ranked floor. 18 is the top band's edge (`ageBand`'s 216 months), so it is
+ * the adult band; a floor between edges would need a band edge first. No
+ * record never does.
  */
 export const rankedAgeAdmitted = (band: AgeBand | null): boolean =>
-  band !== null && RANKED_AGE_BANDS[RANKED_AGE_FLOOR].includes(band);
+  band === 'adult';
 
 /** What an age-step answer leads to; only `accept` stores anything. */
 export type AgeStepDecision = 'accept' | 'under-13' | 'below-floor';
