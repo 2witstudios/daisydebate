@@ -23,6 +23,13 @@
       "taskCode": "TAB-8.2"
     },
     {
+      "key": "pricing-page",
+      "retired": false,
+      "kind": "release",
+      "owner": "Billing (@2witstudios)",
+      "taskCode": "PYL-12"
+    },
+    {
       "key": "club-seats",
       "retired": false,
       "kind": "release",

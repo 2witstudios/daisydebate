@@ -21,6 +21,12 @@ const cardOf = (html: string, name: string): string => {
     : html.slice(start, html.indexOf('</section>', start));
 };
 
+/** Each Host tier row as [name, detail, price], read inside its own <li>. */
+const hostTiers = (html: string) =>
+  [...cardOf(html, 'Host').matchAll(/<li[^>]*>(.*?)<\/li>/g)]
+    .map((row) => [...(row[1] ?? '').matchAll(/>([^<>]+)</g)].map((m) => m[1]))
+    .filter((cells) => cells.length === 3);
+
 const hrefsIn = (html: string): readonly string[] =>
   [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1] ?? '');
 
@@ -45,17 +51,23 @@ test('the four plan cards', () => {
       cardOf(html, 'Club').includes(
         '$10</span><span class="text-ink-muted">per seat, a month',
       ),
-      [
-        'Up to 16 entries. No recording, AI judging or broadcast.',
-        '$0',
-        'Up to 64 entries',
-        '$99',
-        'Unlimited entries',
-        '$199',
-      ].filter((text) => !cardOf(html, 'Host').includes(text)),
+      hostTiers(html),
       cardOf(html, 'League').includes('>Talk to us</span>'),
     ],
-    expected: [true, true, [], true],
+    expected: [
+      true,
+      true,
+      [
+        [
+          'Free',
+          'Up to 16 entries. No recording, AI judging or broadcast.',
+          '$0',
+        ],
+        ['Up to 64 entries', 'One payment for one event.', '$99'],
+        ['Unlimited entries', 'One payment for one event.', '$199'],
+      ],
+      true,
+    ],
   });
   assert({
     given: 'Club seats and League requests not yet released',
@@ -112,13 +124,19 @@ test('prices come from the catalogue, never from copy', () => {
     actual: [
       '$25</span>',
       '$12.50</span>',
-      'Up to 12 entries.',
-      'Up to 48 entries',
-      '$89',
-      '$179',
       'up to 12 entries. Upgrade one event when it needs more entries or video: $89 up to 48 entries, $179 unlimited.',
     ].filter((text) => !html.includes(text)),
     expected: [],
+  });
+  assert({
+    given: 'different catalogue tiers',
+    should: 'pair each Host tier with its own price in its own row',
+    actual: hostTiers(html).map(([name, , price]) => [name, price]),
+    expected: [
+      ['Free', '$0'],
+      ['Up to 48 entries', '$89'],
+      ['Unlimited entries', '$179'],
+    ],
   });
   assert({
     given: 'different catalogue prices',
@@ -137,16 +155,30 @@ test('what free includes and the questions', () => {
       'Free, always',
       'Debate other people, casual and ranked',
       'AI judging on every ranked Round',
-      'One bot Round, one AI-judged casual Round and one analysis to try them',
+      'One bot Round with its AI judge, and one analysis, to try them',
     ].filter((text) => !html.includes(text)),
     expected: [],
   });
-  const questions = [...html.matchAll(/<details[^>]*>/g)].map((m) => m[0]);
+  const disclosures = (page: string) =>
+    [...page.matchAll(/<details[^>]*>/g)].map((m) => m[0].includes(' open=""'));
+  const familyQuestion = 'Can I buy Premium for my children?';
   assert({
-    given: 'the questions',
-    should: 'be five native disclosures with only the first open',
-    actual: questions.map((tag) => tag.includes(' open=""')),
-    expected: [true, false, false, false, false],
+    given: 'the questions while Club is not yet released',
+    should:
+      'be four native disclosures with only the first open, leaving out the family answer that points at Start a Club',
+    actual: [disclosures(html), html.includes(familyQuestion)],
+    expected: [[true, false, false, false], false],
+  });
+  const released = render(open);
+  assert({
+    given: 'Club released',
+    should: 'add the family question, still with only the first open',
+    actual: [
+      disclosures(released),
+      released.includes(familyQuestion),
+      released.includes('Yes. Start a Club for your family'),
+    ],
+    expected: [[true, false, false, false, false], true, true],
   });
   assert({
     given: 'the fair-use and ranked questions',

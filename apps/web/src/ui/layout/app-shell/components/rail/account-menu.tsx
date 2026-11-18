@@ -103,9 +103,6 @@ export function AccountMenu({
         <Link href="/help" className={navFlyoutLinkClass}>
           Help
         </Link>
-        <Link href="/pricing" className={navFlyoutLinkClass}>
-          Plans and pricing
-        </Link>
         <Link href="/terms" className={navFlyoutLinkClass}>
           Terms
         </Link>

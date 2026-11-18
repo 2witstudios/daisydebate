@@ -9,6 +9,9 @@ export type HelpTopic = {
   readonly links: readonly Link[];
 };
 
+/** The topic that links to /pricing, shown only once that page opens. */
+export const pricingTopicId = 'plans';
+
 /** The help topics, in the order people usually need them. */
 export const helpTopics: readonly HelpTopic[] = [
   {
@@ -53,7 +56,7 @@ export const helpTopics: readonly HelpTopic[] = [
     links: [{ label: 'Train', href: destinationHref('train') }],
   },
   {
-    id: 'plans',
+    id: pricingTopicId,
     question: 'What does Daisy cost?',
     answer:
       'Debating people is free. Premium, Club, Host and League pay for AI practice, video and running events.',

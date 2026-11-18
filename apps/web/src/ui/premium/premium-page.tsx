@@ -5,16 +5,23 @@ import { Panel } from '../components/panel/panel';
 import { ReadingPage } from '../components/reading-page/reading-page';
 
 /** Premium pays for AI and capture while human play and official results stay open. */
-export function PremiumPage() {
+export function PremiumPage({
+  comparePlans = false,
+}: {
+  /** Whether /pricing is open, so "Compare plans" has somewhere to go. */
+  readonly comparePlans?: boolean;
+} = {}) {
   return (
     <ReadingPage>
       <PageHeader
         title="Daisy Premium"
         lede="More ways to practise, review and share your debates."
         actions={
-          <Link href="/pricing" className={buttonClass('secondary')}>
-            Compare plans
-          </Link>
+          comparePlans ? (
+            <Link href="/pricing" className={buttonClass('secondary')}>
+              Compare plans
+            </Link>
+          ) : undefined
         }
       />
       <Panel

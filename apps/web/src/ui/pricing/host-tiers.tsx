@@ -16,7 +16,8 @@ export function HostTiers({ host }: { readonly host: PlanPrices['host'] }) {
     })),
   ];
   return (
-    <ul className="flex list-none flex-col">
+    // role="list": WebKit drops list semantics from a markerless <ul>.
+    <ul role="list" className="flex list-none flex-col">
       {rows.map((row) => (
         <li
           key={row.name}

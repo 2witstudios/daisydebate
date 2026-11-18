@@ -31,6 +31,17 @@ export const flagCatalogue = [
     dependencies: ['daisy-tab'],
   },
   {
+    // /pricing and the links to it; opens once the owner approves pricing
+    // in production (epic PYL win condition 5).
+    key: 'pricing-page',
+    kind: 'release',
+    owner: 'Billing (@2witstudios)',
+    taskCode: 'PYL-12',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
+  {
     // Start a Club on /pricing; S7 opens it with /clubs/new.
     key: 'club-seats',
     kind: 'release',

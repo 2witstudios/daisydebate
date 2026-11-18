@@ -32,3 +32,17 @@ test('public pricing explains the period and lifetime allowances without implyin
     expected: [true, true, false],
   });
 });
+
+test('Compare plans appears only once /pricing is open', () => {
+  assert({
+    given: 'the pricing page closed, then open',
+    should: 'link to /pricing only when it is open',
+    actual: [
+      renderToStaticMarkup(<PremiumPage />).includes('href="/pricing"'),
+      renderToStaticMarkup(<PremiumPage comparePlans />).includes(
+        'href="/pricing"',
+      ),
+    ],
+    expected: [false, true],
+  });
+});

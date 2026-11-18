@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { planActions } from '../../../features/pricing/plan-actions';
 import { planPrices } from '../../../features/pricing/plan-prices';
 import { requestReleaseEnabled } from '../../../lib/request-session';
@@ -21,15 +22,18 @@ export const metadata: Metadata = {
 };
 
 /**
- * Public: every plan, readable signed out. Club and League open with their
- * release flags; until then their cards say "Coming soon". Flags are read
- * for no account: the page is the same for every viewer.
+ * Public: every plan, readable signed out, once `pricing-page` opens (until
+ * then it does not exist). Club and League open with their own release
+ * flags; until then their cards say "Coming soon". Flags are read for no
+ * account: the page is the same for every viewer.
  */
 export default async function Pricing() {
-  const [clubSeats, leagueRequests] = await Promise.all([
+  const [pricing, clubSeats, leagueRequests] = await Promise.all([
+    requestReleaseEnabled('pricing-page', null),
     requestReleaseEnabled('club-seats', null),
     requestReleaseEnabled('league-requests', null),
   ]);
+  if (!pricing) notFound();
   return (
     <PricingPage
       prices={planPrices}

@@ -17,10 +17,14 @@ const freeAlways = [
   'AI judging on every ranked Round',
   'Tournaments, ballots and results',
   'Spectate and watch public Recordings',
-  'One bot Round, one AI-judged casual Round and one analysis to try them',
+  'One bot Round with its AI judge, and one analysis, to try them',
 ];
 
-const questionsFor = (prices: PlanPrices): readonly PricingQuestion[] => [
+/** The family answer points at Start a Club, so it waits for Club to open. */
+const questionsFor = (
+  prices: PlanPrices,
+  actions: PlanActions,
+): readonly PricingQuestion[] => [
   {
     question: 'What does unlimited mean?',
     answer:
@@ -31,11 +35,15 @@ const questionsFor = (prices: PlanPrices): readonly PricingQuestion[] => [
     answer:
       'Ranked is for members 18 and over on Open – Freestyle, and for members under 18 on Youth – Freestyle. Members are 16 or older. Anyone can judge.',
   },
-  {
-    question: 'Can I buy Premium for my children?',
-    answer:
-      'Yes. Start a Club for your family and give each child a seat. You pay, and you can move a seat when they need it.',
-  },
+  ...(actions.club.kind === 'link'
+    ? [
+        {
+          question: 'Can I buy Premium for my children?',
+          answer:
+            'Yes. Start a Club for your family and give each child a seat. You pay, and you can move a seat when they need it.',
+        },
+      ]
+    : []),
   {
     question: 'Can I cancel any time?',
     answer:
@@ -125,7 +133,7 @@ export function PricingPage({
         />
       </div>
       <FreeAlways items={freeAlways} />
-      <PricingFaq questions={questionsFor(prices)} />
+      <PricingFaq questions={questionsFor(prices, actions)} />
       <p className="text-sm text-ink-muted">
         Prices in US dollars. Taxes may apply where you live.
       </p>

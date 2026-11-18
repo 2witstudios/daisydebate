@@ -133,10 +133,14 @@ webhooks/reconciliation, erasure and existing authorized work remain available.
 Admin UI, other-process integration, AI ops consumers and the wider nightly
 rollout suite remain their existing separate leaves.
 
-`club-seats` (Billing, PYL-13) and `league-requests` (Daisy Tab, PYL-17)
-default false and expire on 2027-03-31. /pricing reads them for no account:
-closed, the Club and League cards show "Coming soon"; open, they link to
-`/clubs/new` and `/contact/league`, which their slices build.
+`pricing-page` (Billing, PYL-12), `club-seats` (Billing, PYL-13) and
+`league-requests` (Daisy Tab, PYL-17) default false and expire on 2027-03-31,
+each read for no account. `pricing-page` opens /pricing and the links to it
+(the visitor's home hero, Help's plans topic, Compare plans on /premium);
+closed, /pricing is not found. It stays closed in production until the owner
+approves pricing there (epic PYL win condition 5). Closed, `club-seats` and
+`league-requests` show "Coming soon" on the Club and League cards; open, they
+link to `/clubs/new` and `/contact/league`, which their slices build.
 
 References verified against PostgreSQL 18 (the repository's version):
 [isolation](https://www.postgresql.org/docs/18/transaction-iso.html),

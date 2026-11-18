@@ -6,3 +6,9 @@
   /* A question's tap row, taller than the 44px target so the list breathes. */
   --spacing-pricing-question: 52px;
 }
+
+/* WebKit draws its own triangle on <summary> even with list-style none;
+   the questions carry their own chevron. */
+[data-pricing-faq] summary::-webkit-details-marker {
+  display: none;
+}

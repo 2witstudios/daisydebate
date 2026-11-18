@@ -9,6 +9,7 @@ import { ResumeRound } from '../../ui/active-room/resume-round';
 import {
   requestIdentity,
   requestLeadingLive,
+  requestReleaseEnabled,
   requestSeasonGlance,
 } from '../../lib/request-session';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
@@ -28,9 +29,10 @@ export default async function HomePage() {
   // a restricted one goes to its own.
   if (identity.state === 'waitlisted') redirect(betaHref('/'));
   if (identity.state === 'restricted') redirect(RESTRICTED_HREF);
-  const [rounds, seasonGlance] = await Promise.all([
+  const [rounds, seasonGlance, pricing] = await Promise.all([
     requestLeadingLive(),
     requestSeasonGlance(),
+    requestReleaseEnabled('pricing-page', null),
   ]);
   const liveNow = <LiveNow rounds={rounds} />;
   if (identity.state !== 'member') {
@@ -39,7 +41,12 @@ export default async function HomePage() {
         audience="visitor"
         liveNow={liveNow}
         seasonGlance={seasonGlance}
-        hero={<HeroBanner requestLink={requestLinkAction.bind(null, '/')} />}
+        hero={
+          <HeroBanner
+            requestLink={requestLinkAction.bind(null, '/')}
+            showPricing={pricing}
+          />
+        }
       />
     );
   }

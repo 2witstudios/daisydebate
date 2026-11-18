@@ -19,7 +19,8 @@ export function FeatureList({
   readonly checkClassName?: string;
 }) {
   return (
-    <ul className={cn('list-none', layouts[layout])}>
+    // role="list": WebKit drops list semantics from a markerless <ul>.
+    <ul role="list" className={cn('list-none', layouts[layout])}>
       {items.map((item) => (
         <li key={item} className="flex items-start gap-2">
           <Icon

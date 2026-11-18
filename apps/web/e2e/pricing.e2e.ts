@@ -1,13 +1,43 @@
 import { type Page } from '@playwright/test';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { expect, test } from './support/fixtures';
 import { assertNoSeriousFindings } from './support/axe';
 
 /**
  * PYL-12: a signed-out visitor compares every plan at /pricing and can start
  * each one, at desktop and phone width, with no serious accessibility
- * finding. The browser suite runs no release-flag rows, so Club and League
- * show their closed state ("Coming soon").
+ * finding. The page is behind `pricing-page`, which this file opens and
+ * closes again; Club and League keep their safe default, so they show their
+ * closed state ("Coming soon").
  */
+const setPricing = (state: 'enabled' | 'default') =>
+  promisify(execFile)(
+    'bun',
+    [
+      fileURLToPath(
+        new URL('./support/release-flag-process.ts', import.meta.url),
+      ),
+      'pricing-page',
+      state,
+    ],
+    { timeout: 20000, maxBuffer: 4096 },
+  );
+
+test.describe.configure({ mode: 'serial' });
+test.afterAll(async () => {
+  await setPricing('default');
+});
+
+test('/pricing does not exist while its release flag is closed', async ({
+  page,
+}) => {
+  await setPricing('default');
+  const response = await page.goto('/pricing');
+  expect(response?.status()).toBe(404);
+  await setPricing('enabled');
+});
 const widths = [
   { name: 'desktop', width: 1440, height: 1000, columns: 4 },
   { name: 'phone', width: 390, height: 844, columns: 1 },
@@ -35,10 +65,26 @@ for (const { name, width, height, columns } of widths) {
     const plans = ['Premium', 'Club', 'Host', 'League'];
     for (const plan of plans) await expect(card(page, plan)).toBeVisible();
     // Side by side on a desktop, stacked on a phone.
-    const tops = await Promise.all(
-      plans.map(async (plan) => (await card(page, plan).boundingBox())?.y),
+    const boxes = await Promise.all(
+      plans.map(async (plan) => {
+        const box = await card(page, plan).boundingBox();
+        expect(box).not.toBeNull();
+        return box!;
+      }),
     );
-    expect(new Set(tops).size).toBe(columns === 4 ? 1 : 4);
+    for (const [index, box] of boxes.entries()) {
+      const next = boxes[index + 1];
+      if (!next) break;
+      if (columns === 4) {
+        // One row: shared top edge, each card wholly right of the one before.
+        expect(next.y).toBe(box.y);
+        expect(next.x).toBeGreaterThanOrEqual(box.x + box.width);
+      } else {
+        // One column: shared left edge, each card wholly below the one before.
+        expect(next.x).toBe(box.x);
+        expect(next.y).toBeGreaterThanOrEqual(box.y + box.height);
+      }
+    }
 
     await expect(card(page, 'Premium')).toContainText('$20');
     await expect(card(page, 'Club')).toContainText('per seat, a month');

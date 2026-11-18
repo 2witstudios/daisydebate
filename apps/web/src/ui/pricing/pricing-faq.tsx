@@ -15,7 +15,11 @@ export function PricingFaq({
   readonly questions: readonly PricingQuestion[];
 }) {
   return (
-    <section aria-labelledby="pricing-faq" className="flex flex-col gap-2">
+    <section
+      aria-labelledby="pricing-faq"
+      data-pricing-faq
+      className="flex flex-col gap-2"
+    >
       <h2
         id="pricing-faq"
         className="mb-2 font-display text-2xl leading-tight font-bold"
