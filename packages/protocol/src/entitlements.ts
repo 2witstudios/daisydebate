@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from './primitives';
 import { tournamentHostingGrantSchema } from './tournament-hosting';
 
 /**
@@ -22,6 +23,8 @@ export const entitlementSources = [
   'beta',
   'subscription',
   'administrative',
+  /** A club pays for this member's seat (ADR 0148). */
+  'organization_seat',
 ] as const;
 
 /** Ordinary Premium remains exactly these five capabilities. Hosting is independently issued. */
@@ -38,6 +41,14 @@ export const entitlementGrantSchema = z.union([
   z.object({
     entitlement: z.enum(entitlementKinds),
     source: z.literal('subscription'),
+    startsAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime(),
+  }),
+  z.object({
+    entitlement: z.enum(entitlementKinds),
+    source: z.literal('organization_seat'),
+    /** The club paying for the seat. */
+    organizationId: idSchema,
     startsAt: z.iso.datetime(),
     expiresAt: z.iso.datetime(),
   }),

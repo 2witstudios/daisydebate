@@ -49,6 +49,13 @@ function sameUsageSource(left: UsageSource, right: UsageSource): boolean {
         left.startsAt === right.startsAt &&
         left.endsAt === right.endsAt
       );
+    case 'organization_seat':
+      return (
+        right.kind === 'organization_seat' &&
+        left.organizationId === right.organizationId &&
+        left.startsAt === right.startsAt &&
+        left.endsAt === right.endsAt
+      );
   }
 }
 
@@ -64,6 +71,19 @@ function sourceFor(
   now: number,
 ): UsageSource {
   if (access.kind !== 'none') return { kind: 'subscription', ...access.period };
+  // A club seat (ADR 0148) funds use the member does not pay for themselves.
+  const seat = grants.find(
+    (grant) =>
+      grant.source === 'organization_seat' &&
+      grant.entitlement === entitlementOf[primary],
+  );
+  if (seat?.source === 'organization_seat')
+    return {
+      kind: 'organization_seat',
+      organizationId: seat.organizationId,
+      startsAt: seat.startsAt,
+      endsAt: seat.expiresAt,
+    };
   if (
     !grants.some(
       (grant) =>
@@ -83,7 +103,7 @@ function sourceFor(
   };
 }
 
-/** Free is the lifetime source; a subscription or beta grant is Premium. */
+/** Free is the lifetime source; a subscription, club seat or beta grant is Premium. */
 export type AllowanceTier = 'free' | 'premium';
 export type AllowanceVerdict = 'allow' | 'free-limit-reached' | 'abuse-ceiling';
 

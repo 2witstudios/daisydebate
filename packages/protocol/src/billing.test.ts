@@ -113,3 +113,30 @@ test('usage state refuses credits without provenance and releases that pretend t
     expected: [true, true, true, true, true, false, false, false, false, false],
   });
 });
+
+test('a club seat attributes use to its club over a positive interval', () => {
+  const organizationId = 'o00000000000000000000001';
+  assert({
+    given:
+      'club-seat sources with and without a club, reversed, or with extra fields',
+    should: 'accept only the bounded club-named shape',
+    actual: [
+      { kind: 'organization_seat', organizationId, startsAt, endsAt },
+      { kind: 'organization_seat', startsAt, endsAt },
+      {
+        kind: 'organization_seat',
+        organizationId,
+        startsAt: endsAt,
+        endsAt: startsAt,
+      },
+      {
+        kind: 'organization_seat',
+        organizationId,
+        startsAt,
+        endsAt,
+        subscriptionId: id,
+      },
+    ].map((source) => usageSourceSchema.safeParse(source).success),
+    expected: [true, false, false, false],
+  });
+});
