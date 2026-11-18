@@ -28,7 +28,6 @@ test(
         const id = createId();
         await f.insert('rooms', {
           id,
-          division: 'open',
           host_actor_id: hostActorId,
           title: 'Title',
           topic: 'Topic',
@@ -140,7 +139,6 @@ test('casual is the one unranked type a Room or Round row may hold', async () =>
           format_id: formatId,
           format_version: 1,
           competition_type: competitionType,
-          division: 'open',
           config: validConfig,
           execution_plan: {},
           rules_snapshot: validRules,

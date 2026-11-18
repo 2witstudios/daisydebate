@@ -40,7 +40,6 @@ test(
           format_version: 2,
           preset_version: null,
           competition_type: 'casual',
-          division: 'open',
           config: validConfig,
           execution_plan: {},
           rules_snapshot: validRules,

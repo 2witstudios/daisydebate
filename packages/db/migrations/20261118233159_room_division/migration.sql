@@ -51,12 +51,14 @@ FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_room_division();
 -- included. An unanswered casual offer from before held no lobby and may
 -- cross lobbies, so it is withdrawn (offers live minutes; DEC-304 states a
 -- destructive step in its PR). An answered one takes its Room's division.
+-- The old CHECK held a division on ranked offers only; it goes first.
+ALTER TABLE "challenges" DROP CONSTRAINT "challenges_division_check";--> statement-breakpoint
 DELETE FROM "challenges" WHERE "division" IS NULL AND "room_id" IS NULL;--> statement-breakpoint
 UPDATE "challenges" AS c SET "division" = r.division
   FROM "rooms" r WHERE r.id = c.room_id AND c.division IS NULL;--> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "challenges" ALTER COLUMN "division" SET NOT NULL;--> statement-breakpoint
-ALTER TABLE "challenges" DROP CONSTRAINT "challenges_division_check", ADD CONSTRAINT "challenges_division_check" CHECK ("division" in ('open', 'youth'));
+ALTER TABLE "challenges" ADD CONSTRAINT "challenges_division_check" CHECK ("division" in ('open', 'youth'));
 --> statement-breakpoint
 -- A Youth Room is a Room of the Youth lobby (ADR 0156), casual included, not
 -- a ranked Room a youth debater sits in: the Room chat fact reads
