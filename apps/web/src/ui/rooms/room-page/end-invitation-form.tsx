@@ -27,12 +27,14 @@ export function EndInvitationForm({
   invitationId,
   label,
   focusAfterAnswer,
+  className = buttonClass('secondary'),
 }: {
   readonly action: FormAction<InvitationFormState>;
   readonly intent: 'withdraw' | 'decline';
   readonly invitationId: string;
   readonly label: string;
   readonly focusAfterAnswer: string;
+  readonly className?: string;
 }) {
   const [answer, post, pending] = useFormAction(
     action,
@@ -48,11 +50,7 @@ export function EndInvitationForm({
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="invitationId" value={invitationId} />
-      <button
-        type="submit"
-        className={buttonClass('secondary')}
-        disabled={pending}
-      >
+      <button type="submit" className={className} disabled={pending}>
         {label}
       </button>
       {fields.notice ? (
