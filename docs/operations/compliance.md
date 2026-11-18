@@ -401,8 +401,9 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
 - **Who sits where.** An adult cannot take a Youth debater seat and a minor
   cannot take an Open one. Anyone may judge. A Room whose debaters mix
   divisions plays casual and rates no one.
-- **Leagues and tournaments.** League ladders stay Open-only until leagues
-  carry a division (PYL S9). Tournament entries already refuse every entrant
+- **Leagues and tournaments.** A league carries one division (PYL-16): its
+  Rooms seat only members in it, so a Youth league seats only members under
+  18 and an Open league only adults. Tournament entries already refuse every entrant
   under 18 (the closed minors rule above).
 - **Not changed yet.** How Youth Rounds are recorded, broadcast and released
   is the later youth-recordings and media-release work (PYL S3, S4). This
