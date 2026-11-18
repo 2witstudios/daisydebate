@@ -7,7 +7,7 @@ import { createAudioSubscription } from '../src/audio-subscription';
 import { createMediaService } from '../src/service';
 import { config } from './native-room.test-support';
 import { pcmJob, waitForCadence } from './native-fixtures.test-support';
-import { dtxNegotiated, withDtxSource } from './native-dtx.test-support';
+import { withDtxSource } from './native-dtx.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 afterAll(async () => {
@@ -20,6 +20,8 @@ async function until(test: () => boolean) {
     await Bun.sleep(10);
   }
 }
+// 44 s: the observation's own 20 s plus withDtxSource's 24 s worst-case
+// setup (DTX_SETUP_BUDGET_MS), so exhausted attempts fail by name.
 test('actual DTX-requested zero source continues capture callbacks with sparse packet progress', async () => {
   await withDtxSource(async (source) => {
     let binding:
@@ -75,8 +77,7 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
         toneFrames = frames;
       await send(300, true);
       const quiet = await sub.transport(binding!),
-        quietFrames = frames,
-        quietFmtp = await source.fmtp();
+        quietFrames = frames;
       await until(() => frames >= quietFrames + 30);
       const held = await sub.transport(binding!),
         heldFrames = frames;
@@ -97,7 +98,6 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
         observed,
         valid,
         sourceSamples: source.sent(),
-        dtxNegotiated: dtxNegotiated(quietFmtp),
         zeroSourceCallbacks: quietFrames - toneFrames >= 250,
         sparseZeroPackets:
           tonePackets !== null &&
@@ -117,7 +117,7 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
           zero: quiet.kind === 'observed' ? quiet.counters : quiet,
           held: held.kind === 'observed' ? held.counters : held,
           gap: gap.kind === 'observed' ? gap.counters : gap,
-          fmtp: quietFmtp ?? null,
+          fmtp: source.fmtp,
           rejectedAnswers: source.rejected,
           outcome,
         }) + '\n',
@@ -132,7 +132,6 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
           observed: true,
           valid: true,
           sourceSamples: 192000,
-          dtxNegotiated: true,
           zeroSourceCallbacks: true,
           sparseZeroPackets: true,
           withheldPacketsStationary: true,
@@ -143,4 +142,4 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
       await sub.close();
     }
   });
-}, 20000);
+}, 44000);
