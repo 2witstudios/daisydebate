@@ -45,9 +45,13 @@ export function speechWindow(total: number, liveIndex: number): SpeechWindow {
   };
 }
 
+/** Every speech is over: the round is being judged or has ended. */
+export const allDone = (strip: SpeechWindow): boolean =>
+  strip.total > 0 && strip.done === strip.total;
+
 /** "3 of 7" while a speech is on, else the round's length or that it is over. */
-export function speechPosition(window: SpeechWindow): string {
-  if (window.live !== null) return `${window.live + 1} of ${window.total}`;
-  if (window.done === window.total && window.total > 0) return 'All done';
-  return `${window.total} ${window.total === 1 ? 'speech' : 'speeches'}`;
+export function speechPosition(strip: SpeechWindow): string {
+  if (strip.live !== null) return `${strip.live + 1} of ${strip.total}`;
+  if (allDone(strip)) return 'All done';
+  return `${strip.total} ${strip.total === 1 ? 'speech' : 'speeches'}`;
 }

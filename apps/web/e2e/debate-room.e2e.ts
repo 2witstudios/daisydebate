@@ -387,6 +387,7 @@ test('the round bar’s speeches fit at every width, phones included', async ({
     [900, 700],
     [640, 800],
     [390, 844],
+    [360, 740],
   ] as const) {
     await page.setViewportSize({ width, height });
     await expect(strip).toBeVisible();
@@ -394,16 +395,18 @@ test('the round bar’s speeches fit at every width, phones included', async ({
       .poll(() => bar.evaluate((el) => el.scrollWidth <= el.clientWidth))
       .toBe(true);
     const live = strip.locator('[aria-current="step"]');
-    if ((await live.count()) > 0) {
-      const [chip, box] = await Promise.all([
-        live.boundingBox(),
-        bar.boundingBox(),
-      ]);
-      expect(chip && box && chip.x + chip.width <= box.x + box.width).toBe(
-        true,
-      );
-    }
+    await expect(live).toHaveCount(1);
+    await expect(live).toBeVisible();
+    const [chip, box] = await Promise.all([
+      live.boundingBox(),
+      bar.boundingBox(),
+    ]);
+    expect(chip && box && chip.x + chip.width <= box.x + box.width).toBe(true);
   }
+  // A 360px phone leaves the wrapped strip under 22rem: the live speech
+  // alone, with its place in the round instead of the next speech's code.
+  await expect(strip.getByText(/^\d+ of \d+$/)).toBeVisible();
+  await expect(strip.locator('li:not([aria-current])').first()).toBeHidden();
 });
 
 test('an open document survives every sidebar and phone tab switch', async ({

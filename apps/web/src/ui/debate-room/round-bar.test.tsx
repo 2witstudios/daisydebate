@@ -86,4 +86,28 @@ describe('RoundBar vocabulary', () => {
       expected: [true, true, false, true, true, true, true],
     });
   });
+
+  test('a finished round reads All done at every width', () => {
+    const base = sampleRound('opponent-speaking', 'casual');
+    const html = renderToString(
+      h(RoundBar, {
+        round: { ...base, liveIndex: base.speeches.length },
+        leave: noLeave,
+      }),
+    );
+    const strip = html.slice(html.indexOf('aria-label="Speeches"'));
+    const done = strip.slice(0, strip.indexOf('All done'));
+    assert({
+      given: 'every speech over (the round is being judged)',
+      should:
+        'say All done outside the narrow-only class, with no live chip and no done count',
+      actual: [
+        strip.includes('All done'),
+        done.slice(done.lastIndexOf('<li')).includes('round-speech-narrow'),
+        strip.includes('aria-current="step"'),
+        strip.includes('<span class="sr-only"> done</span>'),
+      ],
+      expected: [true, false, false, false],
+    });
+  });
 });

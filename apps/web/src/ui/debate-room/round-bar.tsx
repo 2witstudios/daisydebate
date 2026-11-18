@@ -6,7 +6,7 @@ import { Icon } from '../components/icon/icon';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
 import type { RoundSnapshot } from './round';
 import { toneChip } from './side-tone';
-import { speechPosition, speechWindow } from './speech-window';
+import { allDone, speechPosition, speechWindow } from './speech-window';
 
 const chip =
   'inline-flex shrink-0 items-center rounded-round px-3 py-1 text-xs font-strong whitespace-nowrap';
@@ -97,13 +97,14 @@ const counter =
 function SpeechStrip({ round }: { readonly round: RoundSnapshot }) {
   const strip = speechWindow(round.speeches.length, round.liveIndex);
   const live = strip.live === null ? null : round.speeches[strip.live];
+  const over = allDone(strip);
   return (
     <div className="@container/round-speeches flex min-w-0 grow basis-round-speech-strip items-center">
       <ol
         aria-label="Speeches"
         className="flex min-w-0 items-center gap-1 text-xs font-strong"
       >
-        {strip.done > 0 ? (
+        {strip.done > 0 && !over ? (
           <li className={counter}>
             <Icon name="check" size={12} />
             {strip.done}
@@ -137,7 +138,13 @@ function SpeechStrip({ round }: { readonly round: RoundSnapshot }) {
             <span className="sr-only"> more</span>
           </li>
         ) : null}
-        <li className="round-speech-narrow shrink-0 px-1 text-ink-muted">
+        <li
+          className={cn(
+            'shrink-0 px-1 text-ink-muted',
+            over ? 'flex items-center gap-1' : 'round-speech-narrow',
+          )}
+        >
+          {over ? <Icon name="check" size={12} /> : null}
           {speechPosition(strip)}
         </li>
       </ol>
