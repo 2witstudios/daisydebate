@@ -7,6 +7,7 @@ import type {
   createBotPublicationOperations,
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
+import type { RoundBotWorkerPolicy } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { OneShotTimer } from '../../lib/worker-timers';
@@ -47,7 +48,7 @@ export function createBotGeneration(input: {
   readonly stallMs: number;
   readonly maxTokens: number;
   /** The language calls' reasoning effort, from the bot worker policy (ISSUE-1460). */
-  readonly reasoning: 'none' | 'low' | 'medium' | 'high';
+  readonly reasoning: RoundBotWorkerPolicy['reasoning'];
 }) {
   if (
     !Number.isSafeInteger(input.maxTokens) ||

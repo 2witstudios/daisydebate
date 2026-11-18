@@ -28,6 +28,8 @@ test('a bot speech failure names why, for operators (ISSUE-1460)', async () => {
       'name provider_refused only for the refused request, keep the publication stop, and add nothing else',
     actual: [
       speakingFailureCause(await refusedWith(400)),
+      speakingFailureCause(await refusedWith(404)),
+      speakingFailureCause(await refusedWith(422)),
       speakingFailureCause(await refusedWith(429)),
       speakingFailureCause(await refusedWith(503)),
       speakingFailureCause(publicationStopError('connect', 'Join failed')),
@@ -35,6 +37,8 @@ test('a bot speech failure names why, for operators (ISSUE-1460)', async () => {
       speakingFailureCause(new Error('untyped')),
     ],
     expected: [
+      'provider_refused',
+      'provider_refused',
       'provider_refused',
       undefined,
       undefined,

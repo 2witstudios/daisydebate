@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -34,6 +34,7 @@ import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { expectConnected } from './support/round-media';
 import { leadSideOf } from './support/segment-lead';
 import { nowMs } from './support/node-kill-drill-nodes';
+import { launchWorkerEnv } from './support/room-launch-worker-policy';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,
@@ -71,11 +72,20 @@ const pause = (ms: number) =>
   new Promise((done) => {
     setTimeout(done, ms);
   });
-const spoken = async (text: string) => {
+/** Every line voiced by macOS `say`, in one temporary directory removed after. */
+const spokenLines = async (lines: Readonly<Record<string, string>>) => {
   const dir = await mkdtemp(join(tmpdir(), 'daisy-bot-freestyle-'));
-  const path = join(dir, 'speech.wav');
-  execFileSync('say', ['-o', path, '--data-format=LEI16@24000', text]);
-  return (await readFile(path)).toString('base64');
+  try {
+    const wavs: Record<string, string> = {};
+    for (const [key, text] of Object.entries(lines)) {
+      const path = join(dir, `${key}.wav`);
+      execFileSync('say', ['-o', path, '--data-format=LEI16@24000', text]);
+      wavs[key] = (await readFile(path)).toString('base64');
+    }
+    return wavs;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 };
 
 /** The human's own clock label for a segment it leads or answers in. */
@@ -145,13 +155,7 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
     throw new Error('bun drill:bot-freestyle needs a real OPENROUTER_API_KEY');
   test.setTimeout(PLAY_OUT_LIMIT_MS + 300_000);
   const { segments } = freestyleChoice.definition;
-  const wavs = Object.fromEntries(
-    await Promise.all(
-      Object.entries(LINES).map(
-        async ([key, text]) => [key, await spoken(text)] as const,
-      ),
-    ),
-  );
+  const wavs = await spokenLines(LINES);
   const accounts = await createRoomLaunchAccounts(browser, 1);
   try {
     const host = accounts.members[0]!;
@@ -259,6 +263,7 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
                 ? Date.parse(s.endedAt) - Date.parse(s.startedAt)
                 : null,
           })),
+          models: [...new Set(own.map((run) => `${run.kind}:${run.model}`))],
           usage: Object.fromEntries(
             ['speech', 'cross_ex', 'tts'].map((kind) => [kind, total(kind)]),
           ),
@@ -276,6 +281,15 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
       ),
     );
     expect(view.status).toBe('completed');
+    // Every language answer came from the policy's own models (ISSUE-1460).
+    const { models } = JSON.parse(launchWorkerEnv.ROUND_BOT_WORKER_POLICY) as {
+      models: Record<'speech' | 'cross_ex', string>;
+    };
+    for (const kind of ['speech', 'cross_ex'] as const)
+      expect(
+        [...new Set(received(kind).map((run) => run.model))],
+        `${kind} model`,
+      ).toEqual([models[kind]]);
     for (const key of ['NC', 'NR'])
       expect(
         received('speech', key).filter((run) => run.outputTokens > 0),

@@ -11,7 +11,7 @@ if (import.meta.main) {
     const runs = await readLaunchDatabase(
       (
         tx,
-      ) => tx`select p.seat_kind as "seatKind",p.side,p.slot,a.kind,s.rules_segment_key as segment,
+      ) => tx`select p.seat_kind as "seatKind",p.side,p.slot,a.kind,a.model,s.rules_segment_key as segment,
         case when a.kind='judging'
           then (case when t.answered_at is not null then 'received' end)
           else a.configuration_snapshot->>'providerOutcome' end as outcome,
