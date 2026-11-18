@@ -33,6 +33,17 @@ type Create = {
   readonly resolution: string;
 };
 
+/**
+ * A school whose owner is the coach and whose member is the student, the
+ * coach also holding a roster grant: the coach becomes the student's linked
+ * adult (ADR 0150, ADR 0155). Grants are append-only, so it is never removed.
+ */
+type LinkCoach = {
+  readonly command: 'link-coach';
+  readonly coachUsername: string;
+  readonly studentUsername: string;
+};
+
 type Advance = {
   readonly command:
     | 'slate'
@@ -78,6 +89,7 @@ const create = async (sql: SQL, input: Create) => {
   const rules = resolved.rules;
   const suffix = createId().slice(0, 10);
   const roundId = createId();
+  const roomId = createId();
   const broadcastId = createId();
   const feedKey = createId();
   const [segment] = rules.segments;
@@ -101,7 +113,6 @@ const create = async (sql: SQL, input: Create) => {
       input.mode === 'ranked'
         ? { format: 'freestyle', preset: 1, ladder: 'freestyle' }
         : { format: 'freestyle', preset: null, ladder: null };
-    const roomId = createId();
     await tx`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
       values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},'started')`;
     await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,ladder_division,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
@@ -131,11 +142,38 @@ const create = async (sql: SQL, input: Create) => {
   const broadcast = division !== 'youth';
   return {
     roundId,
+    roomId,
     broadcastId: broadcast ? broadcastId : null,
     feedKey: broadcast ? feedKey : null,
     aff: input.affUsername ?? `aff-${suffix}`,
     caption: `Caption ${suffix}`,
   };
+};
+
+const userIdOf = async (sql: SQL, username: string) =>
+  (
+    (await sql`select id from users where username=${username}`)[0] as {
+      id: string;
+    }
+  ).id;
+
+const linkCoach = async (sql: SQL, input: LinkCoach) => {
+  const coach = await userIdOf(sql, input.coachUsername);
+  const student = await userIdOf(sql, input.studentUsername);
+  const schoolId = createId();
+  await sql.begin(async (tx) => {
+    const [role] = await tx`select r.id from roles r
+      join role_permissions p on p.role_id = r.id
+      where r.preset and p.permission = 'school.roster.manage' limit 1`;
+    await tx`insert into organizations(id,kind,name,handle,owner_user_id)
+      values(${schoolId},'school','Riverside High',${`riverside-${schoolId.slice(0, 10)}`},${coach})`;
+    for (const userId of [coach, student])
+      await tx`insert into memberships(organization_id,user_id,status,joined_at)
+        values(${schoolId},${userId},'active',now())`;
+    await tx`insert into grants(id,role_id,user_id,scope_kind,organization_id,granted_at)
+      values(${createId()},${role.id},${coach},'organization',${schoolId},now())`;
+  });
+  return { schoolId };
 };
 
 const advance = async (sql: SQL, input: Advance) => {
@@ -212,13 +250,18 @@ const advance = async (sql: SQL, input: Advance) => {
 };
 
 if (import.meta.main) {
-  const input = JSON.parse(Bun.argv[2] ?? '{}') as Create | Advance;
+  const input = JSON.parse(Bun.argv[2] ?? '{}') as
+    | Create
+    | LinkCoach
+    | Advance;
   const sql = new SQL(process.env.E2E_DATABASE_URL ?? '', { max: 1 });
   try {
     const result =
       input.command === 'create'
         ? await create(sql, input)
-        : await advance(sql, input);
+        : input.command === 'link-coach'
+          ? await linkCoach(sql, input)
+          : await advance(sql, input);
     process.stdout.write(JSON.stringify(result ?? { ok: true }));
   } finally {
     await sql.close();

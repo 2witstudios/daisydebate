@@ -43,7 +43,7 @@ test('a Room link reaches Watch only once the timeline has released the start', 
         should: 'stay closed with no way to Watch, by any clock',
         actual: {
           status: before.status,
-          watch: before.watchRoundId,
+          watch: before.watch,
           roundRef: before.roundRef,
           visitor: await anyone(later),
         },
@@ -65,13 +65,13 @@ test('a Room link reaches Watch only once the timeline has released the start', 
           'point to the Round, still closed, still with no live reference',
         actual: {
           status: after.status,
-          watch: after.watchRoundId,
+          watch: after.watch,
           roundRef: after.roundRef,
           visitor: await anyone(later),
         },
         expected: {
           status: 'closed',
-          watch: roundId,
+          watch: { kind: 'broadcast', roundId },
           roundRef: null,
           visitor: roundId,
         },
@@ -80,7 +80,7 @@ test('a Room link reaches Watch only once the timeline has released the start', 
       assert({
         given: 'the same Room read by its seated host',
         should: 'keep the real Room and no pointer away from it',
-        actual: [own.status, own.watchRoundId, own.roundRef?.id],
+        actual: [own.status, own.watch, own.roundRef?.id],
         expected: ['started', null, roundId],
       });
 
@@ -91,7 +91,7 @@ test('a Room link reaches Watch only once the timeline has released the start', 
           given: `a released ${visibility} Round, by its Room link alone`,
           should:
             'grant no pointer: only its own audience link reaches an audience',
-          actual: [hidden?.watchRoundId ?? null, await anyone(later)],
+          actual: [hidden?.watch ?? null, await anyone(later)],
           expected: [null, null],
         });
       }

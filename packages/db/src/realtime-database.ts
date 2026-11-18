@@ -1,4 +1,9 @@
-import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-observation';
+import {
+  createFloorRoundRead,
+  createRoundFloorChannelCohortAuthority,
+} from './messaging/round-floor-observation';
+import { readRoundYouth } from './round-youth-read';
+import { readYouthRoundPeople } from './youth-recording-people';
 import { createRoomCommunityChannelCohortAuthority } from './messaging/room-community-observation';
 import type { SQL } from 'bun';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -36,6 +41,12 @@ import {
 const authorityReads = (database: BunSQLDatabase) => ({
   roundFloorChannelCohortAuthority:
     createRoundFloorChannelCohortAuthority(database),
+  /** A floor channel's Round, so its linked adults are read before the cohort's transaction. */
+  floorRoundOf: createFloorRoundRead(database),
+  /** A live Youth Round's linked adults (ADR 0155): whether it is one, then its people. */
+  readRoundYouth: (roundId: string) => readRoundYouth(database, roundId),
+  readYouthRecordingPeople: (roundId: string) =>
+    readYouthRoundPeople(database, roundId),
   roomCommunityChannelCohortAuthority:
     createRoomCommunityChannelCohortAuthority(database),
   ...authorizationSessionOperations({ database }),

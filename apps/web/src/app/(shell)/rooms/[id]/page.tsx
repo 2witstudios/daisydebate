@@ -53,7 +53,10 @@ export default async function RoomRoute({
     idSchema.safeParse(id).success &&
     (await requestIdentity()).state !== 'member'
   ) {
-    const watch = roomWatchHref(await requestWatchableRoundOfRoom(id));
+    const roundId = await requestWatchableRoundOfRoom(id);
+    const watch = roomWatchHref(
+      roundId === null ? null : { kind: 'broadcast', roundId },
+    );
     if (watch) redirect(watch);
   }
   const identity = await requireAccess(`/rooms/${id}`, searchParams);
@@ -69,7 +72,7 @@ export default async function RoomRoute({
   if (result.kind !== 'found' || catalog.kind !== 'found')
     throw createAppError('INFRASTRUCTURE');
   const view = result.view;
-  const watch = roomWatchHref(view.watchRoundId);
+  const watch = roomWatchHref(view.watch);
   if (watch) redirect(watch);
   return (
     <div className="room-page mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8 max-narrow:px-4">

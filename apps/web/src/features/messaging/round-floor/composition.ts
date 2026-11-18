@@ -15,35 +15,41 @@ import {
   type ContextChatStore,
 } from '../context-chat/operations';
 import { roundFloorContext } from './floor-context';
+import { liveLinkedAdults } from '../../spectating/linked-adults';
 
 /** HTTP, embedded forms and retained history all use the same fenced Round authority. */
 export function composeRoundFloorRoutes(app: App) {
   const policy = app.messagingPolicy;
+  const linkedAdults = liveLinkedAdults(app);
   const store = (
     principal: AuthorizationPrincipal,
     roundId: string,
   ): ContextChatStore<RoundFloorFact> => {
     const caller = requireMemberActor(principal);
-    const floor = app.database.roundFloorStore(
-      contextChatFence(
-        caller,
-        ({ fact, account, action }) =>
-          decideRoundFloor({
-            principal: caller,
-            fact,
-            account,
-            action,
-            now: app.clock.now(),
-          }).allow,
-      ),
-    );
+    // A Youth Round's linked adults read its floor and never post (ADR 0155).
+    const floorOf = async () =>
+      app.database.roundFloorStore(
+        contextChatFence(
+          caller,
+          ({ fact, account, action }) =>
+            decideRoundFloor({
+              principal: caller,
+              fact,
+              account,
+              action,
+              now: app.clock.now(),
+            }).allow,
+        ),
+        await linkedAdults(roundId),
+      );
     return {
-      discover: (scope) => floor.discover({ roundId, ...scope }),
-      open: (scope) => floor.open({ roundId, ...scope }),
-      readChannel: (scope, work) =>
-        floor.readFloor({ roundId, ...scope }, work),
-      withChannel: (scope, work) =>
-        floor.withFloor({ roundId, ...scope }, work),
+      discover: async (scope) =>
+        (await floorOf()).discover({ roundId, ...scope }),
+      open: async (scope) => (await floorOf()).open({ roundId, ...scope }),
+      readChannel: async (scope, work) =>
+        (await floorOf()).readFloor({ roundId, ...scope }, work),
+      withChannel: async (scope, work) =>
+        (await floorOf()).withFloor({ roundId, ...scope }, work),
     };
   };
   return createContextChatHandlers({

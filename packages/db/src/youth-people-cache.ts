@@ -1,10 +1,17 @@
-import type { YouthRoundPeople } from './youth-audience';
+import type { readYouthRecordingPeople } from './youth-recording-people';
+
+/** A Youth Round's youth debaters and their linked adults, as one read answers. */
+export type YouthRoundPeople = Awaited<
+  ReturnType<typeof readYouthRecordingPeople>
+>;
 
 /**
- * How long a Youth Round's people are reused (ADR 0150). A Recording's
- * playback authorizes every HLS segment, so without this each segment would
- * re-read every debater's schools and guardians. A revoked grant or an ended
- * guardian link stops admitting within this long.
+ * How long a Youth Round's people are reused (ADR 0150, ADR 0155). A
+ * Recording's playback authorizes every HLS segment, and a live Round's
+ * watchers poll and subscribe, so without this each would re-read every
+ * debater's schools and guardians. A revoked grant or an ended guardian link
+ * stops admitting within this long. The web and the realtime server each keep
+ * one per process.
  */
 export const YOUTH_PEOPLE_TTL_MS = 15_000;
 const MAX_ROUNDS = 500;

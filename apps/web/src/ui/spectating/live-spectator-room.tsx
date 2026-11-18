@@ -29,11 +29,13 @@ import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
 const spectatorKindLabel: Readonly<Record<SpectatorKind, string>> = {
-  'undelayed-observer': 'You’re hosting · watching',
+  host: 'You’re hosting · watching',
+  'linked-adult': 'Watching',
 };
 
 const spectatorKindRoster: Readonly<Record<SpectatorKind, string>> = {
-  'undelayed-observer': 'host, watching',
+  host: 'host, watching',
+  'linked-adult': 'watching',
 };
 
 const eyebrowClass = 'text-xs font-bold tracking-wide text-ink-muted uppercase';

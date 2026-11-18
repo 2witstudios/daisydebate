@@ -1,4 +1,5 @@
 import { evaluateContextChannelPermits } from './observation/context-channel-permits';
+import { linkedAdultsFor } from './observation/linked-adults';
 import { isAppError } from '@daisy/errors';
 import { createHash } from 'node:crypto';
 import {
@@ -142,6 +143,32 @@ export function createRealtimeAuthorization({
         return null;
     }
   }
+  /**
+   * A Youth Round's linked adult follows the Round they watch
+   * (`round.observe.undelayed`, ADR 0155). Their links are read only for a
+   * Round topic the live read refused, since nobody else needs them.
+   */
+  async function watchesRound(
+    principal: SocketPrincipal,
+    facts: NonNullable<
+      | Awaited<ReturnType<RealtimeAuthorityReads['readRoomAuthorizationFacts']>>
+      | Awaited<ReturnType<RealtimeAuthorityReads['readRoundAuthorizationFacts']>>
+    >,
+  ): Promise<boolean> {
+    if (facts.resource.kind !== 'round') return false;
+    const youth = await linkedAdultsFor(resources.database)(
+      facts.resource.roundId,
+    );
+    return (
+      youth !== null &&
+      authorize({
+        principal: { kind: 'user', ...principal },
+        capability: 'round.observe.undelayed',
+        resource: { ...facts.resource, youth },
+        context: { account: facts.account },
+      }).allow
+    );
+  }
   async function authorizeAudience(
     principal: SocketPrincipal,
     projection:
@@ -161,7 +188,7 @@ export function createRealtimeAuthorization({
       resource: facts.resource,
       context: { account: facts.account },
     });
-    if (!decision.allow) return null;
+    if (!decision.allow && !(await watchesRound(principal, facts))) return null;
     stopIfSpent(signal);
     const current = await resources.database.readAuthorizationSession({
       ...principal,

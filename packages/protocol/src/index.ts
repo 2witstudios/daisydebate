@@ -465,6 +465,8 @@ export {
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
   roomRefusalSchema,
+  roomWatchSchema,
+  type RoomWatch,
 } from './room-read';
 
 export {

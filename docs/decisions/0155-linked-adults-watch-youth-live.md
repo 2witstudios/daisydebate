@@ -1,0 +1,80 @@
+# 0155: A youth debater's linked adults watch their live Youth Round
+
+Status: accepted (owner decision 86, 2026-11-18; epic YLS, slice S4 linked
+adults live, task YLS-7, decisions recorded on
+[10 — Direction and build order](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/jro30yyuynd11e7qzjfdby0u)).
+Amends [ADR 0150](0150-youth-recordings-private.md) §4 ("never live"):
+nobody outside a Youth Round watches it live, except its youth debaters'
+linked adults, without media. Extends [ADR 0099](0099-spectator-release-authority.md)'s
+undelayed observer.
+
+## Context
+
+ADR 0150 keeps a Youth Round off Watch and off every Broadcast: once it
+starts, only its seats and its seatless host see it. The Recording's audience
+is wider: each youth debater's linked adults (their school's owner, staff
+holding `school.roster.manage` for that school, an adult with an active
+guardian link) see the video, transcript and result once the Round ends. A
+coach therefore learns how their student's Round went minutes later, but
+cannot follow it while it runs. Discovery (lobby spectating, 2026-11-18,
+"Linked adults live") found that live access for exactly those people adds
+timing, not audience. Owner decision 86 takes it, without media.
+
+## Decision
+
+1. **One rule.** `liveAudience(round, viewer)` in `@daisy/auth/live-audience`
+   answers `undelayed_no_media` (as `host` or `linked_adult`) or `denied`
+   (`signed_out`, `seated`, `not_in_audience`). A seat comes first: anyone
+   seated (a debater, a judge, a seated host) keeps their own seat's view.
+   Then the seatless host, on any Round, as ADR 0099 had it. Then, on a Youth
+   Round only, an actor among its youth debaters' linked adults.
+   `round.observe.undelayed` is this rule. The linked adult also holds
+   `round.transcript.read`, since the Recording's audience reads the
+   transcript; the seatless host still does not. Neither gains `round.read`,
+   so ballots and every other host read stay as they were.
+2. **The same people, the same fences.** The linked adults are
+   `readYouthRecordingPeople` (ADR 0150 §3), read in its own read-only
+   snapshot under each subject's and each school's scope, through the
+   15-second `youthPeopleCache` (now in `@daisy/db`, one per process: the web
+   and the realtime server each keep their own). Whether a Round is a Youth one
+   is frozen at Start, so `youthRoundLinkedAdults` reads it once per Round and
+   reads nobody's links for any other Round. A revoked grant or ended link
+   stops admitting within about 15 seconds. In production this is school staff
+   only: guardian links still have no write path.
+3. **Read lazily.** Every read that may admit a linked adult (the Round read,
+   the transcript, the realtime Round topic, the floor's realtime permits)
+   runs without the linked adults first and reads them only after a refusal,
+   so a seated debater's polling never reads anyone's links. The floor's HTTP
+   routes read them before opening the floor, through the same cache.
+4. **What they see.** The seatless host's `LiveSpectatorRoom`, labelled
+   "Watching": the clock, the speech order, the transcript and the floor chat,
+   undelayed. No media: no Broadcast exists for a Youth Round and the room
+   asks for no media session. The floor fact names them `linked_adult`
+   (`withLinkedAdultAudience`, only when the Round seats them nowhere); its
+   decision allows only `read` while the Round runs, and its metadata is
+   read-only, so they post, react and remove nothing. They take no part in
+   audience chat, which a Youth Round never has.
+5. **How they reach it.** The student's Room link: the Room read's `watch`
+   (a union, replacing `watchRoundId`) is `{ kind: 'live_room' }` for a
+   linked adult once the Round has started and until it ends, so the page
+   sends them to `/rounds/<id>/room`; a public Round's released Broadcast
+   stays `{ kind: 'broadcast' }`. The Round link itself. And Watch's "Your
+   students, live": `readStudentLiveRoundCandidates` proposes the running
+   Youth Rounds seating a minor the adult is a guardian of or a member of a
+   school they own or belong to, under the same scopes; each is then read as
+   the adult, so the rule above alone decides which they see. Nothing changes
+   on the public Live listing or its count.
+6. **Unchanged.** Open Rounds, every seated person's view, the seatless
+   host's view, ADR 0150's SQL fences (Broadcast discovery, Live listing,
+   spectator timeline, archive, profiles), and every Recording rule.
+
+## Consequences
+
+- Media for linked adults (a private, signed-URL feed of a Youth Round) is
+  not built and needs a capture-path decision of its own.
+- Releasing Youth Rounds live to the public remains out: it contradicts ADR
+  0151 §6 and needs counsel.
+- A new read that admits watchers must take the Youth fact through
+  `withLinkedAdults` or `linkedAdultsFor`; nothing enforces it for a read that
+  builds its own Round fact without it, and such a read simply admits no
+  linked adult.

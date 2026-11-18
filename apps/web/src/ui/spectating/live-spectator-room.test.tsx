@@ -14,11 +14,15 @@ setupRitewayBun();
 await mockNextRouter();
 const { LiveSpectatorRoom } = await import('./live-spectator-room');
 
-const render = (round: RoundView, nowMs: number) =>
+const render = (
+  round: RoundView,
+  nowMs: number,
+  spectatorKind: 'host' | 'linked-adult' = 'host',
+) =>
   renderToStaticMarkup(
     <LiveSpectatorRoom
       view={round}
-      spectatorKind="undelayed-observer"
+      spectatorKind={spectatorKind}
       renderedAtMs={nowMs}
       read={async () => ({
         kind: 'found',
@@ -68,6 +72,24 @@ test('a seatless host watches the live Round without controls', () => {
       false,
       true,
     ],
+  });
+});
+
+test("a youth debater's linked adult watches the live Round (ADR 0155)", () => {
+  const html = render(ran(1), origin + startOf(0) + 60_000, 'linked-adult');
+  assert({
+    given: 'the same Round watched by a linked coach',
+    should:
+      'say they are watching, never that they host, and offer no form, button or media',
+    actual: [
+      html.includes('>Watching</span>'),
+      html.includes('· watching'),
+      html.includes('hosting'),
+      html.includes('<form'),
+      html.includes('<button'),
+      html.includes('Live camera and sound'),
+    ],
+    expected: [true, true, false, false, false, false],
   });
 });
 

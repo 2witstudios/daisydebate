@@ -36,8 +36,10 @@ export function messagingOperations(
 ) {
   return {
     ...roundFloorRetention(database),
-    roundFloorStore: (authorize: Parameters<typeof createRoundFloorStore>[1]) =>
-      createRoundFloorStore(database, authorize),
+    roundFloorStore: (
+      authorize: Parameters<typeof createRoundFloorStore>[1],
+      youth: Parameters<typeof createRoundFloorStore>[2] = null,
+    ) => createRoundFloorStore(database, authorize, youth),
     ...roomCommunityRetention(database),
     roomCommunityStore: (
       authorize: Parameters<typeof createRoomCommunityStore>[1],

@@ -106,3 +106,18 @@ export const readYouthRecordingPeople = async (tx: Tx, roundId: string) => {
   }
   return { debaters: people };
 };
+
+/**
+ * The same read in its own read-only snapshot, so the scopes it sets never
+ * reach another read and a school's staff and the debater's membership agree.
+ * Recording, the web's live reads and the realtime server all call this
+ * (ADR 0150, ADR 0155).
+ */
+export const readYouthRoundPeople = (
+  database: Pick<BunSQLDatabase, 'transaction'>,
+  roundId: string,
+) =>
+  database.transaction((tx) => readYouthRecordingPeople(tx, roundId), {
+    isolationLevel: 'repeatable read',
+    accessMode: 'read only',
+  });

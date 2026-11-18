@@ -1,3 +1,4 @@
+import { noLinkedAdults } from '../src/features/spectating/linked-adults';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -284,7 +285,7 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
         });
         let retiredReadDenied = false;
         try {
-          await roundViewReader(f.store)(sparePerson, roundId);
+          await roundViewReader(f.store, noLinkedAdults)(sparePerson, roundId);
         } catch (error) {
           if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
           retiredReadDenied = true;
@@ -295,7 +296,7 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
             'lose the actual ordinary Round read while the official can still read the same source',
           actual: [
             retiredReadDenied,
-            (await roundViewReader(f.store)(director, roundId)).id,
+            (await roundViewReader(f.store, noLinkedAdults)(director, roundId)).id,
           ],
           expected: [true, roundId],
         });

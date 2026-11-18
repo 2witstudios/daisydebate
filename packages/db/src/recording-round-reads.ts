@@ -3,7 +3,9 @@ import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
-import { readYouthRecordingPeople } from './youth-recording-people';
+import { readYouthRoundPeople } from './youth-recording-people';
+import { readRoundYouth } from './round-youth-read';
+import { readStudentLiveRounds } from './youth-students-live';
 import type { SpectatorClock } from './spectator-release-sql';
 import { namedSeats } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
@@ -127,11 +129,14 @@ export const recordingRoundReadOperations = ({
    * so the scopes it sets never reach another read.
    */
   readYouthRecordingPeople: (roundId: string) =>
-    database.transaction((tx) => readYouthRecordingPeople(tx, roundId), {
-      // One snapshot: a school's staff and the debater's membership agree.
-      isolationLevel: 'repeatable read',
-      accessMode: 'read only',
-    }),
+    readYouthRoundPeople(database, roundId),
+
+  /** Whether a Round is a Youth one, for its live audience (ADR 0155). */
+  readRoundYouth: (roundId: string) => readRoundYouth(database, roundId),
+
+  /** Candidate live Youth Rounds an adult's students debate in (ADR 0155). */
+  readStudentLiveRounds: (adultUserId: string) =>
+    readStudentLiveRounds(database, adultUserId),
 
   readRecordingBroadcastRelease: (roundId: string, clock: SpectatorClock) =>
     readBroadcastRelease(database, roundId, clock),

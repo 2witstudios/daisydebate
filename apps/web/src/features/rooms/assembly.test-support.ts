@@ -132,7 +132,7 @@ export const assemblySnapshot = {
   captureNotice: null,
   postRoundCall: false,
   botAdmission: null,
-  watchRoundId: null,
+  watch: null,
   status: 'assembling',
   formatId: unequalTemplate.formatId,
   formatVersion: unequalTemplate.formatVersion,

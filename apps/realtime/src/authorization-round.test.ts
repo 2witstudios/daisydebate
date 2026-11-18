@@ -13,6 +13,7 @@ for (const mode of [
   'public',
   'private-seated',
   'private-outsider',
+  'linked-adult',
   'absent',
   'revised-account',
   'late-revision',
@@ -41,7 +42,7 @@ for (const mode of [
       status: 'live',
       revision: 7,
       participants:
-        mode === 'private-outsider'
+        mode === 'private-outsider' || mode === 'linked-adult'
           ? []
           : [{ actorId: principal.actorId, seat: sideSeat('affirmative') }],
     };
@@ -55,6 +56,17 @@ for (const mode of [
             revision: ++sessions > 1 && mode === 'late-revision' ? 9 : 2,
           },
           expiresAt: new Date(epoch + 1_000).toISOString(),
+        }),
+        // Only the linked-adult Round is a Youth one; its debater's coach asks.
+        readRoundYouth: async () => mode === 'linked-adult',
+        readYouthRecordingPeople: async () => ({
+          debaters: [
+            {
+              actorId: 'd'.repeat(24),
+              userId: 'v'.repeat(24),
+              linkedAdultActorIds: [principal.actorId],
+            },
+          ],
         }),
         readRoundAuthorizationFacts: async (id: string, caller: unknown) => {
           projected = [id, caller];
@@ -78,12 +90,15 @@ for (const mode of [
     }).authorizeTopic(principal, buildRoundTopic(resource.roundId));
     assert({
       given:
-        'actual minimal Round projection port and canonical round.read evaluation',
-      should: 'allow only current audience facts within durable session expiry',
+        'actual minimal Round projection port and canonical round.read evaluation, and a Youth Round watched by its debater’s coach',
+      should:
+        'allow only current audience facts, the linked adult watching included (ADR 0155), within durable session expiry',
       actual: [projected, result?.validUntil ?? null],
       expected: [
         [resource.roundId, principal],
-        ['public', 'private-seated'].includes(mode) ? 1_000 : null,
+        ['public', 'private-seated', 'linked-adult'].includes(mode)
+          ? 1_000
+          : null,
       ],
     });
   });

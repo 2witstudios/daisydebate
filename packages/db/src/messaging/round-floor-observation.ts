@@ -1,26 +1,52 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createContextChannelCohortAuthority } from './context-channel-observation';
-import { readRoundFloorFacts, fenceRoundFloor } from './round-floor-facts';
+import {
+  readRoundFloorFacts,
+  fenceRoundFloor,
+  type FloorYouth,
+} from './round-floor-facts';
+import type { AuthorizationTransaction } from '../authorization';
 
-/** Named floor adopter of the existing channel-messages observation resource. */
+const floorRoundOf = async (
+  tx: Pick<AuthorizationTransaction, 'execute'>,
+  channelId: string,
+) => {
+  const [row] = await tx.execute(
+    sql`select round_id from public.daisy_round_floor_channel(${channelId}::text)`,
+  );
+  return typeof row?.round_id === 'string' ? row.round_id : null;
+};
+
+/**
+ * Named floor adopter of the existing channel-messages observation resource.
+ * A call may carry its Round's linked adults (ADR 0155), which the caller read
+ * through its cache before this transaction opened.
+ */
 export function createRoundFloorChannelCohortAuthority(
   database: BunSQLDatabase,
 ) {
-  return createContextChannelCohortAuthority(database, {
-    ownerOf: async (tx, channelId) => {
-      const [row] = await tx.execute(
-        sql`select round_id from public.daisy_round_floor_channel(${channelId}::text)`,
-      );
-      return typeof row?.round_id === 'string' ? row.round_id : null;
-    },
-    fence: fenceRoundFloor,
-    fenceChannel: async (tx, channelId) => {
-      const [locked] = await tx.execute(
-        sql`select public.daisy_round_floor_channel_read_fence(${channelId}::text) as locked`,
-      );
-      return locked?.locked === true;
-    },
-    readFacts: readRoundFloorFacts,
-  });
+  const cohortWith = (youth: FloorYouth) =>
+    createContextChannelCohortAuthority(database, {
+      ownerOf: floorRoundOf,
+      fence: fenceRoundFloor,
+      fenceChannel: async (tx, channelId) => {
+        const [locked] = await tx.execute(
+          sql`select public.daisy_round_floor_channel_read_fence(${channelId}::text) as locked`,
+        );
+        return locked?.locked === true;
+      },
+      readFacts: (tx, roundId, actorIds) =>
+        readRoundFloorFacts(tx, roundId, actorIds, youth),
+    });
+  const plain = cohortWith(null);
+  return <T>(
+    input: Parameters<typeof plain<T>>[0] & { readonly youth?: FloorYouth },
+    work: Parameters<typeof plain<T>>[1],
+  ): Promise<T> => cohortWith(input.youth ?? null)(input, work);
 }
+
+/** The Round a floor channel belongs to, or null when the channel is not a floor. */
+export const createFloorRoundRead =
+  (database: BunSQLDatabase) => (channelId: string) =>
+    floorRoundOf(database, channelId);

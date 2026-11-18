@@ -101,7 +101,7 @@ export function RoomLive(props: Props) {
   );
   const syncedView = sync.value.view;
   // Synced in place: the page redirects on a fresh load, this covers an open tab.
-  const watchHref = roomWatchHref(syncedView.watchRoundId);
+  const watchHref = roomWatchHref(syncedView.watch);
   const [terminalRound, setTerminalRound] = useState<Pick<
     RoomView,
     'id' | 'roundRef'

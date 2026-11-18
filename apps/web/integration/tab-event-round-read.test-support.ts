@@ -1,3 +1,4 @@
+import { noLinkedAdults } from '../src/features/spectating/linked-adults';
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -39,7 +40,7 @@ export const proveEventRoundRead = async (input: {
   const director = world.bots.Director!,
     stranger = world.bots.Coach!;
   const lobbyId = world.made.get('tournament-lobby')!;
-  const read = roundViewReader(f.store);
+  const read = roundViewReader(f.store, noLinkedAdults);
   const send = organizationCommand({
     store: createTabStore(committingRuntimeTestDatabase(owner)),
     authorize,

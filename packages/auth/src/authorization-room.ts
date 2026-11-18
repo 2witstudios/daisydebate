@@ -1,4 +1,5 @@
 import { isDebatingSeat } from '@daisy/protocol';
+import { liveAudience } from './live-audience';
 import type {
   AuthorizationCapability,
   RoomAuthorizationFact,
@@ -35,9 +36,17 @@ const seatedOn = (actorId: string, resource: RoundAuthorizationFact) =>
 const roundReadable = (actorId: string, resource: RoundAuthorizationFact) =>
   resource.createdByActorId === actorId || seatedOn(actorId, resource);
 
-/** A seatless host acts as an event host; a seated host gains nothing from hosting. */
-const undelayedObserver = (actorId: string, resource: RoundAuthorizationFact) =>
-  resource.createdByActorId === actorId && !seatedOn(actorId, resource);
+/**
+ * A seatless host acts as an event host, and a youth debater's linked adult
+ * watches their Youth Round (ADR 0155); a seat gains nothing from either.
+ */
+const watchingAs = (actorId: string, resource: RoundAuthorizationFact) => {
+  const audience = liveAudience(
+    { ...resource, youth: resource.youth ?? null },
+    { kind: 'account', actorId },
+  );
+  return audience.kind === 'undelayed_no_media' ? audience.as : null;
+};
 
 /** Delivered reports remain the debater's own content after paid access ends. */
 export function roundAllowed(
@@ -45,10 +54,15 @@ export function roundAllowed(
   capability: AuthorizationCapability,
   resource: RoundAuthorizationFact,
 ): boolean {
+  // A linked adult may see the Recording's transcript minutes later, so live
+  // they read it too (ADR 0155); a seatless host never did.
   if (capability === 'round.transcript.read')
-    return seatedOn(actorId, resource);
+    return (
+      seatedOn(actorId, resource) ||
+      watchingAs(actorId, resource) === 'linked_adult'
+    );
   if (capability === 'round.observe.undelayed')
-    return undelayedObserver(actorId, resource);
+    return watchingAs(actorId, resource) !== null;
   if (!capability.startsWith('round.analysis.'))
     return roundReadable(actorId, resource);
   return (

@@ -34,13 +34,33 @@ describe('spectatorKindOf', () => {
         spectatorKindOf(ran(1)),
       ],
       expected: [
-        'undelayed-observer',
-        'undelayed-observer',
+        'host',
+        'host',
         null,
         null,
         null,
         null,
       ],
+    });
+  });
+});
+
+describe('spectatorKindOf, a linked adult', () => {
+  test("a youth debater's linked coach or parent (ADR 0155)", () => {
+    const linked = (round: RoundView): RoundView => ({
+      ...round,
+      viewerIsHost: false,
+      viewerIsUndelayedObserver: true,
+    });
+    assert({
+      given:
+        'an undelayed observer who does not host, on a live Round and on one that ended',
+      should: 'watch as a linked adult while it is live, and not after',
+      actual: [
+        spectatorKindOf(linked(ran(1))),
+        spectatorKindOf(linked(asCompleted(view))),
+      ],
+      expected: ['linked-adult', null],
     });
   });
 });
@@ -60,7 +80,7 @@ describe('watchingRoomOf', () => {
         }).kind,
         watchingRoomOf({
           judgeRound: { ...judging, status: 'completed' },
-          spectatorKind: 'undelayed-observer',
+          spectatorKind: 'host',
         }).kind,
         watchingRoomOf({
           judgeRound: null,

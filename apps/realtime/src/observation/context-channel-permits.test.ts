@@ -33,6 +33,10 @@ const evaluate = (reads: Partial<RealtimeAuthorityReads>, asked: string[]) =>
           ) => Promise<unknown>
         )(...args);
       },
+      floorRoundOf: reads.floorRoundOf ?? (async () => null),
+      readRoundYouth: reads.readRoundYouth ?? (async () => false),
+      readYouthRecordingPeople:
+        reads.readYouthRecordingPeople ?? (async () => ({ debaters: [] })),
     } as unknown as RealtimeAuthorityReads,
     id: 'c'.repeat(24),
     principals,
@@ -120,5 +124,70 @@ test('an owner’s infrastructure failure is not a denial', async () => {
     should: 'propagate so unexpired permits are kept',
     actual: code,
     expected: 'INFRASTRUCTURE',
+  });
+});
+
+test("a Youth Round's linked adult is asked again with the Round's linked adults", async () => {
+  const asked: string[] = [];
+  const youthSeen: unknown[] = [];
+  const allowed = {
+    status: 'allowed' as const,
+    partition: 'p',
+    disclosureRevision: 1,
+    minimumContentRevision: 0,
+    validUntil: 1,
+  };
+  const actual = await evaluate(
+    {
+      roundFloorChannelCohortAuthority: (async (input: {
+        readonly youth?: unknown;
+      }) => {
+        youthSeen.push(input.youth ?? null);
+        return input.youth ? [allowed] : [{ status: 'denied' }];
+      }) as unknown as RealtimeAuthorityReads['roundFloorChannelCohortAuthority'],
+      floorRoundOf: async () => 'r'.repeat(24),
+      readRoundYouth: async () => true,
+      readYouthRecordingPeople: async () => ({
+        debaters: [
+          {
+            actorId: 'd'.repeat(24),
+            userId: 'v'.repeat(24),
+            linkedAdultActorIds: [principals[0]!.actorId],
+          },
+        ],
+      }),
+    },
+    asked,
+  );
+  assert({
+    given: 'a floor that names the viewer nowhere, on a Youth Round they are linked to',
+    should:
+      'ask the floor again with the linked adults and answer its decision (ADR 0155)',
+    actual: [actual, youthSeen, asked],
+    expected: [
+      [allowed],
+      [null, { linkedAdultActorIds: [principals[0]!.actorId] }],
+      ['floor', 'floor'],
+    ],
+  });
+});
+
+test('a viewer the floor refuses on any other Round is not asked again', async () => {
+  const asked: string[] = [];
+  const actual = await evaluate(
+    {
+      roundFloorChannelCohortAuthority: (async () => [
+        { status: 'denied' },
+      ]) as unknown as RealtimeAuthorityReads['roundFloorChannelCohortAuthority'],
+      floorRoundOf: async () => 'r'.repeat(24),
+      readRoundYouth: async () => false,
+    },
+    asked,
+  );
+  assert({
+    given: 'a refused viewer on a Round that is not a Youth one',
+    should: 'keep the refusal and read nobody’s links',
+    actual: [actual, asked],
+    expected: [[{ status: 'denied' }], ['floor']],
   });
 });

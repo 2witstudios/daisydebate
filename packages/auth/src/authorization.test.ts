@@ -197,4 +197,38 @@ test('live Round reads and the undelayed observer', () => {
     ],
     expected: [true, false],
   });
+  const youth = { ...round, youth: { linkedAdultActorIds: ['a'] } };
+  const transcript = (resource: typeof round) =>
+    authorize({ ...input, capability: 'round.transcript.read', resource })
+      .allow;
+  assert({
+    given: "a youth debater's linked adult with no seat on a Youth Round",
+    should:
+      'hold undelayed observation and the transcript, never the live read a seat or host holds (ADR 0155)',
+    actual: [
+      allow('round.observe.undelayed', youth),
+      transcript(youth),
+      allow('round.read', youth),
+    ],
+    expected: [true, true, false],
+  });
+  assert({
+    given: 'a seatless host, on a Youth Round or any other',
+    should: 'still read no transcript: a seat reads it',
+    actual: [
+      transcript({ ...youth, createdByActorId: 'a' }),
+      transcript(asHost),
+    ],
+    expected: [false, false],
+  });
+  assert({
+    given: 'the same adult on a Round that is not a Youth one, or seated',
+    should: 'gain nothing as a linked adult',
+    actual: [
+      allow('round.observe.undelayed', round),
+      transcript(round),
+      allow('round.observe.undelayed', { ...youth, participants: seated }),
+    ],
+    expected: [false, false, false],
+  });
 });

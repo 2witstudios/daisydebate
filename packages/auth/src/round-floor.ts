@@ -49,6 +49,11 @@ export function decideRoundFloor(input: FloorDecisionInput):
   )
     return { allow: false };
   const terminal = isRoundOver(fact.status);
+  // A linked adult watches the live floor and never writes to it (ADR 0155).
+  if (fact.audience === 'linked_adult')
+    return !terminal && fact.completedAt === null && action === 'read'
+      ? { allow: true, readOnly: true, expiresAt: null }
+      : { allow: false };
   if (!terminal)
     return fact.completedAt === null
       ? { allow: true, readOnly: false, expiresAt: null }

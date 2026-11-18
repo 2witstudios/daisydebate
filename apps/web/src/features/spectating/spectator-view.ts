@@ -3,16 +3,21 @@ import { isLiveRound } from '../round-runtime/round-reading';
 
 /**
  * Why a viewer watches the live room of a Round they hold no seat in. Only an
- * undelayed observer does; the public audience watches the delayed Broadcast
- * and never reaches this view.
+ * undelayed observer does (`round.observe.undelayed`): its seatless host, or
+ * on a Youth Round a youth debater's linked coach or parent (ADR 0155). The
+ * public audience watches the delayed Broadcast and never reaches this view.
  */
-export type SpectatorKind = 'undelayed-observer';
+export type SpectatorKind = 'host' | 'linked-adult';
 
-/** The kind of spectator a viewer watches as; null without the capability, or once the Round is over. */
+/**
+ * The kind of spectator a viewer watches as; null without the capability, or
+ * once the Round is over. The Round read grants it only to those two, so an
+ * observer who does not host is a linked adult.
+ */
 export function spectatorKindOf(view: RoundView): SpectatorKind | null {
-  return isLiveRound(view) && view.viewerIsUndelayedObserver === true
-    ? 'undelayed-observer'
-    : null;
+  if (!isLiveRound(view) || view.viewerIsUndelayedObserver !== true)
+    return null;
+  return view.viewerIsHost ? 'host' : 'linked-adult';
 }
 
 /** Which live view a member without a debater's seat gets, with what it needs. */
