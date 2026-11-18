@@ -322,8 +322,8 @@ the start of the active Youth season, bounded by their own age record and a
   `ranked-unavailable` when there is none. A mixed seating starts a casual
   Round while the Room stays ranked, and the host is told before Start.
 - **Judges.** Judge seats take anyone.
-- **League ladders.** A league Room on a league ladder seats only Open members
-  until leagues carry a division (PYL S9). A caller's own claim there answers
+- **League ladders.** A league carries one division, Open or Youth (PYL-16),
+  and a league Room on its ladder seats only members in that division. A caller's own claim there answers
   `ranked-division`, and a host's assignment answers `actor-ineligible`.
 
 Round writers keep their own eligibility, so a running Round is never changed

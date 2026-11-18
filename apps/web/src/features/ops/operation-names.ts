@@ -35,6 +35,7 @@ const OPERATION_NAMES = [
   'rooms.invitations.decline',
   'rooms.invitations.withdraw',
   'audience-link.issue',
+  'league-request.create',
   'audience-link.open',
   'recording.playback',
   'recording.download',

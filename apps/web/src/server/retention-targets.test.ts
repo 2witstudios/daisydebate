@@ -42,6 +42,7 @@ describe('retention targets', () => {
         purgeExpiredOutboxEvents: record('outbox'),
         purgeExpiredEmailDeliveryEvents: record('email_delivery_event'),
         purgeExpiredEmailDeliveries: record('email_delivery'),
+        purgeExpiredLeagueRequests: record('league_requests'),
         purgeExpiredMailIntents: record('mail_intents'),
         purgeLapsedClubSeatInvitations: record('club_seat_invitations'),
         purgeExpiredSessions: record('session'),
@@ -212,6 +213,11 @@ describe('retention targets', () => {
             batchSize: 500,
             maxBatches: 4,
           },
+          {
+            name: 'retention.league_requests',
+            batchSize: 500,
+            maxBatches: 20,
+          },
           { name: 'retention.mail_intents', batchSize: 500, maxBatches: 20 },
           { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
           { name: 'retention.pending_ballots', batchSize: 500, maxBatches: 20 },
@@ -309,6 +315,7 @@ describe('retention targets', () => {
           club_seat_invitations: [
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
           ],
+          league_requests: [{ before: '2025-09-20T12:00:00.000Z', limit: 500 }],
           mail_intents: [{ before: '2026-08-21T12:00:00.000Z', limit: 500 }],
           utterances: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           pending_ballots: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
@@ -394,6 +401,7 @@ describe('retention targets', () => {
           ['retention.email_delivery_event', false],
           ['retention.email_delivery', false],
           ['retention.club_seat_invitations', false],
+          ['retention.league_requests', false],
           ['retention.mail_intents', false],
           ['retention.utterances', false],
           ['retention.pending_ballots', false],
@@ -421,7 +429,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 37,
+        failed: 38,
       },
     });
   });

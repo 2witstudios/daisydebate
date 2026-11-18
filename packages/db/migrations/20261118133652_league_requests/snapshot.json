@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "b082aa8d-de4b-40b8-a1da-f6b936852be8",
+  "id": "c2afddf9-f753-407d-8c25-a2bb992ef63e",
   "prevIds": [
     "de2a8a95-3712-434b-b069-c4e6108a0c1e"
   ],
@@ -177,18 +177,6 @@
     {
       "isRlsEnabled": false,
       "name": "challenges",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "club_seat_invitations",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "club_seats",
       "entityType": "tables",
       "schema": "public"
     },
@@ -447,6 +435,12 @@
     {
       "isRlsEnabled": false,
       "name": "ladders",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "league_requests",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3080,25 +3074,12 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "billing_customers"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
       "entityType": "columns",
       "schema": "public",
       "table": "billing_customers"
@@ -3353,38 +3334,12 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "billing_purchases"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "billing_purchases"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "1",
-      "generated": null,
-      "identity": null,
-      "name": "quantity",
       "entityType": "columns",
       "schema": "public",
       "table": "billing_purchases"
@@ -3691,25 +3646,12 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "billing_subscriptions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
       "entityType": "columns",
       "schema": "public",
       "table": "billing_subscriptions"
@@ -3775,19 +3717,6 @@
       "generated": null,
       "identity": null,
       "name": "amount_minor",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "billing_subscriptions"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "seat_count",
       "entityType": "columns",
       "schema": "public",
       "table": "billing_subscriptions"
@@ -4688,123 +4617,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "email",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "invited_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seats"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seats"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "assigned_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "club_seats"
     },
     {
       "type": "text",
@@ -6443,19 +6255,6 @@
       "generated": null,
       "identity": null,
       "name": "hosting_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
       "entityType": "columns",
       "schema": "public",
       "table": "account_entitlement_grants"
@@ -9395,6 +9194,279 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "form_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "fields_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "league_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "schools",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "seasons",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "style",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "divisions",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "needs",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_role",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_phone",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'queued'",
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_token_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "next_attempt_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_error_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "league_schools"
     },
     {
@@ -9860,19 +9932,6 @@
       "generated": null,
       "identity": null,
       "name": "preapproval_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mail_intents"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "club_seat_invitation_id",
       "entityType": "columns",
       "schema": "public",
       "table": "mail_intents"
@@ -24228,27 +24287,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "billing_customers_organization_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "billing_customers"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "mode",
           "isExpression": false,
           "asc": true,
@@ -24536,62 +24574,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"state\"->>'kind' in ('admitted','creating','unknown','open')",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "billing_purchases_pending_organization_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "billing_purchases"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "admitted_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "billing_purchases_organization_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "billing_purchases"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "(\"state\"->>'sessionId')",
           "isExpression": true,
           "asc": true,
@@ -24808,48 +24790,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "billing_subscriptions_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "billing_subscriptions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"current\"",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "billing_subscriptions_current_organization_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "billing_subscriptions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "billing_subscriptions_organization_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "billing_subscriptions"
@@ -25259,97 +25199,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "expires_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "club_seat_invitations_organization_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "email",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "club_seat_invitations_email_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "invited_by_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "club_seat_invitations_invited_by_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "club_seats_user_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "club_seats"
     },
     {
       "nameExplicit": true,
@@ -26327,27 +26176,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "account_entitlement_grants_hosting_version_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "account_entitlement_grants_organization_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "account_entitlement_grants"
@@ -28253,6 +28081,83 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "form_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "fields_digest",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_requests_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "state",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "next_attempt_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_requests_due_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "league_requests_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "organization_id",
           "isExpression": false,
           "asc": true,
@@ -28493,55 +28398,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "tournaments"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "club_seat_invitation_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mail_intents_club_invitation_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mail_intents"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "purpose",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mail_intents_purpose_created_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mail_intents"
     },
     {
       "nameExplicit": true,
@@ -37431,23 +37287,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "organization_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "organizations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "billing_customers_organization_id_organizations_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "billing_customers"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "user_id"
       ],
       "schemaTo": "public",
@@ -37499,23 +37338,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "organization_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "organizations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "billing_purchases_organization_id_organizations_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "billing_purchases"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "user_id"
       ],
       "schemaTo": "public",
@@ -37543,23 +37365,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "billing_subscriptions_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "billing_subscriptions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "organizations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "billing_subscriptions_organization_id_organizations_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "billing_subscriptions"
@@ -37728,74 +37533,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "challenges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "organizations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "club_seat_invitations_organization_id_organizations_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "invited_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "SET NULL",
-      "name": "club_seat_invitations_invited_by_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "organizations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "club_seats_organization_id_organizations_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "club_seats"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "club_seats_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "club_seats"
     },
     {
       "nameExplicit": false,
@@ -38413,23 +38150,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "account_entitlement_grants_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "organizations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "account_entitlement_grants_4ZHxaJ15Cfxe_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "account_entitlement_grants"
@@ -39718,23 +39438,6 @@
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "name": "mail_intents_preapproval_id_beta_preapprovals_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "mail_intents"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "club_seat_invitation_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "club_seat_invitations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "SET NULL",
-      "name": "mail_intents_Q0wgWYmMrH8W_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "mail_intents"
@@ -44475,17 +44178,6 @@
     },
     {
       "columns": [
-        "organization_id",
-        "user_id"
-      ],
-      "nameExplicit": false,
-      "name": "club_seats_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "club_seats"
-    },
-    {
-      "columns": [
         "actor_id",
         "request_id"
       ],
@@ -45363,16 +45055,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "club_seat_invitations_pkey",
-      "schema": "public",
-      "table": "club_seat_invitations",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "conflicts_pkey",
       "schema": "public",
       "table": "conflicts",
@@ -45636,6 +45318,16 @@
       "name": "ladders_pkey",
       "schema": "public",
       "table": "ladders",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "league_requests_pkey",
+      "schema": "public",
+      "table": "league_requests",
       "entityType": "pks"
     },
     {
@@ -47764,13 +47456,6 @@
       "table": "beta_preapprovals"
     },
     {
-      "value": "num_nonnulls(\"user_id\", \"organization_id\") = 1",
-      "name": "billing_customers_one_owner",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "billing_customers"
-    },
-    {
       "value": "\"mode\" in ('test', 'live')",
       "name": "billing_customers_mode_check",
       "entityType": "checks",
@@ -47853,20 +47538,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "billing_payment_observations"
-    },
-    {
-      "value": "num_nonnulls(\"user_id\", \"organization_id\") = 1",
-      "name": "billing_purchases_one_owner",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "billing_purchases"
-    },
-    {
-      "value": "(\"organization_id\" is null and \"quantity\" = 1) or (\"organization_id\" is not null and \"quantity\" between 1 and 200)",
-      "name": "billing_purchases_quantity_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "billing_purchases"
     },
     {
       "value": "\"mode\" in ('test', 'live')",
@@ -47958,20 +47629,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "billing_refund_actions"
-    },
-    {
-      "value": "num_nonnulls(\"user_id\", \"organization_id\") = 1",
-      "name": "billing_subscriptions_one_owner",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "billing_subscriptions"
-    },
-    {
-      "value": "\"seat_count\" is null or (\"organization_id\" is not null and \"seat_count\" between 1 and 200)",
-      "name": "billing_subscriptions_seat_count_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "billing_subscriptions"
     },
     {
       "value": "jsonb_typeof(\"evidence\") = 'object'",
@@ -48154,27 +47811,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "challenges"
-    },
-    {
-      "value": "\"email\" = lower(btrim(\"email\")) and length(\"email\") between 3 and 320",
-      "name": "club_seat_invitations_email_normalized",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "value": "isfinite(\"expires_at\") and \"expires_at\" > \"created_at\"",
-      "name": "club_seat_invitations_expiry_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "club_seat_invitations"
-    },
-    {
-      "value": "isfinite(\"assigned_at\")",
-      "name": "club_seats_assigned_finite",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "club_seats"
     },
     {
       "value": "\"basis\" in ('seated', 'school_entry', 'ward', 'declared')",
@@ -48471,15 +48107,8 @@
       "table": "email_suppression"
     },
     {
-      "value": "\n      (\"entitlement\" = 'tournament_hosting' and \"source\" in ('administrative', 'subscription') and \"hosting_version_id\" is not null and \"starts_at\" is null and \"expires_at\" is null)\n      or (\"entitlement\" <> 'tournament_hosting' and \"hosting_version_id\" is null and (( \"source\" = 'beta' and \"starts_at\" is null and \"expires_at\" is null)\n      or (\"source\" in ('subscription', 'organization_seat') and \"starts_at\" is not null and \"expires_at\" is not null\n        and isfinite(\"starts_at\") and isfinite(\"expires_at\") and \"starts_at\" < \"expires_at\")))\n    ",
+      "value": "\n      (\"entitlement\" = 'tournament_hosting' and \"source\" in ('administrative', 'subscription') and \"hosting_version_id\" is not null and \"starts_at\" is null and \"expires_at\" is null)\n      or (\"entitlement\" <> 'tournament_hosting' and \"hosting_version_id\" is null and (( \"source\" = 'beta' and \"starts_at\" is null and \"expires_at\" is null)\n      or (\"source\" = 'subscription' and \"starts_at\" is not null and \"expires_at\" is not null\n        and isfinite(\"starts_at\") and isfinite(\"expires_at\") and \"starts_at\" < \"expires_at\")))\n    ",
       "name": "account_entitlement_grants_validity_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "account_entitlement_grants"
-    },
-    {
-      "value": "(\"source\" = 'organization_seat') = (\"organization_id\" is not null)",
-      "name": "account_entitlement_grants_seat_organization_check",
       "entityType": "checks",
       "schema": "public",
       "table": "account_entitlement_grants"
@@ -48499,7 +48128,7 @@
       "table": "account_entitlement_grants"
     },
     {
-      "value": "\"source\" in ('beta', 'subscription', 'administrative', 'organization_seat')",
+      "value": "\"source\" in ('beta', 'subscription', 'administrative')",
       "name": "account_entitlement_grants_source_check",
       "entityType": "checks",
       "schema": "public",
@@ -49143,6 +48772,83 @@
       "table": "ladders"
     },
     {
+      "value": "\"schools\" in ('under-10', '10-25', '26-50', 'over-50')",
+      "name": "league_requests_schools_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"seasons\" in ('1', '2', '3-plus')",
+      "name": "league_requests_seasons_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"style\" in ('freestyle')",
+      "name": "league_requests_style_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"divisions\" in ('youth', 'open', 'youth-and-open')",
+      "name": "league_requests_divisions_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "char_length(\"league_name\") between 1 and 120\n        and char_length(\"needs\") <= 4000\n        and char_length(\"contact_name\") between 1 and 120\n        and char_length(\"contact_role\") between 1 and 120\n        and char_length(\"contact_email\") between 3 and 320\n        and (\"contact_phone\" is null or char_length(\"contact_phone\") between 1 and 32)",
+      "name": "league_requests_text_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"state\" in ('queued', 'leased', 'sent', 'failed', 'cancelled')",
+      "name": "league_requests_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"attempts\" >= 0",
+      "name": "league_requests_attempts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "(\"state\" = 'leased') = (\"lease_token_digest\" is not null and \"lease_expires_at\" is not null) and (\"lease_token_digest\" is null or \"lease_token_digest\" ~ '^[0-9a-f]{64}$')",
+      "name": "league_requests_lease_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "(\"state\" in ('sent', 'failed', 'cancelled')) = (\"completed_at\" is not null)",
+      "name": "league_requests_completed_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"last_error_code\" is null or \"last_error_code\" in ('delivery', 'delivery-unknown', 'suppressed', 'not-owed', 'unreadable')",
+      "name": "league_requests_error_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"fields_digest\" ~ '^[0-9a-f]{64}$'",
+      "name": "league_requests_digest_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
       "value": "\"status\" in ('invited', 'active', 'ended')",
       "name": "league_schools_status_check",
       "entityType": "checks",
@@ -49234,7 +48940,7 @@
       "table": "tournaments"
     },
     {
-      "value": "\"purpose\" in ('beta-invitation', 'beta-approved', 'beta-requests-digest', 'club-seat-invitation')",
+      "value": "\"purpose\" in ('beta-invitation', 'beta-approved', 'beta-requests-digest')",
       "name": "mail_intents_purpose_check",
       "entityType": "checks",
       "schema": "public",
@@ -49243,13 +48949,6 @@
     {
       "value": "(\"purpose\" = 'beta-invitation' and (\"preapproval_id\" is not null or \"state\" in ('sent', 'failed', 'cancelled'))) or (\"purpose\" <> 'beta-invitation' and \"preapproval_id\" is null)",
       "name": "mail_intents_preapproval_recipient_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "mail_intents"
-    },
-    {
-      "value": "(\"purpose\" = 'club-seat-invitation' and (\"club_seat_invitation_id\" is not null or \"state\" in ('sent', 'failed', 'cancelled'))) or (\"purpose\" <> 'club-seat-invitation' and \"club_seat_invitation_id\" is null)",
-      "name": "mail_intents_club_invitation_check",
       "entityType": "checks",
       "schema": "public",
       "table": "mail_intents"
@@ -50039,7 +49738,7 @@
       "table": "memberships"
     },
     {
-      "value": "\"kind\" in ('league', 'school', 'family')",
+      "value": "\"kind\" in ('league', 'school')",
       "name": "organizations_kind_check",
       "entityType": "checks",
       "schema": "public",
@@ -52125,7 +51824,7 @@
       "table": "usage_reservations"
     },
     {
-      "value": "coalesce(case \"source\"->>'kind'\n      when 'lifetime' then \"source\"='{\"kind\":\"lifetime\"}'::jsonb\n      when 'beta' then \"source\"-array['kind','startsAt','endsAt']='{}'::jsonb\n      when 'subscription' then \"source\"-array['kind','subscriptionId','startsAt','endsAt']='{}'::jsonb\n        and \"source\"->>'subscriptionId' ~ '^[a-z][a-z0-9]{23}$'\n      when 'organization_seat' then \"source\"-array['kind','organizationId','startsAt','endsAt']='{}'::jsonb\n        and \"source\"->>'organizationId' ~ '^[a-z0-9]{24}$'\n      else false end, false) and coalesce(\n        \"source\"->>'kind'='lifetime' or (\n          jsonb_typeof(\"source\"->'startsAt')='string' and jsonb_typeof(\"source\"->'endsAt')='string'\n          and isfinite((\"source\"->>'startsAt')::timestamptz) and isfinite((\"source\"->>'endsAt')::timestamptz)\n          and (\"source\"->>'startsAt')::timestamptz < (\"source\"->>'endsAt')::timestamptz), false)",
+      "value": "coalesce(case \"source\"->>'kind'\n      when 'lifetime' then \"source\"='{\"kind\":\"lifetime\"}'::jsonb\n      when 'beta' then \"source\"-array['kind','startsAt','endsAt']='{}'::jsonb\n      when 'subscription' then \"source\"-array['kind','subscriptionId','startsAt','endsAt']='{}'::jsonb\n        and \"source\"->>'subscriptionId' ~ '^[a-z][a-z0-9]{23}$'\n      else false end, false) and coalesce(\n        \"source\"->>'kind'='lifetime' or (\n          jsonb_typeof(\"source\"->'startsAt')='string' and jsonb_typeof(\"source\"->'endsAt')='string'\n          and isfinite((\"source\"->>'startsAt')::timestamptz) and isfinite((\"source\"->>'endsAt')::timestamptz)\n          and (\"source\"->>'startsAt')::timestamptz < (\"source\"->>'endsAt')::timestamptz), false)",
       "name": "usage_reservations_source_check",
       "entityType": "checks",
       "schema": "public",

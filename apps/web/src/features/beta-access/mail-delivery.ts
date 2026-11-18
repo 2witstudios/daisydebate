@@ -7,12 +7,8 @@ import {
   clubInvitationPath,
   renderClubSeatInvitation,
 } from '../clubs/invitation-email';
-import {
-  MAIL_LEASE_MS,
-  MAIL_MAX_ATTEMPTS,
-  MAIL_QUEUE_BATCH,
-  retryOrFail as backOff,
-} from '../mail/retry-policy';
+import { retryOrFail as backOff } from '../mail/retry-policy';
+import { runMailQueue } from '../mail/run-queue';
 
 type Store = Pick<
   Database,
@@ -123,31 +119,19 @@ export function createMailIntentDelivery(input: {
   ): Outcome => backOff(claim.attempts, input.now(), errorCode);
   return {
     /** Sends up to `limit` due intents one after another; resolves to how many it settled. */
-    async run(limit: number): Promise<number> {
-      const claims = await input.store.claimMailIntents({
-        limit: Math.min(limit, MAIL_QUEUE_BATCH),
-        leaseMs: MAIL_LEASE_MS,
-        maxAttempts: MAIL_MAX_ATTEMPTS,
+    run: (limit: number): Promise<number> =>
+      runMailQueue({
+        limit,
         nextToken: input.nextToken,
-      });
-      let settled = 0;
-      for (const claim of claims) {
+        claim: input.store.claimMailIntents,
+        decide,
         // One intent whose read fails (erased mid-lease, say) counts as a
         // failed attempt; it never aborts the rest of the batch (ISSUE-656).
-        const outcome = await decide(claim).catch((error: unknown) => {
+        undecided: (claim, error) => {
           input.failed(error);
           return retryOrFail(claim);
-        });
-        if (
-          await input.store.settleMailIntent({
-            id: claim.id,
-            token: claim.token,
-            outcome,
-          })
-        )
-          settled += 1;
-      }
-      return settled;
-    },
+        },
+        settle: input.store.settleMailIntent,
+      }),
   };
 }
