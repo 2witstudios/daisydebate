@@ -45,7 +45,17 @@ export const leagueRequestLimits = {
   needs: 4000,
 } as const;
 
-const required = (max: number) => z.string().trim().min(1).max(max);
+/**
+ * One line of text: no control characters, so a name can never break the
+ * owner email's subject or a header.
+ */
+const required = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .regex(/^[^\p{Cc}]*$/u);
 
 /** Digits, spaces and the usual phone punctuation, with at least seven digits. */
 const phoneSchema = z

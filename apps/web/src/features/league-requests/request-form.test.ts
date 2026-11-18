@@ -92,6 +92,18 @@ test('leagueRequestOf', () => {
   });
 
   assert({
+    given: 'a league name carrying a line break',
+    should: 'refuse it, so it cannot reach the email subject',
+    actual: leagueRequestOf({ ...filled, leagueName: 'Gulf\r\nBcc: x@y.z' }),
+    expected: {
+      kind: 'incomplete',
+      errors: {
+        leagueName: "Enter your league's name, up to 120 characters.",
+      },
+    },
+  });
+
+  assert({
     given: 'notes longer than the limit',
     should: 'refuse the notes',
     actual: leagueRequestOf({ ...filled, needs: 'x'.repeat(4001) }),
