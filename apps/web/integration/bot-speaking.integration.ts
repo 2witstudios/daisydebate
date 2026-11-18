@@ -96,6 +96,7 @@ for (const mode of ['valid', 'provider-error'] as const)
         nextId: createId,
         nowMs: () => Date.now(),
         callTimeoutMs: 10000,
+        reasoning: 'none',
         failed: () => {
           failures++;
         },

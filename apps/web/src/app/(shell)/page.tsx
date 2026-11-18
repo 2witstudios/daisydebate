@@ -19,6 +19,7 @@ import {
 } from '../../ui/dashboard/home-ladder';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
+import { requestPricingOpen } from './pricing/releases';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -40,6 +41,8 @@ export default async function HomePage() {
   ]);
   const liveNow = <LiveNow rounds={rounds} />;
   if (identity.state !== 'member') {
+    // Only the visitor's hero links to /pricing, so only a visitor reads it.
+    const pricing = await requestPricingOpen();
     return (
       <Dashboard
         audience="visitor"
@@ -49,7 +52,12 @@ export default async function HomePage() {
           playCaption: null,
           leaderboardTagline: leaderboardTagline(null),
         }}
-        hero={<HeroBanner requestLink={requestLinkAction.bind(null, '/')} />}
+        hero={
+          <HeroBanner
+            requestLink={requestLinkAction.bind(null, '/')}
+            showPricing={pricing}
+          />
+        }
       />
     );
   }

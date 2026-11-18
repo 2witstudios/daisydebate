@@ -15,6 +15,13 @@ const policy = z
       cross_ex: workerModel,
       tts: workerModel,
     }),
+    /**
+     * How hard the speech and cross_ex models think before answering
+     * (ISSUE-1460): named with them, since a model whose endpoint makes
+     * reasoning mandatory refuses 'none'. A speaker must start, so 'none'
+     * suits any model that accepts it.
+     */
+    reasoning: z.enum(['none', 'low', 'medium', 'high']),
   })
   .refine(
     (value) =>

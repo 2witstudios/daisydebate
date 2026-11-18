@@ -133,6 +133,19 @@ webhooks/reconciliation, erasure and existing authorized work remain available.
 Admin UI, other-process integration, AI ops consumers and the wider nightly
 rollout suite remain their existing separate leaves.
 
+`pricing-page` (Billing, PYL-12), `club-seats` (Billing, PYL-13) and
+`league-requests` (Daisy Tab, PYL-17) default false and expire on 2027-03-31,
+each read for no account. `pricing-page` opens /pricing and the links to it
+(the visitor's home hero, Help's plans topic, Compare plans on /premium);
+closed, /pricing is not found. It stays closed in production until the owner
+approves pricing there (epic PYL win condition 5). Closed, `club-seats` and
+`league-requests` show "Coming soon" on the Club and League cards; open, they
+link to `/clubs/new` and `/contact/league`, which their slices build. Get Premium
+and Host a tournament follow the flags that own their destinations,
+`premium-checkout` (billing checkout) and `host-tiers` (Daisy Tab, PYL-14,
+expires 2027-03-31: the host home at `/host`, which S8 builds), and show
+"Coming soon" while those are closed.
+
 References verified against PostgreSQL 18 (the repository's version):
 [isolation](https://www.postgresql.org/docs/18/transaction-iso.html),
 [transaction locks](https://www.postgresql.org/docs/18/explicit-locking.html),
