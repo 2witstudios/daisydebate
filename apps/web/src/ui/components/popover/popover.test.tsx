@@ -50,19 +50,16 @@ describe('popover primitives', () => {
     });
   });
 
-  test('a computed display class is refused at render', () => {
+  test('a computed display class is dropped at render', () => {
     const computed: string = ['m-auto', 'flex'].join(' ');
-    let message = '';
-    try {
-      renderToString(<PopoverDialog id="x" className={computed} />);
-    } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
-    }
     assert({
       given: 'a className built at runtime that sets display',
-      should: 'throw rather than lay out a closed popover',
-      actual: message.includes('pass layout instead of: flex'),
-      expected: true,
+      should:
+        'drop it, so the closed popover stays hidden and the page renders',
+      actual: classOf(
+        renderToString(<PopoverDialog id="x" className={computed} />),
+      ),
+      expected: 'not-open:hidden open:flex open:flex-col m-auto',
     });
   });
 });

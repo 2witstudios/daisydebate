@@ -43,7 +43,7 @@ Closed, it is hidden; open, it lays out as its `layout` prop asks (`stack` or
 placement) and never sets display or flex direction: an author class beats
 the browser's rule that hides a closed popover, so one bare `flex` once laid
 every closed Fill seat menu out on a new Room (SEAT-14a). A literal display
-class fails the type check, a computed one throws, and `check-styling` fails
+class fails the type check, a computed one is dropped at render, and `check-styling` fails
 on a raw `popover=` outside the primitives or a display class passed to one.
 Tests of a popover assert what the reader sees: the popover, found with
 `includeHidden`, is hidden until its opener is pressed and visible after, not

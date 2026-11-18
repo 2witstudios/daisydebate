@@ -50,24 +50,66 @@ export const primitiveOwnedUtilities: readonly string[] = [
 type OwnedUtility =
   (typeof displayUtilities)[number] | (typeof directionUtilities)[number];
 
-/** A utility without its variants (`md:`, `open:`) or important mark. */
-const bare = (word: string): string =>
-  (word.split(':').at(-1) ?? '').replace(/^!|!$/g, '');
+/** Splits a class word at its top-level colons: variants, then the utility. */
+const variantsAndUtility = (word: string): readonly string[] => {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const char of word) {
+    if (char === '[') depth += 1;
+    if (char === ']') depth -= 1;
+    if (char === ':' && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else current += char;
+  }
+  return [...parts, current];
+};
+
+/**
+ * A variant that styles the popover's children, not the popover: `*:`,
+ * `**:`, or an arbitrary variant with a combinator (`[&>li]:`, `[&_p]:`).
+ */
+const targetsChildren = (variant: string): boolean =>
+  variant === '*' ||
+  variant === '**' ||
+  (variant.startsWith('[&') && /[>_+~]/.test(variant));
+
+/** An arbitrary property that sets display or direction, as `[display:flex]`. */
+const ownedProperty = /^\[(?:display|flex-direction):/;
+
+const ownsLayout = (word: string): boolean => {
+  const parts = variantsAndUtility(word.replace(/^!|!$/g, ''));
+  const utility = (parts.at(-1) ?? '').replace(/^!|!$/g, '');
+  if (parts.slice(0, -1).some(targetsChildren)) return false;
+  return (
+    primitiveOwnedUtilities.includes(utility) || ownedProperty.test(utility)
+  );
+};
 
 /** The words in `className` that only the primitive may write. */
 export const ownedUtilitiesIn = (className: string): readonly string[] =>
-  className
-    .split(/\s+/)
-    .filter((word) => primitiveOwnedUtilities.includes(bare(word)));
+  className.split(/\s+/).filter((word) => word !== '' && ownsLayout(word));
 
-type Words<S extends string> = S extends `${infer Head} ${infer Rest}`
-  ? Head | Words<Rest>
-  : S;
+type Words<S extends string> =
+  S extends `${infer Head}${' ' | '\n' | '\t'}${infer Rest}`
+    ? Head | Words<Rest>
+    : S;
+type Unmarked<W extends string> = W extends `!${infer U}` | `${infer U}!`
+  ? U
+  : W;
 type Bare<W extends string> = W extends `${string}:${infer U}`
   ? Bare<U>
-  : W extends `!${infer U}` | `${infer U}!`
-    ? U
-    : W;
+  : Unmarked<W>;
+/** Mirrors ownsLayout: child variants pass, arbitrary display properties do not. */
+type Owned<W extends string> = W extends
+  `*${string}` | `[&${string}${'>' | '_' | '+' | '~'}${string}]:${string}`
+  ? never
+  : W extends `${string}[${'display' | 'flex-direction'}:${string}`
+    ? W
+    : Bare<W> extends OwnedUtility
+      ? W
+      : never;
 
 /**
  * A literal className compiles only when it sets no display or direction;
@@ -75,7 +117,7 @@ type Bare<W extends string> = W extends `${string}:${infer U}`
  */
 export type PopoverClassName<S extends string> = string extends S
   ? S
-  : [Extract<Bare<Words<S>>, OwnedUtility>] extends [never]
+  : [Owned<Words<S>>] extends [never]
     ? S
     : never;
 
@@ -87,19 +129,27 @@ const layoutClasses: Readonly<Record<PopoverLayout, string>> = {
 /**
  * The classes a popover renders with: hidden while closed, the requested
  * layout while open, then the caller's surface classes. A caller class that
- * sets display or direction is a programming error and throws.
+ * sets display or direction is dropped, so a computed slip past the type
+ * check and the styling check costs that class, never the route; `strict`
+ * throws instead, for tests and checks (ADR 0153).
  */
 export const popoverClasses = ({
   layout = 'stack',
   className = '',
+  strict = false,
 }: {
   readonly layout?: PopoverLayout | undefined;
   readonly className?: string | undefined;
+  /** Throw on an owned class rather than drop it. */
+  readonly strict?: boolean | undefined;
 }): string => {
   const owned = ownedUtilitiesIn(className);
-  if (owned.length > 0)
+  if (owned.length > 0 && strict)
     throw new Error(
       `A popover owns its display and direction; pass layout instead of: ${owned.join(' ')}`,
     );
-  return [layoutClasses[layout], className.trim()].filter(Boolean).join(' ');
+  const surface = className
+    .split(/\s+/)
+    .filter((word) => word !== '' && !owned.includes(word));
+  return [layoutClasses[layout], ...surface].join(' ');
 };

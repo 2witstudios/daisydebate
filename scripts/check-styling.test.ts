@@ -61,6 +61,18 @@ describe('popover gate', () => {
     });
   });
 
+  test('ignores names that are not the popover attribute', () => {
+    assert({
+      given: 'a popover variable, a data-popover attribute and popoverTarget',
+      should: 'report nothing',
+      actual: popoverIssues(
+        'apps/web/src/ui/documents/file-menu.tsx',
+        'const popover = useRef(null);\nlet popover=1;\n<p data-popover="help" />\n<button popoverTarget="m" />',
+      ),
+      expected: [],
+    });
+  });
+
   test('rejects display or direction passed to a primitive', () => {
     assert({
       given: 'the Room seat menu’s old classes (SEAT-14a)',

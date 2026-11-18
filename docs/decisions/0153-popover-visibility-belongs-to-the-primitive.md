@@ -30,11 +30,17 @@ count was right while the page was wrong.
    is `open:flex` with the direction of the `layout` prop (`stack` or `row`),
    then the caller's surface classes.
 2. **Callers may not set display or direction.** A literal `className` that
-   holds a display or flex-direction utility, under any variant or important
-   mark, fails the type check. A computed one throws at render.
-   `scripts/check-styling.ts` fails on a raw `popover=` outside the
-   primitives' folder and on a display or direction class passed to one.
-   These three guards are the fix.
+   holds a display or flex-direction utility (under any variant on the
+   popover itself, with an important mark, or as an arbitrary
+   `[display:…]` or `[flex-direction:…]` property) fails the type check.
+   A variant that styles children (`*:`, `**:`, `[&>li]:`, `[&_p]:`) stays
+   the caller's. A computed className that slips past the type check has
+   its owned classes dropped at render: the type check and `check-styling`
+   are the gates, and a slip should cost one class, not the Room route.
+   `popoverClasses({ strict: true })` throws instead, for tests.
+   `scripts/check-styling.ts` fails on a raw `popover` JSX attribute outside
+   the primitives' folder and on a display or direction class passed to one.
+   These guards are the fix.
 3. **Every popover uses a primitive.** The Room seat menus, the Ready
    confirmation and the file row menu all do. `file-menu`'s
    `&:popover-open { display: flex }` is gone.

@@ -23,8 +23,12 @@ export const stylingIssues = (paths: readonly string[]): readonly string[] =>
 const primitiveDirectory = 'apps/web/src/ui/components/popover/';
 const scannedMarkup = /\.[jt]sx$/;
 
-/** A raw popover attribute in markup, not `popoverTarget` and friends. */
-const rawPopover = /\bpopover\s*=/g;
+/**
+ * A raw `popover` JSX attribute: the whole name, written `popover=` with a
+ * quote or brace, as Prettier formats markup. Not `popoverTarget`,
+ * `data-popover`, or a variable assignment such as `const popover = …`.
+ */
+const rawPopover = /(?<![\w$.-])popover=["'{]/g;
 
 /**
  * A primitive's opening tag up to its literal className. `[^<>]` keeps the

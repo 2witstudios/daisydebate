@@ -53,7 +53,10 @@ describe('popoverClasses', () => {
       given: 'the Room seat menu’s old classes, with a bare flex (SEAT-14a)',
       should: 'refuse them and name the owned utilities',
       actual: thrown(() =>
-        popoverClasses({ className: 'm-auto flex w-room-dialog flex-col' }),
+        popoverClasses({
+          className: 'm-auto flex w-room-dialog flex-col',
+          strict: true,
+        }),
       ),
       expected:
         'A popover owns its display and direction; pass layout instead of: flex flex-col',
@@ -76,6 +79,40 @@ describe('popoverClasses', () => {
       ],
     });
   });
+
+  test('a variant that styles children is the caller’s', () => {
+    assert({
+      given: 'display set on children with *:, **: and combinator variants',
+      should: 'leave them to the caller, while a self variant is still owned',
+      actual: ownedUtilitiesIn(
+        '*:flex **:block [&>li]:block [&_p]:grid [&:hover]:flex',
+      ),
+      expected: ['[&:hover]:flex'],
+    });
+  });
+
+  test('an arbitrary display property is owned too', () => {
+    assert({
+      given: 'display and flex-direction written as arbitrary properties',
+      should: 'find each one, under variants as well',
+      actual: ownedUtilitiesIn(
+        '[display:flex] md:[flex-direction:column] [color:red]',
+      ),
+      expected: ['[display:flex]', 'md:[flex-direction:column]'],
+    });
+  });
+
+  test('a render drops an owned class rather than failing the route', () => {
+    assert({
+      given: 'an owned class without strict',
+      should: 'drop it and keep the surface classes',
+      actual: popoverClasses({
+        className: 'm-auto flex gap-2 [display:grid]',
+        strict: false,
+      }),
+      expected: 'not-open:hidden open:flex open:flex-col m-auto gap-2',
+    });
+  });
 });
 
 // Compile-time: a literal className that sets display does not type-check.
@@ -88,4 +125,21 @@ const refusedUnderVariant: [PopoverClassName<'gap-2 open:!grid'>] extends [
 ]
   ? true
   : false = true;
-void [accepted, refused, refusedUnderVariant];
+const refusedAfterNewline: [PopoverClassName<'m-auto\nflex'>] extends [never]
+  ? true
+  : false = true;
+const refusedProperty: [PopoverClassName<'gap-2 [display:flex]'>] extends [
+  never,
+]
+  ? true
+  : false = true;
+const childVariants: PopoverClassName<'*:flex [&>li]:block gap-2'> =
+  '*:flex [&>li]:block gap-2';
+void [
+  accepted,
+  refused,
+  refusedUnderVariant,
+  refusedAfterNewline,
+  refusedProperty,
+  childVariants,
+];
