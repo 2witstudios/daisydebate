@@ -22,6 +22,10 @@ export type RecordingHistoryProps = {
   readonly report?: ReactNode;
   /** Whether the youth-publishing release flag is open (PYL-8). */
   readonly youthPublishing?: boolean;
+  /** Shares a Youth Recording publicly (ADR 0151): a server action. */
+  readonly share?: () => Promise<void>;
+  /** Why the last share did not happen, already in words. */
+  readonly shareNotice?: string | null;
 };
 
 export const removalNotices = {
@@ -163,35 +167,54 @@ const names = (list: readonly string[]): string =>
     ? (list[0] ?? '')
     : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
 
-/** Why Share publicly cannot be used yet: a missing release, or the flag. */
+/** Why Share publicly cannot be used, or null when the viewer may share it. */
 const shareReason = (
   youth: NonNullable<History['youth']>,
   publishing: boolean,
-): string => {
+): string | null => {
   if (!youth.releasesComplete) {
     const missing = youth.debaters
       .filter((debater) => !debater.released)
       .map((debater) => debater.name);
     return `${names(missing)} ${missing.length === 1 ? 'has' : 'have'} no media release yet.`;
   }
-  // The publish action arrives with media releases (S4); until then it waits.
-  return publishing
-    ? 'Every youth debater has a media release. Sharing arrives with media releases.'
-    : 'Sharing Youth recordings is not open yet.';
+  if (!publishing) return 'Sharing Youth recordings is not open yet.';
+  return youth.viewerDebated
+    ? null
+    : 'Every youth debater has a media release. A debater in this Round can share it.';
 };
 
 /**
- * A Youth Round's Recording is private (PYL-5): no link to copy, and Share
- * publicly waits for a media release from every youth debater. The publish
- * action itself arrives with media releases (S4), so the button stays disabled.
+ * A Youth Round's Recording is private (PYL-5): no link to copy. A debater
+ * shares it publicly once every youth debater holds a media release and
+ * publishing is open (ADR 0151); it then shows on Watch, labelled Youth –
+ * Freestyle, until a release is withdrawn.
  */
 function YouthSharing({
   youth,
   publishing,
+  share,
+  notice,
 }: {
   youth: NonNullable<History['youth']>;
   publishing: boolean;
+  share: (() => Promise<void>) | undefined;
+  notice: string | null;
 }) {
+  if (youth.public && publishing)
+    return (
+      <section aria-label="Sharing" className={card}>
+        <span className={label}>Share and visibility</span>
+        <div>
+          <Badge tone="accent">Public</Badge>
+        </div>
+        <p className="text-sm text-ink">
+          <strong className="font-strong">Public:</strong> on Watch, labelled
+          Youth – Freestyle. It comes down if a release is withdrawn.
+        </p>
+      </section>
+    );
+  const reason = shareReason(youth, publishing);
   return (
     <section aria-label="Sharing" className={card}>
       <span className={label}>Share and visibility</span>
@@ -229,18 +252,37 @@ function YouthSharing({
           </li>
         </ul>
       </div>
-      <p id="share-publicly-reason" className="text-sm text-ink">
-        {shareReason(youth, publishing)}
-      </p>
-      <button
-        type="button"
-        disabled
-        aria-describedby="share-publicly-reason"
-        className={`${buttonClass('secondary')} self-start`}
-      >
-        <Icon name="lock" size={18} />
-        Share publicly
-      </button>
+      {reason === null ? null : (
+        <p id="share-publicly-reason" className="text-sm text-ink">
+          {reason}
+        </p>
+      )}
+      {notice === null ? null : (
+        <p role="status" className="text-sm text-live">
+          {notice}
+        </p>
+      )}
+      {reason === null && share ? (
+        <form action={share}>
+          <button
+            type="submit"
+            className={`${buttonClass('primary')} self-start`}
+          >
+            <Icon name="globe" size={18} />
+            Share publicly
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          disabled
+          aria-describedby="share-publicly-reason"
+          className={`${buttonClass('secondary')} self-start`}
+        >
+          <Icon name="lock" size={18} />
+          Share publicly
+        </button>
+      )}
       <p className="text-xs text-ink-muted">
         Sharing makes it public on Watch, labelled Youth – Freestyle. Paid ads
         never use it without a separate opt-in.
@@ -308,6 +350,8 @@ export function RecordingHistory({
   notice,
   report,
   youthPublishing = false,
+  share,
+  shareNotice = null,
 }: RecordingHistoryProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-4 px-6 pt-5 pb-8 max-compact:px-4">
@@ -349,7 +393,12 @@ export function RecordingHistory({
         <div className="flex basis-1/3 flex-col gap-4 max-compact:w-full max-compact:basis-auto">
           {screen.result ? <Result result={screen.result} /> : null}
           {screen.youth ? (
-            <YouthSharing youth={screen.youth} publishing={youthPublishing} />
+            <YouthSharing
+              youth={screen.youth}
+              publishing={youthPublishing}
+              share={share}
+              notice={shareNotice}
+            />
           ) : (
             <Sharing screen={screen} />
           )}

@@ -41,7 +41,7 @@ import {
   holdsActiveRelease,
   youthRoundPublishable,
   type MediaRelease,
-  type YouthRoundPeople,
+  type YouthRound,
 } from './youth-audience';
 
 /** The Round as the history screen shows it, beyond what permissions need. */
@@ -122,6 +122,10 @@ export type YouthPanel = {
    * youth-publishing release flag, which the page reads.
    */
   readonly releasesComplete: boolean;
+  /** A debater shared it and it is public now (ADR 0151). */
+  readonly public: boolean;
+  /** The viewer debated in it: only they may share it. */
+  readonly viewerDebated: boolean;
 };
 
 type TranscriptPanel = {
@@ -379,7 +383,8 @@ const recordingActions = (input: {
 const youthPanel = async (
   inputs: HistoryInputs,
   round: HistoryRound,
-  youth: YouthRoundPeople,
+  youth: YouthRound,
+  viewer: RecordingViewer,
 ): Promise<YouthPanel> => {
   const releases = await inputs.readMediaReleases(
     youth.debaters.map((debater) => debater.userId),
@@ -405,6 +410,10 @@ const youthPanel = async (
         };
       }),
     releasesComplete: youthRoundPublishable(youth, releases),
+    public: youth.public,
+    viewerDebated:
+      viewer.kind === 'account' &&
+      youth.debaters.some((debater) => debater.actorId === viewer.actorId),
   };
 };
 
@@ -493,7 +502,9 @@ export const openRecordingHistory = async (
     resolution: round.resolution ?? UNDRAWN_RESOLUTION,
     ranked: round.competitionType === 'ranked',
     ladder: round.ladder,
-    youth: round.youth && (await youthPanel(inputs, round, round.youth)),
+    youth:
+      round.youth &&
+      (await youthPanel(inputs, round, round.youth, input.viewer)),
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
     deletesOn: deletionDay(round),

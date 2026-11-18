@@ -14,6 +14,8 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { ThemeSwitcher } from '../../components/theme-switcher/theme-switcher';
 import { cn } from '../../cn';
 import { DataRights } from './data-rights';
+import { Badge } from '../../components/badge/badge';
+import { SectionJump } from './section-jump';
 
 const panel =
   'flex scroll-mt-20 flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
@@ -21,6 +23,7 @@ const heading = 'font-display text-xl font-bold text-ink';
 
 const nav = [
   ['profile', 'Profile'],
+  ['media-release', 'Media release'],
   ['notifications', 'Notifications'],
   ['watch-history', 'Watch history'],
   ['privacy', 'Privacy and data'],
@@ -59,6 +62,8 @@ export type SettingsPageProps = {
   readonly notifications?: ReactNode;
   /** What the member has watched, which they alone see and can clear. */
   readonly watchHistory?: ReactNode;
+  /** A youth member's media release (ADR 0151), while releases are open. */
+  readonly mediaRelease?: ReactNode;
   readonly username: string | null;
   readonly analytics: {
     readonly choice: ConsentChoice;
@@ -90,14 +95,22 @@ export function SettingsPage({
   status,
   notifications,
   watchHistory,
+  mediaRelease,
 }: SettingsPageProps) {
+  const sections = nav.filter(([id]) => id !== 'media-release' || mediaRelease);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader title="Settings" />
       <div className="flex items-start gap-6 max-compact:flex-col max-compact:gap-4">
+        <SectionJump
+          sections={[
+            ['/settings/billing', 'Billing'],
+            ...sections.map(([id, label]) => [`#${id}`, label] as const),
+          ]}
+        />
         <nav
           aria-label="Settings sections"
-          className="flex w-rail shrink-0 flex-col gap-1 max-compact:w-full"
+          className="flex w-rail shrink-0 flex-col gap-1 max-compact:hidden"
         >
           <Link
             href="/settings/billing"
@@ -105,13 +118,14 @@ export function SettingsPage({
           >
             Billing
           </Link>
-          {nav.map(([id, label]) => (
+          {sections.map(([id, label]) => (
             <a
               key={id}
               href={`#${id}`}
-              className="rounded-md px-3 py-2 text-base text-ink-muted no-underline hover:bg-surface hover:text-ink hover:no-underline"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-base text-ink-muted no-underline hover:bg-surface hover:text-ink hover:no-underline"
             >
               {label}
+              {id === 'media-release' ? <Badge tone="plum">New</Badge> : null}
             </a>
           ))}
         </nav>
@@ -149,6 +163,11 @@ export function SettingsPage({
               </div>
             )}
           </Section>
+          {mediaRelease ? (
+            <Section id="media-release" title="Media release">
+              {mediaRelease}
+            </Section>
+          ) : null}
           <Section id="privacy" title="Privacy and data">
             {analytics.available.analytics || analytics.available.replay ? (
               <p className="text-sm text-ink-muted">

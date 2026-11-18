@@ -99,3 +99,13 @@ export const recordingLineWords: Record<StandingBadge, string> = {
   on_file_club: 'Publishable',
   withdrawn: 'Private: withdrawn',
 };
+
+/** The page's notice after Share publicly, from its fixed key; none on success. */
+export const shareNoticeOf = (key: string): string | null => {
+  if (key === '' || key === 'shared') return null;
+  if (key === 'rate_limited')
+    return 'Too many tries. Wait a little and try again.';
+  return Object.hasOwn(publishRefusalWords, key)
+    ? publishRefusalWords[key as keyof typeof publishRefusalWords]
+    : 'This recording could not be shared. Try again.';
+};
