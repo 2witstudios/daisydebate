@@ -28,7 +28,6 @@ export const challengeSendLimit = {
 } as const;
 
 type Capability =
-  | 'social.challenge.send'
   | 'social.challenge.accept'
   | 'social.challenge.decline'
   | 'social.challenge.cancel';
@@ -47,6 +46,8 @@ export type ChallengeDependencies = {
   readonly discover: DiscoverActor;
   readonly activity: (actorId: string) => Promise<PresenceActivity | null>;
   readonly store: (capability: Capability) => ChallengeStore;
+  /** The store an offer is sent through, fenced for its mode (decision 79). */
+  readonly sendStore: (mode: CompetitionType) => ChallengeStore;
   /** The actor an offer names on the other end, for its contact fence. */
   readonly counterpart: (
     actorId: string,
@@ -97,7 +98,7 @@ export async function sendChallenge(
   const now = dependencies.clock.now();
   const { challengeId } = await unnamed(() =>
     dependencies
-      .store('social.challenge.send')
+      .sendStore(input.mode)
       .withContacts(
         { actorId, userId, memberActorIds: [actorId, otherActorId] },
         (frame) =>

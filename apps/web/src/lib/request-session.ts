@@ -33,6 +33,7 @@ import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { PublicProfileCard } from '@daisy/db';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
+import { rankedAgeAdmitted } from '@daisy/auth/age-floor';
 import { type MatchHistoryQuery } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
@@ -235,6 +236,20 @@ export const requestOptionalAnswersAdmitted = cache(
     });
   },
 );
+
+/**
+ * Whether this render's member meets the ranked age floor now (decision 79),
+ * so a page offers ranked play only to them. False for anyone else. It only
+ * shapes the page: every ranked command decides again under the account fence.
+ */
+export const requestRankedPlayAdmitted = cache(async (): Promise<boolean> => {
+  const identity = await requestIdentity();
+  if (identity.state !== 'member') return false;
+  const participation = await processApp().database.getParticipationByUserId(
+    identity.principal.userId,
+  );
+  return rankedAgeAdmitted(participation.ageBand);
+});
 
 /**
  * A member's profile as this render's viewer may see it, read in the server

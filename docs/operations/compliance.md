@@ -371,6 +371,18 @@ deleted at once, with its sign-in links and delivery receipts (WAIT-4.7).
 Daisy is not directed to children under 13. A later under-age answer against
 a recorded adult age is open (DEC-246).
 
+Ranked play is for members 18 and over (owner decision 79, `RANKED_AGE_FLOOR`
+beside the member floor in `@daisy/auth/age-floor`). Ranked Rounds are
+published and their content is licensed to Daisy, which a minor cannot agree
+to alone. The stored birth month decides on the Round's own date, read under
+the account fence: a Room that rates (ranked, or a league Room on a ladder)
+refuses an under-18 member's create, own seat claim and ranked challenge
+offer with `ranked-age`, seats nobody under 18 that a host names, and refuses
+Start if a seat is held by someone under 18 that day, without saying whose
+age. Tournament entries already refuse every entrant under 18 (the closed
+minors rule above). Members aged 16 and 17 keep casual play. A Scholastic
+ladder for under-18s is planned separately; nothing here models it.
+
 The guardian link and restriction tables hold no rows and cannot: the web
 application's database role has no INSERT, UPDATE or DELETE on them, and no
 consent is modelled. A later migration opens them once counsel has answered.

@@ -1,3 +1,4 @@
+import { rankedAgeReason } from '../play/ranked-age';
 import { aiJudgePremiumText } from './ai-judge-copy';
 import { createAssembly } from './create-assembly';
 import type { RoomCreateRefusal } from './room-create-response';
@@ -108,6 +109,7 @@ const settingsRefusal =
 const refusals: Readonly<Record<RoomCreateRefusal, string>> = {
   'ranked-unavailable':
     'Ranked rooms are unavailable right now. Turn Ranked off or try again later.',
+  'ranked-age': `${rankedAgeReason} Turn Ranked off to play casual.`,
   settings: settingsRefusal,
   // A created Room's form sends no cast, so neither reaches a person here.
   'actor-ineligible': settingsRefusal,

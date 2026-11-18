@@ -57,6 +57,8 @@ import {
   type SelectionTuple,
 } from './format-operations';
 import { drawStartFacts } from './draw-start-facts';
+import { rankedAgeAdmitted } from '@daisy/auth/age-floor';
+import { roomRates, seatableInRoom } from './ranked-age-seat';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -234,8 +236,16 @@ async function executeOnce(
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
+  // Decision 79: the caller learns their own age is why; a host naming
+  // someone under it hears only that they cannot sit here.
+  if (
+    input.type === 'claim-seat' &&
+    roomRates(row) &&
+    !rankedAgeAdmitted(account?.ageBand ?? null)
+  )
+    throw createRefusal('CONFLICT', 'ranked-age');
   const target = input.targetActorId
-    ? await actorFact(tx, input.targetActorId)
+    ? seatableInRoom(row, await actorFact(tx, input.targetActorId))
     : null;
   // FOR SHARE: a concurrent publication (FOR UPDATE on the format
   // row) serializes with this selection, so the policy judges facts

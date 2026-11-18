@@ -13,6 +13,7 @@ import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
+import { seatableInRoom } from './ranked-age-seat';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
 import { columnsOfSeat } from './seat-columns';
 import { holdActiveRoomMembers } from './room-membership-persistence';
@@ -208,7 +209,8 @@ const applyInitialCast = async (
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
   const targets: (Actor | null)[] = [];
-  for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
+  for (const seat of seats)
+    targets.push(seatableInRoom(row, await actorFact(tx, seat.actorId)));
   const judgeQuote =
     judgeAdmission && targets.some((target) => target?.aiRole === 'judge')
       ? await judgeAdmission.quoteLocked(tx, {

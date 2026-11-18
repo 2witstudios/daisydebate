@@ -24,6 +24,7 @@ import { Button } from '../components/button/button';
 import { controlClass } from '../components/form-field/form-field-class';
 import { useFormAction } from '../form-action/form-action';
 import type { PersonActions } from './person-actions';
+import { rankedAgeReason } from '../../features/play/ranked-age';
 
 const modeLabels = {
   ranked: 'Ranked',
@@ -39,9 +40,12 @@ const summary =
  */
 export function ProfilePersonActions({
   username,
+  rankedAgeAdmitted,
   actions,
 }: {
   readonly username: string;
+  /** The member meets the ranked age floor (decision 79); a hint, the send decides again. */
+  readonly rankedAgeAdmitted: boolean;
   readonly actions: Pick<PersonActions, 'sendChallenge' | 'report' | 'block'>;
 }) {
   const [sent, send, sending] = useFormAction(
@@ -70,14 +74,25 @@ export function ProfilePersonActions({
           <input type="hidden" name="username" value={username} />
           <label>
             <span className="sr-only">Mode</span>
-            <select name="mode" defaultValue="ranked" className={controlClass}>
+            <select
+              name="mode"
+              defaultValue={rankedAgeAdmitted ? 'ranked' : 'casual'}
+              className={controlClass}
+            >
               {competitionTypes.map((mode) => (
-                <option key={mode} value={mode}>
+                <option
+                  key={mode}
+                  value={mode}
+                  disabled={mode === 'ranked' && !rankedAgeAdmitted}
+                >
                   {modeLabels[mode]}
                 </option>
               ))}
             </select>
           </label>
+          {rankedAgeAdmitted ? null : (
+            <p className="w-full text-sm text-ink-muted">{rankedAgeReason}</p>
+          )}
           <input type="hidden" name="format" value="freestyle" />
           <Button type="submit" disabled={sending}>
             Send challenge
