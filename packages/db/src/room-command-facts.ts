@@ -25,6 +25,7 @@ import { accountAge } from './schema/account-age';
 import { divisionOfAgeBand, type RatingDivision } from '@daisy/protocol';
 import { divisionAgeBand } from './ladder-division-band';
 import { leagueLadderSeatFits } from './league-ladder-seat';
+import { leagueRoomFacts } from './league-room-division';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
@@ -222,7 +223,7 @@ const hydrateRoom = async (
     .from(roomParticipants)
     .where(eq(roomParticipants.roomId, row.id))
     .orderBy(...seatRowOrder(roomParticipants));
-  const room = row;
+  const league = await leagueRoomFacts(tx, row);
   const participants = await Promise.all(
     seats.map(async (row) => {
       const actor = await actorFact(tx, row.actorId);
@@ -233,7 +234,7 @@ const hydrateRoom = async (
         // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
         eligible:
           actor.eligible &&
-          leagueLadderSeatFits(room, actor) &&
+          leagueLadderSeatFits(league, actor) &&
           (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
         id: row.id,
         seat,

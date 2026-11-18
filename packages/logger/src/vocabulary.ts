@@ -49,6 +49,8 @@ export const eventRegistry = {
   'round.analysis.failed': 'error',
   'beta.mail.failed': 'error',
   'notification.mail.failed': 'error',
+  'league_request.mail.failed': 'error',
+  'league_request.mail.unconfigured': 'warn',
   'operator.request.refused': 'warn',
   'flags.read.failed': 'warn',
   'flags.release_default': 'info',

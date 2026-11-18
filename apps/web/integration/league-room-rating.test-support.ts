@@ -131,9 +131,8 @@ export async function leagueRoomRating(world: World) {
     async (f) => {
       const host = world.bots.Director!;
       let view = await f.operations.view(host, roomId);
-      // Decision 79: a league ladder is Open until leagues carry a division
-      // (ADR 0147, PYL S9), so it seats nobody under 18; the same member at
-      // 18 sits as before.
+      // Decision 79: this league is Open (every league starts Open, PYL-16),
+      // so it seats nobody under 18; the same member at 18 sits as before.
       const minor = world.bots['Debater 2']!;
       const [kept] =
         await world.sql`select birth_month from account_age where user_id=${minor.userId}`;
@@ -154,6 +153,39 @@ export async function leagueRoomRating(world: World) {
         should: 'refuse them on their own ladder, never naming an age',
         actual: underAge,
         expected: 'ranked-division',
+      });
+      // PYL-16: the same league set to Youth seats the 17-year-old and
+      // refuses an adult, by the league's division alone.
+      const [league] =
+        await world.sql`select l.organization_id from rooms r join ladders l on l.id = r.league_ladder_id where r.id = ${roomId}`;
+      await world.sql`update organizations set league_division = 'youth' where id = ${league!.organization_id}`;
+      await world.sql`update account_age set birth_month=to_char(now() - interval '17 years 11 months','YYYY-MM'), version=version+1 where user_id=${minor.userId}`;
+      const outcome = (
+        person: typeof minor,
+        side: 'affirmative' | 'negative',
+      ) =>
+        f
+          .command(person, view, { type: 'claim-seat', seat: sideSeat(side) })
+          .then(
+            (answer) => {
+              view = answer.view;
+              return 'accepted';
+            },
+            (error: Error) => error.message,
+          );
+      const adultInYouth = await outcome(
+        world.bots['Debater 1']!,
+        'affirmative',
+      );
+      const youthInYouth = await outcome(minor, 'negative');
+      view = (await f.command(minor, view, { type: 'leave-seat' })).view;
+      await world.sql`update organizations set league_division = 'open' where id = ${league!.organization_id}`;
+      await world.sql`update account_age set birth_month=${kept!.birth_month}, version=version+1 where user_id=${minor.userId}`;
+      assert({
+        given: 'the league set to Youth',
+        should: 'refuse an adult on their own ladder and seat the 17-year-old',
+        actual: { adultInYouth, youthInYouth },
+        expected: { adultInYouth: 'ranked-division', youthInYouth: 'accepted' },
       });
       for (const [side, person] of [
         ['affirmative', world.bots['Debater 1']!],

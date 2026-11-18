@@ -2,17 +2,21 @@ import type { RatingDivision } from '@daisy/protocol';
 
 /**
  * A league Room on a ladder rates its seats on the league's ladder, and a
- * league has no division yet (PYL S9), so its ladder is Open: in such a Room
- * a person under 18, or with no age record, holds no eligible seat (owner
- * decision 79). Every seating path and Start refuse them under the same
- * fenced read. Daisy's own ranked Rooms route by division in the engine
- * instead (`rankedSeatClaimRefusal`, `roundCompetition`).
+ * league carries one division (PYL-16, decision 79): Open is 18 and over,
+ * Youth under 18. In such a Room a person outside the league's division,
+ * or with no age record, holds no eligible seat; every seating path and
+ * Start refuse them under the same fenced read. Daisy's own ranked Rooms
+ * route by division in the engine instead (`rankedSeatClaimRefusal`,
+ * `roundCompetition`).
  */
-type LeagueRoomFacts = { readonly leagueLadderId: string | null };
+export type LeagueRoomFacts = {
+  /** The division of the league ladder this Room rates on; null when it rates on none. */
+  readonly leagueDivision: RatingDivision | null;
+};
 
 /** Whether a Room's Round rates on a league ladder. */
 export const roomOnLeagueLadder = (room: LeagueRoomFacts): boolean =>
-  room.leagueLadderId !== null;
+  room.leagueDivision !== null;
 
 /** Whether this actor may sit in this Room; a bot always may. */
 export const leagueLadderSeatFits = (
@@ -23,8 +27,8 @@ export const leagueLadderSeatFits = (
   },
 ): boolean =>
   actor.kind !== 'human' ||
-  actor.division === 'open' ||
-  !roomOnLeagueLadder(room);
+  !roomOnLeagueLadder(room) ||
+  actor.division === room.leagueDivision;
 
 /** The same actor, ineligible for a seat its division keeps it from here. */
 export const seatableInRoom = <
