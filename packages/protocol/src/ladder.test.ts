@@ -108,4 +108,3 @@ test('roundCompetition', () => {
     expected: { competitionType: 'casual', ladder: null },
   });
 });
-

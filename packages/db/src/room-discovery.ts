@@ -177,10 +177,7 @@ export async function discoverRooms(
    and ${modeMatches(mode)} and ${divisionMatches(division)}
    and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
- `)) as unknown as (Omit<
-    RoomListEntry,
-    'waitingSince' | 'live'
-  > & {
+ `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
     waitingSince: Date | string | null;
     live: {
       stage: NonNullable<RoomListEntry['live']>['stage'];

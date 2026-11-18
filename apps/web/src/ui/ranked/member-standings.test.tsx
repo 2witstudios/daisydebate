@@ -37,8 +37,7 @@ describe('MemberStandings', () => {
       />,
     );
     assert({
-      given:
-        'a provisional rating now and a Youth season finished before',
+      given: 'a provisional rating now and a Youth season finished before',
       should:
         'show one Freestyle card, then the season with its facts, naming no division',
       actual: [

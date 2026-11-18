@@ -60,7 +60,10 @@ describe('lobbyRow', () => {
         facts: ['1 of 3 seats', 'Waiting 7 min'],
         state: 'open',
         status: 'Open',
-        actions: [watch(), { verb: 'Join', href: room, primary: true } as const],
+        actions: [
+          watch(),
+          { verb: 'Join', href: room, primary: true } as const,
+        ],
       },
     });
   });
@@ -161,7 +164,8 @@ describe('rowActions', () => {
   test('a live Youth Round is watched only by its audience', () => {
     const youth = live({ division: 'youth' });
     assert({
-      given: 'a live Youth Round read by an outsider, then by its seatless host',
+      given:
+        'a live Youth Round read by an outsider, then by its seatless host',
       should: 'offer no action to the outsider and Watch to the host',
       actual: [
         rowActions(minor, youth, 'live'),

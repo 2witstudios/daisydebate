@@ -145,7 +145,10 @@ async function pairLobby(
   );
   const [first, second] = rows;
   if (rows.length !== 2 || !first || !second) return null;
-  if (mode === 'ranked' && (first.division === null || second.division === null))
+  if (
+    mode === 'ranked' &&
+    (first.division === null || second.division === null)
+  )
     return null;
   const lobby = lobbyOf(first);
   return lobby === lobbyOf(second) ? lobby : null;

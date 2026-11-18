@@ -35,7 +35,11 @@ const openSeasons = () =>
   );
 
 const contextFor = (browser: Browser, javaScriptEnabled = true) =>
-  browser.newContext({ baseURL: origin, ignoreHTTPSErrors: true, javaScriptEnabled });
+  browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+    javaScriptEnabled,
+  });
 
 /** The lobby switch (YLLobbySwitch): two links, the current one marked. */
 const lobbySwitch = (page: Page) =>
@@ -109,15 +113,24 @@ test('Watch from a row, and debater seats only for the Room’s own lobby', asyn
     // An Open Room, watched from the Youth member's view of the Open lobby.
     const openTitle = `Open room ${createId().slice(0, 8)}`;
     await adult.goto('/play/room');
-    const openRoom = await submitCreateRoom(adult, openTitle, 'freestyle', true);
+    const openRoom = await submitCreateRoom(
+      adult,
+      openTitle,
+      'freestyle',
+      true,
+    );
     rooms.push({ page: adult, id: openRoom.id });
     await claim(adult, openRoom, 'Affirmative 1');
 
     await youth.goto('/lobby?lobby=open');
     const row = lobbyRow(youth, openTitle);
     await expect(row).toHaveCount(1);
-    await expect(row.getByRole('link', { name: `Watch: ${openTitle}` })).toBeVisible();
-    await expect(row.getByRole('link', { name: `Join: ${openTitle}` })).toHaveCount(0);
+    await expect(
+      row.getByRole('link', { name: `Watch: ${openTitle}` }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole('link', { name: `Join: ${openTitle}` }),
+    ).toHaveCount(0);
     await expect(row).not.toContainText('Freestyle –');
     await row.getByRole('link', { name: `Watch: ${openTitle}` }).click();
     await expect(youth).toHaveURL(new RegExp(`/rooms/${openRoom.id}$`));
@@ -137,13 +150,22 @@ test('Watch from a row, and debater seats only for the Room’s own lobby', asyn
     // A Youth Room: an adult is offered no Youth debater seat.
     const youthTitle = `Youth room ${createId().slice(0, 8)}`;
     await youth.goto('/play/room');
-    const youthRoom = await submitCreateRoom(youth, youthTitle, 'freestyle', true);
+    const youthRoom = await submitCreateRoom(
+      youth,
+      youthTitle,
+      'freestyle',
+      true,
+    );
     rooms.push({ page: youth, id: youthRoom.id });
     await claim(youth, youthRoom, 'Affirmative 1');
     await adult.goto('/lobby?lobby=youth');
     const youthRow = lobbyRow(adult, youthTitle);
-    await expect(youthRow.getByRole('link', { name: `Watch: ${youthTitle}` })).toBeVisible();
-    await expect(youthRow.getByRole('link', { name: `Join: ${youthTitle}` })).toHaveCount(0);
+    await expect(
+      youthRow.getByRole('link', { name: `Watch: ${youthTitle}` }),
+    ).toBeVisible();
+    await expect(
+      youthRow.getByRole('link', { name: `Join: ${youthTitle}` }),
+    ).toHaveCount(0);
     await adult.goto(`/rooms/${youthRoom.id}`);
     const youthNegative = rosterSeatName(
       await reread(adult.request, youthRoom.id),

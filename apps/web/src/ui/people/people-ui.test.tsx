@@ -127,7 +127,8 @@ test('an incoming challenge names its style and mode, and offers Accept (YChalle
     )?.[0] ?? '';
   assert({
     given: 'a ranked challenge from @mara in the member’s own lobby',
-    should: 'read Freestyle · Ranked with Accept and Decline, naming no division',
+    should:
+      'read Freestyle · Ranked with Accept and Decline, naming no division',
     actual: [
       card.includes('Freestyle · Ranked'),
       card.includes('Youth') || card.includes('Open'),

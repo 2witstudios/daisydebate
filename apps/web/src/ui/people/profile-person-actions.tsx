@@ -81,40 +81,43 @@ export function ProfilePersonActions({
   return (
     <>
       {mayChallenge(memberDivision, theirDivision) ? (
-      <details>
-        <summary className={summary}>Challenge</summary>
-        <form action={send} className="flex flex-wrap items-center gap-2 pt-2">
-          <input type="hidden" name="username" value={username} />
-          <label>
-            <span className="sr-only">Mode</span>
-            <select
-              name="mode"
-              aria-describedby={line === null ? undefined : ladderLineId}
-              defaultValue={ranked ? 'ranked' : 'casual'}
-              className={controlClass}
-            >
-              {competitionTypes.map((mode) => (
-                <option
-                  key={mode}
-                  value={mode}
-                  disabled={mode === 'ranked' && !ranked}
-                >
-                  {modeLabels[mode]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {line === null ? null : (
-            <p id={ladderLineId} className="w-full text-sm text-ink-muted">
-              {line}
-            </p>
-          )}
-          <input type="hidden" name="format" value="freestyle" />
-          <Button type="submit" disabled={sending}>
-            Send challenge
-          </Button>
-        </form>
-      </details>
+        <details>
+          <summary className={summary}>Challenge</summary>
+          <form
+            action={send}
+            className="flex flex-wrap items-center gap-2 pt-2"
+          >
+            <input type="hidden" name="username" value={username} />
+            <label>
+              <span className="sr-only">Mode</span>
+              <select
+                name="mode"
+                aria-describedby={line === null ? undefined : ladderLineId}
+                defaultValue={ranked ? 'ranked' : 'casual'}
+                className={controlClass}
+              >
+                {competitionTypes.map((mode) => (
+                  <option
+                    key={mode}
+                    value={mode}
+                    disabled={mode === 'ranked' && !ranked}
+                  >
+                    {modeLabels[mode]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {line === null ? null : (
+              <p id={ladderLineId} className="w-full text-sm text-ink-muted">
+                {line}
+              </p>
+            )}
+            <input type="hidden" name="format" value="freestyle" />
+            <Button type="submit" disabled={sending}>
+              Send challenge
+            </Button>
+          </form>
+        </details>
       ) : null}
       <details>
         <summary className={summary}>Report</summary>

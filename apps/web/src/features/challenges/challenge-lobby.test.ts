@@ -27,7 +27,8 @@ test('mayChallenge', () => {
 
 test('offersRanked', () => {
   assert({
-    given: 'two members of one division, and a pair where one has no age record',
+    given:
+      'two members of one division, and a pair where one has no age record',
     should: 'offer Ranked only when both hold the same division',
     actual: [
       offersRanked('youth', 'youth'),

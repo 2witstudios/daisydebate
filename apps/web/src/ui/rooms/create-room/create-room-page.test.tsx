@@ -68,7 +68,9 @@ test('the ranked create form explains why it is public and states no notice', ()
     given: 'the form with Ranked on',
     should: 'say why it is public, and show and post no capture notice',
     actual: [
-      ranked.includes('Listed in the lobby. Play casual to choose who can join.'),
+      ranked.includes(
+        'Listed in the lobby. Play casual to choose who can join.',
+      ),
       ranked.includes(casualCaptureNotice.text),
       ranked.includes('name="noticeVersion"'),
     ],
@@ -161,7 +163,9 @@ test('Ranked is open to either lobby and names no division (YCreateRoom)', () =>
       ),
       youth.includes('role="radiogroup" aria-label="Lobby"'),
       staff.includes('role="radiogroup" aria-label="Lobby"'),
-      staff.includes('<input type="radio" name="lobby" checked="" value="open"/>'),
+      staff.includes(
+        '<input type="radio" name="lobby" checked="" value="open"/>',
+      ),
       staff.includes('>Youth lobby</strong>'),
     ],
     expected: [true, true, false, false, true, true, true],

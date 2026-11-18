@@ -115,7 +115,8 @@ test('a debater seat is for the Room’s own lobby (ADR 0156)', () => {
     expected: ['other-division', 'other-division'],
   });
   assert({
-    given: 'a seatless host moving a judge of the other lobby to a debater seat',
+    given:
+      'a seatless host moving a judge of the other lobby to a debater seat',
     should: 'refuse it as a claim is refused',
     actual: [assign('youth', 'open'), assign('open', 'youth')],
     expected: ['other-division', 'other-division'],

@@ -138,8 +138,7 @@ describe('lobbyHref', () => {
       given: 'a ranked query in the Youth lobby',
       should: 'carry the lobby after the mode',
       actual: lobbyHref({ ...query, division: 'youth' }),
-      expected:
-        '/lobby?q=tax&pageSize=5&status=open&mode=ranked&lobby=youth',
+      expected: '/lobby?q=tax&pageSize=5&status=open&mode=ranked&lobby=youth',
     });
   });
 

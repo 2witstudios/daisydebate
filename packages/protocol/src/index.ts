@@ -54,11 +54,7 @@ export {
   roomLobbyAtCreation,
   seatAllowed,
 } from './division-lobby';
-export type {
-  LiveStanding,
-  RoomCreator,
-  SeatTaker,
-} from './division-lobby';
+export type { LiveStanding, RoomCreator, SeatTaker } from './division-lobby';
 export { aiRoleFits, aiRoleOfSeat, aiRoleSchema, aiRoles } from './ai-roles';
 export type { AiRole } from './ai-roles';
 export {

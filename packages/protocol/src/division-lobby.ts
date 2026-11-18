@@ -36,7 +36,8 @@ export function roomLobbyAtCreation(
   | { readonly kind: 'division'; readonly division: RatingDivision }
   | { readonly kind: 'refused'; readonly refusal: 'other-division' } {
   const own = lobbyOf(creator);
-  if (choice === null || choice === own) return { kind: 'division', division: own };
+  if (choice === null || choice === own)
+    return { kind: 'division', division: own };
   if (choice === 'youth' && creator.clubStaff)
     return { kind: 'division', division: 'youth' };
   return { kind: 'refused', refusal: 'other-division' };

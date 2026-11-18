@@ -81,6 +81,9 @@ test('a challenge to the other lobby reads as one they cannot take', () => {
       challengeRefusal('send', 409, 'other-division'),
       challengeRefusal('send', 409),
     ],
-    expected: ['They cannot take a challenge right now.', 'Leave your room first.'],
+    expected: [
+      'They cannot take a challenge right now.',
+      'Leave your room first.',
+    ],
   });
 });

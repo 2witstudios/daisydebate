@@ -64,9 +64,7 @@ function IncomingCard({
       <p className="font-display text-lg leading-tight font-semibold">
         @{offer.username}
       </p>
-      <p className="text-sm text-stage-ink-muted">
-        {challengeSummary(offer)}
-      </p>
+      <p className="text-sm text-stage-ink-muted">{challengeSummary(offer)}</p>
       {notice ? (
         <p role="status" className="text-sm text-stage-ink-muted">
           {notice}
@@ -126,9 +124,7 @@ function OutgoingCard({
       )}
     >
       <p className="text-sm font-semibold">Waiting for @{offer.username}</p>
-      <p className="text-sm text-ink-muted">
-        {challengeSummary(offer)}
-      </p>
+      <p className="text-sm text-ink-muted">{challengeSummary(offer)}</p>
       <form action={post} onSubmit={() => noteCancelled(offer.id)}>
         <input type="hidden" name="command" value="cancel" />
         <input type="hidden" name="challengeId" value={offer.id} />

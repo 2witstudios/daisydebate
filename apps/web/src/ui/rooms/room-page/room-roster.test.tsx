@@ -892,7 +892,8 @@ describe('RoomRoster lobbies (ADR 0156)', () => {
     const own = render(inLobby('open'));
     const other = render(inLobby('youth'));
     assert({
-      given: 'an adult over an Open Room, then over a Youth Room, each with two debater seats and a judge seat open',
+      given:
+        'an adult over an Open Room, then over a Youth Room, each with two debater seats and a judge seat open',
       should:
         'offer Take seat on all three at home, only on the judge seat across lobbies, and name no lobby',
       actual: [

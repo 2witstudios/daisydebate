@@ -386,9 +386,7 @@ export function CreateRoomEditor({
             <div className="create-room-field">
               <span>Who can join</span>
               <input type="hidden" name="visibility" value="public" />
-              <p>
-                Listed in the lobby. Play casual to choose who can join.
-              </p>
+              <p>Listed in the lobby. Play casual to choose who can join.</p>
             </div>
           ) : (
             <label className="create-room-field">

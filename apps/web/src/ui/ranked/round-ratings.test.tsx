@@ -75,9 +75,7 @@ describe('the ladder a Round rated', () => {
       should:
         'head with the ladder and season, and name the ladder on each change',
       actual: [
-        /<h2[^>]*>Ranked · Freestyle · Fall 2026<\/h2>/.test(
-          html,
-        ),
+        /<h2[^>]*>Ranked · Freestyle · Fall 2026<\/h2>/.test(html),
         html.includes(
           '1526<span class="font-body text-base font-book not-italic text-online"> Freestyle +14</span>',
         ),

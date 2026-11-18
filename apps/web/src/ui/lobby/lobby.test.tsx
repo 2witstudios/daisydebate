@@ -27,9 +27,7 @@ const entry: RoomListEntry = {
   openJudgeSeats: 0,
 };
 const now = Date.parse('2026-10-26T12:00:00.000Z');
-const query = (
-  over: Partial<RoomListQuery> = {},
-): LobbyProps['query'] => ({
+const query = (over: Partial<RoomListQuery> = {}): LobbyProps['query'] => ({
   q: '',
   pageSize: 20,
   ...over,
@@ -170,7 +168,9 @@ describe('Lobby', () => {
       actual: [
         /<form[^>]*action="\/lobby"[^>]*method="get"/.test(html),
         html.includes('name="status" value="open"'),
-        html.includes('href="/lobby?q=tax&amp;status=live&amp;mode=ranked&amp;lobby=open"'),
+        html.includes(
+          'href="/lobby?q=tax&amp;status=live&amp;mode=ranked&amp;lobby=open"',
+        ),
         html.includes('href="/lobby?status=open&amp;lobby=open"'),
       ],
       expected: [true, true, true, true],
@@ -197,7 +197,9 @@ describe('Lobby', () => {
         html.includes(
           'href="/lobby?status=live&amp;mode=ranked&amp;lobby=open&amp;sort=longest-waiting"',
         ),
-        html.includes('href="/lobby?status=open&amp;lobby=open&amp;sort=longest-waiting"'),
+        html.includes(
+          'href="/lobby?status=open&amp;lobby=open&amp;sort=longest-waiting"',
+        ),
         html.includes(
           `href="/lobby?status=open&amp;mode=ranked&amp;lobby=open&amp;sort=longest-waiting&amp;cursor=${id('f')}"`,
         ),
@@ -263,7 +265,9 @@ describe('Lobby', () => {
         unmatched.includes('No rooms match'),
         unmatched.includes('href="/lobby?lobby=open">Clear search and filters'),
         changed.includes('Rooms changed while you were paging.'),
-        changed.includes(`href="/lobby?lobby=open&amp;cursor=${id('f')}">Refresh`),
+        changed.includes(
+          `href="/lobby?lobby=open&amp;cursor=${id('f')}">Refresh`,
+        ),
         changed.includes('Persisted room'),
       ],
       expected: [true, true, true, true, true, false],
@@ -365,7 +369,9 @@ describe('Lobby', () => {
   });
 
   test('the lobby switch (YLLobbySwitch)', () => {
-    const html = render({ query: query({ division: 'youth', mode: 'ranked' }) });
+    const html = render({
+      query: query({ division: 'youth', mode: 'ranked' }),
+    });
     assert({
       given: 'the Youth lobby narrowed to ranked',
       should:

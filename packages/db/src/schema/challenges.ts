@@ -56,9 +56,6 @@ export const challenges = pgTable(
     ),
     check('challenges_mode_check', oneOf(table.mode, competitionTypes)),
     check('challenges_format_check', oneOf(table.formatId, ratingStyles)),
-    check(
-      'challenges_division_check',
-      oneOf(table.division, ratingDivisions),
-    ),
+    check('challenges_division_check', oneOf(table.division, ratingDivisions)),
   ],
 );
