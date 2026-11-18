@@ -7,6 +7,7 @@ import { createBillingSynchronization } from '../src/billing-synchronization';
 import { createBillingInbox } from '../src/billing-inbox';
 import { createClubSeats, endOfUtcDay } from '../src/club-seat-commands';
 import { createClubSeatReads } from '../src/club-seat-reads';
+import { readEntitlementGrants } from '../src/entitlement-grants';
 import { completeControlledBillingPurchase } from '../src/testing-billing-purchase';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
 import { flagCommand } from './flags.test-support';
@@ -177,6 +178,7 @@ test('a seat on an active plan grants Premium; reconciliation is idempotent', as
       customerId,
       paid,
       sync,
+      run,
       seatStore,
     }) => {
       assert({
@@ -210,6 +212,15 @@ test('a seat on an active plan grants Premium; reconciliation is idempotent', as
           ),
         ],
         expected: [5, true, true],
+      });
+      const read = await run((tx) => readEntitlementGrants(tx, member.userId));
+      assert({
+        given: 'the seat holder’s grants read back for authorization',
+        should: 'parse every seat grant with its paying club',
+        actual: read
+          .filter((grant) => grant.source === 'organization_seat')
+          .map((grant) => 'organizationId' in grant && grant.organizationId),
+        expected: Array(5).fill(organizationId),
       });
       await apply(sync, customerId, paid, 3);
       assert({
