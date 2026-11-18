@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { discoveryRelationWork } from './room-discovery-plan.test-support';
+import {
+  type DiscoveryPlan,
+  discoveryRelationBuffers,
+  discoveryRelationWork,
+} from './room-discovery-plan.test-support';
 
 setupRitewayBun();
 
@@ -37,5 +41,38 @@ test('discovery work counts history rejected by filters and repeated Room lookup
       { ...relation('rooms', 0), 'Rows Removed by Index Recheck': 2000 },
     ].map(discoveryRelationWork),
     expected: [306, 2306, 2346, 2000],
+  });
+});
+
+test('discovery buffers count only pages the Room and Round scans touch', () => {
+  const node = (
+    name: string | undefined,
+    hit: number,
+    read: number,
+    plans: readonly DiscoveryPlan[] = [],
+  ): DiscoveryPlan => ({
+    ...(name ? { 'Relation Name': name } : {}),
+    'Actual Rows': 1,
+    'Actual Loops': 1,
+    'Shared Hit Blocks': hit,
+    'Shared Read Blocks': read,
+    Plans: plans,
+  });
+  const plan = (actorHits: number) =>
+    node(undefined, 50 + actorHits, 4, [
+      node('rooms', 9, 1, [node('room_participants', 2, 0)]),
+      node(undefined, 37 + actorHits, 3, [
+        node('rounds', 5, 0),
+        node('rooms', 30, 3),
+        node('actors', actorHits, 0),
+      ]),
+    ]);
+  assert({
+    given:
+      'Room/Round scans with a nested subplan, cold reads and a varying actor join',
+    should:
+      'sum their own hit and read pages, excluding children and unrelated joins',
+    actual: [plan(2), plan(24)].map(discoveryRelationBuffers),
+    expected: [46, 46],
   });
 });
