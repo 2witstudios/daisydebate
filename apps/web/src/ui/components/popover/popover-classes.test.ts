@@ -85,9 +85,9 @@ describe('popoverClasses', () => {
       given: 'display set on children, the backdrop or a pseudo-element',
       should: 'leave them to the caller, while a self variant is still owned',
       actual: ownedUtilitiesIn(
-        '*:flex **:block [&>li]:block [&_p]:grid backdrop:hidden before:block md:after:flex [&:hover]:flex',
+        '*:flex **:block md:*:flex [&>li]:block md:[&_p]:grid backdrop:hidden before:block md:after:flex [&:hover]:flex [&:has(>li)]:flex [&:not(.a_b)]:grid',
       ),
-      expected: ['[&:hover]:flex'],
+      expected: ['[&:hover]:flex', '[&:has(>li)]:flex', '[&:not(.a_b)]:grid'],
     });
   });
 
@@ -133,8 +133,13 @@ const refusedProperty: [PopoverClassName<'gap-2 [display:flex]'>] extends [
 ]
   ? true
   : false = true;
-const childVariants: PopoverClassName<'*:flex [&>li]:block backdrop:hidden'> =
-  '*:flex [&>li]:block backdrop:hidden';
+const childVariants: PopoverClassName<'*:flex md:*:flex md:[&>li]:block backdrop:hidden'> =
+  '*:flex md:*:flex md:[&>li]:block backdrop:hidden';
+const refusedNestedCombinator: [
+  PopoverClassName<'gap-2 [&:has(>li)]:flex'>,
+] extends [never]
+  ? true
+  : false = true;
 void [
   accepted,
   refused,
@@ -142,4 +147,5 @@ void [
   refusedAfterNewline,
   refusedProperty,
   childVariants,
+  refusedNestedCombinator,
 ];

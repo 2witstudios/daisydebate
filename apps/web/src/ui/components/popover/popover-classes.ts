@@ -83,13 +83,21 @@ const pseudoElements = [
 /**
  * A variant that styles something other than the popover's box: a
  * pseudo-element (`backdrop:`, `before:`), `*:`, `**:`, or an arbitrary
- * variant with a combinator (`[&>li]:`, `[&_p]:`).
+ * variant with a top-level combinator (`[&>li]:`, `[&_p]:`). A combinator
+ * inside a functional pseudo-class (`[&:has(>li)]:`) still selects the
+ * popover itself, so parenthesised groups are ignored.
  */
 const targetsOtherBox = (variant: string): boolean =>
   variant === '*' ||
   variant === '**' ||
   (pseudoElements as readonly string[]).includes(variant) ||
-  (variant.startsWith('[&') && /[>_+~]/.test(variant));
+  (variant.startsWith('[&') && /[>_+~]/.test(withoutGroups(variant)));
+
+/** A selector with its parenthesised groups removed, innermost first. */
+const withoutGroups = (selector: string): string => {
+  const stripped = selector.replace(/\([^()]*\)/g, '');
+  return stripped === selector ? selector : withoutGroups(stripped);
+};
 
 /** An arbitrary property that sets display or direction, as `[display:flex]`. */
 const ownedProperty = /^\[(?:display|flex-direction):/;
@@ -117,11 +125,16 @@ type Unmarked<W extends string> = W extends `!${infer U}` | `${infer U}!`
 type Bare<W extends string> = W extends `${string}:${infer U}`
   ? Bare<U>
   : Unmarked<W>;
-/** Mirrors ownsLayout: other boxes pass, arbitrary display properties do not. */
+type Combinator = '>' | '_' | '+' | '~';
+/**
+ * The type twin of ownsLayout. It is never looser and sometimes stricter: it
+ * exempts a child variant only when its combinator follows `&` directly
+ * (`[&>li]:`), so `[&.a>li]:flex` is refused here though the runtime allows it.
+ */
 type Owned<W extends string> = W extends
-  | `*${string}`
-  | `${string}${(typeof pseudoElements)[number]}:${string}`
-  | `[&${string}${'>' | '_' | '+' | '~'}${string}]:${string}`
+  | `${'' | `${string}:`}${'*' | '**'}:${string}`
+  | `${'' | `${string}:`}${(typeof pseudoElements)[number]}:${string}`
+  | `${'' | `${string}:`}[&${Combinator}${string}]:${string}`
   ? never
   : W extends `${string}[${'display' | 'flex-direction'}:${string}`
     ? W
