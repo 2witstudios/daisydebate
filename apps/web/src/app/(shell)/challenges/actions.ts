@@ -15,7 +15,10 @@ import {
 } from '../../../features/challenges/forms';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
-import { requestIdentity } from '../../../lib/request-session';
+import {
+  requestIdentity,
+  requestRankedPlayAdmitted,
+} from '../../../lib/request-session';
 import { activeRoomRead } from '../actions';
 import { post, text } from '../form-post';
 import { moveOn } from '../../../server/form-action';
@@ -96,6 +99,7 @@ export async function acceptChallengeAction(
           return list.success ? list.data.incoming : null;
         },
         inARoom: async () => (await activeRoomRead()) !== null,
+        rankedAgeAdmitted: requestRankedPlayAdmitted,
         readCatalog: () =>
           readRoomTemplates(inProcessFetch(routes.catalog, incoming)),
         openRoom: (room, beforeMoveOn) =>

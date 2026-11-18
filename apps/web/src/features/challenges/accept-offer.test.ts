@@ -31,6 +31,7 @@ const ports = (
   nextId: () => 'd'.repeat(24),
   readOffers: async () => [offer],
   inARoom: async () => false,
+  rankedAgeAdmitted: async () => true,
   readCatalog: async () => ({
     kind: 'found',
     choices: [template],
@@ -46,6 +47,32 @@ const ports = (
 });
 
 describe('acceptOffer', () => {
+  test('a ranked offer to a member under the ranked floor opens nothing and says why', async () => {
+    let opened = 0;
+    const answer = await acceptOffer(
+      input,
+      ports({
+        readOffers: async () => [{ ...offer, mode: 'ranked' }],
+        rankedAgeAdmitted: async () => false,
+        openRoom: async () => {
+          opened += 1;
+          return moved('/rooms/room');
+        },
+      }),
+    );
+    assert({
+      given: 'a ranked challenge accepted by a 16-17 member',
+      should: 'refuse with the plain reason and open no room',
+      actual: { answer, opened },
+      expected: {
+        answer: challengeRefused(
+          'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
+        ),
+        opened: 0,
+      },
+    });
+  });
+
   test('opens the room, names it and moves on', async () => {
     const named: string[] = [];
     const forms: FormData[] = [];
