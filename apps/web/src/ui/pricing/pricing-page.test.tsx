@@ -8,7 +8,7 @@ import {
 import { PricingPage } from './pricing-page';
 setupRitewayBun();
 
-// Checkout and Tab's host home released; Club and League not yet.
+// Checkout and host tiers released; Club and League not yet.
 const closed = planActions({
   premiumCheckout: true,
   hostTiers: true,

@@ -1,4 +1,5 @@
 import type { PlanReleases } from '../../../features/pricing/plan-actions';
+import { releaseAccountOf } from '../../../features/pricing/release-account';
 import {
   requestIdentity,
   requestReleaseEnabled,
@@ -6,14 +7,11 @@ import {
 
 /**
  * The release reads behind /pricing, in one place: whether the page (and
- * every link to it) is open, and which plans can be started. Each is read
- * for the viewer's account when they are a member, so an account override
- * (an owner preview, a pilot host) applies; a visitor reads the default.
+ * every link to it) is open, and which plans can be started, each for the
+ * account `releaseAccountOf` names.
  */
-const viewerAccount = async (): Promise<string | null> => {
-  const identity = await requestIdentity();
-  return identity.state === 'member' ? identity.principal.userId : null;
-};
+const viewerAccount = async (): Promise<string | null> =>
+  releaseAccountOf(await requestIdentity());
 
 /** Whether /pricing and the links to it are open for this viewer. */
 export const requestPricingOpen = async (): Promise<boolean> =>
