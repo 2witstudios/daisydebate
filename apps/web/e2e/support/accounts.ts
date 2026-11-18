@@ -48,13 +48,16 @@ export async function emailedLink(
  * caller that needs to inspect it (its Set-Cookie attributes, for one)
  * never has to duplicate the request-link-then-confirm flow.
  */
-export async function signUpProvisionalResponse(request: APIRequestContext) {
+export async function signUpProvisionalResponse(
+  request: APIRequestContext,
+  birth: BirthMonth = adultBirth,
+) {
   const signedUp = await signUpBeforeAge(request);
   // The age step comes first (WAIT-4.6); an adult's answer lets every
   // later onboarding step proceed as before.
   const aged = await request.post('/api/account/age', {
     headers: { origin },
-    data: { month: 1, year: 1990, terms: true },
+    data: { ...birth, terms: true },
   });
   expect(aged.status()).toBe(200);
   return signedUp;
@@ -82,24 +85,46 @@ export async function signUpBeforeAge(request: APIRequestContext) {
 }
 
 /** As `signUpProvisionalResponse`, for callers that only need the email. */
-export async function signUpProvisional(request: APIRequestContext) {
-  const { email } = await signUpProvisionalResponse(request);
+export async function signUpProvisional(
+  request: APIRequestContext,
+  birth: BirthMonth = adultBirth,
+) {
+  const { email } = await signUpProvisionalResponse(request, birth);
   return { email };
 }
+
+/** A birth month as the age step takes it. */
+type BirthMonth = { readonly month: number; readonly year: number };
+const adultBirth: BirthMonth = { month: 1, year: 1990 };
+
+/**
+ * A birth month that makes a member 17 all this month (ADR 0147): they play
+ * ranked on Youth – Freestyle.
+ */
+export const youthBirth = (now = new Date()): BirthMonth => ({
+  month: now.getUTCMonth() + 1,
+  year: now.getUTCFullYear() - 17,
+});
 
 /**
  * Signs the context's browser in as a new member with a claimed username,
  * approved for the beta (ADR 0075) as an operator would.
  */
-export async function signUpMember(request: APIRequestContext) {
-  const { email, username } = await signUpWaitlisted(request);
+export async function signUpMember(
+  request: APIRequestContext,
+  birth: BirthMonth = adultBirth,
+) {
+  const { email, username } = await signUpWaitlisted(request, birth);
   await approveBetaAccounts(email);
   return { email, username };
 }
 
 /** A new account with a claimed username, still waiting on the beta list. */
-export async function signUpWaitlisted(request: APIRequestContext) {
-  const { email } = await signUpProvisional(request);
+export async function signUpWaitlisted(
+  request: APIRequestContext,
+  birth: BirthMonth = adultBirth,
+) {
+  const { email } = await signUpProvisional(request, birth);
   const username = uniqueName('member');
   const claimed = await request.post('/api/account/username', {
     headers: { origin },

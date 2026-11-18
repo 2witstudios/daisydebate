@@ -3,7 +3,9 @@
 -- so each column is added with 'open' for the rows already there and then
 -- loses its default: every later writer names the division. No rating value
 -- is read or written. Nothing here can refuse: each backfill precedes the
--- constraint it satisfies.
+-- constraint it satisfies. The rewritten Rounds and challenges queue
+-- deferred trigger events, so SET CONSTRAINTS ALL IMMEDIATE runs them before
+-- any later DDL on those tables.
 ALTER TABLE "rating_changes" DROP CONSTRAINT "rating_changes_season_id_seasons_id_fkey";--> statement-breakpoint
 ALTER TABLE "ratings" DROP CONSTRAINT "ratings_season_id_seasons_id_fkey";--> statement-breakpoint
 ALTER TABLE "seasons" DROP CONSTRAINT "seasons_activation_key_key";--> statement-breakpoint
@@ -17,6 +19,7 @@ ALTER TABLE "seasons" ALTER COLUMN "division" DROP DEFAULT;--> statement-breakpo
 ALTER TABLE "rounds" ADD COLUMN "ladder_division" text;--> statement-breakpoint
 UPDATE "rounds" SET "ladder_division" = 'open' WHERE "ladder_id" IS NOT NULL;--> statement-breakpoint
 UPDATE "challenges" SET "division" = 'open' WHERE "mode" = 'ranked';--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 DROP INDEX "seasons_single_active";--> statement-breakpoint
 CREATE UNIQUE INDEX "seasons_single_active" ON "seasons" ("organization_id","division") WHERE "status" = 'active';--> statement-breakpoint
 ALTER TABLE "seasons" ADD CONSTRAINT "seasons_id_division_unique" UNIQUE("id","division");--> statement-breakpoint
