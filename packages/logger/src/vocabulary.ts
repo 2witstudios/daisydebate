@@ -51,6 +51,7 @@ export const eventRegistry = {
   'notification.mail.failed': 'error',
   'operator.request.refused': 'warn',
   'flags.read.failed': 'warn',
+  'flags.release_default': 'info',
   'operator.command.applied': 'info',
   'operator.listener.started': 'info',
   'operator.listener.disabled': 'info',

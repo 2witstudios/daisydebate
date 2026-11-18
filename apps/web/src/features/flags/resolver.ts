@@ -12,6 +12,7 @@ function ownResolution(
   fact: FlagFact | undefined,
   snapshot: FlagSnapshot,
   now: number,
+  releaseDefault: boolean,
 ): FlagResolution {
   if (fact?.state === 'killed') return { enabled: false, reason: 'DISABLED' };
   if (
@@ -25,20 +26,29 @@ function ownResolution(
   if (targeting) return targeting;
   if (fact && fact.state !== 'default')
     return { enabled: fact.state === 'enabled', reason: 'STATIC' };
+  if (entry.kind === 'release' && releaseDefault)
+    return { enabled: true, reason: 'ENVIRONMENT' };
   return { enabled: entry.safeDefault, reason: 'DEFAULT' };
 }
 
-/** Pure, total release/ops resolution. Facts belong to one server-selected subject. */
+/**
+ * Pure, total release/ops resolution. Facts belong to one server-selected
+ * subject. `releaseDefault` is the deployment's default for a release flag
+ * with no stored choice (staging only, ADR 0118): a stored state or override
+ * still wins, and it never reopens a killed, expired or unreadable flag.
+ */
 export function resolveFlag({
   catalogue,
   snapshot,
   key,
   now,
+  releaseDefault = false,
 }: {
   readonly catalogue: readonly FlagDefinition[];
   readonly snapshot: FlagSnapshot;
   readonly key: string;
   readonly now: number;
+  readonly releaseDefault?: boolean;
 }): FlagResolution {
   const entries = new Map(catalogue.map((entry) => [entry.key, entry]));
   if (!entries.has(key)) return { enabled: false, reason: 'UNKNOWN' };
@@ -56,7 +66,13 @@ export function resolveFlag({
     const previous = resolved.get(name);
     if (previous) return previous;
     const entry = entries.get(name)!;
-    let result = ownResolution(entry, facts.get(name), snapshot, now);
+    let result = ownResolution(
+      entry,
+      facts.get(name),
+      snapshot,
+      now,
+      releaseDefault,
+    );
     if (
       result.enabled &&
       !entry.dependencies.every((dependency) => resolve(dependency).enabled)

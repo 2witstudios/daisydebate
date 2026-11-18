@@ -26,6 +26,7 @@ import { readMemberStandings } from '../features/ratings/read-member';
 import { readRoundRatings } from '../features/ratings/read-round';
 import { cache } from 'react';
 import { createRequestFlagReader } from '../features/flags/reader';
+import { releaseFlagDefault } from '../features/flags/release-default';
 import type { ReleaseFlagKey } from '../features/flags/catalogue';
 
 import { headers } from 'next/headers';
@@ -72,6 +73,7 @@ const requestFlagReader = cache(() => {
         { operation: 'flags.read', cause: 'unavailable' },
         'Release control read failed',
       ),
+    releaseDefault: releaseFlagDefault(app.config),
   });
 });
 

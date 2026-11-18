@@ -90,6 +90,12 @@ kill_timeout = 35
   BROADCAST_CAPTURE = "on"
   RECORDING_CAPTURE = "on"
   BROADCAST_PUBLIC_ORIGIN = "https://daisy-debate-staging-broadcast-public.t3.tigrisfiles.io"
+  # Release flags (ADR 0118): staging gets every feature. A release flag with
+  # no stored choice resolves on here, below any stored state or override, so
+  # the operator command can still turn one off. The web app refuses this line
+  # unless OPERATOR_AUDIENCE above is daisy-web:staging; production never sets
+  # it and keeps each flag's safe default (docs/operations/daisy-tab-staging.md).
+  DAISY_RELEASE_FLAG_DEFAULT = "enabled"
 
 [http_service]
   # The gate's port (apps/web/gate/nginx.conf.template) and the Dockerfile's EXPOSE.
