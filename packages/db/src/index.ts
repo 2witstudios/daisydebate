@@ -29,7 +29,6 @@ export type {
   MediaReleaseMailOutcome,
   PreparedReleaseMail,
 } from './media-release-mail';
-export { releaseLinkPurposeOf } from './media-release-mail';
 export type { PublishAnswer } from './youth-round-publication';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';

@@ -1,4 +1,5 @@
-import { releaseLinkPurposeOf, type Database } from '@daisy/db';
+import type { Database, MediaReleaseMailKind } from '@daisy/db';
+import type { ReleaseLinkPurpose } from '@daisy/protocol/media-release';
 import type { EmailMessage } from '../mail/types';
 import { recipientKey } from '../mail/recipient-key';
 import { retryOrFail } from '../mail/retry-policy';
@@ -15,6 +16,10 @@ type Store = Pick<
 >;
 type Claim = Awaited<ReturnType<Store['claimMediaReleaseMails']>>[number];
 type Outcome = Parameters<Store['settleMediaReleaseMail']>[0]['outcome'];
+
+/** Which link a mail carries: a request and its reminder sign; the rest manage. */
+const linkPurposeOf = (kind: MediaReleaseMailKind): ReleaseLinkPurpose =>
+  kind === 'request' || kind === 'reminder' ? 'sign' : 'manage';
 
 /**
  * Sends each due parent email (ADR 0151). Its link is minted here: a fresh
@@ -40,7 +45,7 @@ export function createMediaReleaseMail(input: {
 }) {
   const absolute = (path: string) => new URL(path, input.appUrl).toString();
   const decide = async (claim: Claim): Promise<Outcome> => {
-    const purpose = releaseLinkPurposeOf(claim.kind);
+    const purpose = linkPurposeOf(claim.kind);
     const token = input.newToken();
     const prepared = await input.store.prepareMediaReleaseMail({
       mailId: claim.id,
