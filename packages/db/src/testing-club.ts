@@ -34,8 +34,8 @@ export async function fundTestClub(
 ) {
   const run = createBoundedTransaction({
     lane: createLane('control', client, {
-      connections: 1,
-      queue: 8,
+      connections: 4,
+      queue: 16,
       maxWaitMs: 5_000,
     }),
     now: performance.now,

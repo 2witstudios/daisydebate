@@ -24,7 +24,7 @@ const input = z
   })
   .parse(JSON.parse(await Bun.stdin.text()));
 const url = betaAccessTarget(process.env);
-const client = new SQL(url, { max: 1 });
+const client = new SQL(url, { max: 6 });
 try {
   const [identity] =
     await client`select current_database() as database, current_user as role`;

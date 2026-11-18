@@ -177,8 +177,27 @@ export function createClubSeatReads(input: {
           { ...club, closed: false, revision: 0 },
           invitationId,
         );
-        if (!invitation) return null;
         const owner = await person(tx, club.ownerUserId);
+        if (!invitation) {
+          // Accepted: the invitation is gone, and the link now shows the seat.
+          const [held] = await tx.execute(
+            sql`select assigned_at from club_seats where organization_id=${organizationId}
+              and user_id=${subject.userId}`,
+          );
+          return held
+            ? {
+                club: { name: club.name, kind: club.kind, handle: club.handle },
+                manager: owner.name,
+                email: '',
+                expiresAt: new Date(
+                  held.assigned_at as string | Date,
+                ).toISOString(),
+                expired: false,
+                seatedHere: true,
+                seatedElsewhere: false,
+              }
+            : null;
+        }
         const own = await tx.execute(
           sql`select organization_id from club_seats where user_id=${subject.userId}`,
         );

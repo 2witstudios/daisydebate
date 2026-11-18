@@ -343,12 +343,15 @@ test('an invitation is accepted only by its verified address, and the seat bring
           )[0]?.status,
           (await seatGrants(fixture, invitee.userId)).length,
           await reads.seatOf(invitee),
+          (await reads.invitation(invitee, organizationId, invitationId))
+            ?.seatedHere,
         ],
         expected: [
           { kind: 'changed' },
           'active',
           5,
           { name: 'Northside Debate', manager: `u-${owner.userId}` },
+          true,
         ],
       });
     },

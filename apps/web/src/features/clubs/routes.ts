@@ -18,6 +18,7 @@ import type { ClubInvoiceRow, SeatChangeAnswer } from '../billing/club-billing';
 import {
   clubBillingView,
   clubSeatsView,
+  clubInvitationViewSchema,
   type ClubInvitationView,
 } from './views';
 
@@ -388,7 +389,10 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
               invitationId,
             );
             if (!read) throw createAppError('NOT_FOUND');
-            const base = { club: read.club, manager: read.manager };
+            const base = {
+              club: { name: read.club.name, kind: read.club.kind },
+              manager: read.manager,
+            };
             const view: ClubInvitationView = read.seatedHere
               ? { kind: 'seated-here', ...base }
               : read.seatedElsewhere
@@ -402,7 +406,9 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
                       expiresAt: read.expiresAt,
                       ownPremium: await input.billing.ownPremium(subject),
                     };
-            return Response.json(view, { headers });
+            return Response.json(clubInvitationViewSchema.parse(view), {
+              headers,
+            });
           },
         ),
       POST: (request: Request) =>
