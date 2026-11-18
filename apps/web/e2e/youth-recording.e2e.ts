@@ -93,7 +93,7 @@ test('a Youth debater sees their Recording as private, with Take down and no pub
 
   // The debater's own profile lists it; a stranger's view of it does not.
   await page.goto(`/profile/${username}`);
-  await expect(page.getByText(`Youth scrimmage ${tag}`)).toBeVisible();
+  await expect(page.getByText(`Resolved ${tag}`)).toBeVisible();
   const stranger = await page.context().browser()!.newContext({
     baseURL: origin,
     ignoreHTTPSErrors: true,
@@ -102,7 +102,7 @@ test('a Youth debater sees their Recording as private, with Take down and no pub
     const visitor = await openPage(stranger, 'visitor');
     await visitor.goto(`/profile/${username}`);
     await expect(visitor.getByText(`@${username}`).first()).toBeVisible();
-    await expect(visitor.getByText(`Youth scrimmage ${tag}`)).toHaveCount(0);
+    await expect(visitor.getByText(`Resolved ${tag}`)).toHaveCount(0);
   } finally {
     await stranger.close();
   }
@@ -137,7 +137,12 @@ test('Watch, the archive and a stranger never find a Youth Round', async ({
     const visitor = await openPage(context, 'visitor');
     await visitor.goto(`/watch?q=${tag}`);
     await expect(visitor.getByText(`Open final ${tag}`)).toBeVisible();
-    await expect(visitor.getByText('Open – Freestyle').first()).toBeVisible();
+    await expect(
+      visitor
+        .getByText('Open – Freestyle', { exact: true })
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible();
     await expect(visitor.getByText(`Youth live ${tag}`)).toHaveCount(0);
     await expect(
       visitor.getByRole('combobox', { name: 'Ladder' }),
