@@ -11,6 +11,7 @@ import {
   sameSeat,
   seatKey,
   seatKinds,
+  type RatingDivision,
   type RoomCastChoice,
   type RoomView,
   type SeatRef,
@@ -35,6 +36,9 @@ import { HeldUntil } from './held-until';
 import { ROOM_TITLE_ID } from './room-setup-modal';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import { officialTone, sideTone, speakerTone } from './side-tone';
+import { DivisionBadge } from '../../ladder-badge/ladder-badge';
+import { ClaimSeatForm } from './claim-seat-form';
+import { judgeSeatLine, otherLadderSeat, rowDivision } from './room-ladder';
 import {
   isEventRoom,
   ordinalOf,
@@ -52,7 +56,12 @@ type Named = Extract<Participant, { actorId: string }>;
 
 export type RosterProps = {
   readonly view: RoomView;
-  readonly viewer: { readonly actorId: string; readonly label: string };
+  readonly viewer: {
+    readonly actorId: string;
+    readonly label: string;
+    /** The viewer's ladder division (ADR 0147); null with no age on record. */
+    readonly division: RatingDivision | null;
+  };
   readonly bots: readonly RoomCastChoice[];
   readonly action: FormAction<RoomFormState>;
   readonly commandIds: Pick<RoomCommandIds, 'seats' | 'sides' | 'leave'>;
@@ -255,6 +264,8 @@ function Who({
         seat.eligible ? null : 'Not eligible',
       ].filter((part) => part !== null)
     : [];
+  // While the debaters mix ladders, each row says whose ladder is whose.
+  const division = seat ? rowDivision(props.view, seat) : null;
   return (
     <div className="flex min-w-0 items-center gap-2">
       <span
@@ -277,6 +288,11 @@ function Who({
             {seat.rating.provisional ? '*' : ''}
           </span>
         ) : null}
+        {division === null ? null : (
+          <span className="self-center">
+            <DivisionBadge division={division} />
+          </span>
+        )}
         {meta.map((part) => (
           <span
             key={part}
@@ -470,6 +486,8 @@ function OpenSeat({
   // An event Room's seats are the organiser's: nobody takes or invites into
   // one from the roster (ADR 0145, Tab).
   const event = isEventRoom(view);
+  const takeName = `Take ${roomSeatLabel(view, seat)}`;
+  const judgeLine = isJudgeSeat(seat) ? judgeSeatLine(view) : null;
   return (
     <>
       <span aria-hidden="true" />
@@ -488,14 +506,26 @@ function OpenSeat({
           {!event &&
           view.capabilities.canClaimSeat &&
           !heldFromViewer(view, seat) ? (
-            <CommandButton
-              props={props}
-              type="claim-seat"
-              commandId={ids.claim}
-              fields={position}
-              label="Take seat"
-              name={`Take ${roomSeatLabel(view, seat)}`}
-            />
+            isDebatingSeat(seat) ? (
+              <ClaimSeatForm
+                action={props.action}
+                version={view.version}
+                commandId={ids.claim}
+                seat={seat}
+                name={takeName}
+                className={rowButton}
+                otherLadder={otherLadderSeat(view, props.viewer.division)}
+              />
+            ) : (
+              <CommandButton
+                props={props}
+                type="claim-seat"
+                commandId={ids.claim}
+                fields={position}
+                label="Take seat"
+                name={takeName}
+              />
+            )
           ) : null}
           {event ? null : !invited ? (
             <RoomInvite
@@ -520,6 +550,11 @@ function OpenSeat({
           ) : null}
         </div>
       </div>
+      {judgeLine === null ? null : (
+        <p className="col-span-full col-start-2 text-sm text-ink-muted">
+          {judgeLine}
+        </p>
+      )}
     </>
   );
 }

@@ -2,7 +2,7 @@ import { judgedRound as createJudgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
-import { ratingLadders } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { createAuthorizationSubject } from './authorization.test-support';
@@ -130,6 +130,10 @@ test('exporting a member includes their competitive record and nothing of anothe
       outcome: 'negative',
       day: 2,
     });
+    // A ledger row stands only on a rated Round of its own ladder (ADR 0147):
+    // both played Rounds rated on Open – Freestyle.
+    for (const round of [mine, theirs])
+      await fixture.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${round.id}`;
     // A rating change posts to its round's own format (the composite FK),
     // so each side reads the format its played Round resolved against.
     const roundFormat = async (roundId: string) =>
@@ -190,7 +194,7 @@ test('exporting a member includes their competitive record and nothing of anothe
     });
     // The ladder name comes from the protocol's own catalog, so the fixture
     // can never drift from the merged ratings vocabulary.
-    const ladder = ratingLadders[0];
+    const ladder = ratingStyles[0];
     await rating(fixture, {
       actorId: subject.actorId,
       formatId,

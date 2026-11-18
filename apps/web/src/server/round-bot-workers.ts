@@ -1,4 +1,3 @@
-import { publicationStopOf } from '@daisy/media/audio';
 import type { RoundBotWorkerPolicy } from '@daisy/config';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAttendanceFeature } from '../features/attendance/operations';
@@ -6,6 +5,7 @@ import { createBotControl } from '../features/round-bots/control';
 import { startBotControlService } from '../features/round-bots/control-service';
 import { endingDeadline } from '../features/round-bots/ending-deadline';
 import { createSpeakingBotControl } from '../features/round-bots/speaking';
+import { speakingFailureCause } from '../features/round-bots/speaking-failure';
 import type { App } from './app';
 import {
   isProviderBudgetRefusal,
@@ -62,12 +62,13 @@ export function startRoundBotWorkers(input: {
         nextId: () => app.ids.next(),
         nowMs: () => Date.parse(app.clock.now()),
         callTimeoutMs: policy.callTimeoutMs,
+        reasoning: policy.reasoning,
         failed: failure(
           'round.speaking.failed',
           'round.speaking',
           'Bot speech stays uncredited',
-          // Says whether a publish stopped at its connect or a native handoff.
-          publicationStopOf,
+          // Where a publish stopped, or that the vendor refused the request.
+          speakingFailureCause,
         ),
         hearingFailed: (error) => hearing(error, 'join'),
         hearingObserved: (operation, fields) =>

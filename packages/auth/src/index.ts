@@ -7,6 +7,6 @@ export {
   type Identity,
   type Participation,
 } from './identity';
-export { ageBand, type AgeBand } from './age-band';
+export { ageBand } from './age-band';
 export { bindRoundCommandPrincipal } from './round-command';
 export { bindRoundBallotPrincipal } from './round-ballot';

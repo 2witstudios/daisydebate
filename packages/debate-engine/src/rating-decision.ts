@@ -46,12 +46,9 @@ export function ratingEligibility(
     throw createAppError('CONFLICT', 'Only a completed round can be rated');
   // Before the ladder: a rerun after the ledger moved is still a rerun.
   if (input.alreadyRated) return { kind: 'already-rated' };
-  if (input.ladderId === null)
-    return { kind: 'unrated', reason: 'competition' };
+  if (input.ladder === null) return { kind: 'unrated', reason: 'competition' };
   const ending = endingRating(input);
-  return ending.kind === 'rated'
-    ? { ...ending, ladder: input.ladderId }
-    : ending;
+  return ending.kind === 'rated' ? { ...ending, ladder: input.ladder } : ending;
 }
 
 /**

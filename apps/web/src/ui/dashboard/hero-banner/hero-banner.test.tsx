@@ -13,6 +13,24 @@ const render = () =>
   );
 
 describe('HeroBanner', () => {
+  test('links to /pricing only once it is open', () => {
+    const open = renderToString(
+      h(HeroBanner, {
+        requestLink: () => Promise.resolve(initialLinkForm),
+        showPricing: true,
+      }),
+    );
+    assert({
+      given: 'the pricing page closed, then open',
+      should: 'show the Plans and pricing link only when open',
+      actual: [
+        render().includes('href="/pricing"'),
+        open.includes('href="/pricing"'),
+      ],
+      expected: [false, true],
+    });
+  });
+
   test('owns the page heading and describes its photograph', () => {
     const html = render();
     assert({

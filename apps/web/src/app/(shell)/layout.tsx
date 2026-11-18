@@ -20,6 +20,7 @@ import { ModerationNotices } from '../../ui/moderation/moderation-notices';
 import { shellAccount } from '../../lib/shell-account';
 import {
   requestIdentity,
+  requestMemberDivision,
   requestMemberStandings,
   requestOwnProfileCard,
 } from '../../lib/request-session';
@@ -70,8 +71,15 @@ export default async function ShellLayout({
       : [null, [], null];
   const ratings: Promise<ShellRatings> | null =
     identity.state === 'member'
-      ? requestMemberStandings(identity.username).then(
-          (standings): ShellRatings => ({ state: 'ready', standings }),
+      ? Promise.all([
+          requestMemberStandings(identity.username),
+          requestMemberDivision(),
+        ]).then(
+          ([standings, division]): ShellRatings => ({
+            state: 'ready',
+            standings,
+            division,
+          }),
           (): ShellRatings => ({ state: 'unavailable' }),
         )
       : null;

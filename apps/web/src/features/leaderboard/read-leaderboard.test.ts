@@ -4,6 +4,8 @@ setupRitewayBun();
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 const now = '2026-10-28T00:00:00.000Z';
+const open = { style: 'freestyle', division: 'open' } as const;
+const youth = { style: 'freestyle', division: 'youth' } as const;
 test('a season without postings is empty, and no season invents no dates or standings', async () => {
   const empty = await readLadder(
     {
@@ -11,7 +13,7 @@ test('a season without postings is empty, and no season invents no dates or stan
       listLadderSeasons: async () => [],
       readStandings: async () => ({ ratings: [], changes: [] }),
     },
-    { seasonId: null, ladder: 'freestyle', now, username: null },
+    { seasonId: null, ladder: open, now, username: null },
   );
   const active = await readLadder(
     {
@@ -23,12 +25,13 @@ test('a season without postings is empty, and no season invents no dates or stan
           startsAt: now,
           endsAt: null,
           status: 'active',
+          division: 'open',
           version: 1,
         },
       ],
       readStandings: async () => ({ ratings: [], changes: [] }),
     },
-    { seasonId: null, ladder: 'freestyle', now, username: 'ada' },
+    { seasonId: null, ladder: open, now, username: 'ada' },
   );
   assert({
     given: 'no season or an active Season1 without a ranked result',
@@ -56,5 +59,48 @@ test('a season without postings is empty, and no season invents no dates or stan
         detail: [],
       },
     },
+  });
+});
+
+test('each division reads its own seasons', async () => {
+  const youthId = 'y2v9x0f4m8q3w1z7c5n6b4d2';
+  const store = {
+    readRatingBlindings: async () => [],
+    listLadderSeasons: async () =>
+      [
+        { id, name: 'Fall 2026', division: 'open' },
+        { id: youthId, name: 'Youth Fall 2026', division: 'youth' },
+      ].map((season) => ({
+        ...season,
+        startsAt: now,
+        endsAt: null,
+        status: 'active' as const,
+        version: 1,
+      })) as never,
+    readStandings: async () => ({ ratings: [], changes: [] }),
+  };
+  const read = (ladder: typeof open | typeof youth, seasonId: string | null) =>
+    readLadder(store, { seasonId, ladder, now, username: null }).then(
+      (result) => [
+        result?.ladder.division,
+        result?.data.season.id,
+        result?.data.seasons.map((season) => season.id),
+      ],
+    );
+  assert({
+    given:
+      'an Open and a Youth season, and the Youth ladder asked for an Open season',
+    should:
+      'show each ladder only its own division’s seasons, falling back to its own current one',
+    actual: await Promise.all([
+      read(open, null),
+      read(youth, null),
+      read(youth, id),
+    ]),
+    expected: [
+      ['open', id, [id]],
+      ['youth', youthId, [youthId]],
+      ['youth', youthId, [youthId]],
+    ],
   });
 });

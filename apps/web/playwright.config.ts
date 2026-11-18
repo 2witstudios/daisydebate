@@ -181,6 +181,7 @@ export default defineConfig({
         '**/round-media-lifecycle.e2e.ts',
         '**/node-kill-drill.e2e.ts',
         '**/first-word.e2e.ts',
+        '**/bot-freestyle.e2e.ts',
         '**/media-stage.e2e.ts',
         '**/debate-room.e2e.ts',
         '**/round-commands.e2e.ts',
@@ -296,7 +297,6 @@ export default defineConfig({
         // the existing reservation and eligibility gates without a live
         // provider credential. Provider calls still use the inert stub.
         AI_ROUND_BUSY_CAP: '4',
-        AI_ROUND_MONTHLY_CAP: '20',
         // Requested analysis exercises its actual worker with only its provider edge controlled.
         ROUND_ANALYSIS_POLICY: JSON.stringify({
           concurrency: 1,

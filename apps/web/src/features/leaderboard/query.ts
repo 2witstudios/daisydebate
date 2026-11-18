@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import {
+  idSchema,
+  ratingDivisions,
+  type RatingDivision,
+} from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 
 const scopes = ['top', 'around'] as const;
@@ -11,6 +15,8 @@ export type LadderStatus = (typeof statuses)[number];
 export type HistoryView = (typeof views)[number];
 
 export type LadderQuery = {
+  /** The ladder's division (ADR 0147); null is the viewer's own. */
+  readonly division: RatingDivision | null;
   /** Null is the current season. */
   readonly season: string | null;
   readonly scope: LadderScope;
@@ -25,6 +31,7 @@ export type LadderQuery = {
 };
 
 export const defaultQuery: LadderQuery = {
+  division: null,
   season: null,
   scope: 'top',
   q: '',
@@ -46,6 +53,7 @@ const count = z
 // Every field falls back to its default on any bad value, so untrusted
 // parameters can never make parsing throw.
 const querySchema = z.object({
+  division: z.enum(ratingDivisions).nullable().catch(defaultQuery.division),
   season: idSchema.nullable().catch(defaultQuery.season),
   scope: z.enum(scopes).catch(defaultQuery.scope),
   q: z
@@ -133,10 +141,32 @@ export const scopeHref = (query: LadderQuery, scope: LadderScope): string =>
 export const everyoneHref = (query: LadderQuery): string =>
   ladderHref({ ...query, status: 'everyone', page: 1 });
 
-/** The ladder of another season with no filters. */
-export const seasonHref = (season: string): string =>
-  ladderHref({ ...defaultQuery, season });
+/** Another season of the same division's ladder, with no filters. */
+export const seasonHref = (query: LadderQuery, season: string): string =>
+  ladderHref({ ...defaultQuery, division: query.division, season });
+
+/**
+ * Another division's ladder (ADR 0147). Scope, search and status stay; the
+ * season, page and open detail go, because they belong to the ladder left.
+ */
+export const divisionHref = (
+  query: LadderQuery,
+  division: RatingDivision,
+): string =>
+  ladderHref({
+    ...query,
+    division,
+    season: defaultQuery.season,
+    page: defaultQuery.page,
+    debater: defaultQuery.debater,
+    view: defaultQuery.view,
+    step: defaultQuery.step,
+  });
 
 /** The chart or the table alternative, at the latest debate. */
 export const viewHref = (query: LadderQuery, view: HistoryView): string =>
   ladderHref({ ...query, view, step: null });
+
+/** The leaderboard open on one ladder's division, from a card that names it. */
+export const ladderBoardHref = (division: RatingDivision): string =>
+  divisionHref(defaultQuery, division);

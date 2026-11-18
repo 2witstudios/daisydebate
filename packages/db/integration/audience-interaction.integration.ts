@@ -1300,6 +1300,7 @@ test('a seat reads as what its Round is, and no seat reads as none', async () =>
         format_id: 'freestyle',
         preset_version: 1,
         ladder_id: 'freestyle',
+        ladder_division: 'open',
         status: 'completed',
         winning_side: 'affirmative',
         started_at: at(0),

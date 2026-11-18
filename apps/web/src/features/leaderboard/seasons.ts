@@ -1,7 +1,7 @@
 import type { SearchParams } from '../access/decision';
-import { ladderLabels } from '../ratings/ladder-labels';
+import { ladderLabel } from '../ratings/ladder-labels';
 import { rankRatingEntries } from '../ratings/rank';
-import { boardLadder } from './board-ladder';
+import type { Ladder, RatingDivision } from '@daisy/protocol';
 import { toRow } from './ladder-rows';
 import type { LadderData, LadderRow, LadderViewer } from './ladder-view';
 import { defaultQuery, ladderHref } from './query';
@@ -20,10 +20,19 @@ export function parseSeasonsQuery(params: SearchParams): string | null {
   return value !== undefined && /^[a-z0-9]{24}$/.test(value) ? value : null;
 }
 
-export const seasonsHref = (season: string | null): string =>
-  season === null
+/** The Seasons page of a division's ladder; null keeps the viewer's own. */
+export const seasonsHref = (
+  season: string | null,
+  division: RatingDivision | null,
+): string => {
+  const params = new URLSearchParams();
+  if (division !== null) params.set('division', division);
+  if (season !== null) params.set('season', season);
+  const search = params.toString();
+  return search === ''
     ? '/leaderboard/seasons'
-    : `/leaderboard/seasons?${new URLSearchParams({ season })}`;
+    : `/leaderboard/seasons?${search}`;
+};
 
 /** Rows in a season's snapshot. */
 const SNAPSHOT_SIZE = 10;
@@ -59,12 +68,17 @@ export type SeasonsView = {
 /** A season's overview, its champion and top ten, from its ladder entries. */
 export function buildSeasonsView(
   data: LadderData,
+  ladder: Ladder,
   now: string,
   viewer: LadderViewer | null = null,
 ): SeasonsView {
   const { season } = data;
   const closed = isClosed(season);
-  const query = { ...defaultQuery, season: season.id };
+  const query = {
+    ...defaultQuery,
+    division: ladder.division,
+    season: season.id,
+  };
   const context = { season, query, viewer, mine: undefined };
   const top = rankRatingEntries(data.entries)
     .filter((entry) => !entry.provisional)
@@ -73,7 +87,7 @@ export function buildSeasonsView(
   const { day, length, percent } = seasonProgress(season, now);
   return {
     season,
-    ladderLabel: ladderLabels[boardLadder],
+    ladderLabel: ladderLabel(ladder),
     label: seasonLabel(season),
     state: !closed
       ? 'running'
@@ -90,7 +104,7 @@ export function buildSeasonsView(
     percent: closed ? 100 : percent,
     chips: data.seasons.map((item) => ({
       label: `${seasonLabel(item)}${isClosed(item) ? '' : ' · current'}`,
-      href: seasonsHref(item.id),
+      href: seasonsHref(item.id, ladder.division),
       selected: item.id === season.id,
     })),
     championLabel: closed ? 'Champion' : 'Leading now',

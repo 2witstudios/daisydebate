@@ -35,6 +35,7 @@ const facts: AllowanceFacts = {
   ],
   usage: [],
   freeBotRoundId: null,
+  today: null,
 };
 
 test('unchanged verified evidence carries paid-to-grace authority through worker outage', () => {
@@ -43,7 +44,7 @@ test('unchanged verified evidence carries paid-to-grace authority through worker
       input.context.account!,
       facts,
       { kind: 'bot_debate', roundId: 'round_new', withJudge: false },
-      { now, betaGrantsPremium, betaMonthlyCap: 20 },
+      { now, betaGrantsPremium },
     );
   assert({
     given:
@@ -63,7 +64,6 @@ test('unchanged verified evidence carries paid-to-grace authority through worker
           {
             kind: 'ai_round',
             source: { kind: 'subscription', ...period },
-            limit: 5,
           },
         ],
       },
@@ -81,7 +81,6 @@ test('unchanged verified evidence carries paid-to-grace authority through worker
                   endsAt: '2027-01-01T00:00:00.000Z',
                 }
               : { kind: 'lifetime' },
-            limit: beta ? 20 : 1,
           },
         ],
       },

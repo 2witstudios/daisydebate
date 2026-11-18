@@ -305,6 +305,30 @@ content waiver, signed once per season, is the ranked agreement, and it alone
 fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
 
+A ranked Room's ladder follows who sits
+([ADR 0147](../decisions/0147-ladder-style-and-division.md)). The Room stores
+no division: its seated human debaters set it. It is unset until one sits,
+then Open – Freestyle (all 18 and over) or Youth – Freestyle (all under 18),
+or mixed. Each person's division comes from the stored birth month, aged on
+the start of the active Youth season, bounded by their own age record and a
+12-month carry (ADR 0147 §3).
+
+- **Own claims.** A member's own claim of a ranked debater seat is refused with
+  `ranked-division` when the others are on the other ladder or the member has
+  no division (`rankedSeatClaimRefusal`).
+- **Host assignments.** A host's assignment and an initial cast may mix ladders.
+- **Start.** Start freezes the Round's ladder (`roundCompetition`). One
+  division rates on that division's active season, and Start refuses with
+  `ranked-unavailable` when there is none. A mixed seating starts a casual
+  Round while the Room stays ranked, and the host is told before Start.
+- **Judges.** Judge seats take anyone.
+- **League ladders.** A league carries one division, Open or Youth (PYL-16),
+  and a league Room on its ladder seats only members in that division. A caller's own claim there answers
+  `ranked-division`, and a host's assignment answers `actor-ineligible`.
+
+Round writers keep their own eligibility, so a running Round is never changed
+by any of this. See [compliance](../operations/compliance.md#children).
+
 A seated human judge reads their own ballot, and once the Round has completed,
 every ballot of it. Only the Round's seats and its seatless host read a Round at
 all (ADR 0099). Anyone else reads no ballot here: signing in opens nothing. The

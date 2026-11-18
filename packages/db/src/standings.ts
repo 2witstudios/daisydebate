@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import {
-  ratingLadders,
+  ratingStyles,
   twoSideKeys,
-  type RatingLadder,
+  type Ladder,
   type TwoSideKey,
   type WinnerOutcome,
 } from '@daisy/protocol';
@@ -127,7 +127,7 @@ export const standingsOperations = ({
             isNull(formatPresets.supersededAt),
             eq(formatPresets.rankedEligible, true),
             eq(formatPresets.formatVersion, formats.currentVersion),
-            inArray(formats.id, [...ratingLadders]),
+            inArray(formats.id, [...ratingStyles]),
           ),
         )
         .orderBy(asc(formats.name)),
@@ -135,14 +135,14 @@ export const standingsOperations = ({
   },
 
   /**
-   * One format and ladder's ratings and ledger rows in the given seasons, as
+   * One ladder's (style and division) ratings and ledger rows in the given seasons, as
    * the audience may know them at `now`: a posting waits for its Round's
    * spectator timeline, and a rating stands where its last released posting
    * left it. `revealRoundId` names a Round the caller already holds an
    * authorized read of, whose own postings need no wait.
    */
   readStandings(input: {
-    readonly ladder: RatingLadder;
+    readonly ladder: Ladder;
     readonly seasonIds: readonly string[];
     readonly clock: SpectatorClock;
     readonly revealRoundId?: string;
@@ -168,7 +168,8 @@ export const standingsOperations = ({
             .leftJoin(users, eq(users.id, actors.userId))
             .where(
               and(
-                eq(ratings.ladder, input.ladder),
+                eq(ratings.ladder, input.ladder.style),
+                eq(ratings.division, input.ladder.division),
                 inArray(ratings.seasonId, [...input.seasonIds]),
               ),
             ),
@@ -202,7 +203,8 @@ export const standingsOperations = ({
             )
             .where(
               and(
-                eq(ratingChanges.ladder, input.ladder),
+                eq(ratingChanges.ladder, input.ladder.style),
+                eq(ratingChanges.division, input.ladder.division),
                 inArray(ratingChanges.seasonId, [...input.seasonIds]),
                 eq(roundParticipants.seatKind, 'side'),
                 inArray(roundParticipants.side, [...twoSideKeys]),

@@ -8,7 +8,10 @@ import { requireAccess } from '../../../../../lib/access';
 import { CreateRoomPage } from '../../../../../ui/rooms/create-room/create-room-page';
 import { roomTemplates } from '../../../play/actions';
 import { roomAssembly } from '../actions';
-import { requestRoomDraftAnswer } from '../../../../../lib/request-session';
+import {
+  requestMemberDivision,
+  requestRoomDraftAnswer,
+} from '../../../../../lib/request-session';
 export default async function FreshRoomPage({
   params,
   searchParams,
@@ -37,6 +40,7 @@ export default async function FreshRoomPage({
       )}
       choices={templates.choices}
       commandId={systemId.next()}
+      memberDivision={await requestMemberDivision()}
     />
   );
 }

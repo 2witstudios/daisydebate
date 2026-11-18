@@ -11,8 +11,14 @@ const person = (username: string, status: Person['status']): Person => ({
   status,
   relation: 'none',
   ratings: [
-    { ladder: 'freestyle', rating: null, provisional: false, hidden: false },
+    {
+      ladder: { style: 'freestyle', division: 'open' },
+      rating: null,
+      provisional: false,
+      hidden: false,
+    },
   ],
+  division: null,
   wins: 0,
   losses: 0,
 });

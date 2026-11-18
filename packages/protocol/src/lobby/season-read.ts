@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import { ratingDivisions } from '../ladder';
 import { settingKeySchema } from '../settings/setting-values';
 import type { LobbyReadCatalogue } from './read';
 import { sanctionStatuses, seasonCountings } from './vocabulary';
@@ -51,6 +52,8 @@ export const seasonViewSchema = z.strictObject({
   seasonId: idSchema,
   name,
   organization: z.strictObject({ organizationId: idSchema, name }),
+  /** The league's division (PYL-16), which every one of its seasons rates. */
+  division: z.enum(ratingDivisions),
   counting: z.enum(seasonCountings),
   calendar: z.array(seasonTournamentSchema),
   standings: z.strictObject({

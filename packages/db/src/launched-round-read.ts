@@ -80,7 +80,10 @@ export async function launchedRoundRows(
     roomId: row.roomId,
     version: row.version,
     competitionType: row.competitionType,
-    ladderId: row.ladderId,
+    ladder:
+      row.ladderId === null || row.ladderDivision === null
+        ? null
+        : { style: row.ladderId, division: row.ladderDivision },
     topic: row.resolution,
     visibility: row.visibility,
     hostActorId: row.createdByActorId,

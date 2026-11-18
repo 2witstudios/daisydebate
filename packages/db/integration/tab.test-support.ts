@@ -213,6 +213,7 @@ export const loadSampleTournament = async (sql: SQL) => {
       name: 'Sample League',
       handle: `league-${ids.league}`,
       owner_user_id: owner,
+      league_division: 'open',
     });
     for (const userId of [owner, staff])
       await write('memberships', {
@@ -277,6 +278,8 @@ export const loadSampleTournament = async (sql: SQL) => {
     await write('seasons', {
       id: ids.season,
       organization_id: ids.league,
+      // The sample league is Open, so its season is too.
+      division: 'open',
       name: 'Sample season',
       starts_at: at(0),
       status: 'active',

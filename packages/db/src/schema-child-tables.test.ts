@@ -177,6 +177,7 @@ describe('competitive schema child tables', () => {
           indexes: [
             'unique usage_reservations_actor_round_kind_unique',
             'unique usage_reservations_free_binding_unique',
+            'usage_reservations_actor_day_idx',
             'usage_reservations_actor_source_idx',
             'usage_reservations_round_idx',
           ],

@@ -130,11 +130,14 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
+        // A ranked Room's ladder is set by who sits (ADR 0147), so opening
+        // one needs a Daisy season on some division; Start checks the
+        // seated division's own season. The host's age decides nothing.
         if (input.room.competitionType === 'ranked') {
           const active = await tx.execute(
             sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} for share`,
           );
-          if (active.length !== 1)
+          if (active.length === 0)
             throw createRefusal('CONFLICT', 'ranked-unavailable');
         }
         if (

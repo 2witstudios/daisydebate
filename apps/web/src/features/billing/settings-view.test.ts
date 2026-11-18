@@ -9,15 +9,11 @@ const source: BillingSettingsSource = {
   evidence: null,
   hasCustomer: true,
   purchaseAllowed: true,
-  botDebates: {
-    kind: 'limited',
-    remaining: 1,
-    limit: 1,
-    available: true,
-    source: { kind: 'lifetime' },
-  },
+  granted: false,
+  renewalOff: false,
+  amountMinor: null,
 };
-test('dark purchase release preserves billing management and honest lifetime usage', () => {
+test('dark purchase release preserves billing management and shows no counter', () => {
   const view = billingSettingsView({
     source,
     configured: true,
@@ -25,37 +21,34 @@ test('dark purchase release preserves billing management and honest lifetime usa
   });
   assert({
     given: 'a retained customer and a dark new-purchase gate',
-    should: 'keep management available and free use lifetime-bound',
-    actual: [view.checkoutAvailable, view.manageAvailable, view.botDebates],
-    expected: [
-      false,
-      true,
-      {
-        kind: 'limited',
-        remaining: 1,
-        limit: 1,
-        available: true,
-        scope: 'lifetime',
-        endsAt: null,
-      },
-    ],
+    should: 'keep management available and carry no usage at all',
+    actual: view,
+    expected: {
+      plan: 'free',
+      accessEndsAt: null,
+      priceMinor: null,
+      club: null,
+      checkoutAvailable: false,
+      manageAvailable: true,
+    },
   });
 });
-test('unavailable usage never becomes an invented remaining balance', () => {
+test('unconfigured billing offers no vendor action', () => {
   assert({
-    given: 'a refused allowance projection with billing unconfigured',
-    should: 'show usage unavailable and offer no vendor action',
+    given: 'billing unconfigured with a visible purchase release',
+    should: 'offer neither checkout nor management',
     actual: billingSettingsView({
-      source: { ...source, botDebates: { kind: 'unavailable' } },
+      source,
       configured: false,
       purchaseVisible: true,
     }),
     expected: {
       plan: 'free',
       accessEndsAt: null,
+      priceMinor: null,
+      club: null,
       checkoutAvailable: false,
       manageAvailable: false,
-      botDebates: { kind: 'unavailable' },
     },
   });
 });
@@ -100,5 +93,62 @@ test('paid access remains through its verified period and expires at the end eve
       after.manageAvailable,
     ],
     expected: ['premium', endsAt, 'free', null, true],
+  });
+});
+
+test('paying yourself, cancelled and grandfathered show their own price and state', () => {
+  const endsAt = '2026-12-17T00:00:00.000Z';
+  const paid: BillingSettingsSource = {
+    ...source,
+    now: '2026-11-20T00:00:00.000Z',
+    purchaseAllowed: false,
+    amountMinor: 2000,
+    evidence: {
+      lifecycle: 'active',
+      settlement: {
+        kind: 'paid',
+        invoiceId: 'in_paid',
+        period: {
+          subscriptionId: 'sub_owned',
+          startsAt: '2026-11-17T00:00:00.000Z',
+          endsAt,
+        },
+      },
+    },
+  };
+  const view = (over: Partial<BillingSettingsSource>) =>
+    billingSettingsView({
+      source: { ...paid, ...over },
+      configured: true,
+      purchaseVisible: true,
+    });
+  assert({
+    given:
+      'a $20 subscriber renewing, the same with renewal off, and a grandfathered $10 subscriber',
+    should:
+      'show premium, cancelled through the paid end, and each subscriber their own price',
+    actual: [
+      [view({}).plan, view({}).priceMinor, view({}).accessEndsAt],
+      [
+        view({ renewalOff: true }).plan,
+        view({ renewalOff: true }).accessEndsAt,
+      ],
+      view({ amountMinor: 1000 }).priceMinor,
+    ],
+    expected: [['premium', 2000, endsAt], ['cancelled', endsAt], 1000],
+  });
+});
+
+test('a beta-granted account reads as Premium with nothing to buy', () => {
+  const view = billingSettingsView({
+    source: { ...source, granted: true },
+    configured: true,
+    purchaseVisible: true,
+  });
+  assert({
+    given: 'a current beta grant of Premium and no subscription',
+    should: 'show the granted plan and offer no checkout',
+    actual: [view.plan, view.checkoutAvailable],
+    expected: ['granted', false],
   });
 });

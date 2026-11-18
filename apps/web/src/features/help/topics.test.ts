@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { join } from 'node:path';
 import { routeExists } from '../../ui/test-support/route-exists';
-import { helpTopicHref, helpTopics } from './topics';
+import { helpTopicHref, helpTopics, visibleHelpTopics } from './topics';
 
 const appDirectory = join(import.meta.dir, '../../app');
 const topic = (id: string) => helpTopics.find((entry) => entry.id === id);
@@ -89,5 +89,27 @@ describe('helpTopics', () => {
       ],
       expected: ['/help#ratings', 'refused'],
     });
+  });
+});
+
+test('the plans topic waits for /pricing', () => {
+  const links = (open: boolean) =>
+    visibleHelpTopics(open).flatMap((topic) =>
+      topic.links.map((link) => link.href),
+    );
+  assert({
+    given: '/pricing closed, then open',
+    should: 'leave out the topic that links to it until it opens',
+    actual: [
+      links(false).includes('/pricing'),
+      links(true).includes('/pricing'),
+    ],
+    expected: [false, true],
+  });
+  assert({
+    given: '/pricing closed',
+    should: 'keep every other topic',
+    actual: visibleHelpTopics(false).length,
+    expected: helpTopics.length - 1,
   });
 });

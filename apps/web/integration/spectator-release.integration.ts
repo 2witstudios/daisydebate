@@ -139,7 +139,7 @@ test('standings hold a ranked outcome behind the watermark and release it after'
       const far = iso(completedAt + 100 * delayMs);
       const read = () =>
         a.database.readStandings({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           seasonIds: [a.seasonId!],
           clock: spectatorClockAt(far),
         });
@@ -152,7 +152,7 @@ test('standings hold a ranked outcome behind the watermark and release it after'
         expected: [0, 0],
       });
       const standings = await readRatingStandings(a.database, {
-        ladder: 'freestyle',
+        ladder: { style: 'freestyle', division: 'open' },
         seasonId: null,
         now: far,
       });
@@ -195,7 +195,7 @@ test('a later Round rewinds a rating without hiding what is already public', asy
     try {
       await openBroadcast(heldId, {});
       const read = await a.database.readStandings({
-        ladder: 'freestyle',
+        ladder: { style: 'freestyle', division: 'open' },
         seasonIds: [a.seasonId!],
         clock: spectatorClockAt(minute(59)),
       });
@@ -232,7 +232,7 @@ test('a member card holds a rating as the standings do', async () => {
       const clock = spectatorClockAt(minute(59));
       const cards = await a.database.readMemberCards([affirmative], clock);
       const standings = await a.database.readStandings({
-        ladder: 'freestyle',
+        ladder: { style: 'freestyle', division: 'open' },
         seasonIds: [a.seasonId!],
         clock,
       });
@@ -276,7 +276,7 @@ test('a debater reading their own Round sees its rating at once', async () => {
     try {
       await openBroadcast(roundId, {});
       const read = await readRatingStandings(a.database, {
-        ladder: 'freestyle',
+        ladder: { style: 'freestyle', division: 'open' },
         seasonId: null,
         now: iso(completedAt + 1000),
         revealRoundId: roundId,

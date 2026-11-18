@@ -7,7 +7,11 @@ import {
   type Purchase,
   type PurchaseObservation,
 } from '@daisy/protocol/billing';
-import { premiumPriceSchema } from './premium-price';
+import {
+  premiumPriceSchema,
+  subscribedAmounts,
+  subscribedPriceSchema,
+} from './premium-price';
 
 export function checkoutParameters(purchase: Purchase) {
   const metadata = { daisy_purchase_id: purchase.id };
@@ -51,7 +55,7 @@ const sessionSchema = z.object({
   customer: vendorId('cus').nullable(),
   subscription: vendorId('sub').nullable(),
   currency: z.literal('usd'),
-  amount_subtotal: z.literal(1000),
+  amount_subtotal: z.number().int(),
   automatic_tax: z.object({ enabled: z.literal(true) }),
   allow_promotion_codes: z.union([z.literal(false), z.null()]),
   after_expiration: z.null(),
@@ -64,7 +68,7 @@ const sessionSchema = z.object({
     object: z.literal('list'),
     has_more: z.literal(false),
     data: z
-      .array(z.object({ quantity: z.literal(1), price: premiumPriceSchema }))
+      .array(z.object({ quantity: z.literal(1), price: subscribedPriceSchema }))
       .length(1),
   }),
 });
@@ -104,6 +108,14 @@ function fixedOffer(purchase: Purchase, session: Session) {
       Math.ceil(
         (Date.parse(purchase.admittedAt) + purchaseBounds.creationMs) / 1000,
       )
+  );
+}
+function soldAt(session: Session, offer: 'current' | 'subscribed') {
+  const price = session.line_items.data[0]!.price;
+  return (
+    subscribedAmounts.includes(session.amount_subtotal) &&
+    session.amount_subtotal === price.unit_amount &&
+    (offer === 'subscribed' || premiumPriceSchema.safeParse(price).success)
   );
 }
 function hostedUrl(session: Session): string | null {
@@ -148,9 +160,16 @@ function observedSession(session: Session): CheckoutObservation {
 }
 
 /** A Checkout result identifies pending billing work; invoice evidence alone establishes paid access. */
+/**
+ * `current` (a session this call creates) must sell exactly the USD 20 offer.
+ * `subscribed` (reading back a session that already exists) also accepts the
+ * grandfathered offer, so a Checkout opened before the price changed and paid
+ * after it still completes (ADR 0146). The frozen price id binds either way.
+ */
 export function normalizeCheckoutSession(
   purchase: Purchase,
   value: unknown,
+  offer: 'current' | 'subscribed',
 ): CheckoutObservation {
   if (
     !purchaseSchema.safeParse(purchase).success ||
@@ -161,7 +180,8 @@ export function normalizeCheckoutSession(
   if (
     !parsed.success ||
     !ownedSession(purchase, parsed.data) ||
-    !fixedOffer(purchase, parsed.data)
+    !fixedOffer(purchase, parsed.data) ||
+    !soldAt(parsed.data, offer)
   )
     return refuse;
   return observedSession(parsed.data);

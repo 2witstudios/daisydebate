@@ -60,7 +60,7 @@ test('every public and member read holds a ranked outcome until release', async 
     let roundId: string | undefined;
     try {
       const season = await withSeasons(process.env['TEST_DATABASE_URL']!, (s) =>
-        s.activateBetaSeason({ id: seasonId }),
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
       );
       const frozen = await frozenRankedRound(f, 'freestyle', 'human');
       roundId = frozen.roundId;
@@ -184,7 +184,7 @@ test('every public and member read holds a ranked outcome until release', async 
         const timeline = spectatorTimelineSchema.parse(JSON.parse(body));
         const ladder = await readLadder(f.store, {
           seasonId: season.id,
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           now,
           username: null,
         });
@@ -204,7 +204,10 @@ test('every public and member read holds a ranked outcome until release', async 
           ladderEntries: (ladder?.data.entries ?? []).filter(
             (e) => e.id === f.host.actorId,
           ).length,
-          memberRating: member.find((m) => m.ladder === 'freestyle')?.rating,
+          memberRating: member.find(
+            (m) =>
+              m.ladder.style === 'freestyle' && m.ladder.division === 'open',
+          )?.rating,
           historyRows: profile?.history.length,
           profileRecord: profile?.record,
           card: await personCard(),

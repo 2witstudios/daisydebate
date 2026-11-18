@@ -153,7 +153,7 @@ of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an
 expected write rate of 10 rows/s (36,000 rows/hour) so one run always clears
 a full hour's growth with headroom.
 
-**Rating seasons (ADR 0055).** `bun season list | activate-beta | open | close` is the only way to change a season; there is no route for it in `apps/web` (ADR 0043). `open --name "<name>" [--starts <ISO>]` opens a season as active and is refused while any season exists, active or closed, until DEC-111 decides how a debater carries over; `close` is refused for the same reason, since it would leave rating with no season. Ids come from cuid2 and the default time is now. Opening the first production season is a human-only task (RATE-H.1).
+**Rating seasons (ADR 0055).** `bun season list | activate-beta | open | close` is the only way to change a season; there is no route for it in `apps/web` (ADR 0043). Each ladder division has its own seasons ([ADR 0147](../decisions/0147-ladder-style-and-division.md)): `activate-beta` opens the Open and the Youth Season 1 (each idempotent under the `beta-season-1` key per division). `open --name "<name>" --division <open|youth> [--starts <ISO>]` opens a season on that division as active and is refused while any season on that division exists, active or closed, until DEC-111 decides how a debater carries over; `close` is refused for the same reason, since it would leave rating with no season. Ids come from cuid2 and the default time is now. Opening the first production season is a human-only task (RATE-H.1).
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
 
@@ -356,10 +356,11 @@ fly ssh console -a daisy-debate-staging -C 'bun /app/scripts/season.ts list'
 ```
 
 The image includes the command; it uses the existing `daisy_web` runtime
-`DATABASE_URL`, never migration-owner credentials. Record the returned cuid2
-ID, status, actual UTC database start instant and `beta-season-1` activation
-key (verify the key with an authorized read). Run activate-beta again and
-verify exactly the same ID/start/status, unchanged standing/ledger counts and
+`DATABASE_URL`, never migration-owner credentials. Record each returned season's cuid2
+ID, division, status, actual UTC database start instant and `beta-season-1` activation
+key (verify the key with an authorized read). On a database whose Open season is
+already active, the first run opens only the Youth season. Run activate-beta again and
+verify exactly the same IDs/starts/statuses, unchanged standing/ledger counts and
 no new season. Compare the full standing rows before and after the retry in the
 authorized local operator session, not only their counts; publish scrubbed proof.
 These nonmutating verification queries run in a read-only transaction:

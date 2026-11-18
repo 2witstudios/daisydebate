@@ -29,6 +29,7 @@ const debater = (
   teamOpen: open.teamOpen ?? false,
   positionOpen: open.positionOpen ?? open.teamOpen ?? false,
   eligible: true,
+  division: 'open' as const,
   consentVersion: 0,
   consentCommandId: `ready-${id}`,
 });

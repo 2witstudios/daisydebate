@@ -95,7 +95,7 @@ describe('standings reads (RATE-1.4.1)', () => {
         await rated({ formatId, seasonId: third, ladder: 'freestyle' }, 1530);
 
         const read = await database.readStandings({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           seasonIds: [first, second],
           clock: { now: new Date().toISOString(), rankedDelaySeconds: 0 },
         });

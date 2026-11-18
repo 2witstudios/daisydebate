@@ -4,7 +4,7 @@ import type { ChallengeListRow, ChallengeStore } from '@daisy/db/challenges';
 import { createAppError, createRefusal, isAppError } from '@daisy/errors';
 import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import type {
-  RatingLadder,
+  RatingStyle,
   ChallengeList,
   CompetitionType,
   ChallengeResult,
@@ -42,7 +42,7 @@ export type ChallengeDependencies = {
   /** Whether a season is active, which a ranked room needs. */
   readonly rankedOpen: () => Promise<boolean>;
   /** Whether the catalog offers this format, which Accept's room needs. */
-  readonly formatOffered: (format: RatingLadder) => Promise<boolean>;
+  readonly formatOffered: (format: RatingStyle) => Promise<boolean>;
   /** The one username port: it spends discovery before each lookup. */
   readonly discover: DiscoverActor;
   readonly activity: (actorId: string) => Promise<PresenceActivity | null>;
@@ -77,7 +77,7 @@ export async function sendChallenge(
     readonly commandId: string;
     readonly username: string;
     readonly mode: CompetitionType;
-    readonly format: RatingLadder;
+    readonly format: RatingStyle;
   },
   dependencies: ChallengeDependencies,
 ): Promise<Omit<ChallengeResult, 'version'>> {
@@ -185,6 +185,7 @@ export function challengeListOf(
     username,
     mode,
     format,
+    division,
     createdAt,
     expiresAt,
   }: ChallengeListRow) => ({
@@ -192,6 +193,7 @@ export function challengeListOf(
     username,
     mode,
     format,
+    division,
     createdAt,
     expiresAt,
   });

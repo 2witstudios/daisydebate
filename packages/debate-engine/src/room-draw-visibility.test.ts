@@ -27,6 +27,7 @@ const judge = {
   kind: 'human' as const,
   seat: judgeSeat(0),
   eligible: true,
+  division: 'open' as const,
   teamOpen: false,
   positionOpen: false,
   consentVersion: 0,

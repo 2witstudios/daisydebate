@@ -175,7 +175,7 @@ test('judging stage records are cleared 180 days after receipt, not before (DEC-
 test('a ranked Round keeps its transcript past the window, as its waiver says', () =>
   withSpokenRound(recordedAt, async ({ fixture, lines, roundId, state }) => {
     await fixture.sql`update rounds set competition_type='ranked', format_id='freestyle', format_version=1,
-      ladder_id='freestyle', preset_version=1 where id=${roundId}`;
+      ladder_id='freestyle',ladder_division='open', preset_version=1 where id=${roundId}`;
     const retention = transcriptRetention({
       database: drizzle({ client: fixture.sql }),
     });
@@ -273,7 +273,7 @@ test("erasure keeps a ranked Round's transcript lines and its pending judgment",
         select format_id,format_version from rounds where id=${roundId}`;
       await fixture.sql`update rounds set competition_type='ranked',
         format_id=${preset.format_id},format_version=${preset.format_version},
-        preset_version=${preset.version},ladder_id=${preset.format_id}
+        preset_version=${preset.version},ladder_id=${preset.format_id},ladder_division='open'
         where id=${roundId}`;
       try {
         const before = await state();
@@ -290,7 +290,7 @@ test("erasure keeps a ranked Round's transcript lines and its pending judgment",
       } finally {
         await fixture.sql`update rounds set competition_type='casual',
           format_id=${original.format_id},format_version=${original.format_version},
-          preset_version=null,ladder_id=null where id=${roundId}`;
+          preset_version=null,ladder_id=null,ladder_division=null where id=${roundId}`;
       }
     },
   ));

@@ -44,7 +44,8 @@ const conflictAnswer = (
     case 'command-conflict':
       return { kind: 'refused', reason: 'replayed' };
     // The format and the resolution disagree, or the catalog moved on. The
-    // rest are a Room's later steps, which a create only meets as a bad request.
+    // rest are a Room's later steps (a ranked Room's division among them: who
+    // sits sets it), which a create only meets as a bad request.
     case 'illegal-config':
     case 'format-unavailable':
     case 'ballot-definition-unavailable':
@@ -63,6 +64,7 @@ const conflictAnswer = (
     case 'broadcast-private':
     case 'content-waiver-required':
     case 'content-waiver-changed':
+    case 'ranked-division':
       return { kind: 'refused', reason: 'settings' };
     case 'capture-notice-changed':
       return { kind: 'refused', reason: 'notice-changed' };

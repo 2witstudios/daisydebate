@@ -23,6 +23,7 @@ import { idle } from '../features/forms/form-state';
 import { createAppError } from '@daisy/errors';
 import { readLadder } from '../features/leaderboard/read-leaderboard';
 import { readMemberStandings } from '../features/ratings/read-member';
+import { readSeasonHistory } from '../features/profile/season-history';
 import { readRoundRatings } from '../features/ratings/read-round';
 import { cache } from 'react';
 import { createRequestFlagReader } from '../features/flags/reader';
@@ -33,7 +34,7 @@ import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { PublicProfileCard } from '@daisy/db';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import { type MatchHistoryQuery } from '@daisy/protocol';
+import { type MatchHistoryQuery, type RatingDivision } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
@@ -233,6 +234,20 @@ export const requestOptionalAnswersAdmitted = cache(
       now: app.clock.now(),
       admits: admitsOptionalAnswers,
     });
+  },
+);
+
+/**
+ * This render's member's ladder division (ADR 0147), so a page names their
+ * ladder and offers ranked seats on it. Null for anyone else and for a member
+ * with no age record. It only shapes the page: every ranked command decides
+ * again under its fence.
+ */
+export const requestMemberDivision = cache(
+  async (): Promise<RatingDivision | null> => {
+    const identity = await requestIdentity();
+    if (identity.state !== 'member') return null;
+    return processApp().database.readMemberDivision(identity.principal.userId);
   },
 );
 
@@ -437,7 +452,7 @@ export const requestAudience = async (
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {
   readonly seasonId: string | null;
-  readonly ladder: import('@daisy/protocol').RatingLadder;
+  readonly ladder: import('@daisy/protocol').Ladder;
   readonly now: string;
 }) {
   const identity = await requestIdentity();
@@ -456,6 +471,20 @@ export async function requestMemberStandings(username: string) {
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
   const app = processApp();
   return readMemberStandings(app.database, {
+    username,
+    now: app.clock.now(),
+    ...(identity.state === 'member'
+      ? { viewerActorId: identity.principal.actorId }
+      : {}),
+  });
+}
+
+/** A member's closed seasons per ladder, newest first, for their profile. */
+export async function requestSeasonHistory(username: string) {
+  const identity = await requestIdentity();
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  const app = processApp();
+  return readSeasonHistory(app.database, {
     username,
     now: app.clock.now(),
     ...(identity.state === 'member'

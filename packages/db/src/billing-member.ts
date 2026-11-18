@@ -1,5 +1,7 @@
 import { createAppError } from '@daisy/errors';
-import { readAllowanceLocked, type AllowancePolicy } from './usage-ledger';
+import { subscriptionEvidenceSchema } from '@daisy/protocol/billing';
+import { readDatabaseTime } from './database-clock';
+import { readEntitlementGrants } from './entitlement-grants';
 import {
   lockPurchaseSubject,
   type PurchaseSubject,
@@ -11,12 +13,16 @@ import type { BoundedTransaction } from './bounded-transaction';
 
 type Account = Awaited<ReturnType<typeof lockPurchaseSubject>>['account'];
 
-/** Member reads share purchase/closure account fences and the canonical allowance quote. */
+/** Member reads share purchase/closure account fences; billing shows no usage (PYL-10). */
 export function createBillingMember(input: {
   readonly run: BoundedTransaction;
   readonly manage: (account: Account) => boolean;
   readonly purchase: (account: Account) => boolean;
-  readonly allowance: AllowancePolicy;
+  /** Whether current grants give Premium without a subscription (a beta grant). */
+  readonly granted: (
+    grants: Awaited<ReturnType<typeof readEntitlementGrants>>,
+    now: string,
+  ) => boolean;
 }) {
   const owned = async (
     tx: BoundedTransactionContext,
@@ -41,34 +47,22 @@ export function createBillingMember(input: {
     read: (subject: PurchaseSubject) =>
       input.run(async (tx) => {
         const { account, customer, subscription } = await owned(tx, subject);
-        const quote = await readAllowanceLocked(tx, {
-          account,
-          request: { kind: 'bot_debate', roundId: null, withJudge: false },
-          decide: input.allowance,
-        });
-        const reservation = quote.quote?.reservations.find(
-          (entry) => entry.kind === 'ai_round',
-        );
-        const spent =
-          quote.facts.usage.find((entry) => entry.kind === 'ai_round')?.spent ??
-          0;
+        const now = (await readDatabaseTime(tx)).toISOString();
         return {
-          now: quote.now,
-          evidence: quote.facts.billing,
+          now,
+          granted: input.granted(
+            await readEntitlementGrants(tx, account.userId),
+            now,
+          ),
+          evidence: subscription
+            ? subscriptionEvidenceSchema.parse(subscription.evidence)
+            : null,
+          renewalOff: subscription?.renewalOff ?? false,
+          amountMinor: subscription?.amountMinor ?? null,
           purchaseAllowed:
             input.purchase(account) && permitsNewSubscription(subscription),
           hasCustomer: customer !== undefined && customer !== null,
           subscriptionLifecycle: subscription?.evidence.lifecycle ?? null,
-          botDebates:
-            reservation && reservation.limit !== null
-              ? {
-                  kind: 'limited' as const,
-                  remaining: Math.max(0, reservation.limit - spent),
-                  limit: reservation.limit,
-                  source: reservation.source,
-                  available: quote.decision.kind === 'admit',
-                }
-              : { kind: 'unavailable' as const },
         };
       }),
   };

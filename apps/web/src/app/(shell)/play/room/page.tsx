@@ -5,7 +5,10 @@ import type { SearchParams } from '../../../../features/access/decision';
 import { requireAccess } from '../../../../lib/access';
 import { CreateRoomPage } from '../../../../ui/rooms/create-room/create-room-page';
 import { roomTemplates } from '../actions';
-import { requestRoomDraftAnswer } from '../../../../lib/request-session';
+import {
+  requestMemberDivision,
+  requestRoomDraftAnswer,
+} from '../../../../lib/request-session';
 
 export const metadata: Metadata = { title: 'Create a room' };
 
@@ -20,6 +23,7 @@ export default async function OpenRoomPage({
   return (
     <CreateRoomPage
       initialRanked={(await searchParams).ranked === '1'}
+      memberDivision={await requestMemberDivision()}
       initialState={await requestRoomDraftAnswer((await searchParams).draft)}
       choices={templates.choices}
       commandId={systemId.next()}

@@ -5,7 +5,10 @@ import { subscriptionGrants } from '@daisy/auth/authorization';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src/index';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withBillingSynchronization,
+  renewing,
+} from './billing-synchronization.test-support';
 import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -45,10 +48,14 @@ test('actual subscription application, new hints and ambiguous initialization re
         await database.renewServiceInstance({ instanceId, role: 'web' });
         const initial = await reader.sample({ mode: 'test' });
         const claim = (await worker.claim(customerId))!;
-        const applied = await worker.apply(claim, {
-          lifecycle: 'incomplete',
-          settlement: { kind: 'unpaid' },
-        });
+        const applied = await worker.apply(
+          claim,
+          {
+            lifecycle: 'incomplete',
+            settlement: { kind: 'unpaid' },
+          },
+          renewing,
+        );
         const settled = await reader.sample({ mode: 'test' });
         assert({
           given:

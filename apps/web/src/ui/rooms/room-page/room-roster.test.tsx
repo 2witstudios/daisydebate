@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { judgeSeat, sideSeat, type RoomView } from '@daisy/protocol';
+import {
+  judgeSeat,
+  sideSeat,
+  type RatingDivision,
+  type RoomView,
+} from '@daisy/protocol';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { idle } from '../../../features/forms/form-state';
 import { botsForSeat, RoomRoster } from './room-roster';
@@ -10,7 +15,11 @@ setupRitewayBun();
 
 type Participant = RoomView['participants'][number];
 
-const viewer = { actorId: 'v'.repeat(24), label: 'Viewer' };
+const viewer = {
+  actorId: 'v'.repeat(24),
+  label: 'Viewer',
+  division: null as RatingDivision | null,
+};
 const judgeBot = {
   actorId: 't'.repeat(24),
   kind: 'bot' as const,
@@ -39,6 +48,7 @@ const seated = (
   teamOpen: false,
   positionOpen: false,
   rating: null,
+  division: null,
   needsReady: true,
   ready: 'not-ready',
   eligible: true,
@@ -368,7 +378,7 @@ describe('RoomRoster open seats', () => {
         html.includes('>AI judge</button>'),
         formOf(html, 'assign-5')?.includes(judgeBot.actorId) ?? false,
         html.includes('>Invite</a>'),
-        html.includes('AI judging on casual rounds is premium'),
+        html.includes('AI judging on casual Rounds is Premium'),
       ],
       expected: [false, false, true, true],
     });
@@ -861,6 +871,83 @@ describe('RoomRoster header count (main-sync-4)', () => {
       should: 'count the judge and the moderator together as officials',
       actual: count(html),
       expected: '0 of 3 debaters · 1 of 2 officials',
+    });
+  });
+});
+
+describe('RoomRoster ladders (ADR 0147)', () => {
+  const withJudge = (
+    participants: readonly Participant[],
+    more: Partial<RoomView>,
+  ): RoomView => {
+    const seats = seatsOf(1, 1, 1);
+    return {
+      ...sized(1, 1, participants),
+      definition: { ...assemblySnapshot.definition, seats },
+      rules: { ...assemblySnapshot.rules, seats },
+      competitionType: 'ranked',
+      ...more,
+    };
+  };
+
+  test('a Youth Room’s open judge seat is anyone’s', () => {
+    const youth = render(
+      withJudge([seated('m', 'affirmative', 0, { division: 'youth' })], {
+        ladder: 'youth',
+      }),
+    );
+    const open = render(
+      withJudge([seated('m', 'affirmative', 0, { division: 'open' })], {
+        ladder: 'open',
+      }),
+    );
+    assert({
+      given: 'an open judge seat in a Youth and in an Open ranked Room',
+      should:
+        'say anyone can judge under the Youth seat only, and name no seated debater’s ladder',
+      actual: [
+        youth.includes('Anyone can judge a Youth Round.'),
+        open.includes('Anyone can judge'),
+        youth.includes('>Youth</span>'),
+      ],
+      expected: [true, false, false],
+    });
+  });
+
+  test('the host sees each debater’s ladder when they mix', () => {
+    const html = render(
+      withJudge(
+        [
+          seated('s', 'affirmative', 0, { division: 'youth' }),
+          seated('d', 'negative', 0, { division: 'open' }),
+        ],
+        { ladder: 'mixed' },
+      ),
+    );
+    const row = (label: string) =>
+      html.match(new RegExp(`<li aria-label="${label}".*?</li>`))?.[0] ?? '';
+    assert({
+      given: 'a ranked Room seating a Youth and an Open debater',
+      should: 'chip each row with its ladder, in the division’s colour',
+      actual: [
+        row('Member s').includes('text-hue-plum">Youth</span>'),
+        row('Member d').includes('text-accent">Open</span>'),
+      ],
+      expected: [true, true],
+    });
+  });
+
+  test('Take seat on a debater seat carries the seat’s ladder for the viewer', () => {
+    const html = render(withJudge([], { ladder: 'youth' }));
+    assert({
+      given: 'an open debater seat and judge seat in a Youth ranked Room',
+      should:
+        'offer Take seat on each, saying nothing of ladders before an answer',
+      actual: [
+        (html.match(/>Take seat<\/button>/g) ?? []).length,
+        html.includes('That seat is for a debater'),
+      ],
+      expected: [3, false],
     });
   });
 });

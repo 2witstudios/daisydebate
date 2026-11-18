@@ -308,6 +308,7 @@ test('a league sanctions an event once, naming its own template and season and s
       name: 'Another League',
       handle: `league-${otherLeague}`,
       owner_user_id: await fixture.user(),
+      league_division: 'open',
     });
     await insertRow(sql, 'templates', {
       id: otherTemplate,
@@ -317,6 +318,7 @@ test('a league sanctions an event once, naming its own template and season and s
       format_version: 1,
     });
     await insertRow(sql, 'seasons', {
+      division: 'open',
       id: otherSeason,
       organization_id: otherLeague,
       name: 'Their season',
@@ -611,6 +613,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
     const season = (rest: Record<string, unknown>) =>
       refusedBy(sql, () =>
         insertRow(sql, 'seasons', {
+          division: 'open',
           id: createId(),
           name: 'A season',
           starts_at: at(0),
@@ -636,6 +639,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
           actor_id: actorId,
           season_id: ids.season,
           ladder,
+          division: 'open',
           rating: 1500,
           deviation: 350,
           volatility: 0.06,
@@ -690,6 +694,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
                 actor_id: actorId,
                 season_id: ids.season,
                 ladder: 'unknown',
+                division: 'open',
                 rating: 1500,
                 deviation: 350,
                 volatility: 0.06,

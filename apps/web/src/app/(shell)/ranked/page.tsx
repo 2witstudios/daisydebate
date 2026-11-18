@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
+import { rankedLadderLead } from '../../../features/play/ladder-division-words';
 import { requireAccess } from '../../../lib/access';
-import { requestMemberStandings } from '../../../lib/request-session';
-import { MemberStandings } from '../../../ui/ranked/member-standings';
+import {
+  requestMemberDivision,
+  requestMemberStandings,
+} from '../../../lib/request-session';
+import { RankedLadders } from '../../../ui/ranked/ranked-ladders';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
 import { buttonClass } from '../../../ui/components/button/button-class';
 export const metadata: Metadata = { title: 'Ranked debate' };
@@ -14,18 +18,25 @@ export default async function RankedPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const identity = await requireAccess('/ranked', searchParams);
-  const standings =
+  const [standings, division] = await Promise.all([
     identity.state === 'member'
-      ? await requestMemberStandings(identity.username)
-      : [];
+      ? requestMemberStandings(identity.username)
+      : [],
+    requestMemberDivision(),
+  ]);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 p-6">
-      <PageHeader title="Ranked debate" />
-      <MemberStandings standings={standings} />
+      <PageHeader
+        title="Ranked debate"
+        lede={division === null ? undefined : rankedLadderLead(division)}
+      />
+      <RankedLadders standings={standings} division={division} />
       <div className="flex flex-wrap gap-3">
-        <Link href="/play/room?ranked=1" className={buttonClass('primary')}>
-          Create a ranked room
-        </Link>
+        {division === null ? null : (
+          <Link href="/play/room?ranked=1" className={buttonClass('primary')}>
+            Create a ranked room
+          </Link>
+        )}
         <Link href="/lobby?mode=ranked" className={buttonClass('secondary')}>
           Browse ranked rooms
         </Link>

@@ -1,6 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import {
   isDebatingSeat,
+  ratingDivisions,
+  ratingStyles,
+  type Ladder,
   type RoundOutcome,
   type SeatRef,
 } from '@daisy/protocol';
@@ -11,6 +14,7 @@ import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { forfeitRecorded } from './recorded-ending';
 import { roundParticipants } from './schema/round-participants';
+import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import {
   isDebatingSeatSql,
@@ -44,6 +48,8 @@ export type HistoryRow = {
   readonly seat: SeatRef;
   readonly forfeit: boolean;
   readonly seats: readonly HistorySeat[];
+  /** The ladder a ranked Round rated on (ADR 0147); null for a casual one. */
+  readonly ladder: Ladder | null;
 };
 
 /** One listed Round as the page query selects it. */
@@ -68,6 +74,40 @@ const forfeitedRounds = async (tx: Tx, ids: readonly string[]) => {
   return new Set(
     (rows as unknown as { roundId: string }[]).map((r) => r.roundId),
   );
+};
+
+/**
+ * A Round's ladder from its frozen columns: both set on a ranked Round, both
+ * null otherwise (`rounds_ladder_division_check`). A value outside the
+ * vocabulary names no ladder Daisy shows.
+ */
+export const roundLadderOf = (columns: {
+  readonly ladderId: string | null;
+  readonly ladderDivision: string | null;
+}): Ladder | null => {
+  const style = ratingStyles.find((each) => each === columns.ladderId);
+  const division = ratingDivisions.find(
+    (each) => each === columns.ladderDivision,
+  );
+  return style === undefined || division === undefined
+    ? null
+    : { style, division };
+};
+
+/** Each listed Round's ladder, by id. */
+const roundLadders = async (
+  tx: Tx,
+  ids: readonly string[],
+): Promise<ReadonlyMap<string, Ladder | null>> => {
+  const rows = await tx
+    .select({
+      roundId: rounds.id,
+      ladderId: rounds.ladderId,
+      ladderDivision: rounds.ladderDivision,
+    })
+    .from(rounds)
+    .where(inArray(rounds.id, ids));
+  return new Map(rows.map((row) => [row.roundId, roundLadderOf(row)]));
 };
 
 /**
@@ -126,6 +166,7 @@ export async function historyRows(
   if (ids.length === 0) return [];
   const seats = await namedSeats(tx, ids);
   const forfeited = await forfeitedRounds(tx, ids);
+  const ladders = await roundLadders(tx, ids);
   return listed.map((row) => {
     const own = seatOfColumns(row.seat);
     if (!row.completedAt || !isDebatingSeat(own))
@@ -139,6 +180,7 @@ export async function historyRows(
       seat: own,
       forfeit: forfeited.has(row.roundId),
       seats: seats.get(row.roundId) ?? [],
+      ladder: ladders.get(row.roundId) ?? null,
     };
   });
 }

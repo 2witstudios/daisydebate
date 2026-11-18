@@ -1,5 +1,5 @@
 import { ACCOUNT_AGE_FLOOR, type AgeFloor } from './age-floor';
-import type { AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
 import type { BetaAccessState } from '@daisy/protocol';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { AccountAuthorizationFact } from './authorization-facts';

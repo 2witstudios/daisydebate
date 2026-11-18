@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   pgTable,
   text,
   uniqueIndex,
@@ -27,6 +28,10 @@ export const billingSubscriptions = pgTable(
     vendorSubscriptionId: text('vendor_subscription_id').notNull(),
     evidence: jsonbColumn('evidence', subscriptionEvidenceSchema).notNull(),
     current: boolean('current').notNull(),
+    /** The verified observation's cancel-at-period-end: renewal is off. */
+    renewalOff: boolean('renewal_off').notNull().default(false),
+    /** The verified subscription price in minor units; null before its first observation. */
+    amountMinor: integer('amount_minor'),
     observedAt: timestampColumn('observed_at').notNull(),
     createdAt: createdAtColumn(),
   },

@@ -5,7 +5,10 @@ import { subscriptionGrants } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { createBillingSynchronization } from '../src/billing-synchronization';
 import { finishedOrBlockedBehind } from '../src/testing';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withBillingSynchronization,
+  renewing,
+} from './billing-synchronization.test-support';
 import { loseTransactionCommitReply } from './bounded-transaction.test-support';
 
 setupRitewayBun();
@@ -73,7 +76,7 @@ test('a terminated backend rolls back evidence, grants and completion together',
           'the owned writer dies after every billing write but before commit',
         should: 'fail the operation',
         code: 'INFRASTRUCTURE',
-        actual: () => crashing.apply(claim, paid),
+        actual: () => crashing.apply(claim, paid, renewing),
       });
       const [after] =
         await fixture.sql`select synchronization from billing_customers where id=${customerId}`;
@@ -90,7 +93,7 @@ test('a terminated backend rolls back evidence, grants and completion together',
       assert({
         given: 'a fresh bounded transaction with the same still-valid claim',
         should: 'recover and atomically apply payment',
-        actual: await store.apply(claim, paid),
+        actual: await store.apply(claim, paid, renewing),
         expected: 'applied',
       });
     },
@@ -111,7 +114,7 @@ test('subscription application samples time after an account lock wait crossing 
         await holder`begin`;
         await holder`select id from users where id=${userId} for update`;
         const [backend] = await holder`select pg_backend_pid() as pid`;
-        pending = store.apply(claim, paid);
+        pending = store.apply(claim, paid, renewing);
         observed = Promise.allSettled([pending]);
         const ordering = await finishedOrBlockedBehind(
           pending,
@@ -146,8 +149,8 @@ test('subscription application samples time after an account lock wait crossing 
           should: 'admit a new generation and refuse the old worker',
           actual: [
             replacement.revision > claim.revision,
-            await store.apply(claim, paid),
-            await store.apply(replacement, paid),
+            await store.apply(claim, paid, renewing),
+            await store.apply(replacement, paid, renewing),
           ],
           expected: [true, 'stale', 'applied'],
         });

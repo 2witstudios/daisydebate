@@ -42,7 +42,7 @@ describe('standings reads', () => {
       should: 'return empty standings without a query',
       actual: [
         await database.readStandings({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           seasonIds: [],
           clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
         }),
@@ -106,7 +106,7 @@ describe('standings reads', () => {
       ],
     ]);
     const read = await database.readStandings({
-      ladder: 'freestyle',
+      ladder: { style: 'freestyle', division: 'open' },
       seasonIds: ['s1'],
       clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
@@ -139,7 +139,7 @@ describe('standings reads', () => {
   test('reads both sets from one read-only snapshot', async () => {
     const { database, queries } = createTestDatabase([[], [], []]);
     await database.readStandings({
-      ladder: 'freestyle',
+      ladder: { style: 'freestyle', division: 'open' },
       seasonIds: ['s1'],
       clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
@@ -185,7 +185,7 @@ describe('standings reads', () => {
         should: 'refuse as an internal error rather than guess a result',
         actual: () =>
           database.readStandings({
-            ladder: 'freestyle',
+            ladder: { style: 'freestyle', division: 'open' },
             seasonIds: ['s1'],
             clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
           }),

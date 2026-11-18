@@ -184,6 +184,7 @@ test('an invitation ends: declined, then accepted by taking the seat, then expir
             kind: 'human',
             seat: { kind: 'judge', slot: 0 },
             eligible: true,
+            division: 'open',
             consentVersion: 0,
             teamOpen: false,
             positionOpen: false,

@@ -2,7 +2,9 @@ import { sql, type SQL } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
+  roomLadderOf,
   roomListQuerySchema,
+  type RatingDivision,
   type RoomListQuery,
   type RoomListEntry,
   type RoomListPage,
@@ -18,6 +20,7 @@ import {
 } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
+import { seatedDebaterDivisionsSql } from './ladder-division-band';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 type Seat = {
   readonly actorId: string;
@@ -67,6 +70,23 @@ const statusScope = (status: RoomListQuery['status']) => ({
 });
 const modeMatches = (mode: RoomListQuery['mode']) =>
   mode === undefined ? sql`true` : sql`r.competition_type=${mode}`;
+/**
+ * A division filter keeps casual Rooms, open ranked Rooms whose seated
+ * debaters are all on it (none yet included), and launched ranked Rooms whose
+ * Round rates on it (ADR 0147).
+ */
+const divisionMatches = (division: RoomListQuery['division']) =>
+  division === undefined
+    ? sql`true`
+    : sql`(r.competition_type <> 'ranked' or (case when r.status='started'
+        then exists(select 1 from rounds dr where dr.room_id=r.id and dr.ladder_division=${division})
+        else not exists(select 1 from json_array_elements_text(${seatedDebaterDivisionsSql()}) seated_division(value)
+          where seated_division.value is distinct from ${division}) end))`;
+/** The divisions of an open Room's debaters; a launched one's Round's ladder. */
+const ladderFacts = sql`case when r.competition_type='ranked' and r.status<>'started' then ${seatedDebaterDivisionsSql()} end as "debaterDivisions",
+   d.ladder_division as "roundDivision"`;
+/** Free judge seats of the Room's rules, read with the page. */
+const openJudgeSeats = sql`greatest(0, (r.rules_snapshot->'seats'->>'judges')::int - (select count(*)::int from room_participants j where j.room_id=r.id and j.seat_kind='judge'))`;
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((select coalesce(sum(n.count::int),0) from jsonb_each_text(r.rules_snapshot->'seats'->'sides') as n(side,count))::int+(r.rules_snapshot->'seats'->>'speakers')::int+(r.rules_snapshot->'seats'->>'judges')::int+(r.rules_snapshot->'seats'->>'moderators')::int)`;
 const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
@@ -78,8 +98,9 @@ const hostRating = (clock: SpectatorClock) => {
     competitionType: sql`c_r.competition_type`,
     completedAt: sql`c_r.completed_at`,
   };
-  const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
-  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' and z.organization_id=${daisyOrganizationId} where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
+  const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.division=rt.division and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
+  // The host's rating on each division; the row keeps the one on its ladder.
+  return sql`case when r.competition_type='ranked' then (select json_object_agg(rt.division, round(coalesce(${earliestHeld},rt.rating))::int) from ratings rt join seasons z on z.id=rt.season_id and z.status='active' and z.organization_id=${daisyOrganizationId} where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id) end`;
 };
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
@@ -105,6 +126,19 @@ const pageOrder = (
         where r.id=${cursor} and ${visible(caller)})`,
   };
 };
+/**
+ * The host's rating a row shows: on the Room's ladder once its seats set one;
+ * before that, or while they mix, the host's one active-season rating, since
+ * a member is rated on one division at a time.
+ */
+const hostRatingOn = (
+  ladder: RoomListEntry['ladder'],
+  ratings: Partial<Record<RatingDivision, number>> | null,
+): number | null => {
+  if (ladder === 'open' || ladder === 'youth') return ratings?.[ladder] ?? null;
+  const held = Object.values(ratings ?? {});
+  return held.length === 1 ? (held[0] ?? null) : null;
+};
 /** Bound candidates before locks; a race may shorten a page, never trigger replenishment. */
 export async function discoverRooms(
   tx: Tx,
@@ -118,7 +152,7 @@ export async function discoverRooms(
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
   if (!parsed.success) throw createAppError('VALIDATION');
-  const { cursor, pageSize, q, status, mode, sort } = parsed.data;
+  const { cursor, pageSize, q, status, mode, division, sort } = parsed.data;
   const { assembly, launched } = statusScope(status);
   const order = pageOrder(sort, cursor, caller);
   let account = await sharedAccount(tx, caller);
@@ -126,11 +160,11 @@ export async function discoverRooms(
   const candidates = (await tx.execute(sql`
   select id from (
     (select r.id,r.created_at from rooms r ${joins}
-      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${order.after} and ${visible(caller)} and ${search(q, sql`r.topic`)}
+      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${divisionMatches(division)} and ${order.after} and ${visible(caller)} and ${search(q, sql`r.topic`)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
-      where ${launched} and ${modeMatches(mode)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
+      where ${launched} and ${modeMatches(mode)} and ${divisionMatches(division)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
         and ${order.after} and ${visible(caller)} and ${inLaunchedRound(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
@@ -160,17 +194,24 @@ export async function discoverRooms(
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
    case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
    case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
-   ${hostRating(clock)} as "hostRating"
+   ${hostRating(clock)} as "hostRatings",
+   ${ladderFacts},${openJudgeSeats} as "openJudgeSeats"
   from rooms r ${joins}
   join formats f on f.id=r.format_id
   left join room_participants p on p.room_id=r.id and p.actor_id=${caller.actorId}
   left join rounds d on d.room_id=r.id
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q, launchedTopic)}
-   and ${modeMatches(mode)}
+   and ${modeMatches(mode)} and ${divisionMatches(division)}
    and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
- `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
+ `)) as unknown as (Omit<
+    RoomListEntry,
+    'waitingSince' | 'live' | 'ladder' | 'hostRating'
+  > & {
+    hostRatings: Partial<Record<RatingDivision, number>> | null;
+    debaterDivisions: (RatingDivision | null)[] | null;
+    roundDivision: RatingDivision | null;
     waitingSince: Date | string | null;
     live: {
       stage: NonNullable<RoomListEntry['live']>['stage'];
@@ -229,6 +270,19 @@ export async function discoverRooms(
   });
   const entries = rows
     .filter((r) => authorize(fact(r), account))
+    .map((r) => {
+      const ladder = roomLadderOf({
+        competitionType: r.competitionType,
+        launched: r.status === 'started',
+        roundDivision: r.roundDivision,
+        debaterDivisions: r.debaterDivisions ?? [],
+      });
+      return {
+        ...r,
+        ladder,
+        hostRating: hostRatingOn(ladder, r.hostRatings),
+      };
+    })
     .map((r) => ({
       ...r,
       waitingSince: isoOrNull(r.waitingSince),
@@ -254,6 +308,9 @@ export async function discoverRooms(
         roundSeatKind: _roundSeatKind,
         roundSide: _roundSide,
         roundSlot: _roundSlot,
+        hostRatings: _hostRatings,
+        debaterDivisions: _debaterDivisions,
+        roundDivision: _roundDivision,
         ...r
       }) => r,
     );

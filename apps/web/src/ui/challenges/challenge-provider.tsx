@@ -2,7 +2,11 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import { challengeListSchema, type ChallengeList } from '@daisy/protocol';
+import {
+  challengeListSchema,
+  type ChallengeList,
+  type RatingDivision,
+} from '@daisy/protocol';
 import {
   createContext,
   useCallback,
@@ -35,6 +39,12 @@ type ChallengeView = {
   readonly forgetCancelled: (id: string) => void;
   /** Re-reads at once, after the member's own action. */
   readonly refresh: () => void;
+  /**
+   * The ladder division this member debates on this season (ADR 0147), or
+   * null with no age on record: ranked offers are theirs on that ladder only.
+   * A hint; the commands decide again.
+   */
+  readonly memberDivision: RatingDivision | null;
 };
 
 const ChallengeContext = createContext<ChallengeView | null>(null);
@@ -71,11 +81,13 @@ export function ChallengeProvider({
   initialChallenges,
   actorId,
   socketUrl,
+  memberDivision,
   children,
 }: {
   readonly initialChallenges: ChallengeList;
   readonly actorId: string | null;
   readonly socketUrl: string | null;
+  readonly memberDivision: RatingDivision | null;
   readonly children: ReactNode;
 }) {
   // The first render's list: a later render of the shell never restarts the sync.
@@ -114,7 +126,10 @@ export function ChallengeProvider({
     }),
     [driver],
   );
-  const view = useMemo(() => ({ ...shown, ...commands }), [commands, shown]);
+  const view = useMemo(
+    () => ({ ...shown, ...commands, memberDivision }),
+    [commands, shown, memberDivision],
+  );
   return (
     <ChallengeContext.Provider value={view}>
       {children}

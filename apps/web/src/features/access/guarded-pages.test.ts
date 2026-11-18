@@ -42,6 +42,9 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestReleaseEnabled: async () => false,
   requestMemberDrive: () => null,
   requestLadder: async () => null,
+  // A stored league read answers no league for the placeholder slug.
+  requestLeaguePage: async () => null,
+  requestStandingRoomPage: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
   requestWatchableRoundOfRoom: async () => null,
@@ -71,6 +74,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   }),
   readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
+  requestMemberDivision: async () => null,
   privateGroupsOffered: () => false,
   messagingFilesAvailable: () => false,
   messagingLatestPageItems: () => 50,
@@ -135,6 +139,14 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/rooms/[id]/page'),
     '(shell)/rooms/[id]/rematch/page.tsx': () =>
       import('../../app/(shell)/rooms/[id]/rematch/page'),
+    '(tab)/leagues/[slug]/page.tsx': () =>
+      import('../../app/(tab)/leagues/[slug]/page'),
+    '(tab)/leagues/[slug]/rooms/new/page.tsx': () =>
+      import('../../app/(tab)/leagues/[slug]/rooms/new/page'),
+    '(host)/host/leagues/[slug]/page.tsx': () =>
+      import('../../app/(host)/host/leagues/[slug]/page'),
+    '(host)/host/leagues/[slug]/people/page.tsx': () =>
+      import('../../app/(host)/host/leagues/[slug]/people/page'),
     '(tab)/rooms/sample/[room]/page.tsx': () =>
       import('../../app/(tab)/rooms/sample/[room]/page'),
     '(tab)/rooms/sample/[room]/ballot/page.tsx': () =>
@@ -211,7 +223,12 @@ const guardRequestsOf = async (file: string) => {
   guardCalls.length = 0;
   try {
     await page({
-      params: Promise.resolve({ username: 'someone', id: 'x', roundId: 'x' }),
+      params: Promise.resolve({
+        username: 'someone',
+        id: 'x',
+        roundId: 'x',
+        slug: 'x',
+      }),
       searchParams,
     });
   } catch (error) {
@@ -276,7 +293,9 @@ describe('guarded pages', () => {
       ].sort(),
       expected: [
         '/friends',
+        '/host/leagues',
         '/judge',
+        '/leagues',
         '/lobby',
         '/messages',
         '/notifications',

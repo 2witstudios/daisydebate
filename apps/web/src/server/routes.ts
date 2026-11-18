@@ -24,6 +24,7 @@ import { composeRecordingRoutes } from '../features/recording/composition';
 import { composeContentModerationRoutes } from '../features/content-moderation/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import { composeTabRoutes } from '../features/tab/composition';
+import { composeLeagueRequestRoutes } from '../features/league-requests/composition';
 import {
   createListSessionsHandler,
   createRevokeSessionHandler,
@@ -100,6 +101,7 @@ export function createRoutes(app: App) {
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
     tab: composeTabRoutes(app),
+    leagueRequests: composeLeagueRequestRoutes(app),
     audienceLink: createAudienceLinkHandlers({
       logger,
       reporter: app.reporter,

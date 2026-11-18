@@ -86,13 +86,13 @@ test('a casual AI judge seat needs the host’s own grant, refused on the server
     assert({
       given: 'that refused seat',
       should:
-        'name the premium refusal, leave the Room exactly unchanged, and tell the host',
+        'name the premium refusal, leave the Room exactly unchanged, and tell the host the free AI judge comes with the free bot Round',
       actual: [
         refusal,
         await f.snapshot(open.view.id),
         (await f.operations.view(other, open.view.id)).aiJudgeSeating,
       ],
-      expected: ['ai-judge-premium', before, 'premium'],
+      expected: ['ai-judge-premium', before, 'with-bot'],
     });
   });
 });
@@ -139,7 +139,7 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
         practice.view.participants.map((p) => [p.seat, p.kind]),
         practice.view.aiJudgeSeating,
       ],
-      expected: [0, [[sideSeat(negativeSide), 'bot']], 'premium'],
+      expected: [0, [[sideSeat(negativeSide), 'bot']], 'not-included'],
     });
   });
 });
@@ -162,7 +162,7 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
     await withSeasons(databaseUrl, (seasons) =>
-      seasons.activateBetaSeason({ id: seasonId }),
+      seasons.activateBetaSeason({ id: seasonId, division: 'open' }),
     );
     try {
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;

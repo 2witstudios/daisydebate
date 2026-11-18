@@ -32,4 +32,21 @@ describe('Segmented', () => {
       expected: [true, 2, 1, true],
     });
   });
+
+  test('a captioned row', () => {
+    const segments = [{ label: 'Youth', href: '/a', selected: true }];
+    const captioned = renderToString(
+      h(Segmented, { label: 'Division', segments, captioned: true }),
+    );
+    const plain = renderToString(h(Segmented, { label: 'Division', segments }));
+    assert({
+      given: 'the same row with and without a caption',
+      should: 'show the label as text only when captioned',
+      actual: [
+        captioned.includes('>Division</span>'),
+        plain.includes('>Division</span>'),
+      ],
+      expected: [true, false],
+    });
+  });
 });

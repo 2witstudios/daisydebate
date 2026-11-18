@@ -1,4 +1,4 @@
-import type { AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
 
 /** The youngest age, in whole years, an account may be opened at. */
 export type AgeFloor = 13 | 16;

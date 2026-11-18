@@ -66,9 +66,10 @@ export function testPeopleList() {
         timeout: 45_000,
       });
 
-      // Hover shows the card; the row itself offers no buttons.
+      // Hover shows the card; the row itself offers no buttons. A member
+      // never rated shows their record and no ladder (ADR 0147).
       await rail.getByText(`@${b}`).first().hover();
-      await expect(rail.getByText('Freestyle').first()).toBeVisible();
+      await expect(rail.getByText('Record 0–0').first()).toBeVisible();
 
       // Right-click opens the one menu.
       await rail.getByText(`@${b}`).first().click({ button: 'right' });

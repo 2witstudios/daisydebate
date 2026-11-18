@@ -53,6 +53,12 @@ export const usageReservations = pgTable(
       table.kind,
       table.source,
     ),
+    /** The fair-use ceiling's one-day count (ADR 0146). */
+    index('usage_reservations_actor_day_idx').on(
+      table.actorId,
+      table.kind,
+      table.reservedAt,
+    ),
     check(
       'usage_reservations_reserved_at_check',
       sql`isfinite(${table.reservedAt})`,

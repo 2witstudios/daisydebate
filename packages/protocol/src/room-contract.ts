@@ -3,6 +3,7 @@ import type { RoomView, roomRefusalSchema } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import { ratingDivisions, type RatingDivision } from './ladder';
 import {
   seatRefSchema,
   type SeatKind,
@@ -452,6 +453,12 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly participants: readonly (RoomParticipant & {
     readonly label: string;
     readonly eligible: boolean;
+    /**
+     * The person's ladder division as read with the Room (ADR 0147): fixed
+     * for the season from the stored birth month. Null for a bot and for a
+     * person with no valid age record.
+     */
+    readonly division: RatingDivision | null;
     readonly consentCommandId: string | null;
   })[];
 };
@@ -512,6 +519,12 @@ export const roomListQuerySchema = z.strictObject({
    */
   status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
+  /**
+   * Narrows ranked Rooms to one ladder division (ADR 0147): those whose seated
+   * debaters are on it, or whose ladder no debater has set yet. A casual Room
+   * has no division and is kept.
+   */
+  division: z.enum(ratingDivisions).optional(),
 });
 /** Active discovery carries the catalog label, not cast, full rules/configuration or consent. */
 const roomListEntryFields = z.strictObject({
@@ -544,8 +557,20 @@ const roomListEntryFields = z.strictObject({
       startedAt: z.iso.datetime({ offset: true }).nullable(),
     })
     .nullable(),
-  /** A ranked host's current-season Ranked rating; null otherwise or hidden. */
+  /**
+   * A ranked host's current-season rating on this Room's ladder; null
+   * otherwise, while no ladder is set, or hidden.
+   */
   hostRating: z.int().nullable(),
+  /**
+   * A ranked Room's ladder division as its seats set it (ADR 0147): unset
+   * until a debater sits, mixed when its debaters are on both; a launched
+   * Room's is its Round's, mixed when that Round plays casual. Null on a
+   * casual Room.
+   */
+  ladder: z.enum([...ratingDivisions, 'unset', 'mixed']).nullable(),
+  /** Free judge seats: anyone may judge, whatever the ladder. */
+  openJudgeSeats: z.int().nonnegative(),
 });
 /** A listed Room is open and waiting, or started with its Round and that Round's live facts. */
 const roomListEntrySchema = roomListEntryFields.refine(

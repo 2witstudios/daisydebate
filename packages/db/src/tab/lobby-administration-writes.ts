@@ -4,6 +4,7 @@ import type { TournamentStatus } from '@daisy/protocol/lobby';
 import { jsonObjectSchema } from '../schema/columns';
 import { ladders } from '../schema/ladders';
 import { lobbies, tournaments } from '../schema/lobbies';
+import { organizations } from '../schema/organizations';
 import { seasons } from '../schema/ratings';
 import { seasonStandingRules } from '../schema/sanctions';
 import type { TabTransaction } from './tab-transaction';
@@ -123,8 +124,20 @@ const apply = async (
       );
     case 'seasons':
       if (write.op === 'insert') {
+        // A league's season rates its league's division (PYL-16), fixed
+        // when the season starts (decision 79).
+        const [league] = await tx
+          .select({ division: organizations.leagueDivision })
+          .from(organizations)
+          .where(eq(organizations.id, write.row.organizationId));
+        if (!league) throw createAppError('INVARIANT');
+        // Daisy (kind league) carries no division: its seasons are opened
+        // only by the operator's season command (ADR 0055), so a lobby
+        // command naming it finds nothing to open.
+        if (!league.division) throw createAppError('NOT_FOUND');
         await tx.insert(seasons).values({
           ...write.row,
+          division: league.division,
           startsAt: new Date(write.row.startsAt),
           endsAt: at(write.row.endsAt),
         });

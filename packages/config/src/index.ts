@@ -102,8 +102,6 @@ const serverFields = {
     .optional(),
   AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
-  /** DEC-183 as amended (ISSUE-646): AI Rounds per approved beta host per UTC calendar month. */
-  AI_ROUND_MONTHLY_CAP: z.coerce.number().int().min(1).max(1000).default(20),
   /**
    * Concurrent provider calls for competitive work: AI judging and live bot
    * speech share this one budget. Round analysis has its own.
@@ -142,6 +140,13 @@ const serverFields = {
    * digests are cancelled as unconfigured.
    */
   BETA_NOTIFY_EMAIL: z.email().optional(),
+  /**
+   * PYL-17: where League requests ("Talk to us") go. Personal data, so it is
+   * set in the deploy's secret store, never committed; absent, they go to
+   * BETA_NOTIFY_EMAIL, and with neither they are stored and their email
+   * waits until an address is set.
+   */
+  LEAGUE_REQUEST_NOTIFY_EMAIL: z.email().optional(),
   ...operatorFields,
   ...releaseFlagDefaultFields,
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),

@@ -57,9 +57,10 @@ export function createCheckoutVendor(input: {
   const observe = async (
     purchase: Purchase,
     run: () => Promise<unknown>,
+    offer: 'current' | 'subscribed',
   ): Promise<Result> => {
     try {
-      return normalizeCheckoutSession(purchase, await run());
+      return normalizeCheckoutSession(purchase, await run(), offer);
     } catch {
       return { kind: 'unknown' };
     }
@@ -77,27 +78,35 @@ export function createCheckoutVendor(input: {
         Date.parse(now) >= Date.parse(state.claim.expiresAt)
       )
         return Promise.resolve(refuse);
-      return observe(purchase, () =>
-        input.port.create(
-          checkoutParameters(purchase),
-          purchaseIdempotencyKey(purchase),
-        ),
+      // A new session sells only the current offer (ADR 0146).
+      return observe(
+        purchase,
+        () =>
+          input.port.create(
+            checkoutParameters(purchase),
+            purchaseIdempotencyKey(purchase),
+          ),
+        'current',
       );
     },
     retrieve(purchase: Purchase): Promise<Result> {
       if (!valid(purchase) || !('sessionId' in purchase.state))
         return Promise.resolve(refuse);
       const id = purchase.state.sessionId;
-      return observe(purchase, () => input.port.retrieve(id));
+      return observe(purchase, () => input.port.retrieve(id), 'subscribed');
     },
     async expire(purchase: Purchase): Promise<Result> {
       if (!valid(purchase) || purchase.state.kind !== 'open') return refuse;
       const id = purchase.state.sessionId;
       // Expiring an already-terminal Session errors; a prior lost reply must remain recoverable.
-      const current = await observe(purchase, () => input.port.retrieve(id));
+      const current = await observe(
+        purchase,
+        () => input.port.retrieve(id),
+        'subscribed',
+      );
       if (current.kind !== 'observed' || current.session.kind !== 'open')
         return current;
-      return observe(purchase, () => input.port.expire(id));
+      return observe(purchase, () => input.port.expire(id), 'subscribed');
     },
   };
 }
