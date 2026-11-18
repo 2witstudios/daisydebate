@@ -163,8 +163,14 @@ test('the cache key reads the exact installed @playwright/test version', async (
 });
 
 test('the prune loop keeps readable installed versions and reports a changed set', async () => {
-  const { mkdtempSync, writeFileSync, chmodSync, readdirSync, readFileSync } =
-    await import('node:fs');
+  const {
+    mkdtempSync,
+    writeFileSync,
+    chmodSync,
+    readdirSync,
+    readFileSync,
+    rmSync,
+  } = await import('node:fs');
   const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
   const script = await read('scripts/ci-browsers.sh');
@@ -173,51 +179,55 @@ test('the prune loop keeps readable installed versions and reports a changed set
     script.indexOf('"$bun" "$cli" install "$@"'),
   );
   const root = mkdtempSync(join(tmpdir(), 'daisy-browser-debs-'));
-  const bin = join(root, 'bin');
-  const cache = join(root, 'debs');
-  Bun.spawnSync(['mkdir', '-p', bin, cache]);
-  for (const name of ['good', 'old', 'absent', 'bad'])
-    writeFileSync(join(cache, `${name}.deb`), name);
-  const stub = (name: string, body: string) => {
-    writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`);
-    chmodSync(join(bin, name), 0o755);
-  };
-  stub(
-    'dpkg-deb',
-    'case "$2" in *bad.deb) exit 2;; esac\nif [ "$3" = Package ]; then basename "$2" .deb; else echo 1; fi',
-  );
-  stub(
-    'dpkg-query',
-    'case "$3" in good) echo 1;; old) echo 0;; *) exit 1;; esac',
-  );
-  const output = join(root, 'output');
-  writeFileSync(output, '');
-  const run = Bun.spawnSync(
-    [
-      'sh',
-      '-euc',
-      `deb_cache=${cache}\ndebs_before=$(ls "$deb_cache" | sort | cksum)\n${loop}`,
-    ],
-    {
-      env: {
-        ...process.env,
-        PATH: `${bin}:${process.env.PATH}`,
-        GITHUB_OUTPUT: output,
+  try {
+    const bin = join(root, 'bin');
+    const cache = join(root, 'debs');
+    Bun.spawnSync(['mkdir', '-p', bin, cache]);
+    for (const name of ['good', 'old', 'absent', 'bad'])
+      writeFileSync(join(cache, `${name}.deb`), name);
+    const stub = (name: string, body: string) => {
+      writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`);
+      chmodSync(join(bin, name), 0o755);
+    };
+    stub(
+      'dpkg-deb',
+      'case "$2" in *bad.deb) exit 2;; esac\nif [ "$3" = Package ]; then basename "$2" .deb; else echo 1; fi',
+    );
+    stub(
+      'dpkg-query',
+      'case "$3" in good) echo 1;; old) echo 0;; *) exit 1;; esac',
+    );
+    const output = join(root, 'output');
+    writeFileSync(output, '');
+    const run = Bun.spawnSync(
+      [
+        'sh',
+        '-euc',
+        `deb_cache=${cache}\ndebs_before=$(ls "$deb_cache" | sort | cksum)\n${loop}`,
+      ],
+      {
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH}`,
+          GITHUB_OUTPUT: output,
+        },
       },
-    },
-  );
-  assert({
-    given:
-      'a cache with a readable installed, an older, an uninstalled and an unreadable .deb',
-    should:
-      'finish under set -eu, keep only the installed version and report the change',
-    actual: {
-      exit: run.exitCode,
-      kept: readdirSync(cache),
-      output: readFileSync(output, 'utf8'),
-    },
-    expected: { exit: 0, kept: ['good.deb'], output: 'debs=changed\n' },
-  });
+    );
+    assert({
+      given:
+        'a cache with a readable installed, an older, an uninstalled and an unreadable .deb',
+      should:
+        'finish under set -eu, keep only the installed version and report the change',
+      actual: {
+        exit: run.exitCode,
+        kept: readdirSync(cache),
+        output: readFileSync(output, 'utf8'),
+      },
+      expected: { exit: 0, kept: ['good.deb'], output: 'debs=changed\n' },
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('apt is bounded per request and per attempt, with at most three attempts', async () => {
