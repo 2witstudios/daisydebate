@@ -19,4 +19,17 @@ describe('HelpPage', () => {
       expected: [helpTopics.length, true],
     });
   });
+
+  test('a link to a topic opens its answer', () => {
+    const html = renderToString(h(HelpPage, { topics: helpTopics }));
+    assert({
+      given: 'each topic id',
+      should:
+        'sit on the summary inside its disclosure, where fragment navigation opens it',
+      actual: helpTopics.filter(
+        (topic) => !new RegExp(`<summary id="${topic.id}"`).test(html),
+      ),
+      expected: [],
+    });
+  });
 });

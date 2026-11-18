@@ -17,13 +17,14 @@ export function HelpPage({
       />
       <ul className="flex flex-col gap-3">
         {topics.map((topic) => (
-          <li
-            key={topic.id}
-            id={topic.id}
-            className="rounded-xl bg-surface p-5 shadow-1"
-          >
+          <li key={topic.id} className="rounded-xl bg-surface p-5 shadow-1">
             <details>
-              <summary className="cursor-pointer text-base font-bold text-ink">
+              {/* The id sits inside the disclosure, so a link to /help#id
+                  opens its answer as the browser scrolls to it. */}
+              <summary
+                id={topic.id}
+                className="cursor-pointer text-base font-bold text-ink"
+              >
                 {topic.question}
               </summary>
               <div className="mt-3 flex flex-col gap-3">
