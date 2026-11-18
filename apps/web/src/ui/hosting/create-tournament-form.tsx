@@ -99,7 +99,7 @@ export function CreateTournamentForm({
             ).map((choice) => (
               <label
                 key={choice.value}
-                className="flex min-h-room-target flex-1 cursor-pointer items-start gap-2 rounded-md border border-border-strong bg-surface-raised px-3 py-2 has-[:checked]:border-2 has-[:checked]:border-ink"
+                className="flex min-h-room-target flex-1 cursor-pointer items-start gap-2 rounded-md border border-border-strong bg-surface-raised px-3 py-2 has-checked:border-2 has-checked:border-ink"
               >
                 <input
                   type="radio"
