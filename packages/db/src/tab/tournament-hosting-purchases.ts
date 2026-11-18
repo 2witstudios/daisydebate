@@ -1,4 +1,7 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { lobbies } from '../schema/lobbies';
+import { fenceTabAccountRead } from './account-read-fence';
+import { loadAccountHostingFacts } from './account-hosting-facts';
 import type { PaidHostingTier } from '@daisy/protocol/lobby/hosting-tier';
 import { entries } from '../schema/entries';
 import {
@@ -160,9 +163,72 @@ export type TournamentHostingPurchaseWrites = ReturnType<
   typeof purchaseWrites
 >;
 
+/**
+ * The open tournaments a person owns themselves, newest first, each read
+ * under its own lobby scope with its tier facts and accepted entries.
+ */
+const loadHostedTournaments = async (
+  tx: TabTransaction,
+  viewerUserId: string,
+) => {
+  await scopeTransaction(tx, { subjectUserId: viewerUserId });
+  await fenceTabAccountRead(tx, viewerUserId);
+  const owned = await tx
+    .select({ id: lobbies.id, handle: lobbies.handle, name: lobbies.name })
+    .from(lobbies)
+    .where(
+      and(
+        eq(lobbies.ownerUserId, viewerUserId),
+        eq(lobbies.kind, 'tournament'),
+        isNull(lobbies.closedAt),
+      ),
+    )
+    .orderBy(desc(lobbies.createdAt), desc(lobbies.id))
+    .limit(100);
+  const hosted = [];
+  for (const lobby of owned) {
+    await scopeTransaction(tx, {
+      subjectUserId: viewerUserId,
+      lobbyId: lobby.id,
+    });
+    const paid = await tx
+      .select({ tier: tournamentHostingPurchases.tier })
+      .from(tournamentHostingPurchases)
+      .where(
+        and(
+          eq(tournamentHostingPurchases.lobbyId, lobby.id),
+          eq(tournamentHostingPurchases.state, 'paid'),
+        ),
+      );
+    const [accepted] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(entries)
+      .where(and(eq(entries.lobbyId, lobby.id), eq(entries.status, 'accepted')));
+    hosted.push({
+      ...lobby,
+      paidTiers: paid.map((row) => row.tier),
+      acceptedEntries: accepted?.count ?? 0,
+    });
+  }
+  return {
+    hosting: await loadAccountHostingFacts(tx, viewerUserId),
+    tournaments: hosted,
+  };
+};
+export type HostedTournamentsFacts = Awaited<
+  ReturnType<typeof loadHostedTournaments>
+>;
+
 export const createTournamentHostingPurchaseStore = (
   database: TabDatabase,
 ) => ({
+  hostedTournaments: <Answer>(
+    viewerUserId: string,
+    work: (facts: HostedTournamentsFacts) => Promise<Answer>,
+  ): Promise<Answer> =>
+    database.transaction(async (tx) =>
+      work(await loadHostedTournaments(tx, viewerUserId)),
+    ),
   /** A host's view of a tournament's hosting, with the writes checkout makes. */
   tournamentHosting: <Answer>(
     input: { readonly viewerUserId: string; readonly lobbyId: string },

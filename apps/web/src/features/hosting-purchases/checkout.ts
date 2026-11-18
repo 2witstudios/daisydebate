@@ -64,7 +64,10 @@ type HostEventPrices = NonNullable<
   Extract<BillingConfig, { kind: 'stripe' }>['hostEventPrices']
 >;
 export type HostingDependencies = {
-  readonly store: Pick<TabStore, 'tournamentHosting' | 'tournamentHostingSettlement'>;
+  readonly store: Pick<
+    TabStore,
+    'tournamentHosting' | 'tournamentHostingSettlement' | 'hostedTournaments'
+  >;
   readonly authorize: (input: AuthorizationInput) => AuthorizationDecision;
   /** Null where billing or the host event prices are not configured. */
   readonly vendor: {

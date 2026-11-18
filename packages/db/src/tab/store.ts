@@ -58,6 +58,7 @@ export type {
 } from './release-command';
 import { createTournamentHostingPurchaseStore } from './tournament-hosting-purchases';
 export type {
+  HostedTournamentsFacts,
   TournamentHostingAccount,
   TournamentHostingPurchaseRow,
   TournamentHostingPurchaseWrites,
