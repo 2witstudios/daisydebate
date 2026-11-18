@@ -9,9 +9,11 @@
 # gets per-request retries and timeouts, each attempt is killed after
 # APT_ATTEMPT_SECONDS, a retry switches to the primary Ubuntu archive, and
 # the third failure fails the step. The workflow restores the browsers
-# (~/.cache/ms-playwright) and the downloaded .debs (DEB_CACHE) from a cache
-# keyed on the exact @playwright/test version and the month, so a warm run
-# only refreshes apt's index and unpacks.
+# (~/.cache/ms-playwright) from a cache keyed on the exact @playwright/test
+# version, and the .debs (DEB_CACHE) from the newest of a rolling cache, so a
+# warm run only refreshes apt's index and unpacks. DEB_CACHE keeps only the
+# versions now installed; when that set changed (Ubuntu published updates),
+# the script writes debs=changed to GITHUB_OUTPUT and the workflow saves it.
 set -eu
 
 cli=apps/web/node_modules/@playwright/test/cli.js
@@ -28,6 +30,7 @@ APT::Keep-Downloaded-Packages "true";
 EOF
 
 mkdir -p "$deb_cache"
+debs_before=$(ls "$deb_cache" | sort | cksum)
 find "$deb_cache" -name '*.deb' -exec sudo cp {} /var/cache/apt/archives/ \;
 
 # Run as root under timeout so the kill reaches apt-get, not just the CLI.
@@ -44,10 +47,27 @@ until sudo timeout -k 10 "$attempt_seconds" \
   echo "Retrying browser OS dependencies on archive.ubuntu.com (attempt $attempt)" >&2
   sudo dpkg --configure -a
   # ubuntu-24.04 runners resolve the archive through mirror+file, which only
-  # fails over on errors, never on a slow mirror.
-  sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#' \
+  # fails over on errors, never on a slow mirror. The list leads with a
+  # regional host (azure., then us-east-2.ec2. from 2026-11); any of them
+  # becomes the primary archive.
+  sudo sed -E -i 's#://[A-Za-z0-9.-]+\.archive\.ubuntu\.com/#://archive.ubuntu.com/#g' \
     /etc/apt/apt-mirrors.txt
 done
 
 cp /var/cache/apt/archives/*.deb "$deb_cache"/ 2>/dev/null || true
+# Only the installed versions, so the rolling cache follows Ubuntu's updates
+# instead of growing with them.
+for deb in "$deb_cache"/*.deb; do
+  [ -f "$deb" ] || continue
+  # Under set -e an unreadable archive must not end the step: it reads as no
+  # package, matches no installed version and is pruned.
+  package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""
+  version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""
+  installed=""
+  [ -z "$package" ] || installed=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
+  [ -n "$version" ] && [ "$installed" = "$version" ] || rm "$deb"
+done
+if [ "$(ls "$deb_cache" | sort | cksum)" != "$debs_before" ] && [ -n "${GITHUB_OUTPUT:-}" ]; then
+  echo "debs=changed" >> "$GITHUB_OUTPUT"
+fi
 "$bun" "$cli" install "$@"

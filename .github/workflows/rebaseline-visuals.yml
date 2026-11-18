@@ -155,22 +155,28 @@ jobs:
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
 
-      - name: Resolve the Playwright version and cache month
+      - name: Resolve the Playwright version
         id: playwright
         run: |
           echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
-          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
       # The room-launch job's Chromium-only cache, restored and never saved:
       # a dispatch runs in main's cache scope, and this job runs branch code
       # that must not write a browser every branch and main then restore.
-      - name: Restore Playwright browsers and OS packages
+      - name: Restore Playwright browsers
         id: browser-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium
+      # The newest .deb set for this version: Ubuntu's updates land in a new
+      # entry (ci-browsers.sh reports debs=changed), never in a stale one.
+      - name: Restore the browsers' OS packages
+        id: deb-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-apt-archives
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_
 
       - name: Install Playwright Chromium
         timeout-minutes: 8

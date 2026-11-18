@@ -91,7 +91,8 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
       },
       expected: {
         runsOn: e2e.jobs.e2e?.['runs-on'],
-        caches: ['actions/cache/restore'],
+        // Browsers and their OS packages: both restored, neither saved.
+        caches: ['actions/cache/restore', 'actions/cache/restore'],
         persistCredentials: false,
         credential: false,
         renders: true,

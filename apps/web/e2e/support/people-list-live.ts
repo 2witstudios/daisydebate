@@ -95,8 +95,12 @@ export function testPeopleList() {
         timeout: 45_000,
       });
       // Both take a debater seat: the two are held for them, and nobody else's.
+      // A debater seat is named by its team while sides are open, by its side
+      // once fixed (ADR 0145); a judge seat is neither.
       const takeDebater = (page: typeof challenger) =>
-        page.getByRole('button', { name: /^Take (Affirmative|Negative)/ });
+        page.getByRole('button', {
+          name: /^Take (Team [12]|Affirmative|Negative)\b/,
+        });
       await takeDebater(challenged).first().click();
       await expect(takeDebater(challenger)).toHaveCount(1, { timeout: 30_000 });
       await takeDebater(challenger).first().click();
