@@ -2,6 +2,7 @@ import {
   buildUserInboxTopic,
   type CompetitionType,
   type NotificationKind,
+  type RatingDivision,
   type RatingStyle,
   type SeatKind,
   type TournamentNotificationKind,
@@ -57,6 +58,8 @@ export type InboxRow = {
       readonly challenger: string | null;
       readonly mode: CompetitionType;
       readonly format: RatingStyle;
+      /** A ranked offer's ladder division (ADR 0147); null when casual. */
+      readonly division: RatingDivision | null;
     }
   | {
       readonly kind: 'challenge_accepted';
@@ -84,6 +87,7 @@ type FlatRow = {
   about: string | null;
   mode: CompetitionType | null;
   format: RatingStyle | null;
+  division: RatingDivision | null;
   readAt: string | null;
   surfacedAt: string;
 };
@@ -130,6 +134,7 @@ const inboxRow = (
         challenger: row.about,
         mode: row.mode!,
         format: row.format!,
+        division: row.division,
       };
     case 'challenge_accepted':
       return {
@@ -178,7 +183,7 @@ export const readInboxRows = async (
       database,
       sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",
           c.room_id as "challengeRoomId",i.seat,
-          u.username as about,c.mode,c.format_id as format,
+          u.username as about,c.mode,c.format_id as format,c.division,
           ${iso('n.read_at')} as "readAt",${iso('n.surfaced_at')} as "surfacedAt"
         from notifications n ${standingJoins} where ${input.where}
         order by n.surfaced_at desc,n.id desc limit ${input.limit}`,
