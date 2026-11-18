@@ -45,7 +45,7 @@ try {
         await tx`select rules_snapshot from rooms where id=${roomId} and host_actor_id=${member.id}`;
       if (!room) throw new Error('Display fixture room missing');
       const checkpoint = emptyRuntimeCheckpointFor(room.rules_snapshot);
-      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${ladder},clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,ladder_division,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${ladder},'open',clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
       for (const [side, actor] of [
         [affirmativeSide, member.id],
         [negativeSide, opponent],
