@@ -90,10 +90,6 @@ export function divisionForSeatedDebaters(
   return rest.every((division) => division === first) ? first : 'mixed';
 }
 
-/**
- * The division a ranked Room's seated debaters set: its human debaters only.
- * Judges never set it, and a bot holds no ranked debater seat.
- */
 type SeatedPerson = {
   readonly kind: 'human' | 'bot';
   readonly seat: SeatRef;
@@ -106,6 +102,10 @@ export const seatedDebaterDivisions = (
   participants
     .filter((p) => p.kind === 'human' && isDebatingSeat(p.seat))
     .map((p) => p.division);
+/**
+ * The division a ranked Room's seated debaters set: its human debaters only.
+ * Judges never set it, and a bot holds no ranked debater seat.
+ */
 export const seatedDivision = (
   participants: readonly SeatedPerson[],
 ): SeatedDivision =>

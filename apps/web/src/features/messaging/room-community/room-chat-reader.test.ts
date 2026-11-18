@@ -1,6 +1,6 @@
 import type { RoomView, SeatRef } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roomChatReaderOf } from './room-chat-reader';
+import { roomChatHintOf, roomChatReaderOf } from './room-chat-reader';
 
 setupRitewayBun();
 const seat = (
@@ -51,5 +51,21 @@ test('who reads Room chat without posting, as the Room view shows it', () => {
       youth: [null, 'judge', null, 'spectator'],
       casual: [null, 'judge', null, null],
     },
+  });
+});
+
+test('the Room page’s chat hint before the chat is found', () => {
+  assert({
+    given:
+      'a judge whatever the server painted, a Youth Room spectator the server painted read-only, the same viewer the server let post (club staff), and a viewer the view names neither',
+    should:
+      'hold the judge and the server-confirmed spectator read-only, and keep the server’s writable first paint for club staff and everyone else',
+    actual: [
+      roomChatHintOf('judge', false),
+      roomChatHintOf('spectator', true),
+      roomChatHintOf('spectator', false),
+      roomChatHintOf(null, true),
+    ],
+    expected: [true, true, false, false],
   });
 });

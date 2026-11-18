@@ -27,3 +27,14 @@ export const roomChatReaderOf = (
     ? 'spectator'
     : null;
 };
+
+/**
+ * The Room page's read-only hint until the chat is found: a judge's seat
+ * decides at once, and a Youth Room spectator holds it only while the server's
+ * first paint said so too, because only the server sees a youth debater's club
+ * staff. Once found, the chat's own metadata decides the composer.
+ */
+export const roomChatHintOf = (
+  reader: 'judge' | 'spectator' | null,
+  serverReadsOnly: boolean,
+): boolean => reader === 'judge' || (reader === 'spectator' && serverReadsOnly);

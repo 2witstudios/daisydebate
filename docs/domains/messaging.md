@@ -41,8 +41,10 @@ and visitors read and post while the Room is open; a spectator reads, is told
 their chat is read-only and why ("Only people in this Room can chat here."),
 and their page does not ask to open it. A page's read-only hint is only a guess
 for the time before the chat is found: a found chat's own metadata decides the
-composer, so a youth debater's club staff, whom the Room view cannot see,
-still get one. A Youth Room is `youthRoomOf`: a ranked
+composer, so a youth debater's club staff, whom the Room view cannot see, get
+one once the chat is open. Staff never open it themselves: while no one has,
+their page waits like a judge's and shows the spectator notice until a seated
+member's page opens it (discovery says nothing of a chat that does not exist). A Youth Room is `youthRoomOf`: a ranked
 Room a human youth debater sits in. The SQL fact spells the lobby's ladder
 division rule verbatim, and `room-community-fact-division.test.ts` fails when
 the two differ. A judge reads and does not
