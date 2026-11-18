@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, ratingLadders } from './primitives';
+import { idSchema, ratingStyles } from './primitives';
 
 /**
  * A league request (PYL-17): someone who runs a league asks Daisy to set one
@@ -33,7 +33,7 @@ export const leagueRequestDivisions = [
 export type LeagueRequestDivisions = (typeof leagueRequestDivisions)[number];
 
 /** Freestyle is the only style a league can run today (ADR 0142). */
-export const leagueRequestStyles = ratingLadders;
+export const leagueRequestStyles = ratingStyles;
 
 /** The longest value each free-text field holds. */
 export const leagueRequestLimits = {
