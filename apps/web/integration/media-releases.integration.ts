@@ -80,9 +80,7 @@ type Store = {
   readonly readRecordingRound: (
     roundId: string,
   ) => Promise<Parameters<typeof plannedRecording>[0] & Record<string, never>>;
-  readonly readYouthRecordingPeople: (
-    roundId: string,
-  ) => Promise<{
+  readonly readYouthRecordingPeople: (roundId: string) => Promise<{
     debaters: readonly {
       actorId: string;
       userId: string;
@@ -385,7 +383,11 @@ test('a parent signs and withdraws through single-use links, without an account'
           'withdraw both scopes, keep the record, and refuse that link or a sign token used as a manage one',
         actual: {
           withdrawn: withdrawn.kind,
-          rows: rows.map((r: Record<string, unknown>) => [r.scope, r.withdrawn_by, r.withdrawal_note]),
+          rows: rows.map((r: Record<string, unknown>) => [
+            r.scope,
+            r.withdrawn_by,
+            r.withdrawal_note,
+          ]),
           standing: (await store.mediaReleases.readMinorRelease(f.host.userId))
             .standing.kind,
           reused: reused.reason,
