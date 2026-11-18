@@ -82,8 +82,11 @@ answers, with publishing closed in production by a release flag.
 
 - A Youth Recording is kept like any ranked Recording (decision 81: kept
   forever, with takedown), but only its audience can reach it.
-- Every Recording read (history, playback, download, removal) goes through
-  `roundEvidencePermissions`, which checks the youth rule first. A new read
-  path inherits it.
+- Every Recording read (history, playback, download) calls
+  `roundEvidencePermissions`, which checks the youth rule first, and serves
+  only what the answer permits. A new read must do the same; nothing enforces
+  it for a read that skips the call. The takedown command has its own rule,
+  `mayRequestRemoval`, and the lifecycle's `ranked_is_kept` guard sits
+  behind it.
 - S4 replaces the empty media-release read and wires the publish action. It
   changes neither rule.

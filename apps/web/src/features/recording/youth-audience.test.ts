@@ -121,6 +121,30 @@ describe('mayTakeDownYouthRecording', () => {
     });
   });
 
+  test('a judge who is also a linked adult still may not', () => {
+    assert({
+      given: 'the Round’s judge, who is also a debater’s parent',
+      should: 'offer no takedown',
+      actual: mayTakeDownYouthRecording({
+        round: {
+          ...round,
+          youth: {
+            debaters: [
+              {
+                actorId: 'aff',
+                userId: 'user-aff',
+                linkedAdultActorIds: ['judge'],
+              },
+            ],
+          },
+        },
+        viewer: account('judge'),
+        status: 'ready',
+      }),
+      expected: false,
+    });
+  });
+
   test('nothing to take down', () => {
     assert({
       given: 'a Recording already going, no Recording, and a visitor',

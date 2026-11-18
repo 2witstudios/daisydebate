@@ -169,7 +169,9 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       should: 'name them and disable Share publicly',
       actual: [
         youth.includes('@jules has no media release yet.'),
-        /<button[^>]*disabled[^>]*>.*?Share publicly/s.test(youth),
+        /<button(?=[^>]*\sdisabled="")[^>]*>(?:(?!<\/button>).)*Share publicly<\/button>/s.test(
+          youth,
+        ),
       ],
       expected: [true, true],
     });

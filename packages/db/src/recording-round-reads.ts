@@ -127,7 +127,11 @@ export const recordingRoundReadOperations = ({
    * so the scopes it sets never reach another read.
    */
   readYouthRecordingPeople: (roundId: string) =>
-    database.transaction((tx) => readYouthRecordingPeople(tx, roundId)),
+    database.transaction((tx) => readYouthRecordingPeople(tx, roundId), {
+      // One snapshot: a school's staff and the debater's membership agree.
+      isolationLevel: 'repeatable read',
+      accessMode: 'read only',
+    }),
 
   readRecordingBroadcastRelease: (roundId: string, clock: SpectatorClock) =>
     readBroadcastRelease(database, roundId, clock),

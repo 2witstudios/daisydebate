@@ -115,6 +115,8 @@ export const mayTakeDownYouthRecording = (input: {
   if (!removableStatus(input.status) || input.viewer.kind !== 'account')
     return false;
   const { actorId } = input.viewer;
+  // A judge never takes it down, even one who is also a debater's linked adult.
+  if (input.round.officialActorIds.includes(actorId)) return false;
   return input.round.youth.debaters.some(
     (debater) =>
       debater.actorId === actorId ||

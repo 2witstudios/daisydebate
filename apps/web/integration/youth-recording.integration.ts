@@ -38,14 +38,14 @@ const setAge = (f: Fixture, member: Member, age: string) =>
 
 /** Daisy's active seasons, one per division: a Youth Room needs its own to start ranked. */
 const withYouthSeason = async (f: Fixture, run: () => Promise<void>) => {
-  const ids = [createId(), createId()];
-  for (const [id, division] of [
-    [ids[0]!, 'open'],
-    [ids[1]!, 'youth'],
-  ] as const)
-    await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status)
-      values(${daisyOrganizationId},${id},${division},'Youth recording fixture',now() - interval '1 day','active')`;
+  const ids: string[] = [];
   try {
+    for (const division of ['open', 'youth'] as const) {
+      const id = createId();
+      await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status)
+        values(${daisyOrganizationId},${id},${division},'Youth recording fixture',now() - interval '1 day','active')`;
+      ids.push(id);
+    }
     await run();
   } finally {
     for (const id of ids) {

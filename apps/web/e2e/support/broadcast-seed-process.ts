@@ -82,6 +82,8 @@ const create = async (sql: SQL, input: Create) => {
   const feedKey = createId();
   const [segment] = rules.segments;
   if (!segment) throw new Error('Fixture rules have no speech');
+  // Only a ranked Round has a ladder, so only it has a division.
+  const division = input.mode === 'ranked' ? (input.division ?? 'open') : null;
   await sql.begin(async (tx) => {
     const hostActor = input.hostUsername
       ? (
@@ -103,7 +105,7 @@ const create = async (sql: SQL, input: Create) => {
     await tx`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
       values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},'started')`;
     await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,ladder_division,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
-      values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${formatColumns.ladder === null ? null : (input.division ?? 'open')},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${{}})`;
+      values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${division},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${{}})`;
     const aff = await seat(
       tx as never,
       roundId,
@@ -122,14 +124,15 @@ const create = async (sql: SQL, input: Create) => {
       values (${createId()},${roundId},${segmentId},${participant[0].id},0,${`Caption ${suffix}`},true,now()-interval '3 minutes')`;
     // Heard from since the caption was said, or its open segment keeps it back.
     // A Youth Round is never broadcast (PYL-5).
-    if (input.division !== 'youth')
+    if (division !== 'youth')
       await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,control_heartbeat_at)
       values (${broadcastId},${roundId},${feedKey},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds',now())`;
   });
+  const broadcast = division !== 'youth';
   return {
     roundId,
-    broadcastId,
-    feedKey,
+    broadcastId: broadcast ? broadcastId : null,
+    feedKey: broadcast ? feedKey : null,
     aff: input.affUsername ?? `aff-${suffix}`,
     caption: `Caption ${suffix}`,
   };
@@ -155,6 +158,10 @@ const advance = async (sql: SQL, input: Advance) => {
       return;
     case 'stop':
       await sql`update broadcasts set stopped_at=now(),stop_reason='policy_violation',media_withheld=true where round_id=${roundId}`;
+      // A Round with no Broadcast (a Youth Round) still running is ended too.
+      await sql`update rounds set status='abandoned',current_stage=null,completed_at=now()
+        where id=${roundId} and status='active'
+          and not exists(select 1 from broadcasts where round_id=${roundId})`;
       return;
     case 'end':
       await sql`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=now()-interval '3 minutes' where id=${roundId}`;

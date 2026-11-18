@@ -1,4 +1,5 @@
 import type { SQL } from 'bun';
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, test } from 'riteway/bun';
@@ -6,6 +7,7 @@ import { readLinkedAdultUserIds } from '../src/youth-recording-people';
 import { integrationSuite } from './suite.test-support';
 import { inRolledBackTransaction } from './tab.test-support';
 
+requireTestServices(process.env);
 const { databaseUrl: url } = integrationSuite();
 
 /** A person with an age record `age` back from now. */

@@ -33,6 +33,8 @@ function Filters({ query }: { query: LiveQuery }) {
       mode={query.mode}
       trailing={
         <select
+          // Remount when the committed ladder changes, so Clear shows it.
+          key={query.ladder}
           name="ladder"
           aria-label="Ladder"
           defaultValue={query.ladder}
