@@ -6,7 +6,7 @@ import { readStepEntry, stepRobots } from '../step-entry';
 import { readStepLinks } from '../step-links';
 
 export const metadata: Metadata = {
-  title: 'How a debate works',
+  title: 'A Freestyle round, step by step',
   robots: stepRobots,
 };
 

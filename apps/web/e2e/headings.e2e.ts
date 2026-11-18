@@ -34,8 +34,10 @@ const expectServerRenderedH1s = async (page: Page) => {
   await expectOneH1(page, /next time, one tap/i);
   for (const [step, name] of [
     ['daisy', /how daisy works/i],
-    ['styles', /freestyle and custom/i],
-    ['debate', /how a debate works/i],
+    ['styles', /freestyle, daisy’s standard/i],
+    ['debate', /a freestyle round, step by step/i],
+    ['practice', /practise your league/i],
+    ['host', /run your league/i],
     ['about', /about you/i],
     ['experience', /experience/i],
     ['topics', /topics/i],

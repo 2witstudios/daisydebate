@@ -5,7 +5,7 @@ const choose = (page: Page, label: string) =>
   page.locator('label', { hasText: label }).click();
 
 /**
- * The whole flow after the passkey offer: three intro steps, the three
+ * The whole flow after the passkey offer: five intro steps, the three
  * questionnaire steps saved one by one, and the last step's simple send-off
  * to the lobby. onboarding.e2e.ts runs it with JavaScript and
  * journey-no-js.e2e.ts without.
@@ -18,14 +18,15 @@ export const walkOnboarding = async (page: Page, destination = '/lobby') => {
       name: 'How Daisy works',
     }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Next' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Freestyle and Custom' }),
-  ).toBeVisible();
-  await page.getByRole('link', { name: 'Next' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'How a debate works' }),
-  ).toBeVisible();
+  for (const heading of [
+    'Freestyle, Daisy’s standard',
+    'A Freestyle round, step by step',
+    'Practise your league',
+    'Run your league',
+  ]) {
+    await page.getByRole('link', { name: 'Next' }).click();
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+  }
   await page.getByRole('link', { name: 'Next' }).click();
 
   await expect(page.getByRole('heading', { name: 'About you' })).toBeVisible();

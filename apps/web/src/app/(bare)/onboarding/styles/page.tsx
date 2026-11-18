@@ -6,7 +6,7 @@ import { readStepEntry, stepRobots } from '../step-entry';
 import { readStepLinks } from '../step-links';
 
 export const metadata: Metadata = {
-  title: 'Freestyle and Custom',
+  title: 'Freestyle, Daisy’s standard',
   robots: stepRobots,
 };
 

@@ -102,6 +102,10 @@ export function BotSelectorPage({
       <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
         Train
       </h1>
+      <p className="text-base text-ink-muted">
+        Each opponent is an AI debater. Practise a full Freestyle round against
+        one, unranked, whenever you like.
+      </p>
       <section
         aria-label="Choose an opponent"
         className="mx-auto flex w-full max-w-reading flex-col gap-6"
