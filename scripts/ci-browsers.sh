@@ -9,9 +9,11 @@
 # gets per-request retries and timeouts, each attempt is killed after
 # APT_ATTEMPT_SECONDS, a retry switches to the primary Ubuntu archive, and
 # the third failure fails the step. The workflow restores the browsers
-# (~/.cache/ms-playwright) and the downloaded .debs (DEB_CACHE) from a cache
-# keyed on the exact @playwright/test version and the month, so a warm run
-# only refreshes apt's index and unpacks.
+# (~/.cache/ms-playwright) from a cache keyed on the exact @playwright/test
+# version, and the .debs (DEB_CACHE) from the newest of a rolling cache, so a
+# warm run only refreshes apt's index and unpacks. DEB_CACHE keeps only the
+# versions now installed; when that set changed (Ubuntu published updates),
+# the script writes debs=changed to GITHUB_OUTPUT and the workflow saves it.
 set -eu
 
 cli=apps/web/node_modules/@playwright/test/cli.js
@@ -28,6 +30,7 @@ APT::Keep-Downloaded-Packages "true";
 EOF
 
 mkdir -p "$deb_cache"
+debs_before=$(ls "$deb_cache" | sort | cksum)
 find "$deb_cache" -name '*.deb' -exec sudo cp {} /var/cache/apt/archives/ \;
 
 # Run as root under timeout so the kill reaches apt-get, not just the CLI.
@@ -50,4 +53,16 @@ until sudo timeout -k 10 "$attempt_seconds" \
 done
 
 cp /var/cache/apt/archives/*.deb "$deb_cache"/ 2>/dev/null || true
+# Only the installed versions, so the rolling cache follows Ubuntu's updates
+# instead of growing with them.
+for deb in "$deb_cache"/*.deb; do
+  [ -f "$deb" ] || continue
+  package=$(dpkg-deb -f "$deb" Package)
+  version=$(dpkg-deb -f "$deb" Version)
+  installed=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
+  [ "$installed" = "$version" ] || rm "$deb"
+done
+if [ "$(ls "$deb_cache" | sort | cksum)" != "$debs_before" ] && [ -n "${GITHUB_OUTPUT:-}" ]; then
+  echo "debs=changed" >> "$GITHUB_OUTPUT"
+fi
 "$bun" "$cli" install "$@"
