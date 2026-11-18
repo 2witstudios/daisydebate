@@ -1,6 +1,6 @@
 import type { Permission } from '@daisy/protocol/authorization';
 import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
-import type { AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
 import {
   allowUnder,
   deny,

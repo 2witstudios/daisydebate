@@ -74,7 +74,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   }),
   readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
-  requestRankedPlayAdmitted: async () => true,
+  requestMemberDivision: async () => null,
   privateGroupsOffered: () => false,
   messagingFilesAvailable: () => false,
   messagingLatestPageItems: () => 50,

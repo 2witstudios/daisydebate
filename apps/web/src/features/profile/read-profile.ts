@@ -119,6 +119,7 @@ const toEntry = (row: HistoryRow): MatchHistoryEntry[] => {
       forfeit: row.forfeit,
       judges: judgePanel(row.seats),
       visibility: row.visibility,
+      ladder: row.ladder,
     },
   ];
 };

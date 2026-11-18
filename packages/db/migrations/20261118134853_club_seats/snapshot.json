@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6e3f3ea9-e915-4ccf-84d0-1515f83677c7",
+  "id": "9c5cd284-f844-46fb-b0d4-6120e61a16f2",
   "prevIds": [
-    "243bde54-28cf-4a8d-9dce-3b0f5aaec056"
+    "de2a8a95-3712-434b-b069-c4e6108a0c1e"
   ],
   "ddl": [
     {
@@ -4620,6 +4620,19 @@
       "generated": null,
       "identity": null,
       "name": "format_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "challenges"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "division",
       "entityType": "columns",
       "schema": "public",
       "table": "challenges"
@@ -14448,6 +14461,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "division",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "format_id",
       "entityType": "columns",
       "schema": "public",
@@ -14592,6 +14618,19 @@
       "generated": null,
       "identity": null,
       "name": "ladder",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ratings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "division",
       "entityType": "columns",
       "schema": "public",
       "table": "ratings"
@@ -14787,6 +14826,19 @@
       "generated": null,
       "identity": null,
       "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "seasons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "division",
       "entityType": "columns",
       "schema": "public",
       "table": "seasons"
@@ -20011,6 +20063,19 @@
       "generated": null,
       "identity": null,
       "name": "ladder_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ladder_division",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -30708,6 +30773,62 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "season_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "division",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rating_changes_season_division_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "division",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rating_changes_round_division_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "round_id",
           "isExpression": false,
           "asc": true,
@@ -30946,7 +31067,42 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "season_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "division",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ratings_season_division_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ratings"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "division",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -40878,23 +41034,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "season_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "seasons",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "rating_changes_season_id_seasons_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rating_changes"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "ladder"
       ],
       "schemaTo": "public",
@@ -40948,6 +41087,44 @@
     {
       "nameExplicit": true,
       "columns": [
+        "season_id",
+        "division"
+      ],
+      "schemaTo": "public",
+      "tableTo": "seasons",
+      "columnsTo": [
+        "id",
+        "division"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "rating_changes_season_division_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_id",
+        "division"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id",
+        "ladder_division"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "rating_changes_round_division_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
         "round_id",
         "format_id"
       ],
@@ -40984,23 +41161,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "season_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "seasons",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "ratings_season_id_seasons_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ratings"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "ladder"
       ],
       "schemaTo": "public",
@@ -41011,6 +41171,25 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "ratings_ladder_ladders_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ratings"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "season_id",
+        "division"
+      ],
+      "schemaTo": "public",
+      "tableTo": "seasons",
+      "columnsTo": [
+        "id",
+        "division"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ratings_season_division_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "ratings"
@@ -46785,6 +46964,30 @@
     {
       "nameExplicit": true,
       "columns": [
+        "id",
+        "division"
+      ],
+      "nullsNotDistinct": false,
+      "name": "seasons_id_division_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "seasons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "activation_key",
+        "division"
+      ],
+      "nullsNotDistinct": false,
+      "name": "seasons_activation_key_division_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "seasons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
         "tab_round_id",
         "thing",
         "audience"
@@ -47037,6 +47240,18 @@
     {
       "nameExplicit": true,
       "columns": [
+        "id",
+        "ladder_division"
+      ],
+      "nullsNotDistinct": false,
+      "name": "rounds_id_ladder_division_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
         "room_id"
       ],
       "nullsNotDistinct": false,
@@ -47185,17 +47400,6 @@
       "name": "mail_intents_dedupe_key_key",
       "schema": "public",
       "table": "mail_intents",
-      "entityType": "uniques"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "activation_key"
-      ],
-      "nullsNotDistinct": false,
-      "name": "seasons_activation_key_key",
-      "schema": "public",
-      "table": "seasons",
       "entityType": "uniques"
     },
     {
@@ -47891,6 +48095,13 @@
     {
       "value": "\"format_id\" in ('freestyle')",
       "name": "challenges_format_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "challenges"
+    },
+    {
+      "value": "(\"mode\" = 'ranked') = (\"division\" is not null) and (\"division\" is null or \"division\" in ('open', 'youth'))",
+      "name": "challenges_division_check",
       "entityType": "checks",
       "schema": "public",
       "table": "challenges"
@@ -49996,6 +50207,13 @@
       "table": "rating_changes"
     },
     {
+      "value": "\"division\" in ('open', 'youth')",
+      "name": "rating_changes_division_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
       "value": "\"rating_before\" between 0 and 4000 and \"rating_after\" between 0 and 4000",
       "name": "rating_changes_rating_range",
       "entityType": "checks",
@@ -50019,6 +50237,13 @@
     {
       "value": "\"ladder\" in ('freestyle')",
       "name": "ratings_ladder_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ratings"
+    },
+    {
+      "value": "\"division\" in ('open', 'youth')",
+      "name": "ratings_division_check",
       "entityType": "checks",
       "schema": "public",
       "table": "ratings"
@@ -50050,6 +50275,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "ratings"
+    },
+    {
+      "value": "\"division\" in ('open', 'youth')",
+      "name": "seasons_division_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "seasons"
     },
     {
       "value": "\"ends_at\" is null or \"ends_at\" > \"starts_at\"",
@@ -51391,6 +51623,13 @@
     {
       "value": "\"ladder_id\" is null or \"ladder_id\" in ('freestyle')",
       "name": "rounds_ladder_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "(\"ladder_id\" is null) = (\"ladder_division\" is null) and (\"ladder_division\" is null or \"ladder_division\" in ('open', 'youth'))",
+      "name": "rounds_ladder_division_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"

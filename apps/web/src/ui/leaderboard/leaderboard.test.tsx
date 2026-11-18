@@ -25,6 +25,7 @@ const render = (
     username?: string | null;
     season?: typeof closedSeason;
     judging?: boolean;
+    ladder?: { style: 'freestyle'; division: 'open' | 'youth' };
     previousChampion?: {
       season: string;
       username: string;
@@ -46,6 +47,7 @@ const render = (
   const view = buildLadder(data, query, viewer);
   return renderToString(
     h(Leaderboard, {
+      ladder: options.ladder ?? { style: 'freestyle', division: 'open' },
       view,
       query,
       now: NOW,
@@ -123,6 +125,29 @@ describe('Leaderboard', () => {
     });
   });
 
+  test('the chosen ladder is named above the table', () => {
+    const youth = render(field(40), {
+      query: { division: 'youth' },
+      ladder: { style: 'freestyle', division: 'youth' },
+    });
+    const open = render(field(3));
+    assert({
+      given: 'the Youth ladder asked for, and the Open one by default',
+      should:
+        'name each ladder with who is on it and its count, inside the ladder card, and keep the Seasons link on the division',
+      actual: [
+        youth.includes(
+          'Youth – Freestyle</span> Members under 18 · 40 debaters',
+        ),
+        youth.indexOf('aria-label="Ladder"') <
+          youth.indexOf('Members under 18'),
+        youth.includes('href="/leaderboard/seasons?division=youth&amp;season='),
+        open.includes('Open – Freestyle</span> Members 18 and over · '),
+      ],
+      expected: [true, true, true, true],
+    });
+  });
+
   test('an early season', () => {
     const html = render(field(3));
     assert({
@@ -164,6 +189,7 @@ describe('Leaderboard', () => {
     );
     const html = renderToString(
       h(Leaderboard, {
+        ladder: { style: 'freestyle', division: 'open' },
         view,
         query,
         now: NOW,

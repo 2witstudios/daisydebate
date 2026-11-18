@@ -16,6 +16,7 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
       const veteran = await fixture.actor();
       const earlier = createId();
       await fixture.insert('seasons', {
+        division: 'open',
         id: earlier,
         name: 'Earlier',
         starts_at: new Date('2026-01-01T00:00:00.000Z'),
@@ -28,6 +29,7 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
           actor_id: veteran,
           season_id: earlier,
           ladder: 'freestyle',
+          division: 'open',
           rating: 1700,
           deviation: 60,
           volatility: 0.05,

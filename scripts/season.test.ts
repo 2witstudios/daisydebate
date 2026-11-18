@@ -17,12 +17,20 @@ describe('parseSeasonCommand', () => {
       expected: { kind: 'list' },
     });
     assert({
-      given: 'open with a name and no start',
-      should: 'open a new season starting now',
-      actual: parseSeasonCommand(['open', '--name', 'Season 1'], edge),
+      given: 'open with a name, a division and no start',
+      should: 'open a new season on that division starting now',
+      actual: parseSeasonCommand(
+        ['open', '--name', 'Season 1', '--division', 'youth'],
+        edge,
+      ),
       expected: {
         kind: 'open',
-        season: { id, name: 'Season 1', startsAt: new Date(now) },
+        season: {
+          id,
+          name: 'Season 1',
+          division: 'youth',
+          startsAt: new Date(now),
+        },
       },
     });
     assert({
@@ -45,6 +53,11 @@ describe('parseSeasonCommand', () => {
       ['an unknown command', ['reset']],
       ['no command', []],
       ['open without a name', ['open']],
+      ['open without a division', ['open', '--name', 'S']],
+      [
+        'open on an unknown division',
+        ['open', '--name', 'S', '--division', 'kids'],
+      ],
       [
         'a start that is not ISO 8601',
         ['open', '--name', 'S', '--starts', 'tomorrow'],
@@ -110,9 +123,15 @@ describe('beta Season 1 activation command', () => {
     assert({
       given: 'activate-beta at the operator edge',
       should:
-        'provide a candidate identity but let the database sample actual activation time',
+        'provide a candidate identity per division but let the database sample actual activation time',
       actual: parseSeasonCommand(['activate-beta'], edge),
-      expected: { kind: 'activate-beta', id },
+      expected: {
+        kind: 'activate-beta',
+        seasons: [
+          { id, division: 'open' },
+          { id, division: 'youth' },
+        ],
+      },
     });
     assert({
       given: 'activate-beta with a backdated start',

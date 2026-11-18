@@ -318,7 +318,9 @@ test('Freestyle is the one standard: two format radios, Strike or Custom wording
     form.getByRole('checkbox', { name: 'Ranked', exact: true }),
   ).toBeEnabled();
   await expect(
-    form.getByText('Freestyle ladder', { exact: true }),
+    form.getByText('Freestyle · Open or Youth, set by the debaters', {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(form.locator('.create-room-publication')).toHaveCount(0);
   await expect(

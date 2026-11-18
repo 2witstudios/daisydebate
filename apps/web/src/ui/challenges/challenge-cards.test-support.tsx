@@ -1,4 +1,4 @@
-import type { ChallengeList } from '@daisy/protocol';
+import type { ChallengeList, RatingDivision } from '@daisy/protocol';
 import { initialChallengeForm } from '../../features/challenges/forms';
 import { initialPersonBlock } from '../../features/contacts/block-form';
 import { initialFriendForm } from '../../features/friends/forms';
@@ -32,18 +32,18 @@ function Hold({ hold }: { readonly hold: (held: Held) => void }) {
 export function CardsProbe({
   initialChallenges,
   hold,
-  rankedAgeAdmitted = true,
+  memberDivision = 'open',
 }: {
   readonly initialChallenges: ChallengeList;
   readonly hold: (held: Held) => void;
-  readonly rankedAgeAdmitted?: boolean;
+  readonly memberDivision?: RatingDivision | null;
 }) {
   return (
     <ChallengeProvider
       initialChallenges={initialChallenges}
       actorId={null}
       socketUrl={null}
-      rankedAgeAdmitted={rankedAgeAdmitted}
+      memberDivision={memberDivision}
     >
       <Hold hold={hold} />
       <ChallengeCards actions={actions} activeRoomId={null} />

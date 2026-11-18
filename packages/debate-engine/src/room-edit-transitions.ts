@@ -21,6 +21,7 @@ import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
 
 import { aiJudgeSeatAdmitted } from './ai-judge-seating';
+import { rankedSeatClaimRefusal } from './ladder-seating';
 import {
   acceptedRoomMutation,
   hostNamesJudges,
@@ -275,7 +276,7 @@ const seatAdmission = (
     return 'actor-ineligible';
   if (unassignableHuman(room, actorId, command.type, target))
     return 'actor-ineligible';
-  return null;
+  return rankedSeatClaimRefusal(room, command, target);
 };
 export const claimSeat = (
   room: RoomAssemblyState,

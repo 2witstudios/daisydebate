@@ -1,7 +1,7 @@
 import type { BetaAccessState } from '@daisy/protocol';
 import type { Principal } from './index';
 import { ageAdmitted, participantAccess } from './authorization';
-import type { AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
 
 /** Facts about a durable session, verified by the injected reader. */
 export type VerifiedSession = {

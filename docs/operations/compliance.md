@@ -372,17 +372,39 @@ deleted at once, with its sign-in links and delivery receipts (WAIT-4.7).
 Daisy is not directed to children under 13. A later under-age answer against
 a recorded adult age is open (DEC-246).
 
-Ranked play is for members 18 and over (owner decision 79, `RANKED_AGE_FLOOR`
-beside the member floor in `@daisy/auth/age-floor`). Ranked Rounds are
-published and their content is licensed to Daisy, which a minor cannot agree
-to alone. The stored birth month decides on the Round's own date, read under
-the account fence: a Room that rates (ranked, or a league Room on a ladder)
-refuses an under-18 member's create, own seat claim and ranked challenge
-offer with `ranked-age`, seats nobody under 18 that a host names, and refuses
-Start if a seat is held by someone under 18 that day, without saying whose
-age. Tournament entries already refuse every entrant under 18 (the closed
-minors rule above). Members aged 16 and 17 keep casual play. A Scholastic
-ladder for under-18s is planned separately; nothing here models it.
+Ranked play is split by age into two ladder divisions (owner decision 79,
+[ADR 0147](../decisions/0147-ladder-style-and-division.md)). Open – Freestyle
+is for members 18 and over. Ranked Rounds there are published, and their
+content is licensed to Daisy, which a minor cannot agree to alone. Members
+under 18 play ranked on Youth – Freestyle, against other members under 18.
+
+- **No new data.** A member's division is derived from the stored birth month
+  by ADR 0075's band rule. It is aged on the start of the active Youth season
+  (a mid-season 18th birthday finishes that season on Youth), but never before
+  the member's own age record and never more than 12 months back, so nobody
+  stays on Youth for more than a year past turning 18. The birth month never
+  leaves SQL. No new data class, purpose or retention exists:
+  ratings, seasons, Rounds and challenges carry the division, never an age.
+- **What a ladder discloses.** Pages name a member's ladder, never an age
+  or birth month. A ladder still discloses an age class: a Youth badge
+  (lobby rows, a Room's roster and status line, profile cards, the Youth
+  leaderboard) tells other members and spectators that a named member is
+  under 18, and Open that they are 18 or over. The people list carries each
+  listed member's division to signed-in members, so a challenge can say whether
+  ranked is possible ("Ranked needs you both on one ladder…", which names the
+  other member's ladder). A people card names a ladder only where the member is
+  rated on it. The basis is owner decision 79: play is split by this class, so
+  the class is what the ladder is. Nothing finer is shown. A member's own seat
+  refusal (`ranked-division`) names only the ladder.
+- **Who sits where.** An adult cannot take a Youth debater seat and a minor
+  cannot take an Open one. Anyone may judge. A Room whose debaters mix
+  divisions plays casual and rates no one.
+- **Leagues and tournaments.** League ladders stay Open-only until leagues
+  carry a division (PYL S9). Tournament entries already refuse every entrant
+  under 18 (the closed minors rule above).
+- **Not changed yet.** How Youth Rounds are recorded, broadcast and released
+  is the later youth-recordings and media-release work (PYL S3, S4). This
+  section changes no recording rule.
 
 The guardian link and restriction tables hold no rows and cannot: the web
 application's database role has no INSERT, UPDATE or DELETE on them, and no

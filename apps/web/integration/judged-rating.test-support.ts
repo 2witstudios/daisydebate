@@ -46,7 +46,9 @@ export async function withClients<T>(
 /** An active season for the work, and no rating residue after it. */
 export async function inSeason<T>(f: Fixture, work: () => Promise<T>) {
   const seasonId = createId();
-  await withSeasons(databaseUrl, (s) => s.activateBetaSeason({ id: seasonId }));
+  await withSeasons(databaseUrl, (s) =>
+    s.activateBetaSeason({ id: seasonId, division: 'open' }),
+  );
   try {
     return await work();
   } finally {
@@ -165,7 +167,7 @@ export const ballotCommand = async (
 export async function frozenRankedPanel(f: Fixture) {
   const { room, judges } = await readyTwoHumanJudgeRoom(f);
   const { roundId } = await launchRuntimeRound(f, room);
-  await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+  await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
   await playOut(f, roundId, true);
   const frozen = await finalizeAsWeb(f, roundId);
   if (frozen.status !== 'frozen' || frozen.freeze.completeness !== 'complete')

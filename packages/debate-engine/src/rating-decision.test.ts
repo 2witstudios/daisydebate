@@ -21,7 +21,7 @@ const at = '2026-10-05T12:00:00.000Z';
 
 const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
-  ladderId: 'freestyle',
+  ladder: { style: 'freestyle', division: 'youth' } as const,
   status: 'completed',
   outcome: winnerOutcome('affirmative'),
   completedAt: at,
@@ -48,7 +48,7 @@ const unsettled: RatingEligibilityFacts['attendance'] = {
 
 const rated: RatingEligibility = {
   kind: 'rated',
-  ladder: 'freestyle',
+  ladder: { style: 'freestyle', division: 'youth' } as const,
   outcome: winnerOutcome('affirmative'),
   occurredAt: at,
 };
@@ -61,7 +61,7 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility(completed),
       expected: {
         kind: 'rated',
-        ladder: 'freestyle',
+        ladder: { style: 'freestyle', division: 'youth' } as const,
         outcome: winnerOutcome('affirmative'),
         occurredAt: at,
       },
@@ -75,7 +75,7 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility({
         ...completed,
         competitionType: 'casual',
-        ladderId: null,
+        ladder: null,
       }),
       expected: { kind: 'unrated', reason: 'competition' },
     });
@@ -104,7 +104,7 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility({
         ...completed,
         alreadyRated: true,
-        ladderId: null,
+        ladder: null,
       }),
       expected: { kind: 'already-rated' },
     });
@@ -140,7 +140,7 @@ const plan = (
   overrides: Partial<Parameters<typeof planRating>[0]> = {},
 ) =>
   planRating({
-    ladder: 'freestyle',
+    ladder: { style: 'freestyle', division: 'youth' } as const,
     outcome: winnerOutcome('affirmative'),
     occurredAt: at,
     seasonId: 'season-1',
@@ -269,7 +269,7 @@ describe('planRating', () => {
         'plan one change per side equal to rateDebate, inserting new rows',
       actual: plan({ aff: newcomer, neg: newcomer }),
       expected: {
-        ladder: 'freestyle',
+        ladder: { style: 'freestyle', division: 'youth' } as const,
         seasonId: 'season-1',
         occurredAt: at,
         calculationVersion: 'glicko2-v1',

@@ -57,6 +57,12 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     // A Train practice's hold (decision 75), which the create writes.
     await sql`alter table rooms add column holds_host boolean not null default false`;
     await sql`alter table rounds add column league_ladder_id text`;
+    // ADR 0147's ladder divisions, which today's Room and rating reads name.
+    await sql`alter table rounds add column ladder_division text`;
+    await sql`alter table seasons add column division text`;
+    await sql`alter table ratings add column division text`;
+    await sql`alter table rating_changes add column division text`;
+    await sql`alter table challenges add column division text`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
     // no tournament hosting grant, version, issuer or inferred funding account.
@@ -119,6 +125,11 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table rooms drop column league_ladder_id`;
     await sql`alter table rooms drop column holds_host`;
     await sql`alter table rounds drop column league_ladder_id`;
+    await sql`alter table rounds drop column ladder_division`;
+    await sql`alter table seasons drop column division`;
+    await sql`alter table ratings drop column division`;
+    await sql`alter table rating_changes drop column division`;
+    await sql`alter table challenges drop column division`;
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;

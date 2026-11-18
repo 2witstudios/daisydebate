@@ -125,6 +125,8 @@ const apply = async (
       if (write.op === 'insert') {
         await tx.insert(seasons).values({
           ...write.row,
+          // A league has no division yet (PYL S9): its seasons are Open.
+          division: 'open',
           startsAt: new Date(write.row.startsAt),
           endsAt: at(write.row.endsAt),
         });

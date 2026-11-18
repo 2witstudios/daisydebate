@@ -2,14 +2,15 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { Person, PeopleList } from '@daisy/protocol';
+import type { Person, PeopleList, RatingDivision } from '@daisy/protocol';
 import { initialChallengeForm } from '../../features/challenges/forms';
 import { initialPersonBlock } from '../../features/contacts/block-form';
 import { initialFriendForm } from '../../features/friends/forms';
 import { creationIdle } from '../../features/messaging/forms/create-form';
 import { initialPresenceForm } from '../../features/presence/form';
 import { initialReportForm } from '../../features/reports/form';
-import { ratingsLabel, ratingText } from './member-card';
+import { noLadderReason } from '../../features/play/ladder-division-words';
+import { ladderLine, ratingsLabel, ratingText } from './member-card';
 import { ChallengeProvider } from '../challenges/challenge-provider';
 import { LobbyViews } from './lobby-views';
 import { PeopleProvider } from './people-provider';
@@ -46,8 +47,20 @@ const person = (over: Partial<Person> = {}): Person => ({
   status: 'online',
   relation: 'none',
   ratings: [
-    { ladder: 'freestyle', rating: 1612, provisional: true, hidden: false },
+    {
+      ladder: { style: 'freestyle', division: 'open' },
+      rating: null,
+      provisional: false,
+      hidden: false,
+    },
+    {
+      ladder: { style: 'freestyle', division: 'youth' },
+      rating: 1612,
+      provisional: true,
+      hidden: false,
+    },
   ],
+  division: 'youth',
   wins: 3,
   losses: 1,
   ...over,
@@ -62,7 +75,7 @@ const list = (people: readonly Person[]): PeopleList => ({
 const inProvider = (
   children: unknown,
   people: readonly Person[],
-  rankedAgeAdmitted = true,
+  memberDivision: RatingDivision | null = 'youth',
 ) =>
   renderToString(
     h(
@@ -72,7 +85,7 @@ const inProvider = (
         initialList: list(people),
         socketUrl: null,
         children: h(ChallengeProvider, {
-          rankedAgeAdmitted,
+          memberDivision,
           initialChallenges: {
             version: 1,
             incoming: [
@@ -82,6 +95,7 @@ const inProvider = (
                 username: 'mara',
                 mode: 'ranked',
                 format: 'freestyle',
+                division: 'youth',
                 createdAt: '2026-11-02T00:00:00.000Z',
                 expiresAt: '2026-11-02T00:02:00.000Z',
               },
@@ -97,8 +111,8 @@ const inProvider = (
     ),
   );
 
-test('a ranked challenge to a member under the ranked floor says why, with no Accept', () => {
-  const render = (rankedAgeAdmitted: boolean) =>
+test('a ranked challenge off the member’s own ladder says why, with no Accept', () => {
+  const render = (memberDivision: RatingDivision | null) =>
     inProvider(
       h(PeopleRail, {
         preference: 'auto',
@@ -107,28 +121,30 @@ test('a ranked challenge to a member under the ranked floor says why, with no Ac
         activeRoomId: null,
       }),
       [person()],
-      rankedAgeAdmitted,
+      memberDivision,
     ).replaceAll('&#x27;', "'");
   const card = (html: string) =>
     /<section aria-label="Challenge from @mara".*?<\/section>/s.exec(
       html,
     )?.[0] ?? '';
-  const under = card(render(false));
-  const adult = card(render(true));
+  const youth = card(render('youth'));
+  const open = card(render('open'));
+  const none = card(render(null));
   assert({
-    given: 'a ranked challenge from @mara to a 16-17 member, then to an adult',
+    given:
+      'a ranked Youth – Freestyle challenge from @mara to a youth member, an open member and a member with no ladder',
     should:
-      'show the plain reason and only Decline to the 16-17 member, and Accept to the adult',
+      'offer Accept on Youth only, and otherwise say why with only Decline',
     actual: [
-      under.includes(
-        'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
-      ),
-      under.includes('>Accept<'),
-      under.includes('>Decline<'),
-      adult.includes('>Accept<'),
-      adult.includes('Ranked play is for members'),
+      youth.includes('Youth – Freestyle · Ranked'),
+      youth.includes('>Accept<'),
+      open.includes('>Accept<'),
+      open.includes('you play Open – Freestyle'),
+      open.includes('>Decline<'),
+      none.includes('>Accept<'),
+      none.includes(noLadderReason),
     ],
-    expected: [true, false, true, true, false],
+    expected: [true, true, false, true, true, false, true],
   });
 });
 
@@ -215,7 +231,7 @@ describe('the people rail', () => {
       should: 'name who and what, and offer Accept and Decline',
       actual: [
         html.includes('Challenge from @mara'),
-        html.includes('Freestyle · Ranked'),
+        html.includes('Youth – Freestyle · Ranked'),
         html.includes('>Accept<'),
         html.includes('>Decline<'),
       ],
@@ -224,10 +240,27 @@ describe('the people rail', () => {
   });
   test('a screen reader hears the same ratings as anyone', () => {
     assert({
-      given: 'a member showing only Freestyle',
-      should: 'name only that rating',
-      actual: ratingsLabel(person()),
-      expected: 'Freestyle Provisional',
+      given: 'a youth member rated provisionally, and one with no known ladder',
+      should: 'name only their own ladder’s rating, else Unrated',
+      actual: [
+        ratingsLabel(person()),
+        ratingsLabel(person({ division: null })),
+      ],
+      expected: ['Youth – Freestyle Provisional', 'Unrated'],
+    });
+  });
+  test('a card names the member’s ladder beside their status', () => {
+    assert({
+      given:
+        'a provisional youth member, an Open member never rated, and one with no known ladder',
+      should:
+        'put the figure before the ladder, and name no ladder where they have not played ranked',
+      actual: [
+        ladderLine(person()),
+        ladderLine(person({ division: 'open' })),
+        ladderLine(person({ division: null })),
+      ],
+      expected: ['1612* Youth – Freestyle', null, null],
     });
   });
 });
@@ -302,25 +335,25 @@ describe('row words', () => {
       should: 'read as the account menu does',
       actual: [
         ratingText({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           rating: 1500,
           provisional: false,
           hidden: false,
         }),
         ratingText({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           rating: 1500,
           provisional: true,
           hidden: false,
         }),
         ratingText({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           rating: null,
           provisional: false,
           hidden: false,
         }),
         ratingText({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           rating: null,
           provisional: false,
           hidden: true,

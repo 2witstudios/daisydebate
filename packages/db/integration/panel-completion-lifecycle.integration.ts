@@ -95,6 +95,7 @@ test('a ranked Round may end with no winner (DEC-277) and practice is no competi
       format_id: 'freestyle',
       format_version: 1,
       ladder_id: 'freestyle',
+      ladder_division: 'open',
       preset_version: 1,
     });
     const practice = await rejectedBy(() =>

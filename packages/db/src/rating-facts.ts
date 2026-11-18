@@ -1,7 +1,7 @@
 import type {
   RatingEligibility,
   RatingEligibilityFacts,
-  RatingLadder,
+  Ladder,
   RatingPlan,
   RatingPlanFacts,
   RatingState,
@@ -22,7 +22,7 @@ export type RatingDecision = {
 export type RateDebateResult =
   | {
       readonly kind: 'rated';
-      readonly ladder: RatingLadder;
+      readonly ladder: Ladder;
       readonly seasonId: string;
       readonly changes: readonly {
         readonly id: string;

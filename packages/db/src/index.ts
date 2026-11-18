@@ -108,6 +108,7 @@ import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { agreementSignatureOperations } from './agreement-signatures';
+import { memberDivisionOperations } from './member-division';
 export type { ContentWaiverStanding } from './agreement-signatures';
 export type {
   MessagingUnreadEmailDelivery,
@@ -440,6 +441,7 @@ export function createDatabase({
       ),
     ...formatOperations({ database, eventSink }),
     ...agreementSignatureOperations({ database: control, eventSink }),
+    ...memberDivisionOperations({ database: control, eventSink }),
     ...roomCommandOperations({
       database,
       botAdmission: admission,

@@ -110,6 +110,7 @@ const completedRound = async (
     runtime_state: emptyRuntimeCheckpointFor(validRules),
     judging: frozenJudgingFor(validRules),
     ladder_id: ranked ? input.formatId : null,
+    ladder_division: ranked ? 'open' : null,
     started_at: null,
     completed_at: null,
   });
@@ -145,6 +146,7 @@ const completedRound = async (
 const activeSeason = async (fixture: Fixture, startsAt = completedAt(0)) => {
   const id = createId();
   await fixture.insert('seasons', {
+    division: 'open',
     id,
     name: 'Season',
     starts_at: startsAt,

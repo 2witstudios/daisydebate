@@ -21,6 +21,10 @@ import { appendOutboxEvent } from './outbox';
 import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
+import { accountAge } from './schema/account-age';
+import { divisionOfAgeBand, type RatingDivision } from '@daisy/protocol';
+import { divisionAgeBand } from './ladder-division-band';
+import { leagueLadderSeatFits } from './league-ladder-seat';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
@@ -84,6 +88,11 @@ export type Actor = {
   readonly kind: RoomParticipant['kind'];
   readonly label: string;
   readonly eligible: boolean;
+  /**
+   * The person's ladder division as read now (ADR 0147), fixed for the
+   * season; null for a bot and for a person with no valid age record.
+   */
+  readonly division: RatingDivision | null;
   /** Which AI the actor is (ISSUE-750); null for a human. */
   readonly aiRole: AiRole | null;
   /** The roster card's display facts; present for bot debaters only. */
@@ -112,9 +121,11 @@ export const actorFact = async (
       verified: users.emailVerified,
       botName: botProfiles.name,
       judgeName: aiJudgeProfiles.name,
+      ageBand: divisionAgeBand(),
     })
     .from(actors)
     .leftJoin(users, eq(users.id, actors.userId))
+    .leftJoin(accountAge, eq(accountAge.userId, actors.userId))
     .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
     .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
     .where(eq(actors.id, actorId));
@@ -128,6 +139,7 @@ export const actorFact = async (
         row.verified === true &&
         row.username !== null &&
         row.deletedAt === null,
+      division: divisionOfAgeBand(row.ageBand),
       aiRole: null,
     };
   const aiRole = aiRoleOf(row.botName, row.judgeName);
@@ -136,6 +148,7 @@ export const actorFact = async (
     kind: row.kind,
     label: row.botName ?? row.judgeName ?? '',
     eligible: aiRole !== null,
+    division: null,
     aiRole,
   };
 };
@@ -209,6 +222,7 @@ const hydrateRoom = async (
     .from(roomParticipants)
     .where(eq(roomParticipants.roomId, row.id))
     .orderBy(...seatRowOrder(roomParticipants));
+  const room = row;
   const participants = await Promise.all(
     seats.map(async (row) => {
       const actor = await actorFact(tx, row.actorId);
@@ -219,6 +233,7 @@ const hydrateRoom = async (
         // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
         eligible:
           actor.eligible &&
+          leagueLadderSeatFits(room, actor) &&
           (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
         id: row.id,
         seat,

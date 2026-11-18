@@ -57,6 +57,7 @@ const withLiveRound = async (
                 format_id: 'freestyle',
                 preset_version: 1,
                 ladder_id: 'freestyle',
+                ladder_division: 'open',
               }
             : {}),
         },

@@ -11,7 +11,7 @@ import {
 } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
-import { judgeSeat, type Ballot, type RatingLadder } from '@daisy/protocol';
+import { judgeSeat, type Ballot, type RatingStyle } from '@daisy/protocol';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { launchRuntimeRound } from './round-runtime.test-support';
 import { everyoneReady, playOut } from './round-judging.test-support';
@@ -23,7 +23,7 @@ type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 /** Canonical setup proof; only the test-owned prep anchor advances, never real time. */
 export async function readyRankedRoom(
   f: Fixture,
-  ladder: RatingLadder,
+  ladder: RatingStyle,
   judgeKind: 'human' | 'ai',
 ) {
   const [preset] =
@@ -118,7 +118,7 @@ export const cachedAiJudgingRuntime = {
 /** A ranked Round played out, frozen complete by the real finalizer, attendance settled. */
 export async function frozenRankedRound(
   f: Fixture,
-  ladder: RatingLadder,
+  ladder: RatingStyle,
   judgeKind: 'human' | 'ai',
 ) {
   const room = await readyRankedRoom(f, ladder, judgeKind);

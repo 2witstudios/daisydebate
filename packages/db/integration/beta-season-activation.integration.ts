@@ -13,7 +13,9 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
     ids.forEach((id) => f.track('seasons', id));
     const [started] = await f.sql`select clock_timestamp() as at`;
     const results = await Promise.all(
-      ids.map((id) => withSeasons(url, (s) => s.activateBetaSeason({ id }))),
+      ids.map((id) =>
+        withSeasons(url, (s) => s.activateBetaSeason({ id, division: 'open' })),
+      ),
     );
     const first = results[0]!;
     const [bounds] = await f.sql`select clock_timestamp() as now`;
@@ -34,6 +36,7 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
       {
         actor_id: actorId,
         ladder: 'freestyle',
+        division: 'open',
         season_id: first.id,
         rating: 1666.125,
         deviation: 108.75,
@@ -45,7 +48,7 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
     const before =
       await f.sql`select to_jsonb(r) as state from ratings r where actor_id=${actorId}`;
     const activeRetry = await withSeasons(url, (s) =>
-      s.activateBetaSeason({ id: createId() }),
+      s.activateBetaSeason({ id: createId(), division: 'open' }),
     );
     assert({
       given: 'an active Season1 with a real populated standing',
@@ -58,7 +61,7 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
     });
     await f.sql`update seasons set status='closed', ends_at=${new Date(Date.parse(first.startsAt) + 1)} where id=${first.id}`;
     const retried = await withSeasons(url, (s) =>
-      s.activateBetaSeason({ id: createId() }),
+      s.activateBetaSeason({ id: createId(), division: 'open' }),
     );
     assert({
       given: 'a reconnect and retry after Season1 closes',
@@ -88,6 +91,7 @@ test('activation refuses a competing season unchanged', async () => {
   await withFixture(url, async (f) => {
     const id = createId();
     await f.insert('seasons', {
+      division: 'open',
       id,
       name: 'Other',
       starts_at: new Date('2026-01-01T00:00:00.000Z'),
@@ -98,7 +102,9 @@ test('activation refuses a competing season unchanged', async () => {
       given: 'a competing season identity',
       should: 'refuse beta activation without inventing history',
       actual: () =>
-        withSeasons(url, (s) => s.activateBetaSeason({ id: createId() })),
+        withSeasons(url, (s) =>
+          s.activateBetaSeason({ id: createId(), division: 'open' }),
+        ),
       code: 'CONFLICT',
     });
     assert({
@@ -108,6 +114,42 @@ test('activation refuses a competing season unchanged', async () => {
         (r: { id: string }) => r.id,
       ),
       expected: [id],
+    });
+  });
+});
+
+test('each division activates its own Season 1 beside the other (ADR 0147)', async () => {
+  await withFixture(url, async (f) => {
+    const [openId, youthId] = [createId(), createId()];
+    f.track('seasons', openId);
+    f.track('seasons', youthId);
+    const open = await withSeasons(url, (s) =>
+      s.activateBetaSeason({ id: openId, division: 'open' }),
+    );
+    const youth = await withSeasons(url, (s) =>
+      s.activateBetaSeason({ id: youthId, division: 'youth' }),
+    );
+    const youthRetry = await withSeasons(url, (s) =>
+      s.activateBetaSeason({ id: createId(), division: 'youth' }),
+    );
+    assert({
+      given: 'an active Open Season 1, then a Youth activation and its retry',
+      should:
+        'open one Youth Season 1 beside it, each active on its own division',
+      actual: [
+        [open.division, open.status],
+        [youth.id, youth.division, youth.status, youth.name],
+        youthRetry.id,
+        (
+          await f.sql`select division from seasons where status='active' order by division`
+        ).map((row: { division: string }) => row.division),
+      ],
+      expected: [
+        ['open', 'active'],
+        [youthId, 'youth', 'active', 'Season 1'],
+        youthId,
+        ['open', 'youth'],
+      ],
     });
   });
 });

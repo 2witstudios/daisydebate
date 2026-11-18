@@ -48,7 +48,7 @@ export type AccountAuthorizationFact = {
    * The account's age band now, from its durable age record (WAIT-4.6);
    * null when it has none. Participant access needs a band at the floor.
    */
-  readonly ageBand: import('./age-band').AgeBand | null;
+  readonly ageBand: import('@daisy/protocol').AgeBand | null;
   /** A suspension or ban is in force (ADR 0103); it withdraws participant access. */
   readonly restricted: boolean;
   /**
