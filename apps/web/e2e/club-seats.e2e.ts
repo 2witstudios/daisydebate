@@ -1,4 +1,4 @@
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import { signUpMember } from './support/accounts';
 import { fundClub } from './support/club-seats';
 import { resolveE2EPorts } from '../playwright.config';
@@ -32,8 +32,8 @@ test('a manager invites by email, the invitee accepts, and Premium comes from th
   const managerContext = await browser.newContext({ ignoreHTTPSErrors: true });
   const inviteeContext = await browser.newContext({ ignoreHTTPSErrors: true });
   try {
-    const manager = await managerContext.newPage();
-    const invitee = await inviteeContext.newPage();
+    const manager = await openPage(managerContext, 'club manager');
+    const invitee = await openPage(inviteeContext, 'seat invitee');
     const managerAccount = await signUpMember(manager.request);
     const inviteeAccount = await signUpMember(invitee.request);
     const { organizationId } = await fundClub({

@@ -8,7 +8,7 @@ import {
   type PurchaseSubject,
 } from './billing-purchase-authority';
 import { ownedBy } from './billing-owner-lock';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   advancePurchase,
