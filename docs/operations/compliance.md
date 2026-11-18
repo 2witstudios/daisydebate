@@ -388,10 +388,13 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
   or birth month. A ladder still discloses an age class: a Youth badge
   (lobby rows, a Room's roster and status line, profile cards, the Youth
   leaderboard) tells other members and spectators that a named member is
-  under 18, and Open that they are 18 or over. The basis is owner decision 79:
-  play is split by this class, so the class is what the ladder is. Nothing
-  finer is shown. A member's own seat refusal (`ranked-division`) names only
-  the ladder.
+  under 18, and Open that they are 18 or over. The people list carries each
+  listed member's division to signed-in members, so a challenge can say whether
+  ranked is possible ("Ranked needs you both on one ladder…", which names the
+  other member's ladder). A people card names a ladder only where the member is
+  rated on it. The basis is owner decision 79: play is split by this class, so
+  the class is what the ladder is. Nothing finer is shown. A member's own seat
+  refusal (`ranked-division`) names only the ladder.
 - **Who sits where.** An adult cannot take a Youth debater seat and a minor
   cannot take an Open one. Anyone may judge. A Room whose debaters mix
   divisions plays casual and rates no one.

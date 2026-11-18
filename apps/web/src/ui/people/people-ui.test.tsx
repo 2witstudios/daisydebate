@@ -252,14 +252,15 @@ describe('the people rail', () => {
   test('a card names the member’s ladder beside their status', () => {
     assert({
       given:
-        'a provisional youth member, an unrated open member, and one with no known ladder',
-      should: 'put the figure before the ladder, the ladder alone, or nothing',
+        'a provisional youth member, an Open member never rated, and one with no known ladder',
+      should:
+        'put the figure before the ladder, and name no ladder where they have not played ranked',
       actual: [
         ladderLine(person()),
         ladderLine(person({ division: 'open' })),
         ladderLine(person({ division: null })),
       ],
-      expected: ['1612* Youth – Freestyle', 'Open – Freestyle', null],
+      expected: ['1612* Youth – Freestyle', null, null],
     });
   });
 });

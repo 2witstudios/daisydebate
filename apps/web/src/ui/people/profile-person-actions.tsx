@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import {
   competitionTypes,
   reportReasonLabels,
@@ -57,6 +58,7 @@ export function ProfilePersonActions({
   readonly actions: Pick<PersonActions, 'sendChallenge' | 'report' | 'block'>;
 }) {
   const ranked = rankedChallengeOf(memberDivision, theirDivision);
+  const ladderLineId = useId();
   const [sent, send, sending] = useFormAction(
     actions.sendChallenge,
     initialChallengeForm,
@@ -85,7 +87,7 @@ export function ProfilePersonActions({
             <span className="sr-only">Mode</span>
             <select
               name="mode"
-              aria-describedby={`profile-challenge-ladder-${username}`}
+              aria-describedby={ladderLineId}
               defaultValue={offersRanked(ranked) ? 'ranked' : 'casual'}
               className={controlClass}
             >
@@ -100,10 +102,7 @@ export function ProfilePersonActions({
               ))}
             </select>
           </label>
-          <p
-            id={`profile-challenge-ladder-${username}`}
-            className="w-full text-sm text-ink-muted"
-          >
+          <p id={ladderLineId} className="w-full text-sm text-ink-muted">
             {rankedChallengeLine(ranked, username)}
           </p>
           <input type="hidden" name="format" value="freestyle" />

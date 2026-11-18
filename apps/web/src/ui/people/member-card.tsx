@@ -25,15 +25,17 @@ export const ownLadderRating = (member: Person): ShownRating | null =>
 
 /**
  * Their ladder as the card's status line names it, figure first: "1478*
- * Youth – Freestyle", or the ladder alone while unrated or hidden.
+ * Youth – Freestyle", or the ladder alone while hidden from a judge. A member
+ * never rated on their ladder shows none: the card names a ladder only where
+ * they have played ranked, so a directory card says no more than their record.
  */
 export const ladderLine = (member: Person): string | null => {
   const shown = ownLadderRating(member);
-  if (shown === null) return null;
+  if (shown === null || (!shown.hidden && shown.rating === null)) return null;
   const label = ladderLabel(shown.ladder);
-  return shown.hidden || shown.rating === null
+  return shown.hidden
     ? label
-    : `${markedRating(shown.rating, shown.provisional)} ${label}`;
+    : `${markedRating(shown.rating!, shown.provisional)} ${label}`;
 };
 
 /** What a screen reader hears for a person's ladder and rating. */

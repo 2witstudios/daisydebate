@@ -1,4 +1,9 @@
-import type { Ladder, RatingDivision, SeatedDivision } from '@daisy/protocol';
+import {
+  YOUTH_CARRY_MONTHS,
+  type Ladder,
+  type RatingDivision,
+  type SeatedDivision,
+} from '@daisy/protocol';
 import {
   divisionAudiences,
   divisionLabels,
@@ -18,6 +23,14 @@ export const rankedRoomLadder = (division: RatingDivision): Ladder => ({
   style: 'freestyle',
   division,
 });
+
+/** How long a birthday carries on Youth (ADR 0147 §3), in words. */
+const carryWords =
+  YOUTH_CARRY_MONTHS % 12 === 0
+    ? YOUTH_CARRY_MONTHS === 12
+      ? 'a year'
+      : `${YOUTH_CARRY_MONTHS / 12} years`
+    : `${YOUTH_CARRY_MONTHS} months`;
 
 /** "members under 18", "members 18 and over". */
 const membersOf = (division: RatingDivision) =>
@@ -42,7 +55,7 @@ export const seatOnOtherLadder = (
 /** The line under a ladder a member cannot debate on. */
 export const lockedLadderLine = (division: RatingDivision): string =>
   division === 'open'
-    ? `${divisionLabels.open} ladders are for ${membersOf('open')}. Turn 18 mid-season and you finish the season on ${divisionLabels.youth}; ${divisionLabels.open} starts with the next season, and your ${divisionLabels.youth} rating stays in your history.`
+    ? `${divisionLabels.open} ladders are for ${membersOf('open')}. Turn 18 mid-season and you stay on ${divisionLabels.youth} until the season ends, for up to ${carryWords}; then ${divisionLabels.open} starts, and your ${divisionLabels.youth} rating stays in your history.`
     : `${ladderLabel(rankedRoomLadder('youth'))} is for ${membersOf('youth')}. You can still judge ${divisionLabels.youth} Rounds.`;
 
 /** For a member with no ladder at all: no valid age record. */

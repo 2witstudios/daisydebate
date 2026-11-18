@@ -10,7 +10,7 @@ import {
   type ReportReason,
 } from '@daisy/protocol';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -249,7 +249,7 @@ function ChallengeView({
     if (wasSent(answer)) onDone();
   });
   const { refusal } = challengeFields(answer);
-  const ladderLineId = `challenge-ladder-${username}`;
+  const ladderLineId = useId();
   return (
     <form action={post} className="flex flex-col gap-2">
       <input type="hidden" name="username" value={username} />
