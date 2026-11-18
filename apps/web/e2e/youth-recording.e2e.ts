@@ -70,7 +70,11 @@ test('a Youth debater sees their Recording as private, with Take down and no pub
   await expect(
     page.getByRole('heading', { name: `Youth scrimmage ${tag}` }),
   ).toBeVisible();
-  await expect(page.getByText('Youth – Freestyle').first()).toBeVisible();
+  // The page's own ladder badge. The shell's closed account menu also names
+  // the ladder once a season is open, so the label is read inside <main>.
+  await expect(
+    page.getByRole('main').getByText('Youth – Freestyle', { exact: true }),
+  ).toBeVisible();
   const sharing = page.getByRole('region', { name: 'Sharing' });
   await expect(sharing).toContainText(
     'Private: visible to the debaters, judges and their coaches or parents.',
