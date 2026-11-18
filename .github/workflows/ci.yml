@@ -251,11 +251,6 @@ jobs:
           path: ~/.cache/daisy-ffmpeg-apt
           key: ffmpeg-apt-v1-${{ runner.arch }}-${{ steps.ffmpeg-image.outputs.image }}
           restore-keys: ffmpeg-apt-v1-${{ runner.arch }}-
-      # TEMPORARY PROOF (reverted next commit): every apt fetch fails at once.
-      - name: Force apt acquisition to fail
-        run: |
-          printf 'Acquire::http::Proxy "http://127.0.0.1:9";\nAcquire::https::Proxy "http://127.0.0.1:9";\n' | sudo tee /etc/apt/apt.conf.d/00daisy-proof-blackhole
-          if sudo apt-get -o Acquire::Retries=0 -o APT::Update::Error-Mode=any update; then echo 'apt still reaches a mirror' >&2; exit 1; fi
       - name: Prepare and verify ffmpeg (240-second total budget)
         timeout-minutes: 4
         run: |
