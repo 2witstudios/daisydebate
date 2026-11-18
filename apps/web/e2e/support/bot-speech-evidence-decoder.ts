@@ -27,6 +27,8 @@ const evidence = z.strictObject({
       .strictObject({
         ...seatColumns,
         kind: z.string().min(1),
+        /** The rules key of the segment the run spoke in; judging has none. */
+        segment: z.string().nullable(),
         outcome: z.string().nullable(),
         requests: count,
         inputTokens: count,

@@ -9,13 +9,16 @@ if (import.meta.main) {
   try {
     const roundId = idSchema.parse(Bun.argv[2]);
     const runs = await readLaunchDatabase(
-      (tx) => tx`select p.seat_kind as "seatKind",p.side,p.slot,a.kind,
+      (
+        tx,
+      ) => tx`select p.seat_kind as "seatKind",p.side,p.slot,a.kind,s.rules_segment_key as segment,
         case when a.kind='judging'
           then (case when t.answered_at is not null then 'received' end)
           else a.configuration_snapshot->>'providerOutcome' end as outcome,
         a.requests,a.input_tokens as "inputTokens",a.output_tokens as "outputTokens",a.characters
         from agent_runs a join round_participants p on p.id=a.round_participant_id
         left join round_judging_attempts t on t.agent_run_id=a.id
+        left join round_segments s on s.round_id=p.round_id and s.id=a.configuration_snapshot->>'segmentId'
         where p.round_id=${roundId} order by p.seat_kind,p.side,p.slot,a.kind,a.started_at`,
     );
     const lines = await readLaunchDatabase(
