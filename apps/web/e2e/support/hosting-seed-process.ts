@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { systemClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -25,15 +26,31 @@ if (import.meta.main) {
     const [host] = await owner<
       { userId: string; actorId: string }[]
     >`select u.id as "userId", a.id as "actorId" from users u join actors a on a.user_id=u.id where u.username=${hostUsername}`;
-    const [event] = await owner<
-      { lobbyId: string; eventId: string }[]
-    >`select l.id as "lobbyId", e.id as "eventId" from lobbies l join events e on e.lobby_id=l.id where l.handle=${handle}`;
+    const [lobby] = await owner<
+      { lobbyId: string }[]
+    >`select id as "lobbyId" from lobbies where handle=${handle}`;
+    // Events are fenced to their lobby: read them under its scope.
+    const [event] = lobby
+      ? await owner.begin(async (tx) => {
+          await tx`select set_config('daisy.lobby_scope', ${lobby.lobbyId}, true)`;
+          return tx<
+            { lobbyId: string; eventId: string }[]
+          >`select lobby_id as "lobbyId", id as "eventId" from events where lobby_id=${lobby.lobbyId}`;
+        })
+      : [];
     if (!host || !event) throw new Error('Seed target missing');
+    const underLobby = (
+      read: (tx: SQL) => Promise<Record<string, unknown>[]>,
+    ) =>
+      owner.begin(async (tx) => {
+        await tx`select set_config('daisy.lobby_scope', ${event.lobbyId}, true)`;
+        return read(tx as unknown as SQL);
+      });
     const store = createTabStore(committingRuntimeTestDatabase(owner));
     const common = {
       store,
       authorize,
-      now: () => new Date().toISOString(),
+      now: systemClock.now,
       newId: createId,
     };
     const as = (person: { userId: string; actorId: string }) => ({
@@ -45,8 +62,10 @@ if (import.meta.main) {
       ['entry.registration', { state: 'open' }],
       ['entry.approval', { value: 'automatic' }],
     ] as const) {
-      const [row] =
-        await owner`select settings_version v from events where id=${event.eventId}`;
+      const [row] = await underLobby(
+        (tx) =>
+          tx`select settings_version v from events where id=${event.eventId}`,
+      );
       const answer = await settings(as(host), {
         version: 1,
         commandId: createId(),
@@ -76,8 +95,10 @@ if (import.meta.main) {
       people.map((person) => person.userId),
     );
     for (const person of people) {
-      const [row] =
-        await owner`select entries_version v from events where id=${event.eventId}`;
+      const [row] = await underLobby(
+        (tx) =>
+          tx`select entries_version v from events where id=${event.eventId}`,
+      );
       const answer = await entries(as(person), event.lobbyId, {
         version: 1,
         commandId: createId(),

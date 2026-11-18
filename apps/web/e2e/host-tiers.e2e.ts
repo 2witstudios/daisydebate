@@ -41,7 +41,9 @@ test('a free event takes 16 entries; the 17th waits and Entries offers the upgra
   await expect(
     page.getByRole('heading', { name: 'What are you running?' }),
   ).toBeVisible();
-  await page.getByLabel('Name').fill('Friday scrimmage');
+  await page
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill('Friday scrimmage');
   await page.getByRole('button', { name: 'Create tournament' }).click();
   await page.waitForURL(/\/host\/tournaments\/[a-z0-9-]+\/setup/);
   const handle = new URL(page.url()).pathname.split('/')[3]!;
