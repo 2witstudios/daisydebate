@@ -39,7 +39,7 @@ export const acquisitionCommands = () => [
  * lists and the exact .deb set one successful run used, restored by the
  * workflow into a runner-owned directory. Lists are only reused on the exact
  * runner image that produced them; .debs from any image prefill apt's
- * archive, where apt checks each against the index's hash before use.
+ * archive, and each is verified against the current index's SHA256 first.
  */
 export const stagePaths = (stage: string) => ({
   archives: `${stage}/archives`,
@@ -79,6 +79,29 @@ export const prefillCommand = (stage: string, withLists: boolean) => {
     ].join('\n'),
   ];
 };
+
+/**
+ * apt reuses an archive already in /var/cache/apt/archives when its size
+ * matches the index and never hashes it (apt 2.8 pkgAcqArchive). So every
+ * archive is checked against the SHA256 the current lists give for its exact
+ * package and version, and anything else is deleted before apt can use it.
+ * Exit 0 either way: a deleted archive is only fetched again (or, offline,
+ * fails the readiness check).
+ */
+export const verifyArchivesCommand = () => [
+  'sh',
+  '-ec',
+  [
+    'kept=0; removed=0',
+    'for deb in /var/cache/apt/archives/*.deb; do',
+    '  [ -f "$deb" ] || continue',
+    '  package=$(dpkg-deb -f "$deb" Package); version=$(dpkg-deb -f "$deb" Version)',
+    '  actual=$(sha256sum "$deb" | cut -d " " -f 1)',
+    `  if apt-cache show "$package=$version" 2>/dev/null | grep -qx "SHA256: $actual"; then kept=$((kept + 1)); else rm -f "$deb"; removed=$((removed + 1)); fi`,
+    'done',
+    'echo "archives verified against the index: $kept kept, $removed removed"',
+  ].join('\n'),
+];
 
 /**
  * Exit 0 only when the current lists resolve ffmpeg and every archive the
@@ -306,6 +329,7 @@ async function restoreFromCache(
   );
   if (!withLists) return false;
   try {
+    await runner.run('verify cached archives', verifyArchivesCommand());
     await runner.run('offline readiness', offlineCheckCommand());
     return true;
   } catch (error) {
@@ -347,6 +371,8 @@ async function prepareFfmpeg(
       'stage cache',
       refreshStageCommand(cache.stage, cache.image, cache.owner),
     );
+  // A cache failure is not fatal; cancellation or a spent budget still is.
+  runner.checkReady();
   runner.log(
     `PASS: ffmpeg and ffprobe ready (${offline ? 'offline from cache' : 'acquired'})`,
   );
@@ -361,12 +387,15 @@ async function acquire(runner: ReturnType<typeof createPreparation>) {
   for (const attempt of [1, 2]) {
     const end = Math.min(runner.deadline, elapsedBootMs() + 80_000);
     try {
-      for (const [index, command] of acquisitionCommands().entries())
-        await runner.run(
-          `${index === 0 ? 'update' : 'download'} attempt ${attempt}`,
-          command,
-          end,
-        );
+      const [update, download] = acquisitionCommands();
+      await runner.run(`update attempt ${attempt}`, update!, end);
+      // Against the lists just fetched, before download-only reuses anything.
+      await runner.run(
+        `verify archives attempt ${attempt}`,
+        verifyArchivesCommand(),
+        end,
+      );
+      await runner.run(`download attempt ${attempt}`, download!, end);
       break;
     } catch (error) {
       runner.log(String(error));
