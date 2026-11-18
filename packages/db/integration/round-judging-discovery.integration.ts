@@ -24,12 +24,19 @@ const failure = {
   final: false,
 };
 
+// ISSUE-1435: the lane filter applies before LIMIT and the page size is a
+// parameter, so a full page of older uncached Rounds at PAGE proves the same
+// ordering as one at the 64 maximum, without seeding 65 Rounds one by one.
+// Measured ~1.0 s idle (3.7 s at the old page of 64); the 10 s budget leaves
+// headroom for the remaining per-Round seed on loaded CI hosts.
+const PAGE = 4;
+
 test('cached discovery is independent of a full page of older uncached Rounds', async () => {
   await withJudgingJob(async ({ fixture, target, jobs, run }) => {
     const created: string[] = [];
     try {
       const older = [target.roundId];
-      for (let at = 0; at < 64; at++) {
+      for (let at = 0; at < PAGE; at++) {
         const roundId = await judgedRound(fixture);
         created.push(roundId);
         await seedJudgingIntent(fixture, roundId, run);
@@ -48,10 +55,10 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
       );
       await fixture.sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${cachedId}`;
       for (let pass = 0; pass < 2; pass++) {
-        const held = await jobs.scan(64, 'submission');
-        const paid = await jobs.scan(64, 'generation');
+        const held = await jobs.scan(PAGE, 'submission');
+        const paid = await jobs.scan(PAGE, 'generation');
         assert({
-          given: `discovery pass ${pass + 1} with 65 older uncached Rounds and a later held reply`,
+          given: `discovery pass ${pass + 1} with ${PAGE + 1} older uncached Rounds, a page of ${PAGE}, and a later held reply`,
           should:
             'page held work independently and keep the bounded paid page separate',
           actual: {
@@ -61,7 +68,7 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
               (job) => older.includes(job.roundId) && !job.holdsBallot,
             ),
           },
-          expected: { held: [cachedId], paidCount: 64, paidOnly: true },
+          expected: { held: [cachedId], paidCount: PAGE, paidOnly: true },
         });
       }
     } finally {
@@ -69,7 +76,7 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
         await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });
-});
+}, 10_000);
 
 test('concurrent judge claims serialize one active operation per Round', async () => {
   await withJudgingJob(
