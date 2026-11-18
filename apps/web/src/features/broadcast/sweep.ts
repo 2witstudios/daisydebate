@@ -264,6 +264,9 @@ export const createBroadcastSweep = (deps: {
           until: new Date(nowMs + RECONCILE_LEASE_MS),
         });
         if (!mine) return;
+        // Fail closed: a Youth Broadcast the cleanup has not yet stopped is
+        // never reconciled into a running Egress; once stopped, it is wound down.
+        if (broadcast.youthRound && broadcast.stoppedAt === null) return;
         watchRelease(broadcast);
         await reconcile(broadcast);
       },

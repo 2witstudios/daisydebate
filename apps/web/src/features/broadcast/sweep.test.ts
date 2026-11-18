@@ -194,6 +194,31 @@ describe('createBroadcastSweep', () => {
       expected: ['report broadcast.release_delayed'],
     });
   });
+  test('with the Youth cleanup down, an unstopped Youth Broadcast is left idle and Open ones go on (ADR 0150)', async () => {
+    const reads: string[] = [];
+    const { deps } = world({
+      endYouthBroadcasts: async () => {
+        throw new Error('down');
+      },
+      listOpen: async () => [
+        open({ id: 'youth', roundId: 'youth', youthRound: true }),
+        open({ id: 'open', roundId: 'open', youthRound: false }),
+      ],
+      readRound: async (roundId: string) => {
+        reads.push(roundId);
+        return null;
+      },
+    });
+    await createBroadcastSweep(deps)();
+    assert({
+      given:
+        'a failed cleanup, an open Youth Broadcast not yet stopped, and an Open one',
+      should: 'reconcile only the Open Broadcast, so no Youth Egress starts',
+      actual: reads,
+      expected: ['open'],
+    });
+  });
+
   test('an instance that loses the claim leaves the Broadcast alone', async () => {
     const reads: string[] = [];
     const { deps } = world({

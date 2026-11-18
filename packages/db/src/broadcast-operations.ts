@@ -481,7 +481,11 @@ export const listOpenBroadcasts = (
   after: string | null = null,
 ) =>
   tx
-    .select()
+    .select({
+      ...getTableColumns(broadcasts),
+      /** A Youth Round's Broadcast is only ever stopped (ADR 0150). */
+      youthRound: sql<boolean>`coalesce((select r.ladder_division = 'youth' from ${rounds} r where r.id = ${broadcasts.roundId}), false)`,
+    })
     .from(broadcasts)
     .where(
       and(
