@@ -202,7 +202,11 @@ export const startHostingCheckout =
   ): Promise<HostingCheckoutDestination> => {
     const vendor = dependencies.vendor;
     if (!vendor) return { kind: 'unavailable' };
-    const settle = settleHostingPurchase(dependencies);
+    // An unreachable Stripe answers "unavailable" here; the webhook path retries instead.
+    const settle = (target: {
+      readonly lobbyId: string;
+      readonly purchaseId: string;
+    }) => settleHostingPurchase(dependencies)(target).catch(() => null);
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const step = await dependencies.store.tournamentHosting(
         { viewerUserId: principal.userId, lobbyId },
