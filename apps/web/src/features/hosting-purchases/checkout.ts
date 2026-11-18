@@ -126,7 +126,7 @@ export const readHostingAccount =
     lobbyId: string,
   ): Promise<HostingAccountView | null> =>
     dependencies.store.tournamentHosting(
-      { viewerUserId: principal.userId, lobbyId },
+      { viewerUserId: principal.userId, lobbyId, lock: 'read' },
       async (account) =>
         managed(dependencies, principal, account)
           ? hostingAccountView(account, account.checkedAt)
@@ -274,10 +274,18 @@ export const startHostingCheckout =
         }
         continue;
       }
-      await dependencies.store.tournamentHosting(
-        { viewerUserId: principal.userId, lobbyId },
-        (_account, writes) => writes.open(step.row),
-      );
+      // A concurrent checkout may have opened the tournament's one purchase
+      // first; the unique index refuses this one, and the next pass resumes it.
+      const opened = await dependencies.store
+        .tournamentHosting(
+          { viewerUserId: principal.userId, lobbyId },
+          (_account, writes) => writes.open(step.row),
+        )
+        .then(
+          () => true,
+          () => false,
+        );
+      if (!opened) continue;
       return createSession(
         dependencies,
         vendor,

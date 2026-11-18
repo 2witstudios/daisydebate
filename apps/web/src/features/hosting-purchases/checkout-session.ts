@@ -94,14 +94,19 @@ export function hostingCheckoutParameters(
   } satisfies Stripe.Checkout.SessionCreateParams;
 }
 
-const vendorId = (prefix: string) =>
-  z
-    .string()
-    .regex(new RegExp(`^${prefix}_[A-Za-z0-9_]+$`))
-    .max(255);
+// The same patterns as the table's identity check, so a session this
+// accepts can always be stored.
+const sessionId = z
+  .string()
+  .regex(/^cs_(test|live)_[A-Za-z0-9]+$/)
+  .max(255);
+const paymentIntentId = z
+  .string()
+  .regex(/^pi_[A-Za-z0-9]+$/)
+  .max(255);
 const sessionSchema = z.object({
   object: z.literal('checkout.session'),
-  id: vendorId('cs'),
+  id: sessionId,
   livemode: z.boolean(),
   mode: z.literal('payment'),
   status: z.enum(['open', 'complete', 'expired']),
@@ -116,7 +121,7 @@ const sessionSchema = z.object({
   url: z.string().max(8192).nullable(),
   payment_intent: z
     .object({
-      id: vendorId('pi'),
+      id: paymentIntentId,
       latest_charge: z
         .object({
           receipt_url: z

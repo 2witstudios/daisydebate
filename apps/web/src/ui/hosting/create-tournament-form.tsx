@@ -98,7 +98,7 @@ export function CreateTournamentForm({
             Upgrade the event any time:{' '}
             {formatUsd(hostingOffers.event_64.unitAmount)} up to 64 entries,{' '}
             {formatUsd(hostingOffers.event_unlimited.unitAmount)} unlimited.
-            Recording, AI judging and broadcast come with it.
+            Recording comes with it.
           </span>
         </div>
       </fieldset>

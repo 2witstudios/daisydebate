@@ -49,7 +49,7 @@ export const flagCatalogue = [
     taskCode: 'PYL-14',
     expiresOn: '2027-03-31',
     safeDefault: false,
-    dependencies: [],
+    dependencies: ['daisy-tab'],
   },
   {
     // Start a Club on /pricing; S7 opens it with /clubs/new.

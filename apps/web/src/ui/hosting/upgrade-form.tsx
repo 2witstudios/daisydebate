@@ -13,9 +13,8 @@ import { cn } from '../cn';
 
 const included = [
   'Recording in every room',
-  'AI judging, seat it in any room',
-  'Broadcast rooms to an audience',
   'Everything free hosting has',
+  // AI judging and broadcast join when they reach event Rooms (ISSUE-1465, ISSUE-1466).
 ] as const;
 
 /**

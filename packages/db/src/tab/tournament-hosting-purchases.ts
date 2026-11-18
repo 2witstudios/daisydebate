@@ -71,11 +71,20 @@ const readPurchases = async (
  */
 const loadHostingAccount = async (
   tx: TabTransaction,
-  input: { readonly viewerUserId: string; readonly lobbyId: string },
+  input: {
+    readonly viewerUserId: string;
+    readonly lobbyId: string;
+    /** `read` for a page view; checkout locks the tournament row. */
+    readonly lock?: 'update' | 'read';
+  },
 ) => {
   const authority = await loadLobbyAuthority(tx, input);
   if (!authority || authority.lobby.kind !== 'tournament') return null;
-  const hosting = await loadTournamentHostingFacts(tx, authority.lobby.id);
+  const hosting = await loadTournamentHostingFacts(
+    tx,
+    authority.lobby.id,
+    input.lock ?? 'update',
+  );
   if (!hosting) return null;
   const [accepted] = await tx
     .select({ count: sql<number>`count(*)::int` })
@@ -231,7 +240,11 @@ export const createTournamentHostingPurchaseStore = (
     ),
   /** A host's view of a tournament's hosting, with the writes checkout makes. */
   tournamentHosting: <Answer>(
-    input: { readonly viewerUserId: string; readonly lobbyId: string },
+    input: {
+      readonly viewerUserId: string;
+      readonly lobbyId: string;
+      readonly lock?: 'update' | 'read';
+    },
     work: (
       account: TournamentHostingAccount | null,
       writes: TournamentHostingPurchaseWrites,

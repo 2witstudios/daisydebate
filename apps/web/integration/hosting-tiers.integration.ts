@@ -60,6 +60,12 @@ const fakeStripe = () => {
   const port: HostingStripePort = {
     retrievePrice: async (id) => prices[id],
     createSession: async (parameters, key) => {
+      // Stripe answers a repeated idempotency key with the same session.
+      const again = created.findIndex((call) => call.key === key);
+      if (again >= 0) {
+        const id = `cs_test_${again + 1}`;
+        return { id, url: `https://checkout.stripe.com/c/pay/${id}` };
+      }
       created.push({ parameters: parameters as Record<string, unknown>, key });
       const id = `cs_test_${created.length}`;
       const line = (parameters.line_items ?? [])[0] as {

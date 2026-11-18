@@ -66,21 +66,29 @@ export function EntryLimitNotice({
   );
 }
 
+/**
+ * Only recording reaches event Rooms today. AI judging and broadcast have
+ * their switches but no event Room path yet (ISSUE-1465, ISSUE-1466), so
+ * nothing promises them: they read as coming, on every tier.
+ */
 const features = [
   {
     key: 'recording',
     title: 'Recording',
+    available: true,
     free: 'Not on free hosting. Paid events record every room.',
   },
   {
     key: 'ai_judging',
     title: 'AI judging',
-    free: 'Not on free hosting. Paid events can seat an AI judge in any room.',
+    available: false,
+    free: 'Coming to paid events.',
   },
   {
     key: 'broadcast',
     title: 'Broadcast',
-    free: 'Not on free hosting. Paid events can stream rooms to an audience.',
+    available: false,
+    free: 'Coming to paid events.',
   },
 ] as const;
 
@@ -108,7 +116,7 @@ export function HostedFeatures({
             className="flex flex-wrap items-center gap-4 border-t border-border px-4 py-3 first:border-t-0"
           >
             <div className="flex min-w-0 flex-1 items-start gap-2">
-              {free ? (
+              {free && feature.available ? (
                 <Icon
                   name="lock"
                   size={18}
@@ -118,7 +126,7 @@ export function HostedFeatures({
               <div>
                 <strong>{feature.title}</strong>
                 <div className="text-sm text-ink-muted">
-                  {free
+                  {free || !feature.available
                     ? feature.free
                     : states[feature.key]
                       ? 'On for this event.'
@@ -131,14 +139,14 @@ export function HostedFeatures({
                 type="checkbox"
                 role="switch"
                 disabled
-                checked={!free && states[feature.key]}
+                checked={!free && feature.available && states[feature.key]}
                 readOnly
                 aria-label={feature.title}
                 className="size-5"
               />
-              {!free && states[feature.key] ? 'On' : 'Off'}
+              {!free && feature.available && states[feature.key] ? 'On' : 'Off'}
             </span>
-            {free ? (
+            {free && feature.available ? (
               <a
                 href={upgradeHref}
                 className={rowButton(index === 0 ? 'primary' : 'secondary')}
@@ -193,8 +201,8 @@ export function HostingBilling({
           {account.covered
             ? `This event's hosting is covered, so there is nothing to pay. ${entriesOfCap(account.acceptedEntries, null)} so far.`
             : settled
-              ? `Paid by ${settled.payerName} on ${hostingDate(settled.at)}. ${entriesOfCap(account.acceptedEntries, null)} so far. Recording, AI judging and broadcast are on for this event.`
-              : `${entriesOfCap(account.acceptedEntries, account.entryCap)}. Recording, AI judging and broadcast come with an upgrade.`}
+              ? `Paid by ${settled.payerName} on ${hostingDate(settled.at)}. ${entriesOfCap(account.acceptedEntries, null)} so far. Recording is on for this event.`
+              : `${entriesOfCap(account.acceptedEntries, account.entryCap)}. Recording comes with an upgrade.`}
         </p>
         {account.covered ? null : account.tier === 'free' ? (
           <div>

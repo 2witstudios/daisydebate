@@ -1,4 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm';
+import { effectiveHostingTier } from '@daisy/protocol/lobby/hosting-tier';
 import { tournamentHostingPurchases } from '../schema/tournament-hosting-purchases';
 import { lobbies } from '../schema/lobbies';
 import { actors } from '../schema/actors';
@@ -70,7 +71,7 @@ export const loadTournamentCaptureFunding = async (
   const account = await loadAuthorizationAccount(tx, current.userId);
   const hosting = await loadAccountHostingFacts(tx, current.userId);
   // A personal tournament paid for funds its own capture (ADR 0147).
-  const [hostingPurchase] =
+  const paidRows =
     current.ownerOrganizationId === null
       ? await tx
           .select({
@@ -86,13 +87,14 @@ export const loadTournamentCaptureFunding = async (
               eq(tournamentHostingPurchases.state, 'paid'),
             ),
           )
-          // The highest tier: 'event_unlimited' sorts after 'event_64'.
-          .orderBy(
-            desc(tournamentHostingPurchases.tier),
-            desc(tournamentHostingPurchases.paidAt),
-          )
-          .limit(1)
+          .orderBy(desc(tournamentHostingPurchases.paidAt))
       : [];
+  // The highest tier by the protocol's own order, its latest payment.
+  const highest = effectiveHostingTier({
+    paidTiers: paidRows.map((row) => row.tier),
+    granted: false,
+  });
+  const hostingPurchase = paidRows.find((row) => row.tier === highest);
   return {
     ...current,
     account,
