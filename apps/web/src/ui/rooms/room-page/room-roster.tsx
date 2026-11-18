@@ -259,7 +259,7 @@ function Who({
     <div className="flex min-w-0 items-center gap-2">
       <span
         aria-hidden="true"
-        className={`flex size-roster-avatar shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone(props.view.rules.sides, place)}`}
+        className={`flex room-roster-avatar size-roster-avatar shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone(props.view.rules.sides, place)}`}
       >
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
@@ -271,7 +271,7 @@ function Who({
         </span>
         {seat?.rating ? (
           <span
-            className={`shrink-0 text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
+            className={`max-w-full truncate text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
           >
             {seat.rating.value}
             {seat.rating.provisional ? '*' : ''}
@@ -280,7 +280,7 @@ function Who({
         {meta.map((part) => (
           <span
             key={part}
-            className="shrink-0 self-center rounded-sm bg-surface-sunken px-2 text-xs font-strong text-ink-muted"
+            className="max-w-full self-center truncate rounded-sm bg-surface-sunken px-2 text-xs font-strong text-ink-muted"
           >
             {part}
           </span>

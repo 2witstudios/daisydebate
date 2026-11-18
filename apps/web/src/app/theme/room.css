@@ -491,6 +491,13 @@ img.ProseMirror-separator {
   }
 }
 
+/* The tightest phones give the name the avatar's width: it is decoration. */
+@utility room-roster-avatar {
+  @container (max-width: 360px) {
+    display: none;
+  }
+}
+
 /* A row's one action keeps the last column, a judge's too; on a phone it
    drops under the boxes. */
 @utility room-roster-action {

@@ -707,6 +707,112 @@ describe('RoomRoster in an event Room (ADR 0145, Tab)', () => {
   });
 });
 
+describe('RoomRoster on the narrowest roster (SEAT-14)', () => {
+  // The 360px container query lives in room.css; the markup must carry the
+  // classes it acts on, and nothing beside the name may refuse to shrink.
+  const rowOf = (html: string, label: string) => {
+    const start = html.indexOf(`<li aria-label="${label}"`);
+    return html.slice(start, html.indexOf('</li>', start));
+  };
+  const whoOf = (row: string) => ({
+    avatar: /<span aria-hidden="true" class="([^"]*)"/.exec(row)?.[1] ?? '',
+    rating: /<span class="([^"]*tabular-nums[^"]*)">\d/.exec(row)?.[1] ?? '',
+    tags: [
+      ...row.matchAll(/<span class="([^"]*bg-surface-sunken[^"]*)">/g),
+    ].map((match) => match[1]!),
+  });
+  const narrow = (who: ReturnType<typeof whoOf>) => ({
+    avatarSteps: who.avatar.split(' ').includes('room-roster-avatar'),
+    ratingShrinks:
+      who.rating.includes('truncate') && !who.rating.includes('shrink-0'),
+    tagsShrink: who.tags.map(
+      (tag) => tag.includes('truncate') && !tag.includes('shrink-0'),
+    ),
+  });
+
+  test('a rated BP debater tagged You and Host', () => {
+    const benches = [
+      { key: 'opening_government', label: 'Opening Government', short: 'OG' },
+      { key: 'opening_opposition', label: 'Opening Opposition', short: 'OO' },
+      { key: 'closing_government', label: 'Closing Government', short: 'CG' },
+      { key: 'closing_opposition', label: 'Closing Opposition', short: 'CO' },
+    ];
+    const seats = {
+      sides: Object.fromEntries(benches.map((side) => [side.key, 1])),
+      speakers: 0,
+      judges: 0,
+      moderators: 0 as const,
+    };
+    const html = render({
+      ...assemblySnapshot,
+      hostActorId: viewer.actorId,
+      teamOneSide: 'affirmative',
+      definition: { ...assemblySnapshot.definition, sides: benches, seats },
+      rules: { ...assemblySnapshot.rules, sides: benches, seats },
+      participants: [
+        {
+          ...(seated('v', 'affirmative', 0, {
+            rating: { value: 1500, provisional: true },
+          }) as Extract<Participant, { actorId: string }>),
+          seat: { kind: 'side', side: 'opening_government', slot: 0 },
+        },
+      ],
+    });
+    const who = whoOf(rowOf(html, 'Member v'));
+    assert({
+      given: 'the host on Opening Government with a provisional rating',
+      should:
+        'let the avatar step aside on the tightest phones and let the rating and each tag truncate, keeping the bench tone',
+      actual: {
+        ...narrow(who),
+        tone: who.avatar.includes('bg-hue-sky-soft'),
+      },
+      expected: {
+        avatarSteps: true,
+        ratingShrinks: true,
+        tagsShrink: [true, true],
+        tone: true,
+      },
+    });
+  });
+
+  test('a rated debater seated by the organiser in an event Room', () => {
+    const html = render({
+      ...sized(
+        1,
+        1,
+        [
+          seated('v', 'affirmative', 0, {
+            rating: { value: 1620, provisional: false },
+            eligible: false,
+          }),
+          seated('o', 'negative', 0),
+        ],
+        { teamOneSide: 'affirmative' },
+      ),
+      hostActorId: null,
+      hostLabel: null,
+      capabilities: { ...assemblySnapshot.capabilities, host: false },
+    });
+    const row = rowOf(html, 'Member v');
+    assert({
+      given: 'an event Room debater with a rating, tagged You and Not eligible',
+      should:
+        'still say who seated it while the avatar steps aside and the rating and tags truncate',
+      actual: {
+        ...narrow(whoOf(row)),
+        note: html.includes('Seated by the organiser'),
+      },
+      expected: {
+        avatarSteps: true,
+        ratingShrinks: true,
+        tagsShrink: [true, true],
+        note: true,
+      },
+    });
+  });
+});
+
 describe('RoomRoster header count (main-sync-4)', () => {
   const count = (html: string) =>
     html
