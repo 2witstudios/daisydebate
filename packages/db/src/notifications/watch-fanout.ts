@@ -163,7 +163,7 @@ export const watchNotificationOperations = ({
             tx,
             seatedAccounts(event.round_id),
           );
-          // A Youth Round is private to its people (ADR 0149): no follower hears of it.
+          // A Youth Round is private to its people (ADR 0150): no follower hears of it.
           const followers =
             event.visibility === 'public' && !event.youth
               ? await rowsOf<Recipient>(tx, followersOf(event.round_id, kind))

@@ -88,7 +88,7 @@ export const spectatorTimelineReads = ({
             round.roomId === null ||
             (round.visibility !== 'public' &&
               round.visibility !== 'unlisted') ||
-            // A Youth Round has no audience (ADR 0149): it reads as missing.
+            // A Youth Round has no audience (ADR 0150): it reads as missing.
             round.ladderDivision === 'youth'
           )
             return null;

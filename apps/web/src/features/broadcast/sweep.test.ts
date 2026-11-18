@@ -72,7 +72,7 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
 };
 
 describe('createBroadcastSweep', () => {
-  test('a Youth Round opens no Broadcast, and one opened earlier is stopped (ADR 0149)', async () => {
+  test('a Youth Round opens no Broadcast, and one opened earlier is stopped (ADR 0150)', async () => {
     const { deps, log } = world({
       endYouthBroadcasts: async () => ['b-youth'],
       discoverUnopened: async () => [

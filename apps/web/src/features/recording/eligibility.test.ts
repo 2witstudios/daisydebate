@@ -23,7 +23,7 @@ test('captureEligibility', () => {
   });
   assert({
     given: 'a ranked Round on Youth – Freestyle',
-    should: 'capture it as a Youth Recording (ADR 0149)',
+    should: 'capture it as a Youth Recording (ADR 0150)',
     actual: captureEligibility({
       ...casual,
       competitionType: 'ranked',

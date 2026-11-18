@@ -1,7 +1,7 @@
 import type { YouthRoundPeople } from './youth-audience';
 
 /**
- * How long a Youth Round's people are reused (ADR 0149). A Recording's
+ * How long a Youth Round's people are reused (ADR 0150). A Recording's
  * playback authorizes every HLS segment, so without this each segment would
  * re-read every debater's schools and guardians. A revoked grant or an ended
  * guardian link stops admitting within this long.

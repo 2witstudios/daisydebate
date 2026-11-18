@@ -787,7 +787,7 @@ export const endRoundFeed = async (
 };
 
 /**
- * A Youth Round is never broadcast (ADR 0149). A Broadcast one opened before
+ * A Youth Round is never broadcast (ADR 0150). A Broadcast one opened before
  * that rule shipped is stopped and its video held back, as an operator's stop
  * would; a complete one's feed is asked to go at once. Ids it stopped.
  */

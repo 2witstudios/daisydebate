@@ -35,7 +35,7 @@ import { rounds } from './schema/rounds';
 export const createBroadcastStore = (database: BunSQLDatabase) => ({
   discoverUnopened: (limit: number) =>
     discoverUnopenedBroadcastRounds(database, limit),
-  /** Stops any Broadcast a Youth Round opened before ADR 0149 shipped. */
+  /** Stops any Broadcast a Youth Round opened before ADR 0150 shipped. */
   endYouthBroadcasts: (now: Date) =>
     database.transaction((tx) => endYouthBroadcasts(tx, now)),
   open: (input: {

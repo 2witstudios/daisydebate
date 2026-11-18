@@ -231,7 +231,7 @@ export const createBroadcastSweep = (deps: {
   };
   const pass = createSweepPass(deps.passBudget);
   const sweep = async () => {
-    // A Youth Round is never broadcast (ADR 0149), including one opened before that rule.
+    // A Youth Round is never broadcast (ADR 0150), including one opened before that rule.
     const youthStopped = await deps.store.endYouthBroadcasts(
       new Date(deps.now()),
     );

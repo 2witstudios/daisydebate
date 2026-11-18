@@ -181,7 +181,7 @@ export const archiveEntries = (
           : null,
         media,
         transcript,
-        // A Youth Round is private whatever its Room says (ADR 0149).
+        // A Youth Round is private whatever its Room says (ADR 0150).
         ownVisibility: own
           ? round.youth === null
             ? round.visibility

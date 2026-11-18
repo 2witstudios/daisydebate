@@ -149,7 +149,7 @@ expires 2027-03-31: the host home at `/host`, which S8 builds), and show
 `youth-publishing` (Recording, PYL-8) defaults false and expires on 2027-03-31.
 It is read for the viewer's account. A Youth Round's Recording becomes
 publishable only while it is open and every youth debater holds an active
-media release ([ADR 0149](0149-youth-recordings-private.md)). It stays closed
+media release ([ADR 0150](0150-youth-recordings-private.md)). It stays closed
 in production until counsel approves the release wording (decision 81).
 
 References verified against PostgreSQL 18 (the repository's version):

@@ -132,7 +132,7 @@ describe('archiveEntries', () => {
     });
   });
 
-  test('a Youth Round reads as private in its debater’s own list (ADR 0149)', () => {
+  test('a Youth Round reads as private in its debater’s own list (ADR 0150)', () => {
     const youth = { youth: { debaters: [] } };
     assert({
       given: 'a debater’s own Youth Round in a public Room, and a stranger',

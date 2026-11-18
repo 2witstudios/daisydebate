@@ -3,7 +3,7 @@
 Recording policy is amended by
 [ADR 0134](0134-formats-beyond-two-sides.md). Event Rooms pin `off` or `officials`;
 this amendment does not approve the counsel-gated retention proposal below.
-[ADR 0149](0149-youth-recordings-private.md) amends it again: a Youth Round's
+[ADR 0150](0150-youth-recordings-private.md) amends it again: a Youth Round's
 ranked Recording is private to its debaters, judges and linked adults, is never
 broadcast, listed or downloaded, and any youth debater or linked adult may take
 it down.
@@ -48,7 +48,7 @@ media redirects to a read signed for 60 seconds. Nothing in the bucket is public
 
 **Removal.** A participant removes a casual Recording, whole; the transition refuses
 ranked, except a Youth Round's Recording (eligibility `{ kind: 'ranked', youth: true }`,
-[ADR 0149](0149-youth-recordings-private.md)): any youth debater or linked adult sends the
+[ADR 0150](0150-youth-recordings-private.md)): any youth debater or linked adult sends the
 same `participant_request`, and it goes whole. With no open report it moves to `removing`.
 Under an open report it is taken down at once and its removal is owed, paid when the report
 closes or 90 days pass, exactly as for casual. Erasure counts as that request for every casual Recording the member sits in,

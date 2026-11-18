@@ -122,7 +122,7 @@ export const recordingRoundReadOperations = ({
   },
 
   /**
-   * A Youth Round's youth debaters and their linked adults (ADR 0149), for a
+   * A Youth Round's youth debaters and their linked adults (ADR 0150), for a
    * Round the caller read as ranked on Youth – Freestyle. Its own transaction,
    * so the scopes it sets never reach another read.
    */

@@ -70,7 +70,7 @@ type Subject = {
   readonly id: string;
   readonly class: RecordingClass;
   readonly lifecycle: RecordingLifecycle;
-  /** What the Recording was requested under; a Youth one says so (ADR 0149). */
+  /** What the Recording was requested under; a Youth one says so (ADR 0150). */
   readonly eligibility?: RecordingEligibility;
 };
 

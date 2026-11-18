@@ -32,7 +32,7 @@ export const recordingEligibilitySchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('ranked'),
     /**
-     * A Youth Round's Recording (ADR 0149), fixed when it is requested: any
+     * A Youth Round's Recording (ADR 0150), fixed when it is requested: any
      * youth debater or linked adult may take it down.
      */
     youth: z.literal(true).optional(),

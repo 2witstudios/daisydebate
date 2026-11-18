@@ -74,7 +74,7 @@ const withOps = async (
   }
 };
 
-test('ending Youth Broadcasts leaves every other Broadcast running (ADR 0149)', async () => {
+test('ending Youth Broadcasts leaves every other Broadcast running (ADR 0150)', async () => {
   await withOps(async (db, roundId, client) => {
     const id = createId();
     await openBroadcast(db, {

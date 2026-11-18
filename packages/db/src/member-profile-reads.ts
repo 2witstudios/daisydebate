@@ -111,7 +111,7 @@ const seatsShown = (
       ? undefined
       : and(
           eq(rounds.visibility, 'public'),
-          // A Youth Round is private to its people (ADR 0149): never listed or counted here.
+          // A Youth Round is private to its people (ADR 0150): never listed or counted here.
           sql`${rounds.ladderDivision} is distinct from 'youth'`,
           outcomeReleasedSql(rounds, clock),
         ),
