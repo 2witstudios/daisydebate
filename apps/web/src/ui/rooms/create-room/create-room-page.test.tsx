@@ -4,7 +4,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
 import { idle } from '../../../features/forms/form-state';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
-import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
+import {
+  freestyleChoice,
+  unequalTemplate,
+} from '../../../features/rooms/assembly.test-support';
+import { noLadderReason } from '../../../features/play/ladder-division-words';
 
 setupRitewayBun();
 await mockNextRouter();
@@ -17,6 +21,7 @@ test('create page renders durable-create fields without a placeholder judge', ()
       initialState: idle(),
       choices: [],
       commandId: 'n'.repeat(24),
+      memberDivision: 'open',
     }),
   );
   assert({
@@ -50,6 +55,7 @@ test('the ranked create form explains why it is public and states no notice', ()
         initialChoice: template,
         values: {},
         commandId: 'n'.repeat(24),
+        memberDivision: 'open',
         initialRanked,
         pending: false,
       }),
@@ -77,6 +83,98 @@ test('the ranked create form explains why it is public and states no notice', ()
   });
 });
 
+test('a member with no ladder sees why instead of Ranked', () => {
+  const template = {
+    ...unequalTemplate,
+    formatId: 'freestyle',
+    role: 'standard' as const,
+    preset: { ...unequalTemplate.preset, rankedEligible: true },
+  };
+  const html = renderToString(
+    h(CreateRoomEditor, {
+      choices: [template],
+      initialChoice: template,
+      values: {},
+      commandId: 'n'.repeat(24),
+      // Arrived from Create a ranked room, which they are not shown.
+      initialRanked: true,
+      memberDivision: null,
+      pending: false,
+    }),
+  ).replaceAll('&#x27;', "'");
+  assert({
+    given: 'a member with no age on record on a ranked-eligible format',
+    should:
+      'offer no Ranked control, say why in plain words and keep the casual choices',
+    actual: [
+      html.includes('name="ranked"'),
+      html.includes(noLadderReason),
+      html.includes('Choosing Ranked makes the Room public'),
+      html.includes('The ladder is set by who sits down.'),
+    ],
+    expected: [false, true, true, false],
+  });
+});
+
+test('Ranked is open to either division and says the debaters set the ladder', () => {
+  const template = {
+    ...freestyleChoice,
+    preset: { ...freestyleChoice.preset, rankedEligible: true },
+  };
+  const render = (memberDivision: 'open' | 'youth', initialRanked: boolean) =>
+    renderToString(
+      h(CreateRoomEditor, {
+        choices: [template],
+        initialChoice: template,
+        values: {},
+        commandId: 'n'.repeat(24),
+        memberDivision,
+        initialRanked,
+        pending: false,
+      }),
+    ).replaceAll('&#x27;', "'");
+  const youth = render('youth', true);
+  const adult = render('open', true);
+  const casual = render('youth', false);
+  const box = (html: string) =>
+    /<input[^>]*name="ranked"[^>]*>/.exec(html)?.[0] ?? '';
+  assert({
+    given: 'a youth and an adult member with Ranked on, and Ranked off',
+    should:
+      'let both choose Ranked, name who sets the ladder, explain it, and sum it up in Your room',
+    actual: [
+      box(youth).includes('checked=""') && !box(youth).includes('disabled'),
+      box(adult).includes('checked=""') && !box(adult).includes('disabled'),
+      youth.includes('Freestyle · Open or Youth, set by the debaters'),
+      youth.includes('The ladder is set by who sits down.'),
+      youth.includes('>Open – Freestyle</span>. If every debater is under 18'),
+      youth.includes('Anyone can judge, whatever the ladder.'),
+      /<dt[^>]*>Ladder<\/dt><dd[^>]*>Set by the debaters<\/dd>/.test(youth),
+      /<dt[^>]*>All under 18<\/dt><dd[^>]*>Youth – Freestyle<\/dd>/.test(youth),
+      /<dt[^>]*>All 18 and over<\/dt><dd[^>]*>Open – Freestyle<\/dd>/.test(
+        youth,
+      ),
+      /<dt[^>]*>Ages mix<\/dt><dd[^>]*>Casual<\/dd>/.test(youth),
+      casual.includes('The ladder is set by who sits down.'),
+      casual.includes('Set by the debaters'),
+    ],
+    expected: [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+    ],
+  });
+});
+
 test('recording is a visible casual choice and automatically on for Ranked', () => {
   const template = {
     ...unequalTemplate,
@@ -90,6 +188,7 @@ test('recording is a visible casual choice and automatically on for Ranked', () 
         initialChoice: template,
         values,
         commandId: 'n'.repeat(24),
+        memberDivision: 'open',
         initialRanked,
         pending: false,
       }),
@@ -132,6 +231,7 @@ test('post-round feedback is a casual choice that Ranked switches off', () => {
         initialChoice: template,
         values,
         commandId: 'n'.repeat(24),
+        memberDivision: 'open',
         initialRanked,
         pending: false,
       }),
@@ -165,6 +265,7 @@ test('a casual Room is public unless its host chooses otherwise', () => {
         initialChoice: unequalTemplate,
         values,
         commandId: 'n'.repeat(24),
+        memberDivision: 'open',
         initialRanked: false,
         pending: false,
       }),

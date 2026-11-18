@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { isRoomRoundLink, type RoomAssemblyState } from '@daisy/protocol';
+import {
+  isRoomRoundLink,
+  judgeSeat,
+  type RoomAssemblyState,
+} from '@daisy/protocol';
 import { executeRoomCommand, projectRoom } from './room-assembly';
 import { activeRoomMembers, projectActiveRoom } from './room-membership';
 import { consent, edges, started, state } from './room-assembly.test-support';
@@ -11,9 +15,9 @@ const bot = {
   actorId: 'bot',
   label: 'Bot',
   kind: 'bot' as const,
-  role: 'judge' as const,
-  slot: 0,
+  seat: judgeSeat(),
   eligible: true,
+  division: null,
   teamOpen: false,
   positionOpen: false,
   consentVersion: 0,
@@ -24,18 +28,16 @@ const withRound = (
 ): RoomAssemblyState => started(state(), status);
 
 describe('one active Room per user', () => {
-  test('an open or live Room holds its host and seated humans, never a bot', () => {
+  test('an open or live Room holds its seated humans, never a bot', () => {
     const room = { ...state(), participants: [...state().participants, bot] };
+    const watched = { ...room, hostActorId: 'watcher' };
     assert({
       given: 'an open Room with a bot judge, and a host who is not seated',
-      should: 'hold the host and the seated humans once each',
-      actual: [
-        activeRoomMembers(room),
-        activeRoomMembers({ ...room, hostActorId: 'watcher' }),
-      ],
+      should: 'hold the seated humans once each, and not the seatless host',
+      actual: [activeRoomMembers(room), activeRoomMembers(watched)],
       expected: [
         ['host', 'other'],
-        ['watcher', 'host', 'other'],
+        ['host', 'other'],
       ],
     });
     assert({
@@ -100,6 +102,69 @@ describe('Launch', () => {
   });
 });
 
+describe('a Train practice (decision 75)', () => {
+  test('its creator is held from create; a seatless standing host is not', () => {
+    const practice = {
+      ...state(),
+      hostActorId: 'creator',
+      holdsHost: true,
+      participants: [bot],
+    };
+    assert({
+      given:
+        'a new Room seating only a bot, as a Train practice and as any other standing Room',
+      should:
+        'hold the practice creator, so a second Start practice returns to it, and hold no seatless host otherwise (TAB-6.16)',
+      actual: [
+        activeRoomMembers(practice),
+        activeRoomMembers({ ...practice, holdsHost: false }),
+        activeRoomMembers({ ...practice, status: 'closed' }),
+      ],
+      expected: [['creator'], [], []],
+    });
+  });
+
+  test('its creator stays held through their own commands', () => {
+    const room = { ...state(), holdsHost: true };
+    const unseated = { ...room, participants: [state().participants[1]!] };
+    const changed = executeRoomCommand(
+      unseated,
+      'host',
+      {
+        type: 'set-visibility',
+        commandId: 'visibility',
+        expectedVersion: unseated.version,
+        visibility: 'unlisted',
+      },
+      consent,
+      edges,
+    );
+    const ordinary = executeRoomCommand(
+      { ...unseated, holdsHost: false },
+      'host',
+      {
+        type: 'set-visibility',
+        commandId: 'visibility',
+        expectedVersion: unseated.version,
+        visibility: 'unlisted',
+      },
+      consent,
+      edges,
+    );
+    assert({
+      given:
+        'a seatless host changing who can join, in a Train practice and in an ordinary standing Room',
+      should:
+        'keep the practice host held after the command, and hold only the seated in the ordinary Room',
+      actual: [
+        changed.ok && changed.mutation.members,
+        ordinary.ok && ordinary.mutation.members,
+      ],
+      expected: [['host', 'other'], ['other']],
+    });
+  });
+});
+
 describe('leaving a seat', () => {
   test('a host leaving their seat stays the host of an open Room', () => {
     const room = { ...state(), status: 'assembling' as const };
@@ -113,13 +178,14 @@ describe('leaving a seat', () => {
     assert({
       given: 'the host leaving their seat while the Room assembles',
       should:
-        'unseat them only, keeping the Room open and the seatless host a member',
+        'unseat them only, keeping the Room open; a seatless host holds no membership',
       actual: left.ok && [
         left.mutation.state.status,
+        left.mutation.state.hostActorId,
         left.mutation.state.participants.map((p) => p.actorId),
         left.mutation.members,
       ],
-      expected: ['assembling', ['other'], ['host', 'other']],
+      expected: ['assembling', 'host', ['other'], ['other']],
     });
   });
 
@@ -165,8 +231,9 @@ describe('my active Room', () => {
   const facts = {
     room: { id: 'r'.repeat(24), title: 'Room', hostActorId: 'host' },
     roundRef: null,
-    seatRole: null,
+    seatKind: null,
     debateEnded: false,
+    ladder: null,
   };
   test('the read names the phase, the page and the member role', () => {
     assert({
@@ -175,7 +242,7 @@ describe('my active Room', () => {
       actual: [
         projectActiveRoom({ ...facts, status: 'assembling' }, 'host'),
         projectActiveRoom(
-          { ...facts, status: 'ready', seatRole: 'negative' },
+          { ...facts, status: 'ready', seatKind: 'side' },
           'other',
         ),
         projectActiveRoom(
@@ -183,7 +250,7 @@ describe('my active Room', () => {
             ...facts,
             status: 'started',
             roundRef: { id: 'o'.repeat(24), status: 'active' },
-            seatRole: 'judge',
+            seatKind: 'judge',
           },
           'other',
         ),
@@ -196,6 +263,7 @@ describe('my active Room', () => {
           phase: 'assembling',
           role: 'host',
           seated: false,
+          ladder: null,
           href: `/rooms/${facts.room.id}`,
         },
         {
@@ -203,8 +271,9 @@ describe('my active Room', () => {
           id: facts.room.id,
           title: 'Room',
           phase: 'ready',
-          role: 'debater',
+          role: 'side',
           seated: true,
+          ladder: null,
           href: `/rooms/${facts.room.id}`,
         },
         {
@@ -214,6 +283,7 @@ describe('my active Room', () => {
           phase: 'live',
           role: 'judge',
           seated: true,
+          ladder: null,
           href: `/rounds/${'o'.repeat(24)}/room`,
         },
       ],
@@ -224,7 +294,7 @@ describe('my active Room', () => {
     const roundId = 'o'.repeat(24);
     assert({
       given: 'a host who holds no seat after Launch',
-      should: 'stay a member and read the live Room as its host',
+      should: 'hold only the seated, and still read the live Room as its host',
       actual: [
         activeRoomMembers({
           ...state(),
@@ -243,7 +313,7 @@ describe('my active Room', () => {
           'host',
         )?.role,
       ],
-      expected: [['host', 'other'], 'host'],
+      expected: [['other'], 'host'],
     });
   });
 
@@ -323,8 +393,9 @@ describe('a started Room and its Round', () => {
     const facts = (room: RoomAssemblyState, debateEnded = false) => ({
       ...room,
       room: { id: 'r'.repeat(24), title: room.title, hostActorId: 'host' },
-      seatRole: null,
+      seatKind: null,
       debateEnded,
+      ladder: null,
     });
     const rooms = [
       state(),

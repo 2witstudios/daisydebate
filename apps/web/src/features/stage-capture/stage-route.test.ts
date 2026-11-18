@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
 import { rules } from '../round-media/media-world-seats.test-support';
 import { credentialHash } from './stage-access';
 import { createStageRoute } from './stage-route';
@@ -25,6 +25,7 @@ const route = (
             completedAt: null,
             stoppedAt: null,
             heartbeatStale: false,
+            captureDeadlineExpired: false,
             ...over,
           },
           round: {
@@ -36,7 +37,7 @@ const route = (
             currentStage: null,
             rules,
             participants: [],
-            checkpoint: emptyRuntimeCheckpoint,
+            checkpoint: emptyRuntimeCheckpointFor(rules),
             segments: [],
             ...round,
           },
@@ -124,5 +125,19 @@ describe('stage route', () => {
       ],
       expected: [200, 1, 200, null, []],
     });
+  });
+});
+
+test('an expired admitted capture deadline ends only its credentialed stage and mints no observer grant', async () => {
+  const { run, minted } = route({ captureDeadlineExpired: true });
+  const own = await run(ask(secret), 'b'),
+    stranger = await run(ask('wrong'), 'b');
+  assert({
+    given:
+      'a finite capture obligation expired while the logical Round remains running',
+    should:
+      'return410 only to its stage and404 to a stranger, with no token minted',
+    actual: [own.status, stranger.status, minted],
+    expected: [410, 404, []],
   });
 });

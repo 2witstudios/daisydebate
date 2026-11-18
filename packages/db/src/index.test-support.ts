@@ -84,8 +84,12 @@ export const roundRow = (record: {
   rules: unknown;
   status: RoundStatus;
   currentStage: string | null;
+  /** The winning side; a ranking is never mocked here. */
   outcome: string | null;
+  judging?: unknown;
+  leagueLadderId?: string | null;
   ladderId: string | null;
+  ladderDivision?: string | null;
   startedAt: string | null;
   completedAt: string | null;
   checkpoint: unknown;
@@ -116,7 +120,13 @@ export const roundRow = (record: {
   record.status,
   record.currentStage,
   record.outcome,
+  null,
+  record.judging ?? null,
+  null, // generated stored-ballot identity (Daisy/unjudged fixture)
+  null, // generated stored-ballot version
+  record.leagueLadderId ?? null,
   record.ladderId,
+  record.ladderDivision ?? (record.ladderId === null ? null : 'open'),
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),
   record.checkpoint,
@@ -162,8 +172,10 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     presetVersion: null,
     basisFormatId: null,
     basisPresetVersion: null,
+    leagueLadderId: null,
     competitionType: 'casual',
     teamOneSide: 'affirmative',
+    holdsHost: false,
     config: oneOnOneSettings,
     capture: null,
     postRoundCall: false,
@@ -193,8 +205,10 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     row.presetVersion,
     row.basisFormatId,
     row.basisPresetVersion,
+    row.leagueLadderId,
     row.competitionType,
     row.teamOneSide,
+    row.holdsHost,
     row.config,
     row.capture,
     row.postRoundCall,

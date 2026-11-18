@@ -5,6 +5,7 @@ import {
   account,
   at,
   deps,
+  nowMs,
   prefix,
   record,
   round,
@@ -26,6 +27,7 @@ describe('openPlayback', () => {
       path,
       viewer,
       presentedLinkHashOf: () => link,
+      nowMs,
     });
 
   test('authorizes every read and signs only briefly', async () => {

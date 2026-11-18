@@ -1,11 +1,11 @@
-import type { DebateSide, RoundWaitingOn } from '@daisy/protocol';
+import type { RoundWaitingOn, SeatRef } from '@daisy/protocol';
 import { formatCountdown } from '../../lib/clock-display';
 import type {
   ObservedRound,
   ObservedSeat,
   ObservedSpeech,
 } from '../round-runtime/observed-round';
-import { sideName } from '../round-runtime/round-reading';
+import { sameTeam } from '../round-runtime/round-reading';
 
 /**
  * What the judge's Now panel says at one instant. `key` changes exactly when
@@ -20,13 +20,14 @@ export type JudgeRoomStage = {
 const speechName = (speech: ObservedSpeech) =>
   `${speech.key} · ${speech.label}`;
 
-const seatName = (seats: readonly ObservedSeat[], side: DebateSide) => {
-  const seat = seats.find((s) => s.side === side);
-  return seat ? `${seat.label} (${sideName[side]})` : sideName[side];
-};
+const seatName = (seat: ObservedSeat) => `${seat.label} (${seat.sideLabel})`;
 
-const other = (side: DebateSide): DebateSide =>
-  side === 'affirmative' ? 'negative' : 'affirmative';
+/** The card of the seat a segment is scheduled to: its side's, or its own unsided. */
+const cardOf = (
+  observed: ObservedRound,
+  lead: SeatRef | null,
+): ObservedSeat | null =>
+  observed.seats.find((seat) => sameTeam(seat.seat, lead)) ?? null;
 
 const nextOf = (observed: ObservedRound) => {
   const next = observed.speeches.find((speech) => speech.state === 'next');
@@ -40,12 +41,22 @@ const firstSpeech = (observed: ObservedRound) => {
   return first ? `${speechName(first)}` : 'The first speech';
 };
 
-/** Whose floor it is, from the side doing it. */
-const sideDoing = (
+/** Whose floor it is, from the seat doing it. */
+const seatDoing = (
   observed: ObservedRound,
   activity: ObservedSeat['activity'],
-): DebateSide | null =>
-  observed.seats.find((seat) => seat.activity === activity)?.side ?? null;
+): ObservedSeat | null =>
+  observed.seats.find((seat) => seat.activity === activity) ?? null;
+
+/** Every seat doing it, by name: "Sam (Affirmative) and Kai (Negative)". */
+const seatsDoing = (
+  observed: ObservedRound,
+  activity: ObservedSeat['activity'],
+): string =>
+  observed.seats
+    .filter((seat) => seat.activity === activity)
+    .map(seatName)
+    .join(' and ');
 
 /** Where the ballot stands once the speeches end, for every state the server reports. */
 const ballotDetail: Readonly<Record<RoundWaitingOn['state'], string>> = {
@@ -84,11 +95,8 @@ const nowSpeech = (observed: ObservedRound) =>
   observed.speeches[indexOf(observed, 'now')];
 
 /** Leads a sentence with who does it, when that is known. */
-const lead = (
-  observed: ObservedRound,
-  side: DebateSide | null,
-  says: (name: string) => string,
-) => (side ? says(seatName(observed.seats, side)) : '');
+const lead = (seat: ObservedSeat | null, says: (name: string) => string) =>
+  seat ? says(seatName(seat)) : '';
 
 const stages: Readonly<
   Record<
@@ -122,28 +130,29 @@ const stages: Readonly<
   },
   speech: (observed) => {
     const speech = nowSpeech(observed);
-    const side = sideDoing(observed, 'speaking') ?? speech?.side ?? null;
+    const seat =
+      seatDoing(observed, 'speaking') ?? cardOf(observed, speech?.lead ?? null);
     return {
       key: `speech-${indexOf(observed, 'now')}`,
       heading: speech ? speechName(speech) : 'Speech',
-      detail: `${lead(observed, side, (name) => `${name} is speaking. `)}${nextOf(observed)}`,
+      detail: `${lead(seat, (name) => `${name} is speaking. `)}${nextOf(observed)}`,
     };
   },
   'cross-ex': (observed) => {
     const speech = nowSpeech(observed);
-    const asks = sideDoing(observed, 'asking');
+    const asks = seatDoing(observed, 'asking');
     return {
       key: `cross-ex-${indexOf(observed, 'now')}`,
       heading: speech ? speechName(speech) : 'Cross-examination',
-      detail: `${lead(observed, asks, (name) => `${name} asks; ${seatName(observed.seats, other(asks ?? 'affirmative'))} answers. `)}${nextOf(observed)}`,
+      detail: `${lead(asks, (name) => `${name} asks; ${seatsDoing(observed, 'answering')} answers. `)}${nextOf(observed)}`,
     };
   },
   prep: (observed) => {
-    const side = sideDoing(observed, 'preparing');
+    const seat = seatDoing(observed, 'preparing');
     return {
-      key: `prep-${indexOf(observed, 'next')}-${side ?? ''}`,
-      heading: side ? `${sideName[side]} prep` : 'Prep',
-      detail: `${lead(observed, side, (name) => `${name} is using prep time. `)}${nextOf(observed)}`,
+      key: `prep-${indexOf(observed, 'next')}-${seat?.side ?? ''}`,
+      heading: seat ? `${seat.sideLabel} prep` : 'Prep',
+      detail: `${lead(seat, (name) => `${name} is using prep time. `)}${nextOf(observed)}`,
     };
   },
   between: (observed) => ({

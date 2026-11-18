@@ -45,7 +45,7 @@ export function StageView(props: {
       <ul className="broadcast-stage-seats">
         {snapshot.seats.map((seat) => (
           <StageSeat
-            key={`${seat.side}-${seat.label}`}
+            key={`${seat.column}-${seat.label}`}
             seat={seat}
             media={props.mediaOf(seat)}
             shown={speech !== null && !gap}

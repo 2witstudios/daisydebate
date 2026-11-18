@@ -50,6 +50,8 @@ test('subscription freshness observes actual pending age against the explicit ta
           webhookSecret: 'whsec_unused',
           premiumPriceId: 'price_fixture',
           portalConfigurationId: 'bpc_fixture',
+          hostEventPrices: null,
+          club: null,
         },
       },
       logger,

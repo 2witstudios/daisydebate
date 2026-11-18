@@ -1,3 +1,4 @@
+import { twoSideKeys, type TwoSideKey } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -184,7 +185,8 @@ export const roundResolutionStrikes = pgTable(
     ordinal: integer('ordinal').notNull(),
     position: integer('position').notNull(),
     drawSize: integer('draw_size').notNull(),
-    side: text('side').$type<'affirmative' | 'negative'>().notNull(),
+    /** The strike is a pair's: a side of the two-sided preset. */
+    side: text('side').$type<TwoSideKey>().notNull(),
     kind: text('kind').$type<'debater' | 'timeout' | 'automatic'>().notNull(),
     actorId: text('actor_id').references(() => actors.id, {
       onDelete: 'restrict',
@@ -219,7 +221,7 @@ export const roundResolutionStrikes = pgTable(
     ),
     check(
       'round_resolution_strikes_side_check',
-      oneOf(table.side, ['affirmative', 'negative']),
+      oneOf(table.side, twoSideKeys),
     ),
     check(
       'round_resolution_strikes_kind_check',

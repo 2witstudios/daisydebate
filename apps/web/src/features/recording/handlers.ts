@@ -90,6 +90,7 @@ export const createRecordingHandlers = (deps: Deps) => ({
             path,
             viewer: recordingViewerOf(await deps.identify(request)),
             presentedLinkHashOf: linkHeldBy(request),
+            nowMs: Date.parse(deps.clock.now()),
           }),
         ),
       deps.reporter,
@@ -113,6 +114,7 @@ export const createRecordingHandlers = (deps: Deps) => ({
           recordingId,
           viewer,
           presentedLinkHashOf: linkHeldBy(request),
+          nowMs: Date.parse(deps.clock.now()),
         });
         return new Response(null, { status: 302, headers: { location: url } });
       },

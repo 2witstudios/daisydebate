@@ -2,6 +2,7 @@ import { judgeContractVersion } from '@daisy/ai-voice';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
 import type { ServerConfig } from '@daisy/config';
+import type { AiRole } from '@daisy/protocol';
 import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 
@@ -74,18 +75,15 @@ export function roundWorkerDatabaseOptions(
  */
 export function aiAdmissionOptions(config: {
   readonly AI_ROUND_BUSY_CAP?: number | undefined;
-  readonly AI_ROUND_MONTHLY_CAP: number;
   readonly PREMIUM_BETA_GRANT: boolean;
 }): Pick<DatabaseOptions, 'botAdmission' | 'aiAllowance'> {
   const busyCap = config.AI_ROUND_BUSY_CAP;
-  const monthlyCap = config.AI_ROUND_MONTHLY_CAP;
   return {
     ...(busyCap === undefined ? {} : { botAdmission: { busyCap } }),
     aiAllowance: {
       accountEligible: canUseAiAllowance,
       decide: (account, facts, request, now) =>
         admitAllowance(account, facts, request, {
-          betaMonthlyCap: monthlyCap,
           now,
           betaGrantsPremium: config.PREMIUM_BETA_GRANT,
         }),
@@ -111,10 +109,7 @@ export const mediaConfigured = (
   ].every(Boolean);
 
 /** The AI seats a deployment can actually serve; a Room offers no other. */
-export type AiSeatAvailability = {
-  readonly debater: boolean;
-  readonly judge: boolean;
-};
+export type AiSeatAvailability = Readonly<Record<AiRole, boolean>>;
 
 /**
  * Each seat from its own key, policy and capacity (ISSUE-1017). A key alone

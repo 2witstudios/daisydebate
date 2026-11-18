@@ -72,7 +72,7 @@ const retireRoom = (f: Fixture) =>
   f.sql`insert into media_room_rotations (id, round_id, rotated_at, cause) values (${createId()}, ${f.roundId}, clock_timestamp(), 'lost')`;
 const checkpointOf = async (f: Fixture) => {
   const [row] =
-    await f.sql`select status, outcome, final_segment_ended_at, runtime_state from rounds where id=${f.roundId}`;
+    await f.sql`select status, winning_side as outcome, final_segment_ended_at, runtime_state from rounds where id=${f.roundId}`;
   return row!;
 };
 const incidentsOf = (f: Fixture) =>
@@ -200,6 +200,7 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
             () => true,
             readRoundOpening,
             roundWaitingOn,
+            () => false,
           )
         )?.platformEnding,
       },
@@ -436,7 +437,7 @@ test('a platform-ended Round restores allowance once and preserves provider cost
   await withMediaRound(async (f) => {
     const { observe } = await liveSpeech(f);
     const [seat] =
-      await f.sql`select id, actor_id from round_participants where round_id=${f.roundId} and role<>'judge' limit 1`;
+      await f.sql`select id, actor_id from round_participants where round_id=${f.roundId} and seat_kind<>'judge' limit 1`;
     const id = createId();
     const countedAt = new Date().toISOString();
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, source, state)
@@ -495,7 +496,7 @@ test('a reservation never counted needs no refund when the platform ends the Rou
   await withMediaRound(async (f) => {
     const { observe } = await liveSpeech(f);
     const [seat] =
-      await f.sql`select id, actor_id from round_participants where round_id=${f.roundId} and role<>'judge' limit 1`;
+      await f.sql`select id, actor_id from round_participants where round_id=${f.roundId} and seat_kind<>'judge' limit 1`;
     const id = createId();
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, source, state) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', '{"kind":"lifetime"}', '{"kind":"reserved"}')`;
     await observe(room({}));

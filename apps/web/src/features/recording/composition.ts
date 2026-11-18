@@ -4,7 +4,9 @@ import {
   broadcastPhase,
   captureRule,
   createRoundRuntime,
+  plannedRecording,
 } from '@daisy/debate-engine';
+import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
 import {
@@ -39,12 +41,17 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   hostActorId: round.hostActorId,
   completedAtMs: round.completedAtMs,
   seatedActorIds: round.seats.map((seat) => seat.actorId),
+  recordingPolicy: plannedRecording(round),
+  officialActorIds: round.seats
+    .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
+    .map((seat) => seat.actorId),
   title: round.title,
   resolution: round.resolution,
+  sides: round.sides,
   outcome: round.outcome,
   debaters: round.debaters.map((seat) => ({
     roundParticipantId: seat.roundParticipantId,
-    role: seat.role,
+    seat: seat.seat,
     label: seat.label,
   })),
 });

@@ -2,7 +2,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { isAppError } from '@daisy/errors';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withBillingSynchronization,
+  renewing,
+} from './billing-synchronization.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -41,7 +44,7 @@ test('durable webhook receipts survive an abandoned fetch and duplicates cannot 
         actual: [
           claims.filter(Boolean).length,
           await inbox(event),
-          await store.apply(claim, paid),
+          await store.apply(claim, paid, renewing),
         ],
         expected: [1, 'duplicate', 'applied'],
       });
@@ -50,7 +53,7 @@ test('durable webhook receipts survive an abandoned fetch and duplicates cannot 
       assert({
         given: 'an applied verified payment then repeated completion',
         should: 'write all five grants once and refuse the old claim',
-        actual: [row!.n, await store.apply(claim, paid)],
+        actual: [row!.n, await store.apply(claim, paid, renewing)],
         expected: [5, 'stale'],
       });
     },
@@ -78,7 +81,7 @@ test('new hints fence reversed vendor responses and terminal cancellation cannot
       assert({
         given: 'the old fetch returns while a newer claimant is still active',
         should: 'refuse before the newer worker has published any result',
-        actual: await store.apply(original, paid),
+        actual: await store.apply(original, paid, renewing),
         expected: 'stale',
       });
       const canceled = { ...paid, lifecycle: 'canceled' as const };
@@ -87,8 +90,8 @@ test('new hints fence reversed vendor responses and terminal cancellation cannot
           'a newer cancellation response finishes before the original paid fetch',
         should: 'apply only the current generation',
         actual: [
-          await store.apply(current, canceled),
-          await store.apply(original, paid),
+          await store.apply(current, canceled, renewing),
+          await store.apply(original, paid, renewing),
         ],
         expected: ['applied', 'stale'],
       });
@@ -98,7 +101,7 @@ test('new hints fence reversed vendor responses and terminal cancellation cannot
         mode: 'test',
       });
       const staleVendor = (await store.claim(customerId))!;
-      await store.apply(staleVendor, paid);
+      await store.apply(staleVendor, paid, renewing);
       const [row] =
         await fixture.sql`select evidence->>'lifecycle' as lifecycle from billing_subscriptions where user_id=${userId} and current`;
       const [grants] =
@@ -122,7 +125,10 @@ test('current account authority wins over a paid response that arrives after clo
       assert({
         given: 'a paid fetch that began before the canonical account closed',
         should: 'refuse application and further claims',
-        actual: [await store.apply(claim, paid), await store.claim(customerId)],
+        actual: [
+          await store.apply(claim, paid, renewing),
+          await store.claim(customerId),
+        ],
         expected: ['stale', null],
       });
       const [row] =
@@ -149,6 +155,7 @@ test('original purchase price fences forged claims and missing provenance cannot
       const wrongPrice = await store.apply(
         { ...claim, priceId: 'price_replacement' },
         paid,
+        renewing,
       );
       const unchanged = (
         await fixture.sql`select synchronization from billing_customers where id=${customerId}`
@@ -185,6 +192,36 @@ test('original purchase price fences forged claims and missing provenance cannot
           retryAfter,
         ],
         expected: ['price_fixture', 'stale', before, 0, true, retryBefore],
+      });
+    },
+  );
+});
+
+test('verified renewal-off and the subscriber price persist with the evidence for display only', async () => {
+  await withBillingSynchronization(
+    async ({ fixture, customerId, subscriptionId, store, paid }) => {
+      const read = async () =>
+        (
+          await fixture.sql`select renewal_off, amount_minor from billing_subscriptions where id=${subscriptionId}`
+        )[0];
+      const before = await read();
+      const claim = (await store.claim(customerId))!;
+      const applied = await store.apply(claim, paid, {
+        renewalOff: true,
+        amountMinor: 2000,
+        seatCount: null,
+      });
+      assert({
+        given:
+          'a new subscription, then a verified observation of a $20 price with renewal turned off',
+        should:
+          'start with renewal on and no price, then record both beside the paid evidence',
+        actual: [before, applied, await read()],
+        expected: [
+          { renewal_off: false, amount_minor: null },
+          'applied',
+          { renewal_off: true, amount_minor: 2000 },
+        ],
       });
     },
   );

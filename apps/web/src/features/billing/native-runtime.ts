@@ -32,12 +32,16 @@ export function createNativeBillingRuntime(input: {
   readonly returnOrigin: string;
   readonly clock: Clock;
   readonly memberStore: {
-    readonly read: (subject: Subject) => Promise<BillingSettingsSource>;
+    readonly read: (
+      subject: Subject,
+    ) => Promise<Omit<BillingSettingsSource, 'seat'>>;
     readonly portalCustomer: PortalInput['customer'];
   };
   readonly purchaseStore: FlowInput['store'];
   readonly admit: FlowInput['admit'];
   readonly release: ReleaseFlagReader;
+  /** The club whose current seat gives this person Premium (ADR 0148). */
+  readonly seat: (subject: Subject) => Promise<BillingSettingsSource['seat']>;
 }): NativeBillingRuntime {
   const vendor = input.vendor;
   const purchase =
@@ -77,7 +81,10 @@ export function createNativeBillingRuntime(input: {
         ? portal(subject)
         : Promise.resolve({ kind: 'unavailable' } as const),
     settings: async (subject: Subject) => {
-      const source = await input.memberStore.read(subject);
+      const source = {
+        ...(await input.memberStore.read(subject)),
+        seat: await input.seat(subject),
+      };
       let purchaseVisible = false;
       try {
         purchaseVisible = await input.release(

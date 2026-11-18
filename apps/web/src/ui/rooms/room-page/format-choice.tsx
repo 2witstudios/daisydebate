@@ -170,7 +170,9 @@ function CustomCard({ view, ids, action }: FormProps) {
       {standing.changes.length ? (
         <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
           {standing.changes.map((change) => (
-            <li key={formatChangeLine(change)}>{formatChangeLine(change)}</li>
+            <li key={formatChangeLine(change, view.rules.sides)}>
+              {formatChangeLine(change, view.rules.sides)}
+            </li>
           ))}
         </ul>
       ) : (

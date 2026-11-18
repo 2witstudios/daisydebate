@@ -1,5 +1,5 @@
 import type { Database } from '@daisy/db';
-import type { RatingLadder } from '@daisy/protocol';
+import type { Ladder } from '@daisy/protocol';
 import { readRatingStandings } from '../ratings/read';
 import type { RatingPoint } from './history';
 import type { LadderData, LadderViewer } from './ladder-view';
@@ -28,13 +28,17 @@ export async function readLadder(
   store: Store,
   input: {
     readonly seasonId: string | null;
-    readonly ladder: RatingLadder;
+    readonly ladder: Ladder;
     readonly now: string;
     readonly username: string | null;
     readonly viewerActorId?: string;
   },
 ): Promise<
-  (LadderRead & { readonly debater: (username: string) => DebaterRead }) | null
+  | (LadderRead & {
+      readonly ladder: Ladder;
+      readonly debater: (username: string) => DebaterRead;
+    })
+  | null
 > {
   const published = await readRatingStandings(store, input);
   if (!published) return null;
@@ -42,6 +46,7 @@ export async function readLadder(
   const entriesFor = (seasonId: string) =>
     published.entriesBySeason[seasonId] ?? [];
   return {
+    ladder: input.ladder,
     data: {
       season,
       seasons,
@@ -86,7 +91,9 @@ export async function readLadder(
               rating: c.ratingAfter,
               deviation: c.deviationAfter,
               result:
-                c.outcome === c.role ? ('won' as const) : ('lost' as const),
+                c.outcome.side === c.side
+                  ? ('won' as const)
+                  : ('lost' as const),
               opponent:
                 summaries.find(
                   (r) =>

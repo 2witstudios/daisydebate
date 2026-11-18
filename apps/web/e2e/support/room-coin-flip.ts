@@ -1,6 +1,13 @@
 import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import { isNamedSeat, roomViewSchema, type DebateSide } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  isNamedSeat,
+  negativeSide,
+  roomViewSchema,
+  sideOfSeat,
+  type TwoSideKey,
+} from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';
@@ -14,9 +21,9 @@ import {
 import { readBallotRound } from './human-ballot-round';
 import { closeSettledLaunchContexts } from './room-launch-settled';
 
-const sideOf: Readonly<Record<string, DebateSide>> = {
-  Affirmative: 'affirmative',
-  Negative: 'negative',
+const sideOf: Readonly<Record<string, TwoSideKey>> = {
+  Affirmative: affirmativeSide,
+  Negative: negativeSide,
 };
 
 /**
@@ -142,9 +149,13 @@ export async function proveCoinFlip(browser: Browser) {
     const roleOf = (actorId: string) =>
       round.participants
         .filter(isNamedSeat)
-        .find((seat) => seat.actorId === actorId)?.role;
+        .find((seat) => seat.actorId === actorId);
+    const sideOfActor = (actorId: string) => {
+      const seat = roleOf(actorId)?.seat;
+      return seat ? sideOfSeat(seat) : null;
+    };
     const started = await reread(host.request, view.id);
-    expect(roleOf(started.hostActorId!)).toBe(hostCard.mine);
+    expect(sideOfActor(started.hostActorId!)).toBe(hostCard.mine);
   } finally {
     await closeSettledLaunchContexts(accounts);
   }

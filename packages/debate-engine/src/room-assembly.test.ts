@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { sideSeat } from '@daisy/protocol';
 import {
   executeRoomCommand,
   projectRoom,
@@ -126,9 +127,9 @@ describe('Room assembly authority', () => {
         actorId: 'second-affirmative',
         label: 'Second affirmative',
         kind: 'human' as const,
-        role: 'affirmative' as const,
-        slot: 1,
+        seat: sideSeat('affirmative', 1),
         eligible: true,
+        division: 'open' as const,
         teamOpen: false,
         positionOpen: false,
         consentVersion: 0,
@@ -137,7 +138,10 @@ describe('Room assembly authority', () => {
     ];
     const rules = {
       ...room.rules,
-      seats: { ...room.rules.seats, affirmative: 2 },
+      seats: {
+        ...room.rules.seats,
+        sides: { ...room.rules.seats.sides, affirmative: 2 },
+      },
     };
     const configured = {
       ...room,

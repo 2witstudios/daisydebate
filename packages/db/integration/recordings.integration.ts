@@ -571,6 +571,7 @@ test('a cursor outside the archive scope tells nothing of that Round', async () 
       competition_type: 'ranked',
       format_id: formatId,
       ladder_id: formatId,
+      ladder_division: 'open',
       preset_version: 1,
       visibility: 'public',
     };
@@ -615,7 +616,7 @@ test('a cursor outside the archive scope tells nothing of that Round', async () 
       ).rows.some((row) => row.id === older);
     const endedAt = '2026-11-02T11:00:00.000Z';
     const live = await pageBefore(endedAt);
-    await client`update rounds set status='completed', current_stage=null, outcome='affirmative', completed_at=${endedAt}::timestamptz where id=${held}`;
+    await client`update rounds set status='completed', current_stage=null, winning_side='affirmative', completed_at=${endedAt}::timestamptz where id=${held}`;
     assert({
       given: 'a live Round as cursor, then the same Round ended and still held',
       should: 'answer nothing both times, so polling learns no end',
@@ -640,6 +641,7 @@ test('a ranked Round leaves the archive when its Recording is taken down, transc
         competition_type: 'ranked',
         format_id: formatId,
         ladder_id: formatId,
+        ladder_division: 'open',
         preset_version: 1,
         visibility: 'public',
         started_at: at,
@@ -713,15 +715,22 @@ test('the archive pages, filters and holds back what is not released', async () 
     async ({ ops, archive, reads, db, fixture, track, client }) => {
       const debater = await fixture.actor();
       const completed = (minutes: number, competition: 'casual' | 'ranked') =>
-        fixture.round({
-          status: 'completed',
-          competition_type: competition,
-          visibility: 'public',
-          started_at: new Date(Date.UTC(2026, 10, 2, 9, minutes)).toISOString(),
-          completed_at: new Date(
-            Date.UTC(2026, 10, 2, 10, minutes),
-          ).toISOString(),
-        });
+        fixture
+          .roundWithCast(
+            {
+              status: 'completed',
+              competition_type: competition,
+              visibility: 'public',
+              started_at: new Date(
+                Date.UTC(2026, 10, 2, 9, minutes),
+              ).toISOString(),
+              completed_at: new Date(
+                Date.UTC(2026, 10, 2, 10, minutes),
+              ).toISOString(),
+            },
+            [{ seat: 'affirmative', actorId: debater }],
+          )
+          .then(({ id }) => id);
       const make = async (
         minutes: number,
         options: { visibility?: string; durationMs?: number } = {},
@@ -729,7 +738,6 @@ test('the archive pages, filters and holds back what is not released', async () 
         const roundId = track(await completed(minutes, 'casual'));
         if (options.visibility)
           await client`update rounds set visibility=${options.visibility} where id=${roundId}`;
-        await fixture.seat(roundId, 'affirmative', 0, debater);
         const id = createId();
         await ops.requestRecording({
           id,

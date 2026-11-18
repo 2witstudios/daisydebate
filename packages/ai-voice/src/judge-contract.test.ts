@@ -1,14 +1,18 @@
 import {
   ballotCategories,
   ballotLimits,
+  daisyWinnerBallot,
   type JudgingFinish,
+  twoSides,
 } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { aiJudgeFor } from './ai-judge';
 import { ballotInstructions } from './judge-instructions';
-import { ballotWireSchema } from './judge-contract';
-import { judgeAnswer } from './judge';
 
 setupRitewayBun();
+
+const judge = aiJudgeFor(daisyWinnerBallot, { sides: twoSides, segments: [] });
+const { ballotWireSchema, judgeAnswer } = judge;
 
 const scores = Object.fromEntries(ballotCategories.map((c) => [c, 3]));
 const ballot = {
@@ -44,7 +48,9 @@ describe('judge contract parity', () => {
       given: 'the judging instructions',
       should: 'state the reason and feedback limits from ballotLimits',
       actual: [ballotLimits.reason, ballotLimits.feedback].every((limit) =>
-        ballotInstructions.includes(`${limit} characters`),
+        ballotInstructions(daisyWinnerBallot, twoSides).includes(
+          `${limit} characters`,
+        ),
       ),
       expected: true,
     });
@@ -119,7 +125,7 @@ describe('judgeAnswer', () => {
     assert({
       given: `a fenced ballot with a ${ballotLimits.reason} character reason`,
       should: 'accept it unchanged',
-      actual: judged.ok && judged.ballot.reason.length,
+      actual: judged.ok && judged.ballot.reason?.length,
       expected: ballotLimits.reason,
     });
   });
@@ -244,5 +250,36 @@ describe('judgeAnswer', () => {
         .category,
       expected: 'refused',
     });
+  });
+});
+
+test('a custom offset lattice and written-off contract reach the AI wire unchanged', () => {
+  const definition = {
+    ...daisyWinnerBallot,
+    key: 'offset-ai',
+    revision: 1,
+    points: {
+      ...daisyWinnerBallot.points!,
+      scale: { min: 0.25, max: 0.56, step: 0.1 },
+      default: 0.35,
+      criteria: { kind: 'holistic' as const },
+    },
+    written: { reason: null, feedback: null },
+  };
+  const custom = aiJudgeFor(definition, { sides: twoSides, segments: [] });
+  const wire = custom.ballotWireSchema as unknown as Wire;
+  assert({
+    given: 'a distinct custom ballot with offset decimal steps and text off',
+    should: 'advertise only actual legal values and no off text fields',
+    actual: {
+      values: wire.properties.scores!.properties.affirmative!.enum,
+      reason: wire.properties.reason,
+      feedback: wire.properties.feedback,
+    },
+    expected: {
+      values: [0.25, 0.35, 0.45, 0.55],
+      reason: undefined,
+      feedback: undefined,
+    },
   });
 });

@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./media-grants": "./src/media-grants.ts",
     "./position": "./src/round-position.ts",
-    "./media-window": "./src/media-window.ts"
+    "./media-window": "./src/media-window.ts",
+    "./ballot-contact-screening": "./src/ballot-contact-screening.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",
@@ -17,6 +18,7 @@
     "@adobe/data": "0.10.19",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
+    "@daisy/seeded-random": "workspace:*",
     "@noble/hashes": "2.4.0"
   },
   "devDependencies": {

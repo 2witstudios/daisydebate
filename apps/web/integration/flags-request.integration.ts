@@ -18,6 +18,7 @@ test('the public server reader uses allowed injected request composition and ded
       },
       now: () => Date.parse(app.clock.now()),
       diagnostic: () => {},
+      releaseDefault: false,
     });
   const first = request();
   const values = await Promise.all([

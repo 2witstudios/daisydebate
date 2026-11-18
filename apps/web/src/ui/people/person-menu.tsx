@@ -10,7 +10,7 @@ import {
   type ReportReason,
 } from '@daisy/protocol';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -44,6 +44,11 @@ import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
+import {
+  offersRanked,
+  rankedChallengeLine,
+  rankedChallengeOf,
+} from '../../features/challenges/challenge-ladder';
 import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
@@ -51,7 +56,7 @@ import { publicNameLabel } from '../profile/public-name';
 const item =
   'flex min-h-nav-target w-full items-center rounded-sm px-2 text-left text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline disabled:cursor-default disabled:text-ink-muted';
 const chip =
-  'min-h-nav-target flex-1 rounded-sm border border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink';
+  'min-h-nav-target flex-1 rounded-sm border border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink disabled:cursor-not-allowed disabled:opacity-50';
 
 const modeLabels: Readonly<Record<CompetitionType, string>> = {
   ranked: 'Ranked',
@@ -220,16 +225,21 @@ function wasSent(answer: ChallengeFormState): boolean {
 
 function ChallengeView({
   action,
-  username,
+  member,
   onBack,
   onDone,
 }: {
   readonly action: PersonActions['sendChallenge'];
-  readonly username: string;
+  readonly member: Pick<Person, 'username' | 'division'>;
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
-  const [mode, setMode] = useState<CompetitionType>('ranked');
+  const { username } = member;
+  const { memberDivision } = useChallenges();
+  const ranked = rankedChallengeOf(memberDivision, member.division);
+  const [mode, setMode] = useState<CompetitionType>(
+    offersRanked(ranked) ? 'ranked' : 'casual',
+  );
   const [answer, post, pending] = useFormAction(
     action,
     initialChallengeForm,
@@ -239,6 +249,7 @@ function ChallengeView({
     if (wasSent(answer)) onDone();
   });
   const { refusal } = challengeFields(answer);
+  const ladderLineId = useId();
   return (
     <form action={post} className="flex flex-col gap-2">
       <input type="hidden" name="username" value={username} />
@@ -250,6 +261,12 @@ function ChallengeView({
             key={value}
             type="button"
             aria-pressed={mode === value}
+            disabled={value === 'ranked' && !offersRanked(ranked)}
+            aria-describedby={
+              value === 'ranked' && !offersRanked(ranked)
+                ? ladderLineId
+                : undefined
+            }
             onClick={() => setMode(value)}
             className={chip}
           >
@@ -257,6 +274,11 @@ function ChallengeView({
           </button>
         ))}
       </div>
+      {mode === 'ranked' || !offersRanked(ranked) ? (
+        <p id={ladderLineId} className="text-sm text-ink-muted">
+          {rankedChallengeLine(ranked, username)}
+        </p>
+      ) : null}
       {refusal ? (
         <p role="status" className="text-sm text-ink-muted">
           {refusal}
@@ -486,7 +508,7 @@ export function PersonMenu({
         {view === 'challenge' ? (
           <ChallengeView
             action={actions.sendChallenge}
-            username={username}
+            member={member}
             onBack={() => setView('menu')}
             onDone={finish}
           />

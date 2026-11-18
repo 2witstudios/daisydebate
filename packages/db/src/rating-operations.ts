@@ -1,9 +1,11 @@
 import { createAppError, createRefusal } from '@daisy/errors';
+import { daisyOrganizationId } from './daisy-reference';
 import {
-  debateSides,
+  twoSideKeys,
   type DebaterStanding,
+  ladderKey,
+  type Ladder,
   type PlannedRatingChange,
-  type RatingLadder,
   type RatingState,
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
@@ -17,6 +19,7 @@ import {
 } from './rating-decisions';
 import { readRatingFacts } from './rating-discovery';
 import { retryStale } from './retry-stale';
+import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
@@ -48,13 +51,14 @@ async function loadStanding(
   tx: Tx,
   scope: {
     readonly actorId: string;
-    readonly ladder: RatingLadder;
+    readonly ladder: Ladder;
     readonly seasonId: string | null;
   },
 ): Promise<DebaterStanding> {
   const onLadder = and(
     eq(ratings.actorId, scope.actorId),
-    eq(ratings.ladder, scope.ladder),
+    eq(ratings.ladder, scope.ladder.style),
+    eq(ratings.division, scope.ladder.division),
   );
   const [current] =
     scope.seasonId === null
@@ -84,7 +88,8 @@ async function loadStanding(
     .where(
       and(
         eq(ratingChanges.actorId, scope.actorId),
-        eq(ratingChanges.ladder, scope.ladder),
+        eq(ratingChanges.ladder, scope.ladder.style),
+        eq(ratingChanges.division, scope.ladder.division),
       ),
     );
   if (!current && previous)
@@ -105,7 +110,7 @@ async function writeProjection(
   tx: Tx,
   scope: {
     readonly seasonId: string;
-    readonly ladder: RatingLadder;
+    readonly ladder: Ladder;
   },
   change: PlannedRatingChange,
 ): Promise<void> {
@@ -113,7 +118,13 @@ async function writeProjection(
     change.expectedVersion === null
       ? await tx
           .insert(ratings)
-          .values({ ...scope, actorId: change.actorId, ...change.after })
+          .values({
+            seasonId: scope.seasonId,
+            ladder: scope.ladder.style,
+            division: scope.ladder.division,
+            actorId: change.actorId,
+            ...change.after,
+          })
           .onConflictDoNothing()
           .returning({ version: ratings.version })
       : await tx
@@ -127,7 +138,8 @@ async function writeProjection(
             and(
               eq(ratings.actorId, change.actorId),
               eq(ratings.seasonId, scope.seasonId),
-              eq(ratings.ladder, scope.ladder),
+              eq(ratings.ladder, scope.ladder.style),
+              eq(ratings.division, scope.ladder.division),
               eq(ratings.version, change.expectedVersion),
             ),
           )
@@ -154,22 +166,36 @@ async function rateOnce(
     throw createRefusal('CONFLICT', 'attendance-unsettled');
   if (eligibility.kind !== 'rated') return eligibility;
 
-  const seats = await tx
-    .select({
-      actorId: roundParticipants.actorId,
-      role: roundParticipants.role,
-    })
-    .from(roundParticipants)
-    .where(
-      and(
-        eq(roundParticipants.roundId, roundId),
-        inArray(roundParticipants.role, [...debateSides]),
-      ),
-    );
+  // A rating compares the two sides' seats (ADR 0055): the preset's pair.
+  const seats = (
+    await tx
+      .select({
+        actorId: roundParticipants.actorId,
+        seatKind: roundParticipants.seatKind,
+        side: roundParticipants.side,
+        slot: roundParticipants.slot,
+      })
+      .from(roundParticipants)
+      .where(
+        and(
+          eq(roundParticipants.roundId, roundId),
+          eq(roundParticipants.seatKind, 'side'),
+          inArray(roundParticipants.side, [...twoSideKeys]),
+        ),
+      )
+  ).map(({ actorId, ...seat }) => ({ actorId, seat: seatOfColumns(seat) }));
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
-    .where(eq(seasons.status, 'active'))
+    // Daisy's own season on the Round's division: every organization may
+    // have an active one per division (ADR 0147).
+    .where(
+      and(
+        eq(seasons.status, 'active'),
+        eq(seasons.organizationId, daisyOrganizationId),
+        eq(seasons.division, eligibility.ladder.division),
+      ),
+    )
     .for('share');
   if (!season) throw createAppError('CONFLICT', 'No season is active');
   const seasonId = season.id;
@@ -178,8 +204,11 @@ async function rateOnce(
   // a hash collision only serializes unrelated ladder/actor pairs.
   const keys =
     await tx.execute(sql`select key::text as key from (select distinct
-    hashtext(${eligibility.ladder} || ':' || actor_id) as key
-    from round_participants where round_id=${roundId} and role in ('affirmative','negative')) locks
+    hashtext(${ladderKey(eligibility.ladder.style, eligibility.ladder.division)} || ':' || actor_id) as key
+    from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
+      twoSideKeys.map((side) => sql`${side}`),
+      sql`, `,
+    )})) locks
     order by locks.key`);
   for (const { key } of keys as unknown as { key: string }[])
     await tx.execute(sql`select pg_advisory_xact_lock(59090, ${key}::integer)`);

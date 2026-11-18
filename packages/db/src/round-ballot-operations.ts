@@ -1,3 +1,13 @@
+import {
+  ballotTextScreeningSchema,
+  type BallotWrittenRecord,
+  type BallotTextScreening,
+} from '@daisy/protocol';
+import { lockRoundBallotScreening } from './round-ballot-screening';
+import { ballotScreenings } from './schema/ballot-screenings';
+import { jsonObjectSchema } from './schema/columns';
+import { sampleRoundExecutionTime } from './round-execution-time';
+import type { RoundTimeSource } from './round-execution-time';
 import type { JudgingPanelFacts } from '@daisy/protocol';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { roundBallotReads } from './round-ballot-reads';
@@ -37,6 +47,7 @@ import {
 } from './round-write-authority';
 import type { RoundHydration } from './round-hydration';
 import { ballots } from './schema/ballots';
+import { outcomeJson } from './round-outcome-sql';
 import { rounds } from './schema/rounds';
 import { roundCommands } from './schema/round-commands';
 import {
@@ -50,6 +61,8 @@ import {
   requireFrozenRevision,
   requireJudgingRun,
   requireAgentBallotCapture,
+  requireRoundBallot,
+  ballotDecisionColumns,
 } from './round-ballot-decisions';
 
 type RoundBallotLeaseContext = {
@@ -79,6 +92,11 @@ export type LockedRoundBallotInput = {
     context: RoundBallotLeaseContext,
   ) => Promise<void>;
   readonly attendanceSettled: AttendanceSettledRule;
+  /** Trusted pure domain resource supplied by the human and leased-judge composition. */
+  readonly screenWritten: (
+    written: BallotWrittenRecord,
+    policy: 'hold' | 'off',
+  ) => BallotTextScreening;
   /** Pure engine callback. Null means other required judges have not submitted yet. */
   readonly buildProjection: (
     context: LockedRoundBallotContext & {
@@ -109,18 +127,21 @@ async function replayBallot(
 async function lockedBallotContext(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
+  roundTime?: RoundTimeSource,
 ) {
   const scope = {
     ...input,
     commandId: input.envelope.commandId,
   };
   const fenced = await fenceRoundWrite(tx, scope);
+  const screening = await lockRoundBallotScreening(tx, input.roundId);
   const current = await lockedRoundVersion(tx, input.roundId);
   const fresh = await readRoundWriteContext(
     tx,
     scope,
     fenced.accounts,
     'ballot',
+    roundTime,
   );
   requireFencedParticipants(fresh.round.participants, fenced.actorIds);
   requireHumanRoundPrincipal(input.principal, fenced.accounts);
@@ -129,7 +150,7 @@ async function lockedBallotContext(
     input.envelope.freezeRevision,
   );
   requireAgentBallotCapture(input.principal, frozen);
-  const context = { ...fresh, frozen };
+  const context = { ...fresh, frozen, screening };
   input.authorize(context);
   requireJudgingRun(
     { ...input, leased: input.assertLease !== undefined },
@@ -149,9 +170,10 @@ async function lockedBallotContext(
 export async function executeLockedRoundBallot(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
+  roundTime?: RoundTimeSource,
 ): Promise<RoundBallotReceipt> {
   requireCommandInput(input, roundBallotEnvelopeSchema);
-  const { current, context } = await lockedBallotContext(tx, input);
+  const { current, context } = await lockedBallotContext(tx, input, roundTime);
   const fresh = context;
   const replay = await replayBallot(tx, input);
   if (replay) return replay;
@@ -230,7 +252,7 @@ async function persistBallotResult(
       commandId: input.envelope.commandId,
       type: 'submit_ballot',
       payloadDigest: input.payloadDigest,
-      result: { ...receipt },
+      result: { ...receipt, outcome: outcomeJson(receipt.outcome) },
     },
     resultingVersion,
     { before: current.status, projection },
@@ -248,10 +270,15 @@ async function persistBallotResult(
 async function insertFrozenBallot(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
-  context: LockedRoundBallotContext,
+  context: LockedRoundBallotContext & {
+    readonly screening: Awaited<ReturnType<typeof lockRoundBallotScreening>>;
+  },
 ) {
   const ballotId = input.nextBallotId();
-  const body = input.envelope.ballot;
+  const body = requireRoundBallot(context.round, input.envelope.ballot);
+  const judging = context.round.judging;
+  if (!judging) throw createAppError('INVARIANT');
+  const source = judging.source;
   const [stored] = await tx
     .insert(ballots)
     .values({
@@ -260,27 +287,59 @@ async function insertFrozenBallot(
       judgeParticipantId: input.envelope.judgeParticipantId,
       freezeRevision: context.frozen.revision,
       rubricVersion: body.rubricVersion,
-      winner: body.winner,
-      scores: body.scores,
-      reason: body.reason,
-      feedback: body.feedback,
+      ballotDefinitionId: source.kind === 'stored' ? source.id : null,
+      ballotDefinitionVersion: source.kind === 'stored' ? source.version : null,
+      speakerRanks: body.speakerRanks ?? null,
+      ...ballotDecisionColumns(body),
+      scores: body.scores ?? null,
+      reason: body.reason ?? null,
+      feedback: body.feedback ?? null,
       citations: body.citations ?? null,
       submittedAt: new Date(context.now),
     })
     .returning();
   if (!stored) throw createAppError('INVARIANT');
+  if (context.screening) {
+    const result = ballotTextScreeningSchema.parse(
+      input.screenWritten(
+        {
+          ...(stored.reason === null ? {} : { reason: stored.reason }),
+          ...(stored.feedback === null ? {} : { feedback: stored.feedback }),
+        },
+        context.screening.policy,
+      ),
+    );
+    const screenedAt = new Date(await sampleRoundExecutionTime(tx));
+    await tx.insert(ballotScreenings).values({
+      ballotId: stored.id,
+      lobbyId: context.screening.lobbyId,
+      ruleSetVersion: result.ruleSetVersion,
+      status: result.status,
+      releasedText:
+        result.releasedText === null
+          ? null
+          : jsonObjectSchema.parse(result.releasedText),
+      screenedAt,
+      createdAt: screenedAt,
+      updatedAt: screenedAt,
+    });
+  }
   return stored;
 }
 export const roundBallotOperations = ({
   database,
   eventSink,
+  roundTime,
 }: {
   readonly database: BunSQLDatabase;
+  readonly roundTime?: RoundTimeSource | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   ...roundBallotReads({ database }),
   executeRoundBallot: (input: LockedRoundBallotInput) =>
     instrumented(eventSink, 'executeRoundBallot', () =>
-      database.transaction((tx) => executeLockedRoundBallot(tx, input)),
+      database.transaction((tx) =>
+        executeLockedRoundBallot(tx, input, roundTime),
+      ),
     ),
 });

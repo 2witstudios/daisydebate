@@ -1,3 +1,7 @@
+import {
+  beginBroadcastEgressAttempt,
+  settleBroadcastEgressAttempt,
+} from '../src/broadcast-egress-dispatch';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
@@ -318,11 +322,16 @@ test('conversation stays held until the observer is revoked, however long that t
       releasePolicy: policy,
     });
     const noEgress = await held();
+    await beginBroadcastEgressAttempt(db, {
+      id: open.id,
+      generation: 1,
+      stageCredentialHash: 'a'.repeat(64),
+    });
     await recordEgressStarted(db, {
       generation: 1,
       id: open.id,
       egressId: 'EG',
-      stageCredentialHash: 'h',
+      stageCredentialHash: 'a'.repeat(64),
       now,
     });
     const observing = await held();
@@ -412,19 +421,19 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
       const recordedOnly = await f.round();
       const nothing = await f.round();
       await client`update rounds set visibility='public' where id=${chosen}`;
-      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
+      await client`update rounds set competition_type='casual', ladder_id=null,ladder_division=null, capture=${JSON.stringify(
         {
           broadcast: {
             release: { kind: 'delay', seconds: 300 },
             debatersReadChat: true,
           },
-          recording: false,
+          recordingPolicy: 'off',
         },
       )}::text::jsonb where id=${chosen}`;
-      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
-        { broadcast: null, recording: true },
+      await client`update rounds set competition_type='casual', ladder_id=null,ladder_division=null, capture=${JSON.stringify(
+        { broadcast: null, recordingPolicy: 'released' },
       )}::text::jsonb where id=${recordedOnly}`;
-      await client`update rounds set competition_type='casual', ladder_id=null, capture=null where id=${nothing}`;
+      await client`update rounds set competition_type='casual', ladder_id=null,ladder_division=null, capture=null where id=${nothing}`;
       const found = (
         await discoverUnopenedBroadcastRounds(drizzle({ client }), 1000)
       ).map((row) => row.roundId);
@@ -599,12 +608,19 @@ test('one start is recorded per generation, and a racing one loses', async () =>
       feedKey: createId(),
       releasePolicy: policy,
     });
+    const dispatch = (generation: number) =>
+      beginBroadcastEgressAttempt(db, {
+        id,
+        generation,
+        stageCredentialHash: 'a'.repeat(64),
+      });
+    const begun = await Promise.all([dispatch(1), dispatch(1)]);
     const started = (egressId: string, generation: number) =>
       recordEgressStarted(db, {
         id,
         egressId,
         generation,
-        stageCredentialHash: `hash-${egressId}`,
+        stageCredentialHash: 'a'.repeat(64),
         now,
       });
     const raced = await Promise.all([started('EG_A', 1), started('EG_B', 1)]);
@@ -613,18 +629,28 @@ test('one start is recorded per generation, and a racing one loses', async () =>
       .from(broadcasts)
       .where(eq(broadcasts.id, id));
     const winner = raced[0] ? 'EG_A' : 'EG_B';
-    const next = await started('EG_C', 2);
+    const premature = await dispatch(2);
+    const settled = await settleBroadcastEgressAttempt(db, {
+      id,
+      generation: 1,
+      egressId: winner,
+      observation: { kind: 'complete' },
+    });
+    const next = (await dispatch(2)) && (await started('EG_C', 2));
     assert({
       given: 'two reports racing for generation 1, then a report for 2',
       should:
         'let one win, keeping its id and credential alone, then accept the next',
       actual: [
+        begun.filter(Boolean).length,
+        premature,
+        settled,
         raced.filter(Boolean).length,
         row?.egressId,
         row?.stageCredentialHash,
         next,
       ],
-      expected: [1, winner, `hash-${winner}`, true],
+      expected: [1, false, true, 1, winner, 'a'.repeat(64), true],
     });
   });
 });
@@ -747,11 +773,16 @@ test('a Broadcast observer holds cameras', async () => {
     });
     const held = () => readBroadcastObserverHeld(db, { roundId });
     const before = await held();
+    await beginBroadcastEgressAttempt(db, {
+      id,
+      generation: 1,
+      stageCredentialHash: 'a'.repeat(64),
+    });
     await recordEgressStarted(db, {
       id,
       egressId: 'EG',
       generation: 1,
-      stageCredentialHash: 'h',
+      stageCredentialHash: 'a'.repeat(64),
       now,
     });
     const observing = await held();
@@ -1057,6 +1088,88 @@ test('an observer write lands only from the state it was decided on', async () =
         [now.toISOString(), 0],
         [now.toISOString(), 0],
       ],
+    });
+  });
+});
+
+test('lost Broadcast acknowledgements and logical completion cannot release possible physical work', async () => {
+  await withOps(async (db, roundId, client) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const hash = 'b'.repeat(64);
+    const capacity = async () =>
+      Number(
+        (
+          await client`select running from daisy_nonranked_capture_capacity(${createId()},null,null,null)`
+        )[0]!.running,
+      );
+    const begun = await beginBroadcastEgressAttempt(db, {
+      id,
+      generation: 1,
+      stageCredentialHash: hash,
+    });
+    await stopBroadcast(db, { id, reason: 'recording_removed', now });
+    await completeBroadcast(db, { id, at: now });
+    const pending = await listOpenBroadcasts(db, 500);
+    assert({
+      given:
+        'a durably dispatched Start with its answer lost, followed by completed feed',
+      should:
+        'keep physical reconciliation, conversation hold and fleet reservation without another generation',
+      actual: [
+        begun,
+        pending.some((row) => row.id === id),
+        await readConversationHeld(db, { roundId }),
+        await capacity(),
+        await beginBroadcastEgressAttempt(db, {
+          id,
+          generation: 2,
+          stageCredentialHash: hash,
+        }),
+      ],
+      expected: [true, true, true, 1, false],
+    });
+    const ack = await recordEgressStarted(db, {
+      id,
+      generation: 1,
+      stageCredentialHash: hash,
+      egressId: 'EG_RECOVERED',
+      now,
+    });
+    const bad = await settleBroadcastEgressAttempt(db, {
+      id,
+      generation: 1,
+      egressId: 'EG_OTHER',
+      observation: { kind: 'complete' },
+    });
+    const before = await capacity();
+    const settled = await settleBroadcastEgressAttempt(db, {
+      id,
+      generation: 1,
+      egressId: 'EG_RECOVERED',
+      observation: { kind: 'complete' },
+    });
+    const beforeWithdrawal = await capacity();
+    await recordObserverRevoked(db, { id, now });
+    assert({
+      given:
+        'exact late ACK then confirmed terminal observation and observer withdrawal',
+      should:
+        'refuse foreign settlement, hold until both facts and release without reopening the completed feed',
+      actual: [
+        ack,
+        bad,
+        before,
+        settled,
+        beforeWithdrawal,
+        await capacity(),
+        (await listOpenBroadcasts(db, 500)).some((row) => row.id === id),
+      ],
+      expected: [true, false, 1, true, 1, 0, false],
     });
   });
 });

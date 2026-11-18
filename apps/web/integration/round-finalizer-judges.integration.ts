@@ -1,4 +1,4 @@
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic, isJudgeSeat, judgeSeat } from '@daisy/protocol';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { assembleJudgedRoom } from './round-judges.test-support';
 import { playOut } from './round-judging.test-support';
@@ -31,8 +31,7 @@ for (const revoked of [false, true])
             await f.command(f.host, room, {
               type: 'assign-seat',
               actorId,
-              role: 'judge',
-              slot,
+              seat: judgeSeat(slot),
             })
           ).view;
         for (const who of [f.host, f.guest])
@@ -50,7 +49,7 @@ for (const revoked of [false, true])
           await f.sql`select judge_participant_id,freeze_revision,status,attempts from round_judging_jobs where round_id=${roundId} order by judge_participant_id`;
         const expected = round.participants
           .filter(
-            (p) => p.role === 'judge' && (!revoked || p.actorId !== bots[1]),
+            (p) => isJudgeSeat(p.seat) && (!revoked || p.actorId !== bots[1]),
           )
           .map((p) => ({
             judge_participant_id: p.id,

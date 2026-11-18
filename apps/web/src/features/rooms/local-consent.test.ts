@@ -13,8 +13,7 @@ const consentView = (ready: boolean, revision = 1) => ({
       actorId,
       kind: 'human' as const,
       label: 'Host',
-      role: 'affirmative' as const,
-      slot: 1,
+      seat: { kind: 'side', side: 'affirmative', slot: 1 } as const,
       needsReady: true,
       eligible: true,
       ready: ready ? ('ready' as const) : ('not-ready' as const),
@@ -22,6 +21,7 @@ const consentView = (ready: boolean, revision = 1) => ({
       teamOpen: false,
       positionOpen: false,
       rating: null,
+      division: null,
     },
   ],
 });

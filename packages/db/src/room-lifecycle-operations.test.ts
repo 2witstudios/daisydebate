@@ -34,7 +34,7 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
     actual: () =>
       database.createRoomCommand({
         room,
-        members: [room.hostActorId],
+        membersOf: () => [room.hostActorId],
         commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
         payloadDigest: 'a'.repeat(64),
         definition: foundationDefinition,
@@ -49,7 +49,7 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
       'claim the membership with a conflict-tolerant insert, then recheck it',
     actual: queries.some(({ query }) =>
       query.includes(
-        'insert into "room_active_memberships" ("actor_id", "room_id", "created_at") values ($1, $2, default) on conflict ("actor_id") do nothing',
+        'insert into "active_seats" ("actor_id", "room_id", "created_at") values ($1, $2, default) on conflict ("actor_id") do nothing',
       ),
     ),
     expected: true,
@@ -65,11 +65,15 @@ test('the active room read maps the membership row, and no row reads as none', a
         room.id,
         'Proof room',
         caller.actorId,
+        'standing',
         'started',
         roundId,
         'active',
         null,
-        null,
+        'side',
+        'ranked',
+        'open',
+        ['open'],
       ],
     ],
     [accountRow()],
@@ -77,8 +81,9 @@ test('the active room read maps the membership row, and no row reads as none', a
   ]);
   const authorize = (fact: { member: boolean } | null) => fact?.member === true;
   assert({
-    given: 'a host held by a live Room, then an actor no Room holds',
-    should: 'return the portable facts, then null',
+    given:
+      'a host seated on a side of a live ranked Room on Open, then an actor no Room holds',
+    should: 'return the portable facts with the Round’s ladder, then null',
     actual: [
       await database.readActiveRoomFacts(caller, authorize),
       await database.readActiveRoomFacts(caller, authorize),
@@ -88,8 +93,9 @@ test('the active room read maps the membership row, and no row reads as none', a
         room: { id: room.id, title: 'Proof room', hostActorId: caller.actorId },
         status: 'started',
         roundRef: { id: roundId, status: 'active' },
-        seatRole: null,
+        seatKind: 'side',
         debateEnded: false,
+        ladder: 'open',
       },
       null,
     ],
@@ -192,7 +198,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
       expired,
       queries.some(({ query }) => query.startsWith('update "rooms"')),
       queries.some(({ query }) =>
-        query.startsWith('delete from "room_active_memberships"'),
+        query.startsWith('delete from "active_seats"'),
       ),
       queries.some(({ query }) => query.startsWith('delete from "challenges"')),
       queries.filter(({ query }) => query.includes('pg_notify')).length,

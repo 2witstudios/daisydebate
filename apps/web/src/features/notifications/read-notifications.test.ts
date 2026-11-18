@@ -41,7 +41,18 @@ describe('readNotificationItems', () => {
               challenger: null,
               mode: 'casual',
               format: 'freestyle',
+              division: null,
               readAt: null,
+              surfacedAt: '2026-11-02T13:00:00.000Z',
+            },
+            {
+              id: 'e',
+              kind: 'challenge_received',
+              challenger: 'maya',
+              mode: 'ranked',
+              format: 'freestyle',
+              division: 'youth',
+              readAt: '2026-11-02T13:00:00.000Z',
               surfacedAt: '2026-11-02T13:00:00.000Z',
             },
           ],
@@ -54,7 +65,8 @@ describe('readNotificationItems', () => {
       },
     );
     assert({
-      given: 'one row of each kind, one about a member since erased',
+      given:
+        'one row of each kind, one about a member since erased, and a ranked challenge on Youth',
       should: 'say what happened and where it leads, and nothing else',
       actual: { items, unread },
       expected: {
@@ -87,6 +99,13 @@ describe('readNotificationItems', () => {
             href: '/friends',
             minutesAgo: 0,
             unread: true,
+          },
+          {
+            id: 'e',
+            text: '@maya challenged you to a ranked Youth – Freestyle debate.',
+            href: '/friends',
+            minutesAgo: 0,
+            unread: false,
           },
         ],
       },

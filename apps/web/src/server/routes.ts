@@ -23,6 +23,8 @@ import { composeAgreementRoutes } from '../features/agreements/composition';
 import { composeRecordingRoutes } from '../features/recording/composition';
 import { composeContentModerationRoutes } from '../features/content-moderation/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
+import { composeTabRoutes } from '../features/tab/composition';
+import { composeLeagueRequestRoutes } from '../features/league-requests/composition';
 import {
   createListSessionsHandler,
   createRevokeSessionHandler,
@@ -50,6 +52,8 @@ import { composeAudienceRoutes } from '../features/spectating/audience-compositi
 import { createAudienceLinkHandlers } from '../features/audience-link/handlers';
 import { identify } from '../lib/identity';
 import { memberHttpBoundary } from './member-boundary';
+import { composeHostingRoutes } from '../features/hosting-purchases/routes';
+import { hostingPurchaseDependencies } from './hosting-purchases';
 import type { App } from './app';
 import { handleOperation } from './http';
 import { createReadinessHandler } from '../features/ops/readiness';
@@ -98,6 +102,14 @@ export function createRoutes(app: App) {
     publicProfile: composePublicProfileRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
+    tab: composeTabRoutes(app),
+    hosting: composeHostingRoutes({
+      boundary: memberBoundary,
+      dependencies: (fetch) => hostingPurchaseDependencies(app, fetch),
+      lobbyIdOfHandle: (handle) =>
+        app.database.tabCommands.lobbyIdOfHandle(handle),
+    }),
+    leagueRequests: composeLeagueRequestRoutes(app),
     audienceLink: createAudienceLinkHandlers({
       logger,
       reporter: app.reporter,

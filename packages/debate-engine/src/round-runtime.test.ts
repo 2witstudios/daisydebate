@@ -1,5 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { sideOfSeat, sideSeat } from '@daisy/protocol';
 import {
   oneOnOneRules,
   oneOnOneSeats,
@@ -47,7 +48,8 @@ describe('round runtime lifecycle', () => {
           key: 'AC',
           label: 'Affirmative constructive',
           type: 'speech',
-          side: 'affirmative',
+          lead: sideSeat('affirmative', 0),
+          speak: { rights: 'one', seat: sideSeat('affirmative', 0) },
           sequence: 0,
         },
         countdownRemainingMs: null,
@@ -155,7 +157,9 @@ describe('round runtime lifecycle', () => {
 
   test('refuses a start that would seat the round incompletely', async () => {
     const world = runtimeWorld({
-      participants: oneOnOneSeats.filter((seat) => seat.role !== 'negative'),
+      participants: oneOnOneSeats.filter(
+        (seat) => sideOfSeat(seat.seat) !== 'negative',
+      ),
     });
     const before = world.position(at(0));
     await assertRejects({

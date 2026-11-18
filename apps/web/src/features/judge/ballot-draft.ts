@@ -1,10 +1,6 @@
-import {
-  ballotCategories,
-  ballotLimits,
-  ballotRubricVersion,
-  debateSides,
-} from '@daisy/protocol';
-import { feedbackField, scoreField } from './ballot';
+import { ballotDefinitionIdentity } from '@daisy/protocol';
+import { ballotFieldNames } from './ballot';
+import type { BallotPlan } from './ballot-plan';
 
 /**
  * A ballot the judge has started but not submitted, kept in this tab only
@@ -20,40 +16,44 @@ export type BallotDraftStorage = Pick<
   'getItem' | 'setItem' | 'removeItem'
 >;
 
-const draftFields: ReadonlySet<string> = new Set([
-  'winner',
-  'reason',
-  'low-point',
-  ...debateSides.flatMap((side) => [
-    feedbackField(side),
-    ...ballotCategories.map((category) => scoreField(side, category)),
-  ]),
-]);
-
 /** Generous for line-break encoding; a value longer than this is not the judge's. */
-const maxValueLength = Math.max(ballotLimits.reason, ballotLimits.feedback) * 2;
+const maxValueLength = (plan: BallotPlan) =>
+  Math.max(
+    64,
+    plan.definition.written.reason?.max ?? 0,
+    plan.definition.written.feedback?.max ?? 0,
+  ) * 2;
 
 /**
- * One draft per judge seat in one Round, on one rubric version: a draft
- * written on an earlier rubric is never read back into the current one.
+ * One draft per judge seat in one Round, on one ballot definition: a draft
+ * written on an earlier definition is never read back into the current one.
  */
-export const ballotDraftKey = (roundId: string, participantId: string) =>
-  `daisy:ballot-draft:${ballotRubricVersion}:${roundId}:${participantId}`;
+export const ballotDraftKey = (
+  plan: BallotPlan,
+  roundId: string,
+  participantId: string,
+) =>
+  `daisy:ballot-draft:${ballotDefinitionIdentity(plan.definition)}:${roundId}:${participantId}`;
 
 /** The ballot's own fields from a form's values; everything else is dropped. */
 export function ballotDraftOf(
+  plan: BallotPlan,
   values: Readonly<Record<string, string>>,
 ): BallotDraft {
+  const draftFields = new Set(ballotFieldNames(plan));
+  const longest = maxValueLength(plan);
   return Object.fromEntries(
     Object.entries(values).filter(
-      ([name, value]) =>
-        draftFields.has(name) && value.length <= maxValueLength,
+      ([name, value]) => draftFields.has(name) && value.length <= longest,
     ),
   );
 }
 
 /** A stored draft's text read back, or null when it is not a draft. */
-export function parseBallotDraft(raw: string | null): BallotDraft | null {
+export function parseBallotDraft(
+  plan: BallotPlan,
+  raw: string | null,
+): BallotDraft | null {
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -64,7 +64,7 @@ export function parseBallotDraft(raw: string | null): BallotDraft | null {
         (entry): entry is [string, string] => typeof entry[1] === 'string',
       ),
     );
-    const draft = ballotDraftOf(values);
+    const draft = ballotDraftOf(plan, values);
     return Object.keys(draft).length > 0 ? draft : null;
   } catch {
     return null;
@@ -85,12 +85,13 @@ export function storedBallotDraft(
 
 /** Keeps the draft; a full or refused storage keeps nothing and says nothing. */
 export function writeBallotDraft(
+  plan: BallotPlan,
   storage: BallotDraftStorage,
   key: string,
   values: Readonly<Record<string, string>>,
 ): void {
   try {
-    storage.setItem(key, JSON.stringify(ballotDraftOf(values)));
+    storage.setItem(key, JSON.stringify(ballotDraftOf(plan, values)));
   } catch {
     // The form still holds what was typed; only the reload copy is lost.
   }

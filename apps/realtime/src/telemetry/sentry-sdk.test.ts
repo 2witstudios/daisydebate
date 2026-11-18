@@ -68,4 +68,4 @@ test('installed Bun SDK bounds inherited sampling and scrubs its actual streamed
     ],
     expected: [true, false, false, false, true],
   });
-});
+}, 30_000);

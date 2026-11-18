@@ -32,12 +32,15 @@ export type ActionFormBody = {
 export function ActionForm({
   action,
   label,
+  id,
   className,
   focusOnRefusal,
   children,
 }: {
   readonly action: FormStateAction;
   readonly label: string;
+  /** Lets a submit button outside the form post it (its `form` attribute). */
+  readonly id?: string;
   readonly className?: string;
   /** The element that takes focus once a refusal renders (ISSUE-107). */
   readonly focusOnRefusal?: string;
@@ -60,6 +63,7 @@ export function ActionForm({
   return (
     <form
       action={post}
+      id={id}
       aria-label={label}
       aria-busy={pending}
       className={className}

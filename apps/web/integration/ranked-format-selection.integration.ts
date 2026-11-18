@@ -12,7 +12,7 @@ test('only Freestyle is creatable ranked: generic One-on-one and a league templa
     const seasonId = createId();
     try {
       await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId }),
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
       );
       const [current] =
         await f.sql`select f.current_version as "formatVersion", p.version as "presetVersion" from formats f join format_presets p on p.format_id=f.id and p.format_version=f.current_version and p.superseded_at is null where f.id='one-on-one'`;
@@ -62,6 +62,51 @@ test('only Freestyle is creatable ranked: generic One-on-one and a league templa
           catalog.some((c) => c.formatId === 'one-on-one'),
         ],
         expected: ['ranked', 'freestyle', null, false],
+      });
+    } finally {
+      await f.sql`delete from seasons where id=${seasonId}`;
+    }
+  });
+});
+
+test('a ranked Room is refused on each casual template: only one seat a side, one judge and a winner rank (TAB-6.14)', async () => {
+  await withRoomRuntime(async (f) => {
+    const seasonId = createId();
+    try {
+      await withSeasons(databaseUrl, (s) =>
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
+      );
+      const templates = [
+        'panel-debate',
+        'four-team',
+        'speech-section',
+        'open-conversation',
+      ];
+      const refusals = await Promise.all(
+        templates.map((formatId) =>
+          f
+            .create({
+              selection: {
+                kind: 'ranked',
+                formatId,
+                formatVersion: 1,
+                presetVersion: 1,
+              },
+            })
+            .then(
+              () => 'created',
+              (error: { readonly code?: string }) => error.code,
+            ),
+        ),
+      );
+      const [rooms] =
+        await f.sql`select count(*)::int as n from rooms where format_id in ${f.sql(templates)}`;
+      assert({
+        given:
+          'an active season and a ranked create on the three-judge, four-team, speech-section and open-conversation templates',
+        should: 'refuse every one and create no Room',
+        actual: { refusals, rooms: rooms.n },
+        expected: { refusals: Array(4).fill('VALIDATION'), rooms: 0 },
       });
     } finally {
       await f.sql`delete from seasons where id=${seasonId}`;

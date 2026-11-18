@@ -2,7 +2,7 @@ import {
   ADMITTED_AGE_BANDS,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
-import type { AgeBand } from '@daisy/auth';
+import type { AgeBand, RatingDivision } from '@daisy/protocol';
 import { tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type {
@@ -10,14 +10,14 @@ import type {
   Person,
   PeopleList,
   PresenceActivity,
-  RatingLadder,
+  RatingStyle,
   RatingState,
   RoundStatus,
   RoundOutcome,
-  DebateRole,
+  SeatRef,
 } from '@daisy/protocol';
 import type { PublicProfileCard } from '@daisy/db';
-import { ratingLadders } from '@daisy/protocol';
+import { daisyLadders } from '@daisy/protocol';
 import type {
   PeopleListCursor,
   PersonRow,
@@ -62,14 +62,15 @@ export type PeopleListDependencies = {
   readonly cards: (actorIds: readonly string[]) => Promise<{
     readonly ratings: readonly (RatingState & {
       readonly actorId: string;
-      readonly ladder: RatingLadder;
+      readonly ladder: RatingStyle;
+      readonly division: RatingDivision;
       readonly lastRatedAt: string | null;
     })[];
     readonly records: readonly {
       readonly actorId: string;
       readonly status: string;
-      readonly outcome: string | null;
-      readonly role: string;
+      readonly outcome: RoundOutcome | null;
+      readonly seat: SeatRef;
       readonly rounds: number;
     }[];
   }>;
@@ -182,22 +183,26 @@ export async function readPeopleList(
         .filter((group) => group.actorId === row.actorId)
         .map((group) => ({
           status: group.status as RoundStatus,
-          outcome: group.outcome as RoundOutcome | null,
-          role: group.role as DebateRole,
+          outcome: group.outcome,
+          seat: group.seat,
           rounds: group.rounds,
         })),
     );
     const profile = profiles.get(row.actorId);
+    const rated = cards.ratings.filter(
+      (rating) => rating.actorId === row.actorId,
+    );
     people.push({
       username: row.username,
       displayName: profile?.displayName ?? null,
       photoId: profile?.photoId ?? null,
       status,
       relation: relationOf(row, actorId),
-      ratings: ratingLadders.map((ladder) => {
-        const state = cards.ratings.find(
+      ratings: daisyLadders.map((ladder) => {
+        const state = rated.find(
           (rating) =>
-            rating.actorId === row.actorId && rating.ladder === ladder,
+            rating.ladder === ladder.style &&
+            rating.division === ladder.division,
         );
         if (hidden.has(row.actorId))
           return { ladder, rating: null, provisional: false, hidden: true };
@@ -211,6 +216,7 @@ export async function readPeopleList(
           hidden: false,
         };
       }),
+      division: row.division,
       wins: record.wins,
       losses: record.losses,
     });

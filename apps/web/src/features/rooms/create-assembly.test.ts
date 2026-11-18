@@ -90,8 +90,9 @@ test('invalid create selections refuse before transport; server refusals never b
     id: 'm'.repeat(24),
     title: 'Current room',
     phase: 'ready',
-    role: 'debater',
+    role: 'side',
     seated: true,
+    ladder: null,
     href: `/rooms/${'m'.repeat(24)}`,
   };
   for (const response of [
@@ -200,8 +201,8 @@ test('a casual recording choice reaches canonical creation; ranked stays automat
   assert({
     given: 'a casual recording selection followed by a Ranked form',
     should: 'request recording only for casual, leaving Ranked automatic',
-    actual: sent.map((body) => body.recording ?? null),
-    expected: [true, null],
+    actual: sent.map((body) => body.recordingPolicy ?? null),
+    expected: ['released', null],
   });
 });
 

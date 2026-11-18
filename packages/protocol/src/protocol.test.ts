@@ -1,19 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   competitionTypes,
-  emptyRuntimeCheckpoint,
+  emptyRuntimeCheckpointFor,
   formatDefinitionSchema,
   roundStatuses,
   runtimeCheckpointSchema,
 } from './index';
-import {
-  debateRoleSchema,
-  debateRoles,
-  debateSideSchema,
-  debateSides,
-  errorSchema,
-  ratingLadders,
-} from './primitives';
+import { errorSchema, ratingStyles } from './primitives';
 import { parseOutcome } from './parse-outcome.test-support';
 import { oneOnOneFormatFixture } from './format-fixtures.test-support';
 
@@ -41,7 +34,7 @@ describe('identifier shape', () => {
         given: `a checkpoint floor holder that is ${given}`,
         should: 'reject it at the trust boundary',
         actual: parseOutcome(runtimeCheckpointSchema, {
-          ...emptyRuntimeCheckpoint,
+          ...emptyRuntimeCheckpointFor(oneOnOneFormatFixture),
           floor: {
             holder_participant_id: identifier,
             granted_at: '2026-01-01T00:00:00.000Z',
@@ -87,51 +80,6 @@ describe('error schema', () => {
   });
 });
 
-describe('roles and sides', () => {
-  test('own the side vocabulary once, and build the roles from it', () => {
-    assert({
-      given: 'the canonical side array',
-      should: 'list affirmative and negative in that order',
-      actual: debateSides,
-      expected: ['affirmative', 'negative'],
-    });
-    assert({
-      given: 'the role array',
-      should: 'begin with exactly the sides, then the judge',
-      actual: debateRoles,
-      expected: [...debateSides, 'judge'],
-    });
-    assert({
-      given: 'the side schema built from the side array',
-      should:
-        'accept each side and reject the judge, which is a role but not a side',
-      actual: [
-        ...debateSides.map((side) => parseOutcome(debateSideSchema, side)),
-        parseOutcome(debateSideSchema, 'judge'),
-      ],
-      expected: [
-        ...debateSides.map((side) => ({ data: side })),
-        { issues: ['(root)'] },
-      ],
-    });
-  });
-
-  test('own the role vocabulary once', () => {
-    assert({
-      given: 'the derived zod enum',
-      should: 'accept every role and reject a spectator',
-      actual: [
-        ...debateRoles.map((role) => parseOutcome(debateRoleSchema, role)),
-        parseOutcome(debateRoleSchema, 'spectator'),
-      ],
-      expected: [
-        ...debateRoles.map((role) => ({ data: role })),
-        { issues: ['(root)'] },
-      ],
-    });
-  });
-});
-
 describe('competition vocabulary', () => {
   test('names the competition types, ladders and statuses', () => {
     assert({
@@ -143,7 +91,7 @@ describe('competition vocabulary', () => {
     assert({
       given: 'the rating ladder vocabulary',
       should: 'be exactly Freestyle, the one Daisy standard (ADR 0142)',
-      actual: ratingLadders,
+      actual: ratingStyles,
       expected: ['freestyle'],
     });
     assert({
@@ -234,8 +182,10 @@ describe('format definition', () => {
           key: 'AC',
           label: 'Affirmative constructive',
           type: 'speech',
-          side: 'affirmative',
-          slot: 0,
+          speak: {
+            rights: 'one',
+            seat: { kind: 'side', side: 'affirmative', slot: 0 },
+          },
         },
       ],
     };

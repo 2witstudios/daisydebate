@@ -22,11 +22,11 @@ const seated = (
   actorId: 'a'.repeat(24),
   kind: 'human' as const,
   label: 'Maya Okafor',
-  role: 'negative' as const,
-  slot: 0,
+  seat: { kind: 'side', side: 'negative', slot: 0 } as const,
   teamOpen: false,
   positionOpen: false,
   rating: null,
+  division: null,
   needsReady: true,
   eligible: true,
   ready: 'not-ready' as const,
@@ -37,7 +37,12 @@ const oneOnOne = {
   ...assemblySnapshot,
   definition: {
     ...assemblySnapshot.definition,
-    seats: { affirmative: 1, negative: 1, judge: 1 },
+    seats: {
+      sides: { affirmative: 1, negative: 1 },
+      speakers: 0,
+      judges: 1,
+      moderators: 0 as const,
+    },
   },
 };
 
@@ -53,7 +58,7 @@ describe('room lobby waiting list', () => {
           participants: [
             seated({
               actorId: 'v'.repeat(24),
-              role: 'affirmative',
+              seat: { kind: 'side', side: 'affirmative', slot: 0 },
               ready: 'ready',
               label: 'Sam',
             }),
@@ -74,9 +79,16 @@ describe('room lobby waiting list', () => {
         {
           ...oneOnOne,
           participants: [
-            seated({ actorId: 'v'.repeat(24), role: 'affirmative' }),
+            seated({
+              actorId: 'v'.repeat(24),
+              seat: { kind: 'side', side: 'affirmative', slot: 0 },
+            }),
             seated({ kind: 'bot', needsReady: false, label: 'Penny' }),
-            seated({ role: 'judge', ready: 'ready', label: 'Judge person' }),
+            seated({
+              seat: { kind: 'judge', slot: 0 },
+              ready: 'ready',
+              label: 'Judge person',
+            }),
           ],
         },
         'v'.repeat(24),
@@ -109,14 +121,24 @@ describe('room lobby waiting list', () => {
       ...assemblySnapshot,
       definition: {
         ...assemblySnapshot.definition,
-        seats: { affirmative: 2, negative: 2, judge: 0 },
+        seats: {
+          sides: { affirmative: 2, negative: 2 },
+          speakers: 0,
+          judges: 0,
+          moderators: 0 as const,
+        },
       },
     };
     const oneVsOne = {
       ...assemblySnapshot,
       definition: {
         ...assemblySnapshot.definition,
-        seats: { affirmative: 1, negative: 1, judge: 0 },
+        seats: {
+          sides: { affirmative: 1, negative: 1 },
+          speakers: 0,
+          judges: 0,
+          moderators: 0 as const,
+        },
       },
     };
     assert({
@@ -163,24 +185,47 @@ describe('room lobby labels', () => {
   test('the meta line names the host, who can join and what the result counts for', () => {
     assert({
       given:
-        'a hosted unlisted casual room, then a ranked public room without a host label',
+        'a hosted unlisted casual room, a ranked public room without a host label, and a ranked room whose debaters mix ladders',
       should: 'explain visibility and rating in words, with no badges',
       actual: [
         roomMeta({
           hostLabel: 'Maya',
           visibility: 'unlisted',
           competitionType: 'casual',
+          ladder: null,
         }),
         roomMeta({
           hostLabel: null,
           visibility: 'public',
           competitionType: 'ranked',
+          ladder: 'youth',
+        }),
+        roomMeta({
+          hostLabel: 'Coach',
+          visibility: 'public',
+          competitionType: 'ranked',
+          ladder: 'mixed',
         }),
       ],
       expected: [
         ['Hosted by Maya', 'Anyone with the link', 'Casual'],
         ['Listed in the lobby', 'Ranked'],
+        ['Hosted by Coach', 'Listed in the lobby', 'Ranked, playing casual'],
       ],
+    });
+  });
+
+  test('an event Room no person hosts (Tab)', () => {
+    assert({
+      given: 'a Room no person hosts, whose host label is empty',
+      should: 'name no host rather than an empty one',
+      actual: roomMeta({
+        hostLabel: '',
+        visibility: 'private',
+        competitionType: 'casual',
+        ladder: null,
+      }),
+      expected: ['Invite only', 'Casual'],
     });
   });
 
@@ -336,21 +381,28 @@ describe('chatAuthorSeat', () => {
     const debater = 'd'.repeat(24);
     const view = {
       hostActorId: host,
+      rules: assemblySnapshot.rules,
       teamOneSide: 'affirmative' as const,
       status: 'assembling' as const,
       definition: assemblySnapshot.definition,
       participants: [
-        seated({ actorId: debater, role: 'negative', slot: 0 }),
-        seated({ actorId: host, role: 'affirmative', slot: 1 }),
+        seated({
+          actorId: debater,
+          seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+        }),
+        seated({
+          actorId: host,
+          seat: { kind: 'side', side: 'affirmative', slot: 1 } as const,
+        }),
         // A judge this viewer may not name carries no actor (DEC-174).
         {
-          role: 'judge' as const,
+          seat: { kind: 'judge' as const, slot: 0 },
           kind: 'human' as const,
-          slot: 0,
           anonymous: true as const,
           teamOpen: false,
           positionOpen: false,
           rating: null,
+          division: null,
           needsReady: true,
           eligible: true,
           ready: 'not-ready' as const,
@@ -374,7 +426,12 @@ describe('chatAuthorSeat', () => {
       ...view,
       definition: {
         ...assemblySnapshot.definition,
-        seats: { affirmative: 2, negative: 2, judge: 1 },
+        seats: {
+          sides: { affirmative: 2, negative: 2 },
+          speakers: 0,
+          judges: 1,
+          moderators: 0 as const,
+        },
       },
     };
     assert({

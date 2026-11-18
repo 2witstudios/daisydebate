@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { resolutionCategories } from '@daisy/protocol/resolution-draw';
-import { isOpenRoom, isOpenRoomStatus } from '@daisy/protocol';
+import { isOpenRoom, isOpenRoomStatus, seatOrder } from '@daisy/protocol';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -76,12 +76,19 @@ function commandFence(
   room: RoomAssemblyState,
   actorId: string,
   command: RoomCommand,
+  direction: Edges['direction'],
 ): RoomRefusal | null {
   if (command.expectedVersion !== room.version) return 'version-conflict';
   if (!isOpenRoomStatus(room.status)) return 'room-closed';
   if (
     roomCommandPolicies[command.type].authority === 'host' &&
-    room.hostActorId !== actorId
+    room.hostActorId !== actorId &&
+    !(
+      room.hostActorId === null &&
+      direction?.roomId === room.id &&
+      direction.actorId === actorId &&
+      direction.command === command.type
+    )
   )
     return 'host-required';
   return null;
@@ -104,7 +111,7 @@ export function executeRoomCommand(
   const { edit, transition } = roomCommandPolicies[
     command.type
   ] as RoomCommandPolicy<RoomCommandType>;
-  const fenced = commandFence(room, actorId, command);
+  const fenced = commandFence(room, actorId, command, edges.direction);
   if (fenced) return refuse(fenced);
   const outcome = transition(room, actorId, command, consent, edges);
   if (!outcome.ok) return outcome;
@@ -198,11 +205,14 @@ const withoutHostList = (room: RoomAssemblyState): RoomAssemblyState => {
   };
 };
 
-const heirRank = { affirmative: 0, negative: 1, judge: 2 } as const;
-const heirOrder = (
-  a: RoomAssemblyState['participants'][number],
-  b: RoomAssemblyState['participants'][number],
-) => heirRank[a.role] - heirRank[b.role] || a.slot - b.slot;
+/** Heirs in seat order: debaters by side and slot, then the moderator, then judges. */
+const heirOrder =
+  (room: RoomAssemblyState) =>
+  (
+    a: RoomAssemblyState['participants'][number],
+    b: RoomAssemblyState['participants'][number],
+  ) =>
+    seatOrder(room.rules.sides)(a.seat, b.seat);
 
 /**
  * A restriction on a member before Start round (DEC-331): their seats go and
@@ -219,7 +229,7 @@ export const releaseRestrictedMember = (
   if (freed.hostActorId !== actorId) return freed;
   const [heir] = freed.participants
     .filter((p) => p.kind === 'human' && p.eligible)
-    .sort(heirOrder);
+    .sort(heirOrder(freed));
   return heir
     ? {
         ...withoutHostList(freed),
@@ -229,3 +239,18 @@ export const releaseRestrictedMember = (
       }
     : closeRoom(freed);
 };
+
+/** An ordinary owner changed one judge; open Rooms ask every seat to consent again. */
+export const afterRoomJudgeChange = (
+  room: RoomAssemblyState,
+): RoomAssemblyState =>
+  isOpenRoom(room)
+    ? {
+        ...room,
+        status: assembledStatus(room),
+        participants: room.participants.map((person) => ({
+          ...person,
+          consentCommandId: null,
+        })),
+      }
+    : room;

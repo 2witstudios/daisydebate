@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRequestFlagReader } from './reader';
+import { releaseAdmission } from './admission';
 
 setupRitewayBun();
 test('display requests deduplicate their own snapshot and never reuse another subject', async () => {
@@ -27,6 +28,7 @@ test('display requests deduplicate their own snapshot and never reuse another su
       },
       now: () => Date.parse('2026-11-05'),
       diagnostic: () => {},
+      releaseDefault: false,
     });
   const read = make();
   const values = await Promise.all([
@@ -55,6 +57,7 @@ test('failed display reads close the gate and diagnose once without personal con
     diagnostic: () => {
       diagnostics += 1;
     },
+    releaseDefault: false,
   });
   const values = await Promise.all([
     read('premium-checkout', 'first'),
@@ -66,5 +69,38 @@ test('failed display reads close the gate and diagnose once without personal con
     should: 'return false with one parameterless diagnostic',
     actual: { values, diagnostics },
     expected: { values: [false, false, false], diagnostics: 1 },
+  });
+});
+test('the deployment release default reaches display reads and durable admission alike', async () => {
+  const now = Date.parse('2026-11-05');
+  const snapshot = {
+    kind: 'available',
+    flags: [
+      { key: 'daisy-tab', revision: 1, state: 'disabled', override: null },
+    ],
+  } as const;
+  const reader = (releaseDefault: boolean) =>
+    createRequestFlagReader({
+      read: async () => ({ snapshot, now }),
+      now: () => now,
+      diagnostic: () => {},
+      releaseDefault,
+    });
+  const display = await Promise.all(
+    [true, false].flatMap((releaseDefault) => [
+      reader(releaseDefault)('premium-checkout', null),
+      reader(releaseDefault)('daisy-tab', null),
+    ]),
+  );
+  const admitted = [true, false].map((releaseDefault) =>
+    releaseAdmission('premium-checkout', releaseDefault).decide(snapshot, now),
+  );
+  assert({
+    given:
+      'the environment default on, then off, with no row for premium-checkout and a disabled row for daisy-tab',
+    should:
+      'open the unstored flag in both the display reader and admission only when on, and keep the disabled row off',
+    actual: { display, admitted },
+    expected: { display: [true, false, false, false], admitted: [true, false] },
   });
 });

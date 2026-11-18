@@ -53,20 +53,28 @@ test('verified Checkout completion identifies a subscription without claiming th
     should:
       'return minimal verified identities and expose a hosted URL only while open',
     actual: [
-      normalizeCheckoutSession(purchase, checkoutSession),
-      normalizeCheckoutSession(purchase, {
-        ...checkoutSession,
-        status: 'complete',
-        customer: 'cus_owned',
-        subscription: 'sub_owned',
-        url: null,
-        payment_status: 'unpaid',
-      }),
-      normalizeCheckoutSession(purchase, {
-        ...checkoutSession,
-        status: 'expired',
-        url: null,
-      }),
+      normalizeCheckoutSession(purchase, checkoutSession, 'subscribed'),
+      normalizeCheckoutSession(
+        purchase,
+        {
+          ...checkoutSession,
+          status: 'complete',
+          customer: 'cus_owned',
+          subscription: 'sub_owned',
+          url: null,
+          payment_status: 'unpaid',
+        },
+        'subscribed',
+      ),
+      normalizeCheckoutSession(
+        purchase,
+        {
+          ...checkoutSession,
+          status: 'expired',
+          url: null,
+        },
+        'subscribed',
+      ),
     ],
     expected: [
       {
@@ -130,6 +138,7 @@ test('forged session authority, altered offers and unsafe redirects are refused'
     },
     withPrice({ id: 'price_other' }),
     withPrice({ unit_amount: 100 }),
+    { ...checkoutSession, amount_subtotal: 1000 },
     withPrice({ currency: 'eur' }),
     withPrice({ livemode: true }),
     withPrice({
@@ -165,7 +174,7 @@ test('forged session authority, altered offers and unsafe redirects are refused'
       'one altered authority, price, deadline, recovery or redirect field per observation',
     should: 'refuse every candidate before any mapping or redirect can be used',
     actual: invalid.map(
-      (value) => normalizeCheckoutSession(purchase, value).kind,
+      (value) => normalizeCheckoutSession(purchase, value, 'subscribed').kind,
     ),
     expected: invalid.map(() => 'refuse'),
   });
@@ -176,7 +185,114 @@ test('forged session authority, altered offers and unsafe redirects are refused'
     actual: normalizeCheckoutSession(
       { ...purchase, customerId: 'cus_existing' },
       { ...checkoutSession, customer: 'cus_other' },
+      'subscribed',
     ),
     expected: { kind: 'refuse' },
+  });
+});
+
+test('a new Checkout sells only the $20 offer; an existing $10 session still completes', () => {
+  const price = checkoutSession.line_items.data[0]!.price;
+  const at = (delta: Record<string, unknown>, subtotal = 2000) => ({
+    ...checkoutSession,
+    amount_subtotal: subtotal,
+    line_items: {
+      ...checkoutSession.line_items,
+      data: [{ quantity: 1, price: { ...price, ...delta } }],
+    },
+  });
+  const grandfathered = at({ unit_amount: 1000, lookup_key: null }, 1000);
+  assert({
+    given:
+      'a created session at $20, at $10, at $20 without or with another lookup key, and an existing $10 session read back',
+    should:
+      'create only at the current offer, and read back the $10 session opened before the price changed (PYL-9)',
+    actual: [
+      normalizeCheckoutSession(purchase, at({}), 'current').kind,
+      normalizeCheckoutSession(purchase, grandfathered, 'current').kind,
+      normalizeCheckoutSession(purchase, at({ lookup_key: null }), 'current')
+        .kind,
+      normalizeCheckoutSession(
+        purchase,
+        at({ lookup_key: 'daisy_premium_monthly_usd_10' }),
+        'current',
+      ).kind,
+      normalizeCheckoutSession(purchase, grandfathered, 'subscribed').kind,
+    ],
+    expected: ['observed', 'refuse', 'refuse', 'refuse', 'observed'],
+  });
+});
+
+test('a Club checkout sells its seat count at exactly the Club price (ADR 0148)', () => {
+  const organizationId = 'o'.repeat(24);
+  const club = {
+    ...purchase,
+    owner: { kind: 'organization' as const, organizationId },
+    quantity: 14,
+  };
+  const price = {
+    ...checkoutSession.line_items.data[0]!.price,
+    unit_amount: 1000,
+    lookup_key: 'daisy_club_seat_monthly_usd_10',
+  };
+  const session = (delta: {
+    quantity?: number;
+    amount?: number;
+    price?: object;
+  }) => ({
+    ...checkoutSession,
+    success_url: `${purchase.returnOrigin}/clubs/${organizationId}/billing?purchase=${purchase.id}`,
+    cancel_url: `${purchase.returnOrigin}/clubs/${organizationId}/billing`,
+    amount_subtotal: delta.amount ?? 14000,
+    line_items: {
+      ...checkoutSession.line_items,
+      data: [{ quantity: delta.quantity ?? 14, price: delta.price ?? price }],
+    },
+  });
+  assert({
+    given: 'a Club purchase of 14 seats',
+    should:
+      'ask Stripe for 14 of the Club price and return to the club billing page',
+    actual: [
+      checkoutParameters(club).line_items,
+      checkoutParameters(club).cancel_url,
+    ],
+    expected: [
+      [{ price: purchase.priceId, quantity: 14 }],
+      `${purchase.returnOrigin}/clubs/${organizationId}/billing`,
+    ],
+  });
+  assert({
+    given:
+      'the matching session, and ones with another quantity, total, or the Premium price',
+    should: 'observe only the matching session',
+    actual: [
+      session({}),
+      session({ quantity: 13, amount: 13000 }),
+      session({ amount: 1000 }),
+      session({
+        price: checkoutSession.line_items.data[0]!.price,
+        amount: 28000,
+      }),
+    ].map((value) => normalizeCheckoutSession(club, value, 'current').kind),
+    expected: ['observed', 'refuse', 'refuse', 'refuse'],
+  });
+  assert({
+    given: 'a Premium purchase read back with a 14-seat line',
+    should: 'refuse it',
+    actual: normalizeCheckoutSession(
+      purchase,
+      {
+        ...checkoutSession,
+        line_items: {
+          ...checkoutSession.line_items,
+          data: [
+            { quantity: 14, price: checkoutSession.line_items.data[0]!.price },
+          ],
+        },
+      },
+      'current',
+    ).kind,
+    expected: 'refuse',
   });
 });

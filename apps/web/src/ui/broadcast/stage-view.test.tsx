@@ -9,14 +9,16 @@ setupRitewayBun();
 
 const seats: StageSnapshot['seats'] = [
   {
-    side: 'affirmative',
+    column: 'affirmative',
+    columnLabel: 'Affirmative',
     label: 'Ann',
     kind: 'human',
     identity: 'aff',
     floor: true,
   },
   {
-    side: 'negative',
+    column: 'negative',
+    columnLabel: 'Negative',
     label: 'Ned',
     kind: 'human',
     identity: 'neg',

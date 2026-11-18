@@ -1,3 +1,8 @@
+import {
+  oneOnOneDefinition,
+  oneOnOneSettings,
+} from '@daisy/db/reference-formats';
+import { sideSeat, judgeSeat } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
@@ -17,7 +22,10 @@ import { createViewerPulseRoute } from '../src/features/viewer-counts/handler';
 import { VIEWER_BUCKET_MS } from '../src/features/viewer-counts/viewer-count';
 import { createRateLimiter } from '../src/server/rate-limit';
 import { silentLogger } from '../src/server/test-loggers.test-support';
-import { assembleJudgedRoom } from './round-judging.test-support';
+import {
+  assembleJudgedRoom,
+  everyoneReady,
+} from './round-judging.test-support';
 import {
   launchRuntimeRound,
   withRoomRuntime,
@@ -38,19 +46,61 @@ const unadmitted = async (f: Runtime) => {
   return { userId, actorId, username: `u-${userId}` };
 };
 
-const onAirRound = async (f: Runtime, debatersReadChat = false) => {
-  const { actorId: judgeId } = await f.aiJudge();
-  let view = await assembleJudgedRoom(f);
-  view = (
-    await f.command(f.host, view, {
-      type: 'assign-seat',
-      actorId: judgeId,
-      role: 'judge',
-      slot: 0,
-    })
-  ).view;
-  for (const seat of [f.host, f.guest])
-    view = (await f.consent(seat, view, 'ready')).view;
+const onAirRound = async (
+  f: Runtime,
+  debatersReadChat = false,
+  humanJudge?: Parameters<Runtime['consent']>[0],
+  seatlessHost?: Parameters<Runtime['consent']>[0],
+) => {
+  const judgeId = (humanJudge ?? (await f.aiJudge())).actorId;
+  let view = seatlessHost
+    ? (
+        await f.create(
+          {
+            selection: {
+              kind: 'custom',
+              definition: oneOnOneDefinition,
+              config: oneOnOneSettings,
+              competitionType: 'casual',
+            },
+          },
+          seatlessHost,
+        )
+      ).view
+    : await assembleJudgedRoom(f);
+  if (seatlessHost) {
+    view = (
+      await f.command(f.host, view, {
+        type: 'claim-seat',
+        seat: sideSeat('affirmative'),
+      })
+    ).view;
+    view = (
+      await f.command(f.guest, view, {
+        type: 'claim-seat',
+        seat: sideSeat('negative'),
+      })
+    ).view;
+  }
+  view = humanJudge
+    ? (
+        await f.command(humanJudge, view, {
+          type: 'claim-seat',
+          seat: judgeSeat(),
+        })
+      ).view
+    : (
+        await f.command(seatlessHost ?? f.host, view, {
+          type: 'assign-seat',
+          actorId: judgeId,
+          seat: judgeSeat(),
+        })
+      ).view;
+  view = await everyoneReady(f, view, [
+    f.host,
+    f.guest,
+    ...(humanJudge ? [humanJudge] : []),
+  ]);
   const { roundId } = await launchRuntimeRound(f, view);
   await f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,debaters_read_chat)
     values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},${debatersReadChat})`;
@@ -509,9 +559,9 @@ test('a count gathers on real Redis and shows as soon as its bucket is whole', a
 
 test('anyone in the live room is refused by name, and a viewer posts on', async () => {
   await withRoomRuntime(async (f) => {
-    const roundId = await onAirRound(f, true);
-    const seatlessHost = await unadmitted(f);
-    const humanJudge = await unadmitted(f);
+    const seatlessHost = await f.member();
+    const humanJudge = await f.member();
+    const roundId = await onAirRound(f, true, humanJudge, seatlessHost);
     const viewer = await unadmitted(f);
     let who: { userId: string; actorId: string | null } = viewer;
     const route = routes(
@@ -530,9 +580,6 @@ test('anyone in the live room is refused by name, and a viewer posts on', async 
       };
     };
     try {
-      await f.sql`update rounds set created_by_actor_id=${seatlessHost.actorId} where id=${roundId}`;
-      await f.sql`insert into round_participants (id,round_id,actor_id,role,slot)
-        values (${createId()},${roundId},${humanJudge.actorId},'judge',1)`;
       const refusedAs = { status: 409, refusal: 'chat-live-room' };
       const debater = await postAs(f.host);
       const judge = await postAs(humanJudge);
@@ -545,7 +592,7 @@ test('anyone in the live room is refused by name, and a viewer posts on', async 
         { store: f.store },
         { roundId, actorId: f.host.actorId, presentedHash: null },
       );
-      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
       const ranked = await readAudienceForViewer(
         { store: f.store },
         { roundId, actorId: f.host.actorId, presentedHash: null },
@@ -574,13 +621,7 @@ test('anyone in the live room is refused by name, and a viewer posts on', async 
         },
       });
     } finally {
-      await f.sql`delete from round_participants where round_id=${roundId} and actor_id=${humanJudge.actorId}`;
-      await f.sql`update rounds set created_by_actor_id=null where id=${roundId}`;
-      await cleanup(f, roundId, [
-        seatlessHost.userId,
-        humanJudge.userId,
-        viewer.userId,
-      ]);
+      await cleanup(f, roundId, [viewer.userId]);
     }
   });
 });

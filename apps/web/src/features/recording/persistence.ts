@@ -1,3 +1,4 @@
+import { plannedRecording } from '@daisy/debate-engine';
 import type { App } from '../../server/app';
 import type { RecordingArchiveStore } from './archive';
 import type { RecordingStore } from './ports';
@@ -16,6 +17,18 @@ export const recordingPersistence = ({
   listFailedBefore: database.listFailedRecordingsBefore,
   listEndedEvidenceHolds: database.listEndedRecordingEvidenceHolds,
   sourcesRemain: database.recordingCaptures.sourcesRemain,
-  listArchive: database.listRecordingArchive,
+  listArchive: async (input) => {
+    const page = await database.listRecordingArchive(input);
+    return {
+      nextBefore: page.nextBefore,
+      rows: page.rows.map(({ capture, ...row }) => ({
+        ...row,
+        recordingPolicy: plannedRecording({
+          competitionType: row.competitionType,
+          capture,
+        }),
+      })),
+    };
+  },
   countPublicArchive: database.countPublicRecordingArchive,
 });

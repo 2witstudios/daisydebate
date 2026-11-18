@@ -11,7 +11,6 @@ import {
   state,
 } from './operations.test-support';
 import { freestyleFacts } from './catalog-sources.test-support';
-import { aiSeatOf } from './ai-seat';
 
 setupRitewayBun();
 
@@ -187,11 +186,48 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     },
     expected: {
       launchedRoomId: state.id,
-      frozenSeats: { affirmative: 1, negative: 1, judge: 1 },
+      frozenSeats: {
+        sides: { affirmative: 1, negative: 1 },
+        speakers: 0,
+        judges: 1,
+        moderators: 0,
+      },
       frozenSegments: ['AC', 'CX1', 'NC', 'CX2', '1AR', 'NR', '2AR'],
       replayed: true,
       catalogReads: 0,
     },
+  });
+});
+
+test('a Train practice holds its creator from create; any other Room holds only its seats (decision 75, TAB-6.16)', async () => {
+  const create = async (practice: boolean) => {
+    const run = makeOperations({}, false);
+    await run.operations.create(caller, {
+      commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
+      title: 'A practice room',
+      resolution: { kind: 'strike' },
+      visibility: 'public',
+      selection: {
+        kind: 'catalog',
+        formatId: 'freestyle',
+        formatVersion: 1,
+        presetVersion: 1,
+        competitionType: 'casual',
+      },
+      ...(practice ? { practice: true as const } : {}),
+    });
+    const input = run.createInput();
+    return { members: input?.membersOf([]), holdsHost: input?.room.holdsHost };
+  };
+  assert({
+    given: 'a Train practice create, then an ordinary create, seating nobody',
+    should:
+      'hold the practice creator and store that the Room holds its host, so a second Start practice returns to it; hold no seatless host otherwise',
+    actual: [await create(true), await create(false)],
+    expected: [
+      { members: [caller.actorId], holdsHost: true },
+      { members: [], holdsHost: false },
+    ],
   });
 });
 
@@ -202,7 +238,8 @@ test('Room creation hands the initial cast to the create transaction through the
     kind: 'bot' as const,
     label: 'Practice bot',
     eligible: true,
-    seatRole: 'debater' as const,
+    aiRole: 'debater' as const,
+    division: null,
   };
   const create = async (
     cast: RoomCreate['cast'],
@@ -231,7 +268,12 @@ test('Room creation hands the initial cast to the create transaction through the
     return { run, error };
   };
   const { run } = await create(
-    [{ actorId: botActorId, role: 'negative', slot: 0 }],
+    [
+      {
+        actorId: botActorId,
+        seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+      },
+    ],
     true,
   );
   const cast = run.createInput()?.cast;
@@ -248,7 +290,8 @@ test('Room creation hands the initial cast to the create transaction through the
       seat,
       {
         ...botTarget,
-        seatRole: 'judge',
+        aiRole: 'judge',
+        division: null,
       },
       now,
       false,
@@ -258,14 +301,13 @@ test('Room creation hands the initial cast to the create transaction through the
     should:
       'pass the seat with its identities to the transaction, seat it through assign-seat, and refuse a missing or wrong-seat actor',
     actual: {
-      seats: seat && [seat.actorId, seat.role, seat.slot],
+      seats: seat && [seat.actorId, seat.seat],
       identities: seat ? [seat.commandId, seat.participantId] : null,
       seated:
         accepted?.ok === true
           ? accepted.mutation.state.participants.map((p) => [
               p.actorId,
-              p.role,
-              p.slot,
+              p.seat,
               p.eligible,
             ])
           : accepted,
@@ -275,17 +317,21 @@ test('Room creation hands the initial cast to the create transaction through the
       wrongSeat: wrongSeat && !wrongSeat.ok ? wrongSeat.refusal : null,
     },
     expected: {
-      seats: [botActorId, 'negative', 0],
+      seats: [botActorId, { kind: 'side', side: 'negative', slot: 0 }],
       identities: ['c5n6p8r2t4v6x8z1k3b5c7d9', 'r5n6p8r2t4v6x8z1k3b5c7d9'],
-      seated: [[botActorId, 'negative', 0, true]],
+      seated: [[botActorId, { kind: 'side', side: 'negative', slot: 0 }, true]],
       version: 2,
-      members: [caller.actorId],
+      // The host holds no seat, so the Room does not hold them (TAB-6.16).
+      members: [],
       missing: 'actor-ineligible',
       wrongSeat: 'actor-ineligible',
     },
   });
   const unavailable = await create([
-    { actorId: botActorId, role: 'negative', slot: 0 },
+    {
+      actorId: botActorId,
+      seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+    },
   ]);
   const unavailableSeat = unavailable.run.createInput()?.cast?.seats[0];
   const unavailableOutcome =
@@ -309,8 +355,14 @@ test('Room creation hands the initial cast to the create transaction through the
     expected: 'actor-ineligible',
   });
   const { run: duplicate, error: duplicateError } = await create([
-    { actorId: botActorId, role: 'negative', slot: 0 },
-    { actorId: botActorId, role: 'affirmative', slot: 0 },
+    {
+      actorId: botActorId,
+      seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+    },
+    {
+      actorId: botActorId,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+    },
   ]);
   assert({
     given: 'a cast seating one actor twice',
@@ -321,7 +373,12 @@ test('Room creation hands the initial cast to the create transaction through the
   });
   const seatedWith = async (aiSeats: { debater: boolean; judge: boolean }) => {
     const split = await create(
-      [{ actorId: botActorId, role: 'negative', slot: 0 }],
+      [
+        {
+          actorId: botActorId,
+          seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+        },
+      ],
       aiSeats,
     );
     const input = split.run.createInput()?.cast;
@@ -452,7 +509,8 @@ test('a create seating the AI judge consumes its fresh allowance decision (BILL-
     kind: 'bot' as const,
     label: 'AI judge',
     eligible: true,
-    seatRole: 'judge' as const,
+    aiRole: 'judge' as const,
+    division: null,
   };
   const run = makeOperations({}, true);
   await run.operations
@@ -468,7 +526,9 @@ test('a create seating the AI judge consumes its fresh allowance decision (BILL-
         presetVersion: 1,
         competitionType: 'casual',
       },
-      cast: [{ actorId: botActorId, role: 'judge', slot: 0 }],
+      cast: [
+        { actorId: botActorId, seat: { kind: 'judge', slot: 0 } as const },
+      ],
     })
     .catch(() => null);
   const cast = run.createInput()?.cast;
@@ -477,7 +537,7 @@ test('a create seating the AI judge consumes its fresh allowance decision (BILL-
     ...state,
     participants: [],
     competitionType: 'casual' as const,
-    rules: { ...state.rules, seats: { ...state.rules.seats, judge: 1 } },
+    rules: { ...state.rules, seats: { ...state.rules.seats, judges: 1 } },
   };
   const outcome = (admitted: boolean) => {
     const result = seat && cast?.apply(room, seat, judgeTarget, now, admitted);
@@ -507,11 +567,5 @@ test('each AI seat answers its own availability', async () => {
     should: 'offer it',
     actual: await eligibleCast({ debater: true, judge: false }),
     expected: [true],
-  });
-  assert({
-    given: 'a Room role',
-    should: 'name the AI seat that fills it',
-    actual: [aiSeatOf('judge'), aiSeatOf('affirmative'), aiSeatOf('negative')],
-    expected: ['judge', 'debater', 'debater'],
   });
 });

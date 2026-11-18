@@ -112,7 +112,7 @@ function Result({ result }: { result: NonNullable<History['result']> }) {
             {`${ballot.title}: ${ballot.winner}`}
           </span>
           <span className="text-ink-muted">{ballot.scores}</span>
-          <p className="text-ink">{ballot.reason}</p>
+          {ballot.reason ? <p className="text-ink">{ballot.reason}</p> : null}
         </div>
       ))}
     </section>
@@ -189,6 +189,11 @@ export function RecordingHistory({
             {screen.ranked ? 'Ranked' : 'Casual'}
           </span>
           <span className="text-sm text-ink-muted">{screen.date}</span>
+          {screen.deletesOn === null ? null : (
+            <span className="text-sm text-ink-muted">
+              Officials only · deleted on {screen.deletesOn}
+            </span>
+          )}
         </div>
         <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
           {screen.title}

@@ -24,7 +24,12 @@ export const adobeIsolationIssue = (
 
 /** Workspace suffixes (after `@daisy/`) each workspace may depend on. */
 export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
-  'debate-engine': ['errors', 'protocol'],
+  'debate-engine': ['errors', 'protocol', 'seeded-random'],
+  // Seeded randomness is topic-agnostic: it knows a seed and nothing else.
+  'seeded-random': [],
+  // The tab engine is plain data in and out: no app, database, protocol or
+  // Room engine, only seeded randomness (slice G).
+  'tab-engine': ['seeded-random'],
   // AIDB: the OpenRouter voice layer reads the engine's turn table and the
   // protocol's ballot contract only.
   'ai-voice': ['debate-engine', 'errors', 'protocol'],
@@ -326,12 +331,24 @@ export const stageSurfaceIssue = (
  * "Coach" and "coaching" are reserved for future human coaches (owner,
  * 2026-10-27): no AI feature may use the words. Product code is checked
  * (tests may name the word to prove it is absent); the only current users
- * are the onboarding choice of wanting to coach, which means a human.
+ * are the onboarding choice of wanting to coach, the guardian link a
+ * school's coach holds for a minor, Daisy Tab, where a coach is the
+ * person who enters a school's debaters, billing, where a Club's coach
+ * seats students (ADR 0146), and /pricing, where Club is sold to coaches,
+ * schools and families (decision 78). All of them mean a human.
  */
 const humanCoaching = [
   'packages/protocol/src/onboarding.ts',
+  'packages/protocol/src/lobby/vocabulary.ts',
+  'packages/protocol/src/lobby/guardian-read.ts',
+  'packages/db/src/schema/guardian-links.ts',
   'apps/web/src/ui/onboarding/',
   'apps/web/src/ui/mock/debate-room.test-support.ts',
+  'apps/web/src/features/tab/',
+  'apps/web/src/ui/tab/',
+  'apps/web/src/features/billing/settings-view.ts',
+  'apps/web/src/ui/billing/',
+  'apps/web/src/ui/pricing/',
 ];
 export const reservedWordIssue = (file: string, word: string): string | null =>
   /coach/i.test(word) &&

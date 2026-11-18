@@ -24,8 +24,8 @@ const posting = (over: {
   deviationBefore: over.ratingBefore / 10,
   deviationAfter: 90,
   volatilityBefore: 0.06,
-  role: 'affirmative' as const,
-  outcome: 'affirmative' as const,
+  side: 'affirmative' as const,
+  outcome: { kind: 'winner' as const, side: 'affirmative' },
   ...over,
 });
 const first = posting({
@@ -58,7 +58,7 @@ const publicFirst = {
   deviationBefore: first.deviationBefore,
   deviationAfter: first.deviationAfter,
   occurredAt: first.occurredAt,
-  role: first.role,
+  side: first.side,
   outcome: first.outcome,
 };
 

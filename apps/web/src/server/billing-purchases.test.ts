@@ -87,6 +87,8 @@ test('scheduled SDK recovery discovers the original closed attempt without creat
           webhookSecret: 'whsec_fixture',
           premiumPriceId: 'price_replacement',
           portalConfigurationId: 'bpc_fixture',
+          hostEventPrices: null,
+          club: null,
         },
       },
       database: {

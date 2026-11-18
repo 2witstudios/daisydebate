@@ -1,4 +1,4 @@
-import type { AgeBand } from '@daisy/auth';
+import type { AgeBand } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { RoundCommandAuthority } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';

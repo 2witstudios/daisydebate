@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   index,
+  foreignKey,
   integer,
   pgTable,
   text,
@@ -26,6 +27,7 @@ import {
   versionPositive,
 } from './columns';
 import { rounds } from './rounds';
+import { tournamentCaptureAdmissions } from './tournament-capture-admissions';
 
 /**
  * A retained playable video of a Round (ADR 0107). It is not a Broadcast and
@@ -48,6 +50,9 @@ export const recordings = pgTable(
       'eligibility',
       recordingEligibilitySchema,
     ).notNull(),
+    tournamentAdmissionId: text('tournament_admission_id').generatedAlwaysAs(
+      sql`case when eligibility->>'kind'='tournament_admission' then eligibility->>'admissionId' else null end`,
+    ),
     status: text('status').$type<RecordingStatus>().notNull(),
     lifecycle: jsonbColumn('lifecycle', recordingLifecycleSchema).notNull(),
     version: versionColumn(),
@@ -59,6 +64,18 @@ export const recordings = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    foreignKey({
+      name: 'recordings_tournament_admission_fk',
+      columns: [table.tournamentAdmissionId, table.roundId],
+      foreignColumns: [
+        tournamentCaptureAdmissions.id,
+        tournamentCaptureAdmissions.roundId,
+      ],
+    }).onDelete('restrict'),
+    index('recordings_tournament_admission_idx').on(
+      table.tournamentAdmissionId,
+      table.roundId,
+    ),
     uniqueIndex('recordings_round_unique').on(table.roundId),
     index('recordings_status_idx').on(table.status, table.updatedAt),
     index('recordings_deletion_due_idx')
@@ -70,6 +87,10 @@ export const recordings = pgTable(
     ),
     check('recordings_status_check', oneOf(table.status, recordingStatuses)),
     jsonbIsObject('recordings', table.eligibility),
+    check(
+      'recordings_tournament_deadline_shape',
+      sql`coalesce(${table.eligibility}->>'kind'<>'tournament_admission' or jsonb_typeof(${table.eligibility}->'deadlineAt')='string',false)`,
+    ),
     jsonbIsObject('recordings', table.lifecycle),
     check(
       'recordings_lifecycle_status_check',

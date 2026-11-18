@@ -84,3 +84,9 @@ Start.
   needs a team count beside the seat counts and is not built here.
 - Seeded side choice (a tournament's high seed picks) is `set-sides` by the
   Tab before Start, not a new mechanism.
+- On the Tab parent (main-sync-3), the model sits on Tab's seat vocabulary
+  (TAB-6): a Room seat keeps its `SeatRef` and team placement is the
+  two-sided preset's side seat. Only a Room that seats exactly those two
+  sides, with no unsided speakers, has teams, `?` and a coin. A Tab event
+  Room takes its sides from the draw and never flips. The stored
+  `seat_draw` keeps this ADR's `role`/`slot` shape.

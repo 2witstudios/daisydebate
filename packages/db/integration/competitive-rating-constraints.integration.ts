@@ -18,6 +18,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
   const season = (overrides: Record<string, unknown>) => ({
     id: createId(),
     name: 'Season',
+    division: 'open',
     starts_at: at,
     ends_at: null,
     status: 'closed',
@@ -69,6 +70,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         actor_id: actorId,
         season_id: seasonId,
         ladder: 'freestyle',
+        division: 'open',
         rating: 1500,
         deviation: 350,
         volatility: 0.06,
@@ -124,11 +126,21 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         rating({ ladder: 'blitz' }),
         'actor_id',
       );
+      const unknownDivision = await fixture.rejectedBy(
+        'ratings',
+        rating({ division: 'kids' }),
+        'actor_id',
+      );
+      const otherDivisionsSeason = await fixture.rejectedBy(
+        'ratings',
+        rating({ division: 'youth', actor_id: await fixture.actor() }),
+        'actor_id',
+      );
       const columns = await columnNames(fixture, 'ratings');
       assert({
         given: 'rating rows at and beyond the Glicko-2 bounds',
         should:
-          'accept one bounded row per (actor, ladder, season), reject the rest, the retired quick ladder (DEC-238) and unknown ladders, and store no derived columns',
+          'accept one bounded row per (actor, ladder, season), reject the rest, the retired quick ladder (DEC-238), unknown ladders and divisions and a row on another division’s season, and store no derived columns',
         actual: {
           tooHigh,
           negative,
@@ -140,6 +152,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           duplicateKey,
           quickLadder,
           unknownLadder,
+          unknownDivision,
+          otherDivisionsSeason,
           derived: columns.filter((column) =>
             ['games_played', 'peak_rating', 'last_rated_at'].includes(column),
           ),
@@ -158,6 +172,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           duplicateKey: true,
           quickLadder: 'ratings_ladder_check',
           unknownLadder: 'ratings_ladder_check',
+          unknownDivision: 'ratings_division_check',
+          otherDivisionsSeason: 'ratings_season_division_fk',
           derived: [],
           leaderboard: true,
         },
@@ -167,8 +183,19 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
 
   test('the ledger records one change per debate and actor', async () => {
     await withFixture(url, async (fixture) => {
-      const { actorId, formatId, seasonId } = await rated(fixture);
-      const roundId = await fixture.round({ format_id: formatId });
+      const { actorId, seasonId } = await rated(fixture);
+      // A ledger row stands only on a rated Round of its own ladder (ADR 0147).
+      const formatId = 'freestyle';
+      // Freestyle's own catalog preset: a fixture preset would be purged with it.
+      const rankedRound = async () =>
+        fixture.round({
+          format_id: formatId,
+          competition_type: 'ranked',
+          preset_version: 1,
+          ladder_id: 'freestyle',
+          ladder_division: 'open',
+        });
+      const roundId = await rankedRound();
       await fixture.participant(roundId, 'affirmative', 0, actorId);
       const change = (overrides: Record<string, unknown>) => ({
         id: createId(),
@@ -177,6 +204,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         format_id: formatId,
         season_id: seasonId,
         ladder: 'freestyle',
+        division: 'open',
         rating_before: 1500,
         rating_after: 1516,
         deviation_before: 350,
@@ -192,8 +220,18 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         'rating_changes',
         change({}),
       );
-      const otherDebate = await fixture.round({ format_id: formatId });
+      const otherDebate = await rankedRound();
       await fixture.participant(otherDebate, 'affirmative', 0, actorId);
+      const casualDebate = await fixture.round({ format_id: formatId });
+      await fixture.participant(casualDebate, 'affirmative', 0, actorId);
+      const casualRound = await fixture.rejectedBy(
+        'rating_changes',
+        change({ round_id: casualDebate }),
+      );
+      const otherDivision = await fixture.rejectedBy(
+        'rating_changes',
+        change({ round_id: otherDebate, division: 'youth' }),
+      );
       const nonParticipant = await fixture.rejectedBy(
         'rating_changes',
         change({ round_id: otherDebate, actor_id: await fixture.actor() }),
@@ -238,6 +276,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           zeroDeviation,
           negativeRating,
           unknownLadder,
+          casualRound,
+          otherDivision,
           debateDeleteBlocked,
           indexed: history?.includes(
             '(actor_id, format_id, ladder, occurred_at)',
@@ -252,6 +292,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           zeroDeviation: true,
           negativeRating: true,
           unknownLadder: 'rating_changes_ladder_check',
+          casualRound: 'rating_changes_round_division_fk',
+          otherDivision: 'rating_changes_season_division_fk',
           debateDeleteBlocked: true,
           indexed: true,
         },

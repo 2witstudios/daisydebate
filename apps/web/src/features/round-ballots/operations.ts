@@ -1,3 +1,4 @@
+import { screenBallotContacts } from '@daisy/debate-engine/ballot-contact-screening';
 import { bindRoundBallotPrincipal } from '@daisy/auth';
 import {
   attendanceSettled,
@@ -49,6 +50,7 @@ export function prepareRoundBallotSubmission(
     principal: input.principal,
     envelope,
     nextBallotId: input.nextBallotId,
+    screenWritten: screenBallotContacts,
     payloadDigest: new Bun.CryptoHasher('sha3-256')
       .update(JSON.stringify(envelope))
       .digest('hex'),
@@ -63,8 +65,9 @@ export function prepareRoundBallotSubmission(
       const nowMs = Date.parse(context.now);
       const panel = judgingPanelOf(context.panel, nowMs);
       if (panel === null) return null;
-      const { completeness, ballots } = context.panel;
+      const { judging, completeness, ballots } = context.panel;
       const decision = decidePanelCompletion({
+        judging,
         completeness,
         panel,
         ballots,
@@ -76,7 +79,13 @@ export function prepareRoundBallotSubmission(
         ...context.round,
         round: context.round,
         nextSegmentId: input.nextSegmentId,
-      }).completePanel({ now: context.now, ballots, completeness, panel });
+      }).completePanel({
+        now: context.now,
+        judging,
+        ballots,
+        completeness,
+        panel,
+      });
       return {
         ...projection,
         finalization: {

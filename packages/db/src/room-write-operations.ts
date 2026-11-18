@@ -1,3 +1,13 @@
+import { reserveTournamentCapture } from './tab/tournament-capture-admission';
+import {
+  locateTournamentCaptureFunder,
+  TournamentCaptureFundingChanged,
+} from './tab/tournament-capture-funding';
+import { lockNonrankedCaptureCapacity } from './nonranked-capture-capacity';
+import {
+  loadRoomDirection,
+  type RoomDirectionInput,
+} from './tab/room-direction';
 import { admitCasualCapture } from './casual-capture-admission';
 import type { RoundBotAdmission } from './round-bot-admission';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
@@ -17,9 +27,22 @@ import type {
   RoomCommandReceipt,
   RoomMutationOutcome,
   RoomRefusal,
+  TournamentCaptureAdmission,
 } from '@daisy/protocol';
 
 import { createAppError, createRefusal } from '@daisy/errors';
+import { isJudgeSeat } from '@daisy/protocol';
+
+/**
+ * The host a Room's admission or capture charges. A Room no person hosts
+ * (TAB-6) is never charged: the engine seats no bot nor AI judge, and opts
+ * into no casual capture, without a host, so reaching here is a defect.
+ */
+const chargedHostOf = (room: { readonly hostActorId: string | null }) => {
+  if (room.hostActorId === null)
+    throw createAppError('INVARIANT', 'A Room without a host is never charged');
+  return room.hostActorId;
+};
 
 import {
   lockAuthorizationActors,
@@ -34,6 +57,8 @@ import {
   type SelectionTuple,
 } from './format-operations';
 import { drawStartFacts } from './draw-start-facts';
+import { leagueLadderSeatFits, seatableInRoom } from './league-ladder-seat';
+import { leagueRoomFacts } from './league-room-division';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -54,6 +79,17 @@ import {
 type CommandInput = {
   readonly caller: Caller;
   readonly authorizeRead: AuthorizeRoom;
+  readonly authorizeCommand?: (
+    state: RoomAssemblyState,
+    account: Account,
+    direction: RoomDirectionInput | null,
+    now: string,
+  ) => boolean;
+  readonly captureAdmission?: (
+    state: RoomAssemblyState,
+    direction: RoomDirectionInput | null,
+    now: string,
+  ) => TournamentCaptureAdmission | null;
   readonly roomId: string;
   readonly actorId: string;
   readonly commandId: string;
@@ -81,6 +117,7 @@ type CommandInput = {
     state: RoomAssemblyState,
     now: string,
     account: Account,
+    direction?: RoomDirectionInput | null,
   ) => Promise<
     (
       state: RoomAssemblyState,
@@ -94,6 +131,7 @@ type CommandInput = {
       /** This member's standing on the waiver a Ready needs, under this lock. */
       contentWaiver: ContentWaiverStanding | null,
       maySeatCasualAiJudge: boolean,
+      direction?: RoomDirectionInput | null,
     ) => RoomMutationOutcome
   >;
 };
@@ -119,7 +157,9 @@ export const roomWriteOperations = ({
           transaction((tx) =>
             executeOnce(tx, input, botAdmission, judgeAdmission),
           ),
-        (error) => error instanceof RoomMoved,
+        (error) =>
+          error instanceof RoomMoved ||
+          error instanceof TournamentCaptureFundingChanged,
         ATTEMPTS,
         // The Room kept moving under the command: the caller rereads it.
         () => createRefusal('CONFLICT', 'version-conflict'),
@@ -140,13 +180,21 @@ async function executeOnce(
   judgeAdmission: CasualJudgeAdmission | undefined,
 ): Promise<RoomCommandReceipt> {
   const preparation = await prepareCommand(tx, input);
-  if ('replay' in preparation) return preparation.replay;
-  const { prepared, execute } = preparation;
+  const { prepared } = preparation;
   const botLocked = await lockBotFreeze(
     tx,
     botDebaterLaunch(input, prepared),
     botAdmission,
   );
+  const captureFunder =
+    input.type === 'start-round' &&
+    preparation.row.hostActorId === null &&
+    prepared.capture?.recordingPolicy === 'officials'
+      ? await locateTournamentCaptureFunder(tx, {
+          lobbyId: preparation.row.lobbyId,
+          callerUserId: input.caller.userId,
+        })
+      : null;
   const initialSeats = await tx
     .select({ actorId: roomParticipants.actorId })
     .from(roomParticipants)
@@ -154,6 +202,7 @@ async function executeOnce(
   const fencedActors = [
     ...new Set([
       input.caller.actorId,
+      ...(captureFunder ? [captureFunder.actorId] : []),
       ...initialSeats.map((p) => p.actorId),
       ...(input.targetActorId ? [input.targetActorId] : []),
     ]),
@@ -162,6 +211,11 @@ async function executeOnce(
     maxActors: fencedActors.length,
   });
   const account = await loadAuthorizationAccount(tx, input.caller.userId);
+  const direction = await loadRoomDirection(tx, {
+    room: preparation.row,
+    userId: input.caller.userId,
+    captureFunder,
+  });
   const [row] = await tx
     .select()
     .from(rooms)
@@ -169,14 +223,33 @@ async function executeOnce(
     .for('update');
   if (!row) throw createAppError('NOT_FOUND');
   const { state } = await roomFactsForWrite(tx, row);
-  if (!input.authorizeRead(state, account)) throw createAppError('NOT_FOUND');
+  if (!input.authorizeRead(state, account, direction, await transactionNow(tx)))
+    throw createAppError('NOT_FOUND');
+  if (
+    input.authorizeCommand &&
+    !input.authorizeCommand(state, account, direction, await transactionNow(tx))
+  )
+    throw createAppError('AUTHORIZATION');
+  if ('replay' in preparation) return preparation.replay;
+  const execute = preparation.execute;
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
-  const target = input.targetActorId
+  const claimant = input.targetActorId
     ? await actorFact(tx, input.targetActorId)
     : null;
+  // A league ladder rates one division (PYL-16): the caller learns their
+  // own division is why; a host naming someone off it hears only that they
+  // cannot sit here.
+  const league = await leagueRoomFacts(tx, row);
+  if (
+    input.type === 'claim-seat' &&
+    claimant &&
+    !leagueLadderSeatFits(league, claimant)
+  )
+    throw createRefusal('CONFLICT', 'ranked-division');
+  const target = seatableInRoom(league, claimant);
   // FOR SHARE: a concurrent publication (FOR UPDATE on the format
   // row) serializes with this selection, so the policy judges facts
   // that hold at commit.
@@ -197,15 +270,23 @@ async function executeOnce(
   const judgeQuote =
     judgeAdmission &&
     state.hostActorId === input.caller.actorId &&
-    (target?.seatRole === 'judge' ||
+    (target?.aiRole === 'judge' ||
       (input.type === 'start-round' &&
-        state.participants.some((p) => p.kind === 'bot' && p.role === 'judge')))
+        state.participants.some(
+          (p) => p.kind === 'bot' && isJudgeSeat(p.seat),
+        )))
       ? await judgeAdmission.quoteLocked(tx, {
           account,
           roundId: input.roundId,
           withBot: input.seatsBotDebater(state),
         })
       : null;
+  if (
+    input.type === 'start-round' &&
+    direction &&
+    state.capture?.recordingPolicy === 'officials'
+  )
+    await lockNonrankedCaptureCapacity(tx);
   // Facts can wait on SQL locks. Admission uses one instant after those waits.
   const now = judgeQuote?.now ?? (await transactionNow(tx));
   const outcome = execute(
@@ -218,6 +299,7 @@ async function executeOnce(
     grants,
     contentWaiver,
     judgeQuote?.decision.kind === 'admit',
+    direction,
   );
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
@@ -240,22 +322,25 @@ async function executeOnce(
     outcome.mutation.freeze &&
     !outcome.mutation.seatsBotDebater &&
     next.competitionType !== 'ranked' &&
-    next.participants.some((p) => p.kind === 'bot' && p.role === 'judge')
+    next.participants.some((p) => p.kind === 'bot' && isJudgeSeat(p.seat))
   ) {
     if (!judgeAdmission)
       throw createAppError('INFRASTRUCTURE', 'Judge admission unavailable');
     await judgeAdmission.reserveLocked(tx, {
-      actorId: next.hostActorId,
+      actorId: chargedHostOf(next),
       roundId: input.roundId,
     });
   }
   if (
     outcome.mutation.freeze &&
     outcome.mutation.state.competitionType !== 'ranked' &&
-    outcome.mutation.state.capture !== null
+    outcome.mutation.state.hostActorId !== null &&
+    outcome.mutation.state.capture !== null &&
+    (outcome.mutation.state.capture.recordingPolicy !== 'off' ||
+      outcome.mutation.state.capture.broadcast !== null)
   )
     await admitCasualCapture(tx, {
-      hostActorId: outcome.mutation.state.hostActorId,
+      hostActorId: chargedHostOf(outcome.mutation.state),
       roundId: input.roundId,
     });
   if (agreements?.notice && outcome.mutation.consent?.type === 'ready')
@@ -281,6 +366,24 @@ async function executeOnce(
     now,
     next.changeVersion,
   );
+  if (
+    outcome.mutation.freeze &&
+    next.hostActorId === null &&
+    next.capture !== null &&
+    next.capture.recordingPolicy !== 'off'
+  ) {
+    const admission = input.captureAdmission?.(next, direction, now);
+    if (!admission || !direction)
+      throw createRefusal('CONFLICT', 'capture-premium');
+    await reserveTournamentCapture(tx, {
+      admission,
+      direction,
+      roundId: input.roundId,
+      roomId: next.id,
+      commandId: input.commandId,
+      actorId: input.caller.actorId,
+    });
+  }
   return receipt;
 }
 
@@ -315,7 +418,19 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     .where(eq(rooms.id, input.roomId));
   if (!preparationRow) throw createAppError('NOT_FOUND');
   const { state: prepared } = await roomFacts(tx, preparationRow);
-  if (!input.authorizeRead(prepared, preparationAccount))
+  const direction = await loadRoomDirection(tx, {
+    room: preparationRow,
+    userId: input.caller.userId,
+    snapshot: true,
+  });
+  if (
+    !input.authorizeRead(
+      prepared,
+      preparationAccount,
+      direction,
+      await transactionNow(tx),
+    )
+  )
     throw createAppError('NOT_FOUND');
   if (input.caller.actorId !== input.actorId)
     throw createAppError('AUTHORIZATION');
@@ -326,13 +441,24 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     input.payloadDigest,
     input.roomId,
   );
-  if (replay) return { replay } as const;
+  if (
+    input.authorizeCommand &&
+    !input.authorizeCommand(
+      prepared,
+      preparationAccount,
+      direction,
+      await transactionNow(tx),
+    )
+  )
+    throw createAppError('AUTHORIZATION');
+  if (replay) return { replay, prepared, row: preparationRow } as const;
   const execute = await input.prepare(
     prepared,
     await transactionNow(tx),
     preparationAccount,
+    direction,
   );
-  return { prepared, execute } as const;
+  return { prepared, execute, row: preparationRow } as const;
 }
 
 /** A Launch whose prepared cast seats a bot debater. */
@@ -368,5 +494,5 @@ async function reserveBotFreeze(
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
   if (!locked) throw createAppError('CONFLICT', 'Bot admission not serialized');
-  await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });
+  await admission.reserveLocked(tx, { actorId: chargedHostOf(state), roundId });
 }

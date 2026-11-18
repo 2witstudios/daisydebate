@@ -2,9 +2,14 @@ import { aiCast } from './support/ai-cast';
 import { drawCapableBounds } from '@daisy/protocol/testing';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  affirmativeSide,
+  judgeSeat,
+  negativeSide,
   roomCatalogChoiceSchema,
   roomViewSchema,
   roundViewSchema,
+  sideOfSeat,
+  sideSeat,
   type RoomView,
 } from '@daisy/protocol';
 import { expect, openPage, test } from './support/fixtures';
@@ -52,7 +57,7 @@ async function createDrawRoom(
             drawSize: 3,
             // The floor of the draw-capable bounds: a time-out takes 15 s, not minutes.
             strikeWindowMs: 15_000,
-            firstStriker: 'negative',
+            firstStriker: negativeSide,
             source: { kind: 'host', resolutions: lines },
           },
         },
@@ -107,11 +112,11 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
       (typeof accounts.members)[number],
     ];
     let view = await createDrawRoom(host.context.request);
-    view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
-    view = await claimSeat(guest, view, { role: 'negative', slot: 0 });
+    view = await claimSeat(host, view, sideSeat(affirmativeSide));
+    view = await claimSeat(guest, view, sideSeat(negativeSide));
     // Ready needs the device check, which needs scripts: it goes through the API.
-    await readyOwnSeat(host, view, { role: 'affirmative', slot: 0 });
-    view = await readyOwnSeat(guest, view, { role: 'negative', slot: 0 });
+    await readyOwnSeat(host, view, sideSeat(affirmativeSide));
+    view = await readyOwnSeat(guest, view, sideSeat(negativeSide));
 
     // Start round needs the host's device check: it goes through the API.
     const started = await startAdmittedRound(host, view);
@@ -120,7 +125,7 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     // Both intents came from a page held before the commitment boundary.
     for (const type of ['ready', 'unready']) {
       const own = view.participants.find(
-        (p) => 'actorId' in p && p.role === 'negative',
+        (p) => 'actorId' in p && sideOfSeat(p.seat) === negativeSide,
       );
       const response = await guest.context.request.post(
         `/api/rooms/${view.id}/commands`,
@@ -263,16 +268,14 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
         preRoundPrep: { enabled: true, durationMs: 20_000 },
       },
     });
-    view = await claimSeat(host, view, { role: 'affirmative', slot: 0 });
+    view = await claimSeat(host, view, sideSeat(affirmativeSide));
     view = await assignSeat(host, view, {
       actorId: debater.actorId,
-      role: 'negative',
-      slot: 0,
+      seat: sideSeat(negativeSide),
     });
     view = await assignSeat(host, view, {
       actorId: aiJudge.actorId,
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     });
 
     const page = await openPage(host.context, 'Freestyle strike host');

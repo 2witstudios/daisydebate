@@ -1,10 +1,11 @@
 import type { InboxRow } from '@daisy/db';
 import type {
   CompetitionType,
-  RatingLadder,
-  RoomSeatKind,
+  RatingDivision,
+  RatingStyle,
+  SeatKind,
 } from '@daisy/protocol';
-import { ladderLabels } from '../ratings/ladder-labels';
+import { ladderLabel, styleLabels } from '../ratings/ladder-labels';
 
 /** What one notification is about, with only the facts its words need. */
 export type NotificationSubject = InboxRow extends infer Row
@@ -13,13 +14,29 @@ export type NotificationSubject = InboxRow extends infer Row
     : never
   : never;
 
-/** "to judge" or "to debate": what the invitation asks of the member. */
-export const invitedTo = (seat: RoomSeatKind) =>
-  seat === 'judge' ? 'to judge' : 'to debate';
+/** "to judge", "to moderate" or "to debate": what the invitation asks of the member. */
+export const invitedTo = (seat: SeatKind): string => {
+  switch (seat) {
+    case 'judge':
+      return 'to judge';
+    case 'moderator':
+      return 'to moderate';
+    case 'side':
+    case 'speaker':
+      return 'to debate';
+  }
+};
 
-/** "a casual Freestyle debate". */
-export const challengeWhat = (mode: CompetitionType, format: RatingLadder) =>
-  `a ${mode} ${ladderLabels[format]} debate`;
+/**
+ * "a casual Freestyle debate", or a ranked one on its ladder: "a ranked
+ * Youth – Freestyle debate" (ADR 0147).
+ */
+export const challengeWhat = (
+  mode: CompetitionType,
+  format: RatingStyle,
+  division: RatingDivision | null,
+) =>
+  `a ${mode} ${division === null ? styleLabels[format] : ladderLabel({ style: format, division })} debate`;
 
 /**
  * The words and the destination, from the kind and the names read now, so a
@@ -29,6 +46,36 @@ export const notificationWords = (
   subject: NotificationSubject,
 ): { readonly text: string; readonly href: string } => {
   switch (subject.kind) {
+    case 'judge_assigned':
+      return {
+        text: 'You have been assigned to judge.',
+        href: `/tournaments/${subject.handle}/events/${subject.eventId}/rounds/${subject.tabRoundId}`,
+      };
+    case 'judge_replaced':
+      return {
+        text: 'Your judging assignment has been replaced.',
+        href: `/tournaments/${subject.handle}`,
+      };
+    case 'judge_unassigned':
+      return {
+        text: 'You have been unassigned from judging.',
+        href: `/tournaments/${subject.handle}`,
+      };
+    case 'tournament_draw_changed':
+      return {
+        text: 'Your tournament draw has changed.',
+        href: `/tournaments/${subject.handle}/events/${subject.eventId}/rounds/${subject.tabRoundId}`,
+      };
+    case 'tournament_room_ready':
+      return {
+        text: 'Your tournament Room is ready.',
+        href: `/rooms/${subject.roomId}`,
+      };
+    case 'tournament_results_released':
+      return {
+        text: 'Your tournament results have been released.',
+        href: `/tournaments/${subject.handle}/standings?event=${subject.eventId}`,
+      };
     case 'followed_debater_live':
       return {
         text: `${subject.debater ? `@${subject.debater}` : 'A debater you follow'} is on air.`,
@@ -56,7 +103,7 @@ export const notificationWords = (
       };
     case 'challenge_received':
       return {
-        text: `${subject.challenger ? `@${subject.challenger}` : 'A member'} challenged you to ${challengeWhat(subject.mode, subject.format)}.`,
+        text: `${subject.challenger ? `@${subject.challenger}` : 'A member'} challenged you to ${challengeWhat(subject.mode, subject.format, subject.division)}.`,
         href: '/friends',
       };
     case 'challenge_accepted':

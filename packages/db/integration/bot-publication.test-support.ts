@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { createBotSeat } from './bot-seat.test-support';
 export { createBotSeat } from './bot-seat.test-support';
+import type { Fixture } from './constraint-helpers';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createBotPublicationOperations } from '../src/bot-publication';
 export const withBotPublication = (
@@ -16,9 +17,14 @@ export const withBotPublication = (
     Parameters<typeof createBotPublicationOperations>[0],
     'ttsModel' | 'speechBudget'
   >,
+  initial: {
+    readonly beforeStart?: (fixture: Fixture, roundId: string) => Promise<void>;
+    readonly makeRound?: (fixture: Fixture) => Promise<string>;
+  } = {},
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'affirmative');
+    await initial.beforeStart?.(fixture, roundId);
     const segmentId = createId();
     fixture.track('round_segments', segmentId);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
@@ -53,7 +59,7 @@ export const withBotPublication = (
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
     }
-  });
+  }, initial.makeRound);
 
 type BotPublication = Parameters<Parameters<typeof withBotPublication>[0]>[0];
 /** A fresh claim and its speaking interval's opening on the database clock. */

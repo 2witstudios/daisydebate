@@ -1,4 +1,4 @@
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   oneOnOneDefinition,
@@ -15,17 +15,49 @@ const compiled = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneSettings);
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 const rules = {
   ...compiled.rules,
-  seats: { affirmative: 2, negative: 2, judge: 1 },
+  seats: {
+    ...compiled.rules.seats,
+    sides: { affirmative: 2, negative: 2 },
+    judges: 1,
+  },
   segments: compiled.rules.segments.map((s) =>
-    s.key === 'AC' ? { ...s, slot: 1 } : s,
+    s.key === 'AC'
+      ? {
+          ...s,
+          speak: {
+            rights: 'one' as const,
+            seat: { kind: 'side' as const, side: 'affirmative', slot: 1 },
+          },
+        }
+      : s,
   ),
 };
 const participants = [
-  { id: 'a0', actorId: 'actor-a0', role: 'affirmative' as const, slot: 0 },
-  { id: 'a1', actorId: 'actor-a1', role: 'affirmative' as const, slot: 1 },
-  { id: 'n0', actorId: 'actor-n0', role: 'negative' as const, slot: 0 },
-  { id: 'n1', actorId: 'actor-n1', role: 'negative' as const, slot: 1 },
-  { id: 'judge', actorId: 'actor-j', role: 'judge' as const, slot: 0 },
+  {
+    id: 'a0',
+    actorId: 'actor-a0',
+    seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+  },
+  {
+    id: 'a1',
+    actorId: 'actor-a1',
+    seat: { kind: 'side', side: 'affirmative', slot: 1 } as const,
+  },
+  {
+    id: 'n0',
+    actorId: 'actor-n0',
+    seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+  },
+  {
+    id: 'n1',
+    actorId: 'actor-n1',
+    seat: { kind: 'side', side: 'negative', slot: 1 } as const,
+  },
+  {
+    id: 'judge',
+    actorId: 'actor-j',
+    seat: { kind: 'judge', slot: 0 } as const,
+  },
 ];
 const actual = {
   id: 'actual-ac',
@@ -53,6 +85,7 @@ test('attendance uses actual opening and scheduled speaker slot after later runt
       openedAtMs: Date.parse(actual.startedAt),
       speakerId: 'a1',
       speakerSide: 'affirmative',
+      forfeitsTo: 'negative',
       eligibleSeats: [
         { id: 'a0', side: 'affirmative' },
         { id: 'a1', side: 'affirmative' },
@@ -106,7 +139,7 @@ const receipt = (
 ) => {
   const facts = {
     round: {
-      checkpoint: emptyRuntimeCheckpoint,
+      checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
       rules,
       participants,
       segments: [actual],

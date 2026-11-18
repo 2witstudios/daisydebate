@@ -1,5 +1,6 @@
 'use client';
 
+import { invitePeopleTitleId } from './invite-people-title';
 import { Fragment, useState } from 'react';
 import type { RoomView } from '@daisy/protocol';
 import { invitedTo } from '../../../features/notifications/notification-words';
@@ -21,10 +22,15 @@ import { RoomDialog, RoomDialogClose } from './room-dialog';
 /** Where focus returns after each answer: the next name is typed here. */
 const USERNAME_FIELD = 'invite-people-username';
 
+/** The seat kind a debater is invited to: a side's seat, or an unsided format's speaker seat. */
+export type CompetitorSeat = 'side' | 'speaker';
+
 function InviteForm({
   action,
+  competitor,
 }: {
   readonly action: FormAction<InvitationFormState>;
+  readonly competitor: CompetitorSeat;
 }) {
   const [answer, post, pending] = useFormAction(
     action,
@@ -34,7 +40,7 @@ function InviteForm({
   useFocusAfterAnswer(answer, USERNAME_FIELD, !pending, {
     onlyWhenLost: true,
   });
-  const fields = invitationFields(answer);
+  const fields = invitationFields(answer, competitor);
   return (
     <form action={post} className="flex flex-col gap-3">
       <input type="hidden" name="intent" value="invite" />
@@ -57,8 +63,8 @@ function InviteForm({
           <input
             type="radio"
             name="seat"
-            value="debater"
-            defaultChecked={fields.seat === 'debater'}
+            value={competitor}
+            defaultChecked={fields.seat === competitor}
           />
           Debater
         </label>
@@ -100,9 +106,11 @@ function InviteForm({
 export function InvitePeople({
   invitations,
   action,
+  competitor,
 }: {
   readonly invitations: RoomView['invitations'];
   readonly action: FormAction<InvitationFormState>;
+  readonly competitor: CompetitorSeat;
 }) {
   const [opening, setOpening] = useState(0);
   return (
@@ -120,7 +128,7 @@ export function InvitePeople({
           ) : null}
         </span>
       }
-      titleId="invite-people-title"
+      titleId={invitePeopleTitleId}
       title="Invite people"
       onClose={() => setOpening((count) => count + 1)}
     >
@@ -129,7 +137,7 @@ export function InvitePeople({
         for 24 hours or until the round starts.
       </p>
       <Fragment key={opening}>
-        <InviteForm action={action} />
+        <InviteForm action={action} competitor={competitor} />
         {invitations.length > 0 ? (
           <ul className="flex flex-col gap-2" aria-label="Pending invitations">
             {invitations.map((invitation) => (

@@ -1,7 +1,10 @@
-import type {
-  FormatDefinition,
-  FormatSettings,
-  SegmentType,
+import {
+  affirmativeSide,
+  negativeSide,
+  twoSides,
+  type FormatDefinition,
+  type FormatSettings,
+  type SegmentType,
 } from '@daisy/protocol';
 import { oneOnOneSettings } from './reference-formats';
 import type { SegmentRow } from './catalog-segments';
@@ -26,14 +29,27 @@ export function templateDefinition({
   readonly prepBefore: readonly SegmentType[];
 }): FormatDefinition {
   return {
-    version: 1,
-    seats: { affirmative: seats.perSide, negative: seats.perSide, judge: 1 },
-    segments: segments.map(([key, label, type, side, slot, minutes]) => ({
+    version: 2,
+    sides: [...twoSides],
+    seats: {
+      sides: {
+        [affirmativeSide]: seats.perSide,
+        [negativeSide]: seats.perSide,
+      },
+      speakers: 0,
+      judges: 1,
+      moderators: 0,
+    },
+    outcome: { kind: 'winner' },
+    segments: segments.map(([key, label, type, seat, minutes]) => ({
       key,
       label,
       type,
-      side,
-      slot,
+      // A speech is its speaker's; in cross-ex every debater speaks and the asker leads.
+      speak:
+        type === 'speech'
+          ? { rights: 'one' as const, seat }
+          : { rights: 'all' as const, lead: seat },
       defaultDurationMs: minutes * minute,
     })),
     configurable: {
@@ -87,7 +103,7 @@ const drawCapability: NonNullable<
 > = {
   drawSize: { min: 3, max: 7 },
   strikeWindowMs: { min: 15_000, max: 3 * minute },
-  firstStrikers: ['negative', 'affirmative'],
+  firstStrikers: [negativeSide, affirmativeSide],
   sources: ['bank', 'host'],
 };
 
@@ -112,7 +128,7 @@ export const strikeSettings = (
     enabled: true,
     drawSize: 5,
     strikeWindowMs: minute,
-    firstStriker: 'negative',
+    firstStriker: negativeSide,
     source: { kind: 'bank', categories: ['policy', 'value', 'fact'] },
   },
 });

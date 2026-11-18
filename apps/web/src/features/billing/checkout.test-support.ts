@@ -1,7 +1,8 @@
 import type { Purchase } from '@daisy/protocol/billing';
 export const purchase: Purchase = {
   id: 'a'.repeat(24),
-  userId: 'u'.repeat(24),
+  owner: { kind: 'account', userId: 'u'.repeat(24) },
+  quantity: 1,
   mode: 'test',
   priceId: 'price_fixture',
   customerId: null,
@@ -31,7 +32,7 @@ export const checkoutSession = {
   customer: null,
   subscription: null,
   currency: 'usd',
-  amount_subtotal: 1000,
+  amount_subtotal: 2000,
   automatic_tax: { enabled: true },
   allow_promotion_codes: null,
   after_expiration: null,
@@ -49,7 +50,8 @@ export const checkoutSession = {
         price: {
           id: purchase.priceId,
           currency: 'usd',
-          unit_amount: 1000,
+          unit_amount: 2000,
+          lookup_key: 'daisy_premium_monthly_usd_20',
           livemode: false,
           recurring: {
             interval: 'month',

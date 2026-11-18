@@ -337,12 +337,14 @@ test('the web role can run the people list read', async () => {
     });
     assert({
       given: 'the read running as the production web role',
-      should: 'answer the row, carrying no age or birth data',
+      should:
+        'answer the row with its ladder division and no age or birth data (ADR 0147)',
       actual: rows.map((row) => Object.keys(row).sort()),
       expected: [
         [
           'actorId',
           'chosen',
+          'division',
           'friend',
           'friendshipState',
           'online',
@@ -363,7 +365,7 @@ test('an active Room is a placement: room while open, round once launched', asyn
   await withFixture(databaseUrl, async (fixture) => {
     const roomId = await fixture.room(ctx.them.actorId, 'freestyle');
     await ctx.client.unsafe(
-      'insert into room_active_memberships (actor_id, room_id) values ($1, $2)',
+      'insert into active_seats (actor_id, room_id) values ($1, $2)',
       [ctx.them.actorId, roomId],
     );
     const placement = async () => (await page(ctx)).rows[0]?.placement;
@@ -373,10 +375,9 @@ test('an active Room is a placement: room while open, round once launched', asyn
       [roomId],
     );
     const inRound = await placement();
-    await ctx.client.unsafe(
-      'delete from room_active_memberships where actor_id = $1',
-      [ctx.them.actorId],
-    );
+    await ctx.client.unsafe('delete from active_seats where actor_id = $1', [
+      ctx.them.actorId,
+    ]);
     assert({
       given: 'a member holding an assembling Room, then the same Room launched',
       should: 'read as in a room, then in a round',
@@ -527,7 +528,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     // the acceptor hosts, public like every Room by default, holds none.
     const holdFor = async (roomId: string, until: string) => {
       await ctx.client.unsafe(
-        "insert into room_seat_holds (room_id, actor_id, seat, until) values ($1, $2, 'debater', $3)",
+        "insert into room_seat_holds (room_id, actor_id, seat, until) values ($1, $2, 'side', $3)",
         [roomId, ctx.me.actorId, until],
       );
       return roomId;
@@ -545,15 +546,14 @@ test('accepting names only a room made for the offer, and only for a free challe
     ];
     const mine = await fixture.room(ctx.me.actorId, 'freestyle', {});
     await ctx.client.unsafe(
-      'insert into room_active_memberships (actor_id, room_id) values ($1, $2)',
+      'insert into active_seats (actor_id, room_id) values ($1, $2)',
       [ctx.me.actorId, mine],
     );
     const right = await holdFor(await room({}), expiresAt);
     const whilePlaced = await accept(challengeId, right);
-    await ctx.client.unsafe(
-      'delete from room_active_memberships where actor_id = $1',
-      [ctx.me.actorId],
-    );
+    await ctx.client.unsafe('delete from active_seats where actor_id = $1', [
+      ctx.me.actorId,
+    ]);
     const accepted = await accept(challengeId, right);
     const listed = await listChallenges(
       ctx.database,

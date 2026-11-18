@@ -1,4 +1,4 @@
-import type { EntitlementGrant } from '@daisy/protocol';
+import type { EntitlementGrant, PremiumEntitlementKind } from '@daisy/protocol';
 import type {
   BillingAccess,
   SubscriptionEvidence,
@@ -103,14 +103,25 @@ const premiumCapabilities = {
   casual_capture: 'paid-and-grace',
   recording_download: 'paid-and-grace',
 } as const satisfies Record<
-  EntitlementGrant['entitlement'],
+  PremiumEntitlementKind,
   'paid-and-grace' | 'paid-only'
 >;
 
-/** Project known deadlines once; capability reads enforce them even without another observation. */
-export function subscriptionGrants(
+/** One Premium entitlement's verified window under a plan's evidence. */
+export type PremiumGrantWindow = {
+  readonly entitlement: PremiumEntitlementKind;
+  readonly startsAt: string;
+  readonly expiresAt: string;
+};
+
+/**
+ * The Premium windows a plan's verified evidence funds: the paid period, and
+ * through DEC-364's renewal grace for everything but bot Rounds. Shared by
+ * personal Premium and Club seats (ADR 0148), which differ only in source.
+ */
+export function premiumGrantWindows(
   evidence: SubscriptionEvidence,
-): readonly EntitlementGrant[] {
+): readonly PremiumGrantWindow[] {
   const verified = verifiedAccessPeriod(evidence);
   if (!verified) return [];
   const keys = Object.keys(
@@ -118,12 +129,21 @@ export function subscriptionGrants(
   ) as (keyof typeof premiumCapabilities)[];
   return keys.map((entitlement) => ({
     entitlement,
-    source: 'subscription',
     startsAt: verified.period.startsAt,
     expiresAt:
       verified.kind === 'renewal_failed' &&
       premiumCapabilities[entitlement] === 'paid-and-grace'
         ? verified.graceEndsAt
         : verified.period.endsAt,
+  }));
+}
+
+/** Project known deadlines once; capability reads enforce them even without another observation. */
+export function subscriptionGrants(
+  evidence: SubscriptionEvidence,
+): readonly EntitlementGrant[] {
+  return premiumGrantWindows(evidence).map((window) => ({
+    ...window,
+    source: 'subscription',
   }));
 }

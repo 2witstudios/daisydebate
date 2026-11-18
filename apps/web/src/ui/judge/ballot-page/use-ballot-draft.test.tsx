@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundBallotRead } from '@daisy/protocol';
 import { ballotDraftKey } from '../../../features/judge/ballot-draft';
+import { sampleBallotPlan } from '../../mock/judge.test-support';
 import { judge, view } from '../../debate-room/live-round.test-support';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import type * as Client from './use-ballot-draft.test-support';
@@ -11,7 +12,7 @@ const read = {
   round: view,
   own: { participantId: judge.id, ballot: null, freezeRevision: null },
 } as unknown as RoundBallotRead;
-const key = ballotDraftKey(view.id, judge.id);
+const key = ballotDraftKey(sampleBallotPlan, view.id, judge.id);
 const kept = { winner: 'negative', reason: 'Clearer weighing.' };
 
 test('the ballot draft restores, yields to a refusal and is removed once recorded', async () => {

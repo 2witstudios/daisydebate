@@ -2,6 +2,7 @@ import {
   VIEWER_BUCKET_MS,
   audienceStateSchema,
   type AudienceState,
+  twoSides,
   viewersFromSample,
 } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -25,7 +26,7 @@ const timelineRead = {
     status: 'active',
     competitionType: 'ranked' as const,
     resolution: 'A resolution',
-    rules: { segments: [] },
+    rules: { sides: [...twoSides], segments: [] },
     outcome: null,
     startedAt: started,
     completedAt: null,

@@ -1,13 +1,9 @@
-import { redirect } from 'next/navigation';
 import type { Identity } from '@daisy/auth';
-import { createAppError } from '@daisy/errors';
-import {
-  decideAccess,
-  requestedPath,
-  requirementFor,
-  type SearchParams,
-} from '../features/access/decision';
+import type { SearchParams } from '../features/access/decision';
+import { accessGuard } from './access-guard';
 import { requestIdentity } from './request-session';
+
+const guard = accessGuard(requestIdentity);
 
 /**
  * Server-component guard: resolves the durable session from this request's
@@ -17,40 +13,16 @@ import { requestIdentity } from './request-session';
  * requirement comes from the guarded-area table, never the caller. The
  * proxy's cookie check is only an early hint, never this check.
  */
-export async function requireAccess(
+export const requireAccess = (
   path: string,
   searchParams: Promise<SearchParams>,
-): Promise<Identity> {
-  const access = await accessOrTemporary(path, searchParams);
-  // An outage renders the error boundary (retryable), never a sign-out.
-  if (access.kind === 'temporary') throw createAppError('INFRASTRUCTURE');
-  return access.identity;
-}
+): Promise<Identity> => guard.requireAccess(path, searchParams);
 
 /**
  * The same guard for a page that answers a temporary refusal itself, as a live
  * Round's room does. A failure that may not pass still throws.
  */
-export async function accessOrTemporary(
+export const accessOrTemporary = (
   path: string,
   searchParams: Promise<SearchParams>,
-): Promise<
-  | { readonly kind: 'allowed'; readonly identity: Identity }
-  | { readonly kind: 'temporary' }
-> {
-  const requirement = requirementFor(path);
-  // A page outside every guarded area calling the guard is a wiring error.
-  if (requirement === null) throw createAppError('INTERNAL');
-  const identity = await requestIdentity();
-  const decision = decideAccess({
-    identity,
-    path: requestedPath(path, await searchParams),
-    requirement,
-  });
-  if (decision.kind === 'unavailable') {
-    if (decision.temporary) return { kind: 'temporary' };
-    throw createAppError('INFRASTRUCTURE');
-  }
-  if (decision.kind === 'redirect') redirect(decision.to);
-  return { kind: 'allowed', identity };
-}
+) => guard.accessOrTemporary(path, searchParams);

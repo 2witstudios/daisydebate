@@ -1,5 +1,6 @@
 'use client';
 
+import type { RatingDivision } from '@daisy/protocol';
 import { useState, useTransition } from 'react';
 import {
   destinationOf,
@@ -26,6 +27,8 @@ type FieldsProps = {
   readonly state: FormFields;
   readonly pending: boolean;
   readonly initialRanked?: boolean;
+  /** The member's ladder division (ADR 0147); null with no age on record, so no ranked play. */
+  readonly memberDivision: RatingDivision | null;
 };
 
 export function CreateAssemblyFields({
@@ -34,6 +37,7 @@ export function CreateAssemblyFields({
   state,
   pending,
   initialRanked = false,
+  memberDivision,
 }: FieldsProps) {
   const first = defaultChoice(choices);
   if (!first)
@@ -60,7 +64,8 @@ export function CreateAssemblyFields({
       initialChoice={first}
       values={state.values}
       commandId={commandId}
-      initialRanked={initialRanked}
+      initialRanked={initialRanked && memberDivision !== null}
+      memberDivision={memberDivision}
       pending={pending}
       error={state.error}
     />
@@ -76,12 +81,15 @@ export function CreateAssemblyForm({
   commandId,
   choices,
   initialRanked = false,
+  memberDivision,
 }: {
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
   readonly initialRanked?: boolean;
+  /** The member's ladder division (ADR 0147); null with no age on record, so no ranked play. */
+  readonly memberDivision: RatingDivision | null;
 }) {
   const [state, setState] = useState<RoomDraftAnswer>(initialState);
   const [pending, startTransition] = useTransition();
@@ -124,6 +132,7 @@ export function CreateAssemblyForm({
         state={fields}
         pending={pending}
         initialRanked={initialRanked}
+        memberDivision={memberDivision}
       />
     </form>
   );

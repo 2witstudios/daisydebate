@@ -107,7 +107,7 @@ test('an invalid evaluation time or paid interval grants nothing', () => {
 
 test('capability and AI allowance consumers use the same outage-safe validity projection', () => {
   const evaluate = (now: string, betaGrantsPremium: boolean) => {
-    const policy = { now, betaGrantsPremium, betaMonthlyCap: 5 };
+    const policy = { now, betaGrantsPremium };
     return {
       ...accountEntitlements([...beta, ...paid], policy),
       aiRounds: admitAllowance(
@@ -128,6 +128,7 @@ test('capability and AI allowance consumers use the same outage-safe validity pr
           grants: [...beta, ...paid],
           usage: [{ kind: 'ai_round', source: { kind: 'lifetime' }, spent: 1 }],
           freeBotRoundId: null,
+          today: null,
         },
         { kind: 'bot_debate', roundId: 'round', withJudge: false },
         policy,

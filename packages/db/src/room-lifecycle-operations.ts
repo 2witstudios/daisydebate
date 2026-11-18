@@ -1,13 +1,15 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type {
-  ActiveRoomFacts,
-  RoomAssemblyState,
-  RoomMutationOutcome,
+import {
+  maxHostedRooms,
+  type ActiveRoomFacts,
+  type HostedRoom,
+  type RoomAssemblyState,
+  type RoomMutationOutcome,
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { rooms } from './schema/rooms';
+import { roomParticipants, rooms } from './schema/rooms';
 import { activeRoomFacts } from './room-membership-persistence';
 import { persistRoomMutation } from './room-mutation-persistence';
 import type { roomCommandTransaction } from './room-command-transaction';
@@ -48,6 +50,32 @@ export const roomLifecycleOperations = ({
       database.transaction(async (tx) => {
         await requireAccount(tx, caller, authorize);
         return activeRoomFacts(tx, caller.actorId);
+      }),
+    );
+  },
+  /**
+   * The open Rooms the caller hosts, newest first (TAB-6.16), and whether
+   * they also sit in each. Hosting holds no seat, so a host without one has
+   * no active Room; this is the read that leads them back.
+   */
+  listHostedRooms(
+    caller: Caller,
+    authorize: (account: Account) => boolean,
+  ): Promise<readonly HostedRoom[]> {
+    return instrumented(eventSink, 'listHostedRooms', () =>
+      database.transaction(async (tx) => {
+        await requireAccount(tx, caller, authorize);
+        return tx
+          .select({
+            id: rooms.id,
+            title: rooms.title,
+            status: sql<HostedRoom['status']>`${rooms.status}`,
+            seated: sql<boolean>`exists (select 1 from ${roomParticipants} where ${roomParticipants.roomId} = ${rooms.id} and ${roomParticipants.actorId} = ${caller.actorId})`,
+          })
+          .from(rooms)
+          .where(and(eq(rooms.hostActorId, caller.actorId), roomIsOpen()))
+          .orderBy(desc(rooms.createdAt), desc(rooms.id))
+          .limit(maxHostedRooms);
       }),
     );
   },

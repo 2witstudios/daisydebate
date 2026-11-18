@@ -21,6 +21,7 @@ export function roundWaitingOn(
   const panel = judgingPanelOf(facts, input.nowMs);
   if (panel === null) return { state: 'settling' };
   const decision = decidePanelCompletion({
+    judging: facts.judging,
     completeness: facts.completeness,
     panel,
     ballots: facts.ballots,

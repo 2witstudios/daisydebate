@@ -1,4 +1,5 @@
-import { ageBand, type AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
+import { ageBand } from './age-band';
 import { ageAdmitted } from './participant-access';
 import type { AccountAuthorizationFact } from './authorization';
 export type AccountAgeSource = {

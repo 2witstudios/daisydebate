@@ -7,7 +7,7 @@ import {
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { withEvidenceIngress } from './necessary-evidence-ingress.test-support';
+import { withRecognitionIngress as withEvidenceIngress } from './necessary-evidence-ingress.test-support';
 import { createNecessaryEvidenceIngress } from '../src/features/media-capture/necessary-evidence-ingress';
 setupRitewayBun();
 requireTestServices(process.env);

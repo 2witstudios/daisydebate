@@ -33,6 +33,13 @@ import {
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const predecessor = '20261107025259_round_floor_authority';
+/**
+ * The backfill as today's schema spells it: TAB-6 later stored a seat's role
+ * as its kind, and the statement is replayed after every migration.
+ */
+const replayable = (statement: string) =>
+  statement.replaceAll("p.role='judge'", "p.seat_kind='judge'");
+
 const migrationPath = new URL(
   '../migrations/20261107080513_fair_midnight/migration.sql',
   import.meta.url,
@@ -234,7 +241,7 @@ test(
               statement.includes('-- Historical casual judge cohort'),
             );
           if (!backfill) throw Error('Expected historical cohort statement');
-          await f.sql.unsafe(backfill);
+          await f.sql.unsafe(replayable(backfill));
           assert({
             given: 'repeat execution of the actual backfill',
             should: 'preserve every identity, state and source byte',
@@ -249,7 +256,7 @@ test(
             { userId, actorId: closing.actorId },
             [usagePrivacyAdopter],
           );
-          await f.sql.unsafe(backfill);
+          await f.sql.unsafe(replayable(backfill));
           assert({
             given:
               'actual account closure after historical identity creation, followed by the exact migration cohort replay',

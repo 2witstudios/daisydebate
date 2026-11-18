@@ -1,55 +1,67 @@
 import {
   isNamedSeat,
   isOpenRoomStatus,
+  sameSeat,
+  seatTotalOf,
+  seatsTwoTeams,
   sideOfTeam,
+  sideSeat,
   teamOfPlacement,
   type RoomRefusal,
   type RoomView,
+  type SeatRef,
+  type Side,
+  type TwoSideKey,
 } from '@daisy/protocol';
 import {
   strikeSummary,
   roundLength,
   ruleRows,
   type RuleRowInterruptions,
-  shapeLabel,
 } from '../../../features/debate-room/vocabulary';
+import { seatName, shapeLabel } from '../../../features/debate-room/seat-names';
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { roomVisibilityLabels } from '../../../features/rooms/room-visibility';
 import { declaredSeats, seatLabel } from './assembly-controls';
 import { ordinalOf, showsTeams } from './roster-seat';
+import { competitionWords } from './room-ladder';
 
-type Role = RoomView['participants'][number]['role'];
 type Participant = RoomView['participants'][number];
+type Definition = Pick<RoomView['definition'], 'sides' | 'seats'>;
 
 /** What a Room seat label needs to know (ADR 0145). */
 export type SeatNaming = Pick<RoomView, 'teamOneSide' | 'status'> & {
-  readonly definition: Pick<RoomView['definition'], 'seats'>;
+  readonly definition: Definition;
 };
 
 /**
- * A Room seat's name. Before Start a debater seat's role is its team's
+ * A Room seat's name. Before Start a debater seat's side is its team's
  * placement, not its side (ADR 0145): it is named by its side once the sides
  * are fixed, and by its team (and position, when a team seats several) while
- * they are open. A judge seat, and every seat after Start, is named as is.
- * `single` drops the "1" from a role that seats one: "Judge", "Negative".
+ * they are open. A judge seat, a seat in a Room with no two teams, and every
+ * seat after Start, is named as is. `single` drops the "1" from a seat its
+ * kind (or side) declares once: "Judge", "Negative".
  */
 export function roomSeatLabel(
   view: SeatNaming,
-  role: Role,
-  slot: number,
+  seat: SeatRef,
   single = false,
 ): string {
-  const seats = view.definition.seats;
-  const named = (side: Role) => {
-    const label = seatLabel(side, slot);
-    return single && seats[role] === 1 ? label.replace(/ 1$/, '') : label;
-  };
-  if (role === 'judge' || !isOpenRoomStatus(view.status)) return named(role);
-  const team = teamOfPlacement(role);
+  const named = (shown: SeatRef) =>
+    single
+      ? seatName(view.definition, shown)
+      : seatLabel(view.definition.sides, shown);
+  if (
+    seat.kind !== 'side' ||
+    !isOpenRoomStatus(view.status) ||
+    !seatsTwoTeams(view.definition)
+  )
+    return named(seat);
+  const team = teamOfPlacement(seat.side as TwoSideKey);
   if (view.teamOneSide !== null)
-    return named(sideOfTeam(team, view.teamOneSide));
-  return showsTeams(seats)
-    ? `Team ${team} · ${ordinalOf(slot)}`
+    return named(sideSeat(sideOfTeam(team, view.teamOneSide), seat.slot));
+  return showsTeams(view.definition)
+    ? `Team ${team} · ${ordinalOf(seat.slot)}`
     : `Team ${team}`;
 }
 
@@ -66,7 +78,7 @@ export function chatAuthorSeat(
     .filter(isNamedSeat)
     .find((member) => member.actorId === actorId);
   const parts = [
-    ...(seat ? [roomSeatLabel(view, seat.role, seat.slot)] : []),
+    ...(seat ? [roomSeatLabel(view, seat.seat)] : []),
     ...(view.hostActorId === actorId ? ['host'] : []),
   ];
   return parts.length > 0 ? parts.join(' · ') : null;
@@ -77,11 +89,11 @@ export function waitingOn(
   view: Pick<RoomView, 'participants'> & SeatNaming,
   actorId: string,
 ): readonly string[] {
-  return declaredSeats(view.definition.seats).flatMap(({ role, slot }) => {
-    const occupant = view.participants.find(
-      (seat) => seat.role === role && seat.slot === slot,
+  return declaredSeats(view.definition).flatMap((seat) => {
+    const occupant = view.participants.find((member) =>
+      sameSeat(member.seat, seat),
     );
-    if (!occupant) return [roomSeatLabel(view, role, slot, true)];
+    if (!occupant) return [roomSeatLabel(view, seat, true)];
     if (!occupant.needsReady || occupant.ready === 'ready') return [];
     if (!isNamedSeat(occupant)) return ['Judge'];
     return [occupant.actorId === actorId ? 'You' : occupant.label];
@@ -95,42 +107,43 @@ export const ROOM_SETUP_HREF = `#${ROOM_SETUP_ID}`;
 /** "Setting up · 1 of 3 seats filled": the room's one status line. */
 export function roomStatus(
   view: Pick<RoomView, 'status' | 'participants'> & {
-    readonly definition: Pick<RoomView['definition'], 'seats'>;
+    readonly definition: Definition;
   },
 ): string {
   // Before Start, the seats say where the Room is; Start round is the host's
   // button under their tile, not a status.
   if (view.status !== 'assembling' && view.status !== 'ready')
     return roomStatusLabels[view.status];
-  const { affirmative, negative, judge } = view.definition.seats;
-  const seats = affirmative + negative + judge;
+  const seats = seatTotalOf(view.definition);
   return `${view.participants.length} of ${seats} seats filled`;
 }
 
-const competitionLabels = {
-  ranked: 'Ranked',
-  casual: 'Casual',
-} as const;
-
-/** Host, who can join, and whether the result is ranked: the header's meta line. */
+/**
+ * Host, who can join, and whether the result is ranked: the header's meta
+ * line. A ranked Room whose debaters mix ladders says it is playing casual.
+ */
 export function roomMeta(
-  view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
+  view: Pick<
+    RoomView,
+    'hostLabel' | 'visibility' | 'competitionType' | 'ladder'
+  >,
 ): readonly string[] {
   return [
-    ...(view.hostLabel === null ? [] : [`Hosted by ${view.hostLabel}`]),
+    // A Room no person hosts (a Tab event Room) names no host.
+    ...(view.hostLabel ? [`Hosted by ${view.hostLabel}`] : []),
     roomVisibilityLabels[view.visibility],
-    competitionLabels[view.competitionType],
+    competitionWords(view),
   ];
 }
 
 /** "1v1 · about 30 min": the format line, derived from the saved schedule. */
 export function formatLine(
   view: Pick<RoomView, 'rules' | 'config'> & {
-    readonly definition: Pick<RoomView['definition'], 'seats'>;
+    readonly definition: Definition;
   },
 ): string {
   const { config } = view;
-  return `${shapeLabel(view.definition.seats)} · ${roundLength({
+  return `${shapeLabel(view.definition)} · ${roundLength({
     speechesMs: view.rules.segments.map((segment) => segment.durationMs),
     countdownMs: config.speechTiming.countdownMs,
     preRoundPrepMs: config.preRoundPrep.enabled
@@ -139,6 +152,7 @@ export function formatLine(
     prepPerSideMs: config.inRoundPrep.enabled
       ? config.inRoundPrep.budgetMsPerSide
       : null,
+    sideCount: view.definition.sides.length,
   })}`;
 }
 
@@ -164,8 +178,11 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'command-conflict': 'the latest room changes',
   'consent-conflict': 'the latest readiness changes',
   'active-room': 'everyone to leave their other rooms',
+  'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
+  // A seat names the caller's own ladder only; Start never refuses on it.
+  'ranked-division': 'a debater seat on your own ladder',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
   'ai-judge-premium':
@@ -219,8 +236,11 @@ export function speechGrow(durationMs: number): (typeof growSteps)[number] {
 /** How a draw Room chooses its resolution, in one line; none without a draw. */
 function strikeRows(
   draw: RoomView['config']['resolutionDraw'],
+  sides: readonly Side[],
 ): readonly (readonly [string, string])[] {
-  return draw.enabled ? [['Resolution strike', strikeSummary(draw)]] : [];
+  return draw.enabled
+    ? [['Resolution strike', strikeSummary(draw, sides)]]
+    : [];
 }
 
 /** The saved configuration as label/value rows, in the room's vocabulary. */
@@ -233,11 +253,13 @@ const interruptionRow = (
 };
 
 export function settingRows(
-  view: Pick<RoomView, 'config'>,
+  view: Pick<RoomView, 'config'> & {
+    readonly rules: { readonly sides: readonly Side[] };
+  },
 ): readonly (readonly [string, string])[] {
   const { config } = view;
   return [
-    ...strikeRows(config.resolutionDraw),
+    ...strikeRows(config.resolutionDraw, view.rules.sides),
     ...ruleRows({
       preRoundPrepMs: config.preRoundPrep.enabled
         ? config.preRoundPrep.durationMs

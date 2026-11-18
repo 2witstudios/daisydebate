@@ -60,6 +60,21 @@ const render = (props: Parameters<typeof BotSelectorPage>[0]) =>
   );
 
 describe('BotSelectorPage', () => {
+  test('says what its opponents are', () => {
+    const html = render({ view, action: noopAction });
+    assert({
+      given: 'the Train landing',
+      should:
+        'say under its heading that each opponent is an AI and the round is unranked',
+      actual: [
+        html.includes('Each opponent is an AI debater.'),
+        html.indexOf('</h1>') < html.indexOf('Each opponent is an AI debater.'),
+        html.includes('unranked'),
+      ],
+      expected: [true, true, true],
+    });
+  });
+
   test('the landing posts Start practice for the chosen opponent', () => {
     const html = render({ view, action: noopAction });
     assert({

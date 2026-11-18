@@ -5,6 +5,8 @@ import { createDatabase } from '../src';
 import { withFixture } from './constraint-helpers';
 import { at, change, completed, rating, season } from './standings-fixtures';
 
+const affirmativeWin = { kind: 'winner', side: 'affirmative' } as const;
+
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -93,7 +95,7 @@ describe('standings reads (RATE-1.4.1)', () => {
         await rated({ formatId, seasonId: third, ladder: 'freestyle' }, 1530);
 
         const read = await database.readStandings({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           seasonIds: [first, second],
           clock: { now: new Date().toISOString(), rankedDelaySeconds: 0 },
         });
@@ -171,16 +173,16 @@ describe('standings reads (RATE-1.4.1)', () => {
         assert({
           given: 'postings in the same five scopes',
           should:
-            'return exactly the postings of the asked scope, each with its seat and the debate outcome',
+            'return exactly the postings of the asked scope, each with its side and the winning side',
           actual: bySeasonThenRating(
             read.changes,
             (row) => row.ratingAfter,
           ).map(
-            ({ seasonId, roundId, actorId, role, outcome, ratingAfter }) => ({
+            ({ seasonId, roundId, actorId, side, outcome, ratingAfter }) => ({
               seasonId,
               roundId,
               actorId,
-              role,
+              side: side as string,
               outcome,
               ratingAfter,
             }),
@@ -191,32 +193,32 @@ describe('standings reads (RATE-1.4.1)', () => {
                 seasonId: first,
                 roundId: inFirst,
                 actorId: winner,
-                role: 'affirmative',
-                outcome: 'affirmative',
+                side: 'affirmative',
+                outcome: affirmativeWin,
                 ratingAfter: 1516,
               },
               {
                 seasonId: first,
                 roundId: inFirst,
                 actorId: loser,
-                role: 'negative',
-                outcome: 'affirmative',
+                side: 'negative',
+                outcome: affirmativeWin,
                 ratingAfter: 1484,
               },
               {
                 seasonId: second,
                 roundId: inSecond,
                 actorId: winner,
-                role: 'affirmative',
-                outcome: 'affirmative',
+                side: 'affirmative',
+                outcome: affirmativeWin,
                 ratingAfter: 1520,
               },
               {
                 seasonId: second,
                 roundId: inSecond,
                 actorId: loser,
-                role: 'negative',
-                outcome: 'affirmative',
+                side: 'negative',
+                outcome: affirmativeWin,
                 ratingAfter: 1480,
               },
             ],

@@ -16,13 +16,9 @@ test('billing is inert without configuration and preserves beta operation', () =
   const config = readServerConfig(env);
   assert({
     given: 'the existing beta environment with no Stripe fields',
-    should: 'disable billing while keeping the beta grant and allowance',
-    actual: [
-      config.billing,
-      config.PREMIUM_BETA_GRANT,
-      config.AI_ROUND_MONTHLY_CAP,
-    ],
-    expected: [{ kind: 'disabled' }, true, 20],
+    should: 'disable billing while keeping the beta grant',
+    actual: [config.billing, config.PREMIUM_BETA_GRANT],
+    expected: [{ kind: 'disabled' }, true],
   });
 });
 
@@ -46,7 +42,85 @@ test('complete billing configuration carries a mode but grants no release author
       webhookSecret: stripe.STRIPE_WEBHOOK_SECRET,
       premiumPriceId: stripe.STRIPE_PREMIUM_PRICE_ID,
       portalConfigurationId: stripe.STRIPE_PORTAL_CONFIGURATION_ID,
+      hostEventPrices: null,
+      club: null,
     })),
+  });
+});
+
+test('host event prices are their own group beside billing (ADR 0149)', () => {
+  const hostEvent = {
+    STRIPE_HOST_EVENT_64_PRICE_ID: 'price_hostEvent64',
+    STRIPE_HOST_EVENT_UNLIMITED_PRICE_ID: 'price_hostEventUnlimited',
+  };
+  const refused = (fields: Record<string, string>) => {
+    try {
+      readServerConfig({ ...env, ...fields });
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  const billing = readServerConfig({ ...env, ...stripe, ...hostEvent }).billing;
+  assert({
+    given:
+      'billing with both host event prices, one of them, and neither group',
+    should:
+      'carry both prices, refuse a half group, and refuse prices without billing',
+    actual: {
+      prices: billing.kind === 'stripe' ? billing.hostEventPrices : null,
+      half: refused({
+        ...stripe,
+        STRIPE_HOST_EVENT_64_PRICE_ID: hostEvent.STRIPE_HOST_EVENT_64_PRICE_ID,
+      }),
+      alone: refused(hostEvent),
+    },
+    expected: {
+      prices: {
+        event_64: 'price_hostEvent64',
+        event_unlimited: 'price_hostEventUnlimited',
+      },
+      half: true,
+      alone: true,
+    },
+  });
+});
+
+const club = {
+  STRIPE_CLUB_SEAT_PRICE_ID: 'price_clubSeatFixture',
+  STRIPE_CLUB_PORTAL_CONFIGURATION_ID: 'bpc_clubFixture',
+};
+
+test('Club billing is an optional pair inside the Stripe group (ADR 0148)', () => {
+  const billing = readServerConfig({ ...env, ...stripe, ...club }).billing;
+  assert({
+    given: 'the Stripe group with both Club ids',
+    should: 'configure Club seats beside Premium',
+    actual: billing.kind === 'stripe' ? billing.club : null,
+    expected: {
+      seatPriceId: club.STRIPE_CLUB_SEAT_PRICE_ID,
+      portalConfigurationId: club.STRIPE_CLUB_PORTAL_CONFIGURATION_ID,
+    },
+  });
+  const refused = (fields: Record<string, string>) => {
+    try {
+      readServerConfig({ ...env, ...fields });
+      return 'accepted';
+    } catch (error) {
+      return String(error);
+    }
+  };
+  assert({
+    given: 'one Club id alone, or Club ids without the Stripe group',
+    should: 'refuse startup naming the Club fields only',
+    actual: [
+      refused({
+        ...stripe,
+        STRIPE_CLUB_SEAT_PRICE_ID: club.STRIPE_CLUB_SEAT_PRICE_ID,
+      }),
+      refused(club),
+    ].map((message) => message.includes('STRIPE_CLUB')),
+    expected: [true, true],
   });
 });
 

@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
+import { sideOfSeat } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import type { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -18,7 +19,7 @@ const participationRows = async (sql: SQL, actorId: string) => {
   const [room] =
     await sql`select count(*)::int as n from room_participants where actor_id=${actorId}`;
   const [member] =
-    await sql`select count(*)::int as n from room_active_memberships where actor_id=${actorId}`;
+    await sql`select count(*)::int as n from active_seats where actor_id=${actorId}`;
   return [round!.n, room!.n, member!.n];
 };
 
@@ -29,7 +30,7 @@ test('a spectator holds no Ready, command or attendance power, and watching reco
     const roomId = row!.room_id as string;
     const round = await f.store.getRound(roundId);
     const debaterSeat = round!.participants.find(
-      (seat) => seat.role === 'affirmative',
+      (seat) => sideOfSeat(seat.seat) === 'affirmative',
     )!.id;
     const room = await f.operations.view(spectator, roomId);
     const [{ n: receiptsBefore }] =
@@ -68,8 +69,7 @@ test('a spectator holds no Ready, command or attendance power, and watching reco
           commandId: createId(),
           expectedVersion: room.version,
           type: 'claim-seat',
-          role: 'judge',
-          slot: 0,
+          seat: { kind: 'judge' as const, slot: 0 },
         }),
       code: 'CONFLICT',
     });

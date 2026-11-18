@@ -59,7 +59,11 @@ describe('judgeRoomStageOf', () => {
   test('a speech and a cross-examination', () => {
     const speech = stageAt(ran(1), origin + startOf(0) + 1_000);
     const cx = stageAt(ran(crossEx + 1), origin + startOf(crossEx) + 1_000);
-    const asker = rules[crossEx]!.side;
+    const cxSpeak = rules[crossEx]!.speak;
+    const asker =
+      cxSpeak.rights !== 'one' && cxSpeak.lead?.kind === 'side'
+        ? cxSpeak.lead.side
+        : null;
     assert({
       given: 'the first speech, then the first cross-examination',
       should:

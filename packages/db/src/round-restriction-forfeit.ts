@@ -1,6 +1,7 @@
 import { isRoundRunning, runningRoundStatuses } from '@daisy/protocol';
+import { isDebatingSeatSql } from './seat-columns';
 import { CryptoHasher } from 'bun';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { RoundProjection } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { DatabaseEventSink } from './instrumented';
@@ -87,7 +88,7 @@ export async function forfeitMemberRounds(
     .where(
       and(
         eq(roundParticipants.actorId, actorId),
-        ne(roundParticipants.role, 'judge'),
+        isDebatingSeatSql(roundParticipants.seatKind),
         inArray(rounds.status, [...runningRoundStatuses]),
       ),
     )

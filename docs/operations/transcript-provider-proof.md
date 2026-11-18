@@ -19,9 +19,9 @@ The dedicated synthetic identity is `transcript-proof@example.test`, username
 579 (2026-10-27), scoped to staging; channel 662 moved it onto the flat
 DEC-183 beta cap (ISSUE-646). The fixture uses the existing username, age-step
 and audited beta-access command operations. Approval writes the account's
-beta entitlement grants (ADR 0085), so the host gets the configured
-`AI_ROUND_MONTHLY_CAP` (20 by default) for the current UTC calendar month
-through the normal admission policy; no quota row is written. It never resets
+beta entitlement grants (ADR 0085), so the host is admitted as Premium, up
+to the per-day fair-use ceiling of 12 bot Rounds (ADR 0146), through the
+normal admission policy; no quota row is written. It never resets
 usage, refunds a successful practice, alters the attendance probe or writes
 any other grant. Revoked access is refused. Each run makes
 one CSPRNG session, valid for fifteen minutes, and removes its own session in

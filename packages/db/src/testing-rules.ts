@@ -1,24 +1,40 @@
-import type { RoundRules } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  negativeSide,
+  twoSides,
+  type RoundRules,
+} from '@daisy/protocol';
 
 /** The resolved rules every fixture round freezes, for tests that write rounds. */
 export const validRules: RoundRules = {
-  version: 2,
-  seats: { affirmative: 1, negative: 1, judge: 0 },
+  version: 3,
+  sides: [...twoSides],
+  seats: {
+    sides: { [affirmativeSide]: 1, [negativeSide]: 1 },
+    speakers: 0,
+    judges: 0,
+    moderators: 0,
+  },
+  outcome: { kind: 'winner' },
   segments: [
     {
       key: 'AC',
       label: 'Affirmative constructive',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: {
+        rights: 'one',
+        seat: { kind: 'side', side: affirmativeSide, slot: 0 },
+      },
       durationMs: 240_000,
     },
     {
       key: 'NC',
       label: 'Negative constructive',
       type: 'speech',
-      side: 'negative',
-      slot: 0,
+      speak: {
+        rights: 'one',
+        seat: { kind: 'side', side: negativeSide, slot: 0 },
+      },
       durationMs: 240_000,
     },
   ],

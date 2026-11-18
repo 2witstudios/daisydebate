@@ -38,6 +38,13 @@ export async function runMigrations({
     for (let end = 1; end <= migrations.length; end += 1) {
       await migrate(migrations.slice(0, end), database, config);
     }
+    // Startup reads version provenance, never migration contents or writes.
+    // Keep this release permission beside the runner-owned journal, including
+    // on existing databases with no pending folders. Test journals stay private.
+    if (migrationsTable === undefined && migrationsSchema === undefined) {
+      await client`grant usage on schema drizzle to daisy_web`;
+      await client`grant select (hash, created_at, id) on drizzle.__drizzle_migrations to daisy_web`;
+    }
   } finally {
     await client.close();
   }

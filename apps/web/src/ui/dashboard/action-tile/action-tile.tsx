@@ -20,6 +20,8 @@ export type ActionTileProps = {
   readonly tilt: NoteTilt;
   /** The Seasons note's reveal; null when no season is running. */
   readonly seasonGlance?: SeasonGlance | null;
+  /** A fact under the tagline: the Play note's ladder and rating. */
+  readonly caption?: string | null;
 };
 
 /** One destination on Home, as a curled note stuck to the page. */
@@ -31,6 +33,7 @@ export function ActionTile({
   note,
   tilt,
   seasonGlance = null,
+  caption = null,
 }: ActionTileProps) {
   return (
     <Link
@@ -55,6 +58,11 @@ export function ActionTile({
         >
           {description}
         </p>
+        {caption ? (
+          <p className="mt-1 self-start rounded-badge bg-accent-ink/15 px-badge-x py-badge-y text-badge leading-tight font-heavy tracking-wider uppercase max-narrow:hidden">
+            {caption}
+          </p>
+        ) : null}
       </div>
     </Link>
   );

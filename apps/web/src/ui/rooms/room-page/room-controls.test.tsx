@@ -66,7 +66,7 @@ test('broadcast and record switches', () => {
           release: { kind: 'delay', seconds: 300 },
           debatersReadChat: false,
         },
-        recording: false,
+        recordingPolicy: 'off',
       },
     }),
   );
@@ -93,13 +93,15 @@ test('without the capture grant', () => {
   assert({
     given: 'a casual host without Premium, then a Room that offers no capture',
     should:
-      'point to Premium instead of a switch, then show who can join alone',
+      'show two off switches that post nothing and no panel until reached for, then who can join alone',
     actual: [
-      (html.match(/href="\/premium"/g) ?? []).length,
-      html.includes('role="switch"'),
+      (html.match(/role="switch"/g) ?? []).length,
+      /name="(broadcast|recording)"/.test(html),
+      html.includes('href="/premium"'),
+      html.includes('Recording and broadcast are Premium'),
       none.includes('Broadcast'),
     ],
-    expected: [2, false, false],
+    expected: [2, false, false, false, false],
   });
 });
 
@@ -111,7 +113,7 @@ test('everyone else', () => {
           release: { kind: 'delay', seconds: 10 },
           debatersReadChat: true,
         },
-        recording: true,
+        recordingPolicy: 'released',
       },
     }),
   );
@@ -126,4 +128,62 @@ test('everyone else', () => {
     ],
     expected: [false, true, true, 2],
   });
+});
+
+test('a free host reaching for a capture switch sees the upgrade panel, and nothing posts', async () => {
+  const { mountBrowserClient } =
+    await import('../../test-support/browser-client.test-support');
+  const client = await mountBrowserClient<
+    typeof import('./room-controls.test-support')
+  >(Bun.resolveSync('./room-controls.test-support', import.meta.dir), {
+    URL,
+    URLSearchParams,
+    performance,
+    process: { env: { NODE_ENV: 'test' } },
+  });
+  try {
+    await client.act(async () =>
+      client.root.render(client.createElement(client.FreeHostControls)),
+    );
+    const panel = () =>
+      client.container.textContent?.includes(
+        'Recording and broadcast are Premium',
+      ) ?? false;
+    const before = panel();
+    const record = client.container.querySelector(
+      '#room-recording',
+    ) as unknown as { click: () => void; checked: boolean };
+    await client.act(async () => record.click());
+    const after = panel();
+    const notNow = () =>
+      [...client.container.querySelectorAll('button')].find(
+        (button) => button.textContent === 'Not now',
+      ) as unknown as { click: () => void };
+    await client.act(async () => notNow().click());
+    const dismissed = panel();
+    await client.act(async () => record.click());
+    assert({
+      given: 'a free casual host who clicks the Record switch',
+      should:
+        'show the Premium panel in place, hide it on Not now, show it again on the next reach, leave the switch off and post nothing',
+      actual: {
+        before,
+        after,
+        dismissed,
+        again: panel(),
+        checked: record.checked,
+        posted: client.posted.length,
+      },
+      expected: {
+        before: false,
+        after: true,
+        dismissed: false,
+        again: true,
+        checked: false,
+        posted: 0,
+      },
+    });
+  } finally {
+    await client.act(async () => client.root.unmount());
+  }
 });

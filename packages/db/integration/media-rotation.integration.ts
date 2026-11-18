@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import {
   mediaPhase,
   mediaRoomFate,
@@ -36,7 +37,10 @@ for (const failure of [
   const expectedEpoch = rotated ? 2 : 1;
   test(`rotation preserves session evidence and checks the absence fence: ${failure}`, async () => {
     await withFixture(databaseUrl, async (f) => {
-      const { roundId, seat } = await mediaTestHuman(f);
+      const { roundId, seat } = await mediaTestHuman(
+        f,
+        role === 'judge' ? judgedRound : (fixture) => fixture.round(),
+      );
       const store = mediaTestStore(f.sql);
       const binding = await store.ensureBinding({
         mediaPhase,

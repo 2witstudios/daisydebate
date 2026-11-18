@@ -1,22 +1,8 @@
-import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
+import { entitlementGrantSchema, type EntitlementGrant } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { z } from 'zod';
 
 type Executor = Pick<BunSQLDatabase, 'execute'>;
-
-const grantRow = z.discriminatedUnion('source', [
-  z.object({
-    entitlement: z.enum(entitlementKinds),
-    source: z.literal('beta'),
-  }),
-  z.object({
-    entitlement: z.enum(entitlementKinds),
-    source: z.literal('subscription'),
-    startsAt: z.iso.datetime(),
-    expiresAt: z.iso.datetime(),
-  }),
-]);
 
 /**
  * An account's entitlement grants. Read inside the caller's transaction:
@@ -27,12 +13,46 @@ export async function readEntitlementGrants(
   tx: Executor,
   userId: string,
 ): Promise<readonly EntitlementGrant[]> {
-  const rows = (await tx.execute(sql`select entitlement, source,
-      to_char(starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "startsAt",
-      to_char(expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt"
-    from account_entitlement_grants where user_id = ${userId}
-    order by entitlement, source`)) as unknown as unknown[];
-  return rows.map((row) => grantRow.parse(row));
+  const rows =
+    (await tx.execute(sql`select g.entitlement, g.source, g.organization_id as "organizationId",
+      to_char(g.starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "startsAt",
+      to_char(g.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt",
+      case when v.id is not null then jsonb_build_object(
+        'id',v.id, 'userId',v.user_id, 'version',v.version,
+        'startsAt',to_char(v.starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+        'expiresAt',to_char(v.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+        'issuer',case v.source when 'administrative' then jsonb_build_object('kind',v.source,'serviceId',v.issuer_service_id,'operatorRef',v.issuer_operator_ref,'decisionReference',v.decision_reference) else jsonb_build_object('kind',v.source,'subscriptionId',v.subscription_id,'observedAt',to_char(v.subscription_observed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'evidence',v.subscription_evidence) end, 'coverage',v.coverage
+      ) end as hosting
+    from account_entitlement_grants g
+    left join account_hosting_versions v on v.id = g.hosting_version_id
+      and v.user_id = g.user_id and v.source = g.source
+    where g.user_id = ${userId} and g.revoked_at is null
+    order by g.entitlement, g.source`)) as unknown as unknown[];
+  return rows.map((row) => {
+    const value = row as Record<string, unknown>;
+    return entitlementGrantSchema.parse(
+      value.entitlement === 'tournament_hosting'
+        ? {
+            entitlement: value.entitlement,
+            source: value.source,
+            hosting: value.hosting,
+          }
+        : value.source === 'organization_seat'
+          ? {
+              entitlement: value.entitlement,
+              source: value.source,
+              organizationId: value.organizationId,
+              startsAt: value.startsAt,
+              expiresAt: value.expiresAt,
+            }
+          : {
+              entitlement: value.entitlement,
+              source: value.source,
+              startsAt: value.startsAt,
+              expiresAt: value.expiresAt,
+            },
+    );
+  });
 }
 
 /** What beta approval grants (DEC-247, DEC-183, WATCH-16, WATCH-8) until billing exists. */

@@ -28,11 +28,14 @@ test('real Billing admission consumes fresh Flags authority while a cached displ
       webhookSecret: 'whsec_unused',
       premiumPriceId: 'price_fixture',
       portalConfigurationId: 'bpc_fixture',
+      hostEventPrices: null,
+      club: null,
     };
     const admit = createPurchaseAdmission({
       database,
       config,
       returnOrigin: 'https://daisy.example',
+      releaseDefault: false,
     });
     const subject = { userId, actorId };
     try {
@@ -49,6 +52,7 @@ test('real Billing admission consumes fresh Flags authority while a cached displ
             database,
             config: { kind: 'disabled' },
             returnOrigin: 'https://daisy.example',
+            releaseDefault: false,
           })(subject),
       });
       await assertRejects({
@@ -85,6 +89,7 @@ test('real Billing admission consumes fresh Flags authority while a cached displ
         read: database.readFlagSnapshot,
         now: Date.now,
         diagnostic: () => {},
+        releaseDefault: false,
       });
       const shown = await display(key, userId);
       const killed = await update(1, 'killed');

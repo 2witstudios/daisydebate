@@ -64,6 +64,8 @@ export const freezePostRoundCall = (
 
 /** What decides whether a Round's media is open, read at one instant. */
 export type MediaWindowFacts = {
+  /** Explicit ordinary source invalidation closes transport without rewriting a historical ending. */
+  readonly sourceVoided: boolean;
   readonly status: RoundStatus;
   readonly now: string;
   readonly finalSegmentEndedAt: string | null;

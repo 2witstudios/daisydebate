@@ -1,0 +1,33 @@
+/* Club seats (ADR 0148): the seats board's row tracks, its stat tiles and
+   the fixed widths of the seat count and the seat disclosures. */
+@theme {
+  --spacing-club-count: 6rem;
+  --spacing-club-disclosure: 20rem;
+  --spacing-club-stat: 180px;
+  --spacing-club-fact: 160px;
+  --spacing-club-plan: 22rem;
+}
+
+/* A seats-board row: the member, their ladder, the seat and its actions. */
+@utility grid-cols-club-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+/* Stat tiles and plan facts: as many as fit, each at least its width. */
+@utility grid-cols-club-stats {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--spacing-club-stat), 1fr)
+  );
+}
+@utility grid-cols-club-facts {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--spacing-club-fact), 1fr)
+  );
+}
+
+/* Start a club: the form beside the plan summary. */
+@utility grid-cols-club-start {
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--spacing-club-plan));
+}

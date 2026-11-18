@@ -28,6 +28,7 @@ test('actual generation caller refuses opponent speech without dispatch or trans
       timer: { setTimeout: () => null, clearTimeout: () => undefined },
       stallMs: 1000,
       maxTokens: 1000,
+      reasoning: 'none',
     });
     await assertRejects({
       given: 'actual generation on the opponent actual speech',

@@ -4,6 +4,7 @@ import {
   challengeEnded,
   challengeFields,
   challengeFormUnavailable,
+  challengeRefusal,
   challengeRefused,
   challengeSent,
   initialChallengeForm,
@@ -68,5 +69,20 @@ test('a challenge form says something only when refused or sent', () => {
       values: {},
       error: 'Could not reach Daisy. Try again.',
     },
+  });
+});
+
+test('a ranked offer across ladders says why', () => {
+  assert({
+    given: 'a refused send whose refusal names the ladder rule',
+    should: 'tell the sender ranked needs one ladder, not to leave a room',
+    actual: [
+      challengeRefusal('send', 409, 'ranked-division'),
+      challengeRefusal('send', 409),
+    ],
+    expected: [
+      'Ranked needs you both on one ladder. Send a casual challenge.',
+      'Leave your room first.',
+    ],
   });
 });

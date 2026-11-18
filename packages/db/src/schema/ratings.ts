@@ -1,4 +1,9 @@
-import { ratingLadders, type RatingLadder } from '@daisy/protocol';
+import {
+  ratingDivisions,
+  ratingStyles,
+  type RatingDivision,
+  type RatingStyle,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import {
@@ -9,6 +14,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
@@ -21,6 +27,8 @@ import {
   versionPositive,
 } from './columns';
 import { formats } from './formats';
+import { ladders } from './ladders';
+import { organizations } from './organizations';
 import { roundParticipants } from './round-participants';
 import { rounds } from './rounds';
 
@@ -42,19 +50,42 @@ export const seasons = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
-    activationKey: text('activation_key').unique(),
+    activationKey: text('activation_key'),
     startsAt: timestampColumn('starts_at').notNull(),
     endsAt: timestampColumn('ends_at'),
     status: text('status').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
+    /**
+     * The organization whose season this is, named by every writer: there
+     * is no default. Daisy's rating seasons are Daisy's; those made before
+     * organizations had rows were given to Daisy by the migration.
+     */
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    /**
+     * The division whose ladders this season rates (ADR 0147), fixed when the
+     * season opens. A league's season takes its league's division then
+     * (PYL-16).
+     */
+    division: text('division').$type<RatingDivision>().notNull(),
   },
   (table) => [
-    /** At most one active season. */
+    /** At most one active season per organization and division. */
     uniqueIndex('seasons_single_active')
-      .on(table.status)
+      .on(table.organizationId, table.division)
       .where(sql`${table.status} = 'active'`),
+    unique('seasons_id_organization_unique').on(table.id, table.organizationId),
+    unique('seasons_id_division_unique').on(table.id, table.division),
+    /** One activation per key and division: each division's Season 1. */
+    unique('seasons_activation_key_division_unique').on(
+      table.activationKey,
+      table.division,
+    ),
+    check('seasons_division_check', oneOf(table.division, ratingDivisions)),
+    index('seasons_organization_idx').on(table.organizationId),
     /** An open season has no end; a set end comes strictly after the start. */
     check(
       'seasons_ends_after_starts',
@@ -70,15 +101,25 @@ const ratingScope = () => ({
   actorId: text('actor_id')
     .notNull()
     .references(() => actors.id, { onDelete: 'restrict' }),
-  seasonId: text('season_id')
+  seasonId: text('season_id').notNull(),
+  /**
+   * The ladder's style (ADR 0142): today only Freestyle. The style CHECK
+   * stays beside the reference, so a league's ladder row may exist while no
+   * rating can be posted to it.
+   */
+  ladder: text('ladder')
+    .$type<RatingStyle>()
     .notNull()
-    .references(() => seasons.id, { onDelete: 'restrict' }),
-  /** A Daisy ladder (ADR 0142): today only Freestyle. */
-  ladder: text('ladder').$type<RatingLadder>().notNull(),
+    .references(() => ladders.id, { onDelete: 'restrict' }),
+  /**
+   * The ladder's division (ADR 0147). The season is joined on it, so a
+   * rating can never sit on the other division's season.
+   */
+  division: text('division').$type<RatingDivision>().notNull(),
 });
 
 /**
- * Current Glicko-2 state per actor, ladder and season: a projection of
+ * Current Glicko-2 state per actor, ladder (style and division) and season: a projection of
  * `rating_changes`, written in the same transaction. Provisional status,
  * tier, games played, peak and last-rated time are derived, never stored.
  */
@@ -102,7 +143,15 @@ export const ratings = pgTable(
       table.rating.desc(),
     ),
     index('ratings_season_idx').on(table.seasonId),
-    check('ratings_ladder_check', oneOf(table.ladder, ratingLadders)),
+    index('ratings_ladder_idx').on(table.ladder),
+    index('ratings_season_division_idx').on(table.seasonId, table.division),
+    foreignKey({
+      name: 'ratings_season_division_fk',
+      columns: [table.seasonId, table.division],
+      foreignColumns: [seasons.id, seasons.division],
+    }).onDelete('restrict'),
+    check('ratings_ladder_check', oneOf(table.ladder, ratingStyles)),
+    check('ratings_division_check', oneOf(table.division, ratingDivisions)),
     check('ratings_rating_range', ratingBand(table.rating)),
     check('ratings_deviation_positive', positiveFinite(table.deviation)),
     check('ratings_volatility_positive', positiveFinite(table.volatility)),
@@ -141,7 +190,29 @@ export const ratingChanges = pgTable(
     foreignKey({
       name: 'rating_changes_participant_fk',
       columns: [table.roundId, table.actorId],
-      foreignColumns: [roundParticipants.roundId, roundParticipants.actorId],
+      foreignColumns: [
+        roundParticipants.roundId,
+        roundParticipants.ratingActorId,
+      ],
+    }).onDelete('restrict'),
+    index('rating_changes_season_division_idx').on(
+      table.seasonId,
+      table.division,
+    ),
+    index('rating_changes_round_division_idx').on(
+      table.roundId,
+      table.division,
+    ),
+    foreignKey({
+      name: 'rating_changes_season_division_fk',
+      columns: [table.seasonId, table.division],
+      foreignColumns: [seasons.id, seasons.division],
+    }).onDelete('restrict'),
+    /** The change is posted to the round's own division, never another. */
+    foreignKey({
+      name: 'rating_changes_round_division_fk',
+      columns: [table.roundId, table.division],
+      foreignColumns: [rounds.id, rounds.ladderDivision],
     }).onDelete('restrict'),
     /** The change is posted to the round's own format, never another. */
     foreignKey({
@@ -162,7 +233,12 @@ export const ratingChanges = pgTable(
     index('rating_changes_round_format_idx').on(table.roundId, table.formatId),
     index('rating_changes_format_idx').on(table.formatId),
     index('rating_changes_season_idx').on(table.seasonId),
-    check('rating_changes_ladder_check', oneOf(table.ladder, ratingLadders)),
+    index('rating_changes_ladder_idx').on(table.ladder),
+    check('rating_changes_ladder_check', oneOf(table.ladder, ratingStyles)),
+    check(
+      'rating_changes_division_check',
+      oneOf(table.division, ratingDivisions),
+    ),
     check(
       'rating_changes_rating_range',
       sql`${ratingBand(table.ratingBefore)} and ${ratingBand(table.ratingAfter)}`,

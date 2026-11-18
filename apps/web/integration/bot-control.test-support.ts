@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { sideSeat } from '@daisy/protocol';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,
@@ -22,10 +23,14 @@ async function controlledSpeech(
           ...oneOnOneDefinition,
           segments: oneOnOneDefinition.segments.map((segment, index) =>
             index === 0
-              ? { ...segment, side: openingSide, label: 'Opening speech' }
+              ? {
+                  ...segment,
+                  speak: { rights: 'one', seat: sideSeat(openingSide) },
+                  label: 'Opening speech',
+                }
               : segment,
           ),
-          seats: { ...oneOnOneDefinition.seats, judge: 0 },
+          seats: { ...oneOnOneDefinition.seats, judges: 0 },
         },
         config: {
           ...oneOnOneSettings,

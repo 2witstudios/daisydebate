@@ -1,13 +1,16 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { subscriptionGrants } from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
 import { createDatabase } from '../src/index';
 import { lockAuthorizationActors } from '../src/authorization';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { withHeldCommit } from './usage-ledger.test-support';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withBillingSynchronization,
+  renewing,
+} from './billing-synchronization.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -21,10 +24,10 @@ test('the public billing store recovers an early receipt after mapping and disco
         nextActorId: createId,
       });
       const instanceId = createId();
-      const store = database.billingSynchronization(
-        instanceId,
-        subscriptionGrants,
-      );
+      const store = database.billingSynchronization(instanceId, {
+        account: subscriptionGrants,
+        club: clubSeatGrants,
+      });
       const input = { mode: 'test' as const, limit: 1 };
       try {
         await assertRejects({
@@ -78,7 +81,7 @@ test('the public billing store recovers an early receipt after mapping and disco
             customers.exhausted,
             next.rows,
             next.exhausted,
-            await store.apply(claim, paid),
+            await store.apply(claim, paid, renewing),
           ],
           expected: [
             [receipt.eventId],
@@ -97,10 +100,10 @@ test('the public billing store recovers an early receipt after mapping and disco
         ).toISOString();
         const nextAt = new Date(clock.now.getTime() - 300_000).toISOString();
         await fixture.sql`update billing_customers set synchronization=${JSON.stringify({ kind: 'settled', revision: claim.revision, observedAt, nextAt })}::text::jsonb where id=${customerId}`;
-        const restarted = database.billingSynchronization(
-          instanceId,
-          subscriptionGrants,
-        );
+        const restarted = database.billingSynchronization(instanceId, {
+          account: subscriptionGrants,
+          club: clubSeatGrants,
+        });
         assert({
           given:
             'no new event and a restarted reconciler after the polling deadline',
@@ -127,10 +130,10 @@ test('a billing worker that loses service authority during an account lock wait 
         nextActorId: createId,
       });
       const instanceId = createId();
-      const store = database.billingSynchronization(
-        instanceId,
-        subscriptionGrants,
-      );
+      const store = database.billingSynchronization(instanceId, {
+        account: subscriptionGrants,
+        club: clubSeatGrants,
+      });
       await database.renewServiceInstance({ instanceId, role: 'web' });
       const claim = (await store.claim(customerId))!;
       const [before] =
@@ -143,7 +146,7 @@ test('a billing worker that loses service authority during an account lock wait 
             }),
           );
           const pid = await held.entered;
-          const pending = held.observe(store.apply(claim, paid));
+          const pending = held.observe(store.apply(claim, paid, renewing));
           try {
             assert({
               given:

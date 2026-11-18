@@ -1,6 +1,7 @@
 import {
   broadcastHoldPrefix,
   publicIntervals,
+  recordingEligibilitySchema,
   recordingJobStateSchema,
   type PublicInterval,
   type RecordingBuildProgress,
@@ -83,6 +84,7 @@ export const readRecordingPublicHistory = async (
   const [capture] = await tx
     .select({
       roundId: recordings.roundId,
+      eligibility: recordings.eligibility,
       broadcast: broadcasts.controlHeartbeatAt,
       own: recordingCaptures.controlHeartbeatAt,
       broadcastOpenedAt: broadcasts.createdAt,
@@ -100,8 +102,10 @@ export const readRecordingPublicHistory = async (
       segments: [],
       knownThroughMs: null,
       captureFromMs: 0,
+      captureUntilMs: null,
       prepStartsAtMs: [],
     };
+  const eligibility = recordingEligibilitySchema.parse(capture.eligibility);
   const segments = await tx
     .select({
       startedAt: roundSegments.startedAt,
@@ -121,6 +125,10 @@ export const readRecordingPublicHistory = async (
       ),
     );
   return {
+    captureUntilMs:
+      eligibility.kind === 'tournament_admission'
+        ? Date.parse(eligibility.deadlineAt)
+        : null,
     prepStartsAtMs: preps.map((prep) => prep.startedAt.getTime()),
     segments: segments.map((segment) => ({
       startedAtMs: segment.startedAt.getTime(),
@@ -185,6 +193,7 @@ export const requeueRecordingJob = async (
             history.knownThroughMs,
             history.captureFromMs,
             history.prepStartsAtMs,
+            history.captureUntilMs,
           ),
         ],
         ceilingMs: input.ceilingMs,

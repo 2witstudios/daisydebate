@@ -25,7 +25,7 @@ const setVisibility = (
 
 test('set-visibility (ADR 0145, D9)', () => {
   const room = state();
-  const unlisted = setVisibility(room, room.hostActorId, 'unlisted');
+  const unlisted = setVisibility(room, 'host', 'unlisted');
   assert({
     given:
       'the host making a casual Room unlisted, a guest trying, and a ranked Room',
@@ -40,7 +40,7 @@ test('set-visibility (ADR 0145, D9)', () => {
       guest: setVisibility(room, 'not-the-host', 'unlisted'),
       ranked: setVisibility(
         { ...room, competitionType: 'ranked' },
-        room.hostActorId,
+        'host',
         'unlisted',
       ),
     },

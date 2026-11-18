@@ -14,13 +14,17 @@ import {
   teamIpdaSegments,
   teamPolicySegments,
 } from './catalog-segments';
+import { casualTemplates } from './catalog-casual';
+
+export { casualTemplateIds } from './catalog-casual';
 
 /**
  * The picker's catalog (ADR 0058 extension, FMT-1/FMT-2a, ADR 0142): Daisy's
  * one standard, Freestyle, and the league templates whose rules Daisy runs faithfully, as
  * TypeScript the migrations must match. A template is a casual starting
  * point, never rankable on its own; every time below is the league's
- * published default inside bounds wide enough for practice.
+ * published default inside bounds wide enough for practice. Daisy's own
+ * casual templates (TAB-6.18) follow the league ones.
  */
 
 const ipdaBylaws = {
@@ -242,4 +246,5 @@ export const catalogFormats: readonly CatalogFormat[] = [
     ),
     preset: strikeSettings(templateSettings(0), 30),
   }),
+  ...casualTemplates,
 ];

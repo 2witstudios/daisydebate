@@ -49,3 +49,61 @@ test('delayed A preparation cannot dispose or publish over acknowledged B', asyn
     expected: { mode: null, finalEvent: 'allow' },
   });
 });
+
+test('a setup that lost only to lane contention is prepared again, a bounded number of times', async () => {
+  const contention = new Error('social lane wait expired');
+  const run = async (failures: readonly Error[]) => {
+    const events: string[] = [];
+    let attempt = 0;
+    const control = createMessagingPressureControl(
+      {
+        allow: async () => {
+          events.push('allow');
+        },
+        prepare: async (scope: string) => {
+          const failure = failures[attempt++];
+          events.push(`prepare ${scope}`);
+          if (failure) throw failure;
+        },
+      },
+      (error) => error === contention,
+    );
+    const outcome = await control
+      .prepare('history', async () => 'A')
+      .then(
+        () => 'held',
+        (error: unknown) => (error === contention ? 'contended' : 'refused'),
+      );
+    return { outcome, events, mode: control.mode() };
+  };
+  assert({
+    given: 'one contended setup, then a held one',
+    should: 'read the selectors once, prepare twice and publish the mode',
+    actual: await run([contention]),
+    expected: {
+      outcome: 'held',
+      events: ['allow', 'prepare A', 'prepare A'],
+      mode: 'history',
+    },
+  });
+  assert({
+    given: 'contention on every attempt',
+    should: 'stop after three attempts and publish no mode',
+    actual: await run([contention, contention, contention, contention]),
+    expected: {
+      outcome: 'contended',
+      events: ['allow', 'prepare A', 'prepare A', 'prepare A'],
+      mode: null,
+    },
+  });
+  assert({
+    given: 'a setup that failed for another reason',
+    should: 'refuse at once, with no second attempt',
+    actual: await run([new Error('holder fault')]),
+    expected: {
+      outcome: 'refused',
+      events: ['allow', 'prepare A'],
+      mode: null,
+    },
+  });
+});

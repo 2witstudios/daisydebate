@@ -60,7 +60,11 @@ action that restores the exact preset it started from.
 Custom can also start from a league template (NSDA Lincoln-Douglas, NDT
 policy, Public Forum and others) whose rules Daisy runs faithfully; a template
 always reads as Custom. IPDA and Team IPDA templates strike their
-resolution the way the IPDA bylaws do. Choosing a format that strikes its
+resolution the way the IPDA bylaws do. Daisy's own casual templates
+(TAB-6.18) seat what one debater a side cannot: a three-judge panel decided
+by majority, four teams ranked by the judge, a six-speaker section ranked by
+speaker, and an open conversation of two with both microphones open and
+nothing judged. None is ever rankable. Choosing a format that strikes its
 resolution clears the topic. League-template and Custom rooms may author a
 resolution. Standing is derived from the Room and its basis, never
 stored. Templates set structure only, never judging (DEC-243). Ranked Rooms
@@ -109,8 +113,13 @@ Room says which side team 1 argues, or `?` for a coin flip. A debater may set
 their own team and position to `?` as well. Start round resolves every `?` in
 one public draw, frozen on the Round as its seat draw and shown first in the
 opening. Ranked Rooms always flip; a Tab cast and teams of different sizes keep
-fixed sides. Consent
-lives in expiring Redis behind a durable revision fence.
+fixed sides. Teams exist only in a format that seats the two-sided preset's
+sides and no unsided speakers (TAB-6.2): a team's placement is its side seat,
+and any other format's seats are its sides, with no `?` and no coin. A Tab
+event Room (no host person) takes its sides from the published draw: it is
+created with fixed sides, the engine refuses `set-seat` and `set-sides` there,
+and its roster says the organiser seated it and offers no seat changes.
+Consent lives in expiring Redis behind a durable revision fence.
 
 A host can also **invite** a member by username, as a debater (either side) or
 as the judge (ADR 0124). The invitation holds a seat of that kind for them, so
@@ -129,12 +138,12 @@ on its own (ADR 0104).
 
 ## One active Room
 
-A user is in at most one active Room at a time, as its host or in a seat
-(ADR 0070). A Room is active while it assembles or its Round is opening or
-active; the database holds one `room_active_memberships` row per human
-member, keyed by actor, so a second create or join is refused as
-`active-room` and the UI returns the user to their current Room. Bots hold no
-membership. Every terminal state frees its members:
+A user holds a seat in at most one active Room at a time (ADR 0070,
+TAB-6). A Room is active while it assembles or its Round is opening or
+active; the database holds one `active_seats` row per seated human, keyed by
+actor, so a second seat is refused as `active-room` and the UI returns the
+user to their current Room. A host who holds no seat is not held, and bots
+hold no row. Every terminal state frees its members:
 
 - **Close.** The host's explicit Close closes an open Room. Hosting is
   independent of seating: a host who leaves their seat (or never took one)
@@ -295,6 +304,30 @@ has no capture notice, at create or before Ready, and records none: the ranked
 content waiver, signed once per season, is the ranked agreement, and it alone
 fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
+
+A ranked Room's ladder follows who sits
+([ADR 0147](../decisions/0147-ladder-style-and-division.md)). The Room stores
+no division: its seated human debaters set it. It is unset until one sits,
+then Open – Freestyle (all 18 and over) or Youth – Freestyle (all under 18),
+or mixed. Each person's division comes from the stored birth month, aged on
+the start of the active Youth season, bounded by their own age record and a
+12-month carry (ADR 0147 §3).
+
+- **Own claims.** A member's own claim of a ranked debater seat is refused with
+  `ranked-division` when the others are on the other ladder or the member has
+  no division (`rankedSeatClaimRefusal`).
+- **Host assignments.** A host's assignment and an initial cast may mix ladders.
+- **Start.** Start freezes the Round's ladder (`roundCompetition`). One
+  division rates on that division's active season, and Start refuses with
+  `ranked-unavailable` when there is none. A mixed seating starts a casual
+  Round while the Room stays ranked, and the host is told before Start.
+- **Judges.** Judge seats take anyone.
+- **League ladders.** A league carries one division, Open or Youth (PYL-16),
+  and a league Room on its ladder seats only members in that division. A caller's own claim there answers
+  `ranked-division`, and a host's assignment answers `actor-ineligible`.
+
+Round writers keep their own eligibility, so a running Round is never changed
+by any of this. See [compliance](../operations/compliance.md#children).
 
 A seated human judge reads their own ballot, and once the Round has completed,
 every ballot of it. Only the Round's seats and its seatless host read a Round at

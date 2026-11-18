@@ -9,6 +9,7 @@ import {
   postRoundCallText,
 } from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
+import { twoSides } from '@daisy/protocol';
 import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 
 setupRitewayBun();
@@ -21,6 +22,8 @@ const base = {
   botAdmission: null,
   teamOneSide: 'affirmative' as const,
   status: 'assembling' as const,
+  competitionType: 'casual' as const,
+  ladder: null,
   version: 7,
   participants: [
     {
@@ -29,18 +32,26 @@ const base = {
       label: 'Viewer',
       consentVersion: 8,
       kind: 'human' as const,
-      role: 'judge' as const,
-      slot: 0,
+      seat: { kind: 'judge', slot: 0 } as const,
       teamOpen: false,
       positionOpen: false,
       rating: null,
+      division: null,
       needsReady: true,
       ready: 'not-ready' as const,
       eligible: true,
     },
   ],
   readiness: { available: true, version: 7, readyActorIds: [] },
-  definition: { seats: { affirmative: 1, negative: 1, judge: 1 } },
+  definition: {
+    sides: [...twoSides],
+    seats: {
+      sides: { affirmative: 1, negative: 1 },
+      speakers: 0,
+      judges: 1,
+      moderators: 0 as const,
+    },
+  },
   capabilities: { canReady: true, host: true, canStart: false },
   startRefusal: 'not-ready' as const,
 };
@@ -150,7 +161,7 @@ describe('native room readiness and Start round controls', () => {
       participants: [
         {
           ...base.participants[0]!,
-          role: 'affirmative' as const,
+          seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
           ready: 'ready' as const,
         },
       ],
@@ -345,7 +356,7 @@ describe('native room readiness and Start round controls', () => {
       participants: [
         {
           ...base.participants[0]!,
-          role: 'affirmative' as const,
+          seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
           ready: 'ready' as const,
         },
       ],
@@ -372,10 +383,11 @@ describe('native room readiness and Start round controls', () => {
       id: role,
       actorId: role,
       kind: 'bot' as const,
-      role,
+      seat: { kind: 'side' as const, side: role, slot: 0 },
       teamOpen: false,
       positionOpen: false,
       rating: null,
+      division: null,
       needsReady: false,
     });
     const waiting = controls(props);
@@ -406,7 +418,7 @@ describe('native room readiness and Start round controls', () => {
   test('only the host reads that the Start waits on their device check', () => {
     const debater = {
       ...base.participants[0]!,
-      role: 'affirmative' as const,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
       ready: 'ready' as const,
     };
     const notice = (host: boolean) =>
@@ -421,20 +433,22 @@ describe('native room readiness and Start round controls', () => {
                 ...debater,
                 actorId: 'bot',
                 kind: 'bot' as const,
-                role: 'negative' as const,
+                seat: { kind: 'side', side: 'negative', slot: 0 } as const,
                 teamOpen: false,
                 positionOpen: false,
                 rating: null,
+                division: null,
                 needsReady: false,
               },
               {
                 ...debater,
                 actorId: 'judge-bot',
                 kind: 'bot' as const,
-                role: 'judge' as const,
+                seat: { kind: 'judge', slot: 0 } as const,
                 teamOpen: false,
                 positionOpen: false,
                 rating: null,
+                division: null,
                 needsReady: false,
               },
             ],
@@ -479,7 +493,7 @@ describe('the tile’s one button (ADR 0145)', () => {
       ...base,
       participants: base.participants.map((p) => ({
         ...p,
-        role: 'affirmative' as const,
+        seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
       })),
     };
     let turnedOn = 0;
@@ -526,6 +540,81 @@ describe('the tile’s one button (ADR 0145)', () => {
         after: [false, true],
         judge: false,
       },
+    });
+  });
+});
+
+describe('a ranked Room whose debaters mix ladders (ADR 0147)', () => {
+  const debater = (
+    id: string,
+    label: string,
+    side: 'affirmative' | 'negative',
+    division: 'open' | 'youth',
+  ) => ({
+    ...base.participants[0]!,
+    id: id.repeat(24),
+    actorId: id.repeat(24),
+    label,
+    seat: { kind: 'side', side, slot: 0 } as const,
+    ready: 'ready' as const,
+    division,
+  });
+  const room = (ladder: 'mixed' | 'youth') => ({
+    ...base,
+    competitionType: 'ranked' as const,
+    ladder,
+    participants: [
+      debater('s', 'sam.reyes', 'affirmative', 'youth'),
+      debater(
+        'd',
+        'devon_r',
+        'negative',
+        ladder === 'mixed' ? 'open' : 'youth',
+      ),
+    ],
+    capabilities: { ...base.capabilities, canStart: true },
+    startRefusal: null,
+  });
+  const hostView = (ladder: 'mixed' | 'youth') =>
+    renderToStaticMarkup(
+      <>
+        {ReadyControl({
+          ...props,
+          actorId: 'h'.repeat(24),
+          view: room(ladder),
+        })}
+      </>,
+    );
+
+  test('the seatless host is told before Start that the Round plays casual', () => {
+    const html = hostView('mixed');
+    assert({
+      given: 'a host not in a seat, over a Youth and an Open debater',
+      should:
+        'say the Round will be casual, name each debater’s ladder, say how to keep it ranked, and label Start casual round',
+      actual: [
+        html.includes('>This Round will be casual</h2>'),
+        html.includes(
+          'sam.reyes plays Youth – Freestyle and devon_r plays Open – Freestyle',
+        ),
+        html.includes('To keep it ranked, seat two debaters'),
+        />Start casual round<\/button>/.test(html),
+        html.includes('>Start round<'),
+      ],
+      expected: [true, true, true, true, false],
+    });
+  });
+
+  test('a Room on one ladder starts as ranked', () => {
+    const html = hostView('youth');
+    assert({
+      given: 'the same host over two Youth debaters',
+      should: 'offer Start round with no casual notice',
+      actual: [
+        />Start round<\/button>/.test(html),
+        html.includes('This Round will be casual'),
+      ],
+      expected: [true, false],
     });
   });
 });

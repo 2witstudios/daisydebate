@@ -22,10 +22,15 @@ import {
   operatorCommandReceiptSchema,
   operatorLimits,
 } from '@daisy/protocol/operator';
-import type {
-  BroadcastFeedEndReason,
-  ContentReportCreate,
+import {
+  feedbackSubjectOf,
+  roundJudgingSchema,
+  type BroadcastFeedEndReason,
+  type ContentReportCreate,
+  type SeatKind,
+  type SideKey,
 } from '@daisy/protocol';
+import { seatOfColumns } from './seat-columns';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
@@ -80,19 +85,56 @@ const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
   } as const;
 };
 
-/** The side this reporter debated on, when the ballot has feedback for it. */
-const feedbackSideFor = async (tx: Tx, ballotId: string, actorId: string) => {
-  const [row] = await rows<{ side: string }>(
+/** A ballot feedback report names its subject (`content_reports_feedback_subject_check`). */
+const requireFeedbackSubject = (subject: string | null): string => {
+  if (subject === null)
+    throw createAppError('INVARIANT', 'A feedback report names its subject');
+  return subject;
+};
+
+/**
+ * The subject this reporter's feedback is written under (their side, or
+ * their own participant id when the ballot ranks speakers, per the Round's
+ * frozen definition), when the ballot has feedback for it.
+ */
+const feedbackSubjectFor = async (
+  tx: Tx,
+  ballotId: string,
+  actorId: string,
+): Promise<string | null> => {
+  const [row] = await rows<{
+    id: string;
+    seat_kind: SeatKind;
+    side: SideKey | null;
+    slot: number;
+    judging: string | null;
+    feedback: string | null;
+  }>(
     tx,
-    sql`select p.role as side from ballots b
+    sql`select p.id, p.seat_kind, p.side, p.slot, r.judging::text as judging,
+        b.feedback::text as feedback
+      from ballots b
+      join rounds r on r.id = b.round_id
       join round_participants p on p.round_id = b.round_id
-      where b.id = ${ballotId}
-        and p.actor_id = ${actorId}
-        and p.role in ('affirmative', 'negative')
-        and b.feedback ? p.role
+      where b.id = ${ballotId} and p.actor_id = ${actorId}
       limit 1`,
   );
-  return row?.side ?? null;
+  if (!row) return null;
+  const judging = roundJudgingSchema.parse(
+    row.judging === null ? null : JSON.parse(row.judging),
+  );
+  const subject = feedbackSubjectOf(judging?.ballot ?? null, {
+    id: row.id,
+    seat: seatOfColumns({
+      seatKind: row.seat_kind,
+      side: row.side,
+      slot: row.slot,
+    }),
+  });
+  const feedback = z
+    .record(z.string(), z.unknown())
+    .parse(row.feedback === null ? {} : JSON.parse(row.feedback));
+  return subject !== null && subject in feedback ? subject : null;
 };
 
 const instant = z
@@ -400,7 +442,7 @@ const applyChange = (
 const subjectOf = async (
   tx: Tx,
   report: ContentReport,
-  feedbackSide: string | null,
+  feedbackSubject: string | null,
   ports: Ports,
 ): Promise<ContentModerationSubject | null> => {
   switch (report.targetKind) {
@@ -454,16 +496,16 @@ const subjectOf = async (
       );
     }
     case 'ballot_feedback': {
-      // Only the side reported, and only because it was reported.
+      // Only the subject reported, and only because it was reported.
       const [ballot] = await rows<{ text: string | null }>(
         tx,
-        sql`select feedback ->> ${feedbackSide} as text from ballots where id = ${report.targetId}`,
+        sql`select feedback ->> ${feedbackSubject} as text from ballots where id = ${report.targetId}`,
       );
       return ballot
         ? {
             kind: 'ballot_feedback',
             ballotId: report.targetId,
-            side: feedbackSide as 'affirmative' | 'negative',
+            subject: requireFeedbackSubject(feedbackSubject),
             text: ballot.text,
           }
         : null;
@@ -539,8 +581,11 @@ export function contentModerationOperations({
             return {
               kind: 'ballot_feedback',
               feedbackIsForReporter:
-                (await feedbackSideFor(database, report.targetId, actorId)) !==
-                null,
+                (await feedbackSubjectFor(
+                  database,
+                  report.targetId,
+                  actorId,
+                )) !== null,
             } as const;
           case 'profile_photo':
             return publicProfileModeration.readPhotoReportFacts(database, {
@@ -566,9 +611,9 @@ export function contentModerationOperations({
     }) =>
       instrumented(eventSink, 'fileReport', async () => {
         const { report } = input;
-        const side =
+        const subject =
           report.targetKind === 'ballot_feedback'
-            ? await feedbackSideFor(
+            ? await feedbackSubjectFor(
                 database,
                 report.targetId,
                 input.reporterActorId,
@@ -578,7 +623,7 @@ export function contentModerationOperations({
           id: input.id,
           reporterUserId: input.reporterUserId,
           report,
-          feedbackSide: side,
+          feedbackSubject: subject,
         });
       }),
     /** One keyset page, newest report first, id breaking ties. */
@@ -608,16 +653,16 @@ export function contentModerationOperations({
         eventSink,
         'readModerationReport',
         async (): Promise<ContentReportDetail | null> => {
-          const [row] = await rows<{ feedback_side: string | null }>(
+          const [row] = await rows<{ feedback_subject: string | null }>(
             database,
-            sql`select ${reportColumns}, feedback_side from content_reports where id = ${reportId}`,
+            sql`select ${reportColumns}, feedback_subject from content_reports where id = ${reportId}`,
           );
           if (!row) return null;
-          const { feedback_side: side, ...fields } = row;
+          const { feedback_subject: feedbackSubject, ...fields } = row;
           const report = reportOf(fields);
           return {
             report,
-            subject: await subjectOf(database, report, side, ports),
+            subject: await subjectOf(database, report, feedbackSubject, ports),
           };
         },
       ),

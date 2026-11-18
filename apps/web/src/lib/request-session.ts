@@ -1,3 +1,15 @@
+import { leaguePageAddress } from '../features/tab/reads/league-address';
+import { readStandingRoomDraft } from '../features/tab/reads/standing-room-draft';
+import { authorize } from '@daisy/auth/authorization';
+import { readLeagueSeason } from '../features/tab/reads/league-season';
+import { readLeagueLadder } from '../features/ratings/read-league-ladder';
+import { appDiscoverActor } from '../features/account/username-discovery';
+import {
+  resolveLobbyGrantTarget,
+  type LobbyGrantTargetInput,
+} from '../features/tab/lobby-grant-target';
+import { readLobbyPeople } from '../features/tab/reads/lobby-people';
+import { requireSameOrigin } from '../server/http';
 import { channelMessagesWindow } from '@daisy/protocol';
 import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
 import type { NotificationsQuery } from '../features/notifications/notifications';
@@ -11,16 +23,18 @@ import { idle } from '../features/forms/form-state';
 import { createAppError } from '@daisy/errors';
 import { readLadder } from '../features/leaderboard/read-leaderboard';
 import { readMemberStandings } from '../features/ratings/read-member';
+import { readSeasonHistory } from '../features/profile/season-history';
 import { readRoundRatings } from '../features/ratings/read-round';
 import { cache } from 'react';
 import { createRequestFlagReader } from '../features/flags/reader';
+import { releaseFlagDefault } from '../features/flags/release-default';
 import type { ReleaseFlagKey } from '../features/flags/catalogue';
 
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { PublicProfileCard } from '@daisy/db';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import { type MatchHistoryQuery } from '@daisy/protocol';
+import { type MatchHistoryQuery, type RatingDivision } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
@@ -60,6 +74,7 @@ const requestFlagReader = cache(() => {
         { operation: 'flags.read', cause: 'unavailable' },
         'Release control read failed',
       ),
+    releaseDefault: releaseFlagDefault(app.config),
   });
 });
 
@@ -113,7 +128,7 @@ export const readRecordingArchive = async (
     }),
     archive.countPublicArchive({ clock }),
   ]);
-  return { page, publicCount };
+  return { page, publicCount, nowMs: Date.parse(app.clock.now()) };
 };
 
 /** A finished Round's history screen for this viewer. */
@@ -141,6 +156,9 @@ export const requestMemberDrive = (identity: Identity) => {
     }),
   };
 };
+
+/** This process clock's instant, for a render that words time. */
+export const requestNow = (): string => processApp().clock.now();
 
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
@@ -216,6 +234,20 @@ export const requestOptionalAnswersAdmitted = cache(
       now: app.clock.now(),
       admits: admitsOptionalAnswers,
     });
+  },
+);
+
+/**
+ * This render's member's ladder division (ADR 0147), so a page names their
+ * ladder and offers ranked seats on it. Null for anyone else and for a member
+ * with no age record. It only shapes the page: every ranked command decides
+ * again under its fence.
+ */
+export const requestMemberDivision = cache(
+  async (): Promise<RatingDivision | null> => {
+    const identity = await requestIdentity();
+    if (identity.state !== 'member') return null;
+    return processApp().database.readMemberDivision(identity.principal.userId);
   },
 );
 
@@ -420,7 +452,7 @@ export const requestAudience = async (
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {
   readonly seasonId: string | null;
-  readonly ladder: import('@daisy/protocol').RatingLadder;
+  readonly ladder: import('@daisy/protocol').Ladder;
   readonly now: string;
 }) {
   const identity = await requestIdentity();
@@ -439,6 +471,20 @@ export async function requestMemberStandings(username: string) {
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
   const app = processApp();
   return readMemberStandings(app.database, {
+    username,
+    now: app.clock.now(),
+    ...(identity.state === 'member'
+      ? { viewerActorId: identity.principal.actorId }
+      : {}),
+  });
+}
+
+/** A member's closed seasons per ladder, newest first, for their profile. */
+export async function requestSeasonHistory(username: string) {
+  const identity = await requestIdentity();
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  const app = processApp();
+  return readSeasonHistory(app.database, {
     username,
     now: app.clock.now(),
     ...(identity.state === 'member'
@@ -481,4 +527,107 @@ export async function requestRoomDraftAnswer(
     commandId,
     source,
   );
+}
+
+/** Live league page binding with this request's durable principal and account-targeted release gate. */
+export const requestLeaguePage = async (
+  handle: string,
+  input: {
+    readonly addressKind: 'standing' | 'organization';
+    readonly seasonId?: string | undefined;
+    readonly templateId?: string | undefined;
+    readonly ladder?:
+      | {
+          readonly scope: 'top' | 'around';
+          readonly search: string;
+          readonly page?: number | undefined;
+        }
+      | undefined;
+  },
+) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const address = await leaguePageAddress(store, {
+    kind: input.addressKind,
+    handle,
+  });
+  if (!address) return null;
+  const organizationId = address.organizationId;
+  const principal = identity.principal;
+  const season = await readLeagueSeason({ store, authorize })(principal, {
+    organizationId,
+    ...(address.lobbyId ? { lobbyId: address.lobbyId } : {}),
+    ...(input.seasonId ? { seasonId: input.seasonId } : {}),
+    ...(input.templateId ? { templateId: input.templateId } : {}),
+  });
+  if (!season) return null;
+  const ladder =
+    input.ladder && season.standingLobby
+      ? await readLeagueLadder({ store, authorize })(principal, {
+          lobbyId: season.standingLobby.id,
+          scope: input.ladder.scope,
+          search: input.ladder.search,
+          ...(input.ladder.page !== undefined
+            ? { page: input.ladder.page }
+            : {}),
+        })
+      : null;
+  if (input.ladder && !ladder) return null;
+  return { season, ladder };
+};
+
+/** Native draft addressing uses the actual standing-lobby handle and never depends on a season. */
+export const requestStandingRoomPage = async (
+  handle: string,
+  templateId?: string,
+) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const lobbyId = await store.lobbyIdOfHandle(handle);
+  if (!lobbyId) return null;
+  return readStandingRoomDraft({ store, authorize, now: app.clock.now })(
+    identity.principal,
+    { lobbyId, ...(templateId ? { templateId } : {}) },
+  );
+};
+/** A server action's budgeted username resolution, behind its real request boundary. */
+export async function requestLobbyGrantTarget(
+  input: LobbyGrantTargetInput,
+): Promise<string | null> {
+  const app = processApp();
+  requireSameOrigin(
+    new Request(app.auth().config.PUBLIC_APP_URL, {
+      method: 'POST',
+      headers: new Headers(await headers()),
+    }),
+    app.auth().config.PUBLIC_APP_URL,
+  );
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  return resolveLobbyGrantTarget(identity.principal, input, {
+    readPeople: readLobbyPeople({
+      store: app.database.tabCommands,
+      authorize,
+      now: () => app.clock.now(),
+    }),
+    discover: appDiscoverActor(app),
+    userIdOfActor: (actorId) =>
+      app.database.getActiveHumanUserIdByActorId(actorId),
+  });
 }

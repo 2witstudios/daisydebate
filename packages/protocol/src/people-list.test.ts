@@ -9,6 +9,7 @@ test('a row on the list always shows at least one rating', () => {
     photoId: null,
     status: 'online',
     relation: 'none',
+    division: 'youth',
     wins: 1,
     losses: 0,
   };
@@ -20,13 +21,13 @@ test('a row on the list always shows at least one rating', () => {
     self: 'online',
   });
   assert({
-    given: 'a row with Freestyle, and a row with no ratings',
+    given: 'a row with Youth – Freestyle, and a row with no ratings',
     should: 'accept the first and refuse the second',
     actual: [
       peopleListSchema.safeParse(
         page([
           {
-            ladder: 'freestyle',
+            ladder: { style: 'freestyle', division: 'youth' },
             rating: null,
             provisional: false,
             hidden: false,

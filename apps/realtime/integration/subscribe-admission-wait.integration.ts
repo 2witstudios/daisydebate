@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { sideSeat } from '@daisy/protocol';
 import {
   holdingFence,
   productionLanes,
@@ -27,7 +28,7 @@ async function queuedBehindAFence(
   elapsedMs: number,
   settled: (peer: Peer) => Promise<void>,
 ) {
-  const round = await world.rounds.seed('private', 'affirmative');
+  const round = await world.rounds.seed('private', sideSeat('affirmative'));
   const peer = await world.connect(world.debater);
   const ticket = await world.ticket(world.fenced);
   await holdingFence(world, async (blocked) => {
@@ -89,7 +90,7 @@ test(
         const topics: string[] = [];
         for (let index = 0; index < TOPICS; index += 1)
           topics.push(
-            (await world.rounds.seed('private', 'affirmative')).topic,
+            (await world.rounds.seed('private', sideSeat('affirmative'))).topic,
           );
         const peers: Peer[] = [];
         for (let index = 0; index < SOCKETS; index += 1)

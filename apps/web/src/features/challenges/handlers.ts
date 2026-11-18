@@ -3,7 +3,7 @@ import {
   challengeCommandSchemas,
   challengeListSchema,
   challengeResultSchema,
-  type RatingLadder,
+  type RatingStyle,
   type ChallengeList,
   type CompetitionType,
   type ChallengeResult,
@@ -30,7 +30,7 @@ export function createChallengeHandlers(dependencies: {
       readonly commandId: string;
       readonly username: string;
       readonly mode: CompetitionType;
-      readonly format: RatingLadder;
+      readonly format: RatingStyle;
     },
   ) => Answer;
   readonly accept: (
@@ -52,6 +52,8 @@ export function createChallengeHandlers(dependencies: {
       name: `challenges.${name}`,
       readOnly: false,
       readInput: () => readJson(request, MAX_BODY_BYTES),
+      // A ranked offer across ladders answers why (ADR 0147).
+      refusals: ['ranked-division'],
       operation: async (input, principal) =>
         challengeResultSchema.parse({
           version: 1,

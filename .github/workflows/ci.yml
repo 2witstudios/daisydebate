@@ -237,11 +237,37 @@ jobs:
       # cannot pass flags.
       - run: docker compose -f infra/compose.yaml up -d --wait redis livekit clamd clickhouse
       # The Recording build runs real ffmpeg (apps/recording-worker/integration).
+      # apt's lists and .debs are cached per runner image: a warm run installs
+      # with no network at all, because the Ubuntu mirror has trickled the
+      # 63 MB download past the budget on whole runs. A new image restores the
+      # previous image's .debs and downloads only what changed.
+      - name: Resolve the runner image for the ffmpeg cache
+        id: ffmpeg-image
+        run: echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+      - name: Restore ffmpeg packages
+        id: ffmpeg-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-ffmpeg-apt
+          key: ffmpeg-apt-v1-${{ runner.arch }}-${{ steps.ffmpeg-image.outputs.image }}
+          restore-keys: ffmpeg-apt-v1-${{ runner.arch }}-
       - name: Prepare and verify ffmpeg (240-second total budget)
+        id: ffmpeg
         timeout-minutes: 4
         run: |
           read -r started _ < /proc/uptime
-          sudo -n --preserve-env=ImageOS,ImageVersion "$(command -v bun)" scripts/ci-ffmpeg.ts "$started"
+          sudo -n --preserve-env=ImageOS,ImageVersion "$(command -v bun)" scripts/ci-ffmpeg.ts "$started" "$HOME/.cache/daisy-ffmpeg-apt"
+          # Only an entry naming this exact image is saved under its key, even
+          # if dropping a restored stage from another image failed.
+          if [ "$(cat "$HOME/.cache/daisy-ffmpeg-apt/image" 2>/dev/null)" = "$ImageOS/$ImageVersion" ]; then echo "staged=true" >> "$GITHUB_OUTPUT"; fi
+      # Saved straight after preparation, so a later test failure still keeps
+      # the warm cache. The four shards race for one key; the losers only warn.
+      - name: Save ffmpeg packages
+        if: ${{ steps.ffmpeg-cache.outputs.cache-hit != 'true' && steps.ffmpeg.outputs.staged == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-ffmpeg-apt
+          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
       - run: bun db:migrate
       - name: Verify migration reruns are idempotent
         run: bun db:migrate

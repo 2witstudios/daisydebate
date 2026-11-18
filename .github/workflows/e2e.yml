@@ -121,23 +121,28 @@ jobs:
           task: browser-build
           phase: save
 
-      - name: Resolve the Playwright version and cache month
+      - name: Resolve the Playwright version
         id: playwright
         run: |
           echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
-          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-      # Browsers and the OS packages' .debs, keyed on the exact Playwright
-      # version: a warm run skips both downloads, including the Ubuntu
-      # mirror that stalled whole jobs. The month rolls the .debs forward
-      # with Ubuntu's updates.
-      - name: Restore Playwright browsers and OS packages
+      # Browsers keyed on the exact Playwright version, and the OS packages'
+      # .debs: a warm run skips both downloads, including the Ubuntu mirror
+      # that stalled whole jobs.
+      - name: Restore Playwright browsers
         id: browser-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}
+      # The newest .deb set for this version: Ubuntu's updates land in a new
+      # entry (ci-browsers.sh reports debs=changed), never in a stale one.
+      - name: Restore the browsers' OS packages
+        id: deb-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-apt-archives
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}_
 
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
@@ -145,6 +150,7 @@ jobs:
       # The step bound sits inside the 20-minute job budget (ci-browsers.sh
       # stops after three apt attempts).
       - name: Install Playwright browsers
+        id: browsers
         timeout-minutes: 8
         env:
           BROWSERS: ${{ github.event_name == 'push' && 'chromium' || 'chromium firefox webkit' }}
@@ -153,14 +159,18 @@ jobs:
 
       # Saved straight after the install, so a later test failure still
       # keeps the warm cache.
-      - name: Save Playwright browsers and OS packages
+      - name: Save Playwright browsers
         if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
+          path: ~/.cache/ms-playwright
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
+      - name: Save the browsers' refreshed OS packages
+        if: ${{ steps.browsers.outputs.debs == 'changed' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-apt-archives
+          key: ${{ steps.deb-cache.outputs.cache-primary-key }}
 
       # A main push runs Chromium alone; the nightly run runs every project.
       - name: Run browser tests
@@ -271,33 +281,44 @@ jobs:
       - name: Build the admin app
         run: bun run --cwd apps/admin build
 
-      - name: Resolve the Playwright version and cache month
+      - name: Resolve the Playwright version
         id: playwright
         run: |
           echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
-          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      - name: Restore Playwright Chromium and OS packages
+      - name: Restore Playwright Chromium
         id: browser-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium
+      # The newest .deb set for this version: Ubuntu's updates land in a new
+      # entry (ci-browsers.sh reports debs=changed), never in a stale one.
+      - name: Restore the browsers' OS packages
+        id: deb-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-apt-archives
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_
 
       - name: Install Playwright Chromium
+        id: browsers
         timeout-minutes: 8
         run: sh scripts/ci-browsers.sh chromium
 
-      - name: Save Playwright Chromium and OS packages
+      - name: Save Playwright Chromium
         if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
+          path: ~/.cache/ms-playwright
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
+      - name: Save the browsers' refreshed OS packages
+        if: ${{ steps.browsers.outputs.debs == 'changed' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-apt-archives
+          key: ${{ steps.deb-cache.outputs.cache-primary-key }}
 
       # The webServer migrates this database, empties it and provisions the
       # DML-only login the server runs as (apps/admin/e2e/support/prepare.ts).
@@ -397,37 +418,46 @@ jobs:
           task: native-build
           checkout: .pu/worktrees/wt-roomlaunchci
           phase: save
-      - name: Resolve the Playwright version and cache month
+      - name: Resolve the Playwright version
         id: playwright
         run: |
           echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
-          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-      # Browsers and the OS packages' .debs, keyed on the exact Playwright
-      # version: a warm run skips both downloads, including the Ubuntu
-      # mirror that stalled whole jobs. The month rolls the .debs forward
-      # with Ubuntu's updates.
-      - name: Restore Playwright browsers and OS packages
+      # Browsers keyed on the exact Playwright version, and the OS packages'
+      # .debs: a warm run skips both downloads, including the Ubuntu mirror
+      # that stalled whole jobs.
+      - name: Restore Playwright browsers
         id: browser-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium
+      # The newest .deb set for this version: Ubuntu's updates land in a new
+      # entry (ci-browsers.sh reports debs=changed), never in a stale one.
+      - name: Restore the browsers' OS packages
+        id: deb-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-apt-archives
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_
       - name: Install controlled Chromium and artifact tools
         id: chromium
         timeout-minutes: 8
         run: sh scripts/ci-browsers.sh chromium
       # Saved straight after the install, so a later test failure still
       # keeps the warm cache.
-      - name: Save Playwright browsers and OS packages
+      - name: Save Playwright browsers
         if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
+          path: ~/.cache/ms-playwright
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
+      - name: Save the browsers' refreshed OS packages
+        if: ${{ steps.chromium.outputs.debs == 'changed' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/daisy-apt-archives
+          key: ${{ steps.deb-cache.outputs.cache-primary-key }}
       - name: Resolve prepared Launch browser identity
         id: launch-image
         run: |

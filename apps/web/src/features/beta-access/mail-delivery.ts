@@ -4,11 +4,11 @@ import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
 import { renderBetaEmail } from './templates';
 import {
-  MAIL_LEASE_MS,
-  MAIL_MAX_ATTEMPTS,
-  MAIL_QUEUE_BATCH,
-  retryOrFail as backOff,
-} from '../mail/retry-policy';
+  clubInvitationPath,
+  renderClubSeatInvitation,
+} from '../clubs/invitation-email';
+import { retryOrFail as backOff } from '../mail/retry-policy';
+import { runMailQueue } from '../mail/run-queue';
 
 type Store = Pick<
   Database,
@@ -49,32 +49,48 @@ export function createMailIntentDelivery(input: {
     if (delivery.kind === 'owner-digest' && !input.ownerAddress)
       return { kind: 'cancelled', errorCode: 'unconfigured' };
     const [to, rendered] =
-      delivery.kind === 'invitation'
+      delivery.kind === 'club-seat-invitation'
         ? [
             delivery.to,
-            renderBetaEmail({
-              kind: 'beta-invitation',
-              url: new URL('/sign-in', input.appUrl).toString(),
+            renderClubSeatInvitation({
+              clubName: delivery.clubName,
+              manager: delivery.manager,
+              expiresAt: delivery.expiresAt,
+              url: new URL(
+                clubInvitationPath(
+                  delivery.organizationId,
+                  delivery.invitationId,
+                ),
+                input.appUrl,
+              ).toString(),
             }),
           ]
-        : delivery.kind === 'member'
+        : delivery.kind === 'invitation'
           ? [
               delivery.to,
               renderBetaEmail({
-                kind: 'beta-approved',
-                username: delivery.username,
-                url: new URL('/play', input.appUrl).toString(),
+                kind: 'beta-invitation',
+                url: new URL('/sign-in', input.appUrl).toString(),
               }),
             ]
-          : [
-              input.ownerAddress!,
-              renderBetaEmail({
-                kind: 'beta-requests',
-                newRequests: delivery.newRequests,
-                waiting: delivery.waiting,
-                url: `${operatorConsoleOrigin}/accounts?access=pending`,
-              }),
-            ];
+          : delivery.kind === 'member'
+            ? [
+                delivery.to,
+                renderBetaEmail({
+                  kind: 'beta-approved',
+                  username: delivery.username,
+                  url: new URL('/play', input.appUrl).toString(),
+                }),
+              ]
+            : [
+                input.ownerAddress!,
+                renderBetaEmail({
+                  kind: 'beta-requests',
+                  newRequests: delivery.newRequests,
+                  waiting: delivery.waiting,
+                  url: `${operatorConsoleOrigin}/accounts?access=pending`,
+                }),
+              ];
     try {
       const sent = await input.deliver({
         ...rendered,
@@ -103,31 +119,19 @@ export function createMailIntentDelivery(input: {
   ): Outcome => backOff(claim.attempts, input.now(), errorCode);
   return {
     /** Sends up to `limit` due intents one after another; resolves to how many it settled. */
-    async run(limit: number): Promise<number> {
-      const claims = await input.store.claimMailIntents({
-        limit: Math.min(limit, MAIL_QUEUE_BATCH),
-        leaseMs: MAIL_LEASE_MS,
-        maxAttempts: MAIL_MAX_ATTEMPTS,
+    run: (limit: number): Promise<number> =>
+      runMailQueue({
+        limit,
         nextToken: input.nextToken,
-      });
-      let settled = 0;
-      for (const claim of claims) {
+        claim: input.store.claimMailIntents,
+        decide,
         // One intent whose read fails (erased mid-lease, say) counts as a
         // failed attempt; it never aborts the rest of the batch (ISSUE-656).
-        const outcome = await decide(claim).catch((error: unknown) => {
+        undecided: (claim, error) => {
           input.failed(error);
           return retryOrFail(claim);
-        });
-        if (
-          await input.store.settleMailIntent({
-            id: claim.id,
-            token: claim.token,
-            outcome,
-          })
-        )
-          settled += 1;
-      }
-      return settled;
-    },
+        },
+        settle: input.store.settleMailIntent,
+      }),
   };
 }

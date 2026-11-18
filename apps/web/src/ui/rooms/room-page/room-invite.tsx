@@ -9,10 +9,12 @@ export function RoomInvite({
   roomId,
   visibility,
   label,
+  className = buttonClass('secondary'),
 }: {
   readonly roomId: string;
   readonly visibility: string;
   readonly label: string;
+  readonly className?: string;
 }) {
   const [notice, setNotice] = useState('');
   const interactive = useSyncExternalStore(
@@ -37,17 +39,13 @@ export function RoomInvite({
   };
   if (!interactive)
     return (
-      <a href={href} className={buttonClass('secondary')}>
+      <a href={href} className={className}>
         {label}
       </a>
     );
   return (
     <span className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => void copy()}
-        className={buttonClass('secondary')}
-      >
+      <button type="button" onClick={() => void copy()} className={className}>
         {label}
       </button>
       <span

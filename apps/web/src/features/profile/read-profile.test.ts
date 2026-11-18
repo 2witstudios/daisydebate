@@ -16,15 +16,41 @@ const row = {
   completedAt: '2026-10-26T12:00:00.000Z',
   resolution: 'This house would ban homework',
   visibility: 'public',
-  outcome: 'negative',
-  role: 'affirmative',
+  outcome: { kind: 'winner', side: 'negative' },
+  seat: { kind: 'side', side: 'affirmative', slot: 0 },
   forfeit: true,
+  ladder: { style: 'freestyle', division: 'youth' },
   seats: [
-    { role: 'affirmative', kind: 'human', label: 'debater-a', closed: false },
-    { role: 'affirmative', kind: 'human', label: 'teammate', closed: false },
-    { role: 'negative', kind: 'bot', label: 'Socrates', closed: false },
-    { role: 'negative', kind: 'human', label: 'gone-debater', closed: true },
-    { role: 'judge', kind: 'bot', label: 'Judge bot', closed: false },
+    {
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
+      kind: 'human',
+      label: 'debater-a',
+      closed: false,
+    },
+    {
+      seat: { kind: 'side', side: 'affirmative', slot: 1 },
+      kind: 'human',
+      label: 'teammate',
+      closed: false,
+    },
+    {
+      seat: { kind: 'side', side: 'negative', slot: 0 },
+      kind: 'bot',
+      label: 'Socrates',
+      closed: false,
+    },
+    {
+      seat: { kind: 'side', side: 'negative', slot: 1 },
+      kind: 'human',
+      label: 'gone-debater',
+      closed: true,
+    },
+    {
+      seat: { kind: 'judge', slot: 0 },
+      kind: 'bot',
+      label: 'Judge bot',
+      closed: false,
+    },
   ],
 } as const;
 
@@ -98,11 +124,16 @@ const storeFor = (
         groups: [
           {
             status: 'completed',
-            outcome: 'affirmative',
-            role: 'affirmative',
+            outcome: { kind: 'winner', side: 'affirmative' },
+            seat: { kind: 'side', side: 'affirmative', slot: 0 },
             rounds: 2,
           },
-          { status: 'completed', outcome: null, role: 'negative', rounds: 1 },
+          {
+            status: 'completed',
+            outcome: null,
+            seat: { kind: 'side', side: 'negative', slot: 0 },
+            rounds: 1,
+          },
         ],
         rows: [row],
         nextBefore: roundId,
@@ -155,6 +186,7 @@ describe('readProfile', () => {
           forfeit: true,
           judges: 'ai',
           visibility: 'public',
+          ladder: { style: 'freestyle', division: 'youth' },
         },
         nextBefore: roundId,
       },
@@ -289,7 +321,13 @@ describe('readProfile', () => {
 
 describe('judgePanel', () => {
   test('who ruled', () => {
-    const seat = (role: string, kind: 'human' | 'bot') => ({ role, kind });
+    const seat = (side: string, kind: 'human' | 'bot') => ({
+      seat:
+        side === 'judge'
+          ? ({ kind: 'judge', slot: 0 } as const)
+          : ({ kind: 'side', side, slot: 0 } as const),
+      kind,
+    });
     assert({
       given: 'no judges, AI judges, human judges, and both',
       should: 'name the panel, ignoring debater seats',

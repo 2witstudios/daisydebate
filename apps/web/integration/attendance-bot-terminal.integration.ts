@@ -23,7 +23,7 @@ test('a bot Round whose worker never returns after its windows are decided still
     );
     const facts = async () =>
       (
-        await f.sql`select status,outcome,
+        await f.sql`select status,winning_side as outcome,
         (select count(*)::int from round_commands where round_id=${roundId} and type='complete') as receipts,
         (select count(*)::int from ballots where round_id=${roundId}) as ballots,
         (select count(*)::int from rating_changes where round_id=${roundId}) as ratings,

@@ -127,4 +127,50 @@ describe('Dashboard', () => {
       expected: [0, true, true],
     });
   });
+
+  test('ends with the way to About Daisy for visitors and members', () => {
+    const strip = (html: string) =>
+      /<section[^>]*class="[^"]*max-narrow:hidden[^"]*"[^>]*>[\s\S]*?href="\/about"[\s\S]*?<\/section>/.test(
+        html,
+      ) && html.lastIndexOf('href="/about"') > html.indexOf('Live now');
+    assert({
+      given: 'a visitor and a member',
+      should:
+        'close the dashboard with one About strip, off a phone like the cards above it, the visitor’s hero linking it too',
+      actual: [
+        strip(renderWithGlance()),
+        strip(render()),
+        occurrences(renderWithGlance(), 'href="/about"'),
+        occurrences(render(), 'href="/about"'),
+      ],
+      expected: [true, true, 1, 2],
+    });
+  });
+});
+
+describe('Dashboard ladder words', () => {
+  test('Play carries the member’s ladder and Leaderboard names every ladder', () => {
+    const html = renderInStore(
+      h(Dashboard, {
+        audience: 'member',
+        hero: null,
+        liveNow: null,
+        ladder: {
+          playCaption: 'Youth – Freestyle · 1526',
+          leaderboardTagline: 'Youth – Freestyle and Open – Freestyle ladders.',
+        },
+      }),
+    );
+    assert({
+      given: 'a youth member rated 1526',
+      should:
+        'caption Play with their ladder and rating, and name both ladders on Leaderboard instead of its own tagline',
+      actual: [
+        html.includes('>Youth – Freestyle · 1526<'),
+        html.includes('Youth – Freestyle and Open – Freestyle ladders.'),
+        html.includes('The season ladder.'),
+      ],
+      expected: [true, true, false],
+    });
+  });
 });

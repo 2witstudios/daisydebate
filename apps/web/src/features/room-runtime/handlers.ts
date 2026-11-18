@@ -124,6 +124,10 @@ export function createRoomHandlers(dependencies: Dependencies) {
       run(request, 'read', false, async (caller) => ({
         activeRoom: await dependencies.operations.activeRoom(caller),
       })),
+    hosted: (request: Request) =>
+      run(request, 'read', false, async (caller) => ({
+        rooms: await dependencies.operations.hostedRooms(caller),
+      })),
     catalog: (request: Request) =>
       run(request, 'read', false, async (caller) => ({
         ...(await dependencies.operations.catalog(caller)),

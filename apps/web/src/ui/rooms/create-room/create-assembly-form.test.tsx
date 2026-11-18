@@ -11,6 +11,7 @@ setupRitewayBun();
 test('creation presents format first and a complete progressively enhanced editor', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
+      memberDivision="open"
       state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'m'.repeat(24)}
@@ -31,7 +32,7 @@ test('creation presents format first and a complete progressively enhanced edito
       html.includes('Points of information (POI)'),
       html.includes('name="duration.segment.0"'),
       html.includes('name="duration.preRound"'),
-      html.includes('value="add-affirmative"'),
+      html.includes('value="add-side:affirmative"'),
       html.includes('name="resolutionMethod"'),
       html.includes('name="topic"'),
     ],
@@ -42,6 +43,7 @@ test('creation presents format first and a complete progressively enhanced edito
 test('an empty catalog cannot submit a fabricated template', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
+      memberDivision="open"
       state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'m'.repeat(24)}
@@ -66,6 +68,7 @@ test('an empty catalog cannot submit a fabricated template', () => {
 test('native template selection carries the immutable revision and exact defaults', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
+      memberDivision="open"
       state={{
         values: {
           title: 'Retained title',
@@ -100,6 +103,7 @@ test('native template selection carries the immutable revision and exact default
 test('a new Room cannot be made private while no invite path exists', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
+      memberDivision="open"
       state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'q'.repeat(24)}

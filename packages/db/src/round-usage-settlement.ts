@@ -6,6 +6,7 @@ import { usageStateSchema } from '@daisy/protocol/billing';
 import type { BoundedTransactionContext } from './transaction-context';
 import { usageReservations } from './schema/usage-reservations';
 import { advanceUsageLocked } from './usage-ledger';
+import { isDebatingSeatSql } from './seat-columns';
 
 type Tx = Pick<BoundedTransactionContext, 'select' | 'update' | 'execute'>;
 
@@ -15,7 +16,7 @@ async function providerOutcome(tx: Tx, roundId: string) {
     count(*) filter(where a.configuration_snapshot->>'providerOutcome'='received')::int as received,
     count(*) filter(where a.configuration_snapshot->>'providerOutcome'='failed')::int as failed
     from agent_runs a join round_participants p on p.id=a.round_participant_id
-    where p.round_id=${roundId} and p.role in ('affirmative','negative') and a.requests>0`);
+    where p.round_id=${roundId} and ${isDebatingSeatSql(sql`p.seat_kind`)} and a.requests>0`);
   const facts = row as { calls: number; received: number; failed: number };
   if (facts.calls === 0 || facts.received + facts.failed !== facts.calls)
     return 'unknown' as const;

@@ -12,11 +12,13 @@ export function createPurchaseAdmission(input: {
   readonly database: Pick<Database, 'billingPurchases'>;
   readonly config: BillingConfig;
   readonly returnOrigin: string;
+  /** The deployment's release-flag default (ADR 0118). */
+  readonly releaseDefault: boolean;
 }) {
   const store = input.database.billingPurchases({
     purchase: canPurchasePremium,
     manage: canManageBilling,
-    release: releaseAdmission('premium-checkout'),
+    release: releaseAdmission('premium-checkout', input.releaseDefault),
   });
   return async (
     subject: { readonly userId: string; readonly actorId: string } | null,
@@ -26,6 +28,7 @@ export function createPurchaseAdmission(input: {
     return store.admit(subject, {
       mode: input.config.mode,
       priceId: input.config.premiumPriceId,
+      quantity: 1,
       returnOrigin: input.returnOrigin,
     });
   };

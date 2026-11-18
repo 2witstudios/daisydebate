@@ -1,11 +1,11 @@
 'use client';
 
 import type { CompetitionType } from '@daisy/protocol';
-import type { Side } from '../../features/debate-room/speeches';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
 import type { RoundSnapshot } from './round';
+import { toneChip } from './side-tone';
 import { speechPosition, speechWindow } from './speech-window';
 
 const chip =
@@ -16,12 +16,6 @@ const competitionName: Readonly<Record<CompetitionType, string>> = {
   casual: 'Casual',
 };
 
-const sideChip: Readonly<
-  Record<Side, { readonly label: string; readonly tone: string }>
-> = {
-  aff: { label: 'You’re Affirmative', tone: 'bg-hue-sky-soft text-hue-sky' },
-  neg: { label: 'You’re Negative', tone: 'bg-hue-clay-soft text-hue-clay' },
-};
 
 function speechState(index: number, live: number) {
   if (index === live) return 'Now';
@@ -167,7 +161,10 @@ export function RoundBar({
   readonly roomNumber?: number;
   readonly leave: LeaveLinks;
 }) {
-  const side = sideChip[round.self.side];
+  const side = {
+    label: `You’re ${round.self.sideLabel}`,
+    tone: toneChip[round.self.tone],
+  };
   return (
     <header className="relative flex min-h-round-bar shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-1 max-narrow:gap-x-2">
       <div className="flex min-w-0 grow basis-round-title flex-col">

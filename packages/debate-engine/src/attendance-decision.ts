@@ -1,8 +1,9 @@
 import { createInvariantError } from '@daisy/errors';
 import { adjudicateAttendance, type AttendanceDecision } from './attendance';
 import { debateInvariantIds } from './invariant-ids';
+import type { SegmentType } from '@daisy/protocol';
 type AttendanceDecisionEvidence = Parameters<typeof adjudicateAttendance>[0] & {
-  readonly segmentType: 'speech' | 'cross_ex' | 'prep';
+  readonly segmentType: SegmentType | 'prep';
 };
 /** Refuse a supplied result that disagrees with settled, irreversible attendance evidence. */
 export function requireAttendanceDecision(

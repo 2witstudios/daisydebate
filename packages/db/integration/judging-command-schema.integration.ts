@@ -1,3 +1,4 @@
+import { authoredJudgedRound } from './judged-round.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -10,7 +11,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 test('a judging intent acquires one actual command identifier and preserves it across attempts', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await authoredJudgedRound(fixture, 2);
     const judges = [
       await fixture.seat(roundId, 'judge'),
       await fixture.seat(roundId, 'judge', 1),
@@ -80,7 +81,7 @@ test('a judging intent acquires one actual command identifier and preserves it a
 
 test('pending judging response survives takeover with immutable origin until atomic ballot success', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await authoredJudgedRound(fixture, 2);
     const judge = await fixture.seat(roundId, 'judge');
     const otherJudge = await fixture.seat(roundId, 'judge', 1);
     const runId = createId(),

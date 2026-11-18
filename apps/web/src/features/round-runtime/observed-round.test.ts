@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  twoSides,
+  type RoundView,
+} from '@daisy/protocol';
 import {
   at,
   countdown,
@@ -24,13 +28,21 @@ describe('observedRoundOf', () => {
       actual: watched.seats,
       expected: [
         {
+          key: 'affirmative',
+          seat: { kind: 'side', side: 'affirmative', slot: 0 },
           side: 'affirmative',
+          sideLabel: 'Affirmative',
+          tone: 'sky',
           label: 'Sam Reyes',
           bot: false,
           activity: 'speaking',
         },
         {
+          key: 'negative',
+          seat: { kind: 'side', side: 'negative', slot: 0 },
           side: 'negative',
+          sideLabel: 'Negative',
+          tone: 'clay',
           label: neg.label,
           bot: true,
           activity: 'listening',
@@ -101,7 +113,7 @@ describe('observedRoundOf', () => {
     const prepping: RoundView = {
       ...ran(4, true),
       checkpoint: {
-        ...emptyRuntimeCheckpoint,
+        ...emptyRuntimeCheckpointFor({ sides: twoSides }),
         active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
       },
     };

@@ -61,6 +61,32 @@ export const actorOperations = ({
       return actor.success ? actor.data : null;
     });
   },
+  /** Internal identity bridge after budgeted username discovery; never a directory. */
+  async getActiveHumanUserIdByActorId(actorId: string): Promise<string | null> {
+    if (!idSchema.safeParse(actorId).success)
+      throw createAppError('VALIDATION');
+    return instrumented(
+      eventSink,
+      'getActiveHumanUserIdByActorId',
+      async () => {
+        const [row] = await database
+          .select({ userId: actors.userId })
+          .from(actors)
+          .innerJoin(users, eq(users.id, actors.userId))
+          .where(
+            and(
+              eq(actors.id, actorId),
+              eq(actors.kind, 'human'),
+              eq(users.emailVerified, true),
+              isNull(users.deletedAt),
+            ),
+          )
+          .limit(1);
+        const userId = idSchema.safeParse(row?.userId);
+        return userId.success ? userId.data : null;
+      },
+    );
+  },
   async getActorByUserId(userId: string): Promise<ActorRecord | null> {
     return instrumented(eventSink, 'getActorByUserId', () =>
       queryActorByUserId(database, userId),

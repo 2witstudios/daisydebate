@@ -1,6 +1,6 @@
 import type { Database } from '@daisy/db';
 import type { StandingsRead } from '@daisy/db/ratings';
-import type { RatingLadder } from '@daisy/protocol';
+import type { Ladder } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { rankRatingEntries } from './rank';
@@ -23,7 +23,8 @@ type RatingSeason = {
 export async function readRatingStandings(
   store: RatingReadStore,
   input: {
-    readonly ladder: RatingLadder;
+    /** The ladder (style and division); only its division's seasons count. */
+    readonly ladder: Ladder;
     readonly seasonId: string | null;
     readonly now: string;
     readonly viewerActorId?: string;
@@ -31,7 +32,9 @@ export async function readRatingStandings(
     readonly revealRoundId?: string;
   },
 ) {
-  const records = await store.listLadderSeasons();
+  const records = (await store.listLadderSeasons()).filter(
+    (s) => s.division === input.ladder.division,
+  );
   const seasons: readonly RatingSeason[] = records.map((s) => ({
     id: s.id,
     name: s.name,

@@ -3,39 +3,71 @@ import { createAppError } from '@daisy/errors';
 import { idSchema, type EntitlementGrant } from '@daisy/protocol';
 import {
   advanceBillingSync,
+  billingOwnerSchema,
   reconcileSubscriptionEvidence,
   subscriptionEvidenceSchema,
   purchaseSchema,
+  type BillingOwner,
   type SubscriptionEvidence,
 } from '@daisy/protocol/billing';
+import { clubSeatBounds } from '@daisy/protocol/club-seats';
 import type { BoundedTransaction } from './bounded-transaction';
-import { lockBillingCustomer } from './billing-authority';
+import {
+  billingOwnerClosed,
+  billingOwnerRevision,
+  lockBillingCustomer,
+  type LockedBillingCustomer,
+} from './billing-authority';
 import { replaceSubscriptionGrants } from './billing-grants';
 import { readDatabaseTime } from './database-clock';
 import { billingCustomers } from './schema/billing-customers';
 import { billingSubscriptions } from './schema/billing-subscriptions';
 import { readFrozenBillingOffer } from './billing-frozen-offer';
+import { ownedBy } from './billing-owner-lock';
+import {
+  lockClubSeatHolderAccounts,
+  readClubSeats,
+  sameHolders,
+  writeClubSeatGrants,
+  type ClubSeatGrantProjection,
+} from './club-seat-grants';
+import type { BoundedTransactionContext } from './transaction-context';
 
 export type BillingSynchronizationClaim = {
   readonly customerId: string;
-  readonly userId: string;
+  readonly owner: BillingOwner;
   readonly vendorCustomerId: string;
   readonly mode: 'test' | 'live';
   readonly subscriptionId: string;
   readonly vendorSubscriptionId: string;
   readonly priceId: string;
-  readonly accountRevision: number;
+  /** The owner's revision when claimed: the account's, or the club's. */
+  readonly ownerRevision: number;
   readonly revision: number;
   readonly claimId: string;
 };
-type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
-async function currentSubscription(tx: Tx, userId: string) {
+/** Display terms and the Club seat count from the same verified observation; never access authority. */
+export type SubscriptionTerms = {
+  readonly renewalOff: boolean;
+  readonly amountMinor: number;
+  /** A Club plan's verified seat count; null for Premium. */
+  readonly seatCount: number | null;
+};
+/** How evidence becomes grants: Premium for an account, seat grants for a club's holders. */
+export type GrantProjections = {
+  readonly account: (
+    evidence: SubscriptionEvidence,
+  ) => readonly EntitlementGrant[];
+  readonly club: ClubSeatGrantProjection;
+};
+type Tx = BoundedTransactionContext;
+async function currentSubscription(tx: Tx, owner: BillingOwner) {
   const [row] = await tx
     .select()
     .from(billingSubscriptions)
     .where(
       and(
-        eq(billingSubscriptions.userId, userId),
+        ownedBy(billingSubscriptions, owner),
         eq(billingSubscriptions.current, true),
       ),
     )
@@ -44,51 +76,94 @@ async function currentSubscription(tx: Tx, userId: string) {
     ? { ...row, evidence: subscriptionEvidenceSchema.parse(row.evidence) }
     : null;
 }
+const ownerOfLocked = (locked: LockedBillingCustomer): BillingOwner =>
+  locked.kind === 'account'
+    ? { kind: 'account', userId: locked.account.userId }
+    : { kind: 'organization', organizationId: locked.club.id };
+const sameOwner = (left: BillingOwner, right: BillingOwner) =>
+  left.kind === 'account'
+    ? right.kind === 'account' && left.userId === right.userId
+    : right.kind === 'organization' &&
+      left.organizationId === right.organizationId;
 function validClaim(input: BillingSynchronizationClaim) {
   return (
-    [input.customerId, input.userId, input.subscriptionId, input.claimId].every(
+    [input.customerId, input.subscriptionId, input.claimId].every(
       (id) => idSchema.safeParse(id).success,
     ) &&
-    [input.accountRevision, input.revision].every(
+    billingOwnerSchema.safeParse(input.owner).success &&
+    [input.ownerRevision, input.revision].every(
       (value) => Number.isSafeInteger(value) && value > 0,
     ) &&
     ['test', 'live'].includes(input.mode) &&
     purchaseSchema.shape.priceId.safeParse(input.priceId).success
   );
 }
+function validTerms(owner: BillingOwner, terms: SubscriptionTerms) {
+  return (
+    Number.isSafeInteger(terms.amountMinor) &&
+    terms.amountMinor >= 1 &&
+    (owner.kind === 'account'
+      ? terms.seatCount === null
+      : Number.isSafeInteger(terms.seatCount) &&
+        terms.seatCount !== null &&
+        terms.seatCount >= 1 &&
+        terms.seatCount <= clubSeatBounds.maxSeats)
+  );
+}
 function isCurrentMapping(
-  locked: NonNullable<Awaited<ReturnType<typeof lockBillingCustomer>>>,
+  locked: LockedBillingCustomer,
   claim: BillingSynchronizationClaim,
 ) {
   return (
-    !locked.account.erased &&
+    !billingOwnerClosed(locked) &&
     locked.customer.closedAt === null &&
-    locked.account.userId === claim.userId &&
-    locked.account.revision === claim.accountRevision &&
+    sameOwner(ownerOfLocked(locked), claim.owner) &&
+    billingOwnerRevision(locked) === claim.ownerRevision &&
     locked.customer.vendorCustomerId === claim.vendorCustomerId &&
     locked.customer.mode === claim.mode
   );
+}
+
+/**
+ * A club's apply writes every seat holder's grants, so their account fences
+ * come first: read the holders, lock their accounts, then the club and the
+ * customer, and re-read the holders. A changed holder set is stale; the
+ * customer stays claimable and the next tick tries again.
+ */
+async function lockForApply(tx: Tx, claim: BillingSynchronizationClaim) {
+  if (claim.owner.kind === 'account')
+    return {
+      locked: await lockBillingCustomer(tx, claim.customerId),
+      seats: null,
+    };
+  const fenced = await lockClubSeatHolderAccounts(
+    tx,
+    claim.owner.organizationId,
+  );
+  const locked = await lockBillingCustomer(tx, claim.customerId);
+  if (!locked || locked.kind !== 'organization')
+    return { locked: null, seats: null };
+  const seats = await readClubSeats(tx, locked.club.id);
+  return sameHolders(seats, fenced.seats)
+    ? { locked, seats }
+    : { locked: null, seats: null };
 }
 
 /** The caller supplies the ordinary bounded control lane; Stripe never participates in these transactions. */
 export function createBillingSynchronization(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
-  readonly grants: (
-    evidence: SubscriptionEvidence,
-  ) => readonly EntitlementGrant[];
+  readonly grants: GrantProjections;
 }) {
   return {
     claim(customerId: string) {
       return input.run(
         async (tx): Promise<BillingSynchronizationClaim | null> => {
           const locked = await lockBillingCustomer(tx, customerId);
-          if (!locked || locked.account.erased || locked.customer.closedAt)
+          if (!locked || billingOwnerClosed(locked) || locked.customer.closedAt)
             return null;
-          const subscription = await currentSubscription(
-            tx,
-            locked.account.userId,
-          );
+          const owner = ownerOfLocked(locked);
+          const subscription = await currentSubscription(tx, owner);
           if (!subscription) return null;
           if (
             locked.customer.mode !== 'test' &&
@@ -96,7 +171,7 @@ export function createBillingSynchronization(input: {
           )
             throw createAppError('VALIDATION');
           const offer = await readFrozenBillingOffer(tx, {
-            userId: locked.account.userId,
+            owner,
             mode: locked.customer.mode,
             customerId: locked.customer.vendorCustomerId,
             vendorSubscriptionId: subscription.vendorSubscriptionId,
@@ -126,29 +201,32 @@ export function createBillingSynchronization(input: {
             .where(eq(billingCustomers.id, customerId));
           return {
             customerId,
-            userId: locked.account.userId,
+            owner,
             vendorCustomerId: locked.customer.vendorCustomerId,
             mode: locked.customer.mode,
             subscriptionId: subscription.id,
             vendorSubscriptionId: subscription.vendorSubscriptionId,
             priceId: offer.priceId,
-            accountRevision: locked.account.revision,
+            ownerRevision: billingOwnerRevision(locked),
             revision: claim.state.revision,
             claimId,
           };
         },
       );
     },
-    apply(claim: BillingSynchronizationClaim, observed: SubscriptionEvidence) {
-      if (!validClaim(claim)) throw createAppError('VALIDATION');
+    apply(
+      claim: BillingSynchronizationClaim,
+      observed: SubscriptionEvidence,
+      terms: SubscriptionTerms,
+    ) {
+      if (!validClaim(claim) || !validTerms(claim.owner, terms))
+        throw createAppError('VALIDATION');
       return input.run(async (tx) => {
-        const locked = await lockBillingCustomer(tx, claim.customerId);
+        const { locked, seats } = await lockForApply(tx, claim);
         if (!locked || !isCurrentMapping(locked, claim))
           return 'stale' as const;
-        const subscription = await currentSubscription(
-          tx,
-          locked.account.userId,
-        );
+        const owner = ownerOfLocked(locked);
+        const subscription = await currentSubscription(tx, owner);
         if (
           !subscription ||
           subscription.id !== claim.subscriptionId ||
@@ -156,7 +234,7 @@ export function createBillingSynchronization(input: {
         )
           return 'stale' as const;
         const offer = await readFrozenBillingOffer(tx, {
-          userId: locked.account.userId,
+          owner,
           mode: claim.mode,
           customerId: locked.customer.vendorCustomerId,
           vendorSubscriptionId: subscription.vendorSubscriptionId,
@@ -185,13 +263,25 @@ export function createBillingSynchronization(input: {
           throw createAppError('CONFLICT');
         await tx
           .update(billingSubscriptions)
-          .set({ evidence, observedAt: now })
+          .set({ evidence, observedAt: now, ...terms })
           .where(eq(billingSubscriptions.id, subscription.id));
-        await replaceSubscriptionGrants(
-          tx,
-          locked.account.userId,
-          input.grants(evidence),
-        );
+        if (locked.kind === 'account')
+          await replaceSubscriptionGrants(
+            tx,
+            locked.account.userId,
+            input.grants.account(evidence),
+          );
+        else
+          await writeClubSeatGrants(
+            tx,
+            locked.club.id,
+            input.grants.club({
+              organizationId: locked.club.id,
+              evidence,
+              seatCount: terms.seatCount ?? 0,
+              seats: seats ?? [],
+            }),
+          );
         await tx
           .update(billingCustomers)
           .set({ synchronization: transition.state })
@@ -205,9 +295,9 @@ export function createBillingSynchronization(input: {
         const locked = await lockBillingCustomer(tx, claim.customerId);
         if (
           !locked ||
-          locked.account.erased ||
+          billingOwnerClosed(locked) ||
           locked.customer.closedAt ||
-          locked.account.userId !== claim.userId ||
+          !sameOwner(ownerOfLocked(locked), claim.owner) ||
           locked.customer.vendorCustomerId !== claim.vendorCustomerId ||
           locked.customer.mode !== claim.mode
         )

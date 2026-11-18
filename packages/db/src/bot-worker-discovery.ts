@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { isDebatingSeatSql } from './seat-columns';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 
@@ -13,7 +14,7 @@ export async function scanBotWorkers(
     await tx.execute(sql`with observed as materialized (select clock_timestamp() as at)
     select r.id as round_id,p.id as seat_id,s.id as segment_id
     from rounds r
-    join round_participants p on p.round_id=r.id and p.role in ('affirmative','negative')
+    join round_participants p on p.round_id=r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
     join actors a on a.id=p.actor_id and a.kind='bot'
     join bot_profiles b on b.actor_id=a.id
     cross join observed n

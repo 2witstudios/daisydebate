@@ -65,11 +65,15 @@ test('signed Flags operations resolve real targeting without granting paid acces
         read: database.readFlagSnapshot,
         now: Date.now,
         diagnostic: () => {},
+        releaseDefault: false,
       });
     const targeted = await read()(key, userId);
     const ordinary = await read()(key, null);
     const facts = await database.readFlagSnapshot(userId, [key]);
-    const admission = releaseAdmission(key).decide(facts.snapshot, facts.now);
+    const admission = releaseAdmission(key, false).decide(
+      facts.snapshot,
+      facts.now,
+    );
     const [grants] =
       await client`select count(*)::int as n from account_entitlement_grants where user_id=${userId}`;
     const [written] = await client`select
@@ -85,6 +89,7 @@ test('signed Flags operations resolve real targeting without granting paid acces
       diagnostic: () => {
         diagnostics++;
       },
+      releaseDefault: false,
     });
     const failed = await failedRead(key, userId);
     assert({

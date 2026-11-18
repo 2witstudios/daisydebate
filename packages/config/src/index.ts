@@ -1,10 +1,12 @@
 import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
 import {
   billingFields,
+  hostEventPriceFields,
+  clubBillingFields,
   refineBillingConfig,
   withBillingConfig,
 } from './billing-config';
-export type { BillingConfig } from './billing-config';
+export type { BillingConfig, ClubBillingConfig } from './billing-config';
 import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
@@ -33,6 +35,10 @@ import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
 import { secret, secretKeysOf } from './secrets';
 import { mediaWorkerFields } from './media-worker-config';
 import { operatorFields, refineOperatorConfig } from './operator-config';
+import {
+  refineReleaseFlagDefault,
+  releaseFlagDefaultFields,
+} from './release-flag-default';
 import { trustedProxyList } from './trusted-proxies';
 export {
   readMediaWorkerConfig,
@@ -71,6 +77,8 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
 };
 const serverFields = {
   ...billingFields,
+  ...hostEventPriceFields,
+  ...clubBillingFields,
   BILLING_ECONOMICS_DIRECTORY: z
     .string()
     .min(1)
@@ -98,8 +106,6 @@ const serverFields = {
     .optional(),
   AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
-  /** DEC-183 as amended (ISSUE-646): AI Rounds per approved beta host per UTC calendar month. */
-  AI_ROUND_MONTHLY_CAP: z.coerce.number().int().min(1).max(1000).default(20),
   /**
    * Concurrent provider calls for competitive work: AI judging and live bot
    * speech share this one budget. Round analysis has its own.
@@ -138,7 +144,15 @@ const serverFields = {
    * digests are cancelled as unconfigured.
    */
   BETA_NOTIFY_EMAIL: z.email().optional(),
+  /**
+   * PYL-17: where League requests ("Talk to us") go. Personal data, so it is
+   * set in the deploy's secret store, never committed; absent, they go to
+   * BETA_NOTIFY_EMAIL, and with neither they are stored and their email
+   * waits until an address is set.
+   */
+  LEAGUE_REQUEST_NOTIFY_EMAIL: z.email().optional(),
   ...operatorFields,
+  ...releaseFlagDefaultFields,
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
   LIVEKIT_URL: mediaEndpointList(/^https?$/).optional(),
   LIVEKIT_PUBLIC_URL: mediaEndpointList(/^wss?$/).optional(),
@@ -208,6 +222,7 @@ const serverConfigSchema = z
   .superRefine((config, ctx) => {
     refineBillingConfig(config, ctx);
     refineOperatorConfig(config, ctx);
+    refineReleaseFlagDefault(config, ctx);
     requireCompetitiveBudget(config, ctx);
     if (
       config.LIVEKIT_URL &&

@@ -1,3 +1,4 @@
+import { causeChainMember } from '../src/capacity-refusal';
 import { SQL } from 'bun';
 import {
   foundationDefinition,
@@ -6,14 +7,29 @@ import {
 } from './round-fixtures';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
+import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import {
   admitParticipants,
   removeUnowedBetaDigests,
 } from '../src/beta-access-testing';
-import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol';
+import {
+  buildRoundTopic,
+  buildUserInboxTopic,
+  emptyRuntimeCheckpointFor,
+} from '@daisy/protocol';
+import { frozenJudgingFor } from '../src/round-judging-freeze';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
+
+/**
+ * A fixture seat's columns: a seat kind other than a side's, or else the
+ * side a side's seat belongs to.
+ */
+export const seatColumnsOf = (seat: string): Row =>
+  seat === 'judge' || seat === 'speaker' || seat === 'moderator'
+    ? { seat_kind: seat, side: null }
+    : { seat_kind: 'side', side: seat };
 
 /**
  * The constraint PostgreSQL named when refusing the statement (SQLSTATE class
@@ -27,10 +43,13 @@ export const rejectedBy = async (
     await attempt();
     return null;
   } catch (error) {
-    const { errno, constraint } = error as PostgresFailure;
-    if (typeof errno === 'string' && errno.startsWith('23'))
-      return typeof constraint === 'string' ? constraint : errno;
-    throw error;
+    const failure = causeChainMember((candidate) => {
+      const { errno } = candidate as PostgresFailure;
+      return typeof errno === 'string' && errno.startsWith('23');
+    }, error);
+    if (!failure) throw error;
+    const { errno, constraint } = failure as PostgresFailure;
+    return typeof constraint === 'string' ? constraint : String(errno);
   }
 };
 
@@ -57,9 +76,11 @@ type Row = Readonly<Record<string, unknown>>;
 
 /** Cleanup order: children before parents; RESTRICT edges never fire. */
 const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
-  ['ballots', 'id'],
   ['rating_changes', 'id'],
   ['ratings', 'actor_id'],
+  // Immutable competitive children erase only with their actual owning Round.
+  ['rounds', 'id'],
+  ['ballots', 'id'],
   // Agent runs and utterances hang off the seats and the live segments.
   ['agent_runs', 'id'],
   ['utterances', 'id'],
@@ -67,7 +88,6 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['round_segments', 'id'],
   ['round_participants', 'id'],
   ['usage_reservations', 'id'],
-  ['rounds', 'id'],
   ['room_participants', 'id'],
   ['rooms', 'id'],
   ['documents', 'id'],
@@ -83,13 +103,39 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
 
 // jsonb parameters are objects: Bun SQL JSON-encodes a string a second time.
 
+const daisyKeys: Record<string, Row> = {
+  rooms: { lobby_id: publicLobbyId },
+  seasons: { organization_id: daisyOrganizationId },
+};
+
 /**
  * Per-test fixture over one connection. Every inserted key is tracked and
  * deleted in `finally`, so a failing assertion leaves no rows behind.
  */
 export class Fixture {
-  readonly tracked = new Map<string, string[]>();
-  constructor(readonly sql: SQL) {}
+  private daisyKeyed: Promise<Set<string>> | undefined;
+  constructor(
+    readonly sql: SQL,
+    readonly tracked = new Map<string, string[]>(),
+  ) {}
+
+  /**
+   * A fixture Room or season that names no owner is Daisy's, as Daisy's own
+   * writers name it; the columns have no default. Suites that migrate only
+   * part of the history run before the key exists, so it is read once.
+   */
+  private async daisyKey(table: string): Promise<Row> {
+    const key = daisyKeys[table];
+    if (!key) return {};
+    this.daisyKeyed ??= (
+      this.sql.unsafe(
+        `select table_name from information_schema.columns
+         where table_schema = 'public'
+           and (table_name, column_name) in (('rooms', 'lobby_id'), ('seasons', 'organization_id'))`,
+      ) as Promise<Array<{ table_name: string }>>
+    ).then((found) => new Set(found.map((row) => row.table_name)));
+    return (await this.daisyKeyed).has(table) ? key : {};
+  }
 
   track(table: string, key: string) {
     const keys = this.tracked.get(table) ?? [];
@@ -98,7 +144,8 @@ export class Fixture {
   }
 
   /** Inserts one row with positional parameters; the key column is tracked. */
-  insert(table: string, row: Row, key = 'id') {
+  async insert(table: string, given: Row, key = 'id') {
+    const row = { ...(await this.daisyKey(table)), ...given };
     const columns = Object.keys(row);
     const placeholders = columns.map((_, index) => `$${index + 1}`);
     const keyValue = row[key];
@@ -148,11 +195,11 @@ export class Fixture {
    * first: `formats_current_revision_fk` is DEFERRABLE, but each statement
    * here autocommits, so the target row has to exist before the pointer.
    */
-  async format() {
+  async format(definition = foundationDefinition) {
     const id = `fmt-${createId()}`;
     await this.insert(
       'format_revisions',
-      { format_id: id, version: 1, definition: foundationDefinition },
+      { format_id: id, version: 1, definition },
       'format_id',
     );
     await this.insert('formats', {
@@ -203,6 +250,61 @@ export class Fixture {
     return version;
   }
 
+  /** Which of `names` the table has now: a proof migrates the same database on. */
+  private async present(table: string, names: readonly string[]) {
+    const found = (await this
+      .sql`select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = ${table}
+        and column_name in ${this.sql([...names])}`) as {
+      column_name: string;
+    }[];
+    return new Set(found.map((row) => row.column_name));
+  }
+
+  /**
+   * Whether this database seats by kind and side (TAB-6): a predecessor
+   * migration proof runs before the columns exist and still says role and
+   * outcome.
+   */
+  private async seatsByKind() {
+    return (await this.present('round_participants', ['seat_kind'])).has(
+      'seat_kind',
+    );
+  }
+
+  /**
+   * The column a Round's winning side is stored in: `outcome` on a
+   * predecessor a migration proof seeds (TAB-6 backfills from it), else
+   * `winning_side`.
+   */
+  async winningSideColumn() {
+    return (await this.present('rounds', ['outcome'])).has('outcome')
+      ? 'outcome'
+      : 'winning_side';
+  }
+
+  /** Whether this database still defaults a Round's checkpoint (before TAB-6). */
+  private async checkpointHasDefault() {
+    const [column] = (await this
+      .sql`select column_default from information_schema.columns
+      where table_schema = 'public' and table_name = 'rounds' and column_name = 'runtime_state'`) as {
+      column_default: string | null;
+    }[];
+    return column?.column_default != null;
+  }
+
+  /** A seat's columns as this database stores them: by role, by kind and side, or both while a proof lends the new ones. */
+  private async seatColumnsFor(seat: string): Promise<Row> {
+    const columns = await this.present('round_participants', [
+      'role',
+      'seat_kind',
+    ]);
+    return {
+      ...(columns.has('role') ? { role: seat } : {}),
+      ...(columns.has('seat_kind') ? seatColumnsOf(seat) : {}),
+    };
+  }
+
   /** The not-yet-started status of this database: a predecessor still says scheduled. */
   private async unstartedStatus() {
     const [column] = await this.sql`select 1 from information_schema.columns
@@ -214,27 +316,86 @@ export class Fixture {
    * An unstarted round carrying resolved rules; `overrides` set or null out
    * the lifecycle, ladder and provenance columns the CHECKs tie together.
    */
-  async round(overrides: Row = {}) {
+  async round(overrides: Row = {}, { rules = validRules } = {}) {
     const id = createId();
+    const columns = await this.present('rounds', [
+      'outcome',
+      'winning_side',
+      'judging',
+    ]);
     await this.insert('rounds', {
       id,
       room_id: null,
       created_by_actor_id: null,
       resolution: 'A resolution',
       competition_type: 'casual',
-      format_id: await this.format(),
+      format_id:
+        typeof overrides.format_id === 'string'
+          ? overrides.format_id
+          : await this.format(),
       format_version: 1,
       preset_version: null,
-      rules_snapshot: validRules,
+      rules_snapshot: rules,
       status: await this.unstartedStatus(),
       current_stage: null,
-      outcome: null,
+      // TAB-6 dropped the column's two-sided default; a predecessor keeps its own.
+      ...((await this.checkpointHasDefault())
+        ? {}
+        : { runtime_state: emptyRuntimeCheckpointFor(rules) }),
+      // A proof may lend the TAB-6 columns to a predecessor beside its own.
+      ...(columns.has('outcome') ? { outcome: null } : {}),
+      ...(columns.has('winning_side')
+        ? { winning_side: null, ranking: null }
+        : {}),
+      ...(columns.has('judging') ? { judging: frozenJudgingFor(rules) } : {}),
       ladder_id: null,
       started_at: null,
       completed_at: null,
       ...overrides,
     });
     return id;
+  }
+
+  /** Construct a fixture's complete initial cast before it starts or completes. */
+  async roundWithCast(
+    overrides: Row,
+    cast: readonly {
+      readonly seat: string;
+      readonly actorId?: string;
+      readonly slot?: number;
+    }[],
+    options: { readonly rules?: typeof validRules } = {},
+  ) {
+    return this.sql.begin(async (tx) => {
+      const fixture = new Fixture(tx as SQL, this.tracked);
+      const lifecycle = new Set([
+        'status',
+        'current_stage',
+        'started_at',
+        'completed_at',
+        'winning_side',
+        'ranking',
+        'outcome',
+      ]);
+      const initial = Object.fromEntries(
+        Object.entries(overrides).filter(([key]) => !lifecycle.has(key)),
+      );
+      const id = await fixture.round(initial, options);
+      const seats = [];
+      for (const person of cast)
+        seats.push(
+          await fixture.seat(id, person.seat, person.slot ?? 0, person.actorId),
+        );
+      const changes = Object.entries(overrides).filter(([key]) =>
+        lifecycle.has(key),
+      );
+      if (changes.length)
+        await tx.unsafe(
+          `update rounds set ${changes.map(([key], index) => `${key}=$${index + 2}`).join(',')} where id=$1`,
+          [id, ...changes.map(([, value]) => value)],
+        );
+      return { id, seats };
+    });
   }
 
   /**
@@ -251,15 +412,19 @@ export class Fixture {
     await admitParticipants(this.sql, [(userId ??= await this.user())]);
     return this.actor(userId);
   }
-  /** The authoritative participant row, with its surrogate seat id. */
-  async seat(roundId: string, role: string, slot = 0, actorId?: string) {
+  /**
+   * The authoritative participant row, with its surrogate seat id. `seat`
+   * names a seat kind other than a side's ('judge', 'speaker', 'moderator')
+   * or else the side a side's seat belongs to.
+   */
+  async seat(roundId: string, seat: string, slot = 0, actorId?: string) {
     const seated = actorId ?? (await this.seatedHuman());
     const id = createId();
     await this.insert('round_participants', {
       id,
       round_id: roundId,
       actor_id: seated,
-      role,
+      ...(await this.seatColumnsFor(seat)),
       slot,
     });
     return { id, actorId: seated };
@@ -285,16 +450,6 @@ export class Fixture {
   }
 
   async purge() {
-    // Predecessor-schema migration proofs deliberately lack these forward tables.
-    const [provenance] = await this
-      .sql`select to_regclass('public.round_finalizations') is not null as present`;
-    if (provenance?.present)
-      for (const roundId of this.tracked.get('rounds') ?? []) {
-        await this
-          .sql`delete from round_finalization_ballots where round_id=${roundId}`;
-        await this
-          .sql`delete from round_finalizations where round_id=${roundId}`;
-      }
     // Erasure routing intentionally survives account deletion. Remove only this fixture's requests.
     const [evidencePrivacy] = await this
       .sql`select to_regclass('public.necessary_evidence_erasure_requests') is not null as present`;

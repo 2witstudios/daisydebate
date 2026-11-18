@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView, SeatDraw } from '@daisy/protocol';
+import { twoSides, type RoundView, type SeatDraw } from '@daisy/protocol';
 import { OpeningSides, speakerLabel } from './opening-sides';
 
 setupRitewayBun();
@@ -11,7 +11,13 @@ const seat = (
   label: string,
   role: 'affirmative' | 'negative',
   slot: number,
-) => ({ id, actorId, label, kind: 'human', role, slot });
+) => ({
+  id,
+  actorId,
+  label,
+  kind: 'human',
+  seat: { kind: 'side', side: role, slot },
+});
 
 const view = {
   id: 'round00000000000000000001',
@@ -20,8 +26,14 @@ const view = {
     seat('pbo', 'bo', 'Bo', 'affirmative', 1),
     seat('pcy', 'cy', 'Cy', 'negative', 0),
     seat('pdee', 'dee', 'Dee', 'negative', 1),
-    { id: 'pjudge', role: 'judge', slot: 0, kind: 'human', anonymous: true },
+    {
+      id: 'pjudge',
+      seat: { kind: 'judge', slot: 0 },
+      kind: 'human',
+      anonymous: true,
+    },
   ],
+  rules: { sides: twoSides },
 } as unknown as RoundView;
 
 const sides = (over: Partial<SeatDraw> = {}): SeatDraw => ({

@@ -1,5 +1,9 @@
 import { oneOnOneRankedSettings } from '@daisy/db/reference-formats';
-import { emptyRuntimeCheckpoint, freezeRoomConfig } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  twoSides,
+  freezeRoomConfig,
+} from '@daisy/protocol';
 import type {
   LaunchedRound,
   RoundLifecycle,
@@ -14,7 +18,7 @@ export const launched: LaunchedRound = {
   roomId: state.id,
   version: 1,
   status: 'opening',
-  ladderId: null,
+  ladder: null,
   competitionType: 'casual',
   topic: state.topic ?? '',
   visibility: 'private',
@@ -28,8 +32,7 @@ export const launched: LaunchedRound = {
       actorId: caller.actorId,
       kind: 'human',
       label: 'Member',
-      role: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
     },
   ],
   startedAt: null,
@@ -40,7 +43,7 @@ export const launched: LaunchedRound = {
   postRoundCall: false,
   transcriptCompleteness: null,
   resolutionAudit: null,
-  checkpoint: emptyRuntimeCheckpoint,
+  checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
   segments: [],
 };
 /** The host's own reading of the launched Round. */

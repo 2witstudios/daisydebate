@@ -7,17 +7,21 @@ import {
   invoice,
 } from './subscription-observation.test-support';
 
+import {
+  clubSubscription,
+  renewal,
+} from './club-subscription-observation.test-support';
 setupRitewayBun();
 type Input = Parameters<typeof createSubscriptionReconciliation>[0];
 const claim = {
   customerId: 'b'.repeat(24),
-  userId: 'c'.repeat(24),
+  owner: { kind: 'account' as const, userId: 'c'.repeat(24) },
   vendorCustomerId: identity.customerId,
   mode: 'test' as const,
   subscriptionId: identity.subscriptionId,
   vendorSubscriptionId: identity.vendorSubscriptionId,
   priceId: identity.priceId,
-  accountRevision: 1,
+  ownerRevision: 1,
   revision: 1,
   claimId: 'd'.repeat(24),
 };
@@ -30,6 +34,7 @@ const vendor: Input['vendor'] = {
     data: [invoice],
     has_more: false,
   }),
+  paidInvoices: async () => ({ object: 'list', data: [], has_more: false }),
 };
 function store(): Input['store'] {
   return {
@@ -295,5 +300,76 @@ test('a replacement purchase price cannot rewrite the original subscription obse
       'observe and apply the frozen original price without inheriting new-purchase configuration',
     actual: [applied, retried],
     expected: [1, 0],
+  });
+});
+
+test('a Club claim is read as a Club plan and applies its verified seat count (ADR 0148)', async () => {
+  const applied: unknown[] = [];
+  const clubClaim = {
+    ...claim,
+    owner: { kind: 'organization' as const, organizationId: 'e'.repeat(24) },
+  };
+  const worker = createSubscriptionReconciliation({
+    mode: 'test',
+    vendor: {
+      ...vendor,
+      subscription: async () => clubSubscription(),
+      invoice: async () => renewal,
+      paidInvoices: async () => ({
+        object: 'list',
+        data: [renewal],
+        has_more: false,
+      }),
+    },
+    store: {
+      ...store(),
+      customers: async () => ({
+        rows: [{ customerId: claim.customerId }],
+        afterId: null,
+        exhausted: true,
+      }),
+      claim: async () => clubClaim,
+      apply: async (_claim, evidence, terms) => {
+        applied.push([evidence.settlement.kind, terms]);
+        return 'applied';
+      },
+    },
+    failed: (error) => {
+      throw error;
+    },
+  });
+  await worker.run();
+  assert({
+    given: 'an organisation-owned claim whose renewal paid 14 seats',
+    should: 'apply paid evidence with the seat count',
+    actual: applied,
+    expected: [
+      ['paid', { renewalOff: false, amountMinor: 1000, seatCount: 14 }],
+    ],
+  });
+  const premium: unknown[] = [];
+  const failures: unknown[] = [];
+  await createSubscriptionReconciliation({
+    mode: 'test',
+    vendor: { ...vendor, subscription: async () => clubSubscription() },
+    store: {
+      ...store(),
+      customers: async () => ({
+        rows: [{ customerId: claim.customerId }],
+        afterId: null,
+        exhausted: true,
+      }),
+      apply: async (...args) => {
+        premium.push(args);
+        return 'applied';
+      },
+    },
+    failed: (error) => failures.push(error),
+  }).run();
+  assert({
+    given: 'an account claim whose subscription carries Club seats',
+    should: 'refuse it: Premium never reads a multi-seat plan',
+    actual: [premium.length, failures.length],
+    expected: [0, 1],
   });
 });

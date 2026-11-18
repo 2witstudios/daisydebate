@@ -1,5 +1,6 @@
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView, Side, SideKey } from '@daisy/protocol';
 import { clockDuration } from '../rooms/duration-input';
+import { sideName } from './seat-names';
 
 /**
  * One word per idea, shared by the room, the live round and the receipt:
@@ -7,14 +8,6 @@ import { clockDuration } from '../rooms/duration-input';
  */
 
 type Interaction = RoomView['config'];
-
-/** "1v1", "2v2": debaters per side. */
-export function shapeLabel(seats: {
-  readonly affirmative: number;
-  readonly negative: number;
-}): string {
-  return `${seats.affirmative}v${seats.negative}`;
-}
 
 /** "Negative constructive (NC)". */
 export function speechName(segment: {
@@ -68,12 +61,13 @@ const listOf = (words: readonly string[]) =>
 /** A strike's settings in one line, from its public frozen shape. */
 export function strikeSummary(
   draw: Extract<RoomView['config']['resolutionDraw'], { enabled: true }>,
+  sides: readonly Side[],
 ): string {
   const source =
     draw.source.kind === 'bank'
       ? `Daisy’s ${listOf(draw.source.categories.map((c) => resolutionCategoryLabel[c]))} resolutions`
       : 'the host’s list';
-  const first = draw.firstStriker === 'negative' ? 'Negative' : 'Affirmative';
+  const first = sideName(sides, draw.firstStriker);
   return `${draw.drawSize} from ${source} · ${first} strikes first · ${clockDuration(draw.strikeWindowMs)} per strike`;
 }
 
@@ -84,40 +78,43 @@ export function strikeSummary(
 export function strikeLabel(
   strike: {
     readonly kind: 'debater' | 'timeout' | 'automatic';
-    readonly side: 'affirmative' | 'negative';
+    readonly side: SideKey;
     readonly byViewer: boolean;
   },
-  viewerSide: 'affirmative' | 'negative' | null,
-  sideName: (side: 'affirmative' | 'negative') => string,
+  viewerSide: SideKey | null,
+  nameOf: (side: SideKey) => string,
 ): string {
   const ourSide = strike.side === viewerSide;
   if (strike.kind === 'timeout')
     return ourSide
       ? 'Daisy struck this for you · time ran out'
-      : `Daisy struck this for ${sideName(strike.side)} · time ran out`;
+      : `Daisy struck this for ${nameOf(strike.side)} · time ran out`;
   if (strike.byViewer) return 'You struck this';
   return ourSide
     ? 'Your teammate struck this'
-    : `${sideName(strike.side)} struck this`;
+    : `${nameOf(strike.side)} struck this`;
 }
 
 const FIVE_MINUTES = 300_000;
 
-/** "about 30 min": speeches, their countdowns and both sides' prep, to five minutes. */
+/** "about 45 min": speeches, their countdowns and every side's prep, to five minutes. */
 export function roundLength({
   speechesMs,
   countdownMs,
   prepPerSideMs,
+  sideCount,
   preRoundPrepMs = 0,
 }: {
   readonly speechesMs: readonly number[];
   readonly countdownMs: number;
   readonly prepPerSideMs: number | null;
+  /** How many sides spend in-round prep. */
+  readonly sideCount: number;
   readonly preRoundPrepMs?: number;
 }): string {
   const total =
     speechesMs.reduce((sum, ms) => sum + ms + countdownMs, 0) +
-    2 * (prepPerSideMs ?? 0) +
+    sideCount * (prepPerSideMs ?? 0) +
     preRoundPrepMs;
   const rounded = Math.max(
     FIVE_MINUTES,

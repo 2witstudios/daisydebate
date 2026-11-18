@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { sideSeat } from '@daisy/protocol';
 import { mediaGrants } from './media-grants';
 import {
   oneOnOneRules,
@@ -12,6 +13,7 @@ const seats = oneOnOneSeats.map((seat) => ({
   ...seat,
   kind: 'human' as const,
   eligible: true,
+  division: 'open' as const,
 }));
 const grants = (
   world = runtimeWorld(),
@@ -144,8 +146,17 @@ test('cross-examination opens every debater microphone across legal custom seats
   const rules = oneOnOneRules();
   const interaction = {
     ...rules,
-    seats: { ...rules.seats, negative: 2 },
-    segments: [{ ...rules.segments[0]!, type: 'cross_ex' as const }],
+    seats: {
+      ...rules.seats,
+      sides: { ...rules.seats.sides, negative: 2 },
+    },
+    segments: [
+      {
+        ...rules.segments[0]!,
+        type: 'cross_ex' as const,
+        speak: { rights: 'all' as const, lead: sideSeat('affirmative', 0) },
+      },
+    ],
   };
   const participants = [
     ...seats,
@@ -153,7 +164,7 @@ test('cross-examination opens every debater microphone across legal custom seats
       ...seats[1]!,
       id: 'extra-seat',
       actorId: 'extra-actor',
-      slot: 1,
+      seat: sideSeat('negative', 1),
       kind: 'bot' as const,
     },
   ];

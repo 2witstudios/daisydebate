@@ -1,26 +1,28 @@
 import {
   competitionTypes,
-  canonicalRatingLadder,
   type CompetitionType,
-  emptyRuntimeCheckpoint,
-  ratingLadders,
+  ratingDivisions,
+  ratingStyles,
   roundRulesSchema,
   frozenRoomConfigSchema,
   roomCaptureSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
-  roundOutcomeSchema,
+  roundJudgingSchema,
+  daisyBallotDefinitionIds,
   type RoundPlatformEnding,
-  type RoundOutcome,
+  type SideKey,
   roundDecisionReleases,
   type RoundDecisionRelease,
   type RoundStage,
   type RoundStatus,
-  type RatingLadder,
+  type RatingDivision,
+  type RatingStyle,
   seatDrawSchema,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
+import { z } from 'zod';
 import {
   check,
   foreignKey,
@@ -32,11 +34,14 @@ import {
   boolean,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
+import { ballotDefinitionVersions } from './ballot-definitions';
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbArrayColumnNullable,
   jsonbColumnNullable,
   jsonbIsObject,
+  isSideKeyOrNull,
   notBefore,
   oneOf,
   timestampColumn,
@@ -50,12 +55,12 @@ import { formats } from './formats';
 import { rooms } from './rooms';
 import { resolutionDrawEvidenceSchema } from '@daisy/protocol/resolution-draw';
 
-/** Canonical mapping frozen at construction; null denotes casual play. */
-export const roundLadder = (
-  competitionType: CompetitionType,
-  formatId: string,
-): RatingLadder | null =>
-  competitionType === 'ranked' ? canonicalRatingLadder(formatId) : null;
+/** A ranking's places as stored: best place first, a shared place as one group. */
+const rankingPlacesSchema = z
+  .array(z.array(z.string().min(1).max(64)).min(1))
+  .min(1);
+/** The frozen judging as stored: present, or the column is null. */
+const storedJudgingSchema = roundJudgingSchema.unwrap();
 
 /**
  * The durable competitive occurrence (ADR 0058 §6). Every actual debate is
@@ -118,15 +123,45 @@ export const rounds = pgTable(
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
-    outcome: text('outcome').$type<RoundOutcome>(),
+    /**
+     * What the Round decided (TAB-6.2): the side that won, or a ranking's
+     * places (side keys or round participant ids, best first); at most one,
+     * and neither is no result. A ranking's subject is the rules' outcome.
+     */
+    winningSide: text('winning_side').$type<SideKey>(),
+    ranking: jsonbArrayColumnNullable('ranking', rankingPlacesSchema),
+    /**
+     * What the Round is judged on, frozen when it launches (TAB-6.11): its
+     * ballot definition and panel rule; null when its outcome is judged by
+     * nobody.
+     */
+    judging: jsonbColumnNullable('judging', storedJudgingSchema),
+    /** Internal relational integrity keys, derived only from the frozen source. */
+    ballotDefinitionId: text('ballot_definition_id').generatedAlwaysAs(
+      sql`case when judging->'source'->>'kind' = 'stored' then judging->'source'->>'id' else null end`,
+    ),
+    ballotDefinitionVersion: integer(
+      'ballot_definition_version',
+    ).generatedAlwaysAs(
+      sql`case when judging->'source'->>'kind' = 'stored' then (judging->'source'->>'version')::integer else null end`,
+    ),
     /** The one authority for ratedness: null when this round never rates. */
-    ladderId: text('ladder_id').$type<RatingLadder>(),
+    /** Own standing league ladder frozen from the source Room at Start. */
+    leagueLadderId: text('league_ladder_id'),
+    ladderId: text('ladder_id').$type<RatingStyle>(),
+    /**
+     * The division of the ladder the Round rates on (ADR 0147), frozen at
+     * Start from who sat: the ladder is (`ladder_id`, `ladder_division`), and
+     * both are null together on a casual Round.
+     */
+    ladderDivision: text('ladder_division').$type<RatingDivision>(),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
     /** The Daisy checkpoint (ADR 0058 §4); only what has no durable row. */
-    runtimeState: jsonbColumn('runtime_state', runtimeCheckpointSchema)
-      .notNull()
-      .default(emptyRuntimeCheckpoint),
+    runtimeState: jsonbColumn(
+      'runtime_state',
+      runtimeCheckpointSchema,
+    ).notNull(),
     /** The platform ended this Round: it gives no outcome, rating, penalty or charge. */
     platformEnding: text('platform_ending').$type<RoundPlatformEnding>(),
     finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
@@ -149,14 +184,36 @@ export const rounds = pgTable(
       .default('on_finalize'),
   },
   (table) => {
-    const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
-    const active = sql`${table.status} = 'active' and ${table.resolution} is not null and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
+    const noOutcome = sql`${table.winningSide} is null and ${table.ranking} is null`;
+    const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${noOutcome} and ${table.startedAt} is null and ${table.completedAt} is null`;
+    const active = sql`${table.status} = 'active' and ${table.resolution} is not null and ${table.currentStage} is not null and ${noOutcome} and ${table.startedAt} is not null and ${table.completedAt} is null`;
     /** A null outcome is a real ending on any ladder and writes no rating (DEC-277). */
     const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
-    const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${table.outcome} is null and ${table.completedAt} is not null`;
+    const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${noOutcome} and ${table.completedAt} is not null`;
     return [
+      index('rounds_room_league_ladder_idx').on(
+        table.roomId,
+        table.leagueLadderId,
+      ),
+      index('rounds_league_ladder_completed_idx').on(
+        table.leagueLadderId,
+        table.completedAt,
+      ),
+      foreignKey({
+        name: 'rounds_room_league_ladder_fk',
+        columns: [table.roomId, table.leagueLadderId],
+        foreignColumns: [rooms.id, rooms.leagueLadderId],
+      }).onDelete('restrict'),
+      check(
+        'rounds_league_ladder_source_check',
+        sql`${table.leagueLadderId} is null or (${table.roomId} is not null and ${table.ladderId} is null and ${table.competitionType} = 'casual')`,
+      ),
       /** Lets `rating_changes` pin a change to the round's own format. */
       unique('rounds_id_format_unique').on(table.id, table.formatId),
+      unique('rounds_id_ladder_division_unique').on(
+        table.id,
+        table.ladderDivision,
+      ),
       index('rounds_status_competition_created_idx').on(
         table.status,
         table.competitionType,
@@ -187,7 +244,7 @@ export const rounds = pgTable(
       versionPositive('rounds', table.version),
       check(
         'rounds_platform_ending_check',
-        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} = 'completed' and ${table.outcome} is null)`,
+        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} = 'completed' and ${noOutcome})`,
       ),
       check(
         'rounds_transcript_cutoff_check',
@@ -237,11 +294,49 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_outcome_check',
-        sql`${table.outcome} is null or ${oneOf(table.outcome, roundOutcomeSchema.options)}`,
+        sql`(${table.winningSide} is null or ${table.ranking} is null) and (${isSideKeyOrNull(table.winningSide)})`,
+      ),
+      // Places: a non-empty array of non-empty arrays of strings.
+      check(
+        'rounds_ranking_shape_check',
+        sql`${table.ranking} is null or (jsonb_typeof(${table.ranking}) = 'array' and jsonb_array_length(${table.ranking}) > 0 and not jsonb_path_exists(${table.ranking}, 'strict $[*] ? (@.type() != "array" || @.size() == 0)') and not jsonb_path_exists(${table.ranking}, 'strict $[*][*] ? (@.type() != "string")'))`,
+      ),
+      jsonbIsObject('rounds', table.judging),
+      index('rounds_ballot_definition_idx').on(
+        table.ballotDefinitionId,
+        table.ballotDefinitionVersion,
+      ),
+      foreignKey({
+        name: 'rounds_ballot_definition_fk',
+        columns: [table.ballotDefinitionId, table.ballotDefinitionVersion],
+        foreignColumns: [
+          ballotDefinitionVersions.ballotDefinitionId,
+          ballotDefinitionVersions.version,
+        ],
+      }).onDelete('restrict'),
+      check(
+        'rounds_judging_source_check',
+        sql`${table.judging} is null or coalesce(
+        jsonb_typeof(${table.judging}->'source') = 'object' and
+        case ${table.judging}->'source'->>'kind'
+          when 'daisy' then
+            ${table.judging}->'source'->>'key' = ${table.judging}->'ballot'->>'key' and
+            ${table.judging}->'source'->'revision' = ${table.judging}->'ballot'->'revision' and
+            ((${table.judging}->'source'->>'key') || '@' || (${table.judging}->'source'->>'revision')) in (${sql.raw(daisyBallotDefinitionIds.map((id) => `'${id}'`).join(', '))})
+          when 'stored' then
+            ${table.judging}->'source'->>'id' ~ '^[a-z0-9]{24}$' and
+            jsonb_typeof(${table.judging}->'source'->'version') = 'number' and
+            ${table.judging}->'source'->'version' = ${table.judging}->'ballot'->'revision' and
+            ${table.ballotDefinitionVersion} > 0
+          else false end, false)`,
       ),
       check(
         'rounds_ladder_check',
-        sql`${table.ladderId} is null or ${oneOf(table.ladderId, ratingLadders)}`,
+        sql`${table.ladderId} is null or ${oneOf(table.ladderId, ratingStyles)}`,
+      ),
+      check(
+        'rounds_ladder_division_check',
+        sql`(${table.ladderId} is null) = (${table.ladderDivision} is null) and (${table.ladderDivision} is null or ${oneOf(table.ladderDivision, ratingDivisions)})`,
       ),
       check(
         'rounds_lifecycle_check',

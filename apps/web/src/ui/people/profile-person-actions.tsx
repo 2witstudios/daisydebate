@@ -1,10 +1,17 @@
 'use client';
 
+import { useId } from 'react';
 import {
   competitionTypes,
   reportReasonLabels,
   reportReasons,
+  type RatingDivision,
 } from '@daisy/protocol';
+import {
+  offersRanked,
+  rankedChallengeLine,
+  rankedChallengeOf,
+} from '../../features/challenges/challenge-ladder';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -39,11 +46,19 @@ const summary =
  */
 export function ProfilePersonActions({
   username,
+  memberDivision,
+  theirDivision,
   actions,
 }: {
   readonly username: string;
+  /** The viewer's ladder division (ADR 0147); a hint, the send decides again. */
+  readonly memberDivision: RatingDivision | null;
+  /** The profile member's division, when their ratings name it. */
+  readonly theirDivision: RatingDivision | null;
   readonly actions: Pick<PersonActions, 'sendChallenge' | 'report' | 'block'>;
 }) {
+  const ranked = rankedChallengeOf(memberDivision, theirDivision);
+  const ladderLineId = useId();
   const [sent, send, sending] = useFormAction(
     actions.sendChallenge,
     initialChallengeForm,
@@ -70,14 +85,26 @@ export function ProfilePersonActions({
           <input type="hidden" name="username" value={username} />
           <label>
             <span className="sr-only">Mode</span>
-            <select name="mode" defaultValue="ranked" className={controlClass}>
+            <select
+              name="mode"
+              aria-describedby={ladderLineId}
+              defaultValue={offersRanked(ranked) ? 'ranked' : 'casual'}
+              className={controlClass}
+            >
               {competitionTypes.map((mode) => (
-                <option key={mode} value={mode}>
+                <option
+                  key={mode}
+                  value={mode}
+                  disabled={mode === 'ranked' && !offersRanked(ranked)}
+                >
                   {modeLabels[mode]}
                 </option>
               ))}
             </select>
           </label>
+          <p id={ladderLineId} className="w-full text-sm text-ink-muted">
+            {rankedChallengeLine(ranked, username)}
+          </p>
           <input type="hidden" name="format" value="freestyle" />
           <Button type="submit" disabled={sending}>
             Send challenge

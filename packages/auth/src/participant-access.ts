@@ -1,5 +1,5 @@
 import { ACCOUNT_AGE_FLOOR, type AgeFloor } from './age-floor';
-import type { AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
 import type { BetaAccessState } from '@daisy/protocol';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { AccountAuthorizationFact } from './authorization-facts';
@@ -42,6 +42,7 @@ export function ageAdmitted(band: AgeBand | null): boolean {
  * the exits and own cleanup, with the replay reads of their own commands.
  */
 const withdrawals: readonly AuthorizationCapability[] = [
+  'tournament.sponsorship.withdraw',
   'room.leave',
   'channel.leave',
   'social.block',
@@ -62,16 +63,21 @@ const withdrawals: readonly AuthorizationCapability[] = [
   // ADR 0072: declining a challenge only deletes a row naming the caller.
   'social.challenge.decline',
   'social.challenge.cancel',
+  // Leaving an organization only ends the caller's own membership.
+  'organization.membership.leave',
   // ADR 0143: reading, clearing and taking down your own public profile.
   'profile.public.read',
   'profile.public.withdraw',
 ];
+/** A withdrawal: kept without admission, and never bounded for a minor. */
+export const isWithdrawal = (capability: AuthorizationCapability): boolean =>
+  withdrawals.includes(capability);
 /** Whether a bound member holds a capability under the admission rule. */
 export function admitsCapability(
   capability: AuthorizationCapability,
   account: Parameters<typeof participantAccess>[0],
 ): boolean {
-  return withdrawals.includes(capability) || participantAccess(account);
+  return isWithdrawal(capability) || participantAccess(account);
 }
 
 /**

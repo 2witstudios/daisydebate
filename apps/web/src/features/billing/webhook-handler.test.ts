@@ -12,6 +12,8 @@ const config = {
   secretKey: 'sk_test_unused',
   premiumPriceId: 'price_fixture',
   portalConfigurationId: 'bpc_fixture',
+  hostEventPrices: null,
+  club: null,
 };
 const event = {
   id: 'evt_fixture',
@@ -38,6 +40,7 @@ const base = {
   clock: fixedClock(new Date(now).toISOString()),
   deadline: () => new AbortController().signal,
   failed: () => {},
+  settleHosting: async () => null,
 };
 
 test('webhook success waits for durable receipt completion and transient failures ask Stripe to retry', async () => {
@@ -169,5 +172,87 @@ test('a body deadline cancels a stalled stream even when the peer never resolves
       'cancel once, return without waiting for peer cancellation and never persist it',
     actual: [response.status, canceled, writes],
     expected: [400, 1, 0],
+  });
+});
+
+test('a hosted tournament payment event settles that purchase and records no customer receipt (ADR 0149)', async () => {
+  const purchaseId = 'p'.padEnd(24, '1'),
+    lobbyId = 'l'.padEnd(24, '1');
+  const hostingBody = (
+    type: string,
+    metadata: Record<string, string> = {
+      daisy_hosting_purchase_id: purchaseId,
+      daisy_lobby_id: lobbyId,
+    },
+  ) =>
+    JSON.stringify({
+      id: 'evt_hosting',
+      object: 'event',
+      type,
+      livemode: false,
+      data: {
+        object: { object: 'checkout.session', mode: 'payment', metadata },
+      },
+    });
+  const signed = async (payload: string) =>
+    new Request('https://daisy.invalid/api/webhooks/stripe', {
+      method: 'POST',
+      body: payload,
+      headers: {
+        'stripe-signature': await Stripe.webhooks.generateTestHeaderStringAsync(
+          { payload, secret: config.webhookSecret, timestamp: now / 1000 },
+        ),
+      },
+    });
+  const settled: unknown[] = [],
+    receipts: unknown[] = [];
+  let failing = false;
+  const handler = createBillingWebhook({
+    ...base,
+    receive: async (receipt) => {
+      receipts.push(receipt);
+      return 'recorded';
+    },
+    settleHosting: async (target) => {
+      if (failing) throw new Error('private vendor detail');
+      settled.push(target);
+      return null;
+    },
+  });
+  const statuses = [
+    (await handler(await signed(hostingBody('checkout.session.completed'))))
+      .status,
+    (await handler(await signed(hostingBody('checkout.session.expired'))))
+      .status,
+    (
+      await handler(
+        await signed(
+          hostingBody('checkout.session.completed', {
+            daisy_hosting_purchase_id: 'not an id',
+            daisy_lobby_id: lobbyId,
+          }),
+        ),
+      )
+    ).status,
+  ];
+  failing = true;
+  const retry = (
+    await handler(await signed(hostingBody('checkout.session.completed')))
+  ).status;
+  assert({
+    given:
+      'completed and expired hosting sessions, a malformed one, and a settlement failure',
+    should:
+      'settle the named purchase twice, refuse the malformed one, ask Stripe to retry the failure, and never write a customer receipt',
+    actual: { statuses, retry, settled, receipts },
+    expected: {
+      statuses: [204, 204, 400],
+      retry: 503,
+      settled: [
+        { purchaseId, lobbyId },
+        { purchaseId, lobbyId },
+      ],
+      receipts: [],
+    },
   });
 });

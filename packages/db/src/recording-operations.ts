@@ -1,3 +1,9 @@
+import { createAppError } from '@daisy/errors';
+import { readDatabaseTime } from './database-clock';
+import {
+  readLockedTournamentAdmission,
+  readRecordingTournamentAdmission,
+} from './recording-tournament-admission';
 import type { RecordingClass, RecordingEligibility } from '@daisy/protocol';
 import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -33,24 +39,41 @@ export const recordingOperations = ({
     readonly class: RecordingClass;
     readonly eligibility: RecordingEligibility;
   }): Promise<StoredRecording> {
-    await database
-      .insert(recordings)
-      .values({
-        id: input.id,
-        roundId: input.roundId,
-        recordingClass: input.class,
-        eligibility: input.eligibility,
-        status: 'requested',
-        lifecycle: { status: 'requested' },
-      })
-      .onConflictDoNothing({ target: recordings.roundId });
-    // A Recording asked for after its Broadcast's Egress began knows its sources too.
-    await openRecordingJobIfEgressRecorded(database, input.roundId);
-    const [row] = await database
-      .select()
-      .from(recordings)
-      .where(eq(recordings.roundId, input.roundId));
-    return stored(row!);
+    return database.transaction(async (tx) => {
+      if (input.eligibility.kind === 'tournament_admission') {
+        await readLockedTournamentAdmission(tx, input.roundId);
+        const admission = await readRecordingTournamentAdmission(
+            tx,
+            input.roundId,
+          ),
+          now = await readDatabaseTime(tx);
+        if (
+          !admission ||
+          admission.admissionId !== input.eligibility.admissionId ||
+          admission.deadlineAt !== input.eligibility.deadlineAt ||
+          now.getTime() >= Date.parse(admission.deadlineAt)
+        )
+          throw createAppError('AUTHORIZATION');
+      }
+      await tx
+        .insert(recordings)
+        .values({
+          id: input.id,
+          roundId: input.roundId,
+          recordingClass: input.class,
+          eligibility: input.eligibility,
+          status: 'requested',
+          lifecycle: { status: 'requested' },
+        })
+        .onConflictDoNothing({ target: recordings.roundId });
+      // A Recording asked for after its Broadcast's Egress began knows its sources too.
+      await openRecordingJobIfEgressRecorded(tx, input.roundId);
+      const [row] = await tx
+        .select()
+        .from(recordings)
+        .where(eq(recordings.roundId, input.roundId));
+      return stored(row!);
+    });
   },
 
   async findRecording(id: string): Promise<StoredRecording | null> {

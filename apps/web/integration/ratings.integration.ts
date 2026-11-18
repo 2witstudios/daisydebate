@@ -4,15 +4,16 @@ import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { inArena, minute } from './ratings-arena';
 import { withSql } from './fixtures';
+import { winnerOutcome, type TwoSideKey } from '@daisy/protocol';
 
 requireTestServices(process.env);
 setupRitewayBun();
 
-const newcomers = (outcome: 'affirmative' | 'negative') =>
+const newcomers = (side: TwoSideKey) =>
   rateDebate({
     affirmative: { state: ratingPolicy.initial, lastRatedAt: null },
     negative: { state: ratingPolicy.initial, lastRatedAt: null },
-    outcome,
+    outcome: winnerOutcome(side),
     occurredAt: minute(30),
   });
 
@@ -61,6 +62,59 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
         should: 'report it already rated',
         actual: (await rate(roundId)).kind,
         expected: 'already-rated',
+      });
+    });
+  });
+
+  test('a Youth Round rates on the Youth season and ladder, apart from Open (ADR 0147)', async () => {
+    await inArena(async ({ season, seasonId, actor, round, rate }) => {
+      const youthSeason = await season(
+        'active',
+        '2026-10-01T00:00:00.000Z',
+        'youth',
+      );
+      const [first, second] = [await actor(), await actor()];
+      const youth = await round({
+        affirmative: first,
+        negative: second,
+        outcome: 'affirmative',
+        division: 'youth',
+      });
+      const result = await rate(youth);
+      const rows = await withSql(
+        (
+          sql,
+        ) => sql`select division, season_id from rating_changes where round_id=${youth}
+          union all select division, season_id from ratings where actor_id in (${first}, ${second})`,
+      );
+      const won = newcomers('affirmative');
+      assert({
+        given: 'a completed ranked Round between two Youth debaters',
+        should:
+          'rate it on Youth – Freestyle in the Youth season, from the same Glicko-2 start as Open, and touch no Open season',
+        actual: {
+          ladder: result.kind === 'rated' ? result.ladder : null,
+          season: result.kind === 'rated' ? result.seasonId : null,
+          rows: [
+            ...new Set(
+              (rows as { division: string; season_id: string }[]).map(
+                (row) => `${row.division}:${row.season_id}`,
+              ),
+            ),
+          ],
+          after:
+            result.kind === 'rated'
+              ? result.changes.find((c) => c.actorId === first)?.after.rating
+              : null,
+          openUntouched: seasonId !== youthSeason,
+        },
+        expected: {
+          ladder: { style: 'freestyle', division: 'youth' },
+          season: youthSeason,
+          rows: [`youth:${youthSeason}`],
+          after: won.affirmative.after.rating,
+          openUntouched: true,
+        },
       });
     });
   });
@@ -169,8 +223,8 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
       await withSql(
         (
           sql,
-        ) => sql`insert into ratings (actor_id, season_id, ladder, rating, deviation, volatility)
-          values (${veteran}, ${earlier}, 'freestyle', 1720, 60, 0.05)`,
+        ) => sql`insert into ratings (actor_id, season_id, ladder, division, rating, deviation, volatility)
+          values (${veteran}, ${earlier}, 'freestyle', 'open', 1720, 60, 0.05)`,
       );
       const id = await round({ affirmative: veteran, negative: await actor() });
       await assertRejects({

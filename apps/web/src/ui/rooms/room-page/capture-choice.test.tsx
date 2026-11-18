@@ -2,11 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { WithAppRouter } from '../../test-support/app-router';
-import {
-  CaptureChoice,
-  CaptureSummary,
-  capturePremiumText,
-} from './capture-choice';
+import { CaptureChoice, CaptureSummary } from './capture-choice';
 
 setupRitewayBun();
 
@@ -35,24 +31,28 @@ describe('The capture choice', () => {
     });
   });
 
-  test('a host with no grant is offered neither', () => {
+  test('a host with no grant sees the upgrade panel in place', () => {
     const html = render('premium');
     assert({
       given: 'no entitlement',
-      should: 'say so and offer no control at all',
+      should:
+        'show both switches disabled, the Premium panel and no form or named field',
       actual: [
-        html.includes(capturePremiumText.replaceAll("'", '&#x27;')),
-        html.includes('<input'),
+        html.includes('Recording and broadcast are Premium'),
+        html.includes('href="/premium"'),
+        html.includes('Not now'),
+        html.match(/role="switch" disabled=""/g)?.length,
         html.includes('<form'),
+        html.includes('name="'),
       ],
-      expected: [true, false, false],
+      expected: [true, true, true, 2, false, false],
     });
   });
 
   test('a host who lost the entitlement can still turn capture off', () => {
     const html = render('premium', {
       broadcast: null,
-      recording: true,
+      recordingPolicy: 'released',
     });
     assert({
       given: 'capture set and no entitlement any more',
@@ -92,7 +92,7 @@ describe('The capture choice', () => {
         release: { kind: 'delay', seconds: 300 },
         debatersReadChat: false,
       },
-      recording: true,
+      recordingPolicy: 'released',
     });
     assert({
       given: 'a stored broadcast on a 5 minute delay, chat off, recorded',
@@ -115,7 +115,9 @@ describe('The summary before Ready', () => {
       should: 'state it, then render nothing',
       actual: [
         renderToStaticMarkup(
-          <CaptureSummary capture={{ broadcast: null, recording: true }} />,
+          <CaptureSummary
+            capture={{ broadcast: null, recordingPolicy: 'released' }}
+          />,
         ).includes('Not broadcast. Recorded.'),
         renderToStaticMarkup(<CaptureSummary capture={null} />),
       ],

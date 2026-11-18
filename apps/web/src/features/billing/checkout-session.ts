@@ -4,25 +4,39 @@ import {
   purchaseBounds,
   purchaseSchema,
   purchaseSessionExpiry,
+  maxPurchaseQuantity,
   type Purchase,
   type PurchaseObservation,
 } from '@daisy/protocol/billing';
-import { premiumPriceSchema } from './premium-price';
+import {
+  monthlyPriceShape,
+  premiumPriceSchema,
+  subscribedAmounts,
+  subscribedPriceSchema,
+} from './premium-price';
+import { clubSeatPriceSchema } from './club-price';
+
+/** Where Checkout returns: the buyer's own billing page, or the club's (ADR 0148). */
+export const purchaseReturnPath = (purchase: Pick<Purchase, 'owner'>) =>
+  purchase.owner.kind === 'account'
+    ? '/settings/billing'
+    : `/clubs/${purchase.owner.organizationId}/billing`;
 
 export function checkoutParameters(purchase: Purchase) {
   const metadata = { daisy_purchase_id: purchase.id };
+  const returnPath = purchaseReturnPath(purchase);
   return {
     mode: 'subscription',
     ui_mode: 'hosted_page',
-    line_items: [{ price: purchase.priceId, quantity: 1 }],
+    line_items: [{ price: purchase.priceId, quantity: purchase.quantity }],
     allowed_payment_method_types: ['card'],
     automatic_tax: { enabled: true },
     ...(purchase.customerId === null ? {} : { customer: purchase.customerId }),
     client_reference_id: purchase.id,
     metadata,
     subscription_data: { metadata },
-    success_url: `${purchase.returnOrigin}/settings/billing?purchase=${purchase.id}`,
-    cancel_url: `${purchase.returnOrigin}/settings/billing`,
+    success_url: `${purchase.returnOrigin}${returnPath}?purchase=${purchase.id}`,
+    cancel_url: `${purchase.returnOrigin}${returnPath}`,
     expires_at: purchaseSessionExpiry(purchase),
     expand: ['line_items.data.price'],
   } satisfies Stripe.Checkout.SessionCreateParams;
@@ -51,7 +65,7 @@ const sessionSchema = z.object({
   customer: vendorId('cus').nullable(),
   subscription: vendorId('sub').nullable(),
   currency: z.literal('usd'),
-  amount_subtotal: z.literal(1000),
+  amount_subtotal: z.number().int(),
   automatic_tax: z.object({ enabled: z.literal(true) }),
   allow_promotion_codes: z.union([z.literal(false), z.null()]),
   after_expiration: z.null(),
@@ -64,7 +78,16 @@ const sessionSchema = z.object({
     object: z.literal('list'),
     has_more: z.literal(false),
     data: z
-      .array(z.object({ quantity: z.literal(1), price: premiumPriceSchema }))
+      .array(
+        z.object({
+          quantity: z.number().int().min(1).max(maxPurchaseQuantity),
+          price: z.object({
+            ...monthlyPriceShape,
+            unit_amount: z.number().int().positive(),
+            lookup_key: z.string().max(200).nullable().optional(),
+          }),
+        }),
+      )
       .length(1),
   }),
 });
@@ -92,8 +115,10 @@ function ownedSession(purchase: Purchase, session: Session) {
 }
 function fixedOffer(purchase: Purchase, session: Session) {
   const parameters = checkoutParameters(purchase);
-  const price = session.line_items.data[0]?.price;
+  const line = session.line_items.data[0];
+  const price = line?.price;
   return (
+    line?.quantity === purchase.quantity &&
     price?.id === purchase.priceId &&
     price.livemode === session.livemode &&
     session.success_url === parameters.success_url &&
@@ -104,6 +129,29 @@ function fixedOffer(purchase: Purchase, session: Session) {
       Math.ceil(
         (Date.parse(purchase.admittedAt) + purchaseBounds.creationMs) / 1000,
       )
+  );
+}
+/**
+ * Premium sells one seat at the current (or, read back, grandfathered)
+ * price; a Club sells its seat count at exactly the Club price.
+ */
+function soldAt(
+  purchase: Purchase,
+  session: Session,
+  offer: 'current' | 'subscribed',
+) {
+  const { price, quantity } = session.line_items.data[0]!;
+  if (purchase.owner.kind === 'organization')
+    return (
+      clubSeatPriceSchema.safeParse(price).success &&
+      session.amount_subtotal === price.unit_amount * quantity
+    );
+  return (
+    quantity === 1 &&
+    subscribedPriceSchema.safeParse(price).success &&
+    subscribedAmounts.includes(session.amount_subtotal) &&
+    session.amount_subtotal === price.unit_amount &&
+    (offer === 'subscribed' || premiumPriceSchema.safeParse(price).success)
   );
 }
 function hostedUrl(session: Session): string | null {
@@ -148,9 +196,16 @@ function observedSession(session: Session): CheckoutObservation {
 }
 
 /** A Checkout result identifies pending billing work; invoice evidence alone establishes paid access. */
+/**
+ * `current` (a session this call creates) must sell exactly the USD 20 offer.
+ * `subscribed` (reading back a session that already exists) also accepts the
+ * grandfathered offer, so a Checkout opened before the price changed and paid
+ * after it still completes (ADR 0146). The frozen price id binds either way.
+ */
 export function normalizeCheckoutSession(
   purchase: Purchase,
   value: unknown,
+  offer: 'current' | 'subscribed',
 ): CheckoutObservation {
   if (
     !purchaseSchema.safeParse(purchase).success ||
@@ -161,7 +216,8 @@ export function normalizeCheckoutSession(
   if (
     !parsed.success ||
     !ownedSession(purchase, parsed.data) ||
-    !fixedOffer(purchase, parsed.data)
+    !fixedOffer(purchase, parsed.data) ||
+    !soldAt(purchase, parsed.data, offer)
   )
     return refuse;
   return observedSession(parsed.data);

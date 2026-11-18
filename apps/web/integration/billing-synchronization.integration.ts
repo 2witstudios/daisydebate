@@ -4,6 +4,7 @@ import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import {
   subscriptionGrants,
+  clubSeatGrants,
   canPurchasePremium,
   canManageBilling,
 } from '@daisy/auth/authorization';
@@ -72,9 +73,12 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
         secretKey: 'sk_test_unused',
         premiumPriceId: identity.priceId,
         portalConfigurationId: 'bpc_fixture',
+        hostEventPrices: null,
+        club: null,
       },
       clock: fixedClock(now),
       deadline: () => AbortSignal.timeout(5000),
+      settleHosting: async () => null,
       receive: async (receipt) => {
         const result = await database.receiveBillingReceipt(receipt);
         if (loseReply) {
@@ -103,6 +107,7 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
         offer: {
           mode: 'test',
           priceId: identity.priceId,
+          quantity: 1,
           returnOrigin: 'https://daisy.invalid',
         },
         session: {
@@ -144,7 +149,10 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
       });
       await database.renewServiceInstance({ instanceId, role: 'web' });
       const worker = createSubscriptionReconciliation({
-        store: database.billingSynchronization(instanceId, subscriptionGrants),
+        store: database.billingSynchronization(instanceId, {
+          account: subscriptionGrants,
+          club: clubSeatGrants,
+        }),
         mode: 'test',
         vendor: {
           subscription: async () => subscription,
@@ -152,6 +160,11 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
           latestPaidInvoice: async () => ({
             object: 'list',
             data: [invoice],
+            has_more: false,
+          }),
+          paidInvoices: async () => ({
+            object: 'list',
+            data: [],
             has_more: false,
           }),
         },

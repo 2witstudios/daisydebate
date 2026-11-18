@@ -37,7 +37,8 @@ export const roundAnalysisReads = ({
   }): Promise<{
     readonly access: RoundAnalysisAccess;
     readonly facts: RoundAnalysisFacts;
-    readonly allowance: 'included' | 'free' | 'unavailable';
+    readonly allowance:
+      'included' | 'free' | 'used' | 'fair-use' | 'unavailable';
   }> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
@@ -47,7 +48,7 @@ export const roundAnalysisReads = ({
         .select({
           id: roundParticipants.id,
           actorId: roundParticipants.actorId,
-          role: roundParticipants.role,
+          seatKind: roundParticipants.seatKind,
           userId: actors.userId,
         })
         .from(roundParticipants)
@@ -60,7 +61,7 @@ export const roundAnalysisReads = ({
         (p) =>
           p.actorId === input.caller.actorId &&
           p.userId === input.caller.userId &&
-          ['affirmative', 'negative'].includes(p.role),
+          p.seatKind === 'side',
       );
       if (!seat) throw createAppError('NOT_FOUND');
       // The shared selector accepts user-backed actors, not accountless bot seats.
@@ -97,7 +98,11 @@ export const roundAnalysisReads = ({
           ? quote.decision.reservations[0]?.source.kind === 'lifetime'
             ? 'free'
             : 'included'
-          : 'unavailable';
+          : quote?.decision.reason === 'abuse-ceiling'
+            ? 'fair-use'
+            : quote?.decision.reason === 'free-limit-reached'
+              ? 'used'
+              : 'unavailable';
       return {
         access,
         facts: await readRoundAnalysisFacts(tx, target),

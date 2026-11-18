@@ -1,3 +1,4 @@
+import { sideOfSeat } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -89,7 +90,7 @@ test('late actual capture cannot bypass a missing cutoff after the scheduler has
       epoch: 1,
       segmentId: segmentIds[0]!,
       roundParticipantId: before.participants.find(
-        (p) => p.role === 'affirmative',
+        (p) => sideOfSeat(p.seat) === 'affirmative',
       )!.id,
     };
     const start = Date.parse(before.startedAt!);

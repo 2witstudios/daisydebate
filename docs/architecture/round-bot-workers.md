@@ -8,12 +8,18 @@ jobs at the explicitly configured interval, at most 500 ms.
 Each worker has its own optional validated JSON policy (ISSUE-749):
 `ROUND_JUDGING_POLICY` for AI judging (scan/lease/renewal/call bounds and its
 model) and `ROUND_BOT_WORKER_POLICY` for bot debaters (controllers, bounds and
-speech, cross-ex and TTS models). AI judging and live bot speech share one
+speech, cross-ex and TTS models, and the reasoning effort the speech and
+cross-ex calls ask for). That effort is named with the models because some
+endpoints make reasoning mandatory and refuse `none` (ISSUE-1460: Sonnet 5.5 on
+OpenRouter, November 2026); bots run Haiku 5.5 with `none`, so a speaker starts
+at once (PYL-18 measured it at about a twentieth of Sonnet's model cost). AI judging and live bot speech share one
 competitive provider budget, `COMPETITIVE_PROVIDER_CONCURRENCY`. Without a
 worker's policy and that budget, its discovery stays inert. The AI judge is
 not a bot debater: it has its own `ai_judge_profiles` row and may hold only
-the judge seat, while a `bot_profiles` debater may hold only a side
-(ISSUE-750). Round analysis is a separate product with its own policy and
+the judge seat, while a `bot_profiles` debater may hold only a competitor's
+seat: a side's, or an unsided speaker's, where it speaks only its own speech
+and its prompt names it by label with no opponent side (ISSUE-750, TAB-6.18).
+No AI holds a moderator seat, and no bot takes an open floor. Round analysis is a separate product with its own policy and
 budget ([round analysis](round-analysis.md)). Configured application composition requires an
 injected OS-CSPRNG token producer. Only the process edge supplies that producer;
 the database uses the existing bounded transaction and connection pool. The

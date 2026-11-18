@@ -70,6 +70,8 @@ export function retentionTargets({
     readonly purgeExpiredEmailDeliveryEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
     readonly purgeExpiredMailIntents: (batch: Batch) => Promise<number>;
+    readonly purgeLapsedClubSeatInvitations: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredLeagueRequests: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCheckInAttempts: (
@@ -222,6 +224,31 @@ export function retentionTargets({
       purge: ({ now, limit }) =>
         database.purgeExpiredEmailDeliveries({
           before: cutoff(now, 30 * DAY_MS),
+          limit,
+        }),
+    },
+    /** ADR 0148: a lapsed Club seat invitation (an invitee's address) is kept 30 days. */
+    {
+      name: 'retention.club_seat_invitations',
+      batchSize: 500,
+      maxBatches: 4,
+      purge: ({ now, limit }) =>
+        database.purgeLapsedClubSeatInvitations({
+          before: cutoff(now, 30 * DAY_MS),
+          limit,
+        }),
+    },
+    /**
+     * PYL-17: a League request holds its contact's personal data and is
+     * kept 365 days after it was made, sent or not (compliance).
+     */
+    {
+      name: 'retention.league_requests',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredLeagueRequests({
+          before: cutoff(now, 365 * DAY_MS),
           limit,
         }),
     },

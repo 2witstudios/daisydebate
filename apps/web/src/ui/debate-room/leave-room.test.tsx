@@ -1,5 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
 
@@ -80,5 +81,53 @@ test('a held Round cannot trap a debater: the seat is kept and the lobby stays r
       held.includes('commandId'),
     ],
     expected: [true, true, true, true, false, false, false],
+  });
+});
+
+test('leaving a Round no forfeit ends posts leave and says the Round goes on (TAB-6.8)', () => {
+  const noop = () => {};
+  const router = {
+    bfcacheId: 'test',
+    back: noop,
+    forward: noop,
+    refresh: noop,
+    push: noop,
+    replace: noop,
+    prefetch: noop,
+  };
+  const withdrawal = (type?: 'leave') =>
+    renderToString(
+      h(
+        AppRouterContext,
+        { value: router },
+        h(LeaveRoom, {
+          links: {
+            ...links,
+            forfeit: {
+              action: (async (state: unknown) => state) as never,
+              commandId: 'c'.repeat(24),
+              expectedVersion: 3,
+              participantId: 'p'.repeat(24),
+              ...(type ? { type } : {}),
+            },
+          },
+        }),
+      ),
+    );
+  const leave = withdrawal('leave');
+  const forfeit = withdrawal();
+  assert({
+    given:
+      'the Leave confirm in a Round no forfeit ends, then in a two-sided Round',
+    should:
+      'post leave and say the seat is recorded absent, where the two-sided Round still forfeits',
+    actual: [
+      leave.includes('name="type" value="leave"'),
+      leave.includes('your seat is recorded absent'),
+      leave.includes('forfeit'),
+      forfeit.includes('name="type" value="forfeit"'),
+      forfeit.includes('Leave and forfeit'),
+    ],
+    expected: [true, true, false, true, true],
   });
 });

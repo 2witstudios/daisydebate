@@ -1,13 +1,14 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ballotFormFixture } from './ballot-form.test-support';
+import { ballotFormFixture, ballotFormPlan } from './ballot-form.test-support';
 import { ballotFields } from './fields';
 import { readRoundBallotBody } from './body';
 
 setupRitewayBun();
 
 const form = ballotFormFixture();
-const parsed = ballotFields(form);
+const parsed = ballotFields(form, ballotFormPlan);
+const plan = async () => ballotFormPlan;
 if (!parsed.ok) throw new Error('The ballot form fixture must parse');
 const post = (type: string, body: string) =>
   new Request('http://localhost/api/rounds/r/ballots', {
@@ -27,10 +28,12 @@ test('a ballot body is the same envelope from JSON or a native form', async () =
       await readRoundBallotBody(
         post('application/json', JSON.stringify(parsed.envelope)),
         8192,
+        plan,
       ),
       await readRoundBallotBody(
         post('application/x-www-form-urlencoded; charset=utf-8', encoded),
         8192,
+        plan,
       ),
     ],
     expected: [
@@ -57,13 +60,14 @@ test('an invalid or oversized ballot body is refused', async () => {
     await assertRejects({
       given: label,
       should: 'refuse as invalid',
-      actual: () => readRoundBallotBody(request, 8192),
+      actual: () => readRoundBallotBody(request, 8192, plan),
       code: 'VALIDATION',
     });
   await assertRejects({
     given: 'a body beyond the byte limit',
     should: 'refuse before parsing',
-    actual: () => readRoundBallotBody(post('application/json', encoded), 16),
+    actual: () =>
+      readRoundBallotBody(post('application/json', encoded), 16, plan),
     code: 'PAYLOAD_TOO_LARGE',
   });
 });

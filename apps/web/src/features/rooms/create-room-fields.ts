@@ -2,6 +2,8 @@ import { formatStanding } from '@daisy/debate-engine';
 import {
   formatDefinitionSchema,
   roomConfigSchema,
+  twoSideKeys,
+  type FormatDefinition,
   type RoomCatalogChoice,
   type RoomConfig,
 } from '@daisy/protocol';
@@ -11,7 +13,16 @@ import {
   type ResolutionMethod,
 } from './create-room-draft';
 import { clockDuration, readDuration } from './duration-input';
-import { customRoomDefinition } from './custom-room-definition';
+import {
+  customFirstStriker,
+  customRoomDefinition,
+} from './custom-room-definition';
+import {
+  seatFieldValues,
+  seatsFromFields,
+  segmentSeatValues,
+  speakFromFields,
+} from './draft-seat-fields';
 
 export const roomChoiceKey = (choice: RoomCatalogChoice) =>
   `${choice.formatId}@${choice.formatVersion}@${choice.preset.version}`;
@@ -38,17 +49,15 @@ export function draftFormValues(
       config.interruptions?.mode === 'open' ? 'poi' : 'cross-examination',
     yielding: config.yielding?.allowed ? 'on' : 'off',
     returnsTime: config.yielding?.returnsTime ? 'on' : 'off',
-    seatAffirmative: String(definition.seats.affirmative),
-    seatNegative: String(definition.seats.negative),
-    seatJudge: String(definition.seats.judge),
+    ...seatFieldValues(definition),
     segmentCount: String(definition.segments.length),
     ...Object.fromEntries(
       definition.segments.flatMap((segment, index) => [
         [`segment.${index}.key`, segment.key],
         [`segment.${index}.label`, segment.label],
         [`segment.${index}.type`, segment.type],
-        [`segment.${index}.side`, segment.side],
-        [`segment.${index}.slot`, String(segment.slot)],
+        [`segment.${index}.side`, segmentSeatValues(segment.speak).side],
+        [`segment.${index}.slot`, segmentSeatValues(segment.speak).slot],
         [
           `duration.segment.${index}`,
           clockDuration(
@@ -61,12 +70,22 @@ export function draftFormValues(
   };
 }
 
-const strike: RoomConfig['resolutionDraw'] = {
-  enabled: true,
-  drawSize: 5,
-  strikeWindowMs: 60_000,
-  firstStriker: 'negative',
-  source: { kind: 'bank', categories: ['policy', 'value', 'fact'] },
+/** The strike a drafted room runs: Daisy's bank, first struck as a Custom room's is. */
+const strikeFor = (
+  definition: Pick<FormatDefinition, 'sides'>,
+): RoomConfig['resolutionDraw'] | null => {
+  const striker = customFirstStriker(definition.sides);
+  // The strike is a pair's: its striker is one of the two-sided preset's keys.
+  const firstStriker = twoSideKeys.find((key) => key === striker);
+  return firstStriker === undefined
+    ? null
+    : {
+        enabled: true,
+        drawSize: 5,
+        strikeWindowMs: 60_000,
+        firstStriker,
+        source: { kind: 'bank', categories: ['policy', 'value', 'fact'] },
+      };
 };
 const invalid = {
   ok: false,
@@ -131,15 +150,24 @@ export function readRoomDraft(
   if (!Number.isInteger(count) || count < 1 || count > 64) return invalid;
   const rawSegments = Array.from({ length: count }, (_, index) => {
     const key = decoded[`segment.${index}.key`] ?? '';
+    const type = decoded[`segment.${index}.type`] ?? '';
+    const sourceSegment = source.definition.segments.find(
+      (segment) => segment.key === key,
+    );
     return {
       key,
       label: decoded[`segment.${index}.label`],
-      type: decoded[`segment.${index}.type`],
-      side: decoded[`segment.${index}.side`],
-      slot: Number(decoded[`segment.${index}.slot`]),
+      type,
+      speak: speakFromFields(
+        {
+          type,
+          side: decoded[`segment.${index}.side`] ?? '',
+          slot: Number(decoded[`segment.${index}.slot`]),
+        },
+        sourceSegment,
+      ),
       defaultDurationMs:
-        source.definition.segments.find((segment) => segment.key === key)
-          ?.defaultDurationMs ?? duration(`segment.${index}`),
+        sourceSegment?.defaultDurationMs ?? duration(`segment.${index}`),
     };
   });
   const timing = Object.fromEntries(
@@ -170,11 +198,7 @@ export function readRoomDraft(
           : null,
       },
     },
-    seats: {
-      affirmative: Number(decoded.seatAffirmative),
-      negative: Number(decoded.seatNegative),
-      judge: Number(decoded.seatJudge),
-    },
+    seats: seatsFromFields(decoded, source.definition.sides),
     segments: rawSegments,
   });
   if (!parsedDefinition.success) return invalid;
@@ -187,6 +211,8 @@ export function readRoomDraft(
   );
   const method = decoded.resolutionMethod;
   if (!['strike', 'custom'].includes(method ?? '')) return invalid;
+  const strike = strikeFor(source.definition);
+  if (method === 'strike' && strike === null) return invalid;
   const poi = decoded.questionStyle === 'poi';
   if (!poi && decoded.questionStyle !== 'cross-examination') return invalid;
   const parsedConfig = roomConfigSchema.safeParse({
@@ -203,7 +229,7 @@ export function readRoomDraft(
       countdownMs: countdown,
       segmentDurationOverrides: overrides,
     },
-    resolutionDraw: method === 'strike' ? strike : { enabled: false },
+    resolutionDraw: method === 'strike' && strike ? strike : { enabled: false },
     interruptions: poi
       ? { mode: 'open', minRemainingMs: 0 }
       : source.preset.config.interruptions,
@@ -243,7 +269,9 @@ export function readRoomDraft(
     ok: true,
     draft: {
       ...original,
-      definition: custom ? customRoomDefinition(definition) : definition,
+      definition: custom
+        ? customRoomDefinition(definition, parsedConfig.data)
+        : definition,
       config: parsedConfig.data,
       custom,
       ranked:

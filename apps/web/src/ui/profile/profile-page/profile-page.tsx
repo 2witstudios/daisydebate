@@ -6,6 +6,8 @@ import type {
   MemberProfile,
   RecordResult,
 } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol';
+import { sideName } from '../../../features/debate-room/seat-names';
 import type { ProfileView } from '../../../features/profile/read-profile';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
@@ -16,6 +18,7 @@ import { liveHref } from '../../../features/watch/routes';
 import { MediaPageLink } from '../../round-media/media-page-link';
 import { profileHref } from '../../layout/app-shell/components/destinations';
 import { ProfileActions } from '../profile-actions/profile-actions';
+import { LadderBadge } from '../../ladder-badge/ladder-badge';
 import { profilePhotoSrc } from '../photo-src';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
@@ -50,7 +53,12 @@ const judges: Readonly<Record<JudgePanel, string>> = {
   none: 'No judge',
 };
 
-const sides = { affirmative: 'Affirmative', negative: 'Negative' } as const;
+/**
+ * The history row carries the member's side key but not its Round's declared
+ * sides, so a side reads by the two-sided preset's names; any other key reads
+ * as itself.
+ */
+const sideLabel = (side: string) => sideName(twoSides, side);
 
 function Opponents({ entry }: { readonly entry: MatchHistoryEntry }) {
   if (entry.opponents.length === 0) return <span>No opponent</span>;
@@ -104,13 +112,14 @@ function HistoryRow({
           {me && entry.visibility !== 'public' ? (
             <Badge>{entry.visibility}</Badge>
           ) : null}
+          {entry.ladder ? <LadderBadge ladder={entry.ladder} /> : null}
           <Badge tone={result.tone}>{result.label}</Badge>
         </span>
       </div>
       <p className="flex flex-wrap gap-x-2 text-sm text-ink-muted">
         <time dateTime={entry.completedAt}>{day(entry.completedAt)}</time>
         <span aria-hidden="true">·</span>
-        <span>{sides[entry.side]}</span>
+        <span>{sideLabel(entry.side)}</span>
         <span aria-hidden="true">·</span>
         <Opponents entry={entry} />
         <span aria-hidden="true">·</span>
@@ -140,7 +149,8 @@ function RecordSummary({ profile }: { readonly profile: MemberProfile }) {
         ))}
       </dl>
       <p className="text-sm text-ink-muted">
-        From completed rounds. Rounds with no ruling are listed but not counted.
+        From completed rounds, on every ladder. Rounds with no ruling are listed
+        but not counted.
       </p>
     </section>
   );

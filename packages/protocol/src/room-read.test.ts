@@ -1,55 +1,44 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { AI_ROUND_MONTHLY_CAP_MAX, roomViewSchema } from './room-read';
+import { roomViewSchema } from './room-read';
 
 setupRitewayBun();
 
 const botAdmission = roomViewSchema.shape.botAdmission;
-const allowance = (limit: number, remaining: number, refusal: unknown) => ({
-  kind: 'allowance',
-  limit,
-  remaining,
-  source: {
-    kind: 'beta' as const,
-    startsAt: '2026-10-01T00:00:00.000Z',
-    endsAt: '2026-11-01T00:00:00.000Z',
-  },
-  refusal,
-});
+const allowance = (refusal: unknown) => ({ kind: 'allowance', refusal });
 
-test('Room botAdmission contract', () => {
+test('Room botAdmission contract carries only the decision', () => {
   const cases = [
-    ['an ineligible host', allowance(0, 0, 'not-eligible')],
-    ['the beta cap of 20', allowance(20, 20, null)],
-    ['a spent beta cap', allowance(20, 0, 'allowance')],
+    ['an admitted host', allowance(null)],
+    ['an ineligible host', allowance('not-eligible')],
+    ['a used free bot Round', allowance('free-limit-reached')],
+    ['the fair-use ceiling', allowance('abuse-ceiling')],
+    ['busy bots', allowance('capacity')],
+    ['renewal grace', allowance('renewal-grace')],
+    ['the retired allowance refusal', allowance('allowance')],
     [
-      'the configurable maximum',
-      allowance(AI_ROUND_MONTHLY_CAP_MAX, 1, 'capacity'),
+      'a count or limit (PYL-10)',
+      { ...allowance(null), limit: 20, remaining: 19 },
     ],
-    [
-      'a cap above the maximum',
-      allowance(AI_ROUND_MONTHLY_CAP_MAX + 1, 0, null),
-    ],
-    ['more remaining than the limit', allowance(20, 21, null)],
-    ['a fractional limit', allowance(1.5, 0, null)],
-    ['an unknown refusal', allowance(20, 0, 'premium')],
+    ['a period source', { ...allowance(null), source: { kind: 'lifetime' } }],
     ['a removed blanket-free AI-judge claim', { kind: 'free' }],
   ] as const;
   assert({
-    given: 'allowance metadata at 0, 20, the maximum and beyond',
-    should: 'accept any integer cap up to the maximum with remaining within it',
+    given: 'each refusal, the retired vocabulary, and any count or period',
+    should: 'accept only the decision and refuse every number',
     actual: cases.map(([given, value]) => [
       given,
       botAdmission.safeParse(value).success,
     ]),
     expected: [
+      ['an admitted host', true],
       ['an ineligible host', true],
-      ['the beta cap of 20', true],
-      ['a spent beta cap', true],
-      ['the configurable maximum', true],
-      ['a cap above the maximum', false],
-      ['more remaining than the limit', false],
-      ['a fractional limit', false],
-      ['an unknown refusal', false],
+      ['a used free bot Round', true],
+      ['the fair-use ceiling', true],
+      ['busy bots', true],
+      ['renewal grace', true],
+      ['the retired allowance refusal', false],
+      ['a count or limit (PYL-10)', false],
+      ['a period source', false],
       ['a removed blanket-free AI-judge claim', false],
     ],
   });

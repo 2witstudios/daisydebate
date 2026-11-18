@@ -8,6 +8,7 @@ import {
   oneOf,
   timestampColumn,
 } from './columns';
+import { organizations } from './organizations';
 import { users } from './users';
 
 /** Only a verified server-owned Checkout attempt may establish this mapping. */
@@ -15,9 +16,13 @@ export const billingCustomers = pgTable(
   'billing_customers',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
+    /** Exactly one billing owner (ADR 0148): an account (Premium) or an organisation (Club). */
+    userId: text('user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    organizationId: text('organization_id').references(() => organizations.id, {
+      onDelete: 'restrict',
+    }),
     vendorCustomerId: text('vendor_customer_id').notNull(),
     mode: text('mode').notNull(),
     synchronization: jsonbColumn(
@@ -29,6 +34,13 @@ export const billingCustomers = pgTable(
   },
   (table) => [
     uniqueIndex('billing_customers_user_unique').on(table.userId),
+    uniqueIndex('billing_customers_organization_unique').on(
+      table.organizationId,
+    ),
+    check(
+      'billing_customers_one_owner',
+      sql`num_nonnulls(${table.userId}, ${table.organizationId}) = 1`,
+    ),
     uniqueIndex('billing_customers_vendor_unique').on(
       table.mode,
       table.vendorCustomerId,

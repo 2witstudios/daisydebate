@@ -36,8 +36,15 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
   requestIdentity: async () => ({ state: 'anonymous' }),
+  // A stored league's people page words time by the process clock.
+  requestNow: () => '2027-03-06T08:00:00.000Z',
+  // The sample Room pages reach the release reader through their form action.
+  requestReleaseEnabled: async () => false,
   requestMemberDrive: () => null,
   requestLadder: async () => null,
+  // A stored league read answers no league for the placeholder slug.
+  requestLeaguePage: async () => null,
+  requestStandingRoomPage: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
   requestWatchableRoundOfRoom: async () => null,
@@ -67,6 +74,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   }),
   readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
+  requestMemberDivision: async () => null,
   privateGroupsOffered: () => false,
   messagingFilesAvailable: () => false,
   messagingLatestPageItems: () => 50,
@@ -105,6 +113,7 @@ mock.module(
   join(import.meta.dir, '../../app/(shell)/lobby/actions.ts'),
   () => ({
     roomListing: async () => ({ kind: 'found', rooms: [] }),
+    hostedRoomsRead: async () => [],
   }),
 );
 
@@ -130,6 +139,20 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/rooms/[id]/page'),
     '(shell)/rooms/[id]/rematch/page.tsx': () =>
       import('../../app/(shell)/rooms/[id]/rematch/page'),
+    '(tab)/leagues/[slug]/page.tsx': () =>
+      import('../../app/(tab)/leagues/[slug]/page'),
+    '(tab)/leagues/[slug]/rooms/new/page.tsx': () =>
+      import('../../app/(tab)/leagues/[slug]/rooms/new/page'),
+    '(host)/host/leagues/[slug]/page.tsx': () =>
+      import('../../app/(host)/host/leagues/[slug]/page'),
+    '(host)/host/leagues/[slug]/people/page.tsx': () =>
+      import('../../app/(host)/host/leagues/[slug]/people/page'),
+    '(tab)/rooms/sample/[room]/page.tsx': () =>
+      import('../../app/(tab)/rooms/sample/[room]/page'),
+    '(tab)/rooms/sample/[room]/ballot/page.tsx': () =>
+      import('../../app/(tab)/rooms/sample/[room]/ballot/page'),
+    '(tab-live)/rooms/sample/[room]/live/page.tsx': () =>
+      import('../../app/(tab-live)/rooms/sample/[room]/live/page'),
     '(shell)/play/room/page.tsx': () =>
       import('../../app/(shell)/play/room/page'),
     '(shell)/notifications/page.tsx': () =>
@@ -167,6 +190,14 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/messages/groups/[channelId]/manage/page'),
     '(shell)/messages/groups/invitations/[channelId]/page.tsx': () =>
       import('../../app/(shell)/messages/groups/invitations/[channelId]/page'),
+    '(shell)/clubs/new/page.tsx': () =>
+      import('../../app/(shell)/clubs/new/page'),
+    '(shell)/clubs/[club]/seats/page.tsx': () =>
+      import('../../app/(shell)/clubs/[club]/seats/page'),
+    '(shell)/clubs/[club]/billing/page.tsx': () =>
+      import('../../app/(shell)/clubs/[club]/billing/page'),
+    '(shell)/clubs/invitations/[invitation]/page.tsx': () =>
+      import('../../app/(shell)/clubs/invitations/[invitation]/page'),
     '(shell)/play/page.tsx': () => import('../../app/(shell)/play/page'),
     '(shell)/ranked/page.tsx': () => import('../../app/(shell)/ranked/page'),
     '(shell)/ranked/host/page.tsx': () =>
@@ -200,7 +231,12 @@ const guardRequestsOf = async (file: string) => {
   guardCalls.length = 0;
   try {
     await page({
-      params: Promise.resolve({ username: 'someone', id: 'x', roundId: 'x' }),
+      params: Promise.resolve({
+        username: 'someone',
+        id: 'x',
+        roundId: 'x',
+        slug: 'x',
+      }),
       searchParams,
     });
   } catch (error) {
@@ -264,8 +300,11 @@ describe('guarded pages', () => {
         ...new Set(guarded.map(({ route }) => guardedAreaFor(route))),
       ].sort(),
       expected: [
+        '/clubs',
         '/friends',
+        '/host/leagues',
         '/judge',
+        '/leagues',
         '/lobby',
         '/messages',
         '/notifications',

@@ -2,12 +2,14 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import { billingPurchases } from './schema/billing-purchases';
 import { purchaseFromRow } from './billing-purchase-authority';
+import { ownedBy } from './billing-owner-lock';
+import type { BillingOwner } from '@daisy/protocol/billing';
 
-/** Read under the caller's canonical account fence; no current configuration can replace this original offer. */
+/** Read under the caller's owner fence (account or club); no current configuration can replace this original offer. */
 export async function readFrozenBillingOffer(
   tx: BoundedTransactionContext,
   identity: {
-    readonly userId: string;
+    readonly owner: BillingOwner;
     readonly mode: 'test' | 'live';
     readonly customerId: string;
     readonly vendorSubscriptionId: string;
@@ -18,7 +20,7 @@ export async function readFrozenBillingOffer(
     .from(billingPurchases)
     .where(
       and(
-        eq(billingPurchases.userId, identity.userId),
+        ownedBy(billingPurchases, identity.owner),
         eq(billingPurchases.mode, identity.mode),
         sql`${billingPurchases.state}->>'kind'='complete'`,
         sql`${billingPurchases.state}->>'customerId'=${identity.customerId}`,

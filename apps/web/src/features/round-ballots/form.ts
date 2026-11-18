@@ -1,4 +1,4 @@
-import type { BallotDebaters } from '../judge/ballot';
+import type { BallotPlan } from '../judge/ballot-plan';
 import {
   idSchema,
   roundBallotReceiptSchema,
@@ -55,9 +55,9 @@ export async function submitRoundBallotForm(
   fetch: FetchLike,
   roundId: string,
   form: FormData,
-  debaters?: BallotDebaters,
+  plan: BallotPlan,
 ): Promise<RoundBallotFormState> {
-  const parsed = ballotFields(form, true, debaters);
+  const parsed = ballotFields(form, plan, true);
   if (!parsed.ok) return refused(form, parsed.error);
   if (!idSchema.safeParse(roundId).success)
     return refused(

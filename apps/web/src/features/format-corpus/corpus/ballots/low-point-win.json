@@ -1,0 +1,118 @@
+{
+  "ballot": {
+    "feedback": {
+      "affirmative": "Weigh your impacts earlier.",
+      "negative": "Extend the maintenance argument."
+    },
+    "reason": "The affirmative answered the funding question.",
+    "rubricVersion": "speaker-10@2",
+    "scores": {
+      "affirmative": {
+        "answering": 2,
+        "burdens": 2,
+        "coherence": 2,
+        "delivery": 2,
+        "organization": 2,
+        "questioning": 2,
+        "refutation": 2,
+        "thesis": 2,
+        "warrants": 2,
+        "weighing": 2
+      },
+      "negative": {
+        "answering": 5,
+        "burdens": 5,
+        "coherence": 5,
+        "delivery": 5,
+        "organization": 5,
+        "questioning": 5,
+        "refutation": 5,
+        "thesis": 5,
+        "warrants": 5,
+        "weighing": 5
+      }
+    },
+    "winner": "affirmative"
+  },
+  "stored": {
+    "data": {
+      "feedback": {
+        "affirmative": "Weigh your impacts earlier.",
+        "negative": "Extend the maintenance argument."
+      },
+      "reason": "The affirmative answered the funding question.",
+      "rubricVersion": "speaker-10@2",
+      "scores": {
+        "affirmative": {
+          "answering": 2,
+          "burdens": 2,
+          "coherence": 2,
+          "delivery": 2,
+          "organization": 2,
+          "questioning": 2,
+          "refutation": 2,
+          "thesis": 2,
+          "warrants": 2,
+          "weighing": 2
+        },
+        "negative": {
+          "answering": 5,
+          "burdens": 5,
+          "coherence": 5,
+          "delivery": 5,
+          "organization": 5,
+          "questioning": 5,
+          "refutation": 5,
+          "thesis": 5,
+          "warrants": 5,
+          "weighing": 5
+        }
+      },
+      "winner": "affirmative"
+    },
+    "success": true
+  },
+  "totals": {
+    "affirmative": 20,
+    "lowPointWin": true,
+    "negative": 50
+  },
+  "write": {
+    "data": {
+      "feedback": {
+        "affirmative": "Weigh your impacts earlier.",
+        "negative": "Extend the maintenance argument."
+      },
+      "reason": "The affirmative answered the funding question.",
+      "rubricVersion": "speaker-10@2",
+      "scores": {
+        "affirmative": {
+          "answering": 2,
+          "burdens": 2,
+          "coherence": 2,
+          "delivery": 2,
+          "organization": 2,
+          "questioning": 2,
+          "refutation": 2,
+          "thesis": 2,
+          "warrants": 2,
+          "weighing": 2
+        },
+        "negative": {
+          "answering": 5,
+          "burdens": 5,
+          "coherence": 5,
+          "delivery": 5,
+          "organization": 5,
+          "questioning": 5,
+          "refutation": 5,
+          "thesis": 5,
+          "warrants": 5,
+          "weighing": 5
+        }
+      },
+      "winner": "affirmative"
+    },
+    "success": true
+  }
+}

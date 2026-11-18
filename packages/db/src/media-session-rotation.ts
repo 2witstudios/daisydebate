@@ -1,5 +1,8 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { RoundCommandAuthority } from '@daisy/protocol';
+import {
+  mediaBindingRevoked,
+  type RoundCommandAuthority,
+} from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { mediaId } from './media-session-authority';
 import { mediaParticipants } from './schema/media-sessions';
@@ -11,20 +14,13 @@ export async function revokedBoundSeats(
   sessionId: string,
   participants: RoundCommandAuthority['participants'],
 ) {
-  const revoked = participants
-    .filter((seat) => seat.kind === 'human' && !seat.eligible)
-    .map((seat) => seat.id);
-  if (!revoked.length) return [];
   const bound = await tx
     .select({ seat: mediaParticipants.roundParticipantId })
     .from(mediaParticipants)
-    .where(
-      and(
-        eq(mediaParticipants.sessionId, sessionId),
-        inArray(mediaParticipants.roundParticipantId, revoked),
-      ),
-    );
-  return bound.map(({ seat }) => seat);
+    .where(eq(mediaParticipants.sessionId, sessionId));
+  return bound
+    .filter(({ seat }) => mediaBindingRevoked(participants, seat))
+    .map(({ seat }) => seat);
 }
 
 /**

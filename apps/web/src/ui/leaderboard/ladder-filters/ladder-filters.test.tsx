@@ -14,6 +14,7 @@ const render = (props: Partial<LadderFiltersProps> = {}) =>
   renderToString(
     h(LadderFilters, {
       query: defaultQuery,
+      ladder: { style: 'freestyle', division: 'open' },
       seasons: [activeSeason, closedSeason],
       season: activeSeason,
       hasStanding: true,
@@ -90,6 +91,31 @@ describe('LadderFilters', () => {
         html.includes('href="/leaderboard?scope=around"'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('division and style', () => {
+    const youth = render({
+      query: { ...defaultQuery, division: 'youth', q: 'x', page: 2 },
+      ladder: { style: 'freestyle', division: 'youth' },
+    });
+    const visitor = render();
+    assert({
+      given: 'the Youth ladder asked for, and a visitor on the default ladder',
+      should:
+        'mark the shown division, link the other keeping the search, carry an asked division and offer Freestyle',
+      actual: [
+        youth.indexOf('>Youth<') < youth.indexOf('>Open<'),
+        /aria-current="page"[^>]*>Youth</.test(youth),
+        youth.includes('href="/leaderboard?division=open&amp;q=x"'),
+        youth.includes('name="division" value="youth"'),
+        visitor.includes('name="division"'),
+        /aria-current="page"[^>]*>Open</.test(visitor),
+        visitor.includes('aria-label="Style"'),
+        visitor.includes('>Freestyle<'),
+        visitor.includes('name="style"'),
+      ],
+      expected: [true, true, true, true, false, true, true, true, false],
     });
   });
 });

@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { winnerOutcome } from '@daisy/protocol';
 import { edges } from './room-assembly.test-support';
 import {
   advanceOpening,
@@ -197,7 +198,7 @@ describe('forfeitInOpening', () => {
         projection.round?.outcome,
         projection.openingDraw?.strikes.length,
       ],
-      expected: ['completed', 'negative', 0],
+      expected: ['completed', winnerOutcome('negative'), 0],
     });
   });
 
@@ -215,7 +216,7 @@ describe('forfeitInOpening', () => {
         projection.round?.status,
         projection.round?.outcome,
       ],
-      expected: [at(1200), 'completed', 'affirmative'],
+      expected: [at(1200), 'completed', winnerOutcome('affirmative')],
     });
   });
 });

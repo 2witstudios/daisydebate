@@ -62,16 +62,15 @@ export function roundViewFor(
     resolutionAudit: auditFor(round.resolutionAudit, ownPeople),
     viewerIsHost,
     participants: round.participants.map((seat) =>
-      seat.role !== 'judge' ||
+      seat.seat.kind !== 'judge' ||
       seat.kind === 'bot' ||
       knowsJudges ||
       seat.actorId === viewerActorId
         ? seat
         : {
-            role: 'judge',
-            kind: 'human',
-            slot: seat.slot,
-            anonymous: true,
+            seat: { kind: 'judge' as const, slot: seat.seat.slot },
+            kind: 'human' as const,
+            anonymous: true as const,
           },
     ),
   };

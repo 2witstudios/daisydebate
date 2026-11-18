@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { withSeasons } from '@daisy/db/seasons';
@@ -10,9 +11,10 @@ import {
 } from '@daisy/debate-engine';
 import {
   SPECTATOR_MARGIN_MS,
+  sideSeat,
   spectatorTimelineSchema,
-  type DebateRole,
-  type RoundOutcome,
+  winnerOutcome,
+  winningSideOf,
   type RoundStatus,
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -58,7 +60,7 @@ test('every public and member read holds a ranked outcome until release', async 
     let roundId: string | undefined;
     try {
       const season = await withSeasons(process.env['TEST_DATABASE_URL']!, (s) =>
-        s.activateBetaSeason({ id: seasonId }),
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
       );
       const frozen = await frozenRankedRound(f, 'freestyle', 'human');
       roundId = frozen.roundId;
@@ -128,8 +130,8 @@ test('every public and member read holds a ranked outcome until release', async 
       };
       // A Room the rated host opens while the Round is still held.
       const openRoomId = createId();
-      await f.sql`insert into rooms (id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
-        select ${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
+      await f.sql`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
+        select lobby_id,${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
         from rooms where id=${frozen.room.id}`;
       const listedRating = async () => {
         const page = await f.store.listRoomPage(
@@ -155,10 +157,10 @@ test('every public and member read holds a ranked outcome until release', async 
           spectatorClockAt(now),
         );
         const { wins, losses } = tallyRecord(
-          cards.records.map(({ status, outcome, role, rounds }) => ({
+          cards.records.map(({ status, outcome, seat, rounds }) => ({
             status: status as RoundStatus,
-            outcome: outcome as RoundOutcome | null,
-            role: role as DebateRole,
+            outcome,
+            seat,
             rounds,
           })),
         );
@@ -170,10 +172,10 @@ test('every public and member read holds a ranked outcome until release', async 
           losses,
         };
       };
-      const [{ role: ledgerRole }] =
-        (await f.sql`select role from round_participants
+      const [{ side: ledgerSide }] =
+        (await f.sql`select side from round_participants
         where round_id=${roundId} and actor_id=${f.host.actorId}`) as [
-          { role: DebateRole },
+          { side: string },
         ];
       const emptyRecord = tallyRecord([]);
       const reads = async () => {
@@ -182,7 +184,7 @@ test('every public and member read holds a ranked outcome until release', async 
         const timeline = spectatorTimelineSchema.parse(JSON.parse(body));
         const ladder = await readLadder(f.store, {
           seasonId: season.id,
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           now,
           username: null,
         });
@@ -202,7 +204,10 @@ test('every public and member read holds a ranked outcome until release', async 
           ladderEntries: (ladder?.data.entries ?? []).filter(
             (e) => e.id === f.host.actorId,
           ).length,
-          memberRating: member.find((m) => m.ladder === 'freestyle')?.rating,
+          memberRating: member.find(
+            (m) =>
+              m.ladder.style === 'freestyle' && m.ladder.division === 'open',
+          )?.rating,
           historyRows: profile?.history.length,
           profileRecord: profile?.record,
           card: await personCard(),
@@ -273,6 +278,7 @@ test('every public and member read holds a ranked outcome until release', async 
         () => true,
         readRoundOpening,
         roundWaitingOn,
+        () => false,
       );
       assert({
         given: 'an account with no seat in the Round',
@@ -284,6 +290,7 @@ test('every public and member read holds a ranked outcome until release', async 
             member: true,
             erased: false,
           } as never,
+          { kind: 'ordinary', checkedAt: new Date().toISOString() },
         ),
         expected: false,
       });
@@ -292,10 +299,12 @@ test('every public and member read holds a ranked outcome until release', async 
         should: 'answer as if the Round did not exist',
         actual: () =>
           f.store.readRoundBallot({
+            ballotAccess: (_round, _account, owner) =>
+              eventBallotAccess(stranger, owner),
             roundId: roundId!,
             caller: stranger,
-            authorize: (r, account) =>
-              canReadRound(stranger, r, account as never),
+            authorize: (r, account, authority) =>
+              canReadRound(stranger, r, account as never, authority),
             authorizeTranscript: () => false,
             decideWaitingOn: roundWaitingOn,
             readOpening: readRoundOpening,
@@ -361,7 +370,7 @@ test('every public and member read holds a ranked outcome until release', async 
           'release winner, scores, reason and ratings, on a cacheable answer',
         actual: {
           stage: out.timeline.stage,
-          winner: out.timeline.result?.winner,
+          winner: winningSideOf(out.timeline.result?.outcome ?? null),
           reasons: out.timeline.result?.ballots.map((b) => b.reason),
           ratings: out.timeline.result?.ratings.length,
         },
@@ -402,8 +411,8 @@ test('every public and member read holds a ranked outcome until release', async 
         expected: tallyRecord([
           {
             status: 'completed',
-            outcome: 'affirmative',
-            role: ledgerRole,
+            outcome: winnerOutcome('affirmative'),
+            seat: sideSeat(ledgerSide),
             rounds: 1,
           },
         ]),
@@ -417,7 +426,7 @@ test('every public and member read holds a ranked outcome until release', async 
         },
         expected: {
           rating: ledger[0]!.rating_after,
-          record: ledgerRole === 'affirmative' ? [1, 0] : [0, 1],
+          record: ledgerSide === 'affirmative' ? [1, 0] : [0, 1],
         },
       });
       await f.sql`delete from rooms where id=${openRoomId}`;

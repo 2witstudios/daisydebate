@@ -1,9 +1,6 @@
 import type { MessagingChannelLifecycle } from '@daisy/protocol';
-import type {
-  AuthorizationCapability,
-  AuthorizationDenyReason,
-} from '@daisy/protocol/authorization';
-import type { BetaAccessState } from '@daisy/protocol';
+import type { AuthorizationCapability } from '@daisy/protocol/authorization';
+import type { BetaAccessState, SeatRef } from '@daisy/protocol';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -51,9 +48,16 @@ export type AccountAuthorizationFact = {
    * The account's age band now, from its durable age record (WAIT-4.6);
    * null when it has none. Participant access needs a band at the floor.
    */
-  readonly ageBand: import('./age-band').AgeBand | null;
+  readonly ageBand: import('@daisy/protocol').AgeBand | null;
   /** A suspension or ban is in force (ADR 0103); it withdraws participant access. */
   readonly restricted: boolean;
+  /**
+   * The lobbies a guardian limits this minor to. Null or absent is no
+   * boundary: an adult, or a minor whose guardian limits no lobbies.
+   */
+  readonly boundary?: import('./authorization-lobby-facts').BoundaryFact | null;
+  /** The paid entitlement to host a tournament or own a league. */
+  readonly hostingPlan?: boolean;
 };
 export type RoomAuthorizationFact = {
   readonly kind: 'room';
@@ -64,9 +68,14 @@ export type RoomAuthorizationFact = {
   readonly revision: number;
   readonly participants: readonly {
     readonly actorId: string;
-    readonly role: string;
-    readonly slot: number;
+    readonly seat: SeatRef;
   }[];
+  /**
+   * The Room's lobby. An event Room is decided through its fixture; any
+   * other Room keeps the single-host rule, and the lobby only bounds a
+   * minor. Absent is a Room whose lobby was not loaded.
+   */
+  readonly owner?: import('./authorization-lobby-facts').RoomOwnerFact;
 };
 export type RoundAuthorizationFact = {
   readonly kind: 'round';
@@ -76,10 +85,11 @@ export type RoundAuthorizationFact = {
   readonly status: string;
   readonly participants: readonly {
     readonly actorId: string;
-    readonly role: string;
-    readonly slot: number;
+    readonly seat: SeatRef;
   }[];
   readonly revision: number;
+  /** The Round's Room's lobby, as on the Room fact. */
+  readonly owner?: import('./authorization-lobby-facts').RoomOwnerFact;
 };
 /** MSG owns the underlying pair/grant projection and its transactional fence. */
 export type ChannelAuthorizationFact = {
@@ -296,6 +306,7 @@ export type AuthorizationInput = {
     | RoundAuthorizationFact
     | RoomAuthorizationFact
     | ChannelAuthorizationFact
+    | import('./authorization-lobby-facts').LobbyResourceFact
     | { readonly kind: 'room_collection' }
     /** ADR 0079: the operator's account listing, and one target account (its fact is `context.account`). */
     | { readonly kind: 'account_collection' }
@@ -316,14 +327,23 @@ export type AuthorizationInput = {
     readonly socialReading?: SocialPolicyEvidence;
     readonly socialPosting?: SocialPolicyEvidence;
     readonly socialCreationPolicy?: SocialCreationPolicy;
+    /** The principal's grants at the resource's lobby and its organizations. */
+    readonly grants?: readonly import('./authorization-lobby-facts').GrantFact[];
+    /** The role being given or removed, for `organization.roles.manage`. */
+    readonly roleGiven?:
+      import('./authorization-lobby-facts').RoleGivenFact | null;
+    /**
+     * The answer given under a capability that is both answers
+     * (`channel.request.decide`, `judge.invitation.respond`). A decline is a
+     * way out and no boundary stops it; left out, the answer is bounded as
+     * an accept.
+     */
+    readonly answer?: 'accept' | 'decline';
+    /** The other people the action reaches, for a minor with a boundary. */
+    readonly counterparts?: readonly import('./authorization-lobby-facts').CounterpartFact[];
   };
 };
-export type AuthorizationDecision =
-  | { readonly allow: true }
-  | {
-      readonly allow: false;
-      readonly reason: AuthorizationDenyReason;
-    };
+export type { AuthorizationDecision } from './authorization-decision';
 
 export type SocialAccountFact = {
   readonly account: AccountAuthorizationFact;

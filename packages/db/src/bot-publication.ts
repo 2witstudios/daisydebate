@@ -1,6 +1,7 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
+import { isJudgeSeat, leadSeatOf, sameSeat } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBotGenerationOperations } from './bot-generation';
 export { isFinalBotSpeechRefusal } from './bot-generation-rules';
@@ -97,6 +98,10 @@ export function createBotPublicationOperations(input: {
           (candidate) => candidate.id === target.segmentId,
         );
         if (!segment) throw createAppError('CONFLICT');
+        // A bot speaks in a speech or a cross-examination, never an open floor.
+        const segmentType = segment.type;
+        if (segmentType === 'open')
+          throw createAppError('CONFLICT', 'A bot does not take an open floor');
         const agentRunId = input.nextId(),
           token = input.nextToken();
         const claim = publicationClaim({
@@ -123,8 +128,8 @@ export function createBotPublicationOperations(input: {
         await startLockedRoundAgentRun(tx, {
           id: agentRunId,
           participantId: target.roundParticipantId,
-          kind: segment.type,
-          model: input.models[segment.type],
+          kind: segmentType,
+          model: input.models[segmentType],
           configuration: claim.configuration,
         });
         const value = claim.row;
@@ -143,17 +148,19 @@ export function createBotPublicationOperations(input: {
           scope,
           token,
           leaseExpiresAt: value.leaseExpiresAt.toISOString(),
-          segmentType: segment.type,
+          segmentType,
           /** In cross-examination the scheduled seat asks first. */
-          opensExchange: round.rules.segments.some(
-            (rule) =>
+          opensExchange: round.rules.segments.some((rule) => {
+            const lead = leadSeatOf(rule.speak);
+            return (
               rule.key === segment.rulesSegmentKey &&
-              rule.side === seat.role &&
-              rule.slot === seat.slot,
-          ),
+              lead !== null &&
+              sameSeat(lead, seat.seat)
+            );
+          }),
           /** Activity peers only; grants no authority over another seat. */
           peerParticipantIds: round.participants
-            .filter((row) => row.role !== 'judge' && row.id !== seat.id)
+            .filter((row) => !isJudgeSeat(row.seat) && row.id !== seat.id)
             .map((row) => row.id),
         };
       }),

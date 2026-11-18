@@ -52,11 +52,11 @@ describe('Room chat contracts', () => {
     }));
   test('the seat that reads without posting', () =>
     assert({
-      given: 'each seat and no seat',
+      given: 'each seat kind and no seat',
       should: 'be read-only for the judge alone',
-      actual: (['affirmative', 'negative', 'judge', null] as const).map(
+      actual: (['side', 'speaker', 'judge', 'moderator', null] as const).map(
         roomCommunitySeatReadsOnly,
       ),
-      expected: [false, false, true, false],
+      expected: [false, false, true, false, false],
     }));
 });

@@ -97,13 +97,26 @@ export function messagingAuthorizationInput(
 export function messagingAuthorizationFence(
   options: MessagingFenceOptions & {
     readonly capability: AuthorizationCapability;
+    /** The answer, under a capability that is both answers. */
+    readonly answer?: 'accept' | 'decline';
   },
 ): MessagingAuthorizationFence {
-  return async (tx, input, frame) =>
-    requireAuthorization({
-      ...(await loadMessagingAuthorizationInput(tx, input, frame, options)),
+  return async (tx, input, frame) => {
+    const loaded = await loadMessagingAuthorizationInput(
+      tx,
+      input,
+      frame,
+      options,
+    );
+    return requireAuthorization({
+      ...loaded,
+      context:
+        options.answer === undefined
+          ? loaded.context
+          : { ...loaded.context, answer: options.answer },
       capability: options.capability,
     });
+  };
 }
 
 function requireBoundFrame(

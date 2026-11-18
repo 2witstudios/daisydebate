@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint, isNamedSeat, roundViewSchema } from './index';
+import {
+  emptyRuntimeCheckpointFor,
+  isNamedSeat,
+  roundViewSchema,
+} from './index';
+import { twoSides } from './seats';
 import {
   fixtureRules,
   plainRoomConfig,
@@ -27,13 +32,11 @@ const debater = {
   actorId: id('q'),
   kind: 'human',
   label: 'Sam Reyes',
-  role: 'affirmative',
-  slot: 0,
+  seat: { kind: 'side', side: 'affirmative', slot: 0 },
 } as const;
 const anonymousJudge = {
-  role: 'judge',
+  seat: { kind: 'judge', slot: 0 },
   kind: 'human',
-  slot: 0,
   anonymous: true,
 } as const;
 const view = {
@@ -42,7 +45,7 @@ const view = {
   version: 3,
   status: 'active',
   competitionType: 'ranked',
-  ladderId: 'freestyle',
+  ladder: { style: 'freestyle', division: 'open' },
   topic: 'A topic',
   opening: null,
   visibility: 'public',
@@ -59,7 +62,7 @@ const view = {
   transcriptCompleteness: null,
   resolutionAudit: null,
   viewerIsHost: false,
-  checkpoint: emptyRuntimeCheckpoint,
+  checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
   segments: [segment(0), segment(1)],
 };
 const parses = (value: unknown) => roundViewSchema.safeParse(value).success;
@@ -136,9 +139,9 @@ describe('roundViewSchema', () => {
       actual: [
         parses({ ...view, startedAt: null }),
         parses({ ...view, completedAt: at(9) }),
-        parses({ ...view, outcome: 'affirmative' }),
+        parses({ ...view, outcome: { kind: 'winner', side: 'affirmative' } }),
         parses({ ...view, status: 'completed' }),
-        parses({ ...abandoned, outcome: 'negative' }),
+        parses({ ...abandoned, outcome: { kind: 'winner', side: 'negative' } }),
         parses({ ...opening, startedAt: at(0) }),
       ],
       expected: [false, false, false, false, false, false],
@@ -226,7 +229,7 @@ describe('roundViewSchema', () => {
         parses({ ...completed, platformEnding: 'recovery_bound' }),
         parses({
           ...completed,
-          outcome: 'affirmative',
+          outcome: { kind: 'winner', side: 'affirmative' },
           platformEnding: 'capture_shortfall',
         }),
       ],
@@ -250,7 +253,12 @@ describe('roundViewSchema', () => {
           ...view,
           participants: [
             debater,
-            { ...debater, id: id('j'), role: 'judge', label: 'Riley' },
+            {
+              ...debater,
+              id: id('j'),
+              seat: { kind: 'judge', slot: 0 },
+              label: 'Riley',
+            },
           ],
         }),
         view.participants.filter(isNamedSeat).map((p) => p.label),

@@ -4,7 +4,7 @@ import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic, winnerOutcome, negativeSide } from '@daisy/protocol';
 import { recoverRankedResults } from './ranked-room.test-support';
 import {
   readRoundOpening,
@@ -45,7 +45,7 @@ test('the platform ending is written when the Round ends, not at the freeze', as
       await f.sql`select platform_ending, status from rounds where id=${roundId}`;
     const reservation = createId();
     const [seat] =
-      await f.sql`select actor_id from round_participants where round_id=${roundId} and role<>'judge' limit 1`;
+      await f.sql`select actor_id from round_participants where round_id=${roundId} and seat_kind<>'judge' limit 1`;
     const countedAt = new Date().toISOString();
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, source, state)
       values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', ${countedAt}::timestamptz,
@@ -57,7 +57,7 @@ test('the platform ending is written when the Round ends, not at the freeze', as
     const [refund] =
       await f.sql`select state from usage_reservations where id=${reservation}`;
     const [ended] =
-      await f.sql`select platform_ending, status, outcome from rounds where id=${roundId}`;
+      await f.sql`select platform_ending, status, winning_side as outcome from rounds where id=${roundId}`;
     assert({
       given: 'a freeze with platform loss past the limit, then completion',
       should:
@@ -90,7 +90,7 @@ test('a silent seat past the limit is not ended on the platform', async () => {
     await seedSettledAttendanceLedger(f, roundId);
     await finalizeByMaintenance(f, roundId);
     const [ended] =
-      await f.sql`select platform_ending, status, outcome from rounds where id=${roundId}`;
+      await f.sql`select platform_ending, status, winning_side as outcome from rounds where id=${roundId}`;
     assert({
       given: 'an AI-only Round whose seat said nothing',
       should: 'complete with no outcome, and blame nothing on the platform',
@@ -117,6 +117,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         () => true,
         readRoundOpening,
         roundWaitingOn,
+        () => false,
       );
       const [receipt] =
         await f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
@@ -163,15 +164,13 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     room = (
       await f.command(f.host, room, {
         type: 'assign-seat',
-        role: 'judge',
-        slot: 1,
+        seat: { kind: 'judge' as const, slot: 1 },
         actorId: bot.actorId,
       })
     ).view;
@@ -213,7 +212,7 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
       },
       expected: {
         completeness: 'incomplete',
-        done: ['completed', 'negative'],
+        done: ['completed', winnerOutcome(negativeSide)],
         receipt: ['partial', [ai], true],
         jobs: 0,
       },
@@ -235,7 +234,7 @@ const judgingOptions = {
 test('a failed AI judge ends a ranked Round honestly: no human countdown, no winner, no rating, Room released', async () => {
   await withRoomRuntime(async (f) => {
     const { roundId } = await frozenBotJudgeRound(f, true);
-    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
     const seen = () =>
       f.store.readLaunchedRound(
         roundId,
@@ -243,6 +242,7 @@ test('a failed AI judge ends a ranked Round honestly: no human countdown, no win
         () => true,
         readRoundOpening,
         roundWaitingOn,
+        () => false,
       );
     const processing = await seen();
     const [row] =
@@ -255,7 +255,7 @@ test('a failed AI judge ends a ranked Round honestly: no human countdown, no win
     const view = await seen();
     const [facts] =
       await f.sql`select (select count(*)::int from rating_changes where round_id=${roundId}) as ratings,
-        (select count(*)::int from room_active_memberships m join rounds r on r.room_id=m.room_id where r.id=${roundId}) as held`;
+        (select count(*)::int from active_seats m join rounds r on r.room_id=m.room_id where r.id=${roundId}) as held`;
     assert({
       given:
         'a ranked Round whose only judge is an AI with a job that ran out of calls',
@@ -292,27 +292,25 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     room = (
       await f.command(f.host, room, {
         type: 'assign-seat',
-        role: 'judge',
-        slot: 1,
+        seat: { kind: 'judge' as const, slot: 1 },
         actorId: bot.actorId,
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
     const { roundId } = await launchRuntimeRound(f, room);
-    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
     await playOut(f, roundId, true);
     await finalizeAsWeb(f, roundId);
     await seedSettledAttendanceLedger(f, roundId);
     try {
       await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId }),
+        s.activateBetaSeason({ id: seasonId, division: 'open' }),
       );
       await f.sql`update round_judging_jobs set status='failed',terminal_reason='attempts_exhausted' where round_id=${roundId}`;
       const seen = () =>
@@ -322,6 +320,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
           () => true,
           readRoundOpening,
           roundWaitingOn,
+          () => false,
         );
       const waiting = await seen();
       const [{ deadline }] =
@@ -352,7 +351,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
         },
         expected: {
           waitingOn: { state: 'human_window', deadlineAt: deadline },
-          done: ['completed', 'negative'],
+          done: ['completed', winnerOutcome(negativeSide)],
           ruling: 'partial',
           postings: 2,
         },
@@ -374,8 +373,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
@@ -392,6 +390,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
       () => true,
       readRoundOpening,
       roundWaitingOn,
+      () => false,
     );
     assert({
       given: 'a played Round with a human judge, frozen',
@@ -450,7 +449,7 @@ test('a held ballot past the cutoff still decides the Round once attendance sett
       expected: {
         calls: 0,
         job: 'succeeded',
-        done: ['completed', 'negative'],
+        done: ['completed', winnerOutcome(negativeSide)],
       },
     });
   }, judgingOptions);

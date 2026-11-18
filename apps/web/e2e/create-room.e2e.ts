@@ -82,6 +82,38 @@ test('Custom POI, exact timing and custom resolution persist through the real cr
   }
 });
 
+test('a new Room opens as just the room: no seat dialog until someone asks for one', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/play/room');
+  await hydrated(formOf(page));
+  await formOf(page)
+    .getByLabel('Room name', { exact: true })
+    .fill(`Plain ${createId().slice(0, 8)}`);
+  const view = await createConfiguredRoom(page);
+  try {
+    const opener = page.getByRole('button', { name: /^Fill / }).first();
+    await hydrated(opener);
+    // Nothing on the page pulls focus into a closed menu (a server-rendered
+    // autofocus did, and the browser then showed the menu on load).
+    expect(
+      await page.evaluate(
+        () => document.activeElement?.closest('[popover]') ?? null,
+      ),
+    ).toBeNull();
+    await expect(page.locator('[popover]:popover-open')).toHaveCount(0);
+    await opener.click();
+    await expect(page.locator('[popover]:popover-open')).toHaveCount(1);
+    // Opening it still moves focus to the choice.
+    await expect(
+      page.locator('[popover]:popover-open select[name="actorId"]'),
+    ).toBeFocused();
+  } finally {
+    await closeRoom(page.request, view.id);
+  }
+});
+
 test('native format, resolution and speech editing create a room without JavaScript', async ({
   browser,
 }) => {
@@ -184,7 +216,10 @@ test('native format, resolution and speech editing create a room without JavaScr
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     const view = await createConfiguredRoom(page);
     roomId = view.id;
-    expect(view.capture).toEqual({ broadcast: null, recording: true });
+    expect(view.capture).toEqual({
+      broadcast: null,
+      recordingPolicy: 'released',
+    });
     expect(view.topic).toBe('Cities should build more homes.');
     expect(view.format.standing.kind).toBe('custom');
   } finally {
@@ -283,7 +318,9 @@ test('Freestyle is the one standard: two format radios, Strike or Custom wording
     form.getByRole('checkbox', { name: 'Ranked', exact: true }),
   ).toBeEnabled();
   await expect(
-    form.getByText('Freestyle ladder', { exact: true }),
+    form.getByText('Freestyle · Open or Youth, set by the debaters', {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(form.locator('.create-room-publication')).toHaveCount(0);
   await expect(
@@ -332,7 +369,10 @@ test('Record match stays visible and Ranked shows automatic recording without lo
   await form.getByLabel('Room name', { exact: true }).fill('Recorded match');
   const view = await createConfiguredRoom(page);
   try {
-    expect(view.capture).toEqual({ broadcast: null, recording: true });
+    expect(view.capture).toEqual({
+      broadcast: null,
+      recordingPolicy: 'released',
+    });
     await page.reload();
     await page
       .getByRole('link', { name: 'Edit settings', exact: true })

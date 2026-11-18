@@ -88,6 +88,8 @@ test('actual native composition uses the injected public display reader afresh w
         webhookSecret: 'whsec_fixture',
         premiumPriceId: 'price_fixture',
         portalConfigurationId: 'bpc_fixture',
+        hostEventPrices: null,
+        club: null,
       },
     },
     database: {
@@ -99,13 +101,19 @@ test('actual native composition uses the injected public display reader afresh w
           subscriptionLifecycle: null,
           hasCustomer: true,
           purchaseAllowed: true,
-          botDebates: { kind: 'unavailable' as const },
+          granted: false,
+          renewalOff: false,
+          amountMinor: null,
         }),
         portalCustomer: async () => ({
           id: 'cus_original',
           mode: 'test' as const,
         }),
       }),
+      clubSeatReads: {
+        ...app.database.clubSeatReads,
+        seatOf: async () => null,
+      },
       readFlagSnapshot: async (accountId: string | null) => {
         reads.push(accountId);
         if (state === 'unavailable')

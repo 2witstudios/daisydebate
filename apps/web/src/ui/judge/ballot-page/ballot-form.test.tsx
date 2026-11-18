@@ -1,8 +1,10 @@
+import { ballotPlanFor } from '../../../features/judge/ballot-plan';
+import { sampleBallotRound } from '../../../features/judge/ballot-plan.test-support';
 import { ballotCategories } from '@daisy/protocol';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleBallotDebaters } from '../../mock/judge.test-support';
+import { sampleBallotPlan } from '../../mock/judge.test-support';
 import { BallotFields } from './ballot-form';
 
 setupRitewayBun();
@@ -27,7 +29,7 @@ const render = (
 ) =>
   renderToString(
     h(BallotFields, {
-      debaters: sampleBallotDebaters,
+      plan: sampleBallotPlan,
       values,
       error,
       pending: false,
@@ -42,6 +44,25 @@ const inputFor = (html: string, name: string, value: string) =>
   )?.[0] ?? '';
 
 describe('BallotFields', () => {
+  test('a missing written part is refused by the server, not the browser', () => {
+    const html = render({});
+    const textareas = html.match(/<textarea[^>]*>/g) ?? [];
+    assert({
+      given: 'an empty ballot whose reason the definition requires',
+      should:
+        'render the reason and feedback boxes without a required attribute, so the post reaches the server, which refuses it and keeps everything (ISSUE-348), while assistive tech still hears that the reason is required',
+      actual: {
+        boxes: textareas.length > 0,
+        required: textareas.filter((tag) => /\srequired(=|\s|>)/.test(tag))
+          .length,
+        announced: textareas.some((tag) =>
+          tag.includes('aria-required="true"'),
+        ),
+      },
+      expected: { boxes: true, required: 0, announced: true },
+    });
+  });
+
   test('a refusal keeps everything posted', () => {
     const html = render(refused, 'Write the reason for your decision.');
     assert({
@@ -102,5 +123,43 @@ describe('BallotFields', () => {
       ],
       expected: [false, 20, false, false],
     });
+  });
+});
+
+test('a custom ballot renders its actual speaker ranks, canonical scale and off collection policy', () => {
+  const definition = {
+    ...sampleBallotPlan.definition,
+    key: 'custom-render',
+    revision: 1,
+    points: {
+      ...sampleBallotPlan.definition.points!,
+      criteria: { kind: 'holistic' as const },
+      scale: { min: 0.25, max: 0.56, step: 0.1 },
+      default: 0.35,
+    },
+    speakerRanks: true,
+    written: { reason: null, feedback: null },
+  };
+  const plan = ballotPlanFor(sampleBallotRound, definition);
+  const html = renderToString(
+    h(BallotFields, { plan, values: {}, error: undefined, pending: false }),
+  );
+  assert({
+    given:
+      'the actual canonical custom definition and two real sample competitors',
+    should:
+      'render both speaker places, offset scale and explicit default, without forbidden written or private-note controls',
+    actual: [
+      html.includes('name="speaker-place-1"'),
+      html.includes('name="speaker-place-2"'),
+      html.includes('min="0.25"'),
+      html.includes('max="0.56"'),
+      html.includes('step="0.1"'),
+      html.includes('value="0.35"'),
+      html.includes('name="reason"'),
+      html.includes('name="feedback-'),
+      html.includes('name="privateNote"'),
+    ],
+    expected: [true, true, true, true, true, true, false, false, false],
   });
 });

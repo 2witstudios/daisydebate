@@ -1,3 +1,4 @@
+import { beginBroadcastEgressAttempt } from '../src/broadcast-egress-dispatch';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
@@ -42,7 +43,7 @@ const withStores = async (
     ops: ReturnType<typeof recordingOperations>;
     db: ReturnType<typeof drizzle>;
     client: SQL;
-    newRecording: () => Promise<{
+    newRecording: (recordingClass?: 'ranked' | 'casual') => Promise<{
       id: string;
       roundId: string;
     }>;
@@ -62,14 +63,25 @@ const withStores = async (
           ops,
           db,
           client,
-          newRecording: async () => {
-            const roundId = await fixture.round();
+          newRecording: async (recordingClass = 'casual') => {
+            const roundId = await fixture.round(
+              recordingClass === 'ranked'
+                ? {
+                    competition_type: 'ranked',
+                    format_id: 'freestyle',
+                    ladder_id: 'freestyle',
+                    ladder_division: 'open',
+                    preset_version: 1,
+                  }
+                : {},
+            );
             rounds.push(roundId);
             const record = await ops.requestRecording({
               id: createId(),
               roundId,
-              class: 'casual',
-              eligibility: hostOptIn,
+              class: recordingClass,
+              eligibility:
+                recordingClass === 'ranked' ? { kind: 'ranked' } : hostOptIn,
             });
             return { id: record.id, roundId };
           },
@@ -400,7 +412,7 @@ test('a build reports how far it is, and only its current owner can say so', asy
 });
 
 test('a delay is alerted once, and failed ranked work is never cleaned on a timer', async () => {
-  await withStores(async ({ store, ops, newRecording, client }) => {
+  await withStores(async ({ store, ops, newRecording }) => {
     const { id } = await newRecording();
     await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
     const capture = {
@@ -440,11 +452,20 @@ test('a delay is alerted once, and failed ranked work is never cleaned on a time
       actual: await old(),
       expected: true,
     });
-    await client`update recordings set recording_class='ranked', eligibility=${{ kind: 'ranked' }} where id=${id}`;
+    const ranked = await newRecording('ranked');
+    await ops.applyRecording(ranked.id, () => ({
+      kind: 'moved',
+      next: { status: 'failed', reason: 'processing_failed', failedAt: at },
+    }));
     assert({
-      given: 'the same as a ranked Recording',
+      given: 'a separately created genuine ranked Recording',
       should: 'never come up: ranked is kept forever',
-      actual: await old(),
+      actual: (
+        await ops.listFailedRecordingsBefore({
+          before: new Date(FUTURE * 2).toISOString(),
+          limit: 500,
+        })
+      ).includes(ranked.id),
       expected: false,
     });
   });
@@ -615,12 +636,17 @@ test('one own start is recorded per attempt, and a racing one loses', async () =
   await withStores(async ({ store, newRecording }) => {
     const { id, roundId } = await newRecording();
     await store.openOwn({ recordingId: id, roundId });
+    await store.beginOwnEgressAttempt({
+      recordingId: id,
+      generation: 1,
+      stageCredentialHash: 'a'.repeat(64),
+    });
     const started = (egressId: string) =>
       store.recordOwnEgressStarted({
         recordingId: id,
         egressId,
         generation: 1,
-        stageCredentialHash: `hash-${egressId}`,
+        stageCredentialHash: 'a'.repeat(64),
         now: NOW,
       });
     const raced = await Promise.all([started('EG_A'), started('EG_B')]);
@@ -647,11 +673,16 @@ test('sources are known from the moment an Egress is recorded, whatever the life
       )[0]?.hold_prefix;
     const own = await newRecording();
     await store.openOwn({ recordingId: own.id, roundId: own.roundId });
+    await store.beginOwnEgressAttempt({
+      recordingId: own.id,
+      generation: 1,
+      stageCredentialHash: 'a'.repeat(64),
+    });
     await store.recordOwnEgressStarted({
       recordingId: own.id,
       egressId: 'EG_OWN',
       generation: 1,
-      stageCredentialHash: 'h',
+      stageCredentialHash: 'a'.repeat(64),
       now: NOW,
     });
     assert({
@@ -673,11 +704,16 @@ test('sources are known from the moment an Egress is recorded, whatever the life
       actual: await store.sourcesRemain(held.id),
       expected: false,
     });
+    await beginBroadcastEgressAttempt(db, {
+      id: open.id,
+      generation: 1,
+      stageCredentialHash: 'a'.repeat(64),
+    });
     await recordEgressStarted(db, {
       generation: 1,
       id: open.id,
       egressId: 'EG_B',
-      stageCredentialHash: 'h',
+      stageCredentialHash: 'a'.repeat(64),
       now: NOW,
     });
     assert({
@@ -700,11 +736,16 @@ test('a Recording running its own Egress holds conversation the same way', async
       actual: await held(),
       expected: false,
     });
+    await store.beginOwnEgressAttempt({
+      recordingId: id,
+      generation: 1,
+      stageCredentialHash: 'a'.repeat(64),
+    });
     await store.recordOwnEgressStarted({
       recordingId: id,
       egressId: 'EG',
       generation: 1,
-      stageCredentialHash: 'digest',
+      stageCredentialHash: 'a'.repeat(64),
       now: NOW,
     });
     assert({
@@ -721,6 +762,23 @@ test('a Recording running its own Egress holds conversation the same way', async
       expected: false,
     });
     await store.recordOwnRestored(id);
+    assert({
+      given:
+        'a logically closable capture with no confirmed physical stop or current withdrawal',
+      should: 'refuse close and keep private conversation held',
+      actual: [
+        await store.closeOwn({ recordingId: id, now: NOW }),
+        await held(),
+      ],
+      expected: [false, true],
+    });
+    await store.settleOwnEgressAttempt({
+      recordingId: id,
+      generation: 1,
+      egressId: 'EG',
+      observation: { kind: 'complete' },
+    });
+    await store.recordOwnRevoked({ recordingId: id, now: NOW });
     await store.closeOwn({ recordingId: id, now: NOW });
     assert({
       given: 'a capture closed',

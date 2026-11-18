@@ -141,12 +141,15 @@ the gaps it cannot.
 - No ledes that restate the page title, and no slogan pairs ("Practice
   arguments. Sharpen your mind.") outside the landing hero and the auth
   brand panel.
-- Exception, owner decision 2026-10-05: the three onboarding intro steps
-  (`/onboarding/daisy`, `/onboarding/styles`, `/onboarding/debate`) may
-  explain how Daisy works (including Freestyle's draw and strikes), Freestyle
-  and Custom, and how a debate runs. They
-  are the one place that teaches the product, shown once after sign-up and
-  reopened from Help; every other onboarding step follows the rule.
+- Exception, owner decision 2026-10-05, widened 2026-11-18: the five
+  onboarding intro steps (`/onboarding/daisy`, `/onboarding/styles`,
+  `/onboarding/debate`, `/onboarding/practice`, `/onboarding/host`) may
+  explain how Daisy works: its three ways in (ranked Freestyle, practising a
+  league's format, running a league or tournament), Freestyle's draw and
+  strikes, and how a round runs. They are the one place that teaches the
+  product, shown once after sign-up and reopened from Help; every other
+  onboarding step follows the rule. `/about` states Daisy's vision and links
+  each common question to its Help answer rather than repeating it.
 
 ## Home notes
 
@@ -162,7 +165,12 @@ On a phone (below 641px) they are not notes but one vertical menu (owner,
 curl, peel, tilt, tagline or season reveal. Play keeps its accent colour and the
 other seven share one. CSS alone decides it, so the first HTML is right.
 
-A phone has no Home hero and no opening tournament or Live now cards. A member
+Home ends with one About strip (owner, 2026-11-18) for visitors and members:
+a line on what Daisy is and links to About Daisy, Help, Terms and Privacy. A
+visitor's hero also links Learn about Daisy under the join. The account menu and the
+More sheet list About Daisy beside Help, so a phone reaches it too.
+
+A phone has no Home hero and no opening tournament, Live now or About strip. A member
 sees the menu, and the hero returns only while they hold a Room, because it
 carries Return to room. A visitor sees only the join form, plainly on the page.
 
@@ -180,7 +188,7 @@ Minimize as the group's last row (Expand when mini). The foot is the
 account: a member's avatar and username open an account menu to the right.
 The menu lists their ratings on each ladder under the season's name, each
 as the rating, "Provisional", "Unrated" or "Hidden while judging", then
-Profile, Settings, Help, Terms, Privacy, Analytics preferences and Sign out.
+Profile, Settings, Help, About Daisy, Terms, Privacy, Analytics preferences and Sign out.
 It is a native disclosure, so it opens on a tap without script. The shell
 reads the ratings once per request and does not wait for them: the menu
 streams them in, and a failed read says so in the menu. A visitor's Sign in
@@ -431,3 +439,62 @@ The live column has two tabs, Transcript and Chat, chosen by `?pane=` so
 they work without script, over the chat composer; reactions sit at the top
 of Chat. The report dialog opens from `?report=`. Spectators never see a
 debater's flow document.
+
+## Daisy Tab
+
+Tournament tabulation, on sample data behind the closed `daisy-tab` release
+flag (plan: Plans › tab-interface; the design canvas is the specification for
+layout and copy). With the flag closed every Tab address answers with the bare
+missing page it always has, because the gate is in the layouts of the `(tab)`,
+`(tab-live)` and `(host)` route groups, and `/tournaments` keeps its
+information page.
+
+- **Two sides.** The host area is everything under `/host`, with its own shell
+  (`ui/tab/host-shell`): the timeline rail beside one page. The rail is the
+  tournament in order, by time slot; with one event the slots are its rounds.
+  The participant side is the same paths without the prefix, in the product
+  shell. Anyone without a grant who opens a host address is sent to the
+  participant page at the same path (`participantPathOf`).
+- **One module per aggregate.** `features/tab/<aggregate>.ts` owns that
+  aggregate's pure read projection; sample `read…` adapters and their facts live
+  in `features/tab/sample/` and are consumed only by the walk and tests. A screen takes the read as a prop and nothing else,
+  so the source changes without a screen changing.
+- **A setting is one shape.** Tournament setup, a league's template, the
+  create-room form of a standing lobby and an event Room's "set by" lines all
+  render `ResolvedSetting`: value, the scope it comes from, and a lock where a
+  scope above enforces it. No screen builds a second one.
+- **A template pins the whole ballot.** An event that follows a league's
+  template has its ballot definition pinned, so ballot settings there are every
+  part locked, with only text screening (which is not in the definition) to
+  choose; setup's locked Ballot row carries a View link to that page. Format
+  and Recording are locked the same way.
+- **The event picker leads to screens.** `EventSwitch.others` are `TabAction`s:
+  an event with a screen is a link; an unavailable event is explicitly disabled.
+- **Controls.** A read carries each control as a `TabAction`: `kind: 'link'`
+  carries a non-null address; `kind: 'unavailable'` has none and renders disabled
+  on production pages. Only beneath `/tournaments/walk` does the latter show a
+  simulated answer. Preview forms alone post to the
+  sample server action (`app/(tab)/sample-form-action.ts`) through
+  `SampleForm`, so it follows the mutating-form rules above while saving
+  nothing. An action is drawn as a button (`ActionButton`, `size="small"` for
+  row actions, list expanders and header actions; `BackButton`, with a leading
+  arrow, for a back link), never as a bold underlined link: a text link stays
+  only inside a sentence (`SentenceLink`), and rail and tab-bar navigation
+  stay navigation. `sample-walk.test.tsx` fails on any other underlined link.
+- **The judge's ballot is drawn from a ballot definition alone**
+  (`ui/tab/ballot/configured-ballot.tsx`): scale and step, ranks, a criteria
+  grid, the allowed outcomes and the written fields. Ballot settings redraw
+  the same component as a preview on every choice.
+- **Sample Rooms** sit at `/tournaments/walk/rooms/sample/[room]`. Preview
+  navigation prefixes Tab addresses with `/tournaments/walk`; ordinary Room
+  addresses always belong to real Rooms. Host previews keep their own shell
+  through the `(host-preview)` route group.
+- **The sample viewer and moment** are a cookie chosen on `/tournaments/walk`,
+  which lists every screen that viewer can open then. It exists so the sample
+  can be walked independently of production data. Real routes never reserve
+  sample handles, and sample-only screens have no production fallback.
+  `ui/tab/sample-walk.test.tsx` follows every link from it for every viewer
+  and moment.
+- **Not built here:** a role editor, setting a policy's force key by key (a
+  host picks a pairing preset; the forces are shown), comparing draw versions,
+  and host screens at phone width. Tab screens have no visual baselines.

@@ -104,6 +104,7 @@ test('the subject-rights composition runs every feature step exactly once', asyn
       'after-close:account-terms',
       'after-close:agreement-signatures',
       'before-auth:beta-access',
+      'before-auth:club-seats',
       'after-close:documents',
       'after-close:entitlement-grants',
       'after-close:usage',
@@ -119,6 +120,9 @@ test('the subject-rights composition runs every feature step exactly once', asyn
       'after-close:round-transcript',
       'after-close:round-analysis',
       'after-close:recording',
+      'after-close:organization-authority',
+      'after-close:guardian-links',
+      'after-close:tournament-record',
       'after-close:competitive-record',
     ],
   });

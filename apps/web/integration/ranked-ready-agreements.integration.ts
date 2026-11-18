@@ -1,3 +1,4 @@
+import { daisyOrganizationId } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
@@ -27,14 +28,19 @@ const rankedRoom = async (f: Fixture) => {
       formatVersion: preset!.format_version,
       presetVersion: preset!.version,
     },
-    cast: [{ actorId: f.host.actorId, role: 'affirmative', slot: 0 }],
+    cast: [
+      {
+        actorId: f.host.actorId,
+        seat: { kind: 'side', side: 'affirmative', slot: 0 },
+      },
+    ],
   });
   return created.view;
 };
 
 const withSeason = async (f: Fixture, run: () => Promise<void>) => {
   const seasonId = createId();
-  await f.sql`insert into seasons(id,name,starts_at,status) values(${seasonId},'Waiver fixture','2000-01-01T00:00:00Z','active')`;
+  await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status) values(${daisyOrganizationId},${seasonId},'open','Waiver fixture','2000-01-01T00:00:00Z','active')`;
   try {
     await run();
   } finally {
@@ -135,8 +141,7 @@ test('an unsigned human judge cannot Ready a ranked Round until they sign', asyn
       const seated = (
         await f.command(f.outsider, room, {
           type: 'claim-seat',
-          role: 'judge',
-          slot: 0,
+          seat: { kind: 'judge', slot: 0 },
         })
       ).view;
       const unsigned = await refusalOf(f.consent(f.outsider, seated, 'ready'));

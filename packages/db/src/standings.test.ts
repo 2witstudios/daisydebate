@@ -42,7 +42,7 @@ describe('standings reads', () => {
       should: 'return empty standings without a query',
       actual: [
         await database.readStandings({
-          ladder: 'freestyle',
+          ladder: { style: 'freestyle', division: 'open' },
           seasonIds: [],
           clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
         }),
@@ -106,7 +106,7 @@ describe('standings reads', () => {
       ],
     ]);
     const read = await database.readStandings({
-      ladder: 'freestyle',
+      ladder: { style: 'freestyle', division: 'open' },
       seasonIds: ['s1'],
       clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
@@ -118,16 +118,20 @@ describe('standings reads', () => {
     });
     assert({
       given: 'ledger rows with seats and outcomes',
-      should: 'carry the role, outcome and ISO posting time',
-      actual: read.changes.map(({ role, outcome, occurredAt }) => [
-        role,
+      should: 'carry the side, the winning side and ISO posting time',
+      actual: read.changes.map(({ side, outcome, occurredAt }) => [
+        side,
         outcome,
         occurredAt,
       ]),
       expected: [
-        ['affirmative', 'affirmative', at.toISOString()],
-        ['negative', 'affirmative', at.toISOString()],
-        ['affirmative', 'negative', at.toISOString()],
+        [
+          'affirmative',
+          { kind: 'winner', side: 'affirmative' },
+          at.toISOString(),
+        ],
+        ['negative', { kind: 'winner', side: 'affirmative' }, at.toISOString()],
+        ['affirmative', { kind: 'winner', side: 'negative' }, at.toISOString()],
       ],
     });
   });
@@ -135,7 +139,7 @@ describe('standings reads', () => {
   test('reads both sets from one read-only snapshot', async () => {
     const { database, queries } = createTestDatabase([[], [], []]);
     await database.readStandings({
-      ladder: 'freestyle',
+      ladder: { style: 'freestyle', division: 'open' },
       seasonIds: ['s1'],
       clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
@@ -151,9 +155,9 @@ describe('standings reads', () => {
   });
 
   test('refuses a posting that cannot be rated', async () => {
-    for (const [given, role, outcome] of [
-      ['a judge seat', 'judge', 'affirmative'],
-      ['an abandoned outcome', 'affirmative', 'abandoned'],
+    for (const [given, side, winningSide] of [
+      ['a judge seat', null, 'affirmative'],
+      ['an unknown winning side', 'affirmative', 'abandoned'],
       ['no outcome', 'negative', null],
     ] as const) {
       const { database } = createTestDatabase([
@@ -170,8 +174,8 @@ describe('standings reads', () => {
             290,
             0.06,
             at,
-            role,
-            outcome,
+            side,
+            winningSide,
             true,
           ],
         ],
@@ -181,7 +185,7 @@ describe('standings reads', () => {
         should: 'refuse as an internal error rather than guess a result',
         actual: () =>
           database.readStandings({
-            ladder: 'freestyle',
+            ladder: { style: 'freestyle', division: 'open' },
             seasonIds: ['s1'],
             clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
           }),

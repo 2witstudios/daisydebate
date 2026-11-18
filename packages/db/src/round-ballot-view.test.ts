@@ -1,4 +1,9 @@
-import { ballotCategories } from '@daisy/protocol';
+import {
+  ballotCategories,
+  daisyBallotDefinitions,
+  daisyWinnerBallot,
+  daisyBallotSource,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 
@@ -21,12 +26,27 @@ const row = (
     roundId: 'round',
     freezeRevision: 1,
     rubricVersion: 'speaker-10@2',
+    decision: 'win',
     winner: 'affirmative',
+    ranking: null,
+    speakerRanks: null,
+    ballotDefinitionId: null,
+    ballotDefinitionVersion: null,
     scores,
     reason: 'Clearer weighing.',
     feedback,
     citations,
   }) as unknown as Row;
+/** The Round's frozen definition and subjects every view reads ballots by. */
+const judged = {
+  definition: daisyWinnerBallot,
+  source: daisyBallotSource(daisyWinnerBallot),
+  subjects: {
+    sides: ['affirmative', 'negative'],
+    speakers: ['aff', 'neg'],
+    segments: ['AC', 'NC'],
+  },
+};
 const body = {
   rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
@@ -45,9 +65,24 @@ const frozen = {
 
 test('only a human judge seated in the Round has an own seat', () => {
   const participants = [
-    { id: 'aff', actorId: 'a', role: 'affirmative', kind: 'human' },
-    { id: 'judge-h', actorId: 'h', role: 'judge', kind: 'human' },
-    { id: 'judge-b', actorId: 'b', role: 'judge', kind: 'bot' },
+    {
+      id: 'aff',
+      actorId: 'a',
+      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+      kind: 'human',
+    },
+    {
+      id: 'judge-h',
+      actorId: 'h',
+      seat: { kind: 'judge', slot: 0 } as const,
+      kind: 'human',
+    },
+    {
+      id: 'judge-b',
+      actorId: 'b',
+      seat: { kind: 'judge', slot: 1 } as const,
+      kind: 'bot',
+    },
   ];
   assert({
     given: 'a debater, a human judge, a bot judge and a spectator',
@@ -62,18 +97,22 @@ test('only a human judge seated in the Round has an own seat', () => {
 test('judges see their own ballot and the frozen input, others’ only after completion', () => {
   const rows = [row('judge-h'), row('judge-b')];
   const open = ballotReadView({
+    audience: { kind: 'ordinary' },
     status: 'active',
     ownSeatId: 'judge-h',
-    viewerSide: undefined,
+    viewerSubject: undefined,
     aiJudgeSeatIds: new Set(['judge-b']),
+    ...judged,
     rows,
     frozen,
   });
   const done = ballotReadView({
+    audience: { kind: 'ordinary' },
     status: 'completed',
     ownSeatId: undefined,
-    viewerSide: undefined,
+    viewerSubject: undefined,
     aiJudgeSeatIds: new Set(['judge-b']),
+    ...judged,
     rows,
     frozen: null,
   });
@@ -116,10 +155,12 @@ test('a judge who has not submitted sees an empty own ballot', () => {
     given: 'a seated judge with no stored ballot',
     should: 'report the seat with no ballot or revision',
     actual: ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'active',
       ownSeatId: 'judge-h',
-      viewerSide: undefined,
+      viewerSubject: undefined,
       aiJudgeSeatIds: new Set(),
+      ...judged,
       rows: [row('judge-b')],
       frozen,
     }).own,
@@ -136,12 +177,14 @@ test('a released ballot carries feedback only for the reader’s own side', () =
     affirmative: 'Weigh earlier.',
     negative: 'Answer the turn.',
   };
-  const view = (viewerSide: 'affirmative' | 'negative' | undefined) =>
+  const view = (viewerSubject: 'affirmative' | 'negative' | undefined) =>
     ballotReadView({
+      audience: { kind: 'ordinary' },
       status: 'completed',
       ownSeatId: undefined,
-      viewerSide,
+      viewerSubject,
       aiJudgeSeatIds: new Set(),
+      ...judged,
       rows: [row('judge-h', null, feedback)],
       frozen: null,
     }).ballots.map((entry) => entry.ballot.feedback);
@@ -159,5 +202,115 @@ test('a released ballot carries feedback only for the reader’s own side', () =
       negative: [{ negative: 'Answer the turn.' }],
       other: [{}],
     },
+  });
+});
+
+test('a released speaker ranking carries feedback only for the reading speaker', () => {
+  const ranked = {
+    ...row('judge-h'),
+    rubricVersion: 'rank-speakers@1',
+    decision: 'ranking',
+    winner: null,
+    ranking: [['s1'], ['s2'], ['s3']],
+    scores: null,
+    feedback: { s1: 'Lead with impact.', s2: 'Signpost the rebuttal.' },
+  } as unknown as Row;
+  const view = (viewerSubject: string | undefined) =>
+    ballotReadView({
+      audience: { kind: 'ordinary' },
+      status: 'completed',
+      ownSeatId: undefined,
+      viewerSubject,
+      aiJudgeSeatIds: new Set(),
+      definition: daisyBallotDefinitions['rank-speakers@1'],
+      source: daisyBallotSource(daisyBallotDefinitions['rank-speakers@1']),
+      subjects: { sides: [], speakers: ['s1', 's2', 's3'], segments: [] },
+      rows: [ranked],
+      frozen: null,
+    }).ballots.map((entry) => ({
+      feedback: entry.ballot.feedback,
+      reportable: entry.reportableFeedbackId,
+    }));
+  assert({
+    given: 'a speaker ranking with feedback for two of three speakers',
+    should:
+      'give each speaker only their own feedback, reportable, and a speaker without feedback none',
+    actual: [view('s1'), view('s2'), view('s3')],
+    expected: [
+      [{ feedback: { s1: 'Lead with impact.' }, reportable: 'ballot-judge-h' }],
+      [
+        {
+          feedback: { s2: 'Signpost the rebuttal.' },
+          reportable: 'ballot-judge-h',
+        },
+      ],
+      [{ feedback: {}, reportable: null }],
+    ],
+  });
+});
+
+test('only the event unreleased projection carries screening review addressing', () => {
+  const submitted = row('judge-h');
+  const review = (unreleased: boolean) =>
+    ballotReadView({
+      audience: {
+        kind: 'event',
+        access: {
+          parts: ['decision', 'scores', 'reason', 'feedback'],
+          unreleased,
+        },
+        screenings: new Map([
+          [submitted.id, { status: 'held', releasedText: null }],
+        ]),
+      },
+      status: 'completed',
+      ownSeatId: undefined,
+      viewerSubject: undefined,
+      aiJudgeSeatIds: new Set(),
+      ...judged,
+      rows: [submitted],
+      frozen: null,
+    }).ballots[0];
+  assert({
+    given:
+      'the same held event ballot read under released and unreleased authority',
+    should:
+      'provide review ids only to the official and keep held words off the released copy',
+    actual: [
+      review(false)?.review ?? null,
+      review(false)?.ballot.reason ?? null,
+      review(true)?.review,
+      review(true)?.ballot.reason,
+    ],
+    expected: [
+      null,
+      null,
+      { ballotId: submitted.id, screening: 'held' },
+      body.reason,
+    ],
+  });
+});
+
+test('ordinary ballot readers treat absent stored feedback as the same empty feedback record', () => {
+  const project = (feedback: null | Record<string, string>) =>
+    [undefined, 'judge-h'].flatMap((ownSeatId) =>
+      [undefined, 'affirmative', 'negative'].map((viewerSubject) =>
+        ballotReadView({
+          audience: { kind: 'ordinary' },
+          status: 'completed',
+          ownSeatId,
+          viewerSubject,
+          aiJudgeSeatIds: new Set<string>(),
+          ...judged,
+          rows: [row('judge-h', null, feedback)],
+          frozen: null,
+        }),
+      ),
+    );
+  assert({
+    given: 'ordinary own-ballot and released-ballot readers for every subject',
+    should: 'project null feedback identically to the original empty object',
+    actual: project(null),
+    expected: project({}),
   });
 });

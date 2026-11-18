@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
+import { affirmativeSide, fourTeams, sideSeat } from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { resolveSeats } from './room-seats';
@@ -8,6 +9,11 @@ import { bytesOf } from './draw-random';
 setupRitewayBun();
 
 type Participant = RoomAssemblyState['participants'][number];
+
+/** A seat's side (or kind) and slot, as the pre-TAB-6 tests read it. */
+const roleOf = (p: Participant) =>
+  p.seat.kind === 'side' ? p.seat.side : p.seat.kind;
+const at = (p: Participant) => `${roleOf(p)}:${p.seat.slot}`;
 
 const debater = (
   id: string,
@@ -19,11 +25,11 @@ const debater = (
   actorId: id === 'p1' ? 'host' : `actor-${id}`,
   label: id,
   kind: 'human',
-  role,
-  slot,
+  seat: sideSeat(role, slot),
   teamOpen: open.teamOpen ?? false,
   positionOpen: open.positionOpen ?? open.teamOpen ?? false,
   eligible: true,
+  division: 'open' as const,
   consentVersion: 0,
   consentCommandId: `ready-${id}`,
 });
@@ -39,7 +45,11 @@ const twoVsTwo = (
     teamOneSide,
     rules: {
       ...room.rules,
-      seats: { affirmative: 2, negative: 2, judge: 0 },
+      seats: {
+        ...room.rules.seats,
+        sides: { affirmative: 2, negative: 2 },
+        judges: 0,
+      },
     },
     participants,
   };
@@ -64,7 +74,7 @@ const seatsOf = (room: RoomAssemblyState) =>
   Object.fromEntries(
     room.participants.map((p) => [
       p.id,
-      `${p.role}:${p.slot}${p.teamOpen ? ':team?' : ''}${p.positionOpen ? ':pos?' : ''}`,
+      `${at(p)}${p.teamOpen ? ':team?' : ''}${p.positionOpen ? ':pos?' : ''}`,
     ]),
   );
 
@@ -211,7 +221,11 @@ describe('set-sides', () => {
           ...room,
           rules: {
             ...room.rules,
-            seats: { affirmative: 2, negative: 3, judge: 0 },
+            seats: {
+              ...room.rules.seats,
+              sides: { affirmative: 2, negative: 3 },
+              judges: 0,
+            },
           },
         },
         'host',
@@ -244,8 +258,8 @@ describe('resolveSeats', () => {
       given: 'sides fixed and no ? anywhere',
       should: 'not move anyone',
       actual: resolved.participants.length > 0 && {
-        coin: resolved.seatDraw.coin,
-        moved: resolved.seatDraw.moved.length,
+        coin: resolved.seatDraw?.coin,
+        moved: resolved.seatDraw?.moved.length,
         seats: seatsOf({ ...full(), participants: resolved.participants }),
       },
       expected: {
@@ -276,7 +290,7 @@ describe('resolveSeats', () => {
       actual: [
         resolved.teamOneSide,
         negative.participants
-          .filter((p) => p.role === 'negative')
+          .filter((p) => roleOf(p) === 'negative')
           .map((p) => p.id),
       ],
       expected: ['affirmative', ['p1', 'p2']],
@@ -291,7 +305,7 @@ describe('resolveSeats', () => {
         { seed: seed(i), roundId: 'r' },
       ),
     );
-    const swapped = flips.filter((f) => f.seatDraw.coin === 'swapped').length;
+    const swapped = flips.filter((f) => f.seatDraw?.coin === 'swapped').length;
     assert({
       given: 'open sides across 400 seeds',
       should: 'land both ways, close to even',
@@ -309,7 +323,7 @@ describe('resolveSeats', () => {
           { seed: seed(i), roundId: 'r' },
         );
         const p1 = resolved.participants.find((p) => p.id === 'p1')!;
-        return `${p1.role}:${p1.slot}`;
+        return at(p1);
       }),
     );
     const one = resolveSeats(
@@ -324,7 +338,7 @@ describe('resolveSeats', () => {
         outcomes: [...outcomes].sort(),
         placed: one.participants
           .filter((p) => p.id === 'p2' || p.id === 'p3')
-          .map((p) => `${p.role}:${p.slot}`),
+          .map(at),
         cleared: one.participants.every((p) => !p.teamOpen && !p.positionOpen),
       },
       expected: {
@@ -351,13 +365,108 @@ describe('Start round', () => {
       should: 'flip them, freeze concrete sides and keep the draw',
       actual: outcome.ok && {
         coin: outcome.mutation.seatDraw?.coin !== null,
-        sides: outcome.mutation.state.participants.map((p) => p.role).sort(),
+        sides: outcome.mutation.state.participants.map(roleOf).sort(),
         teamOneSide: outcome.mutation.state.teamOneSide,
       },
       expected: {
         coin: true,
         sides: ['affirmative', 'negative'],
         teamOneSide: 'affirmative',
+      },
+    });
+  });
+});
+
+describe('an event Room (ADR 0145, Tab)', () => {
+  test('seats and sides from the draw', () => {
+    const room = {
+      ...full(),
+      hostActorId: null,
+      teamOneSide: 'affirmative',
+    } as const;
+    const debater = room.participants[2]!;
+    assert({
+      given:
+        'an event Room no person hosts, its sides fixed by the draw, and a seated debater',
+      should: 'refuse moving a seat and changing the sides',
+      actual: [
+        run(room, debater.actorId, {
+          type: 'set-seat',
+          participantId: debater.id,
+          team: 1,
+          position: null,
+        }),
+        run(room, debater.actorId, { type: 'set-sides', teamOneSide: null }),
+      ],
+      expected: [
+        { ok: false, refusal: 'host-required' },
+        { ok: false, refusal: 'host-required' },
+      ],
+    });
+  });
+});
+
+describe('a Room with no two teams (TAB-6.2)', () => {
+  // Four one-seat benches: every seat is its side, so nothing is `?`.
+  const benches = fourTeams.map((side) => side.key);
+  const fourSides = (): RoomAssemblyState => {
+    const room = state();
+    return {
+      ...room,
+      teamOneSide: affirmativeSide,
+      rules: {
+        ...room.rules,
+        sides: [...fourTeams],
+        seats: {
+          ...room.rules.seats,
+          sides: Object.fromEntries(benches.map((key) => [key, 1])),
+          judges: 0,
+        },
+      },
+      participants: benches.map((key, i) => ({
+        ...debater(`b${i}`, 'affirmative', 0),
+        actorId: i === 0 ? 'host' : `actor-b${i}`,
+        seat: sideSeat(key),
+      })),
+    };
+  };
+
+  test('moving a seat and setting sides', () => {
+    const room = fourSides();
+    const own = room.participants[0]!;
+    assert({
+      given:
+        'a four-bench Room and its host moving their own seat, then setting the sides',
+      should: 'refuse both: the format has no teams and no coin',
+      actual: [
+        run(room, 'host', {
+          type: 'set-seat',
+          participantId: own.id,
+          team: null,
+          position: null,
+        }),
+        run(room, 'host', { type: 'set-sides', teamOneSide: 'affirmative' }),
+      ],
+      expected: [
+        { ok: false, refusal: 'illegal-config' },
+        { ok: false, refusal: 'illegal-config' },
+      ],
+    });
+  });
+
+  test('Start round', () => {
+    const room = fourSides();
+    const resolved = resolveSeats(room, { seed: seed(5), roundId: 'r1' });
+    assert({
+      given: 'a four-bench Room at Start round',
+      should: 'keep every seat as it is and freeze no seat draw',
+      actual: {
+        seats: resolved.participants.map(at),
+        seatDraw: resolved.seatDraw,
+      },
+      expected: {
+        seats: room.participants.map(at),
+        seatDraw: null,
       },
     });
   });

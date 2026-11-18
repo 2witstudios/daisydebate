@@ -1,6 +1,15 @@
 import { createAppError } from '@daisy/errors';
+import {
+  affirmativeSide,
+  negativeSide,
+  rateableOutcome,
+  sideOfSeat,
+  type TwoSideKey,
+} from '@daisy/protocol';
 import type {
   DebaterStanding,
+  EndingRating,
+  EndingRatingFacts,
   RatingEligibility,
   RatingEligibilityFacts,
   RatingPlan,
@@ -25,11 +34,8 @@ import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
  * eligibility was decided when the round was constructed from a sanctioned
  * preset, so this check re-decides nothing about the format; a mismatch
  * there is corruption and fails as an invariant in the adapter's
- * `assertRankedRoundIntegrity`, never as an unrated reason. A forfeit
- * carries a side outcome and rates with no attendance settlement to wait for.
- * A decisive ballot rates on any capture (DEC-329): the judge ruled, and a
- * capture failure does not cost a ranked result. A null outcome is a real
- * ending with no result (DEC-277).
+ * `assertRankedRoundIntegrity`, never as an unrated reason. Whether the
+ * ending itself rates is `endingRating`'s.
  */
 export function ratingEligibility(
   input: RatingEligibilityFacts,
@@ -40,9 +46,27 @@ export function ratingEligibility(
     throw createAppError('CONFLICT', 'Only a completed round can be rated');
   // Before the ladder: a rerun after the ledger moved is still a rerun.
   if (input.alreadyRated) return { kind: 'already-rated' };
-  if (input.ladderId === null)
-    return { kind: 'unrated', reason: 'competition' };
-  if (input.outcome === null) return { kind: 'unrated', reason: 'no-result' };
+  if (input.ladder === null) return { kind: 'unrated', reason: 'competition' };
+  const ending = endingRating(input);
+  return ending.kind === 'rated' ? { ...ending, ladder: input.ladder } : ending;
+}
+
+/**
+ * Whether a Round's ending rates on any ladder: Daisy's own, or a league's
+ * (one rule, so a Round Daisy refuses never feeds a league ladder). A forfeit
+ * carries a side outcome and rates with no attendance settlement to wait for.
+ * A decisive ballot rates on any capture (DEC-329): the judge ruled, and a
+ * capture failure does not cost a ranked result. A null outcome is a real
+ * ending with no result (DEC-277).
+ */
+export function endingRating(input: EndingRatingFacts): EndingRating {
+  if (input.status === 'abandoned')
+    return { kind: 'unrated', reason: 'abandoned' };
+  if (input.status !== 'completed')
+    throw createAppError('CONFLICT', 'Only a completed round can be rated');
+  // A rating compares two sides: only a winner rates (ADR 0055, TAB-6.2).
+  const outcome = rateableOutcome(input.outcome);
+  if (outcome === null) return { kind: 'unrated', reason: 'no-result' };
   if (input.ending === 'unrecorded')
     return { kind: 'unrated', reason: 'ending-unrecorded' };
   if (input.attendance.pendingWriter)
@@ -54,12 +78,7 @@ export function ratingEligibility(
     !attendanceSettled(input.attendance, Date.parse(input.completedAt))
   )
     return { kind: 'attendance-unsettled' };
-  return {
-    kind: 'rated',
-    ladder: input.ladderId,
-    outcome: input.outcome,
-    occurredAt: input.completedAt,
-  };
+  return { kind: 'rated', outcome, occurredAt: input.completedAt };
 }
 
 /**
@@ -83,8 +102,8 @@ const startingState = ({ current, previous }: DebaterStanding): RatingState =>
 export function planRating(input: RatingPlanFacts): RatingPlan {
   if (input.seasonId === null)
     throw createAppError('CONFLICT', 'No season is active');
-  const seatOf = (role: 'affirmative' | 'negative') => {
-    const held = input.seats.filter((seat) => seat.role === role);
+  const seatOf = (side: TwoSideKey) => {
+    const held = input.seats.filter((seat) => sideOfSeat(seat.seat) === side);
     if (held.length !== 1 || !held[0])
       throw createAppError(
         'CONFLICT',
@@ -92,8 +111,8 @@ export function planRating(input: RatingPlanFacts): RatingPlan {
       );
     return held[0].actorId;
   };
-  const affirmative = seatOf('affirmative');
-  const negative = seatOf('negative');
+  const affirmative = seatOf(affirmativeSide);
+  const negative = seatOf(negativeSide);
   if (affirmative === negative)
     throw createAppError('CONFLICT', 'A debater cannot hold both sides');
   const standingOf = (actorId: string): DebaterStanding => {

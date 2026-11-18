@@ -1,5 +1,7 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { daisyWinnerBallot, isJudgeSeat } from '@daisy/protocol';
 import {
   oneOnOneRules,
   oneOnOneSeats,
@@ -10,9 +12,9 @@ import {
 setupRitewayBun();
 const rules = {
   ...oneOnOneRules(),
-  seats: { affirmative: 1, negative: 1, judge: 0 },
+  seats: { ...oneOnOneRules().seats, judges: 0 },
 };
-const participants = oneOnOneSeats.filter((seat) => seat.role !== 'judge');
+const participants = oneOnOneSeats.filter((seat) => !isJudgeSeat(seat.seat));
 const total = rules.segments.reduce(
   (sum, s) => sum + s.durationMs + rules.countdownMs,
   0,
@@ -20,6 +22,11 @@ const total = rules.segments.reduce(
 /** Completion facts with no ballots and a deadline that has long passed. */
 const facts = (now: string) => ({
   now,
+  judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
+    ballot: daisyWinnerBallot,
+    panel: { decision: 'majority', quorum: 1 },
+  } as const,
   ballots: [],
   completeness: 'complete' as const,
   panel: { humanWindow: null, aiSeats: [] },

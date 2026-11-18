@@ -14,7 +14,7 @@ const placementSql = sql<MemberPlacement>`case
  * `actorId` is. Null when they hold no active Room.
  */
 export const placementOf = (actorId: SQL) =>
-  sql<MemberPlacement>`(select ${placementSql} from room_active_memberships m join rooms on rooms.id = m.room_id where m.actor_id = ${actorId})`;
+  sql<MemberPlacement>`(select ${placementSql} from active_seats m join rooms on rooms.id = m.room_id where m.actor_id = ${actorId})`;
 
 /** Whether a member can take a challenge now: their choice and placement. */
 export async function readAvailability(

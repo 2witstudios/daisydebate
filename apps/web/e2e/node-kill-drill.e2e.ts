@@ -2,7 +2,12 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
 import { systemClock } from '@daisy/clock';
-import { roundTranscriptReadSchema } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  negativeSide,
+  roundTranscriptReadSchema,
+  sideOfSeat,
+} from '@daisy/protocol';
 import {
   captureBackAfter,
   captureCoverage,
@@ -28,6 +33,7 @@ import {
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
 import { actualSpeech } from './support/attendance-browser';
 import { oneOnOneChoice } from './support/human-round-selection';
+import { leadSideOf } from './support/segment-lead';
 import {
   ballotRoundCommand,
   readBallotRound,
@@ -196,14 +202,15 @@ async function endOpenSpeech(members: readonly Member[], roundId: string) {
     (segment) => segment.type === 'speech' && segment.endedAt === null,
   );
   if (!open) return false;
-  const side = oneOnOneChoice.definition.segments.find(
+  const rule = oneOnOneChoice.definition.segments.find(
     (segment) => segment.key === open.rulesSegmentKey,
-  )?.side;
+  );
+  const side = rule ? leadSideOf(rule.speak) : null;
   const speaker = view.participants.find(
-    (seat) => seat.role === side && 'id' in seat,
+    (seat) => sideOfSeat(seat.seat) === side && 'id' in seat,
   );
   if (!speaker || !('id' in speaker)) throw new Error('Speaker seat missing');
-  const member = members[side === 'affirmative' ? 0 : 1]!;
+  const member = members[side === affirmativeSide ? 0 : 1]!;
   await ballotRoundCommand(
     member.context.request,
     await readBallotRound(member.context.request, roundId),
@@ -364,12 +371,12 @@ async function drillOneKill(
     const seats: readonly Seat[] = await Promise.all(
       (
         [
-          ['first-speaker', speaker, 'affirmative'],
-          ['second-speaker', listener, 'negative'],
+          ['first-speaker', speaker, affirmativeSide],
+          ['second-speaker', listener, negativeSide],
         ] as const
-      ).map(async ([name, member, role]) => {
+      ).map(async ([name, member, side]) => {
         const own = round.participants.find(
-          (entry) => entry.role === role && 'id' in entry,
+          (entry) => sideOfSeat(entry.seat) === side && 'id' in entry,
         );
         if (!own || !('id' in own)) throw new Error('Seat missing');
         const page = await openPage(member.context, `${name} in the drill`);

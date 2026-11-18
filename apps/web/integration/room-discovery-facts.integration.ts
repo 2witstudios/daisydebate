@@ -66,9 +66,13 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
       };
     };
     const seatCount =
-      launched.definition.seats.affirmative +
-      launched.definition.seats.negative +
-      launched.definition.seats.judge;
+      Object.values(launched.definition.seats.sides).reduce(
+        (a, b) => a + b,
+        0,
+      ) +
+      launched.definition.seats.speakers +
+      launched.definition.seats.judges +
+      launched.definition.seats.moderators;
     assert({
       given:
         'an open casual Room and a launched one sharing a title, listed with and without filters',

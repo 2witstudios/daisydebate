@@ -118,7 +118,7 @@ describe('AppShell', () => {
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
-          (href) => !['/help', '/terms', '/privacy'].includes(href),
+          (href) => !['/help', '/about', '/terms', '/privacy'].includes(href),
         ),
       ],
       expected: [
@@ -213,7 +213,7 @@ describe('AppShell', () => {
           '<span aria-hidden="true" class="icon-rail:sr-only">Friends</span>',
         ),
         rail.includes('aria-label="Your account, ada-byron"'),
-        ['/help', '/terms', '/privacy'].every((href) =>
+        ['/help', '/about', '/terms', '/privacy'].every((href) =>
           rail.includes(`href="${href}"`),
         ),
       ],
@@ -293,6 +293,7 @@ describe('AppShell', () => {
         '/profile/ada-byron',
         '/settings',
         '/help',
+        '/about',
         '/terms',
         '/privacy',
         '/analytics',
@@ -306,6 +307,7 @@ describe('AppShell', () => {
       title: 'Tuesday night',
       phase: 'assembling',
       href: roomHref,
+      ladder: null,
     });
     const main = inRoom.slice(inRoom.indexOf('<main'));
     assert({

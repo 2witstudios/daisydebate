@@ -1,3 +1,5 @@
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { buildRoomTopic } from '@daisy/protocol';
@@ -33,7 +35,13 @@ const withBotRoom = (
 ) =>
   withBoundedRound(async (fixture, run) => {
     const caller = await createAuthorizationSubject(fixture);
-    const formatId = await fixture.format();
+    const compiled = resolveRoomConfiguration(
+      oneOnOneDefinition,
+      oneOnOneSettings,
+    );
+    if (!compiled.ok) throw new Error('Actual judged source did not compile');
+    const judged = botRole === 'judge';
+    const formatId = judged ? 'one-on-one' : await fixture.format();
     const roomId = createId(),
       roundId = createId(),
       bot = createId();
@@ -55,14 +63,14 @@ const withBotRoom = (
       topic: 'Motion',
       visibility: 'private',
       format_id: formatId,
-      format_version: 1,
+      format_version: judged ? 2 : 1,
       competition_type: 'casual',
-      config: validConfig,
+      config: judged ? oneOnOneSettings : validConfig,
       execution_plan: {
         preRoundPrep: { enabled: false },
         resolutionDraw: { enabled: false },
       },
-      rules_snapshot: validRules,
+      rules_snapshot: judged ? compiled.rules : validRules,
       status: 'ready',
     });
     for (const [actorId, role] of [
@@ -73,7 +81,8 @@ const withBotRoom = (
         id: createId(),
         room_id: roomId,
         actor_id: actorId,
-        role,
+        seat_kind: role === 'judge' ? 'judge' : 'side',
+        side: role === 'judge' ? null : role,
         slot: 0,
       });
     const common = {
@@ -121,7 +130,7 @@ const withBotRoom = (
           draw: null,
           seatDraw: null,
           roundSeed: null,
-          members: [state.hostActorId],
+          members: [caller.actorId],
         },
       }),
     };

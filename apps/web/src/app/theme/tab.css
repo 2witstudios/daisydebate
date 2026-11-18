@@ -1,0 +1,16 @@
+/* Daisy Tab: the host area's rail, column and side panel, and the fixed
+   tracks of its tables and bracket. */
+@theme {
+  --spacing-host-rail: 248px;
+  --spacing-host-column: 1040px;
+  --spacing-host-aside: 340px;
+  --spacing-tab-label: 7rem;
+  --spacing-tab-points: 4rem;
+  --spacing-tab-stage: 13rem;
+  --spacing-tab-disc: 5rem;
+}
+
+/* A pinned line: its label in a fixed track, its value in the rest. */
+@utility grid-cols-pinned {
+  grid-template-columns: var(--spacing-tab-label) minmax(0, 1fr);
+}

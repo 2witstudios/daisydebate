@@ -13,6 +13,10 @@ import {
 setupRitewayBun();
 const now = 1_790_000_000_000;
 const webhookSecret = 'whsec_process_fixture';
+/** No vendor call is made: these deliveries never name a hosting purchase. */
+const noVendor = (async () => {
+  throw new Error('no vendor call expected');
+}) as unknown as typeof globalThis.fetch;
 const build = () =>
   createApp({
     env: {
@@ -59,23 +63,26 @@ test('the process webhook reports persistence failure without forwarding vendor/
     logs = createRecordingLogger(),
     reports: unknown[] = [];
   try {
-    const handler = composeBillingWebhook({
-      ...app,
-      logger: logs.logger,
-      reporter: {
-        capture: (error, context) =>
-          reports.push({
-            message: error instanceof Error ? error.message : 'non-error',
-            context,
-          }),
-      },
-      database: {
-        ...app.database,
-        receiveBillingReceipt: async () => {
-          throw new Error('cus_fixture private original exception');
+    const handler = composeBillingWebhook(
+      {
+        ...app,
+        logger: logs.logger,
+        reporter: {
+          capture: (error, context) =>
+            reports.push({
+              message: error instanceof Error ? error.message : 'non-error',
+              context,
+            }),
+        },
+        database: {
+          ...app.database,
+          receiveBillingReceipt: async () => {
+            throw new Error('cus_fixture private original exception');
+          },
         },
       },
-    });
+      noVendor,
+    );
     const response = await handler(await request());
     assert({
       given:
@@ -108,27 +115,30 @@ test('failing diagnostic sinks cannot replace the durable-retry response', async
   const app = build();
   let reports = 0;
   try {
-    const handler = composeBillingWebhook({
-      ...app,
-      logger: {
-        ...silentLogger,
-        log: () => {
-          throw new Error('Controlled log failure');
+    const handler = composeBillingWebhook(
+      {
+        ...app,
+        logger: {
+          ...silentLogger,
+          log: () => {
+            throw new Error('Controlled log failure');
+          },
+        },
+        reporter: {
+          capture: () => {
+            reports += 1;
+            throw new Error('Controlled reporter failure');
+          },
+        },
+        database: {
+          ...app.database,
+          receiveBillingReceipt: async () => {
+            throw new Error('Controlled DB failure');
+          },
         },
       },
-      reporter: {
-        capture: () => {
-          reports += 1;
-          throw new Error('Controlled reporter failure');
-        },
-      },
-      database: {
-        ...app.database,
-        receiveBillingReceipt: async () => {
-          throw new Error('Controlled DB failure');
-        },
-      },
-    });
+      noVendor,
+    );
     const response = await handler(await request());
     assert({
       given: 'both diagnostic sinks fail after receipt persistence fails',

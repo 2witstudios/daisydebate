@@ -27,9 +27,11 @@ import { startPhotoDeletions } from '../features/profile/photo/deletion-sweep';
 import { startBillingCleanup } from './billing-cleanup';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
+import { startLeagueRequestMail } from './league-request-mail';
 import { startNotificationMail } from './notification-mail';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 import { startOperatorApi } from './operator-api';
+import { releaseFlagDefault } from '../features/flags/release-default';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
@@ -83,6 +85,18 @@ const { server, started } = startProductionServer({
   host,
 });
 await started;
+// ADR 0118: the effective release-flag default, once per process. Only
+// staging may set DAISY_RELEASE_FLAG_DEFAULT; config refused it elsewhere.
+app.logger.log(
+  'flags.release_default',
+  {
+    operation: 'flags.release_default',
+    // `environment`: release flags with no stored choice are on (staging);
+    // `catalogue`: each keeps its safe default (off).
+    source: releaseFlagDefault(app.config) ? 'environment' : 'catalogue',
+  },
+  'Release flag default resolved',
+);
 // ADR 0079: the private operator listener, only when keys are configured.
 // Its unexpected failures go to the app's scrubbed reporter (ADR 0037):
 // uninitialized without a DSN, so an unconfigured deployment stays inert.
@@ -242,6 +256,11 @@ const notificationMail = startNotificationMail({
   timers: workerTimers,
   reporter: app.reporter,
 });
+const leagueRequestMail = startLeagueRequestMail({
+  app,
+  timers: workerTimers,
+  reporter: app.reporter,
+});
 const fileRuntime = app.messagingFiles;
 const fileMaintenance = fileRuntime?.maintenance
   ? startMessagingFileMaintenance({
@@ -310,6 +329,7 @@ async function shutdown() {
   const billingCleanupStopped = billingCleanup.stop();
   const betaMailStopped = betaMail.stop();
   const notificationMailStopped = notificationMail.stop();
+  const leagueRequestMailStopped = leagueRequestMail?.stop();
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
   const observationPurgesStopped = observationPurges.stop();
@@ -356,6 +376,7 @@ async function shutdown() {
         billingCleanupStopped,
         betaMailStopped,
         notificationMailStopped,
+        leagueRequestMailStopped,
         operatorApiStopped,
         filesStopped,
         broadcastSweepStopped,

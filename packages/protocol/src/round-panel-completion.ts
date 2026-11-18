@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { debateSideSchema, idSchema, roundOutcomeSchema } from './primitives';
+import { idSchema } from './primitives';
+import { roundOutcomeSchema } from './round-outcome';
+import { sideKeySchema } from './seats';
+import type { RoundJudging } from './ballot-definition';
 
 /** What one AI judge seat can still do. One state per seat. */
 export type AiSeatStanding =
@@ -32,11 +35,23 @@ export type JudgingPanel = {
     readonly standing: AiSeatStanding;
   }[];
 };
-/** One judge seat's ruling: the winner it named. */
-export const judgeRulingSchema = z.strictObject({
-  judgeParticipantId: idSchema,
-  winner: debateSideSchema,
-});
+/**
+ * One judge seat's ruling (TAB-6.11): the side a winner ballot named (null
+ * for a tie or a double loss), or the places a ranking ballot gave.
+ */
+export const judgeRulingSchema = z.union([
+  z.strictObject({
+    judgeParticipantId: idSchema,
+    winner: sideKeySchema.nullable(),
+  }),
+  z.strictObject({
+    judgeParticipantId: idSchema,
+    ranking: z
+      .array(z.array(z.string().min(1).max(64)).min(1).readonly())
+      .min(1)
+      .readonly(),
+  }),
+]);
 export type JudgeRuling = z.infer<typeof judgeRulingSchema>;
 
 /** One judging job as read; the engine decides what it means. */
@@ -56,7 +71,11 @@ export type HeldBallotFacts = {
 };
 /** Facts read from a frozen Round, for the engine's one panel decision. */
 export type JudgingPanelFacts = {
+  /** What the Round is judged on, frozen at Start round (TAB-6.11); null when nothing is. */
+  readonly judging: RoundJudging;
   readonly completeness: 'complete' | 'incomplete';
+  /** Original judge slots whose current assignment is empty; they never reduce the frozen panel. */
+  readonly emptyJudgeSlots: readonly number[];
   readonly humanJudgeSeatIds: readonly string[];
   readonly aiJudgeSeatIds: readonly string[];
   readonly ballotDeadlineAt: string | null;
@@ -70,6 +89,11 @@ export type RoundEnding = 'forfeit' | 'abandoned' | 'panel_closed';
 /** Internal facts from the locked Round; never a public command body. */
 export type RoundPanelCompletion = {
   readonly now: string;
+  /**
+   * What the Round is judged on, frozen at Start round: its ballot and panel
+   * rule (TAB-6.11); null for a Round whose outcome nobody decides.
+   */
+  readonly judging: RoundJudging;
   readonly ballots: readonly JudgeRuling[];
   /** The frozen transcript's completeness (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';
@@ -85,13 +109,16 @@ export const panelRulingSchema = z.enum([
   'partial',
   'ruled',
   'judges-split',
+  /** Fewer ballots than the panel's quorum: no outcome. */
+  'below-quorum',
 ]);
 export type PanelRuling = z.infer<typeof panelRulingSchema>;
 
 /**
  * One durable finalization command; replay keeps its original result. A
  * zero-judge Round is `unjudged`. Every seat ruling is `ruled`, or
- * `judges-split` when they tie, with no outcome (DEC-277). Past the ballot deadline (DEC-201) the
+ * `judges-split` when no side holds a strict majority, with no outcome
+ * (DEC-277); fewer ballots than the quorum are `below-quorum`. Past the ballot deadline (DEC-201) the
  * judges in `noRuling` gave no ruling: with no ballot at all the judges did
  * not rule and there is no outcome; otherwise the submitted ballots decide.
  */

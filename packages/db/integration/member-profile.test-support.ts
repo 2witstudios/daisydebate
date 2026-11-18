@@ -1,4 +1,7 @@
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { createId } from '@paralleldrive/cuid2';
+import { sideOfSeat, type RoundOutcome, type SeatRef } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase, type Database } from '../src';
 import { createAuthorizationSubject } from './authorization.test-support';
@@ -13,8 +16,18 @@ export const roomRound = async (
   fixture: Fixture,
   overrides: Record<string, unknown>,
   visibility: 'public' | 'private' = 'public',
+  cast: Parameters<Fixture['roundWithCast']>[1] = [],
 ) => {
-  const formatId = await fixture.format();
+  const judged = cast.some((person) => person.seat === 'judge');
+  const compiled = judged
+    ? resolveRoomConfiguration(oneOnOneDefinition, oneOnOneSettings)
+    : null;
+  if (compiled && !compiled.ok)
+    throw new Error('Original judged profile source did not compile');
+  const rules = compiled?.ok ? compiled.rules : validRules;
+  const config = judged ? oneOnOneSettings : validConfig;
+  const formatId = judged ? 'one-on-one' : await fixture.format();
+  const formatVersion = judged ? 2 : 1;
   const roomId = createId();
   await fixture.insert('rooms', {
     id: roomId,
@@ -23,23 +36,30 @@ export const roomRound = async (
     topic: 'Motion',
     visibility,
     format_id: formatId,
-    format_version: 1,
+    format_version: formatVersion,
     competition_type: 'casual',
-    config: validConfig,
+    config,
     execution_plan: {
       preRoundPrep: { enabled: false },
       resolutionDraw: { enabled: false },
     },
-    rules_snapshot: validRules,
+    rules_snapshot: rules,
     status: 'started',
   });
-  return fixture.round({
-    room_id: roomId,
-    room_config_snapshot: validConfig,
-    visibility,
-    format_id: formatId,
-    ...overrides,
-  });
+  return (
+    await fixture.roundWithCast(
+      {
+        room_id: roomId,
+        room_config_snapshot: config,
+        visibility,
+        ...overrides,
+        format_id: formatId,
+        format_version: formatVersion,
+      },
+      cast,
+      { rules },
+    )
+  ).id;
 };
 
 /** A completed casual Round seating `member` on `side` against a new human. */
@@ -51,21 +71,31 @@ export const played = async (
     readonly outcome: 'affirmative' | 'negative' | null;
     readonly day: number;
     readonly visibility?: 'public' | 'private';
+    readonly judgeActorId?: string;
   },
 ) => {
+  const other = input.side === 'affirmative' ? 'negative' : 'affirmative';
   const id = await roomRound(
     fixture,
     {
       status: 'completed',
-      outcome: input.outcome,
+      winning_side: input.outcome,
       started_at: at(input.day, 11),
       completed_at: at(input.day),
     },
     input.visibility,
+    [
+      { seat: input.side, actorId: input.member },
+      { seat: other },
+      ...(input.judgeActorId
+        ? [{ seat: 'judge', actorId: input.judgeActorId }]
+        : []),
+    ],
   );
-  await fixture.participant(id, input.side, 0, input.member);
-  const other = input.side === 'affirmative' ? 'negative' : 'affirmative';
-  const opponent = await fixture.participant(id, other, 0);
+  const [row] =
+    await fixture.sql`select actor_id from round_participants where round_id=${id} and seat_kind='side' and side=${other}`;
+  if (!row) throw new Error('Original opponent identity missing');
+  const opponent = String(row.actor_id);
   return { id, opponent };
 };
 
@@ -143,9 +173,22 @@ export const present = async <T>(read: Promise<T | null>): Promise<T> => {
   return value;
 };
 
+/** A seat as the suites name it: its side, or its kind for an unsided seat. */
+export const seatName = (seat: SeatRef) => sideOfSeat(seat) ?? seat.kind;
+/** The winning side an outcome names, or null. */
+export const winnerOf = (outcome: RoundOutcome | null) =>
+  outcome?.kind === 'winner' ? outcome.side : null;
+
 export const tally = (
-  groups: readonly { role: string; outcome: string | null; rounds: number }[],
-) => groups.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort();
+  groups: readonly {
+    seat: SeatRef;
+    outcome: RoundOutcome | null;
+    rounds: number;
+  }[],
+) =>
+  groups
+    .map((g) => `${seatName(g.seat)}:${winnerOf(g.outcome)}:${g.rounds}`)
+    .sort();
 
 /** A fixture, a database over it and one live member, closed after `run`. */
 export const withProfileFixture = (

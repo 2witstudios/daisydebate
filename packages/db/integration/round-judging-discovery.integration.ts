@@ -1,8 +1,9 @@
+import { judgedRound } from './judged-round.test-support';
 import { requireTestServices } from '@daisy/config';
 import { atFinalJudgingStage } from '../src/testing-judging';
 import { isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createBotSeat } from './bot-seat.test-support';
+import { existingBotJudgeSeat } from './bot-seat.test-support';
 import {
   seedJudgingIntent,
   syntheticPendingBallot,
@@ -23,18 +24,25 @@ const failure = {
   final: false,
 };
 
+// ISSUE-1435: the lane filter applies before LIMIT and the page size is a
+// parameter, so a full page of older uncached Rounds at PAGE proves the same
+// ordering as one at the 64 maximum, without seeding 65 Rounds one by one.
+// Measured ~1.0 s idle (3.7 s at the old page of 64); the 10 s budget leaves
+// headroom for the remaining per-Round seed on loaded CI hosts.
+const PAGE = 4;
+
 test('cached discovery is independent of a full page of older uncached Rounds', async () => {
   await withJudgingJob(async ({ fixture, target, jobs, run }) => {
     const created: string[] = [];
     try {
       const older = [target.roundId];
-      for (let at = 0; at < 64; at++) {
-        const roundId = await fixture.round();
+      for (let at = 0; at < PAGE; at++) {
+        const roundId = await judgedRound(fixture);
         created.push(roundId);
         await seedJudgingIntent(fixture, roundId, run);
         older.push(roundId);
       }
-      const cachedId = await fixture.round();
+      const cachedId = await judgedRound(fixture);
       created.push(cachedId);
       const cached = await seedJudgingIntent(fixture, cachedId, run);
       const holder = await jobs.claim(cached);
@@ -47,10 +55,10 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
       );
       await fixture.sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${cachedId}`;
       for (let pass = 0; pass < 2; pass++) {
-        const held = await jobs.scan(64, 'submission');
-        const paid = await jobs.scan(64, 'generation');
+        const held = await jobs.scan(PAGE, 'submission');
+        const paid = await jobs.scan(PAGE, 'generation');
         assert({
-          given: `discovery pass ${pass + 1} with 65 older uncached Rounds and a later held reply`,
+          given: `discovery pass ${pass + 1} with ${PAGE + 1} older uncached Rounds, a page of ${PAGE}, and a later held reply`,
           should:
             'page held work independently and keep the bounded paid page separate',
           actual: {
@@ -60,7 +68,7 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
               (job) => older.includes(job.roundId) && !job.holdsBallot,
             ),
           },
-          expected: { held: [cachedId], paidCount: 64, paidOnly: true },
+          expected: { held: [cachedId], paidCount: PAGE, paidOnly: true },
         });
       }
     } finally {
@@ -68,36 +76,42 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
         await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });
-});
+}, 10_000);
 
 test('concurrent judge claims serialize one active operation per Round', async () => {
-  await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
-    const other = await createBotSeat(fixture, roundId, 'judge', 1);
-    await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${other.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
-    await atFinalJudgingStage(fixture.sql, {
-      roundId: roundId,
-      judgeParticipantId: other.id,
-    });
-    const attempts = await Promise.allSettled([
-      jobs.claim(target),
-      jobs.claim({ roundId, judgeParticipantId: other.id }),
-    ]);
-    assert({
-      given:
-        'two workers concurrently claiming different judge seats of one Round',
-      should: 'admit exactly one and refuse the other without buying a call',
-      actual: {
-        admitted: attempts.filter((r) => r.status === 'fulfilled').length,
-        refused: attempts.filter(
-          (r) =>
-            r.status === 'rejected' &&
-            isAppError(r.reason) &&
-            r.reason.code === 'CONFLICT',
-        ).length,
-      },
-      expected: { admitted: 1, refused: 1 },
-    });
-  });
+  await withJudgingJob(
+    async ({ fixture, roundId, target, jobs }) => {
+      const other = await existingBotJudgeSeat(fixture, roundId, 1);
+      await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${other.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+      await atFinalJudgingStage(fixture.sql, {
+        roundId: roundId,
+        judgeParticipantId: other.id,
+      });
+      const attempts = await Promise.allSettled([
+        jobs.claim(target),
+        jobs.claim({ roundId, judgeParticipantId: other.id }),
+      ]);
+      assert({
+        given:
+          'two workers concurrently claiming different judge seats of one Round',
+        should: 'admit exactly one and refuse the other without buying a call',
+        actual: {
+          admitted: attempts.filter((r) => r.status === 'fulfilled').length,
+          refused: attempts.filter(
+            (r) =>
+              r.status === 'rejected' &&
+              isAppError(r.reason) &&
+              r.reason.code === 'CONFLICT',
+          ).length,
+        },
+        expected: { admitted: 1, refused: 1 },
+      });
+    },
+    'complete',
+    undefined,
+    'final',
+    2,
+  );
 });
 
 test('reclaiming an expired operation moves its Round behind older due work', async () => {
@@ -124,111 +138,125 @@ test('reclaiming an expired operation moves its Round behind older due work', as
 });
 
 test('discovery pages eligible Rounds before a large panel can fill the batch', async () => {
-  await withJudgingJob(async (panel) => {
-    // A legal panel larger than the maximum discovery batch of 64.
-    for (let slot = 1; slot <= 65; slot++) {
-      const seat = await createBotSeat(
-        panel.fixture,
-        panel.roundId,
-        'judge',
-        slot,
-      );
-      await panel.fixture
-        .sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${panel.roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
-      await atFinalJudgingStage(panel.fixture.sql, {
-        roundId: panel.roundId,
-        judgeParticipantId: seat.id,
+  await withJudgingJob(
+    async (panel) => {
+      // A legal panel larger than the maximum discovery batch of 64.
+      for (let slot = 1; slot <= 65; slot++) {
+        const seat = await existingBotJudgeSeat(
+          panel.fixture,
+          panel.roundId,
+          slot,
+        );
+        await panel.fixture
+          .sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${panel.roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+        await atFinalJudgingStage(panel.fixture.sql, {
+          roundId: panel.roundId,
+          judgeParticipantId: seat.id,
+        });
+      }
+      await withJudgingJob(async (other) => {
+        const relevant = (rows: Awaited<ReturnType<typeof other.jobs.scan>>) =>
+          rows
+            .filter((row) =>
+              [panel.roundId, other.roundId].includes(row.roundId),
+            )
+            .map((row) => row.roundId);
+        assert({
+          given:
+            '66 older due judges before another due Round and a batch of64',
+          should:
+            'discover both Rounds exactly once before applying the batch limit',
+          actual: relevant(await other.jobs.scan(64, 'generation')),
+          expected: [panel.roundId, other.roundId],
+        });
+        const holder = await panel.jobs.claim(panel.target);
+        await panel.jobs.beginModelCall(holder.scope, holder.token, 'final');
+        await panel.jobs.saveResult(
+          holder.scope,
+          holder.token,
+          syntheticPendingBallot,
+          usage,
+        );
+        assert({
+          given: 'another worker holding one live claim in the large panel',
+          should:
+            'exclude all of that Round before LIMIT so its siblings cannot starve the unrelated Round',
+          actual: relevant(await other.jobs.scan(64, 'generation')),
+          expected: [other.roundId],
+        });
+        await panel.fixture
+          .sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${panel.roundId} and status='leased'`;
+        const resumed = relevant([
+          ...(await other.jobs.scan(64, 'generation')),
+          ...(await other.jobs.scan(64, 'submission')),
+        ]);
+        assert({
+          given: 'the other worker claim subsequently expiring',
+          should:
+            'make the panel discoverable once again without duplicating it',
+          actual: { rounds: [...resumed].sort(), count: resumed.length },
+          expected: { rounds: [panel.roundId, other.roundId].sort(), count: 2 },
+        });
+        const chosen = (await other.jobs.scan(64, 'submission')).find(
+          (row) => row.roundId === panel.roundId,
+        );
+        assert({
+          given:
+            'a held reply with a newer service turn than its uncached panel siblings',
+          should:
+            'choose the cached submission within that Round so provider saturation cannot hide it',
+          actual: {
+            judge: chosen?.judgeParticipantId,
+            held: chosen?.holdsBallot,
+          },
+          expected: { judge: panel.target.judgeParticipantId, held: true },
+        });
       });
-    }
-    await withJudgingJob(async (other) => {
-      const relevant = (rows: Awaited<ReturnType<typeof other.jobs.scan>>) =>
-        rows
-          .filter((row) => [panel.roundId, other.roundId].includes(row.roundId))
-          .map((row) => row.roundId);
-      assert({
-        given: '66 older due judges before another due Round and a batch of64',
-        should:
-          'discover both Rounds exactly once before applying the batch limit',
-        actual: relevant(await other.jobs.scan(64, 'generation')),
-        expected: [panel.roundId, other.roundId],
-      });
-      const holder = await panel.jobs.claim(panel.target);
-      await panel.jobs.beginModelCall(holder.scope, holder.token, 'final');
-      await panel.jobs.saveResult(
-        holder.scope,
-        holder.token,
-        syntheticPendingBallot,
-        usage,
-      );
-      assert({
-        given: 'another worker holding one live claim in the large panel',
-        should:
-          'exclude all of that Round before LIMIT so its siblings cannot starve the unrelated Round',
-        actual: relevant(await other.jobs.scan(64, 'generation')),
-        expected: [other.roundId],
-      });
-      await panel.fixture
-        .sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${panel.roundId} and status='leased'`;
-      const resumed = relevant([
-        ...(await other.jobs.scan(64, 'generation')),
-        ...(await other.jobs.scan(64, 'submission')),
-      ]);
-      assert({
-        given: 'the other worker claim subsequently expiring',
-        should: 'make the panel discoverable once again without duplicating it',
-        actual: { rounds: [...resumed].sort(), count: resumed.length },
-        expected: { rounds: [panel.roundId, other.roundId].sort(), count: 2 },
-      });
-      const chosen = (await other.jobs.scan(64, 'submission')).find(
-        (row) => row.roundId === panel.roundId,
-      );
-      assert({
-        given:
-          'a held reply with a newer service turn than its uncached panel siblings',
-        should:
-          'choose the cached submission within that Round so provider saturation cannot hide it',
-        actual: {
-          judge: chosen?.judgeParticipantId,
-          held: chosen?.holdsBallot,
-        },
-        expected: { judge: panel.target.judgeParticipantId, held: true },
-      });
-    });
-  });
+    },
+    'complete',
+    undefined,
+    'final',
+    66,
+  );
 });
 
 test('finishing a panel member cannot reset its Round ahead of waiting work', async () => {
-  await withJudgingJob(async (panel) => {
-    const sibling = await createBotSeat(
-      panel.fixture,
-      panel.roundId,
-      'judge',
-      1,
-    );
-    await panel.fixture
-      .sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${panel.roundId},${sibling.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
-    await atFinalJudgingStage(panel.fixture.sql, {
-      roundId: panel.roundId,
-      judgeParticipantId: sibling.id,
-    });
-    await withJudgingJob(async (other) => {
-      const claim = await panel.jobs.claim(panel.target);
-      // An ended member no longer participates in the eligible-row partition,
-      // but its actual service turn still belongs to the whole Round.
+  await withJudgingJob(
+    async (panel) => {
+      const sibling = await existingBotJudgeSeat(
+        panel.fixture,
+        panel.roundId,
+        1,
+      );
       await panel.fixture
-        .sql`update round_judging_jobs set status='failed',terminal_reason='round_ended',lease_token_digest=null,lease_expires_at=null where round_id=${panel.roundId} and judge_participant_id=${claim.scope.judgeParticipantId}`;
-      assert({
-        given:
-          'an older unclaimed sibling after its panel just received a service turn',
-        should:
-          'page the independently waiting Round first even with a batch of one',
-        actual: (await other.jobs.scan(1, 'generation')).map(
-          (row) => row.roundId,
-        ),
-        expected: [other.roundId],
+        .sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${panel.roundId},${sibling.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+      await atFinalJudgingStage(panel.fixture.sql, {
+        roundId: panel.roundId,
+        judgeParticipantId: sibling.id,
       });
-    });
-  });
+      await withJudgingJob(async (other) => {
+        const claim = await panel.jobs.claim(panel.target);
+        // An ended member no longer participates in the eligible-row partition,
+        // but its actual service turn still belongs to the whole Round.
+        await panel.fixture
+          .sql`update round_judging_jobs set status='failed',terminal_reason='round_ended',lease_token_digest=null,lease_expires_at=null where round_id=${panel.roundId} and judge_participant_id=${claim.scope.judgeParticipantId}`;
+        assert({
+          given:
+            'an older unclaimed sibling after its panel just received a service turn',
+          should:
+            'page the independently waiting Round first even with a batch of one',
+          actual: (await other.jobs.scan(1, 'generation')).map(
+            (row) => row.roundId,
+          ),
+          expected: [other.roundId],
+        });
+      });
+    },
+    'complete',
+    undefined,
+    'final',
+    2,
+  );
 });
 
 test('new arrivals cannot outrank an older service turn once its backoff is due', async () => {

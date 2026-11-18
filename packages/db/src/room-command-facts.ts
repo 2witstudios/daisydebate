@@ -1,14 +1,15 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomParticipant,
   FormatDefinition,
+  AiRole,
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
 import { botDifficulties } from '@daisy/protocol';
-import { idSchema, roomRoundLinkOf, roomSeatKindSchema } from '@daisy/protocol';
+import { idSchema, roomRoundLinkOf } from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
 import {
@@ -20,22 +21,34 @@ import { appendOutboxEvent } from './outbox';
 import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
+import { accountAge } from './schema/account-age';
+import { divisionOfAgeBand, type RatingDivision } from '@daisy/protocol';
+import { divisionAgeBand } from './ladder-division-band';
+import { leagueLadderSeatFits } from './league-ladder-seat';
+import { leagueRoomFacts } from './league-room-division';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
+import { seatOfColumns, seatRowOrder } from './seat-columns';
 import { roomCommands } from './schema/room-commands';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
+import { hostPersonOf } from './room-host';
 import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
 
-export type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+export type Tx = Pick<
+  BunSQLDatabase,
+  'select' | 'insert' | 'update' | 'delete' | 'execute'
+>;
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Account = ReturnType<typeof authorizationAccountFact>;
 export type AuthorizeRoom = (
   state: RoomAssemblyState,
   account: Account,
+  direction?: import('./tab/room-direction').RoomDirectionInput | null,
+  now?: string,
 ) => boolean;
 export const lockedAccount = async (
   tx: Tx,
@@ -76,16 +89,24 @@ export type Actor = {
   readonly kind: RoomParticipant['kind'];
   readonly label: string;
   readonly eligible: boolean;
-  /** Which seat an AI actor may hold (ISSUE-750); null for a human. */
-  readonly seatRole: 'debater' | 'judge' | null;
+  /**
+   * The person's ladder division as read now (ADR 0147), fixed for the
+   * season; null for a bot and for a person with no valid age record.
+   */
+  readonly division: RatingDivision | null;
+  /** Which AI the actor is (ISSUE-750); null for a human. */
+  readonly aiRole: AiRole | null;
   /** The roster card's display facts; present for bot debaters only. */
   readonly persona?: string;
   readonly difficulty?: (typeof botDifficulties)[number];
 };
 /** An AI actor is a bot debater or the AI judge by its profile, never both (ISSUE-750). */
-const aiSeatRole = (botName: string | null, judgeName: string | null) => {
-  if (botName !== null && judgeName === null) return 'debater' as const;
-  if (judgeName !== null && botName === null) return 'judge' as const;
+const aiRoleOf = (
+  botName: string | null,
+  judgeName: string | null,
+): AiRole | null => {
+  if (botName !== null && judgeName === null) return 'debater';
+  if (judgeName !== null && botName === null) return 'judge';
   return null;
 };
 export const actorFact = async (
@@ -101,9 +122,11 @@ export const actorFact = async (
       verified: users.emailVerified,
       botName: botProfiles.name,
       judgeName: aiJudgeProfiles.name,
+      ageBand: divisionAgeBand(),
     })
     .from(actors)
     .leftJoin(users, eq(users.id, actors.userId))
+    .leftJoin(accountAge, eq(accountAge.userId, actors.userId))
     .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
     .leftJoin(aiJudgeProfiles, eq(aiJudgeProfiles.actorId, actors.id))
     .where(eq(actors.id, actorId));
@@ -117,21 +140,23 @@ export const actorFact = async (
         row.verified === true &&
         row.username !== null &&
         row.deletedAt === null,
-      seatRole: null,
+      division: divisionOfAgeBand(row.ageBand),
+      aiRole: null,
     };
-  const seatRole = aiSeatRole(row.botName, row.judgeName);
+  const aiRole = aiRoleOf(row.botName, row.judgeName);
   return {
     actorId: row.actorId,
     kind: row.kind,
     label: row.botName ?? row.judgeName ?? '',
-    eligible: seatRole !== null,
-    seatRole,
+    eligible: aiRole !== null,
+    division: null,
+    aiRole,
   };
 };
 export const publishDefinition = async (
   tx: Tx,
   id: string,
-  hostActorId: string,
+  hostActorId: string | null,
   definition: FormatDefinition,
 ) => {
   await tx
@@ -197,28 +222,31 @@ const hydrateRoom = async (
     .select()
     .from(roomParticipants)
     .where(eq(roomParticipants.roomId, row.id))
-    .orderBy(asc(roomParticipants.role), asc(roomParticipants.slot));
+    .orderBy(...seatRowOrder(roomParticipants));
+  const league = await leagueRoomFacts(tx, row);
   const participants = await Promise.all(
-    seats.map(async (seat) => {
-      const actor = await actorFact(tx, seat.actorId);
+    seats.map(async (row) => {
+      const actor = await actorFact(tx, row.actorId);
       if (!actor) throw createAppError('INVARIANT');
+      const seat = seatOfColumns(row);
       return {
         ...actor,
         // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
         eligible:
           actor.eligible &&
-          (actor.kind === 'human' || aiSeatFits(actor.seatRole, seat.role)),
-        id: seat.id,
-        role: seat.role,
-        slot: seat.slot,
-        teamOpen: seat.teamOpen,
-        positionOpen: seat.positionOpen,
-        consentCommandId: seat.readinessCommandId,
-        consentVersion: seat.readinessVersion,
+          leagueLadderSeatFits(league, actor) &&
+          (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
+        id: row.id,
+        seat,
+        teamOpen: row.teamOpen,
+        positionOpen: row.positionOpen,
+        consentCommandId: row.readinessCommandId,
+        consentVersion: row.readinessVersion,
       };
     }),
   );
-  const host = await actorFact(tx, row.hostActorId);
+  const hostActorId = hostPersonOf(row);
+  const host = hostActorId === null ? null : await actorFact(tx, hostActorId);
   const [round] = await tx
     .select({
       id: rounds.id,
@@ -241,14 +269,14 @@ const hydrateRoom = async (
     changeVersion: row.changeVersion,
     seatHolds: seatHolds.map((hold) => ({
       actorId: hold.actorId,
-      seat: roomSeatKindSchema.parse(hold.seat),
+      seat: hold.seat,
       until: new Date(hold.until).toISOString(),
     })),
     title: row.title,
     // A draw Room's resolution is its Round's, once revealed.
     topic: round?.resolution ?? row.topic,
     visibility: row.visibility,
-    hostActorId: row.hostActorId,
+    hostActorId,
     hostInherited: row.hostInherited,
     hostLabel: host?.label ?? '',
     formatId: row.formatId,
@@ -264,6 +292,7 @@ const hydrateRoom = async (
     capture: row.capture,
     postRoundCall: row.postRoundCall,
     teamOneSide: row.teamOneSide,
+    holdsHost: row.holdsHost,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

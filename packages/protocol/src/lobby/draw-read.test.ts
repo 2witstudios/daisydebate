@@ -1,0 +1,269 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { authorizationCapabilitySchema } from '../authorization';
+import {
+  parseEach,
+  parseOutcome,
+  parsedUnchanged,
+} from '../parse-outcome.test-support';
+import {
+  drawReadCatalogue,
+  hostRoundViewSchema,
+  drawViewSchema,
+  supersededInputListSchema,
+} from './draw-read';
+
+setupRitewayBun();
+
+const id = (seed: string) => seed.padEnd(24, 'x');
+const at = '2026-10-17T15:20:00.000Z';
+
+const fixture = {
+  fixtureId: id('fixturedoylesato'),
+  kind: 'pairing',
+  status: 'draft',
+  entries: [
+    {
+      entryId: id('entrydoyle'),
+      school: null,
+      name: 'Doyle',
+      side: 'negative',
+    },
+    {
+      entryId: id('entrysato'),
+      school: null,
+      name: 'Sato',
+      side: 'affirmative',
+    },
+  ],
+  judges: [
+    { tournamentJudgeId: id('judgekeane'), name: 'R. Keane', chair: true },
+  ],
+  findings: [
+    { severity: 'preference_bent', text: 'same school, preference bent' },
+  ],
+  reasons: ['Both have 2 wins and have not met.'],
+  alternative: {
+    change: 'If you split them',
+    cost: 'Sato would meet Petrov again.',
+    breaksRule: 'No rematch',
+  },
+};
+
+const bye = {
+  ...fixture,
+  fixtureId: id('fixtureellis'),
+  kind: 'bye',
+  entries: [
+    { entryId: id('entryellis'), school: null, name: 'Ellis', side: null },
+  ],
+  judges: [],
+  findings: [],
+  alternative: null,
+};
+
+const drawView = {
+  lobbyId: id('lobby'),
+  eventId: id('event'),
+  tabRound: { tabRoundId: id('tabround4'), number: 4 },
+  draw: {
+    drawId: id('draw4v3'),
+    version: 3,
+    status: 'draft',
+    method: 'computed',
+    publishedAt: null,
+    basedOn: { drawId: id('draw4v2'), version: 2 },
+  },
+  sides: ['affirmative', 'negative'],
+  resultsThroughRound: 3,
+  recordGroups: [
+    { record: { label: 'Wins', value: { n: 2, d: 1 } }, fixtures: [fixture] },
+    { record: { label: 'Wins', value: { n: 1, d: 1 } }, fixtures: [bye] },
+  ],
+  spareJudges: [{ tournamentJudgeId: id('judgeshah'), name: 'A. Shah' }],
+  capabilities: { edit: true, publish: false },
+};
+
+const item = {
+  draw: {
+    drawId: id('draw3v1'),
+    tabRoundId: id('tabround3'),
+    tabRoundNumber: 3,
+    version: 1,
+    publishedAt: at,
+  },
+  result: {
+    resultId: id('resultold'),
+    fixtureId: id('fixturereidnakata'),
+    tabRoundNumber: 2,
+    recordedAt: at,
+  },
+  correction: {
+    resultId: id('resultnew'),
+    supersedesResultId: id('resultold'),
+    reason: 'The ballot was entered for the wrong side.',
+    recordedAt: at,
+  },
+};
+const supersededList = {
+  lobbyId: id('lobby'),
+  eventId: id('event'),
+  items: [item],
+};
+
+describe('the draw reads', () => {
+  test('a draft draw version with its fixtures, findings and the engine’s reasons', () => {
+    assert({
+      given: 'a draft with a pairing, a bye, a first draft and a published one',
+      should: 'parse each as it is',
+      actual: parseEach(drawViewSchema, [
+        drawView,
+        {
+          ...drawView,
+          draw: { ...drawView.draw, version: 1, basedOn: null },
+          resultsThroughRound: null,
+        },
+        {
+          ...drawView,
+          draw: { ...drawView.draw, status: 'published', publishedAt: at },
+        },
+      ]),
+      expected: parsedUnchanged([
+        drawView,
+        {
+          ...drawView,
+          draw: { ...drawView.draw, version: 1, basedOn: null },
+          resultsThroughRound: null,
+        },
+        {
+          ...drawView,
+          draw: { ...drawView.draw, status: 'published', publishedAt: at },
+        },
+      ]),
+    });
+  });
+
+  test('what a draw read refuses', () => {
+    assert({
+      given:
+        'an address, a severity outside the list, a fixture with no entries and a recompute control',
+      should: 'refuse each at the field',
+      actual: parseEach(drawViewSchema, [
+        { ...drawView, href: '/host/somewhere' },
+        {
+          ...drawView,
+          recordGroups: [
+            {
+              record: { label: 'Wins', value: { n: 2, d: 1 } },
+              fixtures: [
+                { ...fixture, findings: [{ severity: 'relaxed', text: 'x' }] },
+              ],
+            },
+          ],
+        },
+        {
+          ...drawView,
+          recordGroups: [
+            {
+              record: { label: 'Wins', value: { n: 2, d: 1 } },
+              fixtures: [{ ...fixture, entries: [] }],
+            },
+          ],
+        },
+        {
+          ...drawView,
+          capabilities: { ...drawView.capabilities, recompute: true },
+        },
+      ]),
+      expected: [
+        { issues: ['(root)'] },
+        { issues: ['recordGroups.0.fixtures.0.findings.0.severity'] },
+        { issues: ['recordGroups.0.fixtures.0.entries'] },
+        { issues: ['capabilities'] },
+      ],
+    });
+  });
+
+  test('the published draws that used a result since superseded', () => {
+    assert({
+      given:
+        'a draw that used a result a correction superseded, and an empty list',
+      should: 'parse each as it is',
+      actual: parseEach(supersededInputListSchema, [
+        supersededList,
+        { ...supersededList, items: [] },
+      ]),
+      expected: parsedUnchanged([
+        supersededList,
+        { ...supersededList, items: [] },
+      ]),
+    });
+  });
+
+  test('a superseded-input list offers nothing and names the right correction', () => {
+    assert({
+      given:
+        'an item offering to recompute, and a correction that supersedes another result',
+      should: 'refuse both',
+      actual: parseEach(supersededInputListSchema, [
+        { ...supersededList, items: [{ ...item, recompute: true }] },
+        {
+          ...supersededList,
+          items: [
+            {
+              ...item,
+              correction: {
+                ...item.correction,
+                supersedesResultId: id('resultother'),
+              },
+            },
+          ],
+        },
+      ]),
+      expected: [{ issues: ['items.0'] }, { issues: ['items'] }],
+    });
+  });
+
+  test('every draw read answers under the host read gate', () => {
+    assert({
+      given: 'the draw read catalogue',
+      should: 'name lobby.host.draw.read, a real capability, for each read',
+      actual: Object.values(drawReadCatalogue).map((read) =>
+        read.gate.map((gate) =>
+          parseOutcome(authorizationCapabilitySchema, gate),
+        ),
+      ),
+      expected: [
+        [{ data: 'lobby.host.draw.read' }],
+        [{ data: 'lobby.host.draw.read' }],
+      ],
+    });
+  });
+});
+
+test('an addressed draft retains its source guard and child identity', () => {
+  const read = {
+    kind: 'draft',
+    lobbyId: drawView.lobbyId,
+    eventId: drawView.eventId,
+    tabRound: { ...drawView.tabRound, name: null },
+    guards: { draw: 3, entries: 2, settings: 4, results: 1, timeSlot: null },
+    capabilities: { generate: true },
+    draw: drawView,
+  };
+  assert({
+    given: 'a real-shaped draft and substituted guard or child address',
+    should: 'accept the coherent read and refuse both substitutions',
+    actual: [
+      hostRoundViewSchema.safeParse(read).success,
+      hostRoundViewSchema.safeParse({
+        ...read,
+        guards: { ...read.guards, draw: 99 },
+      }).success,
+      hostRoundViewSchema.safeParse({
+        ...read,
+        draw: { ...drawView, eventId: id('foreign') },
+      }).success,
+    ],
+    expected: [true, false, false],
+  });
+});

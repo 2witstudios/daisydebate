@@ -4,20 +4,25 @@ import { readLadder as readStoredLadder } from './read-leaderboard';
 import { readLadder } from './read-leaderboard.test-support';
 import { buildSeasonsView, parseSeasonsQuery, seasonsHref } from './seasons';
 
+const open = { style: 'freestyle', division: 'open' } as const;
+const youth = { style: 'freestyle', division: 'youth' } as const;
+
 setupRitewayBun();
 
 describe('parseSeasonsQuery', () => {
   test('season parameter', () => {
     assert({
       given: 'a valid, a missing, a bad and a repeated season',
-      should: 'read the number or fall back to the current season',
+      should:
+        'read the number or fall back to the current season, and link a division',
       actual: [
         parseSeasonsQuery({ season: 'ssssssssssssssssssssssss' }),
         parseSeasonsQuery({}),
         parseSeasonsQuery({ season: 'x' }),
         parseSeasonsQuery({ season: ['tttttttttttttttttttttttt', '3'] }),
-        seasonsHref('3'),
-        seasonsHref(null),
+        seasonsHref('3', null),
+        seasonsHref(null, null),
+        seasonsHref('3', 'youth'),
       ],
       expected: [
         'ssssssssssssssssssssssss',
@@ -26,6 +31,7 @@ describe('parseSeasonsQuery', () => {
         'tttttttttttttttttttttttt',
         '/leaderboard/seasons?season=3',
         '/leaderboard/seasons',
+        '/leaderboard/seasons?division=youth&season=3',
       ],
     });
   });
@@ -33,7 +39,7 @@ describe('parseSeasonsQuery', () => {
 
 describe('buildSeasonsView', () => {
   test('the live season', () => {
-    const view = buildSeasonsView(readLadder(null, NOW, null).data, NOW);
+    const view = buildSeasonsView(readLadder(null, NOW, null).data, open, NOW);
     assert({
       given: 'the live season',
       should:
@@ -62,13 +68,13 @@ describe('buildSeasonsView', () => {
           ['Season 3', false],
           ['Season 2', false],
         ],
-        '/leaderboard?season=4',
+        '/leaderboard?division=open&season=4',
       ],
     });
   });
 
   test('a closed season', () => {
-    const view = buildSeasonsView(readLadder('3', NOW, null).data, NOW);
+    const view = buildSeasonsView(readLadder('3', NOW, null).data, open, NOW);
     assert({
       given: 'a closed season',
       should: 'name the champion, freeze the standings and fill the bar',
@@ -84,14 +90,14 @@ describe('buildSeasonsView', () => {
         'Champion',
         'Final standings',
         100,
-        '/leaderboard?season=3&debater=debater-b',
+        '/leaderboard?division=open&season=3&debater=debater-b',
       ],
     });
   });
 
   test('no one established', () => {
     const data = readLadder(null, NOW, null).data;
-    const view = buildSeasonsView({ ...data, entries: [] }, NOW);
+    const view = buildSeasonsView({ ...data, entries: [] }, open, NOW);
     assert({
       given: 'a season with no entries',
       should: 'have no champion and an empty snapshot',
@@ -113,14 +119,15 @@ describe('a season with none active', () => {
             startsAt: '2026-09-01T00:00:00.000Z',
             endsAt: '2026-10-01T00:00:00.000Z',
             status: 'closed',
+            division: 'open',
             version: 2,
           },
         ],
         readStandings: async () => ({ ratings: [], changes: [] }),
       },
-      { seasonId: null, ladder: 'freestyle', now: NOW, username: null },
+      { seasonId: null, ladder: open, now: NOW, username: null },
     );
-    const view = buildSeasonsView(read!.data, NOW);
+    const view = buildSeasonsView(read!.data, open, NOW);
     assert({
       given: 'only a closed season, which the read falls back to',
       should: 'mark that none is active',
@@ -130,17 +137,17 @@ describe('a season with none active', () => {
   });
 });
 
-test('the overview names the Daisy ladder and keeps season links plain', () => {
-  const view = buildSeasonsView(readLadder(null, NOW, null).data, NOW);
+test('the overview names its ladder and keeps every link on it', () => {
+  const view = buildSeasonsView(readLadder(null, NOW, null).data, youth, NOW);
   assert({
-    given: 'a season overview',
-    should: 'label the Freestyle ladder and carry no ladder in any URL',
+    given: 'a season overview of the Youth ladder',
+    should: 'label Youth – Freestyle and keep every link on the Youth division',
     actual: [
       view.ladderLabel,
-      [...view.chips.map((c) => c.href), view.ladderHref].some((href) =>
-        href.includes('ladder='),
+      [...view.chips.map((c) => c.href), view.ladderHref].every((href) =>
+        href.includes('division=youth'),
       ),
     ],
-    expected: ['Freestyle', false],
+    expected: ['Youth – Freestyle', true],
   });
 });

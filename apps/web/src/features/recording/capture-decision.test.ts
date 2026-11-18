@@ -59,6 +59,7 @@ const onBroadcast = (
   } = {},
 ): RecordingCaptureFacts => ({
   nowMs: 1000,
+  captureDeadlineAtMs: over.captureDeadlineAtMs ?? null,
   lifecycle: over.lifecycle ?? capturing,
   roundEnded: over.roundEnded ?? false,
   path: {
@@ -176,9 +177,12 @@ const onOwn = (
     readonly phase?: { readonly kind: 'public' } | { readonly kind: 'private' };
     readonly observerSubscribed?: boolean;
     readonly revocationFailures?: number;
+    readonly pendingDispatch?: boolean;
+    readonly physicallySettled?: boolean;
   } = {},
 ): RecordingCaptureFacts => ({
   nowMs: 1000,
+  captureDeadlineAtMs: over.captureDeadlineAtMs ?? null,
   lifecycle: over.lifecycle ?? {
     status: 'capturing',
     capture: {
@@ -190,6 +194,8 @@ const onOwn = (
   roundEnded: over.roundEnded ?? false,
   path: {
     kind: 'own',
+    pendingDispatch: over.pendingDispatch ?? false,
+    physicallySettled: over.physicallySettled ?? false,
     latest: over.latest === undefined ? attempt(1) : over.latest,
     egress: over.egress ?? active,
     phase: over.phase ?? { kind: 'public' },
@@ -216,7 +222,10 @@ describe('a Recording running its own Egress', () => {
       given: 'a crashed Egress mid-Round',
       should: 'start the next attempt',
       actual: decideRecordingCapture(
-        onOwn({ egress: { kind: 'failed', id: 'EG_1' } }),
+        onOwn({
+          egress: { kind: 'failed', id: 'EG_1' },
+          physicallySettled: true,
+        }),
       ),
       expected: [{ type: 'start-egress' }],
     });
@@ -270,13 +279,21 @@ describe('a Recording running its own Egress', () => {
       given: 'the Round over and the Egress running',
       should: 'stop it',
       actual: decideRecordingCapture(onOwn({ roundEnded: true })),
-      expected: [{ type: 'stop-egress', id: 'EG_1' }],
+      expected: [
+        { type: 'revoke-observer' },
+        { type: 'stop-egress', id: 'EG_1' },
+      ],
     });
     assert({
       given: 'the Round over and the Egress done',
       should: 'end capture and close',
       actual: decideRecordingCapture(
-        onOwn({ roundEnded: true, egress: { kind: 'complete' } }),
+        onOwn({
+          roundEnded: true,
+          egress: { kind: 'complete' },
+          physicallySettled: true,
+          observerSubscribed: false,
+        }),
       ),
       expected: [{ type: 'report-ended' }, { type: 'close-own-capture' }],
     });
@@ -287,6 +304,7 @@ describe('a Recording running its own Egress', () => {
         onOwn({
           lifecycle: requested,
           roundEnded: true,
+          observerSubscribed: false,
           latest: null,
           egress: { kind: 'none' },
         }),
@@ -301,13 +319,21 @@ describe('a Recording running its own Egress', () => {
         given: `a Recording ${lifecycle.status} mid-capture`,
         should: 'stop its Egress',
         actual: decideRecordingCapture(onOwn({ lifecycle })),
-        expected: [{ type: 'stop-egress', id: 'EG_1' }],
+        expected: [
+          { type: 'revoke-observer' },
+          { type: 'stop-egress', id: 'EG_1' },
+        ],
       });
     assert({
       given: 'that Egress gone',
       should: 'close, reporting nothing to a Recording no longer open',
       actual: decideRecordingCapture(
-        onOwn({ lifecycle: removing, egress: { kind: 'complete' } }),
+        onOwn({
+          lifecycle: removing,
+          egress: { kind: 'complete' },
+          physicallySettled: true,
+          observerSubscribed: false,
+        }),
       ),
       expected: [{ type: 'close-own-capture' }],
     });
@@ -446,5 +472,67 @@ describe('a failed Recording keeps no private seconds', () => {
       ],
       expected: [{ type: 'strip-sources' }, null, null, null],
     });
+  });
+});
+
+test('unresolved dispatch and provider state cannot close, restart or release physical capacity', () => {
+  assert({
+    given:
+      'a lost start answer, unknown provider state and a terminal observation not durably settled',
+    should:
+      'recover the exact pending attempt, keep unknown physical work open and settle before restarting',
+    actual: [
+      decideRecordingCapture(
+        onOwn({
+          pendingDispatch: true,
+          latest: null,
+          egress: { kind: 'none' },
+        }),
+      ),
+      decideRecordingCapture(
+        onOwn({
+          pendingDispatch: true,
+          latest: null,
+          egress: { kind: 'none' },
+          roundEnded: true,
+        }),
+      ),
+      decideRecordingCapture(
+        onOwn({ egress: { kind: 'unresolved', id: 'EG_1' } }),
+      ),
+      decideRecordingCapture(
+        onOwn({ egress: { kind: 'unresolved', id: 'EG_1' }, roundEnded: true }),
+      ),
+      decideRecordingCapture(onOwn({ egress: { kind: 'failed', id: 'EG_1' } })),
+      decideRecordingCapture(
+        onOwn({
+          egress: { kind: 'complete' },
+          roundEnded: true,
+          physicallySettled: true,
+        }),
+      ),
+    ],
+    expected: [
+      [{ type: 'recover-egress' }],
+      [{ type: 'revoke-observer' }, { type: 'recover-egress' }],
+      [],
+      [{ type: 'revoke-observer' }, { type: 'stop-egress', id: 'EG_1' }],
+      [{ type: 'settle-egress' }],
+      [{ type: 'revoke-observer' }],
+    ],
+  });
+});
+test('a frozen capture deadline stops only capture without pretending the debate ended', () => {
+  assert({
+    given:
+      'a still-active Round at its admitted capture deadline and an earlier instant',
+    should: 'request stop exactly at the finite deadline and never extend it',
+    actual: [999, 1000].map((nowMs) =>
+      decideRecordingCapture({ ...onOwn(), nowMs, captureDeadlineAtMs: 1000 }),
+    ),
+    expected: [
+      [],
+      [{ type: 'revoke-observer' }, { type: 'stop-egress', id: 'EG_1' }],
+    ],
   });
 });

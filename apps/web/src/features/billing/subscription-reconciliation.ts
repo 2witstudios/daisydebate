@@ -1,6 +1,8 @@
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
+import { observedTerms } from './subscription-observation';
 import {
+  readClubSubscriptionObservation,
   readSubscriptionObservation,
   type SubscriptionReadPort,
 } from './subscription-reader';
@@ -28,6 +30,10 @@ export function createSubscriptionReconciliation(input: {
       readIfRunning(() =>
         input.vendor.latestPaidInvoice(subscriptionId, customerId),
       ),
+    paidInvoices: (subscriptionId, customerId, startingAfter) =>
+      readIfRunning(() =>
+        input.vendor.paidInvoices(subscriptionId, customerId, startingAfter),
+      ),
   };
 
   const receipts = async () => {
@@ -51,16 +57,25 @@ export function createSubscriptionReconciliation(input: {
     const claim = await input.store.claim(customerId);
     if (!claim || stopped) return;
     if (claim.mode !== input.mode) throw createAppError('CONFLICT');
-    const observed = await readSubscriptionObservation(vendor, {
+    const identity = {
       subscriptionId: claim.subscriptionId,
       vendorSubscriptionId: claim.vendorSubscriptionId,
       customerId: claim.vendorCustomerId,
       mode: input.mode,
       priceId: claim.priceId,
-    });
+    };
+    // A Club plan (ADR 0148) reads its seat count and prorated invoices.
+    const observed =
+      claim.owner.kind === 'organization'
+        ? await readClubSubscriptionObservation(vendor, identity)
+        : await readSubscriptionObservation(vendor, identity);
     if (stopped) return;
     if (observed.kind === 'observed') {
-      await input.store.apply(claim, observed.evidence);
+      await input.store.apply(
+        claim,
+        observed.evidence,
+        observedTerms(observed),
+      );
     } else {
       await input.store.retry(claim);
       input.failed(

@@ -1,31 +1,23 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { sameSeat, type SeatRef } from '@daisy/protocol';
 import { roomBotAdmission } from './bot-admission';
 import { state, caller } from './operations.test-support';
 setupRitewayBun();
-const withBot = (role: 'negative' | 'judge') => ({
+const withBot = (seat: SeatRef) => ({
   ...state,
   participants: [
-    ...state.participants.filter((p) => p.role !== role),
+    ...state.participants.filter((p) => !sameSeat(p.seat, seat)),
     {
       ...state.participants[0]!,
       id: 'b'.repeat(24),
       actorId: 'c'.repeat(24),
       kind: 'bot' as const,
-      role,
+      seat,
     },
   ],
 });
-const botRoom = withBot('negative');
-const status = {
-  limit: 20,
-  remaining: 1,
-  source: {
-    kind: 'beta' as const,
-    startsAt: '2026-10-01T00:00:00.000Z',
-    endsAt: '2026-11-01T00:00:00.000Z',
-  },
-  refusal: null,
-};
+const botRoom = withBot({ kind: 'side', side: 'negative', slot: 0 });
+const status = { refusal: null };
 test('bot admission metadata is private to the current sponsoring human host', async () => {
   let reads = 0;
   const read = async () => {
@@ -41,7 +33,7 @@ test('bot admission metadata is private to the current sponsoring human host', a
     read,
   );
   const judgeOnly = await roomBotAdmission(
-    withBot('judge'),
+    withBot({ kind: 'judge', slot: 0 }),
     caller.actorId,
     read,
   );

@@ -45,8 +45,7 @@ test('canonical revocation rotates actual self-hosted admission and capture with
     room = (
       await f.command(judge, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     for (const caller of [f.host, f.guest, judge])

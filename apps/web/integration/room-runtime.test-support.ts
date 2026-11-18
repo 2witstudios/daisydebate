@@ -8,7 +8,10 @@ import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
 import { deleteNamespace } from '@daisy/redis/namespaces';
 import {
+  affirmativeSide,
   isNamedSeat,
+  negativeSide,
+  sideSeat,
   type RoomCommand,
   type RoomCreate,
   type RoomView,
@@ -32,7 +35,10 @@ export async function withRoomRuntime(
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
-  > = {},
+    | 'roundTime'
+  > & {
+    /** A private scratch database whose owner drops the entire aggregate. */ readonly databaseUrl?: string;
+  } = {},
 ) {
   const f = await fixture(options);
   try {
@@ -51,22 +57,23 @@ async function fixture(
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
-  >,
+    | 'roundTime'
+  > & { readonly databaseUrl?: string },
 ) {
-  const sql = new SQL(services.databaseUrl),
+  const { databaseUrl = services.databaseUrl, ...storeOptions } = options;
+  const sql = new SQL(databaseUrl),
     client = createBoundedTestClient(services.redisUrl),
     namespace = testNamespace(createId());
   // Refusal-only cases may never issue an adapter command; cleanup still scans its namespace.
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
   const store = createDatabase({
-    url: services.databaseUrl,
+    url: databaseUrl,
     nextActorId: createId,
     ...aiAdmissionOptions({
-      AI_ROUND_MONTHLY_CAP: 20,
       PREMIUM_BETA_GRANT: true,
     }),
-    ...options,
+    ...storeOptions,
   });
   const callers: { userId: string; actorId: string }[] = [],
     rooms: string[] = [],
@@ -209,16 +216,14 @@ async function fixture(
     view = (
       await command(host, view, {
         type: 'claim-seat',
-        role: 'affirmative',
-        slot: 0,
+        seat: sideSeat(affirmativeSide),
       })
     ).view;
     view = (
       await command(host, view, {
         type: 'assign-seat',
         actorId,
-        role: 'negative',
-        slot: 0,
+        seat: sideSeat(negativeSide),
       })
     ).view;
     return (await consent(host, await operations.view(host, view.id), 'ready'))
@@ -245,15 +250,13 @@ async function fixture(
     view = (
       await command(cast.host, view, {
         type: 'claim-seat',
-        role: 'affirmative',
-        slot: 0,
+        seat: sideSeat(affirmativeSide),
       })
     ).view;
     view = (
       await command(cast.guest, view, {
         type: 'claim-seat',
-        role: 'negative',
-        slot: 0,
+        seat: sideSeat(negativeSide),
       })
     ).view;
     for (const c of [cast.host, cast.guest])
@@ -320,6 +323,8 @@ async function fixture(
       await deleteNamespace(client, namespace);
       redis.close();
       try {
+        // Append-only fixture records in a private database live until its owning test drops it.
+        if (databaseUrl !== services.databaseUrl) return;
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
           await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;

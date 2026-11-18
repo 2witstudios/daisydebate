@@ -6,6 +6,40 @@ import { editRoomDraft, type CreateRoomDraft } from './create-room-draft';
 import { customRoomDefinition } from './custom-room-definition';
 import { casualCaptureNotice } from '../legal/agreements';
 
+type Definition = CreateRoomDraft['definition'];
+
+/**
+ * A new speech for a declared side (`add-side:<key>`), or a question period
+ * asked by the format's last side, as Daisy's two-sided formats ask from the
+ * second; an unsided format's new period is everyone's.
+ */
+function addedSegment(
+  definition: Definition,
+  intent: string,
+  sideKey: string | undefined,
+): Omit<Definition['segments'][number], 'key'> | null {
+  if (intent === 'add-question') {
+    const asker = definition.sides.at(-1);
+    return {
+      label: 'Question period',
+      type: 'cross_ex',
+      speak: {
+        rights: 'all',
+        lead: asker ? { kind: 'side', side: asker.key, slot: 0 } : null,
+      },
+      defaultDurationMs: 180_000,
+    };
+  }
+  const side = definition.sides.find((declared) => declared.key === sideKey);
+  if (!side) return null;
+  return {
+    label: `${side.label} speech`,
+    type: 'speech',
+    speak: { rights: 'one', seat: { kind: 'side', side: side.key, slot: 0 } },
+    defaultDurationMs: 180_000,
+  };
+}
+
 /** Shared by native editing actions and the enhanced editor. */
 export function changeDraftSchedule(
   draft: CreateRoomDraft,
@@ -24,35 +58,20 @@ export function changeDraftSchedule(
     const to = index + (operation === 'up' ? -1 : 1);
     if (!segments[to]) return draft;
     [segments[index], segments[to]] = [segments[to]!, segments[index]!];
-  } else if (
-    intent === 'add-affirmative' ||
-    intent === 'add-negative' ||
-    intent === 'add-question'
-  ) {
+  } else if (operation === 'add-side' || intent === 'add-question') {
     if (segments.length >= 64) return draft;
+    const segment = addedSegment(draft.definition, intent, position);
+    if (!segment) return draft;
     let n = segments.length + 1;
-    while (segments.some((segment) => segment.key === `s${n}`)) n += 1;
-    const question = intent === 'add-question';
-    const side =
-      intent === 'add-negative' || question
-        ? ('negative' as const)
-        : ('affirmative' as const);
-    segments.push({
-      key: `s${n}`,
-      label: question
-        ? 'Question period'
-        : side === 'affirmative'
-          ? 'Affirmative speech'
-          : 'Negative speech',
-      type: question ? 'cross_ex' : 'speech',
-      side,
-      slot: 0,
-      defaultDurationMs: 180_000,
-    });
+    while (segments.some((item) => item.key === `s${n}`)) n += 1;
+    segments.push({ ...segment, key: `s${n}` });
   } else return draft;
   const keys = new Set(segments.map((segment) => segment.key));
   return editRoomDraft(draft, {
-    definition: customRoomDefinition({ ...draft.definition, segments }),
+    definition: customRoomDefinition(
+      { ...draft.definition, segments },
+      draft.config,
+    ),
     config: {
       ...draft.config,
       speechTiming: {
@@ -79,7 +98,7 @@ function selectionOf(draft: CreateRoomDraft): RoomCreate['selection'] {
       : { kind: 'catalog', ...tuple, competitionType: 'casual' };
   return {
     kind: 'custom',
-    definition: customRoomDefinition(draft.definition),
+    definition: customRoomDefinition(draft.definition, draft.config),
     config: draft.config,
     competitionType: 'casual',
     basis: tuple,

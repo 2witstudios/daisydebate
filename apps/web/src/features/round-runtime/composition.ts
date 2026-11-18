@@ -1,3 +1,4 @@
+import { eventBallotAccess } from '../round-ballots/audience';
 import { captureRule } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from './member-composition';
 import type { App } from '../../server/app';
@@ -17,11 +18,13 @@ export function composeRoundRoutes(app: App) {
     view: roundViewReader(app.database),
     transcript: (caller, roundId) =>
       app.database.readRoundTranscript({
+        readEventDecision: (owner) =>
+          eventBallotAccess(caller, owner).parts.includes('decision'),
         caller,
         roundId,
         captureRule,
-        authorize: (round, account) =>
-          canReadTranscript(caller, round, account),
+        authorize: (round, account, authority) =>
+          canReadTranscript(caller, round, account, authority),
       }),
   });
 }

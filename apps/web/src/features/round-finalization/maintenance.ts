@@ -14,7 +14,11 @@ import {
   participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
-import { judgingPolicy, type JudgingTerminalReason } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  judgingPolicy,
+  type JudgingTerminalReason,
+} from '@daisy/protocol';
 import { createRatingSweep } from '../ratings/sweep';
 import { roundTickProjection } from './operations';
 
@@ -40,8 +44,9 @@ export const panelCompletion =
     const nowMs = Date.parse(now);
     const panel = judgingPanelOf(facts, nowMs);
     if (panel === null) throw createRefusal('CONFLICT', 'panel-ineligible');
-    const { completeness, ballots } = facts;
+    const { judging, completeness, ballots } = facts;
     const decision = decidePanelCompletion({
+      judging,
       completeness,
       panel,
       ballots,
@@ -53,14 +58,14 @@ export const panelCompletion =
       ruling: decision.ruling,
       noRuling: decision.noRuling,
       ballotIds: participatingRulings(
-        round.participants.filter((p) => p.role === 'judge').map((p) => p.id),
+        round.participants.filter((p) => isJudgeSeat(p.seat)).map((p) => p.id),
         ballotIds,
       ).map((b) => b.id),
       projection: createRoundRuntime({
         ...round,
         round,
         nextSegmentId: nextId,
-      }).completePanel({ now, ballots, completeness, panel }),
+      }).completePanel({ now, judging, ballots, completeness, panel }),
     };
   };
 /** Bound internal ports; the startup owner supplies the existing availability instance. */

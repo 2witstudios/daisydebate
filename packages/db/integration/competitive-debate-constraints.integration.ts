@@ -39,7 +39,7 @@ describe('rounds (DATA-2.1)', () => {
           current_stage: null,
           started_at: at,
           completed_at: at,
-          outcome: 'tie',
+          winning_side: 'Tie',
         }),
       );
       assert({
@@ -90,7 +90,7 @@ describe('rounds (DATA-2.1)', () => {
           status: 'active',
           current_stage: 'countdown',
           started_at: at,
-          outcome: 'affirmative',
+          winning_side: 'affirmative',
         }),
         activeWithCompletion: await attempt({
           status: 'active',
@@ -111,18 +111,18 @@ describe('rounds (DATA-2.1)', () => {
         completedWithoutCompletedAt: await attempt({
           status: 'completed',
           started_at: at,
-          outcome: 'negative',
+          winning_side: 'negative',
         }),
         completedFull: !(await attempt({
           status: 'completed',
           started_at: at,
           completed_at: at,
-          outcome: 'affirmative',
+          winning_side: 'affirmative',
         })),
         completedNeverStarted: await attempt({
           status: 'completed',
           completed_at: at,
-          outcome: 'affirmative',
+          winning_side: 'affirmative',
         }),
         // Abandonment is lifecycle, not outcome: it deliberately leaves
         // started_at nullable so a round abandoned before starting is
@@ -135,7 +135,7 @@ describe('rounds (DATA-2.1)', () => {
         abandonedWithOutcome: await attempt({
           status: 'abandoned',
           completed_at: at,
-          outcome: 'affirmative',
+          winning_side: 'affirmative',
         }),
         scheduledWithStart: await attempt({
           status: 'opening',
@@ -227,14 +227,16 @@ describe('round participants (DATA-2.2)', () => {
         id: createId(),
         round_id: roundId,
         actor_id: createId(),
-        role: 'negative',
+        seat_kind: 'side',
+        side: 'negative',
         slot: 0,
       });
       const unknownRound = await fixture.rejects('round_participants', {
         id: createId(),
         round_id: createId(),
         actor_id: await fixture.actor(),
-        role: 'negative',
+        seat_kind: 'side',
+        side: 'negative',
         slot: 0,
       });
       assert({

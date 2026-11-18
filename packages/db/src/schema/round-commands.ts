@@ -15,8 +15,14 @@ export const roundCommandTypes = [
   'yield',
   'interrupt',
   'forfeit',
+  /** A competitor leaving a Round no forfeit ends (TAB-6.8). */
+  'leave',
   'complete',
   'submit_ballot',
+  /** Internal authorized assignment and source lifecycle commands (DEC417). */
+  'change_judge',
+  'stop',
+  'void_source',
   'check_in',
   'adjudicate',
 ] as const;

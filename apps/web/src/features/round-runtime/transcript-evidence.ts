@@ -1,15 +1,14 @@
 import type { TranscriptEvidenceInput } from '@daisy/ai-voice';
 import type { FrozenRoundTranscript } from '@daisy/db/frozen-transcript';
 import { createAppError } from '@daisy/errors';
-import { debateSides } from '@daisy/protocol';
+import { isSpeakingSeat, type SeatRef } from '@daisy/protocol';
 type Round = {
   readonly id: string;
   /** Null only before a reveal, which no frozen, played Round is. */
   readonly resolution: string | null;
   readonly participants: readonly {
     readonly id: string;
-    readonly role: string;
-    readonly slot: number;
+    readonly seat: SeatRef;
   }[];
   readonly segments: readonly {
     readonly id: string;
@@ -34,9 +33,8 @@ export function transcriptEvidenceInput(input: {
     const seat = round.participants.find(
       (candidate) => candidate.id === participantId,
     );
-    const side = debateSides.find((candidate) => candidate === seat?.role);
-    if (!seat || !side) throw changed();
-    return { side, slot: seat.slot };
+    if (!seat || !isSpeakingSeat(seat.seat)) throw changed();
+    return { seat: seat.seat };
   };
   const segmentSequence = (segmentId: string) => {
     const segment = round.segments.find(

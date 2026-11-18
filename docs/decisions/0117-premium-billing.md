@@ -4,6 +4,12 @@ Status: implementation in progress under the owner's 2026-11-04 authorization.
 The [existing Billing plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/f3nh50c4v2qsrr2b2ixnksa7)
 owns the delivery contract and unresolved policy decisions. This record does
 not approve production activation or turn provisional defaults into owner decisions.
+Amended by [ADR 0146](0146-premium-twenty-unlimited-fair-use.md): new
+Checkouts sell USD 20 a month, Premium is unlimited with only a per-day
+fair-use ceiling, existing subscribers keep their price, and no usage
+counter is shown anywhere. Amended by
+[ADR 0148](0148-club-seats.md): billing is owned by an account or an
+organisation, and a Club plan sells Premium per seat.
 
 ## Decision
 

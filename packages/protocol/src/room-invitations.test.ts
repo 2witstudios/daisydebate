@@ -8,7 +8,7 @@ setupRitewayBun();
 
 const pending = (
   inviteeActorId: string,
-  seat: 'debater' | 'judge',
+  seat: 'side' | 'judge',
 ): PendingRoomInvitation => ({
   id: `inv-${inviteeActorId}`,
   inviteeActorId,
@@ -16,22 +16,23 @@ const pending = (
   seat,
   expiresAt: '2026-11-11T12:00:00.000Z',
 });
-const seat = (actorId: string, role: 'judge' | 'negative') => ({
+const seat = (actorId: string, kind: 'judge' | 'side') => ({
   id: `p-${actorId}`,
   actorId,
   label: actorId,
   kind: 'human' as const,
-  role,
-  slot: 0,
+  seat:
+    kind === 'judge' ? { kind, slot: 0 } : { kind, side: 'negative', slot: 0 },
   teamOpen: false,
   positionOpen: false,
   eligible: true,
+  division: null,
   consentVersion: 0,
   consentCommandId: null,
 });
 
 test('settledRoomInvitations', () => {
-  const invitations = [pending('jo', 'judge'), pending('bea', 'debater')];
+  const invitations = [pending('jo', 'judge'), pending('bea', 'side')];
   assert({
     given:
       'the invited judge seated, the invited debater in the judge seat, then the Room started',

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChangeEvent, ReactNode } from 'react';
+import { useState, type ChangeEvent, type ReactNode } from 'react';
 import type { RoomView } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import {
@@ -15,6 +15,7 @@ import type { FormAction } from '../../form-action/form-action';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
 type View = Pick<
   RoomView,
@@ -118,20 +119,28 @@ function CaptureSwitch({
   which,
   commandId,
   action,
+  onReach,
 }: {
   readonly view: View;
   readonly which: 'broadcast' | 'recording';
   readonly commandId: string;
   readonly action: FormAction<RoomFormState>;
+  /** A free host reaching for a Premium switch: show the upgrade panel (PYL-11). */
+  readonly onReach: () => void;
 }) {
   const broadcast = view.capture?.broadcast ?? null;
-  const recording = view.capture?.recording ?? false;
-  const on = which === 'broadcast' ? broadcast !== null : recording;
+  const policy = view.capture?.recordingPolicy ?? 'off';
+  // The page's switch records for release, as the ordinary form does; a
+  // Recording kept for the officials (TAB-6.15) reads as on, and says so.
+  const recording = policy === 'released';
+  const on = which === 'broadcast' ? broadcast !== null : policy !== 'off';
   const label = which === 'broadcast' ? 'Broadcast' : 'Record';
   const detail =
     which === 'broadcast' && broadcast
       ? delayWords(broadcast.release.seconds)
-      : null;
+      : which === 'recording' && policy === 'officials'
+        ? 'For the officials only'
+        : null;
   const premium = view.captureOffer === 'premium';
   if (!view.capabilities.canEdit)
     return (
@@ -178,9 +187,15 @@ function CaptureSwitch({
         detail={premium && !on ? null : detail}
         value={
           premium && !on ? (
-            <a href="/premium" className="text-sm font-strong underline">
-              Premium
-            </a>
+            // Stays off and posts nothing; reaching for it opens the panel.
+            <input
+              id={id}
+              type="checkbox"
+              role="switch"
+              checked={false}
+              onChange={onReach}
+              className="size-5 accent-accent"
+            />
           ) : (
             <input
               id={id}
@@ -218,6 +233,9 @@ export function RoomControls({
   };
   readonly commandAction: FormAction<RoomFormState>;
 }) {
+  // Each reach mounts a fresh panel, so it shows again after "Not now".
+  const [reaches, setReaches] = useState(0);
+  const reach = () => setReaches((count) => count + 1);
   return (
     <section
       aria-label="Room controls"
@@ -235,13 +253,27 @@ export function RoomControls({
             which="broadcast"
             commandId={commandIds.capture}
             action={commandAction}
+            onReach={reach}
           />
           <CaptureSwitch
             view={view}
             which="recording"
             commandId={commandIds.capture}
             action={commandAction}
+            onReach={reach}
           />
+          {reaches > 0 && view.captureOffer === 'premium' ? (
+            <div className="py-3">
+              <UpgradePanel
+                key={reaches}
+                title="Recording and broadcast are Premium"
+                alternative={{ kind: 'dismiss', label: 'Not now' }}
+              >
+                Record your casual Rounds, stream them to an audience and
+                download them with Premium.
+              </UpgradePanel>
+            </div>
+          ) : null}
         </>
       )}
     </section>

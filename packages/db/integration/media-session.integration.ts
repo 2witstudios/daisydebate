@@ -14,12 +14,18 @@ setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 test('concurrent media admission reuses one opaque session and seat identity', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round({
-      status: 'active',
-      current_stage: 'live',
-      started_at: new Date('2026-10-22T05:00:00Z'),
-    });
-    const seat = await fixture.seat(roundId, 'affirmative');
+    const {
+      id: roundId,
+      seats: [seat],
+    } = await fixture.roundWithCast(
+      {
+        status: 'active',
+        current_stage: 'live',
+        started_at: new Date('2026-10-22T05:00:00Z'),
+      },
+      [{ seat: 'affirmative' }],
+    );
+    if (!seat) throw new Error('Initial media seat missing');
     const store = storeFor(fixture.sql);
     await fixture.sql.unsafe(
       'update users set email_verified=true where id=(select user_id from actors where id=$1)',
@@ -53,12 +59,17 @@ test('concurrent media admission reuses one opaque session and seat identity', a
         }),
         expected: first,
       });
-      const otherRoundId = await fixture.round({
-        status: 'active',
-        current_stage: 'live',
-        started_at: new Date('2026-10-22T05:00:00Z'),
-      });
-      const otherSeat = await fixture.seat(otherRoundId, 'negative');
+      const {
+        seats: [otherSeat],
+      } = await fixture.roundWithCast(
+        {
+          status: 'active',
+          current_stage: 'live',
+          started_at: new Date('2026-10-22T05:00:00Z'),
+        },
+        [{ seat: 'negative' }],
+      );
+      if (!otherSeat) throw new Error('Initial media seat missing');
       assert({
         given: 'a seat from another Round attached to this media session',
         should: 'refuse the cross-Round binding at the database boundary',
@@ -148,12 +159,18 @@ test('terminal and wrong-seat admission cannot create a media session', async ()
 
 test('fresh canonical revocation and actual final-end expiry refuse repeated binding', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round({
-      status: 'active',
-      current_stage: 'live',
-      started_at: new Date(),
-    });
-    const seat = await fixture.seat(roundId, 'affirmative');
+    const {
+      id: roundId,
+      seats: [seat],
+    } = await fixture.roundWithCast(
+      {
+        status: 'active',
+        current_stage: 'live',
+        started_at: new Date(),
+      },
+      [{ seat: 'affirmative' }],
+    );
+    if (!seat) throw new Error('Initial media seat missing');
     await fixture.sql.unsafe(
       'update users set email_verified=true where id=(select user_id from actors where id=$1)',
       [seat.actorId],

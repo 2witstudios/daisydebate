@@ -1,8 +1,12 @@
-import type {
-  RoundParticipantSeat,
-  RoundRules,
-  RoundSpeakingChange,
-  RoundProjection,
+import {
+  isDebatingSeat,
+  isJudgeSeat,
+  sameSeat,
+  speakingSeatsOf,
+  type RoundParticipantSeat,
+  type RoundRules,
+  type RoundSpeakingChange,
+  type RoundProjection,
 } from '@daisy/protocol';
 import type { ClockChange } from './round-clock-transition';
 
@@ -10,10 +14,21 @@ import type { ClockChange } from './round-clock-transition';
 export const hasOpenQuestioning = (rules: RoundRules): boolean =>
   rules.interaction.interruptions.allowed === 'open';
 
-/** Everyone speaks in cross-examination and under open questioning; no one takes the floor. */
+/**
+ * Several seats speak in a segment whose speak rights name several (cross-
+ * examination, an open floor) and under open questioning; no one takes the
+ * floor.
+ */
 const sharesSpeaking = (rules: RoundRules, sequence: number): boolean =>
-  hasOpenQuestioning(rules) || rules.segments[sequence]?.type === 'cross_ex';
+  hasOpenQuestioning(rules) ||
+  (rules.segments[sequence] !== undefined &&
+    rules.segments[sequence].speak.rights !== 'one');
 
+/**
+ * Who speaks now: under open questioning every debating seat; in a segment
+ * several seats speak in, the seats its speak rights grant; otherwise the
+ * floor holder, or the segment's one speaker. Never a judge.
+ */
 export const speakingParticipants = (
   rules: RoundRules,
   seats: readonly RoundParticipantSeat[],
@@ -22,17 +37,24 @@ export const speakingParticipants = (
 ): readonly string[] => {
   const segment = rules.segments[sequence];
   if (!segment) return [];
-  if (sharesSpeaking(rules, sequence))
+  const { speak } = segment;
+  if (hasOpenQuestioning(rules) && speak.rights === 'one')
+    return seats.filter((p) => isDebatingSeat(p.seat)).map((p) => p.id);
+  if (speak.rights !== 'one') {
+    const granted = speakingSeatsOf(rules, speak);
     return seats
-      .filter((p) => p.role === 'affirmative' || p.role === 'negative')
+      .filter(
+        (p) =>
+          !isJudgeSeat(p.seat) &&
+          granted.some((seat) => sameSeat(seat, p.seat)),
+      )
       .map((p) => p.id);
+  }
   if (holder !== null)
-    return seats.some((p) => p.id === holder && p.role !== 'judge')
+    return seats.some((p) => p.id === holder && !isJudgeSeat(p.seat))
       ? [holder]
       : [];
-  return seats
-    .filter((p) => p.role === segment.side && p.slot === segment.slot)
-    .map((p) => p.id);
+  return seats.filter((p) => sameSeat(p.seat, speak.seat)).map((p) => p.id);
 };
 
 /** Materialize the existing engine's accepted clock/floor transitions, never a second timetable. */

@@ -2,7 +2,7 @@ import {
   idSchema,
   roomInvitationCommandSchemas,
   roomInvitationRefusals,
-  type RoomSeatKind,
+  type SeatKind,
 } from '@daisy/protocol';
 import { parseValidated, readJson, refusalResponse } from '../../server/http';
 import {
@@ -27,7 +27,7 @@ export function createRoomInvitationHandlers(deps: {
     input: {
       readonly roomId: string;
       readonly username: string;
-      readonly seat: RoomSeatKind;
+      readonly seat: SeatKind;
     },
   ) => Promise<{ readonly invitationId: string }>;
   readonly end: (

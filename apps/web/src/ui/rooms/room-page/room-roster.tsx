@@ -1,10 +1,20 @@
 import type { ReactNode } from 'react';
 import {
+  affirmativeSide,
+  aiRoleFits,
   freeSeatsOf,
+  isDebatingSeat,
+  isJudgeSeat,
+  isModeratorSeat,
   isNamedSeat,
-  seatKindOf,
+  negativeSide,
+  sameSeat,
+  seatKey,
+  seatKinds,
+  type RatingDivision,
   type RoomCastChoice,
   type RoomView,
+  type SeatRef,
 } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
@@ -13,6 +23,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { initialsOf } from '../../../lib/initials';
 import { Icon } from '../../components/icon/icon';
+import type { IconName } from '../../components/icon/icons';
 import { PopoverDialog } from '../../components/popover-dialog/popover-dialog';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 import { AssemblyCommandFields } from './assembly-command-fields';
@@ -24,7 +35,12 @@ import { EndInvitationForm } from './end-invitation-form';
 import { HeldUntil } from './held-until';
 import { ROOM_TITLE_ID } from './room-setup-modal';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
+import { officialTone, sideTone, speakerTone } from './side-tone';
+import { DivisionBadge } from '../../ladder-badge/ladder-badge';
+import { ClaimSeatForm } from './claim-seat-form';
+import { judgeSeatLine, otherLadderSeat, rowDivision } from './room-ladder';
 import {
+  isEventRoom,
   ordinalOf,
   rosterBoxes,
   showsTeams,
@@ -34,13 +50,18 @@ import {
 } from './roster-seat';
 
 type SeatIds = RoomCommandIds['seats'][number];
-type Seat = ReturnType<typeof declaredSeats>[number];
+type Seat = SeatRef;
 type Participant = RoomView['participants'][number];
 type Named = Extract<Participant, { actorId: string }>;
 
 export type RosterProps = {
   readonly view: RoomView;
-  readonly viewer: { readonly actorId: string; readonly label: string };
+  readonly viewer: {
+    readonly actorId: string;
+    readonly label: string;
+    /** The viewer's ladder division (ADR 0147); null with no age on record. */
+    readonly division: RatingDivision | null;
+  };
   readonly bots: readonly RoomCastChoice[];
   readonly action: FormAction<RoomFormState>;
   readonly commandIds: Pick<RoomCommandIds, 'seats' | 'sides' | 'leave'>;
@@ -50,13 +71,31 @@ export type RosterProps = {
   readonly invitationAction: FormAction<InvitationFormState>;
 };
 
+/**
+ * The AI actors a seat may hold: a bot debater for a side's or a speaker's
+ * seat, the AI judge for a judge's, and none for a moderator's (TAB-6.18).
+ */
+export const botsForSeat = (
+  bots: readonly RoomCastChoice[],
+  seat: SeatRef,
+): readonly RoomCastChoice[] =>
+  bots.filter((bot) => aiRoleFits(bot.aiRole, seat));
+
+const twoSideTones = [{ key: affirmativeSide }, { key: negativeSide }];
 const boxTone: Readonly<Record<SideMark, string>> = {
-  affirmative: 'bg-hue-sky-soft text-hue-sky',
-  negative: 'bg-hue-clay-soft text-hue-clay',
+  [affirmativeSide]: sideTone(twoSideTones, affirmativeSide),
+  [negativeSide]: sideTone(twoSideTones, negativeSide),
   '?': 'border-2 border-dashed border-gold-border bg-gold-soft text-ink',
 };
 const boxClass =
-  'flex min-h-room-target w-full items-center justify-center rounded-lg text-sm font-semibold';
+  'flex min-h-roster-control w-full items-center justify-center rounded-md text-sm font-semibold';
+/** A row's text action: compact under a mouse, the full target under a finger. */
+const rowButton =
+  'inline-flex min-h-roster-control cursor-pointer items-center justify-center gap-1 rounded-full border border-border-strong bg-transparent px-3 text-sm leading-tight font-strong whitespace-nowrap text-ink hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60';
+const iconButton =
+  'inline-flex size-roster-control cursor-pointer items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink';
+const menuItem =
+  'flex min-h-roster-control w-full cursor-pointer items-center rounded-sm px-2 text-left text-sm text-ink hover:bg-surface-sunken';
 
 /** One box of a row: a button that posts its next value, or the value alone. */
 function CycleBox({
@@ -179,7 +218,7 @@ function ReadyMark({ seat }: { readonly seat: Participant }) {
     <Icon
       name="check"
       label="Ready"
-      size={20}
+      size={18}
       className="justify-self-center text-online"
     />
   ) : (
@@ -191,21 +230,31 @@ function ReadyMark({ seat }: { readonly seat: Participant }) {
   );
 }
 
-const avatarTone = {
-  affirmative: 'bg-hue-sky-soft text-hue-sky',
-  negative: 'bg-hue-clay-soft text-hue-clay',
-  judge: 'bg-hue-teal-soft text-hue-teal',
-} as const;
+/** A seat's avatar tone: its side's, the speakers' shared one, or the officials'. */
+const avatarTone = (
+  sides: readonly { readonly key: string }[],
+  seat: Seat,
+): string => {
+  switch (seat.kind) {
+    case 'side':
+      return sideTone(sides, seat.side);
+    case 'speaker':
+      return speakerTone;
+    case 'judge':
+    case 'moderator':
+      return officialTone;
+  }
+};
 
 /** The name, an inline rating, and who they are to this viewer. */
 function Who({
   props,
   seat,
-  role,
+  place,
 }: {
   readonly props: RosterProps;
   readonly seat: Named | null;
-  readonly role: Seat['role'];
+  readonly place: Seat;
 }) {
   const meta = seat
     ? [
@@ -215,32 +264,44 @@ function Who({
         seat.eligible ? null : 'Not eligible',
       ].filter((part) => part !== null)
     : [];
+  // While the debaters mix ladders, each row says whose ladder is whose.
+  const division = seat ? rowDivision(props.view, seat) : null;
   return (
-    <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-w-0 items-center gap-2">
       <span
         aria-hidden="true"
-        className={`flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone[role]}`}
+        className={`flex room-roster-avatar size-roster-avatar shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone(props.view.rules.sides, place)}`}
       >
         {initialsOf(seat?.label ?? 'Judge')}
       </span>
-      <div className="min-w-0">
-        <p className="flex min-w-0 items-baseline gap-x-2 font-semibold">
-          <span className="truncate" title={seat?.label ?? 'Judge'}>
-            {seat?.label ?? 'Judge'}
+      {/* One line while it fits; a narrow column wraps the rating and tags
+          under the name instead of pushing them into the seat boxes. */}
+      <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 font-semibold">
+        <span className="max-w-full truncate" title={seat?.label ?? 'Judge'}>
+          {seat?.label ?? 'Judge'}
+        </span>
+        {seat?.rating ? (
+          <span
+            className={`max-w-full truncate text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
+          >
+            {seat.rating.value}
+            {seat.rating.provisional ? '*' : ''}
           </span>
-          {seat?.rating ? (
-            <span
-              className={`shrink-0 text-xs font-book text-ink-muted tabular-nums ${seat.rating.provisional ? 'italic' : ''}`}
-            >
-              {seat.rating.value}
-              {seat.rating.provisional ? '*' : ''}
-            </span>
-          ) : null}
-        </p>
-        {meta.length > 0 ? (
-          <p className="text-xs text-ink-muted">{meta.join(' · ')}</p>
         ) : null}
-      </div>
+        {division === null ? null : (
+          <span className="self-center">
+            <DivisionBadge division={division} />
+          </span>
+        )}
+        {meta.map((part) => (
+          <span
+            key={part}
+            className="max-w-full self-center truncate rounded-sm bg-surface-sunken px-2 text-xs font-strong text-ink-muted"
+          >
+            {part}
+          </span>
+        ))}
+      </p>
     </div>
   );
 }
@@ -252,6 +313,8 @@ function CommandButton({
   fields,
   label,
   name = label,
+  icon,
+  className = rowButton,
 }: {
   readonly props: RosterProps;
   readonly type: 'claim-seat' | 'assign-seat' | 'remove-seat' | 'leave-seat';
@@ -260,6 +323,9 @@ function CommandButton({
   readonly label: string;
   /** The accessible name, when the visible label leans on its row. */
   readonly name?: string;
+  /** Shown instead of the label, which becomes its tooltip. */
+  readonly icon?: IconName;
+  readonly className?: string;
 }) {
   return (
     <AssemblyCommandForm action={props.action}>
@@ -273,24 +339,31 @@ function CommandButton({
       ))}
       <button
         type="submit"
-        aria-label={name === label ? undefined : name}
-        className={buttonClass('ghost')}
+        aria-label={name === label && !icon ? undefined : name}
+        title={icon ? label : undefined}
+        className={icon ? iconButton : className}
       >
-        {label}
+        {icon ? <Icon name={icon} size={16} /> : label}
       </button>
     </AssemblyCommandForm>
   );
 }
 
-/** The host's pick of who sits in an open seat: members first, then bots. */
-function AssignSeat({
+/**
+ * The host's Fill seat menu on an open seat: pick a member or a bot, or seat
+ * the AI judge. One button keeps the row to one line.
+ */
+function FillSeat({
   props,
   seat,
   ids,
+  aiJudge,
 }: {
   readonly props: RosterProps;
   readonly seat: Seat;
   readonly ids: SeatIds;
+  /** The AI judge this seat may take, when it is a judge seat. */
+  readonly aiJudge: RoomCastChoice | undefined;
 }) {
   const { view } = props;
   const seated = new Set(
@@ -304,79 +377,91 @@ function AssignSeat({
         .map((p) => [p.actorId, p]),
     ).values(),
   ];
-  const bots = props.bots.filter(
+  const judge = isJudgeSeat(seat);
+  const bots = botsForSeat(props.bots, seat).filter(
     (bot) =>
-      bot.seatRole === (seat.role === 'judge' ? 'judge' : 'debater') &&
       bot.eligible &&
-      !(bot.seatRole === 'judge' && !aiJudgeSeatable(view.aiJudgeSeating)) &&
-      !(view.competitionType === 'ranked' && bot.seatRole === 'debater'),
+      !(judge && !aiJudgeSeatable(view.aiJudgeSeating)) &&
+      !(view.competitionType === 'ranked' && !judge),
   );
-  if (people.length + bots.length === 0) return null;
-  const id = `assign-${seat.role}-${seat.slot}`;
-  // One button on the open seat's line; the choice opens over it, natively.
+  const choices = people.length + bots.length > 0;
+  if (!choices && !aiJudge) return null;
+  const id = `assign-${seatKey(seat).replace(':', '-')}`;
+  const seatName = roomSeatLabel(view, seat);
+  // The menu opens over the row, natively; PopoverDialog focuses the choice.
   return (
     <>
       <button
         type="button"
         popoverTarget={`${id}-menu`}
-        className={buttonClass('ghost')}
+        aria-label={`Fill ${seatName}`}
+        className={rowButton}
       >
-        Seat someone
+        Fill seat
+        <Icon name="chevron-down" size={14} />
       </button>
       <PopoverDialog
         id={`${id}-menu`}
-        aria-label="Seat someone"
-        className="m-auto w-room-dialog max-w-full rounded-lg border border-border-strong bg-surface p-4 text-ink shadow-3 backdrop:bg-scrim/50"
+        aria-label={`Fill ${seatName}`}
+        className="m-auto flex w-room-dialog max-w-full flex-col gap-2 rounded-lg border border-border-strong bg-surface p-3 text-ink shadow-3 backdrop:bg-scrim/50"
       >
-        <AssemblyCommandForm action={props.action} className="flex gap-2">
-          <AssemblyCommandFields
+        {choices ? (
+          <AssemblyCommandForm action={props.action} className="flex gap-2">
+            <AssemblyCommandFields
+              type="assign-seat"
+              version={view.version}
+              commandId={ids.assign}
+            />
+            <input type="hidden" name="seat" value={JSON.stringify(seat)} />
+            <label className="sr-only" htmlFor={id}>
+              Seat someone in {seatName}
+            </label>
+            <select
+              id={id}
+              name="actorId"
+              data-initial-focus
+              required
+              defaultValue=""
+              className={`${controlClass} min-w-0 flex-1`}
+            >
+              <option value="" disabled>
+                Seat someone
+              </option>
+              {people.map((p) => (
+                <option key={p.actorId} value={p.actorId}>
+                  {p.label}
+                </option>
+              ))}
+              {bots.map((bot) => (
+                <option key={bot.actorId} value={bot.actorId}>
+                  {bot.label} · Bot
+                </option>
+              ))}
+            </select>
+            <button type="submit" className={buttonClass('primary')}>
+              Seat
+            </button>
+          </AssemblyCommandForm>
+        ) : null}
+        {aiJudge ? (
+          <CommandButton
+            props={props}
             type="assign-seat"
-            version={view.version}
-            commandId={ids.assign}
+            commandId={ids.ai}
+            fields={{ seat: JSON.stringify(seat), actorId: aiJudge.actorId }}
+            label="AI judge"
+            className={menuItem}
           />
-          <input type="hidden" name="role" value={seat.role} />
-          <input type="hidden" name="slot" value={String(seat.slot)} />
-          <label className="sr-only" htmlFor={id}>
-            Seat someone in {roomSeatLabel(view, seat.role, seat.slot)}
-          </label>
-          {/* Server-rendered autofocus lets the native popover focus the
-              choice before hydration and without script. */}
-          <select
-            id={id}
-            name="actorId"
-            autoFocus
-            required
-            defaultValue=""
-            className={`${controlClass} min-w-0 flex-1`}
-          >
-            <option value="" disabled>
-              Choose someone
-            </option>
-            {people.map((p) => (
-              <option key={p.actorId} value={p.actorId}>
-                {p.label}
-              </option>
-            ))}
-            {bots.map((bot) => (
-              <option key={bot.actorId} value={bot.actorId}>
-                {bot.label} · Bot
-              </option>
-            ))}
-          </select>
-          <button type="submit" className={buttonClass('primary')}>
-            Seat
-          </button>
-        </AssemblyCommandForm>
+        ) : null}
       </PopoverDialog>
     </>
   );
 }
 
 /** Whether every free seat of this kind is held for someone other than this viewer. */
-const heldFromViewer = (view: RoomView, role: Seat['role']) => {
-  const kind = seatKindOf(role);
-  const held = view.seatsHeldFromViewer[kind];
-  return held > 0 && freeSeatsOf(view, kind) <= held;
+const heldFromViewer = (view: RoomView, seat: Seat) => {
+  const held = view.seatsHeldFromViewer[seat.kind];
+  return held > 0 && freeSeatsOf(view, seat.kind) <= held;
 };
 
 /** An open seat: take it, invite someone, seat an AI judge, or (host) seat anyone. */
@@ -393,15 +478,21 @@ function OpenSeat({
   readonly invited: RoomView['invitations'][number] | undefined;
 }) {
   const { view } = props;
-  const position = { role: seat.role, slot: String(seat.slot) };
-  const aiJudge = aiJudgeSeatable(view.aiJudgeSeating)
-    ? props.bots.find((bot) => bot.seatRole === 'judge' && bot.eligible)
-    : undefined;
+  const position = { seat: JSON.stringify(seat) };
+  const aiJudge =
+    isJudgeSeat(seat) && aiJudgeSeatable(view.aiJudgeSeating)
+      ? botsForSeat(props.bots, seat).find((bot) => bot.eligible)
+      : undefined;
+  // An event Room's seats are the organiser's: nobody takes or invites into
+  // one from the roster (ADR 0145, Tab).
+  const event = isEventRoom(view);
+  const takeName = `Take ${roomSeatLabel(view, seat)}`;
+  const judgeLine = isJudgeSeat(seat) ? judgeSeatLine(view) : null;
   return (
     <>
       <span aria-hidden="true" />
       <div className="col-span-full col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <p className="text-ink-muted">
+        <p className="min-w-0 truncate text-ink-muted">
           {invited ? (
             <>
               {`Invited: ${invited.invitee}`}
@@ -412,22 +503,36 @@ function OpenSeat({
           )}
         </p>
         <div className="flex flex-wrap items-center justify-end gap-1">
-          {view.capabilities.canClaimSeat &&
-          !heldFromViewer(view, seat.role) ? (
-            <CommandButton
-              props={props}
-              type="claim-seat"
-              commandId={ids.claim}
-              fields={position}
-              label="Take seat"
-              name={`Take ${roomSeatLabel(view, seat.role, seat.slot)}`}
-            />
+          {!event &&
+          view.capabilities.canClaimSeat &&
+          !heldFromViewer(view, seat) ? (
+            isDebatingSeat(seat) ? (
+              <ClaimSeatForm
+                action={props.action}
+                version={view.version}
+                commandId={ids.claim}
+                seat={seat}
+                name={takeName}
+                className={rowButton}
+                otherLadder={otherLadderSeat(view, props.viewer.division)}
+              />
+            ) : (
+              <CommandButton
+                props={props}
+                type="claim-seat"
+                commandId={ids.claim}
+                fields={position}
+                label="Take seat"
+                name={takeName}
+              />
+            )
           ) : null}
-          {!invited ? (
+          {event ? null : !invited ? (
             <RoomInvite
               roomId={view.id}
               visibility={view.visibility}
               label="Invite"
+              className={rowButton}
             />
           ) : view.capabilities.host ? (
             // The host releases the held seat by withdrawing its invitation (ADR 0124).
@@ -437,22 +542,19 @@ function OpenSeat({
               invitationId={invited.id}
               label="Release"
               focusAfterAnswer={ROOM_TITLE_ID}
-            />
-          ) : null}
-          {seat.role === 'judge' && view.capabilities.host && aiJudge ? (
-            <CommandButton
-              props={props}
-              type="assign-seat"
-              commandId={ids.ai}
-              fields={{ ...position, actorId: aiJudge.actorId }}
-              label="AI judge"
+              className={rowButton}
             />
           ) : null}
           {view.capabilities.host ? (
-            <AssignSeat props={props} seat={seat} ids={ids} />
+            <FillSeat props={props} seat={seat} ids={ids} aiJudge={aiJudge} />
           ) : null}
         </div>
       </div>
+      {judgeLine === null ? null : (
+        <p className="col-span-full col-start-2 text-sm text-ink-muted">
+          {judgeLine}
+        </p>
+      )}
     </>
   );
 }
@@ -471,24 +573,22 @@ function Row({
   readonly invited: RoomView['invitations'][number] | undefined;
 }) {
   const { view } = props;
-  const occupant = view.participants.find(
-    (p) => p.role === seat.role && p.slot === seat.slot,
-  );
+  const occupant = view.participants.find((p) => sameSeat(p.seat, seat));
   const named = occupant && isNamedSeat(occupant) ? occupant : null;
   const boxes = occupant
     ? rosterBoxes(view, occupant, props.viewer.actorId)
     : null;
   return (
     <li
-      aria-label={named?.label ?? roomSeatLabel(view, seat.role, seat.slot)}
-      className={`grid items-center gap-x-3 border-t border-border py-2 first:border-t-0 ${seat.role === 'judge' ? 'room-roster-judges' : teams ? 'room-roster-teams' : 'room-roster-sides'}`}
+      aria-label={named?.label ?? roomSeatLabel(view, seat)}
+      className={`grid min-h-room-target items-center gap-x-3 border-t border-border py-1 first:border-t-0 ${teams ? 'room-roster-teams' : 'room-roster-sides'}`}
     >
       {!occupant ? (
         <OpenSeat props={props} seat={seat} ids={ids} invited={invited} />
       ) : (
         <>
           <ReadyMark seat={occupant} />
-          <Who props={props} seat={named} role={seat.role} />
+          <Who props={props} seat={named} place={seat} />
           {named && boxes ? (
             <SeatBoxes
               props={props}
@@ -499,14 +599,16 @@ function Row({
             />
           ) : null}
           <div className="room-roster-action flex justify-end empty:hidden">
-            {named && named.actorId === props.viewer.actorId ? (
+            {named &&
+            named.actorId === props.viewer.actorId &&
+            !isEventRoom(view) ? (
               <CommandButton
                 props={props}
                 type="leave-seat"
                 commandId={props.commandIds.leave}
                 fields={{}}
-                label="Leave"
-                name="Leave seat"
+                label="Leave seat"
+                icon="leave"
               />
             ) : named && view.capabilities.host ? (
               <CommandButton
@@ -516,6 +618,7 @@ function Row({
                 fields={{ participantId: named.id }}
                 label="Remove"
                 name={`Remove ${named.label}`}
+                icon="close"
               />
             ) : null}
           </div>
@@ -528,19 +631,17 @@ function Row({
 /** Pending invitations of each kind, kept for that kind's first open seats. */
 function invitationsBySeat(view: RoomView, seats: readonly Seat[]) {
   const open = seats.filter(
-    (seat) =>
-      !view.participants.some(
-        (p) => p.role === seat.role && p.slot === seat.slot,
-      ),
+    (seat) => !view.participants.some((p) => sameSeat(p.seat, seat)),
   );
   const kept = new Map<string, RoomView['invitations'][number]>();
-  for (const kind of ['debater', 'judge'] as const) {
+  // Every kind an invitation may hold: a side's seat, a speaker's, a judge's.
+  for (const kind of seatKinds) {
     const pending = view.invitations.filter((i) => i.seat === kind);
     open
-      .filter((seat) => seatKindOf(seat.role) === kind)
+      .filter((seat) => seat.kind === kind)
       .forEach((seat, index) => {
         const invitation = pending[index];
-        if (invitation) kept.set(`${seat.role}:${seat.slot}`, invitation);
+        if (invitation) kept.set(seatKey(seat), invitation);
       });
   }
   return kept;
@@ -554,46 +655,53 @@ function invitationsBySeat(view: RoomView, seats: readonly Seat[]) {
  */
 export function RoomRoster(props: RosterProps) {
   const { view } = props;
-  const seats = declaredSeats(view.definition.seats);
-  const teams = showsTeams(view.definition.seats);
+  const seats = declaredSeats(view.rules);
+  const teams = showsTeams(view.definition);
   const invited = invitationsBySeat(view, seats);
-  const debaters = seats.filter((seat) => seat.role !== 'judge');
-  const judges = seats.filter((seat) => seat.role === 'judge');
-  const filled = (role: 'debater' | 'judge') =>
-    view.participants.filter((p) => (p.role === 'judge') === (role === 'judge'))
-      .length;
+  const debaters = seats.filter(isDebatingSeat);
+  const officials = seats.filter((seat) => !isDebatingSeat(seat));
+  const filled = (debating: boolean) =>
+    view.participants.filter((p) => isDebatingSeat(p.seat) === debating).length;
   const plural = (n: number, word: string) =>
     `${n} ${word}${n === 1 ? '' : 's'}`;
+  const officialWord = officials.some(isModeratorSeat) ? 'official' : 'judge';
   const row = (seat: Seat) => {
     const ids = props.commandIds.seats[seats.indexOf(seat)];
     if (!ids) throw new Error('Missing Room seat command identities');
     return (
       <Row
-        key={`${seat.role}:${seat.slot}`}
+        key={seatKey(seat)}
         props={props}
         seat={seat}
         ids={ids}
         teams={teams}
-        invited={invited.get(`${seat.role}:${seat.slot}`)}
+        invited={invited.get(seatKey(seat))}
       />
     );
   };
   return (
     <section
       aria-labelledby="room-roster-title"
-      className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-surface px-4 py-3"
+      className="room-roster flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-surface px-4 py-3"
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="room-roster-title" className="text-md font-semibold">
           Players
         </h2>
         <p className="text-sm text-ink-muted tabular-nums">
-          {`${filled('debater')} of ${plural(debaters.length, 'debater')}`}
-          {judges.length > 0
-            ? ` · ${filled('judge')} of ${plural(judges.length, 'judge')}`
+          {`${filled(true)} of ${plural(debaters.length, 'debater')}`}
+          {officials.length > 0
+            ? ` · ${filled(false)} of ${plural(officials.length, officialWord)}`
             : null}
         </p>
       </div>
+      {isEventRoom(view) ? (
+        // A published event Room: the organiser seated it from the draw,
+        // which also decided its sides; nobody hosts it (ADR 0145, Tab).
+        <p className="text-sm text-ink-muted">
+          Seated by the organiser. Sides come from the draw.
+        </p>
+      ) : null}
       <div
         aria-hidden="true"
         className={`grid gap-x-3 text-xs font-semibold text-ink-muted ${teams ? 'room-roster-teams' : 'room-roster-sides'}`}
@@ -605,14 +713,16 @@ export function RoomRoster(props: RosterProps) {
         {teams ? <span className="justify-self-center">Position</span> : null}
       </div>
       <ul className="flex flex-col">{debaters.map(row)}</ul>
-      {judges.length > 0 ? (
+      {officials.length > 0 ? (
         <>
-          <h3 className="mt-2 text-sm font-semibold text-ink-muted">Judges</h3>
-          <ul className="flex flex-col">{judges.map(row)}</ul>
+          <h3 className="mt-1 text-xs font-semibold tracking-wider text-ink-muted uppercase">
+            {officials.some(isModeratorSeat) ? 'Officials' : 'Judges'}
+          </h3>
+          <ul className="flex flex-col">{officials.map(row)}</ul>
           <AiJudgeNotice view={view} />
         </>
       ) : null}
-      <div className="mt-2 border-t border-border pt-3">{props.footer}</div>
+      <div className="mt-1 border-t border-border pt-3">{props.footer}</div>
     </section>
   );
 }

@@ -4,9 +4,9 @@ import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import {
-  admitAllowance,
   canManageBilling,
   canPurchasePremium,
+  holdsGrantedPremium,
 } from '@daisy/auth/authorization';
 import { createBillingMember } from '../src/billing-member';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
@@ -18,42 +18,25 @@ setupRitewayBun();
 const policies = {
   manage: canManageBilling,
   purchase: canPurchasePremium,
-  allowance: (
-    ...[account, facts, request, now]: Parameters<
-      Parameters<typeof createBillingMember>[0]['allowance']
-    >
-  ) =>
-    admitAllowance(account, facts, request, {
-      now,
-      betaGrantsPremium: false,
-      betaMonthlyCap: 5,
-    }),
+  granted: (grants: Parameters<typeof holdsGrantedPremium>[0], now: string) =>
+    holdsGrantedPremium(grants, { now, betaGrantsPremium: false }),
 };
-test('owned native member reads preserve lifetime counts and refuse forged account routing', async () =>
+test('owned native member reads carry no usage and refuse forged account routing', async () =>
   withBillingPurchases(async ({ run, subject }) => {
     const member = createBillingMember({ run, ...policies });
     const view = await member.read(subject);
     assert({
       given: 'a current free account with no counted bot use',
-      should: 'read the canonical lifetime quote and no invented customer',
+      should: 'read no invented customer, renewal or price, and no usage',
       actual: [
         view.hasCustomer,
         view.evidence,
         view.purchaseAllowed,
-        view.botDebates,
+        view.renewalOff,
+        view.amountMinor,
+        'botDebates' in view,
       ],
-      expected: [
-        false,
-        null,
-        true,
-        {
-          kind: 'limited',
-          remaining: 1,
-          limit: 1,
-          source: { kind: 'lifetime' },
-          available: true,
-        },
-      ],
+      expected: [false, null, true, false, null, false],
     });
     await assertRejects({
       given: 'another user ID paired with this actor',
@@ -92,39 +75,30 @@ test('a completed Checkout owns management routing but grants no paid access or 
         await member.portalCustomer(subject),
         view.evidence?.settlement.kind,
         view.purchaseAllowed,
-        view.botDebates,
       ],
-      expected: [
-        { id: customerId, mode: 'test' },
-        'unpaid',
-        false,
-        {
-          kind: 'limited',
-          remaining: 1,
-          limit: 1,
-          source: { kind: 'lifetime' },
-          available: true,
-        },
-      ],
+      expected: [{ id: customerId, mode: 'test' }, 'unpaid', false],
     });
   }));
 
-test('a real reserved free bot debate is shown as spent rather than offered again', async () =>
+test('a spent free bot debate leaves billing without any counter', async () =>
   withFreeBundle(async ({ f, run, actorId }) => {
     const [actor] = await f.sql`select user_id from actors where id=${actorId}`;
     const member = createBillingMember({ run, ...policies });
     const view = await member.read({ userId: actor!.user_id, actorId });
     assert({
       given: 'the real existing allowance admission reserved the free bundle',
-      should: 'show zero remaining against its original lifetime source',
-      actual: view.botDebates,
-      expected: {
-        kind: 'limited',
-        remaining: 0,
-        limit: 1,
-        source: { kind: 'lifetime' },
-        available: false,
-      },
+      should: 'read the plan facts only: no count, limit or source (PYL-10)',
+      actual: Object.keys(view).sort(),
+      expected: [
+        'amountMinor',
+        'evidence',
+        'granted',
+        'hasCustomer',
+        'now',
+        'purchaseAllowed',
+        'renewalOff',
+        'subscriptionLifecycle',
+      ],
     });
   }));
 
@@ -158,20 +132,13 @@ test('the actual web role reads only current owned member facts and Portal routi
       const view = await member.read(subject);
       assert({
         given: 'actual daisy_web execution after stable purchase completion',
-        should:
-          'read current own customer and lifetime usage without inventing paid access',
+        should: 'read current own customer without inventing paid access',
         actual: [
           role,
           await member.portalCustomer(subject),
           view.evidence?.settlement.kind,
-          view.botDebates.kind,
         ],
-        expected: [
-          'daisy_web',
-          { id: customerId, mode: 'test' },
-          'unpaid',
-          'limited',
-        ],
+        expected: ['daisy_web', { id: customerId, mode: 'test' }, 'unpaid'],
       });
       await assertRejects({
         given: 'another user selector through the real runtime role',

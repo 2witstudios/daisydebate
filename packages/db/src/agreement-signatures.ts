@@ -1,4 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
+import { daisyOrganizationId } from './daisy-reference';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
@@ -6,21 +7,37 @@ import { exportRows } from './privacy/export-rows';
 import { agreementSignatures } from './schema/agreement-signatures';
 import { seasons } from './schema/ratings';
 import { transactionNow } from './room-command-facts';
+import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert'>;
 
-/** Where a member stands on a version of the active season's waiver. */
+/** Where a member stands on a version of their division's active season's waiver. */
 export type ContentWaiverStanding = 'signed' | 'unsigned' | 'no-active-season';
 
 /**
- * The active season under FOR SHARE, so a rollover cannot change which season
- * a Ready stands on before this transaction commits.
+ * The member's own active season under FOR SHARE: Daisy's season on the
+ * member's ladder division (ADR 0147), so a Youth member signs for the Youth
+ * season. FOR SHARE, so a rollover cannot change which season a Ready stands
+ * on before this transaction commits. None without a division.
  */
-const activeSeasonId = async (tx: Tx): Promise<string | null> => {
+const activeSeasonId = async (
+  tx: Tx,
+  userId: string,
+): Promise<string | null> => {
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
-    .where(eq(seasons.status, 'active'))
+    // Daisy's own season: every organization may have an active one.
+    .where(
+      and(
+        eq(seasons.status, 'active'),
+        eq(seasons.organizationId, daisyOrganizationId),
+        eq(
+          seasons.division,
+          sql`(select ${divisionOfBandSql(divisionAgeBand())} from account_age where account_age.user_id = ${userId})`,
+        ),
+      ),
+    )
     .for('share');
   return season?.id ?? null;
 };
@@ -30,7 +47,7 @@ export async function readContentWaiverStanding(
   userId: string,
   version: string,
 ): Promise<ContentWaiverStanding> {
-  const seasonId = await activeSeasonId(tx);
+  const seasonId = await activeSeasonId(tx, userId);
   if (!seasonId) return 'no-active-season';
   const [row] = await tx
     .select({ id: agreementSignatures.id })
@@ -96,7 +113,7 @@ export const agreementSignatureOperations = ({
     }): Promise<'signed' | 'no-active-season'> =>
       instrumented(eventSink, 'signContentWaiver', () =>
         transaction(async (tx) => {
-          const seasonId = await activeSeasonId(tx);
+          const seasonId = await activeSeasonId(tx, input.userId);
           if (!seasonId) return 'no-active-season';
           await tx
             .insert(agreementSignatures)
@@ -128,7 +145,7 @@ export const agreementSignaturePrivacyAdopter: PrivacyAdopter = {
   export: async (tx, subject) => ({
     agreement_signatures: exportRows(
       (await tx.execute(
-        sql`select agreement,version,words,season_id,room_id,signed_at from ${agreementSignatures} where user_id=${subject.userId} order by signed_at, id`,
+        sql`select agreement,version,words,season_id,room_id,lobby_id,signed_at from ${agreementSignatures} where user_id=${subject.userId} order by signed_at, id`,
       )) as unknown as Record<string, unknown>[],
     ),
   }),

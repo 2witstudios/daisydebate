@@ -1,3 +1,4 @@
+import { sideSeat, affirmativeSide, negativeSide } from '@daisy/protocol';
 import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './fixtures';
 import { origin, signUpMember } from './accounts';
@@ -70,7 +71,7 @@ export function testRoomChatLive() {
       let room = await createFoundationRoom(host, (proof) =>
         humanRoundSelection(proof, 0),
       );
-      room = await claimSeat(host, room, { role: 'affirmative', slot: 0 });
+      room = await claimSeat(host, room, sideSeat(affirmativeSide));
       const address = `/api/rooms/${room.id}/chat`;
 
       const hostPage = await openPage(host.context, 'Room chat seated host');
@@ -84,10 +85,16 @@ export function testRoomChatLive() {
         await markDocument(page);
       }
       // RCHAT-9: devices belong to a seat; a visitor has the chat alone.
+      // Since SEAT-6 they sit in the seat's own tile, "You".
       const devices = (page: Page) =>
-        page.getByRole('region', { name: 'Your devices', exact: true });
-      await expect(devices(hostPage)).toBeVisible();
+        page.getByRole('region', { name: 'You', exact: true });
+      await expect(
+        devices(hostPage).getByLabel('Your local camera preview'),
+      ).toBeAttached();
       await expect(devices(visitorPage)).toHaveCount(0);
+      await expect(
+        visitorPage.getByLabel('Your local camera preview'),
+      ).toHaveCount(0);
 
       // RCHAT-7: each side's message reaches the other open tab.
       const fromVisitor = 'A visitor asks when this starts';
@@ -114,9 +121,9 @@ export function testRoomChatLive() {
       expect((await visitor.context.request.get(address)).status()).toBe(200);
 
       // Start: a third member takes the other side, both seats Ready.
-      room = await claimSeat(opponent, room, { role: 'negative', slot: 0 });
-      room = await readyOwnSeat(host, room, { role: 'affirmative', slot: 0 });
-      room = await readyOwnSeat(opponent, room, { role: 'negative', slot: 0 });
+      room = await claimSeat(opponent, room, sideSeat(negativeSide));
+      room = await readyOwnSeat(host, room, sideSeat(affirmativeSide));
+      room = await readyOwnSeat(opponent, room, sideSeat(negativeSide));
       await startAdmittedRound(host, room);
 
       // RCHAT-4: the visitor's open tab drops the chat, and its address is

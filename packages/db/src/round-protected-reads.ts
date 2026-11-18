@@ -1,3 +1,5 @@
+import { roundOutcomeForAudience } from './round-outcome-audience';
+import type { RoundRoomAuthority } from './round-room-authority';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -28,16 +30,25 @@ export const roundProtectedReads = ({
     readonly roundId: string;
     readonly caller: Caller;
     /** Transcript-specific audience decision on fresh locked facts. */
-    readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    readonly authorize: (
+      round: LaunchedRound,
+      account: Account,
+      owner: RoundRoomAuthority,
+    ) => boolean;
+    readonly readEventDecision: (owner: RoundRoomAuthority) => boolean;
     readonly captureRule: CaptureRule;
   }) {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
-      const round = await readAuthorizedRound(tx, input);
+      const { round, owner } = await readAuthorizedRound(tx, input);
       return roundTranscriptReadSchema.parse({
         contractVersion: TRANSCRIPT_CONTRACT_VERSION,
-        round: roundViewFor(round, input.caller.actorId),
+        round: roundOutcomeForAudience(
+          roundViewFor(round, input.caller.actorId),
+          owner,
+          input.readEventDecision(owner),
+        ),
         ...(await readTranscriptSnapshot(tx, input.roundId, input.captureRule)),
       });
     });

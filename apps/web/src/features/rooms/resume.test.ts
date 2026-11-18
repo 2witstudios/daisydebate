@@ -10,11 +10,13 @@ setupRitewayBun();
 const liveRoom = {
   phase: 'live' as const,
   seated: true,
+  ladder: null,
   href: '/rounds/' + 'r'.repeat(24) + '/room',
 };
 const readyRoom = {
   phase: 'ready' as const,
   seated: true,
+  ladder: null,
   href: '/rooms/' + 'o'.repeat(24),
 };
 
