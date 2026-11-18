@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { liveAudience, type LiveAudienceRound } from './live-audience';
+import {
+  liveAudience,
+  type LiveAudience,
+  type LiveAudienceRound,
+} from './live-audience';
 setupRitewayBun();
 
 const round: LiveAudienceRound = {
@@ -31,7 +35,7 @@ describe('liveAudience', () => {
 
   test("a youth debater's linked adult", () => {
     assert({
-      given: "a coach or parent linked to a youth debater of a Youth Round",
+      given: 'a coach or parent linked to a youth debater of a Youth Round',
       should: 'watch undelayed with no media, as a linked adult',
       actual: [
         liveAudience(youthRound, account('coach')),
@@ -46,7 +50,8 @@ describe('liveAudience', () => {
 
   test('anyone else', () => {
     assert({
-      given: "an adult linked to no debater of the Round (another student's coach, a stranger)",
+      given:
+        "an adult linked to no debater of the Round (another student's coach, a stranger)",
       should: 'be denied as not in the audience',
       actual: liveAudience(youthRound, account('stranger')),
       expected: { kind: 'denied', reason: 'not_in_audience' },
@@ -82,7 +87,7 @@ describe('liveAudience', () => {
           account('coach'),
         ),
       ],
-      expected: Array.from({ length: 4 }, () => ({
+      expected: Array.from({ length: 4 }, (): LiveAudience => ({
         kind: 'denied',
         reason: 'seated',
       })),

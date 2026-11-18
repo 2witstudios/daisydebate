@@ -38,7 +38,9 @@ test('roundViewReader()', async () => {
   assert({
     given: 'the host of a private Round',
     should: 'return the projection',
-    actual: (await roundViewReader(store(launched), noLinkedAdults)(caller, round.id)).id,
+    actual: (
+      await roundViewReader(store(launched), noLinkedAdults)(caller, round.id)
+    ).id,
     expected: round.id,
   });
   assert({

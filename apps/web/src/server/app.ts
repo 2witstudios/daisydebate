@@ -1,3 +1,6 @@
+import { studentsLive } from '../features/spectating/students-live';
+import { liveLinkedAdults } from '../features/spectating/linked-adults';
+import { roundViewReader } from '../features/round-runtime/reads';
 import type { NativeBillingRuntime } from '../features/billing/native-contract';
 import { createServerAnalytics } from '../features/analytics/server-adapter';
 import { createAnalyticsDelivery } from '../features/analytics/delivery';
@@ -281,6 +284,18 @@ export function createApp({
     }),
     /** The Live listing, likewise. */
     liveReads: createCachedLiveReads({ store: database, clock }),
+    /**
+     * Watch's "Your students, live" (ADR 0155). Composed here, in the process
+     * app, so a Round read's refusal is one of this process's own errors.
+     */
+    studentsLive: studentsLive({
+      candidates: (member: {
+        readonly userId: string;
+        readonly actorId: string;
+      }) => database.readStudentLiveRounds(member.userId),
+      view: roundViewReader(database, liveLinkedAdults({ database })),
+      nowMs: () => Date.parse(clock.now()),
+    }),
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */
     metrics,

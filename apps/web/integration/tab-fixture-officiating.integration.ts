@@ -296,7 +296,8 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
             'lose the actual ordinary Round read while the official can still read the same source',
           actual: [
             retiredReadDenied,
-            (await roundViewReader(f.store, noLinkedAdults)(director, roundId)).id,
+            (await roundViewReader(f.store, noLinkedAdults)(director, roundId))
+              .id,
           ],
           expected: [true, roundId],
         });

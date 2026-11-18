@@ -1,4 +1,4 @@
-import { youthPeopleCache, youthRoundLinkedAdults } from '@daisy/db';
+import { youthPeopleCache, youthRoundLinkedAdults } from '@daisy/db/youth-live';
 import type { RealtimeAuthorityReads } from '@daisy/db';
 import type { YouthLiveFact } from '@daisy/auth/live-audience';
 

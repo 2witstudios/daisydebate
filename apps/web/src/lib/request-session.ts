@@ -12,9 +12,6 @@ import { readLobbyPeople } from '../features/tab/reads/lobby-people';
 import { requireSameOrigin } from '../server/http';
 import { channelMessagesWindow } from '@daisy/protocol';
 import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
-import { studentsLive } from '../features/spectating/students-live';
-import { liveLinkedAdults } from '../features/spectating/linked-adults';
-import { roundViewReader } from '../features/round-runtime/reads';
 import type { NotificationsQuery } from '../features/notifications/notifications';
 import { readNotificationItems } from '../features/notifications/read-notifications';
 import { browserCaptureAttributes } from '../features/telemetry/browser-capture';
@@ -415,18 +412,10 @@ export const requestFollowing = async (userId: string) => {
  * students debate in, each read as the member, so only those they may watch
  * appear. Empty for anyone linked to no youth debater.
  */
-export const requestStudentsLive = async (member: {
+export const requestStudentsLive = (member: {
   readonly userId: string;
   readonly actorId: string;
-}) => {
-  const app = processApp();
-  return studentsLive({
-    candidates: (caller: typeof member) =>
-      app.database.readStudentLiveRounds(caller.userId),
-    view: roundViewReader(app.database, liveLinkedAdults(app)),
-    nowMs: () => Date.parse(app.clock.now()),
-  })(member);
-};
+}) => processApp().studentsLive(member);
 
 /** The numbers on the Watch tabs. */
 export const requestHubCounts = async (): Promise<HubCounts> => {

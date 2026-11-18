@@ -30,12 +30,7 @@ export type {
   PreparedReleaseMail,
 } from './media-release-mail';
 export type { PublishAnswer } from './youth-round-publication';
-export {
-  YOUTH_PEOPLE_TTL_MS,
-  youthPeopleCache,
-  type YouthRoundPeople,
-} from './youth-people-cache';
-export { youthRoundLinkedAdults } from './youth-round-linked-adults';
+export type { YouthRoundPeople } from './youth-people-cache';
 export type { StudentLiveRound } from './youth-students-live';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';

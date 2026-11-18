@@ -160,7 +160,8 @@ test("a Youth Round's linked adult is asked again with the Round's linked adults
     asked,
   );
   assert({
-    given: 'a floor that names the viewer nowhere, on a Youth Round they are linked to',
+    given:
+      'a floor that names the viewer nowhere, on a Youth Round they are linked to',
     should:
       'ask the floor again with the linked adults and answer its decision (ADR 0155)',
     actual: [actual, youthSeen, asked],

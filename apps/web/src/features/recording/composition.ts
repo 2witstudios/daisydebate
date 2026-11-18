@@ -23,7 +23,7 @@ import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
 import type { YouthRound, YouthRoundPeople } from './youth-audience';
-import { youthPeopleCache } from '@daisy/db';
+import { youthPeopleCache } from '@daisy/db/youth-live';
 import type { RecordingInputs } from './ports';
 
 /** As often as a Broadcast's: its own Egress has the same revocation lead to meet. */

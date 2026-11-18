@@ -151,8 +151,12 @@ export function createRealtimeAuthorization({
   async function watchesRound(
     principal: SocketPrincipal,
     facts: NonNullable<
-      | Awaited<ReturnType<RealtimeAuthorityReads['readRoomAuthorizationFacts']>>
-      | Awaited<ReturnType<RealtimeAuthorityReads['readRoundAuthorizationFacts']>>
+      | Awaited<
+          ReturnType<RealtimeAuthorityReads['readRoomAuthorizationFacts']>
+        >
+      | Awaited<
+          ReturnType<RealtimeAuthorityReads['readRoundAuthorizationFacts']>
+        >
     >,
   ): Promise<boolean> {
     if (facts.resource.kind !== 'round') return false;

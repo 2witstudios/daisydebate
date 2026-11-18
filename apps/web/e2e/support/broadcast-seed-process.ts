@@ -116,7 +116,7 @@ const create = async (sql: SQL, input: Create) => {
     await tx`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
       values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},'started')`;
     await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,ladder_division,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
-      values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${division},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${{}})`;
+      values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${division},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${oneOnOneSettings})`;
     const aff = await seat(
       tx as never,
       roundId,
@@ -165,6 +165,8 @@ const linkCoach = async (sql: SQL, input: LinkCoach) => {
     const [role] = await tx`select r.id from roles r
       join role_permissions p on p.role_id = r.id
       where r.preset and p.permission = 'school.roster.manage' limit 1`;
+    // The school's own rows are written under its scope, as row-level security asks.
+    await tx`select set_config('daisy.organization_scope', ${schoolId}, true)`;
     await tx`insert into organizations(id,kind,name,handle,owner_user_id)
       values(${schoolId},'school','Riverside High',${`riverside-${schoolId.slice(0, 10)}`},${coach})`;
     for (const userId of [coach, student])
@@ -250,10 +252,7 @@ const advance = async (sql: SQL, input: Advance) => {
 };
 
 if (import.meta.main) {
-  const input = JSON.parse(Bun.argv[2] ?? '{}') as
-    | Create
-    | LinkCoach
-    | Advance;
+  const input = JSON.parse(Bun.argv[2] ?? '{}') as Create | LinkCoach | Advance;
   const sql = new SQL(process.env.E2E_DATABASE_URL ?? '', { max: 1 });
   try {
     const result =

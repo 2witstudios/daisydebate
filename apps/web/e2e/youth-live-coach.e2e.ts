@@ -11,8 +11,8 @@ import { expect, openPage, test } from './support/fixtures';
  * YLS-7 (ADR 0155) in a real browser: a youth debater's school coach finds
  * their student's live Youth Round under Watch's "Your students, live" and
  * watches it as timing, transcript and read-only floor chat, with no media
- * and nothing to post; the student's Room link takes them there too, with
- * JavaScript on and off, and a stranger finds nothing.
+ * and nothing to post; the Round link takes them there too, with JavaScript
+ * on and off, and a stranger finds nothing.
  */
 const seed = async (input: Record<string, unknown>): Promise<unknown> => {
   const { stdout } = await promisify(execFile)(
@@ -62,7 +62,7 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
     affUsername: studentName,
     title: `Thursday scrimmage ${tag}`,
     resolution: `Cities should ban cars ${tag}`,
-  })) as { roundId: string; roomId: string; caption: string };
+  })) as { roundId: string; caption: string };
   seeded.push(round.roundId);
   await seed({
     command: 'link-coach',
@@ -88,16 +88,18 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
     page.getByRole('list', { name: 'Debaters' }).getByText(studentName),
   ).toBeVisible();
   // The transcript, undelayed; and the floor chat, read only.
-  await expect(page.getByText(round.caption)).toBeVisible();
+  const transcript = page.getByRole('region', { name: 'Transcript' });
+  await transcript.getByText('Show the transcript').click();
+  await expect(transcript.getByText(round.caption)).toBeVisible();
   await expect(page.getByText('This Round chat is read-only.')).toBeVisible();
   await expect(page.getByRole('textbox')).toHaveCount(0);
   await expect(page.locator('video')).toHaveCount(0);
   await assertNoSeriousFindings(page);
 
-  // The student's Room and Round links lead to the same room, with JavaScript
-  // and without.
-  await page.goto(`/rooms/${round.roomId}`);
-  await expect(page).toHaveURL(`/rounds/${round.roundId}/room`);
+  // The Round link leads to the same room, with JavaScript and without. (The
+  // Room link's answer, `live_room`, is proven on a real Room in
+  // youth-live-audience.integration.ts: these seeded rows carry no Room
+  // configuration a Room page could read.)
   await page.goto(`/rounds/${round.roundId}`);
   await expect(page).toHaveURL(`/rounds/${round.roundId}/room`);
   const noScript = await browser.newContext({
@@ -108,10 +110,15 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
   });
   try {
     const plain = await openPage(noScript, 'coach without JavaScript');
-    await plain.goto(`/rooms/${round.roomId}`);
+    await plain.goto(`/rounds/${round.roundId}`);
     await expect(plain).toHaveURL(`/rounds/${round.roundId}/room`);
     await expect(plain.getByText('Watching', { exact: true })).toBeVisible();
-    await expect(plain.getByText(round.caption)).toBeVisible();
+    // Without JavaScript the transcript is still there, behind its summary.
+    await expect(
+      plain
+        .getByRole('region', { name: 'Transcript' })
+        .getByText(round.caption),
+    ).toBeAttached();
   } finally {
     await noScript.close();
   }

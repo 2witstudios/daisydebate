@@ -59,8 +59,7 @@ export const canReadTranscript = (
   account: AccountAuthorizationFact | null,
   authority: RoundRoomAuthority,
   youth: YouthLiveFact | null = null,
-) =>
-  canRead(caller, round, account, authority, 'round.transcript.read', youth);
+) => canRead(caller, round, account, authority, 'round.transcript.read', youth);
 
 export const canReadRound = (
   caller: { readonly userId: string; readonly actorId: string },
@@ -118,28 +117,33 @@ export const roundViewReader =
     roundId: string,
   ) => {
     let viewerIsUndelayedObserver = false;
-    const view = await withLinkedAdults(caller, roundId, linkedAdults, (youth) =>
-      store.readLaunchedRound(
-        roundId,
-        caller,
-        (round, account, authority) => {
-          viewerIsUndelayedObserver = canObserveUndelayed(
-            caller,
-            round,
-            account,
-            authority,
-            youth,
-          );
-          // A linked adult reads the Round only as its watcher (ADR 0155).
-          return (
-            canReadRound(caller, round, account, authority) ||
-            (youth !== null && viewerIsUndelayedObserver)
-          );
-        },
-        readRoundOpening,
-        roundWaitingOn,
-        (owner) => eventBallotAccess(caller, owner).parts.includes('decision'),
-      ),
+    const view = await withLinkedAdults(
+      caller,
+      roundId,
+      linkedAdults,
+      (youth) =>
+        store.readLaunchedRound(
+          roundId,
+          caller,
+          (round, account, authority) => {
+            viewerIsUndelayedObserver = canObserveUndelayed(
+              caller,
+              round,
+              account,
+              authority,
+              youth,
+            );
+            // A linked adult reads the Round only as its watcher (ADR 0155).
+            return (
+              canReadRound(caller, round, account, authority) ||
+              (youth !== null && viewerIsUndelayedObserver)
+            );
+          },
+          readRoundOpening,
+          roundWaitingOn,
+          (owner) =>
+            eventBallotAccess(caller, owner).parts.includes('decision'),
+        ),
     );
     return {
       ...view,

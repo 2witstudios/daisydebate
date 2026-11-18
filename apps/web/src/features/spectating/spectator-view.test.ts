@@ -33,14 +33,7 @@ describe('spectatorKindOf', () => {
         }),
         spectatorKindOf(ran(1)),
       ],
-      expected: [
-        'host',
-        'host',
-        null,
-        null,
-        null,
-        null,
-      ],
+      expected: ['host', 'host', null, null, null, null],
     });
   });
 });

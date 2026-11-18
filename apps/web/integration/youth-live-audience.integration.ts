@@ -86,14 +86,16 @@ const transcript = (f: Fixture, member: Member, roundId: string) =>
 const floorOf = async (f: Fixture, member: Member, roundId: string) => {
   const caller = callerOf(member);
   return f.store.roundFloorStore(
-    contextChatFence(caller, ({ fact, account, action }) =>
-      decideRoundFloor({
-        principal: caller,
-        fact: fact as never,
-        account: account as never,
-        action,
-        now: new Date().toISOString(),
-      }).allow,
+    contextChatFence(
+      caller,
+      ({ fact, account, action }) =>
+        decideRoundFloor({
+          principal: caller,
+          fact: fact as never,
+          account: account as never,
+          action,
+          now: new Date().toISOString(),
+        }).allow,
     ),
     await f.linkedAdults(roundId),
   );
@@ -159,10 +161,7 @@ test('a live Youth Round is watched by its debaters’ linked adults and nobody 
           given: 'the Room read after Start, by the coach and the stranger',
           should:
             "point the coach to the Round's live room and the stranger nowhere",
-          actual: [
-            await room(people.coach),
-            await room(people.stranger),
-          ],
+          actual: [await room(people.coach), await room(people.stranger)],
           expected: [{ kind: 'live_room', roundId }, null],
         });
 
@@ -253,7 +252,7 @@ test('an Open Round gains no linked adults', async () => {
           await f.sql`select ladder_division from rounds where id=${roundId}`;
         assert({
           given:
-            "a live Open Round whose adult debater belongs to a school with a coach",
+            'a live Open Round whose adult debater belongs to a school with a coach',
           should:
             'refuse the coach as for any member outside it, and keep the host and debater as they were',
           actual: {
