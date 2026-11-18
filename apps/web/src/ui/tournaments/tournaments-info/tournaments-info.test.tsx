@@ -36,4 +36,20 @@ describe('TournamentsInfo', () => {
       expected: [false, false, false, false],
     });
   });
+
+  test('with Daisy Tab released', () => {
+    const released = renderToString(h(TournamentsInfo, { tabReleased: true }));
+    assert({
+      given: 'a viewer Daisy Tab is released to',
+      should:
+        'say tabulation is here, lead to the host area, and claim no hybrid',
+      actual: [
+        released.includes('Run your league or tournament on Daisy'),
+        released.includes('href="/host"'),
+        released.includes('planning tabulation'),
+        released.includes('hybrid') || html.includes('hybrid'),
+      ],
+      expected: [true, true, false, false],
+    });
+  });
 });

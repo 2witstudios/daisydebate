@@ -52,6 +52,25 @@ describe('AboutPage', () => {
     });
   });
 
+  test('the common questions are Help’s own', () => {
+    const page = renderToString(h(AboutPage, {}));
+    const asked = [...page.matchAll(/href="\/help#([^"]+)">([^<]+)</g)].map(
+      ([, id, question]) => [id, question?.replace(/&#x27;/g, "'")],
+    );
+    assert({
+      given: 'each common question on About',
+      should: 'carry the Help topic’s own wording, six of them',
+      actual: [
+        asked.length,
+        asked.filter(
+          ([id, question]) =>
+            helpTopics.find((topic) => topic.id === id)?.question !== question,
+        ),
+      ],
+      expected: [6, []],
+    });
+  });
+
   test('every common question is answered on Help', () => {
     const links = hrefs(renderToString(h(AboutPage, {})));
     const ids = new Set(helpTopics.map((topic) => topic.id));

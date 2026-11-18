@@ -44,8 +44,8 @@ export const freestyleLength = roundLength({
   sideCount: freestyle.rules.sides.length,
 });
 
-/** The league templates a custom debate can start from, in catalog order. */
-export const leagueTemplates: readonly string[] = catalogFormats
+/** The catalog's templates a custom debate can start from, in catalog order. */
+export const catalogTemplates: readonly string[] = catalogFormats
   .filter((entry) => entry.role === 'template')
   .sort((a, b) => a.sortOrder - b.sortOrder)
   .map((entry) => entry.name);

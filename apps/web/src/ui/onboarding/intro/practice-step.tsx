@@ -1,6 +1,6 @@
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
-import { leagueTemplates } from './freestyle';
+import { catalogTemplates } from './freestyle';
 import { heading, pill, type IntroStepProps } from './intro';
 
 const marker =
@@ -56,17 +56,17 @@ export function PracticeStep({ nextHref, backHref, skip }: IntroStepProps) {
           ))}
         </ol>
         <section
-          aria-labelledby="league-templates"
+          aria-labelledby="templates"
           className="flex flex-col gap-3 rounded-lg bg-surface-sunken p-4"
         >
           <h2
-            id="league-templates"
+            id="templates"
             className="text-xs font-strong tracking-widest text-ink-muted uppercase"
           >
-            League templates
+            Templates
           </h2>
           <ul className="flex flex-wrap gap-2">
-            {leagueTemplates.map((name) => (
+            {catalogTemplates.map((name) => (
               <li
                 key={name}
                 className="rounded-round bg-surface-raised px-3 py-1 text-sm text-ink"

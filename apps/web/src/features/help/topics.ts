@@ -77,14 +77,14 @@ export const helpTopics: readonly HelpTopic[] = [
     id: 'run-your-league',
     question: 'Can my league or tournament use Daisy?',
     answer:
-      'Yes. A league can have its own lobby and ladder on Daisy, and host tournaments online or in person with tabulation built in: events, entries, judges, pairings, ballots, results and standings.',
+      'Yes, in early access as it rolls out. A league can have its own lobby and ladder on Daisy, and host tournaments online or in person with tabulation built in: events, entries, judges, pairings, ballots, results and standings.',
     links: [{ label: 'Tournaments', href: '/tournaments' }],
   },
   {
     id: 'ranked-recorded',
     question: 'Why are ranked rounds always recorded?',
     answer:
-      'Ranked rounds are the season’s record, and they are how debate finds an audience. Every ranked round is broadcast and recorded, so results can be checked, rounds can be watched again, and the best moments become clips that promote debate. That is the deal for competing on the ladder, and you agree to it once a season in the content waiver. Prefer not to be recorded? Play casual: a non-ranked round belongs to the people in it. Your prep stays yours, and you can stream and post ranked rounds yourself with no royalty. There is no payment today; sharing revenue with debaters is a goal for a future program.',
+      'Ranked rounds are the season’s record, and they are how debate finds an audience. Ranked rounds are broadcast and recorded, so results can be checked, rounds can be watched again, and the best moments become clips that promote debate. That is the deal for competing on the ladder, and you agree to it once a season in the content waiver. Prefer not to be recorded? Play casual: a non-ranked round belongs to the people in it. Your prep stays yours, and you can stream and post ranked rounds yourself with no royalty. There is no payment today; sharing revenue with debaters is a goal for a future program.',
     links: [
       { label: 'Ranked content waiver', href: '/content-waiver' },
       { label: 'Ranked content policy', href: '/content-policy' },

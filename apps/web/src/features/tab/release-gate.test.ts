@@ -93,14 +93,35 @@ describe('the Tab release', () => {
   });
 
   test('the tournaments page keeps its answer while the release is closed', () => {
+    const page = readFileSync(
+      join(app, '(shell)/tournaments/page.tsx'),
+      'utf8',
+    );
+    const outsideReaders = [...new Glob('**/page.tsx').scanSync(app)].filter(
+      (path) =>
+        !groups.some((group) => path.startsWith(`${group}/`)) &&
+        readFileSync(join(app, path), 'utf8').includes('tab-release'),
+    );
     assert({
       given: 'the tournaments page source',
-      should: 'return the information page before reading anything of Tab',
-      actual: readFileSync(
-        join(app, '(shell)/tournaments/page.tsx'),
-        'utf8',
-      ).includes('return <TournamentsInfo />;'),
-      expected: true,
+      should:
+        'render the information page, reading only Tab’s published release check',
+      actual: [
+        page.includes('<TournamentsInfo tabReleased={await tabReleased()} />'),
+        page.includes('features/tab/'),
+      ],
+      expected: [true, false],
+    });
+    assert({
+      given: 'every page outside Tab’s groups that reads the release',
+      should:
+        'be the tournaments page or an onboarding intro step, reading only the release',
+      actual: outsideReaders.sort(),
+      expected: [
+        '(bare)/onboarding/daisy/page.tsx',
+        '(bare)/onboarding/host/page.tsx',
+        '(shell)/tournaments/page.tsx',
+      ],
     });
   });
 });

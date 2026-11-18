@@ -1,4 +1,6 @@
 import Image from 'next/image';
+import Link from 'next/link';
+import { hostRoutes } from '../../../features/tab/routes';
 import { art } from '../../assets';
 
 const events = [
@@ -16,8 +18,16 @@ const events = [
   },
 ] as const;
 
-/** What Daisy plans for tournaments: information only, with nothing to act on. */
-export function TournamentsInfo() {
+/**
+ * What Daisy plans for tournaments. Information only, with nothing to act on,
+ * until Daisy Tab is released to the viewer: then its tabulation note says
+ * the tools are here and leads to the host area.
+ */
+export function TournamentsInfo({
+  tabReleased = false,
+}: {
+  readonly tabReleased?: boolean;
+}) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-narrow:px-4">
       <header className="flex flex-col gap-2">
@@ -69,11 +79,23 @@ export function TournamentsInfo() {
         <h2 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           Tabulation software
         </h2>
-        <p className="text-base leading-tile-copy text-ink-muted">
-          We&apos;re also planning tabulation software for running speech and
-          debate tournaments, in person, virtual or hybrid: pairings, ballots
-          and results in one place.
-        </p>
+        {tabReleased ? (
+          <>
+            <p className="text-base leading-tile-copy text-ink-muted">
+              Run your league or tournament on Daisy, online or in person:
+              pairings, ballots and results in one place.
+            </p>
+            <Link href={hostRoutes.home} className="text-base font-strong">
+              Set up a league or tournament
+            </Link>
+          </>
+        ) : (
+          <p className="text-base leading-tile-copy text-ink-muted">
+            We&apos;re also planning tabulation software for running speech and
+            debate tournaments, online or in person: pairings, ballots and
+            results in one place.
+          </p>
+        )}
       </section>
     </div>
   );

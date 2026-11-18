@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { destinationHref } from '../../../features/destinations/destinations';
+import { helpTopics } from '../../../features/help/topics';
 
 /** The owner's case for Daisy, once published; the card stays hidden until then. */
 const caseForDaisyHref: string | null = null;
@@ -15,19 +16,24 @@ const points = [
   },
   {
     title: 'A home for every league',
-    body: 'Leagues can host their own lobby, ladder and tournaments on Daisy, online or in person, with tabulation built in, right where their debaters already are.',
+    body: 'Leagues can host their own lobby, ladder and tournaments on Daisy, online or in person, with tabulation built in, right where their debaters already are. It is rolling out now in early access.',
   },
 ] as const;
 
-/** The common questions, each answered once on Help. */
-const questions = [
-  ['ratings', 'How does rating work?'],
-  ['judging', 'Who judges debates?'],
-  ['why-freestyle', 'Why is Freestyle Daisy’s standard?'],
-  ['teams', 'Can I debate as a team?'],
-  ['run-your-league', 'Can my league or tournament use Daisy?'],
-  ['ranked-recorded', 'Why are ranked rounds always recorded?'],
+/** The common questions, each asked and answered once, on Help. */
+const questionIds = [
+  'ratings',
+  'judging',
+  'why-freestyle',
+  'teams',
+  'run-your-league',
+  'ranked-recorded',
 ] as const;
+
+const questions = questionIds.flatMap((id) => {
+  const topic = helpTopics.find((entry) => entry.id === id);
+  return topic ? [[id, topic.question] as const] : [];
+});
 
 const button =
   'inline-flex items-center justify-center rounded-round px-6 py-3 text-base font-strong no-underline hover:no-underline';
