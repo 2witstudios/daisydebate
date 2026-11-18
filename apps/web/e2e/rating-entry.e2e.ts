@@ -4,6 +4,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { test, expect, openPage } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
+import type { RatingStyle } from '@daisy/protocol';
+import { ladderLabel } from '../src/features/ratings/ladder-labels';
 
 test('native no-JavaScript ranked entry preserves canonical setup for the one Freestyle ladder', async ({
   browser,
@@ -70,7 +72,7 @@ test('native no-JavaScript ranked entry preserves canonical setup for the one Fr
     }
     const evidence = await new Promise<
       readonly {
-        ladder: string;
+        ladder: RatingStyle;
         roundId: string;
         rating: number;
         delta: number;
@@ -111,7 +113,9 @@ test('native no-JavaScript ranked entry preserves canonical setup for the one Fr
       // YRoundResult: the rating, then the ladder it moved on with the change.
       await expect(
         page.getByRole('region', { name: 'Round ratings', exact: true }),
-      ).toContainText(`${row.rating}* Open – Freestyle +${row.delta}`);
+      ).toContainText(
+        `${row.rating}* ${ladderLabel({ style: row.ladder, division: 'open' })} +${row.delta}`,
+      );
       await capture(`${row.ladder}-round-rating`);
     }
     await page.goto('/leaderboard/privacy');
