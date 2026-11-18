@@ -5,6 +5,11 @@ import type {
 } from '@daisy/protocol/lobby/setting-command';
 import type { CommandFinding } from '@daisy/protocol/lobby/command';
 import type { LobbyKind } from '@daisy/protocol/lobby';
+import {
+  eventAllowance,
+  type HostedFeature,
+  type HostingTier,
+} from '@daisy/protocol/lobby/hosting-tier';
 import { sanctionCheck } from '@daisy/protocol/sanction-check';
 import {
   enforcedConflict,
@@ -133,6 +138,16 @@ type LobbyFact = {
 };
 
 export type SettingFacts = {
+  /**
+   * The hosting tier of the tournament the written lobby or event belongs
+   * to (ADR 0149); null where no tier applies.
+   */
+  readonly hostingTier: HostingTier | null;
+  /**
+   * Entries not withdrawn across the tournament the written lobby or event
+   * belongs to; its division is fixed once there is one (PYL-16).
+   */
+  readonly tournamentEntries: number;
   readonly now: string;
   /** The id minted at the edge for a template a command makes. */
   readonly newId: string;
@@ -443,12 +458,31 @@ const bumpScope = (scope: SettingScopeFact): SettingWrite => ({
   set: { settingsVersion: scope.settingsVersion + 1 },
 });
 
+/** The settings that switch on a feature a hosting tier unlocks. */
+const hostedFeatureOf: Partial<
+  Record<SettingKey, Exclude<HostedFeature, 'entry'>>
+> = {
+  'recording.capture': 'recording',
+  'judging.ai_judge': 'ai_judging',
+  'broadcast.live': 'broadcast',
+};
+
 function setSetting(
   facts: SettingFacts,
   scope: SettingScopeFact,
   command: Extract<SettingCommand, { type: 'set-setting' }>,
 ): Decision {
   const { key, hold, value } = command;
+  if (key === 'entry.age_division' && facts.tournamentEntries > 0)
+    return refuse('entries-exist');
+  const feature = hostedFeatureOf[key];
+  if (
+    feature !== undefined &&
+    facts.hostingTier !== null &&
+    (value as { readonly value: string }).value === 'on' &&
+    eventAllowance(facts.hostingTier, 0, feature).kind !== 'allowed'
+  )
+    return refuse('hosting-upgrade-required');
   const written: SettingRow = {
     scope: command.scope,
     key,
@@ -497,6 +531,8 @@ function clearSetting(
 ): Decision {
   if (!rowAt(facts.rows, command.scope, command.key))
     return refuse('setting-absent');
+  if (command.key === 'entry.age_division' && facts.tournamentEntries > 0)
+    return refuse('entries-exist');
   const after = withoutSettingRow(facts.rows, command.scope, command.key);
   const broken = firstBroken(facts.reached, facts.rows, after);
   if (broken) return refuse(broken);

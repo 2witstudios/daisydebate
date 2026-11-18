@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c37e8c9c-84e0-45a9-a4be-62b5287a7be0",
+  "id": "e2c3a7e4-e6c2-4463-a5ef-6ac5e07b5f5d",
   "prevIds": [
     "342f19a1-e65c-4a91-bdde-1913b6011861"
   ],
@@ -1107,6 +1107,12 @@
     {
       "isRlsEnabled": false,
       "name": "tournament_capture_admissions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "tournament_hosting_purchases",
       "entityType": "tables",
       "schema": "public"
     },
@@ -21499,12 +21505,25 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "hosting_version_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_capture_admissions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "hosting_purchase_id",
       "entityType": "columns",
       "schema": "public",
       "table": "tournament_capture_admissions"
@@ -21612,6 +21631,175 @@
       "entityType": "columns",
       "schema": "public",
       "table": "tournament_capture_admissions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lobby_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "payer_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tier",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "amount",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mode",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'open'",
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "vendor_session_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "vendor_payment_intent_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "receipt_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "paid_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expired_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
     },
     {
       "type": "text",
@@ -35993,6 +36181,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "hosting_purchase_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "tournament_capture_admissions_hosting_purchase_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "tournament_capture_admissions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "sponsorship_version_id",
           "isExpression": false,
           "asc": true,
@@ -36142,6 +36351,104 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "tournament_capture_admissions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "lobby_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "tournament_hosting_purchases_lobby_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "payer_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "tournament_hosting_purchases_payer_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "lobby_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"state\" = 'open'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "tournament_hosting_purchases_open_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "mode",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "vendor_session_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "tournament_hosting_purchases_session_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
     },
     {
       "nameExplicit": true,
@@ -44196,6 +44503,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "hosting_purchase_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tournament_hosting_purchases",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "tournament_capture_admissions_uKq39gHHhMCE_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "tournament_capture_admissions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "official_user_id"
       ],
       "schemaTo": "public",
@@ -44262,6 +44586,40 @@
       "entityType": "fks",
       "schema": "public",
       "table": "tournament_capture_admissions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "lobby_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tournaments",
+      "columnsTo": [
+        "lobby_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "tournament_hosting_purchases_lobby_id_tournaments_lobby_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "payer_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "tournament_hosting_purchases_payer_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
     },
     {
       "nameExplicit": true,
@@ -46792,6 +47150,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "tournament_hosting_purchases_pkey",
+      "schema": "public",
+      "table": "tournament_hosting_purchases",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "tournament_judges_pkey",
       "schema": "public",
       "table": "tournament_judges",
@@ -48451,7 +48819,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"stop_reason\" is null or \"stop_reason\" in ('policy_violation', 'legal_request', 'participant_safety', 'technical', 'recording_removed', 'recording_legally_removed', 'recording_removed_by_participant', 'recording_removed_by_erasure', 'youth_round_private')",
+      "value": "\"stop_reason\" is null or \"stop_reason\" in ('policy_violation', 'legal_request', 'participant_safety', 'technical', 'recording_removed', 'recording_legally_removed', 'recording_removed_by_participant', 'recording_removed_by_erasure')",
       "name": "broadcasts_stop_reason_check",
       "entityType": "checks",
       "schema": "public",
@@ -52252,7 +52620,7 @@
       "table": "settings"
     },
     {
-      "value": "\"key\" in ('pairing.preset', 'pairing.method', 'pairing.section_size', 'pairing.rematch', 'pairing.same_school', 'pairing.side_balance', 'pairing.side_alternation', 'pairing.pull_up', 'pairing.position_balance', 'pairing.section_repeat', 'pairing.preference_order', 'bye.recipient', 'bye.result', 'bye.repeat', 'judging.panel', 'judging.availability', 'judging.strike', 'judging.conflict', 'judging.same_school', 'judging.repeat_judge', 'judging.unsubmitted_ballot', 'judging.load_balance', 'judging.chair', 'judging.panel_same_school', 'judging.preference_order', 'standings.tiebreaks', 'standings.rating_ladder', 'break.line', 'break.seeding', 'break.double_qualifier', 'entry.divisions', 'entry.registration', 'entry.approval', 'entry.cap', 'entry.judge_obligation', 'conflict.handling', 'recording.capture', 'audience.posting', 'audience.decision', 'audience.scores', 'audience.reason', 'audience.feedback', 'audience.video', 'ballot.screening', 'resolution.rule', 'resolution.own_text', 'room.own_format', 'room.visibility', 'room.timing', 'room.floor', 'staff.minimum_band')",
+      "value": "\"key\" in ('pairing.preset', 'pairing.method', 'pairing.section_size', 'pairing.rematch', 'pairing.same_school', 'pairing.side_balance', 'pairing.side_alternation', 'pairing.pull_up', 'pairing.position_balance', 'pairing.section_repeat', 'pairing.preference_order', 'bye.recipient', 'bye.result', 'bye.repeat', 'judging.panel', 'judging.availability', 'judging.strike', 'judging.conflict', 'judging.same_school', 'judging.repeat_judge', 'judging.unsubmitted_ballot', 'judging.load_balance', 'judging.chair', 'judging.panel_same_school', 'judging.preference_order', 'standings.tiebreaks', 'standings.rating_ladder', 'break.line', 'break.seeding', 'break.double_qualifier', 'entry.divisions', 'entry.registration', 'entry.approval', 'entry.cap', 'entry.age_division', 'entry.judge_obligation', 'conflict.handling', 'recording.capture', 'judging.ai_judge', 'broadcast.live', 'audience.posting', 'audience.decision', 'audience.scores', 'audience.reason', 'audience.feedback', 'audience.video', 'ballot.screening', 'resolution.rule', 'resolution.own_text', 'room.own_format', 'room.visibility', 'room.timing', 'room.floor', 'staff.minimum_band')",
       "name": "settings_key_check",
       "entityType": "checks",
       "schema": "public",
@@ -52329,6 +52697,13 @@
       "table": "templates"
     },
     {
+      "value": "(\"hosting_version_id\" is null) <> (\"hosting_purchase_id\" is null)",
+      "name": "tournament_capture_admissions_one_basis",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tournament_capture_admissions"
+    },
+    {
       "value": "jsonb_typeof(\"admission\") = 'object'",
       "name": "tournament_capture_admissions_admission_is_object",
       "entityType": "checks",
@@ -52343,11 +52718,53 @@
       "table": "tournament_capture_admissions"
     },
     {
-      "value": "coalesce(\"admission\"->>'id'=\"id\" and \"admission\"->>'roundId'=\"round_id\" and \"admission\"->>'roomId'=\"room_id\" and \"admission\"->>'lobbyId'=\"lobby_id\" and \"admission\"->>'fixtureId'=\"fixture_id\" and \"admission\"->>'commandId'=\"command_id\" and \"admission\"->'grant'->'hosting'->>'id'=\"hosting_version_id\" and \"admission\"->'grant'->'hosting'->>'userId'=\"sponsor_user_id\" and \"admission\"->'official'->>'userId'=\"official_user_id\" and \"admission\"->'official'->>'actorId'=\"official_actor_id\" and (\"admission\"->>'admittedAt')::timestamptz=\"created_at\" and (\"admission\"->>'deadlineAt')::timestamptz=\"deadline_at\" and case \"admission\"->'funding'->>'kind' when 'personal-owner' then \"sponsorship_version_id\" is null and \"admission\"->'funding'->>'ownerUserId'=\"sponsor_user_id\" when 'organization-sponsor' then \"sponsorship_version_id\" is not null and \"admission\"->'funding'->>'sponsorshipVersionId'=\"sponsorship_version_id\" else false end,false)",
+      "value": "coalesce(\"admission\"->>'id'=\"id\" and \"admission\"->>'roundId'=\"round_id\" and \"admission\"->>'roomId'=\"room_id\" and \"admission\"->>'lobbyId'=\"lobby_id\" and \"admission\"->>'fixtureId'=\"fixture_id\" and \"admission\"->>'commandId'=\"command_id\" and case \"admission\"->'basis'->>'kind' when 'grant' then \"admission\"->'basis'->'grant'->'hosting'->>'id'=\"hosting_version_id\" and \"admission\"->'basis'->'grant'->'hosting'->>'userId'=\"sponsor_user_id\" when 'hosting-purchase' then \"admission\"->'basis'->'purchase'->>'id'=\"hosting_purchase_id\" and \"admission\"->'basis'->'purchase'->>'lobbyId'=\"lobby_id\" else false end and \"admission\"->'official'->>'userId'=\"official_user_id\" and \"admission\"->'official'->>'actorId'=\"official_actor_id\" and (\"admission\"->>'admittedAt')::timestamptz=\"created_at\" and (\"admission\"->>'deadlineAt')::timestamptz=\"deadline_at\" and case \"admission\"->'funding'->>'kind' when 'personal-owner' then \"sponsorship_version_id\" is null and \"admission\"->'funding'->>'ownerUserId'=\"sponsor_user_id\" when 'organization-sponsor' then \"sponsorship_version_id\" is not null and \"admission\"->'funding'->>'sponsorshipVersionId'=\"sponsorship_version_id\" else false end,false)",
       "name": "tournament_capture_admissions_identity",
       "entityType": "checks",
       "schema": "public",
       "table": "tournament_capture_admissions"
+    },
+    {
+      "value": "\"tier\" in ('event_64', 'event_unlimited')",
+      "name": "tournament_hosting_purchases_tier_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "value": "\"state\" in ('open', 'paid', 'expired')",
+      "name": "tournament_hosting_purchases_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "value": "\"mode\" in ('test', 'live')",
+      "name": "tournament_hosting_purchases_mode_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "value": "\"amount\" > 0 and \"amount\" <= 19900",
+      "name": "tournament_hosting_purchases_amount_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "value": "\"id\" ~ '^[a-z0-9]{24}$'\n    and (\"vendor_session_id\" is null or (\"vendor_session_id\" ~ '^cs_(test|live)_[A-Za-z0-9]+$' and length(\"vendor_session_id\") <= 255))\n    and (\"vendor_payment_intent_id\" is null or (\"vendor_payment_intent_id\" ~ '^pi_[A-Za-z0-9]+$' and length(\"vendor_payment_intent_id\") <= 255))\n    and (\"receipt_url\" is null or (\"receipt_url\" ~ '^https://pay[.]stripe[.]com/receipts/' and length(\"receipt_url\") <= 2048))",
+      "name": "tournament_hosting_purchases_identity_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
+    },
+    {
+      "value": "case \"state\"\n    when 'open' then \"paid_at\" is null and \"expired_at\" is null\n    when 'paid' then \"paid_at\" is not null and \"expired_at\" is null and \"vendor_session_id\" is not null and \"vendor_payment_intent_id\" is not null\n    when 'expired' then \"paid_at\" is null and \"expired_at\" is not null\n    else false end",
+      "name": "tournament_hosting_purchases_lifecycle_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "tournament_hosting_purchases"
     },
     {
       "value": "\"source\" in ('entry', 'judge', 'tab')",

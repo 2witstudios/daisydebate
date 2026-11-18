@@ -83,6 +83,7 @@ export const deps = (
     objects: objects.store,
     inputs: {
       readRound: async () => over.round ?? round,
+      readRoundFresh: async () => over.round ?? round,
       readBroadcastRelease: async () =>
         ({
           releasedThroughMs: Number.MAX_SAFE_INTEGER,

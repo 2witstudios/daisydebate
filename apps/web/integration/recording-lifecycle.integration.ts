@@ -78,7 +78,7 @@ const withReadyRecording = (
     >[0]['database'];
     const store = recordingPersistence({ database });
     const read = await database.readRecordingRound(roundId);
-    const inputs: RecordingInputs = {
+    const base: Omit<RecordingInputs, 'readRoundFresh'> = {
       readRound: async (id) => {
         const round = await database.readRecordingRound(id);
         return (
@@ -109,6 +109,7 @@ const withReadyRecording = (
       readCoverageFacts: database.readRecordingCoverageFacts,
       holdsRecordingDownload: async () => true,
     };
+    const inputs: RecordingInputs = { ...base, readRoundFresh: base.readRound };
     const port = createRecordingCapturePort({
       store,
       inputs,

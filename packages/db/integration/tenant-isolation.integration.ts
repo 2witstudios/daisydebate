@@ -75,6 +75,7 @@ test(
             ![
               'tournament_sponsorship_versions',
               'tournament_capture_admissions',
+              'tournament_hosting_purchases',
               'fixture_room_sources',
               'league_schools',
               'membership_periods',

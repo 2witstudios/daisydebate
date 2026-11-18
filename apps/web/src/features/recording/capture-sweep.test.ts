@@ -215,8 +215,12 @@ describe('a Youth Round (ADR 0150)', () => {
         'a Youth Round with no Broadcast, and one whose Broadcast already opened',
       should:
         'capture the first on its own Egress and follow the second’s Broadcast',
-      actual: [own.calls[0]?.[0], kept.calls[0]?.[0]],
-      expected: ['openOwn', 'openJob'],
+      actual: [own.calls, kept.calls].map((calls) =>
+        calls
+          .map((call) => call[0])
+          .filter((name) => name === 'openOwn' || name === 'openJob'),
+      ),
+      expected: [['openOwn'], ['openJob']],
     });
   });
 });

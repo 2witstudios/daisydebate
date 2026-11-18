@@ -110,6 +110,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       subject: 'tournament-sponsorship',
     }),
     lobby('tournament_capture_admissions', { subject: 'tournament-capture' }),
+    lobby('tournament_hosting_purchases'),
     lobby('events'),
     lobby('stages'),
     lobby('time_slots'),

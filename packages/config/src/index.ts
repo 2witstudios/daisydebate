@@ -1,6 +1,7 @@
 import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
 import {
   billingFields,
+  hostEventPriceFields,
   clubBillingFields,
   refineBillingConfig,
   withBillingConfig,
@@ -76,6 +77,7 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
 };
 const serverFields = {
   ...billingFields,
+  ...hostEventPriceFields,
   ...clubBillingFields,
   BILLING_ECONOMICS_DIRECTORY: z
     .string()

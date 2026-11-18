@@ -1,7 +1,7 @@
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import { deps as fixture, record } from './fixture.test-support';
+import { deps as fixture, record, youthRound } from './fixture.test-support';
 import { createRecordingHandlers } from './handlers';
 import { silentLogger } from '../../server/test-loggers.test-support';
 
@@ -20,9 +20,16 @@ const anonymous = {
 
 const setup = (
   identity: Identity,
-  over: { allowed?: boolean; subscribed?: boolean } = {},
+  over: {
+    allowed?: boolean;
+    subscribed?: boolean;
+    seed?: ReturnType<typeof record>;
+    inputs?: Partial<ReturnType<typeof fixture>['inputs']>;
+  } = {},
 ) => {
-  const d = fixture(record(), { subscribed: over.subscribed ?? true });
+  const d = fixture(over.seed ?? record(), {
+    subscribed: over.subscribed ?? true,
+  });
   return {
     d,
     handlers: createRecordingHandlers({
@@ -41,6 +48,7 @@ const setup = (
       objects: d.objects,
       inputs: {
         ...d.inputs,
+        ...over.inputs,
         readFloorIntervals: async () => [],
         readCoverageFacts: async () => ({
           segments: [],
@@ -101,6 +109,45 @@ describe('download', () => {
 });
 
 describe('removal', () => {
+  test('a Youth takedown reads the coach’s link now, not from the playback cache (ADR 0150)', async () => {
+    const linked = (coach: boolean) => ({
+      ...youthRound,
+      youth: {
+        debaters: [
+          {
+            actorId: 'aff',
+            userId: 'u-aff',
+            linkedAdultActorIds: coach ? ['coach'] : [],
+          },
+        ],
+      },
+    });
+    const take = async (freshlyLinked: boolean) => {
+      const { d, handlers } = setup(member('coach'), {
+        seed: record({
+          class: 'ranked',
+          eligibility: { kind: 'ranked', youth: true },
+        }),
+        inputs: {
+          readRound: async () => linked(true),
+          readRoundFresh: async () => linked(freshlyLinked),
+        },
+      });
+      await handlers.removal(
+        removal(`confirm=on&version=3&roundId=${roundId}`),
+        'rec',
+      );
+      return d.rows.get('rec')?.lifecycle.status;
+    };
+    assert({
+      given:
+        'a coach still linked, then one whose grant was revoked after the cache filled',
+      should: 'take it down for the first and refuse the second',
+      actual: [await take(true), await take(false)],
+      expected: ['removing', 'ready'],
+    });
+  });
+
   test('a participant confirms, and returns to a fixed notice', async () => {
     const { d, handlers } = setup(member('aff'));
     const response = await handlers.removal(

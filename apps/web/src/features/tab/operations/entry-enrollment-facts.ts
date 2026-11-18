@@ -1,3 +1,4 @@
+import { tournamentHostingTier } from '../hosting-tier';
 import { ageAdmitted } from '@daisy/auth/authorization';
 import type {
   LoadedEntryEnrollment,
@@ -56,6 +57,7 @@ export const entryEnrollmentFacts = (
     actorId: person.actorId,
     userId: person.userId,
     minor: person.account?.ageBand !== 'adult',
+    bandOnFirstDay: person.bandOnFirstDay,
     withinAgeBand: Boolean(
       person.account?.member &&
       !person.account.erased &&
@@ -106,6 +108,8 @@ export const entryEnrollmentFacts = (
       approval: resolveSetting('entry.approval', chain, rows, format).value
         .value,
       entryCap: resolveSetting('entry.cap', chain, rows, format).value.perEvent,
+      ageDivision: resolveSetting('entry.age_division', chain, rows, format)
+        .value.value,
       entryCount: loaded.entries.filter(
         (entry) => entry.eventId === event.id && entry.status !== 'withdrawn',
       ).length,
@@ -121,6 +125,14 @@ export const entryEnrollmentFacts = (
       ),
     },
     sender: { userId: input.senderUserId, host: input.host },
+    hosting: loaded.hosting
+      ? {
+          tier: tournamentHostingTier(loaded.hosting, input.now),
+          acceptedEntries: loaded.entries.filter(
+            (entry) => entry.status === 'accepted',
+          ).length,
+        }
+      : null,
     people,
     responsible:
       responsible?.kind === 'school'

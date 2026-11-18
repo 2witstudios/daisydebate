@@ -56,6 +56,17 @@ export type {
   LoadedReleaseCommand,
   ReleaseCommandWrite,
 } from './release-command';
+import { createTournamentHostingPurchaseStore } from './tournament-hosting-purchases';
+export type {
+  HostedTournamentsFacts,
+  TournamentHostingAccount,
+  TournamentHostingPurchaseRow,
+  TournamentHostingPurchaseWrites,
+} from './tournament-hosting-purchases';
+export {
+  loadTournamentHostingFacts,
+  type TournamentHostingFacts,
+} from './tournament-hosting-facts';
 import { createTournamentSponsorshipStore } from './tournament-sponsorship';
 export type { LoadedTournamentSponsorship } from './tournament-sponsorship';
 import {
@@ -224,6 +235,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createConflictWaiverRequestStore(database),
   ...createReleaseCommandStore(database),
   ...createTournamentSponsorshipStore(database),
+  ...createTournamentHostingPurchaseStore(database),
   ...createGuardianCommandStore(database),
   ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),

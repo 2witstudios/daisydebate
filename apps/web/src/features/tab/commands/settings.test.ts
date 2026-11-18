@@ -106,6 +106,8 @@ const facts = (overrides: Partial<SettingFacts> = {}): SettingFacts => ({
   nameTaken: false,
   formatRevision: { organizationId: null },
   ballotDefinition: null,
+  hostingTier: null,
+  tournamentEntries: 0,
   ...overrides,
 });
 const refusalOf = (given: SettingFacts, command: SettingCommand) => {
@@ -140,6 +142,82 @@ const atEvent = {
 const floor = (interruptions: boolean): SettingValues['room.floor'] => ({
   interruptions: interruptions ? { mode: 'disabled', minRemainingMs: 0 } : null,
   yielding: { allowed: true, returnsTime: false },
+});
+
+describe('decideSetting: a tournament division is fixed once entries exist (PYL-16)', () => {
+  test('the division changes only before anyone has entered', () => {
+    const youth = set(cup, 'entry.age_division', { value: 'youth' });
+    assert({
+      given: 'a tournament with no entries, and one with an entry',
+      should: 'accept the change, then refuse it with entries-exist',
+      actual: [
+        refusalOf(facts({ tournamentEntries: 0 }), youth),
+        refusalOf(facts({ tournamentEntries: 1 }), youth),
+      ],
+      expected: ['accepted', 'entries-exist'],
+    });
+    const clear = {
+      type: 'clear-setting',
+      scope: cup,
+      key: 'entry.age_division',
+    } as const;
+    const held = [row(cup, 'entry.age_division', { value: 'youth' })];
+    assert({
+      given:
+        'a Youth tournament clearing its division back to Open, before and after an entry',
+      should: 'accept the clear, then refuse it with entries-exist',
+      actual: [
+        refusalOf(facts({ tournamentEntries: 0, rows: held }), clear),
+        refusalOf(facts({ tournamentEntries: 1, rows: held }), clear),
+      ],
+      expected: ['accepted', 'entries-exist'],
+    });
+  });
+});
+
+describe('decideSetting: paid hosting features (PYL-14)', () => {
+  const on = { value: 'on' } as const;
+  const off = { value: 'off' } as const;
+  test('a free tournament cannot switch on recording, AI judging or broadcast', () => {
+    const free = facts({ hostingTier: 'free' });
+    assert({
+      given: 'a free tournament, each paid feature switched on at its lobby',
+      should: 'refuse each with hosting-upgrade-required',
+      actual: [
+        refusalOf(free, set(cup, 'recording.capture', on)),
+        refusalOf(free, set(cup, 'judging.ai_judge', on)),
+        refusalOf(free, set(cup, 'broadcast.live', on)),
+      ],
+      expected: Array(3).fill('hosting-upgrade-required'),
+    });
+    assert({
+      given: 'a free tournament switching a paid feature off',
+      should: 'accept',
+      actual: [
+        refusalOf(free, set(cup, 'recording.capture', off)),
+        refusalOf(free, set(cup, 'judging.ai_judge', off)),
+      ],
+      expected: ['accepted', 'accepted'],
+    });
+  });
+  test('a paid tournament, or one with no tier, may switch them on', () => {
+    assert({
+      given: 'either paid tier, and a scope no tier applies to',
+      should: 'accept',
+      actual: [
+        refusalOf(
+          facts({ hostingTier: 'event_64' }),
+          set(cup, 'broadcast.live', on),
+        ),
+        refusalOf(
+          facts({ hostingTier: 'event_unlimited' }),
+          set(cup, 'judging.ai_judge', on),
+        ),
+        refusalOf(facts(), set(cup, 'recording.capture', on)),
+      ],
+      expected: ['accepted', 'accepted', 'accepted'],
+    });
+  });
 });
 
 describe('decideSetting: set and clear', () => {

@@ -11,6 +11,29 @@ import {
 import type { TabTransaction } from './tab-transaction';
 import type { RoomDirectionInput } from './room-direction';
 
+/** The admission names exactly the grant or paid purchase its funder holds now. */
+const basisHeld = (
+  admission: TournamentCaptureAdmission,
+  funding: NonNullable<RoomDirectionInput['funding']>,
+) => {
+  const { basis } = admission;
+  switch (basis.kind) {
+    case 'grant':
+      return (
+        basis.grant.hosting.userId === funding.userId &&
+        funding.hosting.grants.some(
+          (grant) => JSON.stringify(grant) === JSON.stringify(basis.grant),
+        )
+      );
+    case 'hosting-purchase':
+      return (
+        funding.ownerUserId === funding.userId &&
+        JSON.stringify(funding.hostingPurchase) ===
+          JSON.stringify(basis.purchase)
+      );
+  }
+};
+
 /** Called after the named Round/receipt insert under the already held physical-capacity lock. */
 export const reserveTournamentCapture = async (
   tx: TabTransaction,
@@ -33,10 +56,7 @@ export const reserveTournamentCapture = async (
     admission.official.actorId !== input.actorId ||
     admission.fixtureId !== input.direction.fixtureId ||
     admission.lobbyId !== funding.lobbyId ||
-    admission.grant.hosting.userId !== funding.userId ||
-    !funding.hosting.grants.some(
-      (grant) => JSON.stringify(grant) === JSON.stringify(admission.grant),
-    )
+    !basisHeld(admission, funding)
   )
     throw createAppError(
       'INVARIANT',
@@ -61,8 +81,15 @@ export const reserveTournamentCapture = async (
     roomId: admission.roomId,
     lobbyId: admission.lobbyId,
     fixtureId: admission.fixtureId,
-    sponsorUserId: admission.grant.hosting.userId,
-    hostingVersionId: admission.grant.hosting.id,
+    sponsorUserId: funding.userId,
+    hostingVersionId:
+      admission.basis.kind === 'grant'
+        ? admission.basis.grant.hosting.id
+        : null,
+    hostingPurchaseId:
+      admission.basis.kind === 'hosting-purchase'
+        ? admission.basis.purchase.id
+        : null,
     sponsorshipVersionId:
       admission.funding.kind === 'organization-sponsor'
         ? admission.funding.sponsorshipVersionId

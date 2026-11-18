@@ -111,7 +111,7 @@ export function PricingPage({
           period="to start"
           summary="Pay per event only when you need more entries or video."
           features={[
-            'Recording, AI judging and broadcast on paid events',
+            'Recording on paid events',
             'Pairing, ballots and results on every event',
           ]}
           action={actions.host}

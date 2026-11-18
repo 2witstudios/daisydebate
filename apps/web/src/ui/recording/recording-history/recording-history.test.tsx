@@ -154,7 +154,7 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       given: 'a Youth Round on a public Room',
       should: 'name its ladder, say it is private, and offer no copy link',
       actual: [
-        youth.includes('Youth – Freestyle'),
+        /<header[\s\S]*?Youth – Freestyle[\s\S]*?<\/header>/.test(youth),
         youth.includes(
           'visible to the debaters, judges and their coaches or parents',
         ),

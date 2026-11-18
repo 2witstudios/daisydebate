@@ -98,6 +98,83 @@ test('ending Youth Broadcasts leaves every other Broadcast running (ADR 0150)', 
   });
 });
 
+test('every Youth Broadcast, running or complete, is stopped and held back (ADR 0150)', async () => {
+  const client = new SQL(databaseUrl, { max: 4 });
+  try {
+    await withFixture(databaseUrl, async (f) => {
+      const youthRound = () =>
+        f.round({
+          competition_type: 'ranked',
+          format_id: 'freestyle',
+          format_version: 1,
+          preset_version: 1,
+          ladder_id: 'freestyle',
+          ladder_division: 'youth',
+        });
+      const running = await youthRound();
+      const complete = await youthRound();
+      const db = drizzle({ client });
+      try {
+        const ids = { running: createId(), complete: createId() };
+        for (const [key, roundId] of [
+          ['running', running],
+          ['complete', complete],
+        ] as const)
+          await openBroadcast(db, {
+            id: ids[key],
+            roundId,
+            feedKey: createId(),
+            releasePolicy: policy,
+          });
+        await client`update broadcasts set stream_ended_at=${now}, completed_at=${now} where id=${ids.complete}`;
+        const stopped = await db.transaction((tx) =>
+          endYouthBroadcasts(tx, later),
+        );
+        const again = await db.transaction((tx) =>
+          endYouthBroadcasts(tx, later),
+        );
+        const rows = await client`select id, stop_reason, media_withheld,
+            feed_withdrawal_requested_at is not null as withdrawal
+          from broadcasts where id in (${ids.running}, ${ids.complete}) order by id`;
+        assert({
+          given: 'a running and a normally completed Youth Broadcast, twice',
+          should:
+            'stop and hold back both, ask for the complete feed to go, and change nothing the second time',
+          actual: {
+            stopped: [...stopped].sort(),
+            again,
+            rows: Object.fromEntries(
+              rows.map(
+                (row: {
+                  id: string;
+                  stop_reason: string;
+                  media_withheld: boolean;
+                  withdrawal: boolean;
+                }) => [
+                  row.id === ids.running ? 'running' : 'complete',
+                  [row.stop_reason, row.media_withheld, row.withdrawal],
+                ],
+              ),
+            ),
+          },
+          expected: {
+            stopped: [ids.running, ids.complete].sort(),
+            again: [],
+            rows: {
+              running: ['youth_round_private', true, false],
+              complete: ['youth_round_private', true, true],
+            },
+          },
+        });
+      } finally {
+        await client`delete from broadcasts where round_id in (${running}, ${complete})`;
+      }
+    });
+  } finally {
+    await client.close();
+  }
+});
+
 test('one Broadcast per Round, and its policy is kept', async () => {
   await withOps(async (db, roundId) => {
     const first = await openBroadcast(db, {

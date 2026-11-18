@@ -266,9 +266,9 @@ describe('lobbies', () => {
     const schoolOwner = { kind: 'organization' as const, organization: school };
     assert({
       given:
-        'a tournament for a person, for a league, for a school, and a standing lobby',
+        'a tournament for an adult and for a 16 year old, for a league, for a school, and a standing lobby',
       should:
-        'take the hosting plan, setup at the league, never a school, and organization management',
+        'let any adult host their own (decision 80), take setup at the league, never a school, and organization management',
       actual: [
         reason(
           ask(
@@ -280,7 +280,7 @@ describe('lobbies', () => {
           ask(
             'lobby.create',
             creation({ lobbyKind: 'tournament', owner: { kind: 'person' } }),
-            { account: { hostingPlan: true } },
+            { account: { ageBand: '16-17' } },
           ),
         ),
         reason(
@@ -327,8 +327,8 @@ describe('lobbies', () => {
         ),
       ],
       expected: [
-        'missing-capability',
         'allow',
+        'age-band',
         'missing-capability',
         'allow',
         'denied',

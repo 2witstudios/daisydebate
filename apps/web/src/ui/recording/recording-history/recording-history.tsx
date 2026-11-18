@@ -172,6 +172,8 @@ const shareReason = (
   youth: NonNullable<History['youth']>,
   publishing: boolean,
 ): string | null => {
+  if (youth.debaters.length === 0)
+    return 'No youth debater is on record for this Round, so it cannot be shared.';
   if (!youth.releasesComplete) {
     const missing = youth.debaters
       .filter((debater) => !debater.released)

@@ -76,7 +76,8 @@ const youthPeople = (app: App) => {
   if (known) return known;
   const cached = youthPeopleCache({
     read: app.database.readYouthRecordingPeople,
-    nowMs: () => Date.parse(app.clock.now()),
+    // Monotonic: a wall clock stepping back must not stretch the window.
+    nowMs: () => performance.now(),
   });
   youthPeopleOf.set(app, cached);
   return cached;
@@ -96,23 +97,28 @@ const recordingInputs = (
   app: App,
   youthPublishing: YouthPublishingOpen = closed,
 ): RecordingInputs & HistoryInputs => {
-  const readHistoryRound = async (roundId: string) => {
-    const round = await app.database.readRecordingRound(roundId);
-    if (!round) return null;
-    const youthRound =
-      round.competitionType === 'ranked' && round.ladder?.division === 'youth';
-    if (!youthRound) return asRound(round, null);
-    const [people, shared, open] = await Promise.all([
-      youthPeople(app)(roundId),
-      app.database.youthRoundPublications.readYouthRoundShared(roundId),
-      youthPublishing(),
-    ]);
-    // Public only while a debater's share stands and publishing is open (ADR 0151).
-    return asRound(round, { ...people, public: shared && open });
-  };
+  const readRoundWith =
+    (people: (roundId: string) => Promise<YouthRoundPeople>) =>
+    async (roundId: string) => {
+      const round = await app.database.readRecordingRound(roundId);
+      if (!round) return null;
+      const youthRound =
+        round.competitionType === 'ranked' &&
+        round.ladder?.division === 'youth';
+      if (!youthRound) return asRound(round, null);
+      const [found, shared, open] = await Promise.all([
+        people(roundId),
+        app.database.youthRoundPublications.readYouthRoundShared(roundId),
+        youthPublishing(),
+      ]);
+      // Public only while a debater's share stands and publishing is open (ADR 0151).
+      return asRound(round, { ...found, public: shared && open });
+    };
+  const readHistoryRound = readRoundWith(youthPeople(app));
   const store = recordingPersistence(app);
   return {
     readRound: readHistoryRound,
+    readRoundFresh: readRoundWith(app.database.readYouthRecordingPeople),
     readHistoryRound,
     readBroadcastRelease: (roundId) =>
       app.database.readRecordingBroadcastRelease(

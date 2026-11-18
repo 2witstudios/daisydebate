@@ -136,12 +136,18 @@ export const createRecordingHandlers = (deps: Deps) => ({
           );
         if (!form.confirmed || form.version === null) return back('confirm');
         try {
-          await requestParticipantRemoval(deps, {
-            recordingId,
-            expectedVersion: form.version,
-            viewer: recordingViewerOf(await deps.identify(request)),
-            now: deps.clock.now(),
-          });
+          await requestParticipantRemoval(
+            {
+              store: deps.store,
+              inputs: { readRound: deps.inputs.readRoundFresh },
+            },
+            {
+              recordingId,
+              expectedVersion: form.version,
+              viewer: recordingViewerOf(await deps.identify(request)),
+              now: deps.clock.now(),
+            },
+          );
           return back('requested');
         } catch (error) {
           if (!isAppError(error)) throw error;

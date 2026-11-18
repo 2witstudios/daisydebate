@@ -49,14 +49,12 @@ export const lobbyAdministrationAuthority = (
   principal: TabPrincipal,
   command: LobbyAdministrationCommand,
   facts: LobbyAdministrationFacts,
-  context: { readonly now: string; readonly hostingPlan: boolean },
+  context: { readonly now: string },
 ): Omit<AuthorizationInput, 'capability'> => ({
   principal,
   resource: resourceOf(command, facts),
   context: {
-    account: facts.organization.account
-      ? { ...facts.organization.account, hostingPlan: context.hostingPlan }
-      : null,
+    account: facts.organization.account,
     grants: facts.organization.grants,
     now: context.now,
   },
