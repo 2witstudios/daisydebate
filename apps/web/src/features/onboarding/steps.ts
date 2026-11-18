@@ -11,6 +11,8 @@ const flow = [
   { step: 'daisy', asksOptionalAnswers: false },
   { step: 'styles', asksOptionalAnswers: false },
   { step: 'debate', asksOptionalAnswers: false },
+  { step: 'practice', asksOptionalAnswers: false },
+  { step: 'host', asksOptionalAnswers: false },
   { step: 'about', asksOptionalAnswers: true },
   { step: 'experience', asksOptionalAnswers: true },
   { step: 'topics', asksOptionalAnswers: true },

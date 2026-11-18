@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { destinationHref } from '../../../features/destinations/destinations';
-import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import { catalogFormats } from '@daisy/db/catalog-formats';
+import { leaderboardDestinations } from '../../../features/leaderboard/actions';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
+import { freestylePreset, freestyleRules, minutesOf } from './freestyle';
 import { heading, type IntroStepProps } from './intro';
 import { leadSeatOf, sideOfSeat } from '@daisy/protocol';
 import { sideShortName } from '../../../features/debate-room/seat-names';
@@ -26,8 +26,6 @@ const grow: Record<number, string> = {
   6: 'grow-6',
 };
 
-const minutesOf = (ms: number) => ms / 60_000;
-
 function segmentClass(turn: IntroTurn): string {
   if (turn.kind === 'cross-examination')
     return turn.first
@@ -39,22 +37,11 @@ function segmentClass(turn: IntroTurn): string {
 }
 
 /**
- * The schedule the intro shows: Freestyle, the format a new member's first
- * debates run on, at its catalog preset. Its schedule is the one-on-one's,
- * and its prep is a strike-then-prep round, so the intro's prep line reads
- * the format members will actually get rather than a casual room's.
+ * The schedule the intro shows: Freestyle at its catalog preset, the format
+ * a new member's first debates run on, so the prep line reads the format
+ * members will actually get rather than a casual room's.
  */
-const introRules = (() => {
-  const freestyle = catalogFormats.find((format) => format.id === 'freestyle');
-  if (freestyle === undefined)
-    throw new Error('Freestyle is missing from the format catalog');
-  const resolved = resolveRoomConfiguration(
-    freestyle.definition,
-    freestyle.preset,
-  );
-  if (!resolved.ok) throw new Error(resolved.refusal.message);
-  return { rules: resolved.rules, preset: freestyle.preset };
-})();
+const introRules = { rules: freestyleRules, preset: freestylePreset };
 const introTurns = introRules.rules.segments.map((segment, index) => {
   const lead = leadSeatOf(segment.speak);
   const side = lead ? sideOfSeat(lead) : null;
@@ -81,7 +68,7 @@ const prepLine = (() => {
     return `plus ${minutesOf(inRound.budgetMsPerSide)} minutes of prep you can spend between turns.`;
   const { preRoundPrep } = introRules.preset;
   const before = preRoundPrep.enabled ? minutesOf(preRoundPrep.durationMs) : 0;
-  return `plus ${before} minutes of prep before the round begins, once the motion is struck.`;
+  return `plus ${before} minutes of prep before the round begins, once the resolution is chosen.`;
 })();
 
 const turnText = (turn: IntroTurn) =>
@@ -91,7 +78,7 @@ const turnText = (turn: IntroTurn) =>
       : (plainName[turn.name] ?? turn.label)
   } ${minutesOf(turn.durationMs)} min`;
 
-/** Step 3: how a debate runs, drawn from the resolved schedule. */
+/** Step 3: how a Freestyle round runs, drawn from the resolved schedule. */
 export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
   const speaking = introTurns.reduce(
     (sum, turn) => sum + minutesOf(turn.durationMs),
@@ -116,7 +103,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
     [
       'Decision',
       'A judge picks the side with the stronger case and writes why. In ranked debates, the result moves your rating.',
-      destinationHref('leaderboard'),
+      leaderboardDestinations.howRatingWorks,
       'How ratings work',
     ],
   ] as const;
@@ -127,12 +114,12 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
       skip={skip}
     >
       <h1 id="onboarding-title" className={heading}>
-        How a debate works
+        A Freestyle round, step by step
       </h1>
       <div className="flex flex-col gap-2 rounded-lg bg-surface-sunken px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-strong tracking-widest text-ink-muted uppercase">
-            The motion
+            The resolution
           </span>
           <div className="flex flex-wrap gap-2">
             <span className="rounded-round bg-accent px-3 py-1 text-sm font-strong text-accent-ink">

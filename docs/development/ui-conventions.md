@@ -141,12 +141,15 @@ the gaps it cannot.
 - No ledes that restate the page title, and no slogan pairs ("Practice
   arguments. Sharpen your mind.") outside the landing hero and the auth
   brand panel.
-- Exception, owner decision 2026-10-05: the three onboarding intro steps
-  (`/onboarding/daisy`, `/onboarding/styles`, `/onboarding/debate`) may
-  explain how Daisy works (including Freestyle's draw and strikes), Freestyle
-  and Custom, and how a debate runs. They
-  are the one place that teaches the product, shown once after sign-up and
-  reopened from Help; every other onboarding step follows the rule.
+- Exception, owner decision 2026-10-05, widened 2026-11-18: the five
+  onboarding intro steps (`/onboarding/daisy`, `/onboarding/styles`,
+  `/onboarding/debate`, `/onboarding/practice`, `/onboarding/host`) may
+  explain how Daisy works: its three ways in (ranked Freestyle, practising a
+  league's format, running a league or tournament), Freestyle's draw and
+  strikes, and how a round runs. They are the one place that teaches the
+  product, shown once after sign-up and reopened from Help; every other
+  onboarding step follows the rule. `/about` states Daisy's vision and links
+  each common question to its Help answer rather than repeating it.
 
 ## Home notes
 
@@ -162,7 +165,11 @@ On a phone (below 641px) they are not notes but one vertical menu (owner,
 curl, peel, tilt, tagline or season reveal. Play keeps its accent colour and the
 other seven share one. CSS alone decides it, so the first HTML is right.
 
-A phone has no Home hero and no opening tournament or Live now cards. A member
+Home ends with one About strip (owner, 2026-11-18) for visitors and members:
+a line on what Daisy is and links to About Daisy, Help, Terms and Privacy. A
+visitor's hero also links Learn about Daisy under the join.
+
+A phone has no Home hero and no opening tournament, Live now or About strip. A member
 sees the menu, and the hero returns only while they hold a Room, because it
 carries Return to room. A visitor sees only the join form, plainly on the page.
 

@@ -28,13 +28,13 @@ describe('OnboardingFrame', () => {
     });
     assert({
       given: 'the second step',
-      should: 'say 2 of 6 and fill two of six segments',
+      should: 'say 2 of 8 and fill two of eight segments',
       actual: [
-        html.includes('2 of 6'),
+        html.includes('2 of 8'),
         count(html, 'data-segment="done"'),
         count(html, 'data-segment="todo"'),
       ],
-      expected: [true, 2, 4],
+      expected: [true, 2, 6],
     });
     assert({
       given: 'a skip control',
@@ -49,7 +49,7 @@ describe('OnboardingFrame', () => {
     assert({
       given: 'no step number',
       should: 'show no progress',
-      actual: [html.includes('of 6'), html.includes('data-segment')],
+      actual: [html.includes('of 8'), html.includes('data-segment')],
       expected: [false, false],
     });
   });

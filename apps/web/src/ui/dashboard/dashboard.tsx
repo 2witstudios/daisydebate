@@ -4,6 +4,7 @@ import { ActionTile } from './action-tile/action-tile';
 import { tiles } from './tiles';
 import type { SeasonGlance } from '../../features/leaderboard/season';
 import { BetaOpenTeaser } from './beta-open-teaser/beta-open-teaser';
+import { AboutStrip } from './about-strip/about-strip';
 
 /**
  * Main-column composition of the home dashboard. Pure layout: owns the
@@ -49,6 +50,7 @@ export function Dashboard({
         <BetaOpenTeaser />
         {liveNow}
       </div>
+      <AboutStrip />
     </div>
   );
 }

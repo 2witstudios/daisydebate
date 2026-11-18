@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { RequestLinkAction } from '../../auth/sign-in-flow/sign-in-flow';
 import { HeroJoin } from './hero-join';
 import { HeroPhoto } from './hero-photo';
@@ -13,7 +14,18 @@ export function HeroBanner({
   readonly requestLink: RequestLinkAction;
 }) {
   return (
-    <HeroJoin requestLink={requestLink} backdrop={<HeroPhoto hiddenOnPhone />}>
+    <HeroJoin
+      requestLink={requestLink}
+      backdrop={<HeroPhoto hiddenOnPhone />}
+      footer={
+        <Link
+          href="/about"
+          className="text-base font-strong text-ink-on-media underline max-narrow:text-ink"
+        >
+          Learn about Daisy
+        </Link>
+      }
+    >
       <h1 className="font-display text-display-sm leading-display font-semibold tracking-display text-balance text-ink-on-media text-shadow-hero-headline max-tiles:text-3xl max-narrow:text-ink max-narrow:text-shadow-none">
         The arena for competitive debate
       </h1>
