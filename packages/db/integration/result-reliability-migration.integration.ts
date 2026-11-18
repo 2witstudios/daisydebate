@@ -46,6 +46,8 @@ test(
         // Today's canonical grant decoder sees an empty future source interface;
         // no hosting grant or issuer is fabricated in this populated predecessor.
         await f.sql`alter table account_entitlement_grants add column hosting_version_id text, add column revoked_at timestamptz`;
+        // ADR 0148's seat grant source names its club; the decoder reads it.
+        await f.sql`alter table account_entitlement_grants add column organization_id text`;
         await f.sql`create table account_hosting_versions (
           id text,user_id text,source text,version integer,starts_at timestamptz,expires_at timestamptz,
           issuer_service_id text,issuer_operator_ref text,decision_reference text,
@@ -96,6 +98,7 @@ test(
           await f.sql`alter table ballots drop column speaker_ranks`;
           await f.sql`drop table account_hosting_versions`;
           await f.sql`alter table account_entitlement_grants drop column hosting_version_id, drop column revoked_at`;
+          await f.sql`alter table account_entitlement_grants drop column organization_id`;
           await scratch.migrate(() => true);
           const after =
             await f.sql`select round_id,judge_participant_id,freeze_revision,status,attempts,generation_deadline_at,pending_ballot,pending_ballot_agent_run_id,pending_ballot_epoch,pending_ballot_received_at,terminal_reason from round_judging_jobs order by round_id,judge_participant_id`;

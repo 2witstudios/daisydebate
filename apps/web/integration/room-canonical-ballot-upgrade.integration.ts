@@ -61,6 +61,8 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
     // no tournament hosting grant, version, issuer or inferred funding account.
     await sql`alter table account_entitlement_grants add column hosting_version_id text,add column revoked_at timestamptz`;
+    // ADR 0148's seat grant source names its club; the decoder reads it.
+    await sql`alter table account_entitlement_grants add column organization_id text`;
     await sql`create table account_hosting_versions (
       id text,user_id text,source text,version integer,starts_at timestamptz,expires_at timestamptz,
       issuer_service_id text,issuer_operator_ref text,decision_reference text,
@@ -120,6 +122,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;
+    await sql`alter table account_entitlement_grants drop column organization_id`;
     await removeAssignmentInterface();
     await sql`alter table rooms drop column standing_template_id`;
     await sql`drop trigger round_finalization_ballot_digest on round_finalization_ballots`;

@@ -100,7 +100,10 @@ test(
   'main data survives every parent migration with the same competitive and social meaning',
   async () => {
     await scratch.create();
-    await scratch.migrate((folder) => !parentFolders.has(folder));
+    // Main as it stood before the Tab folders; main's later folders (Premium,
+    // Club seats, which needs Tab's organisations) follow them in order.
+    const firstParent = [...parentFolders].sort()[0]!;
+    await scratch.migrate((folder) => folder < firstParent);
     const sql = new SQL(scratch.url, { max: 1 });
     const f = new Fixture(sql);
     try {
