@@ -8,7 +8,7 @@ import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
 import { youthRoundPublic } from './media-release-standing';
-import { readReleasesOf } from './media-releases';
+import { readReleasesOf } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { readYouthRecordingPeople } from './youth-recording-people';
 

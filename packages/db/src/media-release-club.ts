@@ -14,7 +14,7 @@ import {
   readDivisionOf,
   readReleasesOf,
   readRequestsOf,
-} from './media-releases';
+} from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';

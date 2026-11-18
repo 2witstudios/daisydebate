@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { AuthorizationTransaction } from './authorization';
-import { endPublicationsOf } from './media-releases';
+import { endPublicationsOf } from './media-release-records';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
