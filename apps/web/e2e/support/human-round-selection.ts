@@ -4,7 +4,12 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { foundationProofConfig } from '../../integration/foundation-selection.test-support';
-import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  sideSeat,
+  type FormatDefinition,
+  type RoomConfig,
+} from '@daisy/protocol';
 
 export type ProofChoice = {
   readonly definition: FormatDefinition;
@@ -40,8 +45,7 @@ export const floorReturnsChoice: ProofChoice = {
         key: 'AR',
         label: 'Affirmative rebuttal',
         type: 'speech',
-        side: 'affirmative',
-        slot: 0,
+        speak: { rights: 'one', seat: sideSeat(affirmativeSide) },
         defaultDurationMs: 240_000,
       },
     ],
@@ -78,7 +82,7 @@ export const humanRoundSelection = (
   competitionType: 'casual',
   definition: {
     ...choice.definition,
-    seats: { affirmative: 1, negative: 1, judge: judgeSeats },
+    seats: { ...choice.definition.seats, judges: judgeSeats },
     configurable: {
       ...choice.definition.configurable,
       interaction: {

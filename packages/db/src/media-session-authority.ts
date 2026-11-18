@@ -1,15 +1,18 @@
+import { roundSourceVoided } from './round-source-state';
+import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
+  isAbsentSeat,
   type MediaPhase,
   type MediaWindowFacts,
   type RoundCommandAuthority,
 } from '@daisy/protocol';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import type { BoundedTransactionContext } from './transaction-context';
 import { actorFact } from './room-command-facts';
-import { hydrateRoundRows } from './round-hydration';
+import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { mediaSessions } from './schema/media-sessions';
 import { roundParticipants } from './schema/round-participants';
@@ -43,6 +46,7 @@ function boundCaller(
   participants: RoundCommandAuthority['participants'],
   accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
   mediaCaller: MediaCaller,
+  checkpoint: RoundHydration['checkpoint'],
 ) {
   const seat = participants.find(
     (candidate) =>
@@ -50,7 +54,9 @@ function boundCaller(
       candidate.kind === 'human' &&
       candidate.eligible,
   );
-  if (!seat) throw unseatedRefusal();
+  // A seat that left the Round holds no live seat from then on (TAB-6.8), so
+  // it is refused before anything is bound for it.
+  if (!seat || isAbsentSeat(checkpoint, seat.id)) throw unseatedRefusal();
   requireAdmittedPrincipal(mediaCaller.admits, accounts, mediaCaller.actorId);
   return seat;
 }
@@ -77,7 +83,12 @@ export async function lockMediaRound(
   const seats = await tx
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, roundId));
+    .where(
+      and(
+        eq(roundParticipants.roundId, roundId),
+        currentRoundParticipant(roundParticipants.id),
+      ),
+    );
   const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {
@@ -100,7 +111,7 @@ export async function lockMediaRound(
     }),
   );
   const caller = mediaCaller
-    ? boundCaller(participants, accounts, mediaCaller)
+    ? boundCaller(participants, accounts, mediaCaller, round.checkpoint)
     : null;
   return { participants, caller, accounts };
 }
@@ -126,6 +137,7 @@ export async function readMediaWindowFacts(
 ): Promise<MediaWindowFacts> {
   const [row] = await tx
     .select({
+      sourceVoided: roundSourceVoided(rounds.id),
       status: rounds.status,
       finalSegmentEndedAt: rounds.finalSegmentEndedAt,
       completedAt: rounds.completedAt,
@@ -140,6 +152,7 @@ export async function readMediaWindowFacts(
     .where(eq(rounds.id, roundId));
   if (!row) throw createAppError('NOT_FOUND');
   return {
+    sourceVoided: row.sourceVoided,
     status: row.status,
     now: at.now,
     finalSegmentEndedAt:

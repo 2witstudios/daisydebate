@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { idle } from '../../../features/forms/form-state';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
@@ -15,10 +16,16 @@ import {
 } from '../../debate-room/live-round.test-support';
 import { attendanceSettlesAtMs } from '../../../features/round-ballots/settling';
 import { sampleJudgeBallot } from '../../mock/judge.test-support';
+import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 setupRitewayBun();
 await mockNextRouter();
 const { BallotPage } = await import('./ballot-page');
 const input: RoundBallotRead = {
+  judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
+    ballot: daisyWinnerBallot,
+    panel: panelRuleFor(daisyWinnerBallot),
+  },
   round: {
     ...asActive(view),
     participants: [

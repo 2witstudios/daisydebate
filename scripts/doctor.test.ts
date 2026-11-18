@@ -33,6 +33,7 @@ describe('doctor report', () => {
           { name: 'env', status: 'fail', detail: 'DATABASE_URL' },
           { name: 'postgres', status: 'fail', detail: 'not checked' },
           { name: 'migration-currency', status: 'fail', detail: 'not checked' },
+          { name: 'tenant-isolation', status: 'fail', detail: 'not checked' },
           { name: 'redis', status: 'pass', detail: 'PONG' },
           { name: 'livekit', status: 'fail', detail: 'not checked' },
           { name: 'media-worker', status: 'fail', detail: 'not checked' },
@@ -54,6 +55,11 @@ describe('doctor report', () => {
       { name: 'env', status: 'pass', detail: 'valid' },
       { name: 'postgres', status: 'pass', detail: 'reachable' },
       { name: 'migration-currency', status: 'pass', detail: '1 migration' },
+      {
+        name: 'tenant-isolation',
+        status: 'pass',
+        detail: 'every tenant-owned table is fenced',
+      },
       { name: 'redis', status: 'pass', detail: 'PONG' },
       { name: 'livekit', status: 'pass', detail: 'reachable' },
       { name: 'media-worker', status: 'warn', detail: 'not configured' },
@@ -89,7 +95,7 @@ describe('doctor report', () => {
       should: 'render a passing text summary',
       actual: formatDoctorReport(report, false),
       expected:
-        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS livekit: reachable\nWARN media-worker: not configured\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS identity-regime: identity regime active (agent)\nPASS pu-config: agents start through scripts/agent-launch.sh\nPASS checkout: worktree on pu/x\n',
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS tenant-isolation: every tenant-owned table is fenced\nPASS redis: PONG\nPASS livekit: reachable\nWARN media-worker: not configured\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS identity-regime: identity regime active (agent)\nPASS pu-config: agents start through scripts/agent-launch.sh\nPASS checkout: worktree on pu/x\n',
     });
   });
 });
@@ -161,6 +167,7 @@ describe('slot checks', () => {
             'env',
             'postgres',
             'migration-currency',
+            'tenant-isolation',
             'redis',
             'livekit',
             'media-worker',

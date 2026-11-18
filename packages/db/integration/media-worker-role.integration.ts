@@ -28,7 +28,7 @@ test('the media worker role reads capture authority and writes nothing', async (
     const granted = await Promise.all(
       [
         'select id,status from rounds limit 1',
-        'select id,role from round_participants limit 1',
+        'select id,seat_kind,side from round_participants limit 1',
         'select id,started_at from round_segments limit 1',
         'select id,ended_at from media_sessions limit 1',
         'select identity from media_participants limit 1',

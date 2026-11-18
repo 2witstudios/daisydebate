@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  withEvidenceIngressCohort,
+  withRecognitionIngressCohort as withEvidenceIngressCohort,
   type EvidenceIngressFixture,
 } from './necessary-evidence-ingress.test-support';
 import {

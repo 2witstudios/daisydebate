@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  twoSides,
+  type RoundView,
+} from '@daisy/protocol';
 import { readRoundReceipt } from './read-round';
 
 setupRitewayBun();
@@ -70,8 +74,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
         actorId: 'f'.repeat(24),
         label: 'Second speaker',
         kind: 'human',
-        role: 'negative',
-        slot: 2,
+        seat: { kind: 'side', side: 'negative', slot: 2 } as const,
       },
     ],
     config: {
@@ -83,23 +86,34 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       yielding: null,
     },
     rules: {
-      version: 2,
-      seats: { affirmative: 2, negative: 3, judge: 1 },
+      version: 3,
+      sides: [...twoSides],
+      seats: {
+        sides: { affirmative: 2, negative: 3 },
+        speakers: 0,
+        judges: 1,
+        moderators: 0,
+      },
+      outcome: { kind: 'winner' },
       segments: [
         {
           key: 'NR3',
           label: 'Third negative reply',
           type: 'speech',
-          side: 'negative',
-          slot: 2,
+          speak: {
+            rights: 'one',
+            seat: { kind: 'side', side: 'negative', slot: 2 },
+          },
           durationMs: 223456,
         },
         {
           key: 'A1',
           label: 'Affirmative opening',
           type: 'speech',
-          side: 'affirmative',
-          slot: 0,
+          speak: {
+            rights: 'one',
+            seat: { kind: 'side', side: 'affirmative', slot: 0 },
+          },
           durationMs: 60000,
         },
       ],
@@ -111,7 +125,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       },
     },
     viewerIsHost: false,
-    checkpoint: emptyRuntimeCheckpoint,
+    checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
     segments: [],
   } satisfies RoundView;
   const variants = [
@@ -119,7 +133,9 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     { ...frozen, id: 'g'.repeat(24) },
     {
       ...frozen,
-      participants: [{ ...frozen.participants[0], role: 'not-a-role' }],
+      participants: [
+        { ...frozen.participants[0], seat: { kind: 'not-a-seat', slot: 0 } },
+      ],
     },
   ];
   const results = [];

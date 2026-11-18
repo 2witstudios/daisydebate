@@ -98,6 +98,8 @@ test(
           ),
         ];
         // The sweep's own writer must still take the stored removal.
+        // The current decoder reads this internal key; the ordinary source remains unadmitted.
+        await f.sql`alter table recordings add column tournament_admission_id text`;
         const claimed = await recordingOperations({
           database: drizzle({ client: f.sql }),
         }).claimRecordingDeletions({
@@ -107,6 +109,7 @@ test(
           leaseUntil: new Date(Date.now() + 120_000).toISOString(),
           limit: 100,
         });
+        await f.sql`alter table recordings drop column tournament_admission_id`;
         const [counted] =
           await f.sql`select revocation_failures as failures from broadcasts where id = ${broadcastId}`;
         assert({

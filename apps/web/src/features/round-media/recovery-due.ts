@@ -27,6 +27,7 @@ export type RecoverySession = {
   readonly lastPassAt: string | null;
   readonly roundChangedAt: string;
   readonly roundStatus: RoundStatus;
+  readonly sourceVoided: boolean;
   readonly finalSegmentEndedAt: string | null;
   readonly postRoundCall: PostRoundCallFacts;
   readonly unsafe: boolean;
@@ -76,6 +77,7 @@ export const recoveryNeed = (
     // its post-round call: everyone on it is waiting.
     ['closed', 'post-round-call-opening'].includes(
       mediaPhase({
+        sourceVoided: session.sourceVoided,
         status: session.roundStatus,
         now: session.now,
         finalSegmentEndedAt: session.finalSegmentEndedAt,

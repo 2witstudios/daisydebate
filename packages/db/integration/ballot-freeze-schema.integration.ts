@@ -1,3 +1,4 @@
+import { judgedRound, authoredJudgedRound } from './judged-round.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -13,9 +14,9 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 test('every ballot names its own Round and an immutable committed freeze revision', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const judge = await fixture.seat(roundId, 'judge');
-    const otherRound = await fixture.round();
+    const otherRound = await judgedRound(fixture);
     const otherJudge = await fixture.seat(otherRound, 'judge');
     await fixture.freeze(roundId);
     const insert = (
@@ -38,7 +39,7 @@ test('every ballot names its own Round and an immutable committed freeze revisio
       given: 'a ballot naming another Round judge',
       should: 'reject cross-Round provenance',
       actual: await rejectedBy(() => insert(otherJudge.id, roundId, 1)),
-      expected: 'ballots_judge_round_fk',
+      expected: 'ballots_current_judge_assignment',
     });
     assert({
       given: 'a ballot naming an uncommitted freeze revision',
@@ -48,13 +49,18 @@ test('every ballot names its own Round and an immutable committed freeze revisio
     });
     assert({
       given: 'a ballot without its Round, its freeze revision, or either',
-      should: 'reject it as not null rather than accept unknown provenance',
+      should:
+        'reject every incomplete provenance at the current-assignment or not-null fence',
       actual: await Promise.all([
         rejectedBy(() => insert(judge.id, null, 1)),
         rejectedBy(() => insert(judge.id, roundId, null)),
         rejectedBy(() => insert(judge.id, null, null)),
       ]),
-      expected: ['23502', '23502', '23502'],
+      expected: [
+        'ballots_current_judge_assignment',
+        '23502',
+        'ballots_current_judge_assignment',
+      ],
     });
     assert({
       given: 'a non-positive freeze revision',
@@ -100,7 +106,7 @@ test('every ballot names its own Round and an immutable committed freeze revisio
 
 test('every judge has a separate job and only owning Round erasure removes frozen ballots', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const roundId = await authoredJudgedRound(fixture, 2);
     try {
       const judges = [
         await fixture.seat(roundId, 'judge'),
@@ -157,8 +163,7 @@ test('every judge has a separate job and only owning Round erasure removes froze
       );
       assert({
         given: 'standalone freeze or submitted judge-seat deletion',
-        should:
-          'refuse freeze deletion immediately and seat deletion at commit, preserving both',
+        should: 'refuse both immutable deletions immediately, preserving both',
         actual: {
           reachedFreezeCommit,
           reachedSeatCommit,
@@ -173,9 +178,9 @@ test('every judge has a separate job and only owning Round erasure removes froze
         },
         expected: {
           reachedFreezeCommit: false,
-          reachedSeatCommit: true,
+          reachedSeatCommit: false,
           freezeRefusal: 'round_transcript_freezes_immutable',
-          seatRefusal: 'ballots_judge_seat_fk',
+          seatRefusal: 'round_participants_identity_immutable',
           freezes: 1,
           seats: 2,
         },

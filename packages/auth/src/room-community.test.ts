@@ -27,19 +27,19 @@ const fact: RoomCommunityFact = {
   endedAt: null,
   actorId: 'actor',
   host: false,
-  seatRole: 'affirmative',
+  seatKind: 'side',
 };
 const actions = ['read', 'post', 'remove'] as const;
 const visibilities = ['public', 'unlisted', 'private'] as const;
-const seatRoles = ['affirmative', 'negative', 'judge', null] as const;
+const seatKinds = ['side', 'speaker', 'moderator', 'judge', null] as const;
 /** One caller of each standing, as raw facts. */
 const callers = {
-  seated: { host: false, seatRole: 'negative' },
-  host: { host: true, seatRole: null },
-  visitor: { host: false, seatRole: null },
-  judge: { host: false, seatRole: 'judge' },
-  hostJudge: { host: true, seatRole: 'judge' },
-  none: { host: false, seatRole: null, visibility: 'private' },
+  seated: { host: false, seatKind: 'side' },
+  host: { host: true, seatKind: null },
+  visitor: { host: false, seatKind: null },
+  judge: { host: false, seatKind: 'judge' },
+  hostJudge: { host: true, seatKind: 'judge' },
+  none: { host: false, seatKind: null, visibility: 'private' },
 } as const;
 const decide = (
   change: Partial<Parameters<typeof decideRoomCommunity>[0]> = {},
@@ -65,21 +65,23 @@ describe('decideRoomCommunity', () => {
       actual: Object.fromEntries(
         visibilities.flatMap((visibility) =>
           [true, false].flatMap((host) =>
-            seatRoles.map((seatRole) => [
-              `${visibility}/${host ? 'host' : 'other'}/${seatRole ?? 'no seat'}`,
-              roomCommunityStanding({ visibility, host, seatRole }),
+            seatKinds.map((seatKind) => [
+              `${visibility}/${host ? 'host' : 'other'}/${seatKind ?? 'no seat'}`,
+              roomCommunityStanding({ visibility, host, seatKind }),
             ]),
           ),
         ),
       ),
       expected: Object.fromEntries(
         visibilities.flatMap((visibility) => [
-          [`${visibility}/host/affirmative`, 'seated'],
-          [`${visibility}/host/negative`, 'seated'],
+          [`${visibility}/host/side`, 'seated'],
+          [`${visibility}/host/speaker`, 'seated'],
+          [`${visibility}/host/moderator`, 'seated'],
           [`${visibility}/host/judge`, 'judge'],
           [`${visibility}/host/no seat`, 'seated'],
-          [`${visibility}/other/affirmative`, 'seated'],
-          [`${visibility}/other/negative`, 'seated'],
+          [`${visibility}/other/side`, 'seated'],
+          [`${visibility}/other/speaker`, 'seated'],
+          [`${visibility}/other/moderator`, 'seated'],
           [`${visibility}/other/judge`, 'judge'],
           [
             `${visibility}/other/no seat`,

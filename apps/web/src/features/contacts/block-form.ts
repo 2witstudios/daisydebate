@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { singleFormField } from '../../server/form-field';
+import { singleFormField } from '../forms/form-state';
 import {
   idle,
   refusedWith,

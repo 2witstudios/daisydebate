@@ -12,6 +12,7 @@ type Reservation = Awaited<
 /** A bot seat with a reserved AI practice admission and a 10-character speech budget. */
 export async function withGeneration(
   work: (value: Publication & { reservation: Reservation }) => Promise<void>,
+  initial?: Parameters<typeof withBotPublication>[2],
 ) {
   await withBotPublication(
     async (context) => {
@@ -25,5 +26,6 @@ export async function withGeneration(
       await work({ ...context, reservation });
     },
     { ttsModel: 'deepgram/aura-2', speechBudget: 10 },
+    initial,
   );
 }

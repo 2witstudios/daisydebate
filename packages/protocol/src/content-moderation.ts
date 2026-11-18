@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { feedbackSubjectSchema } from './ballot-schema';
 import { idSchema } from './primitives';
 import {
   recordingLegalRemovalReasons,
@@ -204,7 +205,8 @@ export const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('ballot_feedback'),
     ballotId: idSchema,
-    side: z.enum(['affirmative', 'negative']),
+    /** Whose feedback was reported: a side key, or a ranked speaker's participant id. */
+    subject: feedbackSubjectSchema,
     text: z.string().nullable(),
   }),
   /** The image itself is read separately, from the operator photo route. */

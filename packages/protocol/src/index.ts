@@ -1,3 +1,4 @@
+export { mediaBindingRevoked } from './media-binding-authority';
 export {
   privateSpanChanges,
   publicClips,
@@ -25,28 +26,82 @@ export { dueAfterStops, runningMs } from './clock-stops';
 export type { ClockStop } from './clock-stops';
 export {
   idSchema,
-  debateSides,
-  debateRoles,
-  roundOutcomeSchema,
   ratingLadders,
   canonicalRatingLadder,
   errorSchema,
 } from './primitives';
+export type { ProtocolError, RatingLadder } from './primitives';
+export { aiRoleFits, aiRoleOfSeat, aiRoleSchema, aiRoles } from './ai-roles';
+export type { AiRole } from './ai-roles';
+export {
+  affirmativeSide,
+  fourTeams,
+  isDebatingSeat,
+  isJudgeSeat,
+  isModeratorSeat,
+  isSideSeat,
+  isSpeakingSeat,
+  isTwoSided,
+  judgeSeat,
+  negativeSide,
+  otherSide,
+  sameSeat,
+  seatKey,
+  seatKindSchema,
+  seatKinds,
+  seatLabel,
+  seatOrder,
+  seatRefSchema,
+  sideKeySchema,
+  sideOfSeat,
+  sideSchema,
+  sideSeat,
+  twoSideKeys,
+  twoSides,
+} from './seats';
 export type {
-  DebateRole,
-  DebateSide,
-  ProtocolError,
-  RatingLadder,
-  RoundOutcome,
-} from './primitives';
+  SeatKind,
+  SeatRef,
+  Side,
+  SideKey,
+  SideSeat,
+  TwoSideKey,
+} from './seats';
 export {
   MAX_FORMAT_SEATS,
-  formatSeatsSchema,
+  everySeatOf,
+  heldSeatsComplete,
+  leadSeatOf,
+  seatCountFor,
+  seatExists,
+  seatsOfKind,
+  seatTotalOf,
+  sideKeysOf,
+  speakingSeatsOf,
+} from './format-seating';
+export type { FormatSeating, SpeakRights } from './format-seating';
+export {
+  rateableOutcome,
+  roundOutcomeSchema,
+  winnerOutcome,
+  winningSideOf,
+} from './round-outcome';
+export type { RoundOutcome, WinnerOutcome } from './round-outcome';
+export {
   formatDefinitionSchema,
+  formatOutcomeSchema,
+  formatSeatsSchema,
   roundRulesSchema,
   segmentTypes,
+  speakRightsSchema,
 } from './format';
-export type { FormatDefinition, RoundRules, SegmentType } from './format';
+export type {
+  FormatDefinition,
+  FormatOutcome,
+  FormatSeats,
+  RoundRules,
+  SegmentType,
+} from './format';
 export type {
   FormatChange,
   FormatSelectionFacts,
@@ -79,8 +134,12 @@ export type {
   ContentReportReason,
   ContentReportTargetKind,
 } from './content-moderation';
-export { roomCaptureSchema } from './room-capture';
-export type { RoomCapture } from './room-capture';
+export {
+  recordingPolicies,
+  recordingPolicySchema,
+  roomCaptureSchema,
+} from './room-capture';
+export type { RecordingPolicy, RoomCapture } from './room-capture';
 export { formatSettingsSchema } from './format-settings';
 export type { RoomResolutionSelection } from './room-resolution';
 export type { FormatSettings } from './format-settings';
@@ -112,7 +171,9 @@ export {
   isRoundCompleted,
   roundStageSchema,
   runtimeCheckpointSchema,
-  emptyRuntimeCheckpoint,
+  emptyRuntimeCheckpointFor,
+  isAbsentSeat,
+  prepConsumedOf,
   clockStopsOf,
   platformIncidentCauses,
   roundPlatformEndings,
@@ -160,34 +221,71 @@ export {
   type JudgingTerminalReason,
 } from './round-judging-attempt';
 export {
-  ballotSchema,
   ballotDefaultScore,
   ballotLimits,
   ballotScoreMax,
-  isLowPointWin,
-  ballotScoresSchema,
-  ballotFeedbackSchema,
-  ballotCitationsSchema,
   ballotRubric,
   ballotRubrics,
   ballotRubricVersion,
   ballotRubricVersions,
   ballotCategories,
   speakerTotal,
-  storedBallotSchema,
-  storedBallotScoresSchema,
-  storedBallotCitationsSchema,
 } from './ballot';
+export {
+  ballotDecisionSchema,
+  ballotDefinitionIdentity,
+  ballotDefinitionSchema,
+  ballotDefinitionPinSchema,
+  ballotDefinitionBodySchema,
+  storedBallotDefinition,
+  type BallotDefinitionBody,
+  daisyBallotDefinitionIds,
+  daisyBallotDefinitions,
+  daisyBallotFor,
+  daisyWinnerBallot,
+  panelRuleFor,
+  panelRuleSchema,
+  roundJudgingSchema,
+  ballotDefinitionSourceSchema,
+  daisyBallotSource,
+  freezeBallotJudging,
+  type BallotJudgingSelection,
+  type BallotJudgingFreeze,
+  type BallotDefinitionSource,
+} from './ballot-definition';
+export type {
+  BallotDefinition,
+  BallotSubjects,
+  DaisyBallotDefinitionId,
+  PanelRule,
+  RoundJudging,
+} from './ballot-definition';
+export {
+  ballotRecordSchema,
+  ballotWrittenRecordSchema,
+  type BallotWrittenRecord,
+  ballotTextScreeningSchema,
+  type BallotTextScreening,
+  ballotCompetitionRecordSchema,
+  ballotCompetitionSchemaFor,
+  ballotSchemaFor,
+  ballotScoresRecordSchema,
+  ballotSubjectsFor,
+  feedbackSubjectOf,
+  feedbackSubjectSchema,
+  isLowPointWin,
+  pointsTotal,
+  storedBallotSchemaFor,
+} from './ballot-schema';
+export type { Ballot, BallotCompetition } from './ballot-schema';
 export { caseMapSchema } from './case-map';
 export type { CaseMap } from './case-map';
-export type {
-  Ballot,
-  BallotCategory,
-  BallotRubricVersion,
-  StoredBallot,
-} from './ballot';
+export type { BallotCategory, BallotRubricVersion } from './ballot';
 export type {
   DebaterStanding,
+  EndingRating,
+  EndingRatingFacts,
+  EndingUnrated,
   PlannedRatingChange,
   RatingEligibility,
   RatingEligibilityFacts,
@@ -204,6 +302,9 @@ export {
   buildRoundTopic,
   buildChannelTopic,
   buildRoomTopic,
+  buildLobbyTopic,
+  buildLobbyHostTopic,
+  buildOrganizationHostTopic,
 } from './topics';
 export {
   emailDeliveryStatuses,
@@ -256,9 +357,6 @@ export type { PresenceActivity } from './realtime';
 
 export {
   ROOM_SEAT_HOLD_MS,
-  roomSeatKinds,
-  roomSeatKindSchema,
-  seatKindOf,
   freeSeatsOf,
   isOpenRoom,
   isOpenRoomStatus,
@@ -293,9 +391,12 @@ export type {
 export {
   roomTeamSchema,
   seatDrawSchema,
+  seatsTwoTeams,
   sideOfTeam,
+  sidesSwappable,
   teamOfPlacement,
   teamPlacementOf,
+  teamSideSchema,
 } from './seat-draw';
 export type { RoomTeam, SeatDraw } from './seat-draw';
 
@@ -321,7 +422,6 @@ export type {
   RoomAssemblyState,
   RoomRoundLink,
   RoomSeatHold,
-  RoomSeatKind,
   RoomConsent,
   RoomMutationOutcome,
   RoomCastChoice,
@@ -354,6 +454,13 @@ export {
   type ActiveRoom,
   type ActiveRoomFacts,
 } from './active-room';
+export {
+  hostedRoomSchema,
+  hostedRoomsReadSchema,
+  maxHostedRooms,
+  type HostedRoom,
+  type HostedRoomsRead,
+} from './hosted-rooms';
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';
 
@@ -432,8 +539,23 @@ export type {
   RoundBallotRead,
   RoundJudgeAssignment,
 } from './round-ballot-read';
-export { entitlementKinds, entitlementSources } from './entitlements';
-export type { EntitlementGrant } from './entitlements';
+export {
+  entitlementKinds,
+  entitlementSources,
+  accountEntitlementKinds,
+  entitlementGrantSchema,
+} from './entitlements';
+export {
+  tournamentHostingCoverageSchema,
+  tournamentHostingIssuerSchema,
+  tournamentHostingVersionSchema,
+  tournamentHostingGrantSchema,
+} from './tournament-hosting';
+export type {
+  TournamentHostingGrant,
+  TournamentHostingVersion,
+} from './tournament-hosting';
+export type { EntitlementGrant, PremiumEntitlementKind } from './entitlements';
 export {
   roundAnalysisLimits,
   roundAnalysisReportSchema,
@@ -646,6 +768,8 @@ export {
   notificationChoicePairs,
   notificationChoicesSchema,
   notificationKinds,
+  tournamentNotificationKinds,
+  type TournamentNotificationKind,
   notificationPreferencesSchema,
   notificationSubjects,
   NOTIFICATIONS_READ_AT_ONCE,
@@ -824,3 +948,46 @@ export {
   remainingAnalysisCalls,
 } from './round-analysis-lifecycle';
 export type { AnalysisWorkEvent } from './round-analysis-lifecycle';
+
+export {
+  scoreScaleFor,
+  sumScoreValues,
+  isScoreOnScale,
+  scoreUnitFor,
+  scoreUnits,
+  scoreUnitSchema,
+  commonScoreUnit,
+  convertScoreUnits,
+  scoreLatticeValues,
+  scoreLatticeSize,
+  scoreValueAt,
+  type ScoreUnit,
+} from './score-unit';
+
+export {
+  roundCompetitionSourceSchema,
+  roundCompetitionFreezeSchema,
+  type RoundCompetitionSource,
+} from './round-competition-source';
+export { formatRevisionPinSchema } from './format-reference';
+
+export { aiBallotAdmissionRefusal } from './ai-ballot-admission';
+
+export { tournamentSponsorshipVersionSchema } from './tournament-sponsorship';
+export type {
+  TournamentSponsorshipVersion,
+  TournamentSponsorshipChange,
+} from './tournament-sponsorship';
+
+export {
+  tournamentCaptureAdmissionSchema,
+  tournamentCaptureExecutionBudgetMs,
+} from './tournament-capture-admission';
+export type {
+  TournamentCaptureAdmission,
+  TournamentOfficialAuthority,
+} from './tournament-capture-admission';
+export {
+  roundJudgeAssignmentReceiptSchema,
+  type RoundJudgeAssignmentReceipt,
+} from './round-judge-assignment';

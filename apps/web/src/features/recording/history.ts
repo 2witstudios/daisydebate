@@ -4,7 +4,16 @@ import {
   type RecordingJobState,
   type RecordingPreparation,
 } from '@daisy/protocol';
-import type { RecordingMedia } from '@daisy/protocol';
+import {
+  pointsTotal,
+  seatLabel,
+  sideOfSeat,
+  type RecordingMedia,
+  type RoundOutcome,
+  type SeatRef,
+  type Side,
+} from '@daisy/protocol';
+import { sideName } from '../debate-room/seat-names';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
 import {
@@ -18,6 +27,7 @@ import {
   recordingMediaState,
   moderationHidesText,
   permissionsAfterModeration,
+  recordingDeletionDueMs,
   roundEvidencePermissions,
   type BroadcastRelease,
   type RecordingMediaState,
@@ -31,10 +41,12 @@ import type { RecordingRecord } from './ports';
 export type HistoryRound = RecordingRound & {
   readonly title: string | null;
   readonly resolution: string | null;
-  readonly outcome: string | null;
+  /** The format's declared sides, in order; none for an unsided format. */
+  readonly sides: readonly Side[];
+  readonly outcome: RoundOutcome | null;
   readonly debaters: readonly {
     readonly roundParticipantId: string | null;
-    readonly role: string;
+    readonly seat: SeatRef;
     readonly label: string | null;
   }[];
 };
@@ -52,11 +64,13 @@ export type HistoryTranscript = {
 };
 
 export type HistoryBallot = {
-  readonly winner: string;
-  readonly reason: string;
+  /** Null for a ballot that named no winning side. */
+  readonly winner: string | null;
+  readonly reason: string | null;
+  /** Each scored subject's score: a number, or a criteria grid; null for a ballot with no points. */
   readonly scores: Readonly<
-    Record<string, Readonly<Record<string, number>> | undefined>
-  >;
+    Record<string, number | Readonly<Record<string, number>> | undefined>
+  > | null;
 };
 
 export type HistoryInputs = {
@@ -97,7 +111,7 @@ type ResultPanel = {
     readonly title: string;
     readonly winner: string;
     readonly scores: string;
-    readonly reason: string;
+    readonly reason: string | null;
   }[];
 };
 
@@ -138,6 +152,8 @@ export type RecordingHistoryScreen =
       readonly ranked: boolean;
       readonly date: string;
       readonly visibility: RecordingRound['visibility'];
+      /** An officials' Recording's deletion date (YYYY-MM-DD); null for any other. */
+      readonly deletesOn: string | null;
       readonly media: RecordingMediaPanel;
       /** Null means no text history may be shown to this viewer, or none exists. */
       readonly transcript: TranscriptPanel | null;
@@ -155,9 +171,6 @@ export type RecordingHistoryScreen =
       };
     };
 
-const sideName = (side: string): string =>
-  side === 'affirmative' ? 'Affirmative' : 'Negative';
-
 const coverageNote = (transcript: HistoryTranscript): string | null => {
   if (transcript.completeness === 'complete' && transcript.gaps.length === 0)
     return null;
@@ -166,12 +179,25 @@ const coverageNote = (transcript: HistoryTranscript): string | null => {
     : 'This transcript is partial: some speech was not captured.';
 };
 
+/** A seat with no name on record reads by its side, or by the seat itself. */
+const unnamedSeat = (round: HistoryRound, seat: SeatRef): string => {
+  const side = sideOfSeat(seat);
+  return side !== null
+    ? sideName(round.sides, side)
+    : seatLabel(
+        round.sides,
+        seat,
+        round.debaters.filter((debater) => debater.seat.kind === seat.kind)
+          .length,
+      );
+};
+
 const speakerOf = (round: HistoryRound, participantId: string): string => {
   const seat = round.debaters.find(
     (debater) => debater.roundParticipantId === participantId,
   );
   if (!seat) return 'Speaker';
-  return seat.label === null ? sideName(seat.role) : `@${seat.label}`;
+  return seat.label === null ? unnamedSeat(round, seat.seat) : `@${seat.label}`;
 };
 
 /** Actual turn order, numbered before any search so a match keeps its number. */
@@ -199,19 +225,37 @@ const transcriptPanel = (
   };
 };
 
-const sideTotal = (ballot: HistoryBallot, side: string): number =>
-  Object.values(ballot.scores[side] ?? {}).reduce((sum, n) => sum + n, 0);
+/** "Affirmative 34, Negative 31": each scored subject's total, sides in declared order. */
+const scoreLine = (round: HistoryRound, ballot: HistoryBallot): string => {
+  const scores = ballot.scores ?? {};
+  const sideKeys = round.sides.map((side) => side.key);
+  const subjects = [
+    ...sideKeys.filter((key) => key in scores),
+    ...Object.keys(scores).filter((key) => !sideKeys.includes(key)),
+  ];
+  return subjects
+    .map((key) => {
+      const name = sideKeys.includes(key)
+        ? sideName(round.sides, key)
+        : speakerOf(round, key);
+      return `${name} ${pointsTotal(scores[key] ?? 0)}`;
+    })
+    .join(', ');
+};
 
 /** Winner, scores and reason. Judges appear by number; feedback never reaches here. */
 const resultPanel = (
   round: HistoryRound,
   ballots: readonly HistoryBallot[],
 ): ResultPanel => ({
-  headline: resultHeadline(round.outcome),
+  headline: resultHeadline(round.outcome, round.sides),
   ballots: ballots.map((ballot, index) => ({
     title: `Judge ${index + 1}`,
-    winner: sideName(ballot.winner),
-    scores: `Affirmative ${sideTotal(ballot, 'affirmative')}, Negative ${sideTotal(ballot, 'negative')}`,
+    winner:
+      ballot.winner === null
+        ? 'No winner'
+        : sideName(round.sides, ballot.winner),
+    scores: scoreLine(round, ballot),
     reason: ballot.reason,
   })),
 });
@@ -243,7 +287,9 @@ const mediaPanel = (
   const speaker = (id: string) => {
     const seat = round.debaters.find((d) => d.roundParticipantId === id);
     if (!seat) return 'A speaker';
-    return seat.label === null ? sideName(seat.role) : `@${seat.label}`;
+    return seat.label === null
+      ? unnamedSeat(round, seat.seat)
+      : `@${seat.label}`;
   };
   return {
     state: 'watch',
@@ -286,6 +332,11 @@ const recordingActions = (input: {
       ? { recordingId: record.id, version: record.version }
       : null,
   };
+};
+
+const deletionDay = (round: HistoryRound): string | null => {
+  const due = recordingDeletionDueMs(round);
+  return due === null ? null : new Date(due).toISOString().slice(0, 10);
 };
 
 const reportTargetOf = (record: RecordingRecord | null, roundId: string) =>
@@ -333,6 +384,7 @@ export const openRecordingHistory = async (
     await inputs.readBroadcastRelease(round.id),
     input.viewer,
     input.presentedLinkHash,
+    inputs.nowMs(),
   );
   if (!admitted.open) return { kind: 'unavailable' };
   const record = await inputs.findRecordingByRound(round.id);
@@ -368,6 +420,7 @@ export const openRecordingHistory = async (
     ranked: round.competitionType === 'ranked',
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
+    deletesOn: deletionDay(round),
     media: mediaPanel(
       round,
       record,

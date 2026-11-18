@@ -1,17 +1,25 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomParticipant } from '@daisy/protocol';
+import {
+  judgeSeat,
+  sideSeat,
+  type RoomParticipant,
+  type SeatRef,
+} from '@daisy/protocol';
 import { castSeatsBotDebater } from './ai-round-cast';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
-const seat = (
-  kind: RoomParticipant['kind'],
-  role: RoomParticipant['role'],
-) => ({ kind, role });
-const human = (role: RoomParticipant['role']) => seat('human', role);
-const bot = (role: RoomParticipant['role']) => seat('bot', role);
+type Place = 'affirmative' | 'negative' | 'judge';
+const seatOf = (place: Place): SeatRef =>
+  place === 'judge' ? judgeSeat() : sideSeat(place);
+const seat = (kind: RoomParticipant['kind'], place: Place) => ({
+  kind,
+  seat: seatOf(place),
+});
+const human = (place: Place) => seat('human', place);
+const bot = (place: Place) => seat('bot', place);
 
 const casts = [
   ['a bot debater against a human', [human('affirmative'), bot('negative')]],
@@ -59,7 +67,7 @@ test('a real Launch carries the cast consequence in its freeze', () => {
     'a bot debater': { ...room, participants: [host!, { ...other!, ...bot }] },
     'an AI judge alone': {
       ...room,
-      rules: { ...room.rules, seats: { ...room.rules.seats, judge: 1 } },
+      rules: { ...room.rules, seats: { ...room.rules.seats, judges: 1 } },
       participants: [
         host!,
         other!,
@@ -68,7 +76,7 @@ test('a real Launch carries the cast consequence in its freeze', () => {
           ...bot,
           id: 'p3',
           actorId: 'judge',
-          role: 'judge' as const,
+          seat: judgeSeat(),
         },
       ],
     },

@@ -47,19 +47,28 @@ const holdOf = (
 };
 
 /**
- * The human actors a Room holds as its active members (ADR 0070): the host
- * and every seated human while it assembles or its Round is live. Bots hold
- * no membership. A closed Room and a finished Round hold no one, so every
- * terminal state frees its members for a new Room.
+ * The human actors a Room holds as its active members (ADR 0070, TAB-6):
+ * every seated human while it assembles or its Round is live. A seat is what
+ * holds a person; a host without one is not held, so a seatless host may host
+ * several standing Rooms (TAB-6.16) and an organiser acting by grant is never
+ * held. The one exception is a Room that `holdsHost`: a Train practice, which
+ * holds its creator from create and through every later command, so a second
+ * Start practice returns to it (decision 75). Bots hold no membership. A
+ * closed Room and a finished Round hold no one, so every terminal state frees
+ * its members for a new Room.
  */
 export const activeRoomMembers = (
-  room: Holding & Pick<RoomAssemblyState, 'hostActorId' | 'participants'>,
+  room: Holding &
+    Pick<RoomAssemblyState, 'participants'> &
+    Partial<Pick<RoomAssemblyState, 'hostActorId' | 'holdsHost'>>,
 ): readonly string[] =>
   holdOf(room) === null
     ? []
     : [
         ...new Set([
-          room.hostActorId,
+          ...(room.holdsHost === true && room.hostActorId
+            ? [room.hostActorId]
+            : []),
           ...room.participants
             .filter((p) => p.kind === 'human')
             .map((p) => p.actorId),
@@ -72,14 +81,7 @@ export function projectActiveRoom(
   actorId: string,
 ): ActiveRoom | null {
   const hold = holdOf(facts);
-  const role =
-    facts.room.hostActorId === actorId
-      ? 'host'
-      : facts.seatRole === null
-        ? null
-        : facts.seatRole === 'judge'
-          ? 'judge'
-          : 'debater';
+  const role = facts.room.hostActorId === actorId ? 'host' : facts.seatKind;
   if (hold === null || role === null) return null;
   return {
     version: 1,
@@ -87,7 +89,7 @@ export function projectActiveRoom(
     title: facts.room.title,
     phase: hold.phase,
     role,
-    seated: facts.seatRole !== null,
+    seated: facts.seatKind !== null,
     href: activeRoomHref({ ...hold, roomId: facts.room.id }),
   };
 }

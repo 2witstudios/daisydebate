@@ -13,8 +13,7 @@ const evidence: TranscriptEvidenceInput = {
   coverage: [
     {
       sequence: 0,
-      side: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
       state: 'complete',
       chunkCount: 2,
       sealedChunkCount: 2,
@@ -25,8 +24,7 @@ const evidence: TranscriptEvidenceInput = {
     {
       segmentSequence: 0,
       sequence: 0,
-      side: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
       text: 'Worth it means better than not.',
       complete: true,
       interrupted: false,
@@ -34,8 +32,7 @@ const evidence: TranscriptEvidenceInput = {
     {
       segmentSequence: 1,
       sequence: 0,
-      side: 'negative',
-      slot: 0,
+      seat: { kind: 'side', side: 'negative', slot: 0 },
       text: 'Opportunity cost: the oceans.',
       complete: true,
       interrupted: true,

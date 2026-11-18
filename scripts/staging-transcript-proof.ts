@@ -37,11 +37,11 @@ async function main() {
       stage = 'evidence';
       const [freeze] =
         await sql`select completeness,frontier from round_transcript_freezes where round_id=${round.roundId}`;
-      const streams: TranscriptProofStream[] = await sql`select p.role,s.state,
+      const streams: TranscriptProofStream[] = await sql`select p.side,s.state,
         (select count(*)::int from utterances u where u.segment_id=s.segment_id and u.round_participant_id=p.id and u.bot_phrase_id is not null and u.complete and not u.interrupted) as "authoredLines",
         exists(select 1 from agent_runs a where a.round_participant_id=p.id and a.kind='speech' and a.provider='openrouter' and a.configuration_snapshot->>'providerOutcome'='received' and a.input_tokens+a.output_tokens>0) as "realSpeech",
         exists(select 1 from agent_runs a where a.round_participant_id=p.id and a.kind='tts' and a.provider='openrouter' and a.configuration_snapshot->>'providerOutcome'='received' and a.characters>0) as "realTts"
-        from transcript_segments s join round_participants p on p.id=s.round_participant_id where s.round_id=${round.roundId} order by p.role`;
+        from transcript_segments s join round_participants p on p.id=s.round_participant_id where s.round_id=${round.roundId} order by p.side`;
       const proof = {
         ...round,
         completeness: freeze?.completeness ?? null,

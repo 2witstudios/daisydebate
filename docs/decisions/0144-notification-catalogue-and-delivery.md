@@ -103,3 +103,12 @@ needs people to know when something needs them, and to be pulled back.
 - The unread count is shown on the title, not the favicon: a drawn favicon is
   left for a later change.
 - Web push is not decided here; it is a later slice with its own ADR.
+- On the Tab parent (main-sync-3), Tab adopts this model (NTF-15). Its six
+  kinds (`judge_assigned`, `judge_replaced`, `judge_unassigned`,
+  `tournament_draw_changed`, `tournament_room_ready`,
+  `tournament_results_released`) are catalogue entries on a `fixture`
+  subject (the fixture, its lobby and the applied command), durable and
+  in-app only, written by `oweNotifications`. Their standing is Tab's own
+  read: Tab's rows sit behind lobby-scoped row security, so Tab reads each
+  lobby the member may read now in its own scope, under the ordinary Tab read
+  fences, and hands the standing ids to the one standing switch.

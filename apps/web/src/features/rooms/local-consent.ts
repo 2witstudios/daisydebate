@@ -1,4 +1,9 @@
-import { isNamedSeat, type RoomCommand, type RoomView } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  isNamedSeat,
+  type RoomCommand,
+  type RoomView,
+} from '@daisy/protocol';
 import type { RoomRead } from './read-assembly';
 import type { submitAssembly } from './submit-assembly';
 
@@ -81,7 +86,7 @@ export function createLocalConsent({
       !snapshot.view.capabilities.canReady ||
       !participant ||
       participant.kind !== 'human' ||
-      participant.role === 'judge'
+      isJudgeSeat(participant.seat)
     )
       return null;
     return {

@@ -40,7 +40,7 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
   assert({
     given: 'a chosen eligible opponent with the judge and Freestyle available',
     should:
-      'build the create body: strike resolution, public, freestyle at its canonical preset, the bot at negative and the judge judging',
+      'build the create body: strike resolution, public, freestyle at its canonical preset, the bot at negative, the judge judging, and a practice that holds its creator',
     actual:
       ready.kind === 'ready'
         ? [
@@ -49,6 +49,7 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
             ready.body.visibility,
             ready.body.selection,
             ready.body.cast,
+            ready.body.practice,
           ]
         : ready,
     expected: [
@@ -63,9 +64,17 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
         competitionType: 'casual',
       },
       [
-        { actorId: 'wren-actor-id-000000', role: 'negative', slot: 0 },
-        { actorId: 'judge-actor-id-000000', role: 'judge', slot: 0 },
+        {
+          actorId: 'wren-actor-id-000000',
+          seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+        },
+        {
+          actorId: 'judge-actor-id-000000',
+          seat: { kind: 'judge', slot: 0 } as const,
+        },
       ],
+      // Its creator is held from create (decision 75).
+      true,
     ],
   });
 });
@@ -107,7 +116,12 @@ test('Start practice without the casual AI judge leaves the judge seat for a per
     given: 'a member without the entitlement',
     should: 'seat only the bot, so the host invites a person to judge',
     actual: ready.kind === 'ready' ? ready.body.cast : ready,
-    expected: [{ actorId: 'wren-actor-id-000000', role: 'negative', slot: 0 }],
+    expected: [
+      {
+        actorId: 'wren-actor-id-000000',
+        seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+      },
+    ],
   });
   const noJudge = preparePractice(
     form('wren-actor-id-000000'),

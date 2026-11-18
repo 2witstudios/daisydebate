@@ -27,6 +27,7 @@ import type {
 } from './operation-context';
 import { OperationTimedOut } from '@daisy/observability';
 import {
+  isDebatingSeat,
   isRoundRunning,
   roundStartPolicy,
   type MediaRoomRead,
@@ -116,9 +117,7 @@ const roomObservation = (
     seatsListed: state.participants
       .filter(
         (seat) =>
-          seat.kind === 'human' &&
-          seat.eligible &&
-          (seat.role === 'affirmative' || seat.role === 'negative'),
+          seat.kind === 'human' && seat.eligible && isDebatingSeat(seat.seat),
       )
       .every((seat) =>
         listed.some(

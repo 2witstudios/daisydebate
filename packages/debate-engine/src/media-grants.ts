@@ -6,6 +6,7 @@ import type {
 } from '@daisy/protocol';
 import {
   conversational,
+  isJudgeSeat,
   isRoundRunning,
   noPostRoundCall,
   roundStartPolicy,
@@ -55,6 +56,7 @@ const withinMediaWindow = (input: MediaGrantInput) => {
     Number.isFinite(finalEnd) &&
     Date.parse(input.now) >= finalEnd &&
     !mediaWindowClosed({
+      sourceVoided: false,
       status: input.position.status,
       now: input.now,
       finalSegmentEndedAt: input.finalSegmentEndedAt,
@@ -156,8 +158,8 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
     !isRoundRunning(position.status) ||
     !withinMediaWindow(input)
   )
-    return denied(seat?.role === 'judge');
-  if (seat.role === 'judge')
+    return denied(seat !== undefined && isJudgeSeat(seat.seat));
+  if (isJudgeSeat(seat.seat))
     return { publish: [], subscribe: true, hidden: true, capture: false };
   if (input.inPreRoundPrep)
     return {

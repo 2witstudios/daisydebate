@@ -12,6 +12,7 @@ const admitted = (
 
 test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', () => {
   const withdrawals = [
+    'tournament.sponsorship.withdraw',
     'room.leave',
     'channel.leave',
     'social.block',
@@ -28,6 +29,7 @@ test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', ()
     'channel.invitation.cancel',
     'social.challenge.decline',
     'social.challenge.cancel',
+    'organization.membership.leave',
     'profile.public.read',
     'profile.public.withdraw',
   ];

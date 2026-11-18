@@ -1,6 +1,11 @@
-import type { CaseMap, JudgingStageInput } from '@daisy/protocol';
+import type {
+  BallotDefinition,
+  CaseMap,
+  JudgingStageInput,
+  Side,
+} from '@daisy/protocol';
 import type { ChatMessage } from './openrouter';
-import { ballotInstructions, rubricAnchors } from './judge-instructions';
+import { ballotInstructions, scoringAnchors } from './judge-instructions';
 import { roundJudgeMessages } from './round-judge';
 import {
   evidenceRules,
@@ -40,17 +45,36 @@ const caseMapTask = `Map this round. Cite lines as segment.line (for example 1.7
 - standing: the node ids still standing for each side after the attacks and everything they remove.
 Return only the JSON object.`;
 
-const finalSystem = [
-  'You are an experienced, fair debate judge. You decide the round by the coherency of each side’s case: whether its thesis is still carried, through burdens that still stand, on warrants that still hold, once the opponent’s attacks and everything they remove are taken into account.',
-  'Decide in dependency order: first the dispute over the framework, which settles which burdens the round is judged on; then, for each live burden, what still stands after the attacks and the arguments they remove; then which thesis is still carried coherently; and only then weigh what remains. An argument removed by a successful attack on its premise is not weighed, even if no one answered it by name. Credit only links the speakers drew.',
-  proofRules,
-  evidenceRules,
-  rubricAnchors,
-].join('\n');
+const finalSystem = (definition: BallotDefinition, sides: readonly Side[]) =>
+  [
+    'You are an experienced, fair debate judge. You decide the round by the coherency of each side’s case: whether its thesis is still carried, through burdens that still stand, on warrants that still hold, once the opponent’s attacks and everything they remove are taken into account.',
+    'Decide in dependency order: first the dispute over the framework, which settles which burdens the round is judged on; then, for each live burden, what still stands after the attacks and the arguments they remove; then which thesis is still carried coherently; and only then weigh what remains. An argument removed by a successful attack on its premise is not weighed, even if no one answered it by name. Credit only links the speakers drew.',
+    proofRules,
+    evidenceRules,
+    ...(definition.points ? [scoringAnchors(definition.points, sides)] : []),
+  ].join('\n');
 
-const finalTask = `Decide the round. The transcript is the authority: correct the map wherever the cited lines do not support it, and say so in your reason if the correction matters to the decision.
+/** What the scores must agree with: a low-point win is explained, or never allowed. */
+const scoresRule = (definition: BallotDefinition): string => {
+  if (!definition.points) return '';
+  const allowed =
+    definition.decision.kind !== 'winner' || definition.decision.lowPointWin;
+  return allowed
+    ? definition.written.reason
+      ? " The scores describe each side's performance against the anchors; if the losing side's total is higher, the reason must say why."
+      : " The scores describe each side's performance against the anchors; a low-point win is allowed and reason is off."
+    : " The scores describe each side's performance against the anchors; the winner's total is never lower than the loser's.";
+};
 
-The reason states the decision in dependency order: how the framework dispute was resolved, which of the opponent's arguments fell with a premise, what still stands for each side, and why the winner's thesis is carried. Keep it under 550 characters. The scores describe each side's performance against the anchors; if the losing side's total is higher, the reason must say why.`;
+/** The reason is asked for under its hard limit, so a careful answer never meets it. */
+const reasonMargin = 50;
+
+const finalTask = (definition: BallotDefinition) =>
+  definition.written.reason === null
+    ? `Decide the round from the transcript, correcting the case map wherever the cited lines do not support it. Reason is off: do not include a reason field.${scoresRule(definition)}`
+    : `Decide the round. The transcript is the authority: correct the map wherever the cited lines do not support it, and say so in your reason if the correction matters to the decision.
+
+The reason states the decision in dependency order: how the framework dispute was resolved, which of the opponent's arguments fell with a premise, what still stands for each side, and ${definition.decision.kind === 'winner' ? "why the winner's thesis is carried" : 'why the side placed first carries its thesis'}. Keep it under ${definition.written.reason.max - Math.min(reasonMargin, Math.floor(definition.written.reason.max / 5))} characters.${scoresRule(definition)}`;
 
 const resolutionLine = (input: TranscriptEvidenceInput) =>
   `Resolution: ${JSON.stringify(input.resolution)}`;
@@ -74,30 +98,39 @@ function caseMapMessages(input: TranscriptEvidenceInput): ChatMessage[] {
 function finalJudgeMessages(
   input: TranscriptEvidenceInput,
   caseMap: CaseMap,
+  definition: BallotDefinition,
+  sides: readonly Side[],
 ): ChatMessage[] {
   return [
-    { role: 'system', content: finalSystem },
+    { role: 'system', content: finalSystem(definition, sides) },
     {
       role: 'user',
       content: [
         resolutionLine(input),
         transcriptLines(input),
         `A map of the round's cases and how its arguments depend on each other:\n${JSON.stringify(caseMap)}`,
-        finalTask,
-        ballotInstructions,
+        finalTask(definition),
+        ballotInstructions(definition, sides),
       ].join('\n\n'),
     },
   ];
 }
 
-/** One stage's messages, from the one frozen evidence and the one rubric. */
+/**
+ * One stage's messages, from the one frozen evidence and the Round's frozen
+ * ballot definition. The case map is two-sided by contract, so the map and
+ * final stages are asked only of a Round on the two-sided preset; the caller
+ * (`aiJudgeFor`) holds that precondition.
+ */
 export function judgingStageMessages(
   evidence: TranscriptEvidenceInput,
   input: JudgingStageInput,
+  definition: BallotDefinition,
+  sides: readonly Side[],
 ): ChatMessage[] {
   if (input.stage === 'final')
-    return finalJudgeMessages(evidence, input.caseMap);
+    return finalJudgeMessages(evidence, input.caseMap, definition, sides);
   return input.stage === 'map'
     ? caseMapMessages(evidence)
-    : roundJudgeMessages(evidence);
+    : roundJudgeMessages(evidence, definition, sides);
 }

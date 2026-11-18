@@ -2,11 +2,14 @@ import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
+  emptyRuntimeCheckpointFor,
+  aiBallotAdmissionRefusal,
+  isJudgeSeat,
   freezePostRoundCall,
   freezeRoomConfig,
   roundBegan,
 } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
+import { createRefusal, createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
@@ -17,6 +20,8 @@ import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { oweRoundStarted } from './round-began';
 import { holdActiveRoomMembers } from './room-membership-persistence';
+import { freezeRoomBallot } from './room-ballot-freeze';
+import { columnsOfSeat } from './seat-columns';
 
 import {
   appendRoomChanged,
@@ -62,6 +67,21 @@ export const persistRoomMutation = async (
   acceptedCommand: boolean,
 ) => {
   const next = mutation.state;
+  const judging = mutation.freeze
+    ? await freezeRoomBallot(tx, next.id, next.rules)
+    : null;
+  if (
+    judging &&
+    next.participants.some((p) => p.kind === 'bot' && isJudgeSeat(p.seat))
+  ) {
+    const refusal = aiBallotAdmissionRefusal(
+      judging.ballot,
+      next.rules,
+      next.participants,
+    );
+    if (refusal)
+      throw createRefusal('CONFLICT', 'ballot-definition-unavailable');
+  }
   if (mutation.publishDefinition)
     await publishDefinition(
       tx,
@@ -88,8 +108,7 @@ export const persistRoomMutation = async (
         id: p.id,
         roomId: next.id,
         actorId: p.actorId,
-        role: p.role,
-        slot: p.slot,
+        ...columnsOfSeat(p.seat),
         teamOpen: p.teamOpen,
         positionOpen: p.positionOpen,
         readinessCommandId: p.consentCommandId,
@@ -108,7 +127,12 @@ export const persistRoomMutation = async (
     // With nothing to run first, the Round starts at this click.
     const opens = next.roundRef.status === 'opening';
     if (!opens && next.topic === null) throw createAppError('INVARIANT');
+    const [source] = await tx
+      .select({ leagueLadderId: rooms.leagueLadderId })
+      .from(rooms)
+      .where(eq(rooms.id, next.id));
     await tx.insert(rounds).values({
+      leagueLadderId: source?.leagueLadderId ?? null,
       id: roundId,
       roomId: next.id,
       createdByActorId: next.hostActorId,
@@ -124,6 +148,8 @@ export const persistRoomMutation = async (
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
+      judging,
+      runtimeState: emptyRuntimeCheckpointFor(next.rules),
       seatDraw: mutation.seatDraw,
       status: opens ? 'opening' : 'active',
       ...(opens
@@ -138,8 +164,7 @@ export const persistRoomMutation = async (
         id: p.id,
         roundId: roundId,
         actorId: p.actorId,
-        role: p.role,
-        slot: p.slot,
+        ...columnsOfSeat(p.seat),
       })),
     );
     // One seed per Round (ADR 0145): the draw's when it has one, else the seat draw's alone.

@@ -98,7 +98,7 @@ export function CaptureChoice({
           <input
             type="checkbox"
             name="recording"
-            defaultChecked={view.capture?.recording ?? false}
+            defaultChecked={view.capture?.recordingPolicy === 'released'}
           />
           Record this round
         </label>

@@ -32,8 +32,8 @@ const source = (rating = 1888.125) => ({
       deviationBefore: 350,
       deviationAfter: 110,
       occurredAt: at,
-      role: 'affirmative' as const,
-      outcome: 'affirmative' as const,
+      side: 'affirmative' as const,
+      outcome: { kind: 'winner' as const, side: 'affirmative' },
     },
   ],
 });

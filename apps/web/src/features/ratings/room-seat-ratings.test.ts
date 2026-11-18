@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomView } from '@daisy/protocol';
+import { judgeSeat, sideSeat, type RoomView } from '@daisy/protocol';
 import {
   overlaySeatRatings,
   ratedSeatActorIds,
@@ -25,8 +25,7 @@ const seat = (
   kind,
   label: actorId,
   consentVersion: 0,
-  role,
-  slot,
+  seat: role === 'judge' ? judgeSeat(slot) : sideSeat(role, slot),
   teamOpen: false,
   positionOpen: false,
   rating: null,
@@ -38,9 +37,8 @@ const blinded = 'a3aaaaaaaaaaaaaaaaaaaaaa';
 const unrated = 'a4aaaaaaaaaaaaaaaaaaaaaa';
 const bot = 'b1aaaaaaaaaaaaaaaaaaaaaa';
 const anonymousJudge = {
-  role: 'judge' as const,
+  seat: { kind: 'judge' as const, slot: 0 },
   kind: 'human' as const,
-  slot: 0,
   anonymous: true as const,
   ...seatState,
 };

@@ -49,7 +49,7 @@ export function bindOwnedRoundSeat(
  * Round's own withdrawal (leaving it), as `admitsCapability` keeps leaving
  * a Room.
  */
-const roundWithdrawals: readonly string[] = ['forfeit'];
+const roundWithdrawals: readonly string[] = ['forfeit', 'leave'];
 
 /**
  * A human principal commands or judges only with participant access, read

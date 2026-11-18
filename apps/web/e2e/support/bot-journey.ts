@@ -1,6 +1,17 @@
 import { aiCast } from './ai-cast';
 import type { Browser } from '@playwright/test';
-import { judgingStages } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  judgeSeat,
+  judgingStages,
+  negativeSide,
+  sameSeat,
+  sideOfSeat,
+  sideSeat,
+  twoSideKeys,
+  winningSideOf,
+  type SeatRef,
+} from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -60,18 +71,16 @@ export async function proveHumanBotJourney(browser: Browser) {
         },
       };
     });
-    room = await claimSeat(host, room, { role: 'affirmative', slot: 0 });
+    room = await claimSeat(host, room, sideSeat(affirmativeSide));
     room = await assignSeat(host, room, {
       actorId: debater.actorId,
-      role: 'negative',
-      slot: 0,
+      seat: sideSeat(negativeSide),
     });
     room = await assignSeat(host, room, {
       actorId: aiJudge.actorId,
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     });
-    room = await readyOwnSeat(host, room, { role: 'affirmative', slot: 0 });
+    room = await readyOwnSeat(host, room, sideSeat(affirmativeSide));
     let view = await startAdmittedRound(host, room);
     // The human is in the Round room with a real (fake-device) microphone for
     // the whole Round, as in play: the capture worker hears their speech, and
@@ -100,7 +109,7 @@ export async function proveHumanBotJourney(browser: Browser) {
     const first = await openSpeech(host.context.request, view, 0);
     await checkIn(host, first.view, first.open.id);
     await stage.waitForTimeout(HUMAN_SPEECH_MS);
-    view = await yieldSpeech(host, first.view, 'affirmative');
+    view = await yieldSpeech(host, first.view, affirmativeSide);
     const bot = await openSpeech(host.context.request, view, 1);
     expect(bot.open.durationMs).toBe(BOT_SPEECH_MS);
     await expectLiveTranscript(stage, view.id);
@@ -108,36 +117,43 @@ export async function proveHumanBotJourney(browser: Browser) {
     await expect(async () => {
       const round = await readBallotRound(host.context.request, view.id);
       expect(round.status).toBe('completed');
-      expect(
-        ['affirmative', 'negative'],
-        `panel ruling ${round.panelRuling}`,
-      ).toContain(round.outcome);
+      expect(twoSideKeys, `panel ruling ${round.panelRuling}`).toContain(
+        winningSideOf(round.outcome),
+      );
     }).toPass({ timeout: BOT_SPEECH_MS + 240_000 });
     const { runs, lines } = await botSpeechEvidence(view.id);
-    const received = (role: string, kind: string) =>
+    const received = (seat: SeatRef, kind: string) =>
       runs.filter(
         (run) =>
-          run.role === role &&
+          sameSeat(run.seat, seat) &&
           run.kind === kind &&
           run.outcome === 'received' &&
           run.requests > 0,
       );
-    expect(received('negative', 'speech').length).toBeGreaterThan(0);
-    expect(
-      received('negative', 'speech').every((run) => run.outputTokens > 0),
-    ).toBe(true);
-    expect(received('negative', 'tts').length).toBeGreaterThan(0);
-    expect(received('negative', 'tts').every((run) => run.characters > 0)).toBe(
-      true,
+    expect(received(sideSeat(negativeSide), 'speech').length).toBeGreaterThan(
+      0,
     );
+    expect(
+      received(sideSeat(negativeSide), 'speech').every(
+        (run) => run.outputTokens > 0,
+      ),
+    ).toBe(true);
+    expect(received(sideSeat(negativeSide), 'tts').length).toBeGreaterThan(0);
+    expect(
+      received(sideSeat(negativeSide), 'tts').every(
+        (run) => run.characters > 0,
+      ),
+    ).toBe(true);
     // Every voiced phrase that played became one whole authored line, character
     // for character. The speech ends at its last whole phrase that fits before
     // the segment end, so at most the phrases voiced ahead of it (two, the
     // speaker's VOICED_AHEAD) were never said (ADR 0122). Phrases are voiced
     // ahead concurrently, so the runs are matched as a set, not in order.
-    const voiced = received('negative', 'tts').map((run) => run.characters);
+    const voiced = received(sideSeat(negativeSide), 'tts').map(
+      (run) => run.characters,
+    );
     const spoken = lines
-      .filter((line) => line.role === 'negative')
+      .filter((line) => sameSeat(line.seat, sideSeat(negativeSide)))
       .map((line) => ({ ...line }));
     expect(spoken.length).toBeGreaterThan(0);
     expect(spoken.every((line) => line.complete && !line.interrupted)).toBe(
@@ -158,8 +174,10 @@ export async function proveHumanBotJourney(browser: Browser) {
       voiced.slice(voiced.length - unmatched.length).sort(byLength),
     ).toEqual([...unmatched].sort(byLength));
     // Coherency judging buys one call per stage (ADR 0125).
-    expect(received('judge', 'judging')).toHaveLength(judgingStages.length);
-    expect(runs.filter((run) => run.role === 'affirmative')).toEqual([]);
+    expect(received(judgeSeat(), 'judging')).toHaveLength(judgingStages.length);
+    expect(
+      runs.filter((run) => sideOfSeat(run.seat) === affirmativeSide),
+    ).toEqual([]);
     const receipt = await openPage(host.context, 'human/bot receipt');
     await receipt.goto(`/rounds/${view.id}`);
     await expect(

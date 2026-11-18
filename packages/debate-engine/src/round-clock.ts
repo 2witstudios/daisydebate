@@ -1,6 +1,7 @@
 import { createInvariantError } from '@daisy/errors';
 import {
   clockStopsOf,
+  prepConsumedOf,
   dueAfterStops,
   segmentDueAtMs,
   type RoundRules,
@@ -64,7 +65,7 @@ const gapOpening = (
       ? segmentStartsAt(state, rules.countdownMs, nowMs)
       : dueAfterStops(
           Date.parse(active.started_at),
-          Math.max(0, budget - state.checkpoint.prep_consumed_ms[active.side]),
+          Math.max(0, budget - prepConsumedOf(state.checkpoint, active.side)),
           stops,
           nowMs,
         );

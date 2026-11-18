@@ -1,21 +1,34 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint, type LaunchedRound } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  twoSides,
+  type LaunchedRound,
+  type SeatRef,
+} from '@daisy/protocol';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
 
 setupRitewayBun();
 
+const emptyRuntimeCheckpoint = emptyRuntimeCheckpointFor({ sides: twoSides });
 const id = (c: string) => c.repeat(24);
+const seatOf = (
+  role: 'affirmative' | 'negative' | 'judge',
+  slot: number,
+): SeatRef =>
+  role === 'judge'
+    ? { kind: 'judge', slot }
+    : { kind: 'side', side: role, slot };
 const seat = (
   c: string,
   role: 'affirmative' | 'negative' | 'judge',
   kind: 'human' | 'bot' = 'human',
+  slot = 0,
 ) => ({
   id: id(c),
   actorId: id(c),
   kind,
   label: `${role} ${c}`,
-  role,
-  slot: 0,
+  seat: seatOf(role, slot),
 });
 const aff = { ...seat('a', 'affirmative'), actorId: id('b') };
 const neg = { ...seat('c', 'negative'), actorId: id('d') };
@@ -63,7 +76,7 @@ describe('roundViewFor', () => {
       expected: [
         aff,
         neg,
-        { role: 'judge', kind: 'human', slot: 0, anonymous: true },
+        { seat: { kind: 'judge', slot: 0 }, kind: 'human', anonymous: true },
       ],
     });
   });
@@ -84,12 +97,11 @@ describe('roundViewFor', () => {
   });
 
   test('a host who holds a seat', () => {
-    const anonymousJudge = {
-      role: 'judge',
+    const anonymousJudge = (slot: number) => ({
+      seat: { kind: 'judge', slot },
       kind: 'human',
-      slot: 0,
       anonymous: true,
-    };
+    });
     const hosting = (actorId: string) => ({ ...round, hostActorId: actorId });
     assert({
       given: 'the Round read by a debater who also hosts it',
@@ -98,12 +110,11 @@ describe('roundViewFor', () => {
         judge: roundViewFor(hosting(aff.actorId), aff.actorId).participants[2],
         leaks: leaks(roundViewFor(hosting(aff.actorId), aff.actorId)),
       },
-      expected: { judge: anonymousJudge, leaks: [] },
+      expected: { judge: anonymousJudge(0), leaks: [] },
     });
     const secondJudge = {
-      ...seat('j', 'judge'),
+      ...seat('j', 'judge', 'human', 1),
       actorId: id('k'),
-      slot: 1,
       label: 'Sam Judge',
     };
     const panel = {
@@ -114,7 +125,7 @@ describe('roundViewFor', () => {
       given: 'a panel read by the judge who also hosts it',
       should: 'name them to themselves and keep the other judge hidden',
       actual: roundViewFor(panel, judge.actorId).participants.slice(2),
-      expected: [judge, { ...anonymousJudge, slot: 1 }],
+      expected: [judge, anonymousJudge(1)],
     });
   });
 
@@ -134,7 +145,11 @@ describe('roundViewFor', () => {
       },
       expected: {
         viewerIsHost: true,
-        judge: { role: 'judge', kind: 'human', slot: 0, anonymous: true },
+        judge: {
+          seat: { kind: 'judge', slot: 0 },
+          kind: 'human',
+          anonymous: true,
+        },
         leaks: [],
         sent: false,
       },

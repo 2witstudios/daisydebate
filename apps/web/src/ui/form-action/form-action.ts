@@ -46,7 +46,7 @@ export function useFormAction<S>(
 }
 
 /** Focus is on nothing a member can use: `<body>`, or a control since disabled or removed. */
-const focusLost = () => {
+export const focusLost = () => {
   const active = document.activeElement;
   return (
     active === null ||

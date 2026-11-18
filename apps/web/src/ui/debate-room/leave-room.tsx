@@ -47,7 +47,9 @@ export type LeaveLinks = {
   };
   /**
    * While the Round is live, leaving it forfeits (ADR 0070): Leave posts
-   * the round's forfeit command, already confirmed by this dialog.
+   * the round's forfeit command, already confirmed by this dialog. In a
+   * Round no forfeit ends it posts `leave` instead: the seat is recorded
+   * absent and the Round goes on without it (TAB-6.8).
    */
   readonly forfeit?: {
     readonly action: FormAction<RoundFormState>;
@@ -55,6 +57,8 @@ export type LeaveLinks = {
     readonly expectedVersion: number;
     /** The leaving debater's own seat, which the forfeit names. */
     readonly participantId: string;
+    /** The command Leave posts; a forfeit unless the Round cannot be forfeited. */
+    readonly type?: 'forfeit' | 'leave';
   };
 };
 
@@ -63,7 +67,7 @@ const action =
 
 const unanswered: RoundFormState = idle();
 
-/** Leave as the confirmed forfeit; it works without script and moves on to the result. */
+/** Leave as the confirmed forfeit (or absence); it works without script and moves on. */
 function ForfeitLeave({
   forfeit,
   left,
@@ -98,7 +102,7 @@ function ForfeitLeave({
         name="expectedVersion"
         value={forfeit.expectedVersion}
       />
-      <input type="hidden" name="type" value="forfeit" />
+      <input type="hidden" name="type" value={forfeit.type ?? 'forfeit'} />
       <input type="hidden" name="participantId" value={forfeit.participantId} />
       <input type="hidden" name="confirmed" value="true" />
       <FormError error={roundFormFields(answer).error} />
@@ -107,7 +111,7 @@ function ForfeitLeave({
         disabled={pending}
         className={`${action} bg-live text-background`}
       >
-        Leave and forfeit
+        {forfeit.type === 'leave' ? 'Leave round' : 'Leave and forfeit'}
       </button>
     </form>
   );
@@ -205,7 +209,12 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
         <h2 id="leave-room-title" className="font-display text-lg">
           {links.call ? 'Leave the call?' : 'Leave the round?'}
         </h2>
-        {links.forfeit ? (
+        {links.forfeit?.type === 'leave' ? (
+          <p className="text-sm text-ink-muted">
+            The round continues without you: your seat is recorded absent for
+            the rest of the debate.
+          </p>
+        ) : links.forfeit ? (
           <p className="text-sm text-ink-muted">
             Leaving now forfeits the round to your opponent.
           </p>

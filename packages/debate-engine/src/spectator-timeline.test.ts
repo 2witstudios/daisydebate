@@ -1,4 +1,9 @@
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import {
+  SPECTATOR_MARGIN_MS,
+  sideSeat,
+  twoSides,
+  winnerOutcome,
+} from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   BROADCAST_INTERRUPTED_AFTER_MS,
@@ -39,8 +44,13 @@ const read = (over: Partial<Read>, round: Partial<Read['round']> = {}): Read =>
       competitionType: 'ranked',
       resolution: 'A drawn resolution',
       rules: {
+        sides: [...twoSides],
         segments: [
-          { key: '1AC', label: 'First affirmative', side: 'affirmative' },
+          {
+            key: '1AC',
+            label: 'First affirmative',
+            speak: { rights: 'one', seat: sideSeat('affirmative') },
+          },
         ],
       },
       outcome: null,
@@ -135,7 +145,7 @@ describe('projectSpectatorTimeline', () => {
           kind: 'floor',
           segment: 'speech',
           label: 'First affirmative',
-          side: 'affirmative',
+          lead: sideSeat('affirmative'),
           remainingMs: 70_000,
         },
         'A drawn resolution',
@@ -174,9 +184,18 @@ describe('projectSpectatorTimeline', () => {
       durationMs: 100_000,
     });
     const rules = {
+      sides: [...twoSides],
       segments: [
-        { key: '1AC', label: 'First affirmative', side: 'affirmative' },
-        { key: '1NC', label: 'First negative', side: 'negative' },
+        {
+          key: '1AC',
+          label: 'First affirmative',
+          speak: { rights: 'one', seat: sideSeat('affirmative') },
+        },
+        {
+          key: '1NC',
+          label: 'First negative',
+          speak: { rights: 'one', seat: sideSeat('negative') },
+        },
       ],
     } as unknown as Read['round']['rules'];
     const phaseOf = (over: Partial<Read>) => {
@@ -225,20 +244,20 @@ describe('projectSpectatorTimeline', () => {
     const done = { status: 'completed', completedAt: ended } as const;
     const released = { outcomeReleased: true, horizonMs: horizon(ended) };
     const view = projectSpectatorTimeline(
-      read(released, { ...done, outcome: 'negative' }),
+      read(released, { ...done, outcome: winnerOutcome('negative') }),
     );
     assert({
       given: 'a released ranked outcome',
       should: 'end the stage and name the winner',
-      actual: [view.stage, view.result?.winner],
-      expected: [{ kind: 'ended' }, 'negative'],
+      actual: [view.stage, view.result?.outcome],
+      expected: [{ kind: 'ended' }, winnerOutcome('negative')],
     });
     assert({
       given: 'a released ranked tie',
       should: 'have a null winner, never a draw',
       actual: projectSpectatorTimeline(
         read(released, { ...done, outcome: null }),
-      ).result?.winner,
+      ).result?.outcome,
       expected: null,
     });
   });
@@ -255,7 +274,7 @@ describe('projectSpectatorTimeline', () => {
               status: 'completed',
               completedAt: ended,
               competitionType: 'casual',
-              outcome: 'affirmative',
+              outcome: winnerOutcome('affirmative'),
             },
           ),
         );
@@ -263,7 +282,11 @@ describe('projectSpectatorTimeline', () => {
       })(),
       expected: [
         { kind: 'ended' },
-        { winner: 'affirmative', ballots: [], ratings: [] },
+        {
+          outcome: winnerOutcome('affirmative'),
+          ballots: [],
+          ratings: [],
+        },
       ],
     });
   });

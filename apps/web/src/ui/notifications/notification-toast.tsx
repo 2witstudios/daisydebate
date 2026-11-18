@@ -30,6 +30,48 @@ type ToastLook = {
  * now sits on the stage colours.
  */
 const looks: Record<NotificationKind, ToastLook> = {
+  judge_assigned: {
+    hue: 'bg-hue-teal-soft text-hue-teal',
+    ink: 'text-hue-teal',
+    icon: 'gavel',
+    eyebrow: 'Judging',
+    action: 'See the round',
+  },
+  judge_replaced: {
+    hue: 'bg-hue-teal-soft text-hue-teal',
+    ink: 'text-hue-teal',
+    icon: 'gavel',
+    eyebrow: 'Judging',
+    action: 'Open the tournament',
+  },
+  judge_unassigned: {
+    hue: 'bg-hue-teal-soft text-hue-teal',
+    ink: 'text-hue-teal',
+    icon: 'gavel',
+    eyebrow: 'Judging',
+    action: 'Open the tournament',
+  },
+  tournament_draw_changed: {
+    hue: 'bg-hue-sky-soft text-hue-sky',
+    ink: 'text-hue-sky',
+    icon: 'swords',
+    eyebrow: 'Tournament draw',
+    action: 'See the draw',
+  },
+  tournament_room_ready: {
+    hue: 'bg-stage-accent/20 text-stage-accent',
+    ink: 'text-stage-accent',
+    icon: 'play',
+    eyebrow: 'Tournament room',
+    action: 'Go to the room',
+  },
+  tournament_results_released: {
+    hue: 'bg-gold-soft text-gold',
+    ink: 'text-gold',
+    icon: 'trophy',
+    eyebrow: 'Tournament results',
+    action: 'See the results',
+  },
   followed_debater_live: {
     hue: 'bg-hue-sky-soft text-hue-sky',
     ink: 'text-hue-sky',

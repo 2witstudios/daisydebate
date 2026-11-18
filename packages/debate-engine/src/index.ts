@@ -2,7 +2,11 @@ export { formatStanding } from './format-standing';
 export { broadcastPhase } from './broadcast-phase';
 export type { PhasePosition } from './broadcast-phase';
 export { decideBroadcast } from './broadcast-lifecycle';
-export { runningEgress, stagePrivacyActions } from './stage-capture';
+export {
+  unsettledEgress,
+  stagePrivacyActions,
+  phasePrivateAt,
+} from './stage-capture';
 export type {
   StageEgressFact,
   StagePhaseFact,
@@ -42,11 +46,15 @@ export { resolveRoomConfiguration } from './resolve-room-configuration';
 export { ratePeriod } from './glicko2';
 export {
   rateDebate,
+  postingInstant,
+  RATING_CALCULATION_VERSION,
+  type DebaterRating,
   ratingPolicy,
   inflateDeviation,
   isProvisional,
 } from './rating';
 export {
+  endingRating,
   planRating,
   ratingAwaited,
   ratingEligibility,
@@ -55,6 +63,7 @@ export { namesHumanJudge, type JudgeNamingFacts } from './room-assembly-facts';
 export {
   eraseSeats,
   executeRoomCommand,
+  afterRoomJudgeChange,
   hostIdentityHidden,
   projectRoom,
   startHiddenFrom,

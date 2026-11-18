@@ -1,0 +1,250 @@
+[
+  {
+    "answer": {
+      "finish": "stop",
+      "refused": false,
+      "text": "{\"rubricVersion\":\"speaker-10@2\",\"winner\":\"affirmative\",\"scores\":{\"affirmative\":{\"thesis\":4,\"burdens\":4,\"warrants\":4,\"coherence\":4,\"refutation\":4,\"weighing\":4,\"questioning\":4,\"answering\":4,\"organization\":4,\"delivery\":4},\"negative\":{\"thesis\":3,\"burdens\":3,\"warrants\":3,\"coherence\":3,\"refutation\":3,\"weighing\":3,\"questioning\":3,\"answering\":3,\"organization\":3,\"delivery\":3}},\"reason\":\"The affirmative answered the funding question.\",\"feedback\":{\"negative\":\"Extend the maintenance argument.\"}}"
+    },
+    "judged": {
+      "ballot": {
+        "feedback": {
+          "negative": "Extend the maintenance argument."
+        },
+        "reason": "The affirmative answered the funding question.",
+        "rubricVersion": "speaker-10@2",
+        "scores": {
+          "affirmative": {
+            "answering": 4,
+            "burdens": 4,
+            "coherence": 4,
+            "delivery": 4,
+            "organization": 4,
+            "questioning": 4,
+            "refutation": 4,
+            "thesis": 4,
+            "warrants": 4,
+            "weighing": 4
+          },
+          "negative": {
+            "answering": 3,
+            "burdens": 3,
+            "coherence": 3,
+            "delivery": 3,
+            "organization": 3,
+            "questioning": 3,
+            "refutation": 3,
+            "thesis": 3,
+            "warrants": 3,
+            "weighing": 3
+          }
+        },
+        "winner": "affirmative"
+      },
+      "ok": true
+    },
+    "name": "valid"
+  },
+  {
+    "answer": {
+      "finish": "stop",
+      "refused": false,
+      "text": "```json\n{\"rubricVersion\":\"speaker-10@2\",\"winner\":\"affirmative\",\"scores\":{\"affirmative\":{\"thesis\":4,\"burdens\":4,\"warrants\":4,\"coherence\":4,\"refutation\":4,\"weighing\":4,\"questioning\":4,\"answering\":4,\"organization\":4,\"delivery\":4},\"negative\":{\"thesis\":3,\"burdens\":3,\"warrants\":3,\"coherence\":3,\"refutation\":3,\"weighing\":3,\"questioning\":3,\"answering\":3,\"organization\":3,\"delivery\":3}},\"reason\":\"The affirmative answered the funding question.\",\"feedback\":{\"negative\":\"Extend the maintenance argument.\"}}\n```"
+    },
+    "judged": {
+      "ballot": {
+        "feedback": {
+          "negative": "Extend the maintenance argument."
+        },
+        "reason": "The affirmative answered the funding question.",
+        "rubricVersion": "speaker-10@2",
+        "scores": {
+          "affirmative": {
+            "answering": 4,
+            "burdens": 4,
+            "coherence": 4,
+            "delivery": 4,
+            "organization": 4,
+            "questioning": 4,
+            "refutation": 4,
+            "thesis": 4,
+            "warrants": 4,
+            "weighing": 4
+          },
+          "negative": {
+            "answering": 3,
+            "burdens": 3,
+            "coherence": 3,
+            "delivery": 3,
+            "organization": 3,
+            "questioning": 3,
+            "refutation": 3,
+            "thesis": 3,
+            "warrants": 3,
+            "weighing": 3
+          }
+        },
+        "winner": "affirmative"
+      },
+      "ok": true
+    },
+    "name": "fenced"
+  },
+  {
+    "answer": {
+      "finish": "stop",
+      "refused": true,
+      "text": ""
+    },
+    "judged": {
+      "diagnostic": {
+        "category": "refused",
+        "finish": "stop",
+        "issueCount": 0,
+        "issues": []
+      },
+      "ok": false
+    },
+    "name": "refused"
+  },
+  {
+    "answer": {
+      "finish": "content_filter",
+      "refused": false,
+      "text": "{\"rubricVersion\":\"speaker-10@2\",\"winner\":\"affirmative\",\"scores\":{\"affirmative\":{\"thesis\":4,\"burdens\":4,\"warrants\":4,\"coherence\":4,\"refutation\":4,\"weighing\":4,\"questioning\":4,\"answering\":4,\"organization\":4,\"delivery\":4},\"negative\":{\"thesis\":3,\"burdens\":3,\"warrants\":3,\"coherence\":3,\"refutation\":3,\"weighing\":3,\"questioning\":3,\"answering\":3,\"organization\":3,\"delivery\":3}},\"reason\":\"The affirmative answered the funding question.\",\"feedback\":{\"negative\":\"Extend the maintenance argument.\"}}"
+    },
+    "judged": {
+      "diagnostic": {
+        "category": "refused",
+        "finish": "content_filter",
+        "issueCount": 0,
+        "issues": []
+      },
+      "ok": false
+    },
+    "name": "filtered"
+  },
+  {
+    "answer": {
+      "finish": "length",
+      "refused": false,
+      "text": "{\"rubricVersion\":\"speaker-10@2\",\"winner\""
+    },
+    "judged": {
+      "diagnostic": {
+        "category": "truncated",
+        "finish": "length",
+        "issueCount": 0,
+        "issues": []
+      },
+      "ok": false
+    },
+    "name": "truncated"
+  },
+  {
+    "answer": {
+      "finish": "stop",
+      "refused": false,
+      "text": "I pick the affirmative."
+    },
+    "judged": {
+      "diagnostic": {
+        "category": "invalid_json",
+        "finish": "stop",
+        "issueCount": 0,
+        "issues": []
+      },
+      "ok": false
+    },
+    "name": "malformed"
+  },
+  {
+    "answer": {
+      "finish": "stop",
+      "refused": false,
+      "text": "{\"rubricVersion\":\"speaker-10@2\",\"winner\":\"affirmative\",\"scores\":{\"affirmative\":{\"thesis\":4,\"burdens\":4,\"warrants\":4,\"coherence\":4,\"refutation\":4,\"weighing\":4,\"questioning\":4,\"answering\":4,\"organization\":4,\"delivery\":4},\"negative\":{\"thesis\":9,\"burdens\":9,\"warrants\":9,\"coherence\":9,\"refutation\":9,\"weighing\":9,\"questioning\":9,\"answering\":9,\"organization\":9,\"delivery\":9}},\"reason\":\"The affirmative answered the funding question.\",\"feedback\":{\"negative\":\"Extend the maintenance argument.\"}}"
+    },
+    "judged": {
+      "diagnostic": {
+        "category": "schema_rejected",
+        "finish": "stop",
+        "issueCount": 10,
+        "issues": [
+          {
+            "code": "too_big",
+            "field": "scores.negative.thesis",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.burdens",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.warrants",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.coherence",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.refutation",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.weighing",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.questioning",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.answering",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.organization",
+            "limit": 5
+          },
+          {
+            "code": "too_big",
+            "field": "scores.negative.delivery",
+            "limit": 5
+          }
+        ]
+      },
+      "ok": false
+    },
+    "name": "out-of-range"
+  },
+  {
+    "answer": {
+      "finish": "stop",
+      "refused": false,
+      "text": "{\"rubricVersion\":\"speaker-10@2\",\"winner\":\"affirmative\",\"scores\":{\"affirmative\":{\"thesis\":4,\"burdens\":4,\"warrants\":4,\"coherence\":4,\"refutation\":4,\"weighing\":4,\"questioning\":4,\"answering\":4,\"organization\":4,\"delivery\":4},\"negative\":{\"thesis\":3,\"burdens\":3,\"warrants\":3,\"coherence\":3,\"refutation\":3,\"weighing\":3,\"questioning\":3,\"answering\":3,\"organization\":3,\"delivery\":3}},\"reason\":\"The affirmative answered the funding question.\",\"feedback\":{\"negative\":\"Extend the maintenance argument.\"},\"confidence\":0.9}"
+    },
+    "judged": {
+      "diagnostic": {
+        "category": "schema_rejected",
+        "finish": "stop",
+        "issueCount": 1,
+        "issues": [
+          {
+            "code": "unrecognized_keys",
+            "field": "unknown_field"
+          }
+        ]
+      },
+      "ok": false
+    },
+    "name": "unknown-key"
+  }
+]

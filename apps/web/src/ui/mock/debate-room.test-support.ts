@@ -1,4 +1,4 @@
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType, SeatRef } from '@daisy/protocol';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import type { SpeechSlot } from '../../features/debate-room/speeches';
 import { judgingClockOf } from '../../features/round-runtime/judging-window';
@@ -12,7 +12,7 @@ const speeches: readonly SpeechSlot[] = [
     id: 'ac',
     code: 'AC',
     name: 'Affirmative constructive',
-    side: 'aff',
+    lead: { kind: 'side', side: 'affirmative', slot: 0 },
     kind: 'speech',
     durationMs: minutes(5),
   },
@@ -20,7 +20,7 @@ const speeches: readonly SpeechSlot[] = [
     id: 'cx1',
     code: 'CX',
     name: 'Cross-examination of the affirmative',
-    side: 'neg',
+    lead: { kind: 'side', side: 'negative', slot: 0 },
     kind: 'cross-ex',
     durationMs: minutes(3),
   },
@@ -28,7 +28,7 @@ const speeches: readonly SpeechSlot[] = [
     id: 'nc',
     code: 'NC',
     name: 'Negative constructive',
-    side: 'neg',
+    lead: { kind: 'side', side: 'negative', slot: 0 },
     kind: 'speech',
     durationMs: minutes(6),
   },
@@ -36,7 +36,7 @@ const speeches: readonly SpeechSlot[] = [
     id: 'cx2',
     code: 'CX',
     name: 'Cross-examination of the negative',
-    side: 'aff',
+    lead: { kind: 'side', side: 'affirmative', slot: 0 },
     kind: 'cross-ex',
     durationMs: minutes(3),
   },
@@ -44,7 +44,7 @@ const speeches: readonly SpeechSlot[] = [
     id: '1ar',
     code: '1AR',
     name: 'First affirmative rebuttal',
-    side: 'aff',
+    lead: { kind: 'side', side: 'affirmative', slot: 0 },
     kind: 'speech',
     durationMs: minutes(5),
   },
@@ -52,7 +52,7 @@ const speeches: readonly SpeechSlot[] = [
     id: 'nr',
     code: 'NR',
     name: 'Negative rebuttal',
-    side: 'neg',
+    lead: { kind: 'side', side: 'negative', slot: 0 },
     kind: 'speech',
     durationMs: minutes(5),
   },
@@ -60,24 +60,34 @@ const speeches: readonly SpeechSlot[] = [
     id: '2ar',
     code: '2AR',
     name: 'Second affirmative rebuttal',
-    side: 'aff',
+    lead: { kind: 'side', side: 'affirmative', slot: 0 },
     kind: 'speech',
     durationMs: minutes(3),
   },
 ];
 
+const negSeat: SeatRef = { kind: 'side', side: 'negative', slot: 0 };
+const affSeat: SeatRef = { kind: 'side', side: 'affirmative', slot: 0 };
 const self: Debater = {
   id: 'u-sam',
   name: 'Sam Reyes',
   initials: 'SR',
-  side: 'neg',
+  seat: negSeat,
+  side: 'negative',
+  sideLabel: 'Negative',
+  sideShort: 'Neg',
+  tone: 'clay',
   rating: 1702,
 };
 const opponent: Debater = {
   id: 'u-maya',
   name: 'Maya Okafor',
   initials: 'MO',
-  side: 'aff',
+  seat: affSeat,
+  side: 'affirmative',
+  sideLabel: 'Affirmative',
+  sideShort: 'Aff',
+  tone: 'sky',
   rating: 1684,
 };
 
@@ -182,11 +192,34 @@ export function sampleRound(
     competition,
     phase,
     self,
-    opponent,
+    others: [opponent],
+    groups: [
+      { key: 'affirmative', title: 'Affirmative', judges: false },
+      { key: 'negative', title: 'Negative', judges: false },
+      { key: 'judge', title: 'Judge', judges: true },
+    ],
     people: [
-      { id: opponent.id, name: opponent.name, role: 'aff', bot: false },
-      { id: self.id, name: self.name, role: 'neg', bot: false },
-      { id: 'u-judge', name: 'Judge', role: 'judge', bot: false },
+      {
+        id: opponent.id,
+        name: opponent.name,
+        group: 'affirmative',
+        judge: false,
+        bot: false,
+      },
+      {
+        id: self.id,
+        name: self.name,
+        group: 'negative',
+        judge: false,
+        bot: false,
+      },
+      {
+        id: 'u-judge',
+        name: 'Judge',
+        group: 'judge',
+        judge: true,
+        bot: false,
+      },
     ],
     judge: 'human',
     ballots: { judge: 'human', ai: 'ready' },
@@ -195,7 +228,20 @@ export function sampleRound(
     speeches,
     liveIndex: at.liveIndex,
     clock: at.clock,
-    prepMs: { neg: at.prepMs, aff: 120_000 },
+    prep: [
+      {
+        side: 'affirmative',
+        label: 'Affirmative',
+        tone: 'sky',
+        remainingMs: 120_000,
+      },
+      {
+        side: 'negative',
+        label: 'Negative',
+        tone: 'clay',
+        remainingMs: at.prepMs,
+      },
+    ],
     micLive: at.micLive,
     channels: [
       { id: 'round', title: 'round' },

@@ -21,13 +21,12 @@ import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
-  ballotWireSchema,
   caseMapAnswer,
   caseMapWireSchema,
   createOpenRouter,
-  judgeAnswer,
   type TranscriptEvidenceInput,
 } from '@daisy/ai-voice';
+import { affirmativeSide, negativeSide, twoSideKeys } from '@daisy/protocol';
 import { transcriptEvidenceInput } from '../apps/web/src/features/round-runtime/transcript-evidence';
 import {
   expand,
@@ -35,11 +34,16 @@ import {
   renderPromptFile,
   type CallOptions,
 } from './judge-bench/prompt-file';
-import { placeholdersFor, productionPipeline } from './judge-bench/evidence';
+import {
+  benchJudge,
+  placeholdersFor,
+  productionPipeline,
+} from './judge-bench/evidence';
 import { passesReport, type PassRow } from './judge-bench/passes';
 import { remoteRead, STAGING_APP } from './judge-bench/remote';
 
 const ROOT = '.evals/judging';
+const { ballotWireSchema, judgeAnswer } = benchJudge;
 
 type Stored = {
   readonly roundId: string;
@@ -96,8 +100,8 @@ const total = (scores: Record<string, number> | undefined) =>
   scores ? Object.values(scores).reduce((sum, value) => sum + value, 0) : NaN;
 
 function ballotSummary(ballot: Ballotish): string {
-  const aff = total(ballot.scores?.['affirmative']);
-  const neg = total(ballot.scores?.['negative']);
+  const aff = total(ballot.scores?.[affirmativeSide]);
+  const neg = total(ballot.scores?.[negativeSide]);
   return [
     `**${ballot.winner ?? '?'}** · AFF ${aff} – NEG ${neg}`,
     '',
@@ -105,8 +109,8 @@ function ballotSummary(ballot: Ballotish): string {
     ...(ballot.feedback
       ? [
           '',
-          `AFF: ${ballot.feedback['affirmative'] ?? ''}`,
-          `NEG: ${ballot.feedback['negative'] ?? ''}`,
+          `AFF: ${ballot.feedback[affirmativeSide] ?? ''}`,
+          `NEG: ${ballot.feedback[negativeSide] ?? ''}`,
         ]
       : []),
   ].join('\n');
@@ -137,7 +141,7 @@ const sideScores = (ballot: Ballotish, side: string) =>
 const keySet = (scores: Record<string, number>) =>
   Object.keys(scores).sort().join(',');
 const allInRange = (ballot: Ballotish) =>
-  ['affirmative', 'negative']
+  twoSideKeys
     .flatMap((side) => Object.values(sideScores(ballot, side)))
     .every((score) => Number.isInteger(score) && score >= 1 && score <= 5);
 const tooLong = (text: string | undefined, limit: number) =>
@@ -145,10 +149,13 @@ const tooLong = (text: string | undefined, limit: number) =>
 
 /** What makes a ballot of any category set unusable: winner, 10 matching 1-5 scores per side, length limits. */
 function ballotShapeIssues(ballot: Ballotish): string[] {
-  const aff = sideScores(ballot, 'affirmative');
-  const neg = sideScores(ballot, 'negative');
+  const aff = sideScores(ballot, affirmativeSide);
+  const neg = sideScores(ballot, negativeSide);
   const checks: [boolean, string][] = [
-    [!['affirmative', 'negative'].includes(ballot.winner ?? ''), 'no winner'],
+    [
+      !(twoSideKeys as readonly string[]).includes(ballot.winner ?? ''),
+      'no winner',
+    ],
     [
       keySet(aff) !== keySet(neg),
       'the sides are scored on different categories',
@@ -157,10 +164,13 @@ function ballotShapeIssues(ballot: Ballotish): string[] {
     [!allInRange(ballot), 'a score outside 1-5'],
     [tooLong(ballot.reason, 600), `reason ${(ballot.reason ?? '').length}/600`],
     [
-      tooLong(ballot.feedback?.['affirmative'], 280),
-      'affirmative feedback over 280',
+      tooLong(ballot.feedback?.[affirmativeSide], 280),
+      `${affirmativeSide} feedback over 280`,
     ],
-    [tooLong(ballot.feedback?.['negative'], 280), 'negative feedback over 280'],
+    [
+      tooLong(ballot.feedback?.[negativeSide], 280),
+      `${negativeSide} feedback over 280`,
+    ],
   ];
   return checks.filter(([failed]) => failed).map(([, issue]) => issue);
 }

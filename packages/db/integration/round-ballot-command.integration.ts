@@ -1,3 +1,5 @@
+import { screenBallotContacts } from '@daisy/debate-engine/ballot-contact-screening';
+import { constructBallotRound } from './ballot-round-construction.test-support';
 import { attendanceSettled } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -13,7 +15,8 @@ const { databaseUrl: url } = requireTestServices(process.env);
 const ballot: Ballot = {
   rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
-  reason: 'The affirmative answered the decisive argument.',
+  reason:
+    'The affirmative answered the decisive argument. Contact judge@example.org.',
   feedback: {},
   scores: {
     affirmative: Object.fromEntries(ballotCategories.map((k) => [k, 4])),
@@ -23,12 +26,9 @@ const ballot: Ballot = {
 
 test('ballot writes require actual frozen input and replay reauthorizes without changing the original receipt', async () => {
   await withFixture(url, async (f) => {
-    const roundId = await f.round({
-      status: 'active',
-      current_stage: 'live',
-      started_at: new Date(0),
-    });
-    const judge = await f.seat(roundId, 'judge');
+    const { roundId, judges } = await constructBallotRound(f);
+    const judge = judges[0]!;
+    await f.sql`update rounds set status='active',current_stage='live',started_at=${new Date(0)} where id=${roundId}`;
     await f.sql.unsafe(
       'update users set email_verified=true where id=(select user_id from actors where id=$1)',
       [judge.actorId],
@@ -36,6 +36,7 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
     const store = roundBallotOperations({
       database: drizzle({ client: f.sql }),
     });
+    let screeningCalls = 0;
     const input = {
       roundId,
       principal: { kind: 'human' as const, actorId: judge.actorId },
@@ -49,6 +50,10 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
       },
       payloadDigest: 'a'.repeat(64),
       nextBallotId: createId,
+      screenWritten: (...args: Parameters<typeof screenBallotContacts>) => {
+        screeningCalls++;
+        return screenBallotContacts(...args);
+      },
       authorize: () => {},
       attendanceSettled,
       buildProjection: () => null,
@@ -79,8 +84,44 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
       "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,1,0,'incomplete')",
       [roundId],
     );
+    for (const absent of ['reason', 'feedback'] as const) {
+      const incomplete = { ...ballot };
+      delete incomplete[absent];
+      await assertRejects({
+        given: `an ordinary Room ballot without ${absent}`,
+        should: 'refuse before nullable event-only defaults can reach storage',
+        actual: () =>
+          store.executeRoundBallot({
+            ...input,
+            envelope: { ...input.envelope, ballot: incomplete },
+          }),
+        code: 'VALIDATION',
+      });
+    }
+    assert({
+      given: 'ordinary ballots missing their required written fields',
+      should: 'leave the ballot and command ledgers empty',
+      actual: [
+        await f.count('ballots', 'judge_participant_id', judge.id),
+        await f.count('round_commands', 'command_id', input.envelope.commandId),
+      ],
+      expected: [0, 0],
+    });
     const receipt = await store.executeRoundBallot(input);
     f.track('ballots', receipt.ballotId);
+    const [stored] =
+      await f.sql`select reason from ballots where id=${receipt.ballotId}`;
+    assert({
+      given: 'an ordinary Room ballot with contact text under PG4662',
+      should:
+        'retain ordinary submission unchanged without calling screening or writing its row',
+      actual: [
+        screeningCalls,
+        await f.count('ballot_screenings', 'ballot_id', receipt.ballotId),
+        stored!.reason,
+      ],
+      expected: [0, 0, ballot.reason],
+    });
     assert({
       given: 'the actual freeze and an assigned judge',
       should: 'pin the immutable witness and exactly replay its stored receipt',

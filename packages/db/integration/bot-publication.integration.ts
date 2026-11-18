@@ -24,7 +24,7 @@ test('concurrent bot claims preserve one active run and epochs through takeover'
       expected: ['fulfilled', 'rejected'],
     });
     const [seats] =
-      await fixture.sql`select coalesce(array_agg(id order by id) filter (where role<>'judge' and id<>${target.roundParticipantId}),'{}') peers,(select type from round_segments where id=${target.segmentId}) kind from round_participants where round_id=${target.roundId}`;
+      await fixture.sql`select coalesce(array_agg(id order by id) filter (where seat_kind<>'judge' and id<>${target.roundParticipantId}),'{}') peers,(select type from round_segments where id=${target.segmentId}) kind from round_participants where round_id=${target.roundId}`;
     assert({
       given: 'an actual claim on the latest started segment',
       should: 'name its segment kind and every other debater seat',
@@ -100,44 +100,52 @@ test('a closed floor or an ended run refuses publication authority', async () =>
   });
 });
 test('expired leases and erased human accounts cannot authorize a bot run', async () => {
-  await withBotPublication(async ({ operations, target, fixture }) => {
-    const userId = await fixture.user();
-    const actorId = await fixture.actor(userId);
-    await fixture.seat(target.roundId, 'negative', 0, actorId);
-    await assertRejects({
-      given: 'an unverified human account in the frozen Round',
-      should: 'deny generation before allocating a run or lease',
-      actual: () => operations.claimWorker(target),
-      code: 'AUTHORIZATION',
-    });
-    assert({
-      given: 'refused account authority',
-      should: 'leave claims absent',
-      actual: await fixture.count(
-        'round_bot_publications',
-        'round_id',
-        target.roundId,
-      ),
-      expected: 0,
-    });
-    await fixture.sql`update users set email_verified=true where id=${userId}`;
-    const claim = await operations.claimWorker(target);
-    await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId}`;
-    await assertRejects({
-      given: 'a durable expired lease with an otherwise active run',
-      should: 'refuse publication without a takeover',
-      actual: () => operations.verifyBotPublication(claim.scope, claim.token),
-      code: 'CONFLICT',
-    });
-    const next = await operations.claimWorker(target);
-    await fixture.sql`update users set email=null,image=null,name='',deleted_at=clock_timestamp() where id=${userId}`;
-    await assertRejects({
-      given: 'an erased human participant after admission',
-      should: 'fail current authority closed',
-      actual: () => operations.verifyBotPublication(next.scope, next.token),
-      code: 'AUTHORIZATION',
-    });
-  });
+  let userId: string;
+  await withBotPublication(
+    async ({ operations, target, fixture }) => {
+      await assertRejects({
+        given: 'an unverified human account in the frozen Round',
+        should: 'deny generation before allocating a run or lease',
+        actual: () => operations.claimWorker(target),
+        code: 'AUTHORIZATION',
+      });
+      assert({
+        given: 'refused account authority',
+        should: 'leave claims absent',
+        actual: await fixture.count(
+          'round_bot_publications',
+          'round_id',
+          target.roundId,
+        ),
+        expected: 0,
+      });
+      await fixture.sql`update users set email_verified=true where id=${userId}`;
+      const claim = await operations.claimWorker(target);
+      await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId}`;
+      await assertRejects({
+        given: 'a durable expired lease with an otherwise active run',
+        should: 'refuse publication without a takeover',
+        actual: () => operations.verifyBotPublication(claim.scope, claim.token),
+        code: 'CONFLICT',
+      });
+      const next = await operations.claimWorker(target);
+      await fixture.sql`update users set email=null,image=null,name='',deleted_at=clock_timestamp() where id=${userId}`;
+      await assertRejects({
+        given: 'an erased human participant after admission',
+        should: 'fail current authority closed',
+        actual: () => operations.verifyBotPublication(next.scope, next.token),
+        code: 'AUTHORIZATION',
+      });
+    },
+    undefined,
+    {
+      beforeStart: async (fixture, roundId) => {
+        userId = await fixture.user();
+        const actorId = await fixture.actor(userId);
+        await fixture.seat(roundId, 'negative', 0, actorId);
+      },
+    },
+  );
 });
 test('idle control heartbeat survives a closed floor independently of publication', async () => {
   await withBotPublication(async ({ operations, target, fixture }) => {

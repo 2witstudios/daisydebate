@@ -2,13 +2,15 @@ import type { FormatSettings } from './format-settings';
 import type { RoomView, roomRefusalSchema } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
+import { idSchema } from './primitives';
 import {
-  debateRoleSchema,
-  debateSideSchema,
-  idSchema,
-  type DebateSide,
-} from './primitives';
-import { roomTeamSchema, type SeatDraw } from './seat-draw';
+  seatRefSchema,
+  type SeatKind,
+  type SeatRef,
+  type TwoSideKey,
+} from './seats';
+import { seatsOfKind, type FormatSeating } from './format-seating';
+import { roomTeamSchema, teamSideSchema, type SeatDraw } from './seat-draw';
 import {
   formatDefinitionSchema,
   type FormatDefinition,
@@ -20,7 +22,11 @@ import {
   type RoomExecutionPlan,
 } from './room';
 import type { DrawPrivateInputs, ResolutionDrawState } from './resolution-draw';
-import { roomCaptureSchema, type RoomCapture } from './room-capture';
+import {
+  recordingPolicySchema,
+  roomCaptureSchema,
+  type RoomCapture,
+} from './room-capture';
 import { roomResolutionSelectionSchema } from './room-resolution';
 import {
   competitionTypes,
@@ -44,7 +50,7 @@ export type RoomStatus = (typeof roomStatuses)[number];
 const roomVisibilitySchema = z.enum(['public', 'unlisted']);
 const versionSchema = z.int().positive();
 const textSchema = z.string().trim().min(1);
-const seat = { role: debateRoleSchema, slot: z.int().min(0) };
+const seat = { seat: seatRefSchema };
 
 /** Custom schedules are compiler inputs, persisted as immutable format revisions. */
 const roomSelectionSchema = z.discriminatedUnion('kind', [
@@ -95,8 +101,8 @@ export const roomCreateSchema = z
     resolution: roomResolutionSelectionSchema,
     visibility: roomVisibilitySchema,
     selection: roomSelectionSchema,
-    /** Casual hosts may opt into recording; ranked capture is automatic. */
-    recording: z.boolean().optional(),
+    /** Casual hosts may choose who sees the Recording; ranked capture is automatic. */
+    recordingPolicy: recordingPolicySchema.optional(),
     /** A casual host may keep the call open after the Round (ADR 0127). */
     postRoundCall: z.boolean().optional(),
     /** Each actor at most once: assign-seat would move, not reject, a repeat. */
@@ -124,6 +130,12 @@ export const roomCreateSchema = z
      * A ranked Room's sides are always open.
      */
     sides: z.enum(['open', 'fixed']).optional(),
+    /**
+     * A Train practice (decision 75): its creator is held as an active
+     * member from create, seated or not, so a second Start practice returns
+     * to this Room. Any other Room holds only its seated people (TAB-6.16).
+     */
+    practice: z.literal(true).optional(),
     /** The capture notice the create form showed its host, to be recorded; only a casual create with capture states one. */
     noticeVersion: z.string().min(1).max(64).optional(),
   })
@@ -144,8 +156,9 @@ export const roomCreateSchema = z
   )
   .refine(
     (create) =>
-      create.selection.kind !== 'ranked' || create.recording === undefined,
-    { message: 'Ranked recording is automatic', path: ['recording'] },
+      create.selection.kind !== 'ranked' ||
+      create.recordingPolicy === undefined,
+    { message: 'Ranked recording is automatic', path: ['recordingPolicy'] },
   )
   .refine(
     (create) =>
@@ -228,7 +241,7 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({
     ...envelope,
     type: z.literal('set-sides'),
-    teamOneSide: debateSideSchema.nullable(),
+    teamOneSide: teamSideSchema.nullable(),
   }),
   /** Who can join, alone, from the page's Room controls (ADR 0145, D9). */
   z.strictObject({
@@ -266,10 +279,8 @@ export type RoomParticipant = {
   readonly kind: 'human' | 'bot';
   readonly label: string;
   readonly consentVersion: number;
-  /** A debater's role is their team's placement until Start round (ADR 0145). */
-  readonly role: 'affirmative' | 'negative' | 'judge';
-  readonly slot: number;
-  /** A debater whose team is ?: placed on a team at random at Start round. */
+  readonly seat: SeatRef;
+  /** A debater whose team is ?: placed on a team at random at Start round (ADR 0145). */
   readonly teamOpen: boolean;
   /** A debater whose position is ?: given a speaking position at random at Start round. */
   readonly positionOpen: boolean;
@@ -332,13 +343,6 @@ export type RoomCommandResponse = {
 export const ROOM_SEAT_HOLD_MS = 120_000;
 
 /**
- * The two kinds of seat a hold or an invitation names: a debater seat on
- * either side, or a judge seat (ADR 0124).
- */
-export const roomSeatKinds = ['debater', 'judge'] as const;
-export type RoomSeatKind = (typeof roomSeatKinds)[number];
-export const roomSeatKindSchema = z.enum(roomSeatKinds);
-/**
  * A Room still gathering its players (ADR 0070): the only Rooms a challenge
  * or an invitation may point at.
  */
@@ -357,37 +361,27 @@ export const isOpenRoom = <T extends { readonly status: RoomStatus }>(
   room: T,
 ): room is T & { readonly status: OpenRoomStatus } =>
   isOpenRoomStatus(room.status);
-/** The kind of seat a role is: the judge's, or a debater's on either side. */
-export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
-  role === 'judge' ? 'judge' : 'debater';
 /**
- * How many seats of a kind are free: the judge seats, or both sides' debater
- * seats, less those taken (other than `exceptActorId`'s own). The engine and
- * the Room page count the same way (ADR 0124).
+ * How many seats of a kind are free: the kind's seats the rules declare
+ * (every side's, for a side seat), less those taken (other than
+ * `exceptActorId`'s own). The engine and the Room page count the same way
+ * (ADR 0124).
  */
 export const freeSeatsOf = (
   room: {
-    readonly rules: {
-      readonly seats: {
-        readonly affirmative: number;
-        readonly negative: number;
-        readonly judge: number;
-      };
-    };
+    readonly rules: FormatSeating;
     readonly participants: readonly {
-      readonly role: RoomParticipant['role'];
+      readonly seat: SeatRef;
       readonly actorId?: string;
     }[];
   },
-  seat: RoomSeatKind,
+  kind: SeatKind,
   exceptActorId?: string,
 ): number =>
-  (seat === 'judge'
-    ? room.rules.seats.judge
-    : room.rules.seats.affirmative + room.rules.seats.negative) -
+  seatsOfKind(room.rules, kind) -
   room.participants.filter(
     (p) =>
-      seatKindOf(p.role) === seat &&
+      p.seat.kind === kind &&
       (exceptActorId === undefined || p.actorId !== exceptActorId),
   ).length;
 
@@ -397,7 +391,7 @@ export const freeSeatsOf = (
  */
 export type RoomSeatHold = {
   readonly actorId: string;
-  readonly seat: RoomSeatKind;
+  readonly seat: SeatKind;
   readonly until: string;
 };
 
@@ -410,7 +404,8 @@ export type RoomAssemblyState = RoomRoundLink & {
   /** Null exactly for a draw Room: its resolution belongs to the Round. */
   readonly topic: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
-  readonly hostActorId: string;
+  /** Null for a Room no person hosts: host-only commands are refused for it. */
+  readonly hostActorId: string | null;
   /** The host took over from a restricted one, and names no human judge (DEC-331). */
   readonly hostInherited: boolean;
   readonly hostLabel: string;
@@ -439,7 +434,12 @@ export type RoomAssemblyState = RoomRoundLink & {
   } | null;
   readonly seatHolds: readonly RoomSeatHold[];
   /** Team 1's side, or null while the sides are open to the coin flip (ADR 0145). */
-  readonly teamOneSide: DebateSide | null;
+  readonly teamOneSide: TwoSideKey | null;
+  /**
+   * The Room holds its host as an active member, seated or not: a Train
+   * practice (decision 75). Absent or false: only its seated people.
+   */
+  readonly holdsHost?: boolean;
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;

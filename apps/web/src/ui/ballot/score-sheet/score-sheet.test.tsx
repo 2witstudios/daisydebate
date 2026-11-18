@@ -2,7 +2,7 @@ import { ballotCategories } from '@daisy/protocol';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleBallotDebaters } from '../../mock/judge.test-support';
+import { sampleBallotPlan } from '../../mock/judge.test-support';
 import { ScoreSheet } from './score-sheet';
 
 setupRitewayBun();
@@ -17,7 +17,8 @@ const scores = { affirmative: at(4), negative: { ...at(3), delivery: 5 } };
 const render = (live: boolean) =>
   renderToString(
     h(ScoreSheet, {
-      debaters: sampleBallotDebaters,
+      points: sampleBallotPlan.definition.points!,
+      subjects: sampleBallotPlan.scored,
       initial: scores,
       scores,
       live,

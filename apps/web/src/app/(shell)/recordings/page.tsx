@@ -21,7 +21,7 @@ export default async function RecordingsPage({
 }) {
   const viewer = recordingViewerOf(await requestIdentity());
   const query = parseRecordingsQuery(await searchParams);
-  const [{ page }, counts] = await Promise.all([
+  const [{ page, nowMs }, counts] = await Promise.all([
     readRecordingArchive(query, viewer),
     requestHubCounts(),
   ]);
@@ -30,7 +30,7 @@ export default async function RecordingsPage({
       <RecordingsTab
         query={query}
         listing={{
-          rows: archiveEntries(page, viewer),
+          rows: archiveEntries(page, viewer, nowMs),
           nextBefore: page.nextBefore,
         }}
       />

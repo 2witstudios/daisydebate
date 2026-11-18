@@ -37,7 +37,7 @@ const withInvitation = (
       },
       rules_snapshot: {
         ...validRules,
-        seats: { ...validRules.seats, judge: 1 },
+        seats: { ...validRules.seats, judges: 1 },
       },
     });
     const database = drizzle({ client: f.sql });

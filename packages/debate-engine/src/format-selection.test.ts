@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { fourTeams } from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { oneOnOneSettings } from './runtime.test-support';
 import {
@@ -230,7 +231,11 @@ describe('decideFormatSelection', () => {
           ...oneOnOne,
           definition: {
             ...oneOnOneFormatFixture,
-            seats: { affirmative: 2, negative: 2, judge: 1 },
+            seats: {
+              ...oneOnOneFormatFixture.seats,
+              sides: { affirmative: 2, negative: 2 },
+              judges: 1,
+            },
           },
         }),
         refusal('a superseded preset', ranked, {
@@ -244,6 +249,55 @@ describe('decideFormatSelection', () => {
         { given: 'a two-a-side format', refused: 'format-unavailable' },
         { given: 'a superseded preset', refused: 'format-unavailable' },
       ],
+    });
+  });
+
+  test('ranked admits only two sides of one seat each, one judge and a winner on speaker-10 (TAB-6.14)', () => {
+    const ranked = request({ intent: 'create-ranked', formatId: 'freestyle' });
+    const eligible = facts({
+      format: { id: 'freestyle', role: null },
+      preset: { rankedEligible: true },
+    });
+    const shaped = (
+      given: string,
+      definition: Partial<FormatSelectionFacts['definition']>,
+    ) =>
+      refusal(given, ranked, {
+        ...eligible,
+        definition: { ...oneOnOneFormatFixture, ...definition },
+      });
+    const seats = oneOnOneFormatFixture.seats;
+    assert({
+      given:
+        'an eligible current preset whose format is anything but the one-on-one shape',
+      should: 'refuse each one as unavailable to Ranked',
+      actual: [
+        shaped('three judges', { seats: { ...seats, judges: 3 } }),
+        shaped('no judge', { seats: { ...seats, judges: 0 } }),
+        shaped('four teams', {
+          sides: [...fourTeams],
+          seats: {
+            ...seats,
+            sides: Object.fromEntries(fourTeams.map((team) => [team.key, 1])),
+          },
+        }),
+        shaped('unsided speakers', {
+          sides: [],
+          seats: { ...seats, sides: {}, speakers: 2 },
+        }),
+        shaped('a moderator', { seats: { ...seats, moderators: 1 } }),
+        shaped('a ranking of the sides', {
+          outcome: { kind: 'ranking', of: 'sides' },
+        }),
+        shaped('nothing decided', { outcome: { kind: 'none' } }),
+      ].map(({ refused }) => refused),
+      expected: Array(7).fill('format-unavailable'),
+    });
+    assert({
+      given: 'the same preset over the one-on-one shape',
+      should: 'admit it',
+      actual: decideFormatSelection(ranked, eligible).ok,
+      expected: true,
     });
   });
 

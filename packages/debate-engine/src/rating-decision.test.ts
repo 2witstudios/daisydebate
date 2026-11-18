@@ -1,12 +1,15 @@
 import { assertRejects } from '@daisy/errors/testing';
 import type {
   DebaterStanding,
+  EndingRating,
   RatingEligibility,
   RatingEligibilityFacts,
 } from '@daisy/protocol';
+import { sideSeat, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateDebate, ratingPolicy } from './rating';
 import {
+  endingRating,
   planRating,
   ratingAwaited,
   ratingEligibility,
@@ -20,7 +23,7 @@ const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
   ladderId: 'freestyle',
   status: 'completed',
-  outcome: 'affirmative',
+  outcome: winnerOutcome('affirmative'),
   completedAt: at,
   alreadyRated: false,
   ending: 'judged',
@@ -46,7 +49,7 @@ const unsettled: RatingEligibilityFacts['attendance'] = {
 const rated: RatingEligibility = {
   kind: 'rated',
   ladder: 'freestyle',
-  outcome: 'affirmative',
+  outcome: winnerOutcome('affirmative'),
   occurredAt: at,
 };
 
@@ -59,7 +62,7 @@ describe('ratingEligibility', () => {
       expected: {
         kind: 'rated',
         ladder: 'freestyle',
-        outcome: 'affirmative',
+        outcome: winnerOutcome('affirmative'),
         occurredAt: at,
       },
     });
@@ -129,8 +132,8 @@ const newcomer: DebaterStanding = {
   lastRatedAt: null,
 };
 const seats = [
-  { actorId: 'aff', role: 'affirmative' },
-  { actorId: 'neg', role: 'negative' },
+  { actorId: 'aff', seat: sideSeat('affirmative') },
+  { actorId: 'neg', seat: sideSeat('negative') },
 ] as const;
 const plan = (
   standings: Readonly<Record<string, DebaterStanding>>,
@@ -138,7 +141,7 @@ const plan = (
 ) =>
   planRating({
     ladder: 'freestyle',
-    outcome: 'affirmative',
+    outcome: winnerOutcome('affirmative'),
     occurredAt: at,
     seasonId: 'season-1',
     seats,
@@ -193,6 +196,35 @@ describe('ratingEligibility over how the Round ended', () => {
   });
 });
 
+describe('endingRating', () => {
+  test('decides an ending exactly as a Daisy rating does, without reading a ladder', () => {
+    assert({
+      given: 'a completed judged Round',
+      should: 'rate its outcome at its completion',
+      actual: endingRating(completed),
+      expected: {
+        kind: 'rated',
+        outcome: winnerOutcome('affirmative'),
+        occurredAt: at,
+      },
+    });
+    for (const facts of [
+      { ending: 'unrecorded' },
+      { ending: 'unjudged' },
+      { attendance: unsettled },
+      { attendance: { ...completed.attendance, pendingWriter: true } },
+    ] as const)
+      assert({
+        given: `an ending Daisy refuses (${JSON.stringify(facts)})`,
+        should: 'refuse it for the same reason',
+        actual: endingRating({ ...completed, ...facts }) as
+          EndingRating | RatingEligibility,
+        expected: ratingEligibility({ ...completed, ...facts }) as
+          EndingRating | RatingEligibility,
+      });
+  });
+});
+
 describe('ratingAwaited', () => {
   test('is true only while a rating is still coming', () => {
     assert({
@@ -228,7 +260,7 @@ describe('planRating', () => {
     const expected = rateDebate({
       affirmative: { state: ratingPolicy.initial, lastRatedAt: null },
       negative: { state: ratingPolicy.initial, lastRatedAt: null },
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
       occurredAt: at,
     });
     assert({
@@ -328,7 +360,7 @@ describe('planRating', () => {
       actual: () =>
         plan(
           { aff: newcomer },
-          { seats: [{ actorId: 'aff', role: 'affirmative' }] },
+          { seats: [{ actorId: 'aff', seat: sideSeat('affirmative') }] },
         ),
       code: 'CONFLICT',
     });

@@ -1,5 +1,6 @@
 import type { RoomView } from '@daisy/protocol';
 import type { FormFields } from '../../../features/forms/form-state';
+import { sideName } from '../../../features/debate-room/seat-names';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { DurationField, PrepToggle } from './assembly-settings-controls';
 
@@ -84,7 +85,7 @@ export function DrawFields({
           >
             {capability.firstStrikers.map((side) => (
               <option key={side} value={side}>
-                {side === 'negative' ? 'Negative' : 'Affirmative'}
+                {sideName(view.rules.sides, side)}
               </option>
             ))}
           </select>

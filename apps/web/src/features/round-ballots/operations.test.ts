@@ -1,18 +1,24 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assertRejects } from '@daisy/errors/testing';
 import type { LockedRoundBallotInput } from '@daisy/db/round-ballot';
-import type { RoundBallotEnvelope } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  isJudgeSeat,
+  panelRuleFor,
+  type RoundBallotEnvelope,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   judgeActorId,
   lockedRound,
 } from '../round-runtime/locked-round.test-support';
-import { ballotFormFixture } from './ballot-form.test-support';
+import { ballotFormFixture, ballotFormPlan } from './ballot-form.test-support';
 import { ballotFields } from './fields';
 import { createRoundBallotOperations } from './operations';
 
 setupRitewayBun();
 
-const parsed = ballotFields(ballotFormFixture(), true);
+const parsed = ballotFields(ballotFormFixture(), ballotFormPlan, true);
 if (!parsed.ok) throw new Error('The ballot form fixture must parse');
 const envelope: RoundBallotEnvelope = parsed.envelope;
 const context = {
@@ -82,14 +88,20 @@ test('only the seated judge is authorized, under the envelope digest', async () 
 
 test('completion follows the panel decision', async () => {
   const prepared = await prepare(judge);
-  const seat = lockedRound.round.participants.find((p) => p.role === 'judge')!;
+  const seat = lockedRound.round.participants.find((p) => isJudgeSeat(p.seat))!;
   const panel = (
     ballots: readonly {
       judgeParticipantId: string;
-      winner: 'affirmative' | 'negative';
+      winner: string;
     }[],
   ) => ({
+    judging: {
+      source: daisyBallotSource(daisyWinnerBallot),
+      ballot: daisyWinnerBallot,
+      panel: panelRuleFor(daisyWinnerBallot),
+    },
     completeness: 'complete' as const,
+    emptyJudgeSlots: [],
     humanJudgeSeatIds: [seat.id],
     aiJudgeSeatIds: [],
     ballotDeadlineAt: new Date(Date.parse(context.now) + 1).toISOString(),

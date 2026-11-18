@@ -22,23 +22,34 @@ test('the staging proof posts the foundation format itself, not a catalog entry'
       parsed.success && parsed.data.selection.kind === 'custom'
         ? parsed.data.selection.definition.seats
         : parsed.error?.issues,
-    expected: { affirmative: 1, negative: 1, judge: 1 },
+    expected: {
+      sides: { affirmative: 1, negative: 1 },
+      speakers: 0,
+      judges: 1,
+      moderators: 0,
+    },
   });
 });
 test('the staging proof seats bot debaters on the sides and the AI judge on the bench', () => {
-  const judge = { actorId: 'panel', seatRole: 'judge' };
+  const judge = { actorId: 'panel', seatKind: 'judge' } as const;
   const debaters = ['first', 'second'].map((actorId) => ({
     actorId,
-    seatRole: 'debater',
+    seatKind: 'side' as const,
   }));
   assert({
     given: 'a catalog listing the AI judge ahead of the bot debaters',
-    should: 'seat each actor only where its seat role fits (ISSUE-750)',
+    should: 'seat each actor only where its seat kind fits (ISSUE-750)',
     actual: stagingProofCast([judge, ...debaters]),
     expected: [
-      { role: 'affirmative', actorId: 'first' },
-      { role: 'negative', actorId: 'second' },
-      { role: 'judge', actorId: 'panel' },
+      {
+        seat: { kind: 'side', side: 'affirmative', slot: 0 },
+        actorId: 'first',
+      },
+      {
+        seat: { kind: 'side', side: 'negative', slot: 0 },
+        actorId: 'second',
+      },
+      { seat: { kind: 'judge', slot: 0 }, actorId: 'panel' },
     ],
   });
   expect(() => stagingProofCast(debaters)).toThrow(

@@ -1,29 +1,89 @@
 import {
-  storedBallotSchema,
-  type DebateSide,
-  type StoredBallot,
+  eventBallotForAudience,
+  type RoundBallotAccess,
+  type BallotScreeningRead,
+} from './round-ballot-audience';
+import {
+  isJudgeSeat,
+  storedBallotSchemaFor,
+  ballotSchemaFor,
+  ballotDefinitionIdentity,
+  type BallotDefinitionSource,
+  type Ballot,
+  type BallotDefinition,
+  type BallotSubjects,
+  type SeatRef,
 } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
 import type { FrozenRoundTranscript } from './frozen-transcript';
 import type { ballots } from './schema/ballots';
 
 type BallotRow = typeof ballots.$inferSelect;
 
-/** A stored ballot on the rubric version it was written on. */
-const ballotBody = (row: BallotRow) =>
-  storedBallotSchema.parse({
+/**
+ * A stored ballot as the protocol Ballot, from its columns: a win names its
+ * side, and the decision is spelled only where the definition admits more
+ * than a win; a ranking carries its places.
+ */
+export const ballotOfRow = (
+  row: BallotRow,
+  definition: BallotDefinition,
+): Ballot => {
+  const spellsDecision =
+    definition.decision.kind === 'winner' &&
+    (definition.decision.tie || definition.decision.doubleLoss);
+  return {
     rubricVersion: row.rubricVersion,
-    winner: row.winner,
-    scores: row.scores,
-    reason: row.reason,
-    feedback: row.feedback ?? {},
+    ...(row.decision === 'ranking'
+      ? { ranking: row.ranking ?? [] }
+      : {
+          ...(spellsDecision ? { decision: row.decision } : {}),
+          winner: row.winner,
+        }),
+    ...(row.scores ? { scores: row.scores } : {}),
+    ...(row.reason === null ? {} : { reason: row.reason }),
+    ...(definition.written.feedback ? { feedback: row.feedback ?? {} } : {}),
+    ...(row.speakerRanks ? { speakerRanks: row.speakerRanks } : {}),
     ...(row.citations ? { citations: row.citations } : {}),
-  });
+  } as Ballot;
+};
+
+/** A stored ballot on the definition revision it was written on. */
+const ballotBody = (
+  row: BallotRow,
+  definition: BallotDefinition,
+  source: BallotDefinitionSource,
+  subjects: BallotSubjects,
+): Ballot => {
+  if (source.kind === 'stored') {
+    if (
+      row.ballotDefinitionId !== source.id ||
+      row.ballotDefinitionVersion !== source.version ||
+      row.rubricVersion !== ballotDefinitionIdentity(definition)
+    )
+      throw createAppError(
+        'INVARIANT',
+        'Stored ballot differs from its frozen source',
+      );
+    return ballotSchemaFor(definition, subjects).parse(
+      ballotOfRow(row, definition),
+    ) as Ballot;
+  }
+  if (row.ballotDefinitionId !== null || row.ballotDefinitionVersion !== null)
+    throw createAppError(
+      'INVARIANT',
+      'Daisy ballot has a foreign stored source',
+    );
+  return storedBallotSchemaFor(definition, subjects).parse(
+    ballotOfRow(row, definition),
+  ) as Ballot;
+};
 
 /** Only a human judge seated in this Round reads its own ballot and the frozen input. */
 export const ownJudgeSeat = <
   P extends {
     readonly actorId: string;
-    readonly role: string;
+    readonly seat: SeatRef;
     readonly kind: string;
   },
 >(
@@ -31,40 +91,60 @@ export const ownJudgeSeat = <
   actorId: string,
 ) =>
   participants.find(
-    (p) => p.actorId === actorId && p.role === 'judge' && p.kind === 'human',
+    (p) => p.actorId === actorId && isJudgeSeat(p.seat) && p.kind === 'human',
   );
 
-/** A ballot's feedback narrowed to the one side this reader debated, if any. */
+/**
+ * A ballot's feedback narrowed to the one subject this reader is (their side,
+ * or themselves when the ballot ranks speakers), if any.
+ */
 const feedbackFor = (
-  feedback: StoredBallot['feedback'],
-  side: DebateSide | undefined,
-): StoredBallot['feedback'] => {
-  const text = side ? feedback[side] : undefined;
-  return side && text ? { [side]: text } : {};
+  feedback: Ballot['feedback'],
+  subject: string | undefined,
+): NonNullable<Ballot['feedback']> => {
+  const text = subject ? feedback?.[subject] : undefined;
+  return subject && text ? { [subject]: text } : {};
 };
 
 /**
  * The caller's own ballot, the frozen transcript for their judging seat, and
  * every ballot only once the Round has completed: no judge reads another's
  * ballot while judging is still open. Released ballots say whether a human or
- * the AI judged, never who, and carry only the reader's own side's feedback
+ * the AI judged, never who, and carry only the reader's own feedback
  * (ADR 0071).
  */
 export function ballotReadView(input: {
+  readonly audience:
+    | { readonly kind: 'ordinary' }
+    | {
+        readonly kind: 'event';
+        readonly access: RoundBallotAccess;
+        readonly screenings: ReadonlyMap<string, BallotScreeningRead>;
+      };
   readonly status: string;
   readonly ownSeatId: string | undefined;
-  readonly viewerSide: DebateSide | undefined;
+  /** The subject the reader's feedback is written under (`feedbackSubjectOf`). */
+  readonly viewerSubject: string | undefined;
   readonly aiJudgeSeatIds: ReadonlySet<string>;
+  /** The Round's frozen ballot definition and who its ballots are about. */
+  readonly definition: BallotDefinition | null;
+  readonly source: BallotDefinitionSource | null;
+  readonly subjects: BallotSubjects;
   readonly rows: readonly BallotRow[];
   readonly frozen: FrozenRoundTranscript | null;
 }) {
   const own = input.rows.find((b) => b.judgeParticipantId === input.ownSeatId);
   const { frozen } = input;
+  const body = (row: BallotRow) => {
+    if (!input.definition || !input.source)
+      throw createAppError('INVARIANT', 'A ballot on a Round judged by nobody');
+    return ballotBody(row, input.definition, input.source, input.subjects);
+  };
   return {
     own: input.ownSeatId
       ? {
           participantId: input.ownSeatId,
-          ballot: own ? ballotBody(own) : null,
+          ballot: own ? body(own) : null,
           freezeRevision: own?.freezeRevision ?? null,
         }
       : null,
@@ -78,15 +158,47 @@ export function ballotReadView(input: {
         }
       : null,
     ballots:
-      input.status === 'completed'
-        ? input.rows.map((row) => {
-            const ballot = ballotBody(row);
-            const own = feedbackFor(ballot.feedback, input.viewerSide);
+      input.status === 'completed' ||
+      (input.audience.kind === 'event' && input.audience.access.unreleased)
+        ? input.rows.flatMap((row) => {
+            const original = body(row);
+            const ballot =
+              input.audience.kind === 'ordinary'
+                ? original
+                : eventBallotForAudience(
+                    original,
+                    input.audience.access,
+                    input.audience.screenings.get(row.id) ?? null,
+                  );
+            if (Object.keys(ballot).length === 1) return [];
+            const own = feedbackFor(ballot.feedback, input.viewerSubject);
             return {
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)
                 : ('human' as const),
-              ballot: { ...ballot, feedback: own },
+              ...(input.audience.kind === 'event' &&
+              input.audience.access.unreleased
+                ? {
+                    review: {
+                      ballotId: row.id,
+                      screening:
+                        input.audience.screenings.get(row.id)?.status ??
+                        'pending',
+                    },
+                  }
+                : {}),
+              ballot: {
+                ...ballot,
+                ...(ballot.feedback !== undefined
+                  ? {
+                      feedback:
+                        input.audience.kind === 'event' &&
+                        input.audience.access.unreleased
+                          ? ballot.feedback
+                          : own,
+                    }
+                  : {}),
+              },
               reportableFeedbackId: Object.keys(own).length > 0 ? row.id : null,
             };
           })

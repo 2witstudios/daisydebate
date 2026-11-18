@@ -38,7 +38,7 @@ const removeRoom = (roomId: string) =>
     `;
     if (round)
       await sql`delete from outbox where topic=${buildRoundTopic(round.id)}`;
-    await sql`delete from round_participants where round_id in (select id from rounds where room_id=${roomId})`;
+    await sql`delete from rounds where room_id=${roomId}`;
     await sql`delete from rounds where room_id=${roomId}`;
     await deleteOrphanNotificationSignals(sql);
     await sql`delete from room_commands where room_id=${roomId}`;
@@ -99,13 +99,11 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
       );
     view = await h.command(host, view, {
       type: 'claim-seat',
-      role: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
     });
     view = await h.command(guest, view, {
       type: 'claim-seat',
-      role: 'negative',
-      slot: 0,
+      seat: { kind: 'side', side: 'negative', slot: 0 },
     });
 
     const found = await discover(host);
@@ -438,7 +436,13 @@ test('real Room chat HTTP admits the host, seats and visitors of an open Room, n
         [
           [host, { type: 'close' }],
           [host, { type: 'start-round' }],
-          [visitor, { type: 'claim-seat', role: 'negative', slot: 0 }],
+          [
+            visitor,
+            {
+              type: 'claim-seat',
+              seat: { kind: 'side', side: 'negative', slot: 0 },
+            },
+          ],
         ] as const
       ).map(async ([cookie, body]) => {
         const response = await h.routes.rooms.commands(
@@ -502,7 +506,7 @@ const judgedSelection = {
   kind: 'custom',
   definition: {
     ...oneOnOneDefinition,
-    seats: { ...oneOnOneDefinition.seats, judge: 1 },
+    seats: { ...oneOnOneDefinition.seats, judges: 1 },
   },
   competitionType: 'casual',
   config: {
@@ -538,16 +542,12 @@ for (const hostSeat of ['affirmative', 'judge'] as const)
       );
       let view: RoomView = roomViewSchema.parse((await created.json()).view);
       const room = (roomId = view.id);
-      for (const [cookie, role] of [
-        [debater, 'affirmative'],
-        [reader, 'negative'],
-        [judge, 'judge'],
+      for (const [cookie, seat] of [
+        [debater, { kind: 'side', side: 'affirmative', slot: 0 }],
+        [reader, { kind: 'side', side: 'negative', slot: 0 }],
+        [judge, { kind: 'judge', slot: 0 }],
       ] as const)
-        view = await h.command(cookie, view, {
-          type: 'claim-seat',
-          role,
-          slot: 0,
-        });
+        view = await h.command(cookie, view, { type: 'claim-seat', seat });
       await withSql(
         (sql) =>
           sql`update rooms set visibility='private',version=version+1 where id=${room}`,
@@ -669,7 +669,7 @@ for (const hostSeat of ['affirmative', 'judge'] as const)
           wire.includes('"readOnly":true'),
           wire.includes(judgeIdentity.principal.actorId),
           wire.includes(judgeIdentity.username),
-          /seated|visitor|standing|judge|affirmative|negative|seatRole|"host"/.test(
+          /seated|visitor|standing|judge|affirmative|negative|seatRole|seatKind|"host"/.test(
             wire,
           ),
         ],
@@ -701,14 +701,13 @@ test('a debater who posts and then takes the judge seat is not named by their ea
     );
     let view: RoomView = roomViewSchema.parse((await created.json()).view);
     const room = (roomId = view.id);
-    for (const [cookie, role] of [
+    for (const [cookie, side] of [
       [mover, 'affirmative'],
       [reader, 'negative'],
     ] as const)
       view = await h.command(cookie, view, {
         type: 'claim-seat',
-        role,
-        slot: 0,
+        seat: { kind: 'side', side, slot: 0 },
       });
     await withSql(
       (sql) =>
@@ -764,8 +763,7 @@ test('a debater who posts and then takes the judge seat is not named by their ea
     );
     await h.command(mover, current, {
       type: 'claim-seat',
-      role: 'judge',
-      slot: 0,
+      seat: { kind: 'judge', slot: 0 },
     });
     assert({
       given:

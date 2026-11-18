@@ -35,7 +35,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
           kind: 'custom',
           definition: {
             ...choice.definition,
-            seats: { ...choice.definition.seats, judge: 1 },
+            seats: { ...choice.definition.seats, judges: 1 },
           },
           config: choice.preset.config,
           competitionType: 'casual',
@@ -52,7 +52,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
       await inviteToRoom(deps, f.host, {
         roomId: view.id,
         username: `u-${debater.userId}`,
-        seat: 'debater',
+        seat: 'side',
       }),
     ];
     try {
@@ -125,7 +125,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
             { kind: 'room_invitation', roomId: view.id, seat: 'judge' },
           ],
           debaterInbox: [
-            { kind: 'room_invitation', roomId: view.id, seat: 'debater' },
+            { kind: 'room_invitation', roomId: view.id, seat: 'side' },
           ],
           judgeMail: [{ judge: true, inbox: true, unsubscribe: true }],
           debaterMail: [{ judge: false, inbox: true, unsubscribe: true }],
@@ -139,8 +139,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
         actual: () =>
           f.command(stranger, view, {
             type: 'claim-seat',
-            role: 'judge',
-            slot: 0,
+            seat: { kind: 'judge', slot: 0 },
           }),
         code: 'CONFLICT',
       });
@@ -149,14 +148,13 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
       view = (
         await f.command(judge, view, {
           type: 'claim-seat',
-          role: 'judge',
-          slot: 0,
+          seat: { kind: 'judge', slot: 0 },
         })
       ).view;
       const [accepted] =
         await f.sql`select state from room_invitations where id=${invitations[0]!.invitationId}`;
       const [seated] =
-        await f.sql`select actor_id from room_participants where room_id=${view.id} and role='judge'`;
+        await f.sql`select actor_id from room_participants where room_id=${view.id} and seat_kind='judge'`;
       const [hold] =
         await f.sql`select count(*)::int as n from room_seat_holds where room_id=${view.id} and actor_id=${judge.actorId}`;
       assert({

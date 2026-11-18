@@ -1,6 +1,8 @@
+import { requireFencedParticipants } from './round-command-replay';
+import { currentRoundParticipant } from './round-current-participant';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { isRoundOver, idSchema } from '@daisy/protocol';
+import { isJudgeSeat, isRoundOver, idSchema } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';
@@ -20,7 +22,12 @@ async function lockRoundAgentAccounts(
     .select({ actorId: actors.id, kind: actors.kind })
     .from(roundParticipants)
     .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
-    .where(eq(roundParticipants.roundId, roundId));
+    .where(
+      and(
+        eq(roundParticipants.roundId, roundId),
+        currentRoundParticipant(roundParticipants.id),
+      ),
+    );
   const [initial] = await tx
     .select({ creator: rounds.createdByActorId })
     .from(rounds)
@@ -35,6 +42,7 @@ async function lockRoundAgentAccounts(
     if (facts.some((fact) => !fact?.member || fact.erased))
       throw createAppError('AUTHORIZATION');
   }
+  return seats.map((seat) => seat.actorId);
 }
 
 /** Account fences precede the Round; callers then lock run and job/claim in that order. */
@@ -45,7 +53,7 @@ export async function lockRoundAgentContext(
 ) {
   if (![roundId, participantId].every((id) => idSchema.safeParse(id).success))
     throw createAppError('VALIDATION');
-  await lockRoundAgentAccounts(tx, roundId);
+  const fencedActorIds = await lockRoundAgentAccounts(tx, roundId);
   const [locked] = await tx
     .select()
     .from(rounds)
@@ -57,8 +65,9 @@ export async function lockRoundAgentContext(
     (candidate) => candidate.id === participantId,
   );
   if (!round || !seat) throw createAppError('AUTHORIZATION');
+  requireFencedParticipants(round.participants, fencedActorIds);
   // A judge seat's agent is the AI judge; a side's is a bot debater (ISSUE-750).
-  const profile = seat.role === 'judge' ? aiJudgeProfiles : botProfiles;
+  const profile = isJudgeSeat(seat.seat) ? aiJudgeProfiles : botProfiles;
   const [bot] = await tx
     .select({ id: actors.id })
     .from(actors)

@@ -21,7 +21,7 @@ test('recording create HTTP binds the receipt to its payload and member and refu
       text: 'Cities should make public transit free',
     },
     visibility: 'unlisted',
-    recording: true,
+    recordingPolicy: 'released',
     selection: {
       kind: 'catalog',
       formatId: 'nsda-ld',
@@ -44,7 +44,7 @@ test('recording create HTTP binds the receipt to its payload and member and refu
     );
     const replay = await post(host);
     const replayed = await replay.json();
-    const changed = await post(host, { ...body, recording: false });
+    const changed = await post(host, { ...body, recordingPolicy: 'off' });
     const stolen = await post(outsider);
     assert({
       given:
@@ -62,10 +62,10 @@ test('recording create HTTP binds the receipt to its payload and member and refu
       ],
       expected: [
         201,
-        { broadcast: null, recording: true },
+        { broadcast: null, recordingPolicy: 'released' },
         201,
         true,
-        { broadcast: null, recording: true },
+        { broadcast: null, recordingPolicy: 'released' },
         409,
         409,
       ],
@@ -75,7 +75,7 @@ test('recording create HTTP binds the receipt to its payload and member and refu
     const refused = await post(host, { ...body, commandId: refusedId });
     const rows = await withSql(async (sql) => {
       const [row] =
-        await sql`select (select count(*)::int from rooms where title=${body.title}) rooms, (select count(*)::int from room_commands where command_id=${refusedId}) receipts, (select count(*)::int from room_active_memberships where room_id=${roomId!}) members`;
+        await sql`select (select count(*)::int from rooms where title=${body.title}) rooms, (select count(*)::int from room_commands where command_id=${refusedId}) receipts, (select count(*)::int from active_seats where room_id=${roomId!}) members`;
       return row;
     });
     assert({
@@ -88,7 +88,7 @@ test('recording create HTTP binds the receipt to its payload and member and refu
     const ranked = {
       ...body,
       commandId: createId(),
-      recording: false,
+      recordingPolicy: 'off',
       visibility: 'public',
       resolution: { kind: 'strike' },
       selection: {

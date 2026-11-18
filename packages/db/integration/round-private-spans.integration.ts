@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -14,7 +14,7 @@ const at = (seconds: number) =>
     Date.parse('2026-11-03T10:00:00.000Z') + seconds * 1000,
   ).toISOString();
 const live = { status: 'active', currentStage: 'live' };
-const idle = emptyRuntimeCheckpoint;
+const idle = emptyRuntimeCheckpointFor({ sides: twoSides });
 const prepping = {
   ...idle,
   active_prep: { side: 'affirmative' as const, started_at: at(10) },

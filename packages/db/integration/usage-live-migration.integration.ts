@@ -1,19 +1,20 @@
 import { SQL } from 'bun';
-import { eq } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import { testLane } from '../src/testing-lane';
-import { rounds } from '../src/schema/rounds';
 import { agentRuns } from '../src/schema/agent-runs';
 import { readDatabaseTime } from '../src/database-clock';
 import {
   lockBotAdmission,
   markLockedRoundBotModelCall,
 } from '../src/round-bot-admission';
-import { writeProjectionWithPhaseSignal } from '../src/round-projection-writer';
+import {
+  lockedRoundVersion,
+  writeProjectionWithPhaseSignal,
+} from '../src/round-projection-writer';
 import { withFixture } from './constraint-helpers';
 import { createBotSeat } from './bot-seat.test-support';
 import { admissionSponsor } from './bot-admission.test-support';
@@ -98,16 +99,12 @@ for (const ending of ['ordinary', 'recovery_bound'] as const) {
                 detected_at: new Date(),
               });
             await run(async (tx) => {
-              const [current] = await tx
-                .select()
-                .from(rounds)
-                .where(eq(rounds.id, roundId))
-                .for('no key update');
+              const current = await lockedRoundVersion(tx, roundId);
               const now = (await readDatabaseTime(tx)).toISOString();
               await writeProjectionWithPhaseSignal(
                 tx,
                 roundId,
-                current!,
+                current,
                 {
                   round: {
                     status: 'abandoned',

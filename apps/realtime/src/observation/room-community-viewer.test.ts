@@ -31,7 +31,7 @@ const fact: RoomCommunityFact = {
   endedAt: null,
   actorId: 'actor',
   host: false,
-  seatRole: null,
+  seatKind: null,
 };
 const input = {
   principal,
@@ -52,10 +52,10 @@ describe('Room chat observation permits', () => {
         'issue each the same standard short permit with the exact disclosure revision and content floor: a judge reads what everyone reads',
       actual: (
         [
-          { host: false, seatRole: null },
-          { host: false, seatRole: 'negative' },
-          { host: true, seatRole: null },
-          { host: false, seatRole: 'judge' },
+          { host: false, seatKind: null },
+          { host: false, seatKind: 'side' },
+          { host: true, seatKind: null },
+          { host: false, seatKind: 'judge' },
         ] as const
       ).map((caller) =>
         decideRoomCommunityPermit({ ...input, fact: { ...fact, ...caller } }),
@@ -98,7 +98,7 @@ describe('Room chat observation permits', () => {
           ...input,
           fact: {
             ...fact,
-            seatRole: 'affirmative',
+            seatKind: 'side',
             status: 'closed',
             endedAt: instant,
           },

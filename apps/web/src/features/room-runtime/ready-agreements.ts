@@ -18,7 +18,8 @@ export const roomCaptureNotice = (
   room: CaptureFacts,
 ): RoundCaptureNotice | null =>
   room.competitionType !== 'ranked' &&
-  (room.capture?.broadcast || room.capture?.recording)
+  room.capture &&
+  (room.capture.broadcast || room.capture.recordingPolicy !== 'off')
     ? casualCaptureNotice
     : null;
 

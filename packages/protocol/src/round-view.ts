@@ -2,12 +2,9 @@ import type { AttendanceLedgerFacts } from './attendance';
 import type { JudgingPanelFacts } from './round-panel-completion';
 import { z } from 'zod';
 import { roundPlatformEndings } from './round';
-import {
-  idSchema,
-  debateRoleSchema,
-  ratingLadders,
-  roundOutcomeSchema,
-} from './primitives';
+import { idSchema, ratingLadders } from './primitives';
+import { roundOutcomeSchema } from './round-outcome';
+import { seatRefSchema } from './seats';
 import { frozenRoomConfigSchema } from './room';
 import { seatDrawSchema } from './seat-draw';
 import {
@@ -30,8 +27,7 @@ const seatSchema = z.strictObject({
   actorId: idSchema,
   kind: z.enum(['human', 'bot']),
   label: z.string(),
-  role: debateRoleSchema,
-  slot: z.int().nonnegative(),
+  seat: seatRefSchema,
 });
 
 /**
@@ -39,9 +35,11 @@ const seatSchema = z.strictObject({
  * DEC-174): no name, actor or participant identity, only that it is filled.
  */
 const anonymousJudgeSchema = z.strictObject({
-  role: z.literal('judge'),
+  seat: z.strictObject({
+    kind: z.literal('judge'),
+    slot: z.int().nonnegative(),
+  }),
   kind: z.literal('human'),
-  slot: z.int().nonnegative(),
   anonymous: z.literal(true),
 });
 

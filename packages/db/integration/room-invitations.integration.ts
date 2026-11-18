@@ -49,7 +49,7 @@ const withRoom = (
       },
       rules_snapshot: {
         ...validRules,
-        seats: { ...validRules.seats, judge: 1 },
+        seats: { ...validRules.seats, judges: 1 },
       },
     });
     const database = drizzle({ client: f.sql });
@@ -78,7 +78,7 @@ const withRoom = (
 const invite = (
   env: Parameters<Parameters<typeof withRoom>[0]>[0],
   username: string,
-  seat: 'debater' | 'judge' = 'judge',
+  seat: 'side' | 'judge' = 'judge',
 ) =>
   env.invitations.inviteToRoom({
     caller: env.host,
@@ -182,8 +182,7 @@ test('an invitation ends: declined, then accepted by taking the seat, then expir
             actorId: env.coach.actorId,
             label: 'coach',
             kind: 'human',
-            role: 'judge',
-            slot: 0,
+            seat: { kind: 'judge', slot: 0 },
             eligible: true,
             consentVersion: 0,
             teamOpen: false,
@@ -197,7 +196,7 @@ test('an invitation ends: declined, then accepted by taking the seat, then expir
     const accepted = await env.f
       .sql`select state from room_invitations where id=${second.invitationId}`;
     const debater = await createAuthorizationSubject(env.f);
-    const third = await invite(env, debater.userId, 'debater');
+    const third = await invite(env, debater.userId, 'side');
     await settleRoomInvitationsAfter(
       env.database as never,
       { ...state, status: 'closed' },
@@ -335,7 +334,7 @@ test('an invitation whose time ran out ends, and its retention clock runs', asyn
     );
     const afterClose = await stateOf(judge.invitationId);
     const debater = await createAuthorizationSubject(env.f);
-    const untouched = await invite(env, debater.userId, 'debater');
+    const untouched = await invite(env, debater.userId, 'side');
     await lapseNow(untouched.invitationId);
     const day = 24 * 60 * 60 * 1000;
     await env.invitations.purgeEndedRoomInvitations({
@@ -388,7 +387,7 @@ test('a sweep makes good a hold an earlier run expired but did not free', async 
       where room_id=${env.roomId} and actor_id=${env.coach.actorId}`;
     const judge = await createAuthorizationSubject(env.f);
     await env.f.sql`insert into room_seat_holds(room_id,actor_id,seat,until)
-      values(${env.roomId},${judge.actorId},'debater',clock_timestamp() + interval '1 hour')`;
+      values(${env.roomId},${judge.actorId},'side',clock_timestamp() + interval '1 hour')`;
     await env.invitations.purgeEndedRoomInvitations({
       before: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       limit: 500,
@@ -478,7 +477,7 @@ test('a host who withdraws and invites again owes the member one digest', async 
     const other = await env.f.room(env.host.actorId, await env.f.format(), {
       rules_snapshot: {
         ...validRules,
-        seats: { ...validRules.seats, judge: 1 },
+        seats: { ...validRules.seats, judges: 1 },
       },
     });
     try {

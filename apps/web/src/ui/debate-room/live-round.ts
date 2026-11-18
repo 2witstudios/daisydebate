@@ -8,66 +8,78 @@ import {
   postRoundCallOffered,
 } from '../../features/post-round-call/offered';
 import { microphoneOpensForClock } from '@daisy/debate-engine/media-grants';
-import type { DebateSide, RoundView } from '@daisy/protocol';
 import {
-  floorSideOf,
+  isAbsentSeat,
+  leadSeatOf,
+  sideOfSeat,
+  speakingSeatsOf,
+  type RoundView,
+  type SeatRef,
+  type SegmentType,
+  type SideKey,
+} from '@daisy/protocol';
+import {
+  floorSeatOf,
   isLiveRound,
   isSeat,
   judgeKindOf,
-  sideName,
+  sameTeam,
+  seatsOf,
   type Seat,
 } from '../../features/round-runtime/round-reading';
-import { initialsOf } from '../../lib/initials';
-import type { Side, SpeechSlot } from '../../features/debate-room/speeches';
+import { sideName } from '../../features/debate-room/seat-names';
+import {
+  sideToneOf,
+  type SpeechSlot,
+} from '../../features/debate-room/speeches';
 import { judgingBallotsOf } from '../../features/debate-room/judging';
 import { judgingClockOf } from '../../features/round-runtime/judging-window';
 import type { RoundPhase } from '../../features/debate-room/layout';
-import type { Debater, RoundPerson, RoundSnapshot } from './round';
+import type { RoundSnapshot } from './round';
+import { debaterOf, personOf, seatGroupsOf } from './round-seats';
 
-type Participant = RoundView['participants'][number];
-
-const sideOf: Readonly<Record<DebateSide, Side>> = {
-  affirmative: 'aff',
-  negative: 'neg',
-};
 const debaterSeat = (view: RoundView, actorId: string) =>
   view.participants.filter(isSeat).find((p) => p.actorId === actorId);
 
 /** The round room is for a debater of a round that has not ended. */
 export function isLiveDebater(view: RoundView, actorId: string): boolean {
-  return isLiveRound(view) && debaterSeat(view, actorId) !== undefined;
+  const seat = debaterSeat(view, actorId);
+  // A seat that left the Round is absent from then on, not in its room (TAB-6.8).
+  return (
+    isLiveRound(view) &&
+    seat !== undefined &&
+    !(view.checkpoint !== null && isAbsentSeat(view.checkpoint, seat.id))
+  );
 }
 
-const debater = (p: Seat): Debater => ({
-  id: p.actorId,
-  name: p.label,
-  initials: initialsOf(p.label),
-  side: sideOf[p.role],
-  rating: null,
+/** The seat, every other competitor seat, and who sits where, as the room shows them. */
+const seatingOf = (view: RoundView, seat: Seat) => ({
+  self: debaterOf(view.rules, seat),
+  others: seatsOf(view)
+    .filter((p) => p.id !== seat.id)
+    .map((p) => debaterOf(view.rules, p)),
+  groups: seatGroupsOf(view.rules),
+  people: view.participants.map(personOf),
 });
 
-const person = (p: Participant): RoundPerson =>
-  isSeat(p)
-    ? {
-        id: p.actorId,
-        name: p.label,
-        role: sideOf[p.role],
-        bot: p.kind === 'bot',
-      }
-    : {
-        id: 'anonymous' in p ? `judge-${p.slot}` : p.id,
-        name: 'Judge',
-        role: 'judge',
-        bot: p.kind === 'bot',
-      };
+const segmentKind = (type: SegmentType): SpeechSlot['kind'] => {
+  switch (type) {
+    case 'speech':
+      return 'speech';
+    case 'cross_ex':
+      return 'cross-ex';
+    case 'open':
+      return 'open';
+  }
+};
 
 const speechesOf = (view: RoundView): readonly SpeechSlot[] =>
   view.rules.segments.map((segment, index) => ({
     id: `${index}-${segment.key}`,
     code: segment.key,
     name: segment.label,
-    side: sideOf[segment.side],
-    kind: segment.type === 'cross_ex' ? 'cross-ex' : 'speech',
+    lead: leadSeatOf(segment.speak),
+    kind: segmentKind(segment.type),
     durationMs: segment.durationMs,
   }));
 
@@ -80,39 +92,62 @@ const positionOf = (view: RoundView, nowMs: number): RoundPosition =>
     nowMs,
   });
 
+/** Whether this seat may speak in the open segment: a speech's floor, or one of several. */
+const speaksIn = (
+  view: RoundView,
+  open: NonNullable<RoundPosition['openSegment']>,
+  seat: SeatRef,
+): boolean =>
+  open.speak.rights === 'one'
+    ? sameTeam(floorSeatOf(view, open), seat)
+    : speakingSeatsOf(view.rules, open.speak).some((s) => sameTeam(s, seat));
+
+/** The phase of a live segment: your own floor, a floor you share, or someone else's. */
+const livePhaseOf = (
+  view: RoundView,
+  open: NonNullable<RoundPosition['openSegment']>,
+  seat: SeatRef,
+): RoundPhase => {
+  if (!speaksIn(view, open, seat)) return 'opponent-speaking';
+  return open.speak.rights === 'one' ? 'own-speech' : 'cross-ex';
+};
+
 /** The phase this debater is in, from the derived position. */
 function phaseOf(
   view: RoundView,
   position: RoundPosition,
-  side: DebateSide,
+  seat: SeatRef,
 ): RoundPhase {
   if (position.status !== 'active') return 'waiting';
   if (position.stage === 'awaiting_ballot') return 'judging';
   if (position.stage === 'prep')
-    return position.prep?.side === side ? 'prep' : 'waiting';
+    return position.prep?.side === sideOfSeat(seat) ? 'prep' : 'waiting';
   const open = position.openSegment;
   if (position.stage !== 'live' || !open) return 'waiting';
-  if (open.type === 'cross_ex') return 'cross-ex';
-  return floorSideOf(view, open) === side ? 'own-speech' : 'opponent-speaking';
+  return livePhaseOf(view, open, seat);
 }
 
 const segmentClock = (
   open: NonNullable<RoundPosition['openSegment']>,
-  side: DebateSide,
+  seat: SeatRef,
 ) => ({
   label:
     open.type === 'cross_ex'
-      ? `Cross-examination · ${open.side === side ? 'You ask' : 'You answer'}`
+      ? `Cross-examination · ${sameTeam(open.lead, seat) ? 'You ask' : 'You answer'}`
       : `${open.key} · ${open.label}`,
   remainingMs: open.remainingMs,
 });
 
 const prepClock = (
+  view: RoundView,
   prep: NonNullable<RoundPosition['prep']>,
-  side: DebateSide,
+  side: SideKey | null,
   micOpens: boolean,
 ) => ({
-  label: prep.side === side ? 'Your prep' : `${sideName[prep.side]} prep`,
+  label:
+    prep.side === side
+      ? 'Your prep'
+      : `${sideName(view.rules.sides, prep.side)} prep`,
   remainingMs: prep.remainingMs,
   // Prep can run out while the seat talks to themselves, and the other side can hear them then.
   ...(micOpens
@@ -124,10 +159,10 @@ const prepClock = (
 function clockOf(
   view: RoundView,
   position: RoundPosition,
-  side: DebateSide,
-  seatId: string,
+  seat: Seat,
 ): RoundSnapshot['clock'] {
-  if (position.openSegment) return segmentClock(position.openSegment, side);
+  if (position.openSegment)
+    return segmentClock(position.openSegment, seat.seat);
   // Told before it opens, because the other side can hear it from then. The same decision
   // that opens it, so a cross-examination's two seats are both told.
   const micOpens =
@@ -135,10 +170,11 @@ function clockOf(
     microphoneOpensForClock({
       rules: view.rules,
       participants: view.participants.filter(isSeat),
-      participantId: seatId,
+      participantId: seat.id,
       nextSequence: position.nextSegment.sequence,
     });
-  if (position.prep) return prepClock(position.prep, side, micOpens);
+  if (position.prep)
+    return prepClock(view, position.prep, sideOfSeat(seat.seat), micOpens);
   if (position.countdownRemainingMs !== null)
     return {
       label: 'Starts in',
@@ -163,9 +199,19 @@ function liveIndexOf(view: RoundView, position: RoundPosition): number {
   return position.nextSegment?.sequence ?? -1;
 }
 
-const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
+const prepOf = (
+  view: RoundView,
+  position: RoundPosition,
+): RoundSnapshot['prep'] => {
   const budget = position.prepBudgetRemainingMs;
-  return budget ? { aff: budget.affirmative, neg: budget.negative } : null;
+  return budget
+    ? view.rules.sides.map((side) => ({
+        side: side.key,
+        label: side.label,
+        tone: sideToneOf(view.rules.sides, side.key),
+        remainingMs: budget[side.key] ?? 0,
+      }))
+    : null;
 };
 
 /**
@@ -177,12 +223,11 @@ const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
  */
 function liveParts(
   view: RoundView,
-  side: DebateSide,
-  seatId: string,
+  seat: Seat,
   nowMs: number,
-): Pick<RoundSnapshot, 'phase' | 'liveIndex' | 'clock' | 'prepMs'> {
+): Pick<RoundSnapshot, 'phase' | 'liveIndex' | 'clock' | 'prep'> {
   if (view.status === 'active' && view.checkpoint === null)
-    return { phase: 'waiting', liveIndex: -1, clock: null, prepMs: null };
+    return { phase: 'waiting', liveIndex: -1, clock: null, prep: null };
   const step = view.opening?.step;
   if (step?.step === 'prep')
     return {
@@ -192,18 +237,18 @@ function liveParts(
         label: 'Prep',
         remainingMs: Math.max(0, Date.parse(step.endsAt) - nowMs),
       },
-      prepMs: null,
+      prep: null,
     };
   const position = positionOf(view, nowMs);
-  const phase = phaseOf(view, position, side);
+  const phase = phaseOf(view, position, seat.seat);
   return {
     phase,
     liveIndex: liveIndexOf(view, position),
     clock:
       phase !== 'judging'
-        ? clockOf(view, position, side, seatId)
+        ? clockOf(view, position, seat)
         : judgingClockOf(view.waitingOn, nowMs),
-    prepMs: prepOf(position),
+    prep: prepOf(view, position),
   };
 }
 
@@ -231,18 +276,14 @@ export function postRoundCallRoundOf(
   const seat = debaterSeat(view, actorId);
   const endsAtMs = postRoundCallEndsAtMs(view);
   if (!seat || endsAtMs === null || nowMs >= endsAtMs) return null;
-  const opponent = view.participants
-    .filter(isSeat)
-    .find((p) => p.role !== seat.role);
-  if (!opponent) return null;
+  const seating = seatingOf(view, seat);
+  if (seating.others.length === 0) return null;
   return {
     id: view.id,
     resolution: view.topic ?? drawnTopicLabel,
     competition: view.competitionType,
     phase: 'judging',
-    self: debater(seat),
-    opponent: debater(opponent),
-    people: view.participants.map(person),
+    ...seating,
     judge: judgeKindOf(view),
     ballots: null,
     judgingState: null,
@@ -254,7 +295,7 @@ export function postRoundCallRoundOf(
       remainingMs: endsAtMs - nowMs,
       note: 'Round over · Not recorded',
     },
-    prepMs: null,
+    prep: null,
     micLive: true,
     channels: [],
     messages: [],
@@ -276,19 +317,15 @@ export function liveRoundOf(
 ): RoundSnapshot | null {
   const seat = debaterSeat(view, actorId);
   if (!isLiveRound(view) || !seat) return null;
-  const opponent = view.participants
-    .filter(isSeat)
-    .find((p) => p.role !== seat.role);
-  if (!opponent) return null;
-  const { phase, ...clocks } = liveParts(view, seat.role, seat.id, nowMs);
+  const seating = seatingOf(view, seat);
+  if (seating.others.length === 0) return null;
+  const { phase, ...clocks } = liveParts(view, seat, nowMs);
   return {
     id: view.id,
     resolution: view.topic ?? drawnTopicLabel,
     competition: view.competitionType,
     phase,
-    self: debater(seat),
-    opponent: debater(opponent),
-    people: view.participants.map(person),
+    ...seating,
     judge: judgeKindOf(view),
     ballots: judgingBallotsOf(judgeKindOf(view)),
     judgingState: view.waitingOn?.state ?? null,

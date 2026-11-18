@@ -1,5 +1,6 @@
 import type { ChatMessage } from './openrouter';
-import { DEFAULT_RUBRIC, ballotInstructions } from './judge-instructions';
+import type { BallotDefinition, Side } from '@daisy/protocol';
+import { ballotInstructions, judgeRubric } from './judge-instructions';
 import {
   evidenceRules,
   transcriptEvidence,
@@ -9,18 +10,20 @@ import {
 /** The worker maps only the actual immutable freeze; identity and actor kind never enter this prompt. */
 export function roundJudgeMessages(
   input: TranscriptEvidenceInput,
+  definition: BallotDefinition,
+  sides: readonly Side[],
 ): ChatMessage[] {
   return [
     {
       role: 'system',
-      content: `${DEFAULT_RUBRIC}\n${evidenceRules}`,
+      content: `${judgeRubric(definition, sides)}\n${evidenceRules}`,
     },
     {
       role: 'user',
       content: [
         `Resolution: ${JSON.stringify(input.resolution)}. Judge the sides and seats only from this frozen evidence.`,
         `Frozen evidence:\n${JSON.stringify(transcriptEvidence(input))}`,
-        ballotInstructions,
+        ballotInstructions(definition, sides),
       ].join('\n\n'),
     },
   ];

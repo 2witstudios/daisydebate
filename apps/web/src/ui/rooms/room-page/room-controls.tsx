@@ -125,13 +125,18 @@ function CaptureSwitch({
   readonly action: FormAction<RoomFormState>;
 }) {
   const broadcast = view.capture?.broadcast ?? null;
-  const recording = view.capture?.recording ?? false;
-  const on = which === 'broadcast' ? broadcast !== null : recording;
+  const policy = view.capture?.recordingPolicy ?? 'off';
+  // The page's switch records for release, as the ordinary form does; a
+  // Recording kept for the officials (TAB-6.15) reads as on, and says so.
+  const recording = policy === 'released';
+  const on = which === 'broadcast' ? broadcast !== null : policy !== 'off';
   const label = which === 'broadcast' ? 'Broadcast' : 'Record';
   const detail =
     which === 'broadcast' && broadcast
       ? delayWords(broadcast.release.seconds)
-      : null;
+      : which === 'recording' && policy === 'officials'
+        ? 'For the officials only'
+        : null;
   const premium = view.captureOffer === 'premium';
   if (!view.capabilities.canEdit)
     return (

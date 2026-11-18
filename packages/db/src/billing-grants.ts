@@ -31,7 +31,7 @@ export async function replaceSubscriptionGrants(
 ) {
   const parsed = grantsSchema.safeParse(grants);
   if (!parsed.success) throw createAppError('VALIDATION');
-  await tx.execute(sql`delete from account_entitlement_grants where user_id=${userId} and source='subscription'
+  await tx.execute(sql`delete from account_entitlement_grants where user_id=${userId} and source='subscription' and entitlement <> 'tournament_hosting'
     and entitlement not in (select value->>'entitlement' from jsonb_array_elements(${JSON.stringify(parsed.data)}::text::jsonb))`);
   if (parsed.data.length)
     await tx.execute(sql`insert into account_entitlement_grants(user_id,entitlement,source,starts_at,expires_at)

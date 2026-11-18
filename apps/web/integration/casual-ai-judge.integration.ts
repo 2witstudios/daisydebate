@@ -1,3 +1,9 @@
+import {
+  isJudgeSeat,
+  judgeSeat,
+  negativeSide,
+  sideSeat,
+} from '@daisy/protocol';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
 import { randomBytes } from 'node:crypto';
@@ -41,8 +47,7 @@ test('a casual AI judge seat needs the host’s own grant, refused on the server
     const seated = await f.command(f.host, entitled.view, {
       type: 'assign-seat',
       actorId: judgeId,
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
     });
     assert({
       given: 'a casual host holding the grant beta approval wrote',
@@ -65,8 +70,7 @@ test('a casual AI judge seat needs the host’s own grant, refused on the server
         f.command(other, open.view, {
           type: 'assign-seat',
           actorId: judgeId,
-          role: 'judge',
-          slot: 0,
+          seat: judgeSeat(),
         }),
       code: 'CONFLICT',
     });
@@ -76,8 +80,7 @@ test('a casual AI judge seat needs the host’s own grant, refused on the server
         commandId: createId(),
         expectedVersion: open.view.version,
         actorId: judgeId,
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
       })
       .catch((error: { message?: string }) => error.message);
     assert({
@@ -110,8 +113,8 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
             title,
             selection: casualTemplate,
             cast: [
-              { actorId: botId, role: 'negative', slot: 0 },
-              { actorId: judgeId, role: 'judge', slot: 0 },
+              { actorId: botId, seat: sideSeat(negativeSide) },
+              { actorId: judgeId, seat: judgeSeat() },
             ],
           },
           host,
@@ -123,7 +126,7 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
       {
         title,
         selection: casualTemplate,
-        cast: [{ actorId: botId, role: 'negative', slot: 0 }],
+        cast: [{ actorId: botId, seat: sideSeat(negativeSide) }],
       },
       host,
     );
@@ -133,10 +136,10 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
         'leave no Room behind, then open one with only the bot seated for a person to judge',
       actual: [
         rows.length,
-        practice.view.participants.map((p) => [p.role, p.kind]),
+        practice.view.participants.map((p) => [p.seat, p.kind]),
         practice.view.aiJudgeSeating,
       ],
-      expected: [0, [['negative', 'bot']], 'premium'],
+      expected: [0, [[sideSeat(negativeSide), 'bot']], 'premium'],
     });
   });
 });
@@ -168,7 +171,9 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
         given: 'a ranked Room whose host holds no entitlement grant',
         should: 'seat the AI judge and tell the host it is free',
         actual: [
-          room.participants.some((p) => p.kind === 'bot' && p.role === 'judge'),
+          room.participants.some(
+            (p) => p.kind === 'bot' && isJudgeSeat(p.seat),
+          ),
           (await f.operations.view(f.host, room.id)).aiJudgeSeating,
         ],
         expected: [true, 'free'],
@@ -188,8 +193,7 @@ test('Launch rechecks a casual AI judge seat whose host has since lost the grant
       await f.command(f.host, view, {
         type: 'assign-seat',
         actorId: judgeId,
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
       })
     ).view;
     for (const c of [f.host, f.guest])

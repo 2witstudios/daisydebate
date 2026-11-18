@@ -92,6 +92,8 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'seat-unavailable':
     'That seat just went: someone has it, or it is held for another member.',
   'version-conflict': 'The room changed. Review the latest room and try again.',
+  'ballot-definition-unavailable':
+    'The pinned ballot cannot run in this room. Ask its organizer to review it.',
   'format-unavailable':
     'That format is no longer offered. Choose from the list now.',
   'illegal-config':

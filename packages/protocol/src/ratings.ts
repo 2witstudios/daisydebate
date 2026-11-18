@@ -1,7 +1,9 @@
 import type { CompetitionType } from './round';
 import type { RoundEndState } from './round-lifecycle';
 import type { AttendanceLedgerFacts } from './attendance';
-import type { DebateRole, RatingLadder, RoundOutcome } from './primitives';
+import type { RatingLadder } from './primitives';
+import type { WinnerOutcome } from './round-outcome';
+import type { SeatRef } from './seats';
 
 /**
  * The rating decision contract (ADR 0055, ADR 0058) between `@daisy/db`,
@@ -23,21 +25,29 @@ export type RatingState = {
  */
 export type RecordedEnding = 'unrecorded' | 'forfeit' | 'unjudged' | 'judged';
 
+/**
+ * What a Round's ending is judged rateable from, on any ladder: how it ended
+ * and its attendance ledger. Daisy's ratings and a league's ladder read the
+ * same facts, so a Round one refuses the other refuses too.
+ */
+export type EndingRatingFacts = RoundEndState & {
+  readonly ending: RecordedEnding;
+  readonly attendance: AttendanceLedgerFacts;
+};
+
 /** What eligibility is decided from, as the adapter loads it: the Round's ending and what surrounds it. */
-export type RatingEligibilityFacts = RoundEndState & {
+export type RatingEligibilityFacts = EndingRatingFacts & {
   readonly competitionType: CompetitionType;
   /** The round's stored ladder, derived by CHECK; null when unrated. */
   readonly ladderId: RatingLadder | null;
   /** Whether the ledger already holds a change for this round. */
   readonly alreadyRated: boolean;
-  readonly ending: RecordedEnding;
-  readonly attendance: AttendanceLedgerFacts;
 };
 
-export type RatingUnrated = {
+/** Why a Round's ending rates on no ladder. */
+export type EndingUnrated = {
   readonly kind: 'unrated';
   readonly reason:
-    | 'competition'
     | 'abandoned'
     | 'no-result'
     | 'ending-unrecorded'
@@ -45,11 +55,27 @@ export type RatingUnrated = {
     | 'unjudged';
 };
 
+export type RatingUnrated =
+  EndingUnrated | { readonly kind: 'unrated'; readonly reason: 'competition' };
+
+/** Whether a Round's ending rates, apart from which ladder it rates on. */
+export type EndingRating =
+  | {
+      readonly kind: 'rated';
+      /** A rating compares two sides: only a two-sided Round's winner is rated. */
+      readonly outcome: WinnerOutcome;
+      readonly occurredAt: string;
+    }
+  /** A rating is still owed, but the attendance ledger does not settle yet. */
+  | { readonly kind: 'attendance-unsettled' }
+  | EndingUnrated;
+
 export type RatingEligibility =
   | {
       readonly kind: 'rated';
       readonly ladder: RatingLadder;
-      readonly outcome: RoundOutcome;
+      /** A rating compares two sides: only a two-sided Round's winner is rated. */
+      readonly outcome: WinnerOutcome;
       readonly occurredAt: string;
     }
   | { readonly kind: 'already-rated' }
@@ -73,12 +99,12 @@ export type DebaterStanding = {
 /** What a rating plan is computed from, as the adapter loads it. */
 export type RatingPlanFacts = {
   readonly ladder: RatingLadder;
-  readonly outcome: RoundOutcome;
+  readonly outcome: WinnerOutcome;
   readonly occurredAt: string;
   readonly seasonId: string | null;
   readonly seats: readonly {
     readonly actorId: string;
-    readonly role: DebateRole;
+    readonly seat: SeatRef;
   }[];
   readonly standings: Readonly<Record<string, DebaterStanding>>;
   /** cuid2 ids for the two ledger rows, affirmative first. */

@@ -66,7 +66,7 @@ test('broadcast and record switches', () => {
           release: { kind: 'delay', seconds: 300 },
           debatersReadChat: false,
         },
-        recording: false,
+        recordingPolicy: 'off',
       },
     }),
   );
@@ -111,7 +111,7 @@ test('everyone else', () => {
           release: { kind: 'delay', seconds: 10 },
           debatersReadChat: true,
         },
-        recording: true,
+        recordingPolicy: 'released',
       },
     }),
   );

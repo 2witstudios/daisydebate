@@ -1,7 +1,9 @@
-import type {
-  RoomCatalogChoice,
-  RoomCastChoice,
-  RoomCreate,
+import {
+  judgeSeat,
+  sideSeat,
+  type RoomCatalogChoice,
+  type RoomCastChoice,
+  type RoomCreate,
 } from '@daisy/protocol';
 import {
   field,
@@ -36,6 +38,8 @@ export type PracticeRequest =
       readonly body: RoomCreate;
     };
 
+const practiceUnavailable = 'Practice is unavailable. Try again.';
+
 /** Daisy's one standard as the catalog offers it, or null when it is absent. */
 const freestyleOf = (
   choices: readonly RoomCatalogChoice[],
@@ -47,9 +51,10 @@ const freestyleOf = (
 /**
  * The create a Start practice post asks for (DEC-269): a casual Freestyle
  * Room, its resolution struck from the five Daisy draws, with the chosen bot
- * at negative. The AI judge judges for a member holding the casual AI judge
- * entitlement (WATCH-16); otherwise the judge seat stays open for a person
- * the host invites from the Room. The host claims a side in the Room.
+ * on the last declared side. The AI judge judges for a member holding the
+ * casual AI judge entitlement (WATCH-16); otherwise the judge seat stays open
+ * for a person the host invites from the Room. The host claims a side in the
+ * Room.
  */
 export function preparePractice(
   form: FormData,
@@ -72,8 +77,10 @@ export function preparePractice(
       error: 'The AI judge is unavailable, so a practice room can’t assemble.',
     };
   const freestyle = freestyleOf(catalog.choices);
-  if (!freestyle)
-    return { kind: 'refused', error: 'Practice is unavailable. Try again.' };
+  if (!freestyle) return { kind: 'refused', error: practiceUnavailable };
+  // The bot takes the last declared side, so the member opens the round.
+  const botSide = freestyle.definition.sides.at(-1);
+  if (!botSide) return { kind: 'refused', error: practiceUnavailable };
   return {
     kind: 'ready',
     body: {
@@ -84,11 +91,11 @@ export function preparePractice(
       selection: casualSelection(freestyle),
       // The bot takes a seat, not a side: practice flips for sides like any Room (ADR 0145).
       sides: 'open',
+      // Its creator is held from create: a second Start practice returns here.
+      practice: true,
       cast: [
-        { actorId: bot.actorId, role: 'negative', slot: 0 },
-        ...(judge
-          ? [{ actorId: judge.actorId, role: 'judge' as const, slot: 0 }]
-          : []),
+        { actorId: bot.actorId, seat: sideSeat(botSide.key) },
+        ...(judge ? [{ actorId: judge.actorId, seat: judgeSeat() }] : []),
       ],
     },
   };

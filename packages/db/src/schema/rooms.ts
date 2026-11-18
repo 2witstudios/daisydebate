@@ -1,17 +1,19 @@
+import { ladders } from './ladders';
 import {
   competitionTypes,
-  debateRoles,
-  debateSides,
-  type DebateSide,
+  twoSideKeys,
+  type TwoSideKey,
   roomCaptureSchema,
   roomConfigSchema,
-  roomSeatKinds,
+  seatKinds,
   roomStatuses,
   type RoomView,
   roomExecutionPlanSchema,
   roundRulesSchema,
   type CompetitionType,
+  type SeatKind,
 } from '@daisy/protocol';
+import type { lobbyKinds } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -36,11 +38,22 @@ import {
   versionColumn,
   versionPositive,
 } from './columns';
+import { daisyReferenceLobby } from './lobby-defaults';
+import { ballotDefinitionVersions } from './ballot-definitions';
 import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
-import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
+import {
+  seatActorId,
+  seatChecks,
+  seatKindColumn,
+  seatSideColumn,
+  seatSlot,
+} from './seats';
 import { formats } from './formats';
 import { actors } from './actors';
+import { lobbies } from './lobbies';
+import { lobbyTemplates, templates } from './templates';
+import { bothOrNeither } from './tenant-keys';
 
 /**
  * The durable pre-competition aggregate (ADR 0058 §5a). The Room holds its
@@ -53,9 +66,14 @@ export const rooms = pgTable(
   'rooms',
   {
     id: text('id').primaryKey(),
-    hostActorId: text('host_actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    /**
+     * The host person: set exactly when the lobby is standing. In a
+     * tournament lobby authority over the Room comes from grants on the
+     * lobby.
+     */
+    hostActorId: text('host_actor_id').references(() => actors.id, {
+      onDelete: 'restrict',
+    }),
     /** The host took over from a restricted one, and names no human judge (DEC-331). */
     hostInherited: boolean('host_inherited').notNull().default(false),
     title: text('title').notNull(),
@@ -77,6 +95,8 @@ export const rooms = pgTable(
      */
     basisFormatId: text('basis_format_id'),
     basisPresetVersion: integer('basis_preset_version'),
+    /** The league lobby rating selection at creation; Daisy uses ladder_id on Round. */
+    leagueLadderId: text('league_ladder_id'),
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
@@ -84,7 +104,14 @@ export const rooms = pgTable(
      * Team 1's side, or null while the sides are open to the coin flip at
      * Start round (ADR 0145). Team 1 sits in the affirmative seats.
      */
-    teamOneSide: text('team_one_side').$type<DebateSide>(),
+    teamOneSide: text('team_one_side').$type<TwoSideKey>(),
+    /**
+     * The Room holds its host as an active member, seated or not: a Train
+     * practice (decision 75), so a second Start practice returns to it. Set
+     * at create and never changed. Any other Room holds only its seated
+     * people (TAB-6.16).
+     */
+    holdsHost: boolean('holds_host').notNull().default(false),
     /** RoomConfig as chosen. */
     config: jsonbColumn('config', roomConfigSchema).notNull(),
     /** The casual host's broadcast and recording choice (WATCH-8); null is none. */
@@ -106,12 +133,101 @@ export const rooms = pgTable(
     lastCommandAt: timestampColumn('last_command_at').notNull().defaultNow(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
+    /**
+     * The Room's only parent, named by every writer: there is no default,
+     * so a Room written without its lobby is refused. Every Room made before
+     * lobbies had rows was placed in Daisy's public lobby by the migration.
+     * `lobby_kind` is the lobby's kind, proved by the composite key. A
+     * trigger refuses moving a Room to another lobby.
+     */
+    lobbyId: text('lobby_id').notNull(),
+    lobbyKind: text('lobby_kind')
+      .$type<(typeof lobbyKinds)[number]>()
+      .notNull()
+      .default(daisyReferenceLobby.kind),
+    /** The template the Room follows; standing Rooms require a lobby offer. */
+    templateId: text('template_id'),
+    /** Internal constraint key: event pins do not require standing offers. */
+    standingTemplateId: text('standing_template_id').generatedAlwaysAs(
+      sql`case when lobby_kind = 'standing' then template_id else null end`,
+    ),
+    /** The pinned ballot definition; null is the Daisy ballot. */
+    ballotDefinitionId: text('ballot_definition_id'),
+    ballotDefinitionVersion: integer('ballot_definition_version'),
   },
   (table) => [
+    unique('rooms_id_league_ladder_unique').on(table.id, table.leagueLadderId),
+    index('rooms_league_ladder_lobby_idx').on(
+      table.leagueLadderId,
+      table.lobbyId,
+    ),
+    foreignKey({
+      name: 'rooms_own_league_ladder_fk',
+      columns: [table.leagueLadderId, table.lobbyId],
+      foreignColumns: [ladders.id, ladders.lobbyId],
+    }).onDelete('restrict'),
+    check(
+      'rooms_league_ladder_is_casual_standing',
+      sql`${table.leagueLadderId} is null or (${table.lobbyKind} = 'standing' and ${table.competitionType} = 'casual')`,
+    ),
     index('rooms_discovery_assembly_idx')
       .on(sql`${table.id} collate "C"`)
       .where(sql`${table.status} in ('assembling', 'ready')`),
     index('rooms_host_actor_idx').on(table.hostActorId),
+    unique('rooms_id_lobby_unique').on(table.id, table.lobbyId),
+    index('rooms_lobby_kind_idx').on(table.lobbyId, table.lobbyKind),
+    index('rooms_lobby_template_idx').on(table.lobbyId, table.templateId),
+    index('rooms_template_idx').on(table.templateId),
+    index('rooms_standing_template_idx').on(
+      table.lobbyId,
+      table.standingTemplateId,
+    ),
+    index('rooms_ballot_definition_idx').on(
+      table.ballotDefinitionId,
+      table.ballotDefinitionVersion,
+    ),
+    foreignKey({
+      name: 'rooms_lobby_fk',
+      columns: [table.lobbyId, table.lobbyKind],
+      foreignColumns: [lobbies.id, lobbies.kind],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'rooms_template_fk',
+      columns: [table.templateId],
+      foreignColumns: [templates.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'rooms_offered_template_fk',
+      columns: [table.lobbyId, table.standingTemplateId],
+      foreignColumns: [lobbyTemplates.lobbyId, lobbyTemplates.templateId],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'rooms_ballot_definition_fk',
+      columns: [table.ballotDefinitionId, table.ballotDefinitionVersion],
+      foreignColumns: [
+        ballotDefinitionVersions.ballotDefinitionId,
+        ballotDefinitionVersions.version,
+      ],
+    }).onDelete('restrict'),
+    check(
+      'rooms_host_by_lobby_kind',
+      sql`(${table.hostActorId} is null) = (${table.lobbyKind} = 'tournament')`,
+    ),
+    // With rounds_ranked_ladder_check, an event Room can never post to a ladder.
+    // An event Room's Recording is never released as Daisy releases one (TAB-6).
+    check(
+      'rooms_event_recording',
+      sql`${table.lobbyKind} <> 'tournament' or (${table.capture} is not null and ${table.capture}->>'recordingPolicy' in ('off', 'officials'))`,
+    ),
+    check(
+      'rooms_event_is_casual',
+      sql`${table.lobbyKind} <> 'tournament' or ${table.competitionType} = 'casual'`,
+    ),
+    bothOrNeither(
+      'rooms_ballot_definition_complete',
+      table.ballotDefinitionId,
+      table.ballotDefinitionVersion,
+    ),
     index('rooms_lobby_idx').on(
       table.visibility,
       table.status,
@@ -119,7 +235,7 @@ export const rooms = pgTable(
     ),
     check(
       'rooms_team_one_side_check',
-      sql`${table.teamOneSide} is null or ${oneOf(table.teamOneSide, debateSides)}`,
+      sql`${table.teamOneSide} is null or ${oneOf(table.teamOneSide, twoSideKeys)}`,
     ),
     // A ranked Room always flips for sides until Start (ADR 0145); at Start
     // its seats take the drawn sides and team 1's side reads Affirmative.
@@ -208,7 +324,8 @@ export const rooms = pgTable(
 
 /**
  * A seat during Room assembly, before any Round exists (ADR 0058 §5a).
- * The same terms as a Round's seat: an id, an actor, a role and a slot.
+ * The same terms as a Round's seat: an id, an actor, a seat kind, a side
+ * for a side's seat, and a slot.
  */
 export const roomParticipants = pgTable(
   'room_participants',
@@ -218,7 +335,8 @@ export const roomParticipants = pgTable(
       .notNull()
       .references(() => rooms.id, { onDelete: 'cascade' }),
     actorId: seatActorId(),
-    role: seatRole(),
+    seatKind: seatKindColumn(),
+    side: seatSideColumn(),
     slot: seatSlot(),
     /** A debater whose team is ?, placed at random at Start round (ADR 0145). */
     teamOpen: boolean('team_open').notNull().default(false),
@@ -233,17 +351,15 @@ export const roomParticipants = pgTable(
       table.roomId,
       table.actorId,
     ),
-    uniqueIndex('room_participants_seat_unique').on(
-      table.roomId,
-      table.role,
-      table.slot,
-    ),
+    /** One occupant per seat; an unsided seat's null side is one value. */
+    unique('room_participants_seat_unique')
+      .on(table.roomId, table.seatKind, table.side, table.slot)
+      .nullsNotDistinct(),
     index('room_participants_actor_idx').on(table.actorId),
-    check('room_participants_role_check', oneOf(table.role, debateRoles)),
-    check('room_participants_slot_check', seatSlotCheck(table.slot)),
+    ...seatChecks('room_participants', table),
     check(
       'room_participants_open_seat_check',
-      sql`(${table.role} <> 'judge' or not (${table.teamOpen} or ${table.positionOpen})) and (not ${table.teamOpen} or ${table.positionOpen})`,
+      sql`(${table.seatKind} = 'side' or not (${table.teamOpen} or ${table.positionOpen})) and (not ${table.teamOpen} or ${table.positionOpen})`,
     ),
     check(
       'room_participants_readiness_version_nonnegative',
@@ -267,26 +383,26 @@ export const roomSeatHolds = pgTable(
     actorId: text('actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
-    seat: text('seat').notNull(),
+    seat: text('seat').$type<SeatKind>().notNull(),
     until: timestampColumn('until').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.roomId, table.actorId] }),
     index('room_seat_holds_actor_idx').on(table.actorId),
-    check('room_seat_holds_seat_check', oneOf(table.seat, roomSeatKinds)),
+    check('room_seat_holds_seat_check', oneOf(table.seat, seatKinds)),
   ],
 );
 
 /**
- * One active Room per user, enforced here (ADR 0070). A row names the one
- * Room that holds a human actor — as its host or in a seat — while it
- * assembles or its Round is live; the primary key on `actor_id` is the
- * invariant, so a second Room's create or join cannot commit. The Room
- * writer keeps the rows equal to the engine's `activeRoomMembers`, and a
- * Round's end releases them. Bots hold no row.
+ * One active Room per user, enforced here (ADR 0070, TAB-6): a row names the
+ * one Room that seats a human actor while it assembles or its Round is live;
+ * the primary key on `actor_id` is the invariant, so a second Room's seat
+ * cannot commit. A host who holds no seat is not held. The Room writer keeps
+ * the rows equal to the engine's `activeRoomMembers`, and a Round's end
+ * releases them. Bots hold no row.
  */
-export const roomActiveMemberships = pgTable(
-  'room_active_memberships',
+export const activeSeats = pgTable(
+  'active_seats',
   {
     actorId: text('actor_id')
       .primaryKey()
@@ -296,5 +412,5 @@ export const roomActiveMemberships = pgTable(
       .references(() => rooms.id, { onDelete: 'cascade' }),
     createdAt: createdAtColumn(),
   },
-  (table) => [index('room_active_memberships_room_idx').on(table.roomId)],
+  (table) => [index('active_seats_room_idx').on(table.roomId)],
 );

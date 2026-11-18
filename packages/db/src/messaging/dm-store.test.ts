@@ -129,7 +129,7 @@ test('request decisions require observation and matching operation before writes
           receipt: null,
         },
         { channelId: current.scope.channelId, state: 'accepted' },
-        ['decide', 'decide'],
+        ['accept', 'accept'],
       ],
     });
   });

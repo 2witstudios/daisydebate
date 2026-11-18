@@ -4,8 +4,13 @@ import type {
   MessagingChannelStore,
 } from './records';
 type MessagingDmDecision = 'accept' | 'decline' | 'cancel';
+/**
+ * The question a DM request step asks: a decision names its answer, since
+ * one capability decides both and only a decline is a way out of a
+ * minor's boundary.
+ */
 export type MessagingDmFence = (
-  capability: 'read' | 'decide' | 'cancel' | 'result',
+  question: 'read' | MessagingDmDecision | 'result',
 ) => MessagingAuthorizationFence;
 type Receipt = {
   readonly kind: string;

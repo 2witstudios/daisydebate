@@ -8,8 +8,7 @@ const seat = {
   actorId: 'member',
   label: 'Member',
   kind: 'human',
-  role: 'negative',
-  slot: 0,
+  seat: { kind: 'side', side: 'negative', slot: 0 } as const,
   consentVersion: 1,
   teamOpen: false,
   positionOpen: false,
@@ -43,7 +42,10 @@ test('judges retain their own authorized route while spectators never auto-enter
     should: 'auto-enter only the explicitly named own seat',
     actual: [
       roundEntry(
-        { ...view('active'), participants: [{ ...seat, role: 'judge' }] },
+        {
+          ...view('active'),
+          participants: [{ ...seat, seat: { kind: 'judge', slot: 0 } }],
+        },
         'member',
         null,
       ).href,

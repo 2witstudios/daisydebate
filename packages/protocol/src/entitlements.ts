@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { tournamentHostingGrantSchema } from './tournament-hosting';
+
 /**
  * Named premium entitlement grants (DEC-247, ISSUE-779): what an account is
  * granted, and where the grant came from. A grant is its own fact; beta
@@ -15,16 +18,31 @@ export const entitlementKinds = [
 ] as const;
 type EntitlementKind = (typeof entitlementKinds)[number];
 
-export const entitlementSources = ['beta', 'subscription'] as const;
+export const entitlementSources = [
+  'beta',
+  'subscription',
+  'administrative',
+] as const;
 
-export type EntitlementGrant = {
-  readonly entitlement: EntitlementKind;
-} & (
-  | { readonly source: 'beta' }
-  | {
-      readonly source: 'subscription';
-      /** Half-open validity, enforced on reads even when workers stop. */
-      readonly startsAt: string;
-      readonly expiresAt: string;
-    }
-);
+/** Ordinary Premium remains exactly these five capabilities. Hosting is independently issued. */
+export const accountEntitlementKinds = [
+  ...entitlementKinds,
+  'tournament_hosting',
+] as const;
+
+export const entitlementGrantSchema = z.union([
+  z.object({
+    entitlement: z.enum(entitlementKinds),
+    source: z.literal('beta'),
+  }),
+  z.object({
+    entitlement: z.enum(entitlementKinds),
+    source: z.literal('subscription'),
+    startsAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime(),
+  }),
+  tournamentHostingGrantSchema,
+]);
+
+export type EntitlementGrant = z.infer<typeof entitlementGrantSchema>;
+export type PremiumEntitlementKind = EntitlementKind;

@@ -93,13 +93,11 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     });
     view = await command(host, view, {
       type: 'claim-seat',
-      role: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
     });
     view = await command(guest, view, {
       type: 'claim-seat',
-      role: 'negative',
-      slot: 0,
+      seat: { kind: 'side', side: 'negative', slot: 0 },
     });
     const hostActor = view.hostActorId,
       guestActor = view.participants
@@ -184,7 +182,7 @@ test('real authenticated HTTP and native-form transport share principal, origin,
         `;
         if (round)
           await sql`delete from outbox where topic=${buildRoundTopic(round.id)}`;
-        await sql`delete from round_participants where round_id in (select id from rounds where room_id=${roomId})`;
+        await sql`delete from rounds where room_id=${roomId}`;
         await sql`delete from rounds where room_id=${roomId}`;
         await deleteOrphanNotificationSignals(sql);
         await sql`delete from room_commands where room_id=${roomId}`;

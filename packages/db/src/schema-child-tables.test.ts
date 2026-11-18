@@ -27,16 +27,19 @@ describe('competitive schema child tables', () => {
       expected: {
         participants: {
           checks: [
-            'round_participants_role_check',
+            'round_participants_seat_kind_check',
+            'round_participants_side_check',
             'round_participants_slot_check',
           ],
           indexes: [
             'round_participants_actor_idx',
-            'unique round_participants_actor_unique',
+            'round_participants_round_actor_idx',
+            'unique round_participants_fixed_actor_unique',
+            'unique round_participants_fixed_seat_unique',
             'unique round_participants_id_round_unique',
-            'unique round_participants_seat_unique',
+            'unique round_participants_rating_actor_unique',
           ],
-          uniques: [],
+          uniques: ['round_participants_assignment_identity_unique'],
           namedKeys: [],
         },
         segments: {
@@ -75,14 +78,20 @@ describe('competitive schema child tables', () => {
         },
         ballots: {
           checks: [
+            'ballots_ballot_definition_complete',
             'ballots_citations_is_object',
+            'ballots_daisy_definition_check',
+            'ballots_decision_check',
             'ballots_feedback_is_object',
             'ballots_freeze_revision_positive',
+            'ballots_ranking_check',
             'ballots_rubric_version_check',
             'ballots_scores_is_object',
+            'ballots_speaker_ranks_check',
             'ballots_winner_check',
           ],
           indexes: [
+            'ballots_ballot_definition_idx',
             'ballots_freeze_revision_idx',
             'ballots_judge_round_idx',
             'unique ballots_finalization_reference',
@@ -91,6 +100,7 @@ describe('competitive schema child tables', () => {
           ],
           uniques: [],
           namedKeys: [
+            'ballots_ballot_definition_fk',
             'ballots_freeze_revision_fk',
             'ballots_judge_round_fk',
             'ballots_judge_seat_fk',

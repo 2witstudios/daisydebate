@@ -1,3 +1,4 @@
+import { isJudgeSeat } from '@daisy/protocol';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { MediaStage } from '../../src/features/round-media/media-stage';
@@ -11,7 +12,7 @@ const sdk = (id: string) => ({
 });
 const tracks = [sdk('first'), sdk('second')];
 const seat = view.participants.find(
-  (p) => p.kind === 'human' && p.role !== 'judge',
+  (p) => p.kind === 'human' && !isJudgeSeat(p.seat),
 )!;
 const media = {
   peers: [

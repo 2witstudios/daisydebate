@@ -1,10 +1,9 @@
 import { Database } from '@adobe/data/ecs';
 import {
-  emptyRuntimeCheckpoint,
   runtimeCheckpointSchema,
-  type DebateSide,
   type RuntimeCheckpoint,
   type SegmentType,
+  type SideKey,
 } from '@daisy/protocol';
 import { plugin } from './round-ecs-plugin';
 import type { Lifecycle, ClockSegment } from './round-clock-state';
@@ -48,9 +47,12 @@ export type RoundStore = {
     readonly endedAtMs: number;
   }) => void;
   readonly setLifecycle: (lifecycle: Lifecycle) => void;
-  readonly setPrepConsumed: (side: DebateSide, ms: number) => void;
+  /** Every side's spent prep at once, by side key. */
+  readonly setPrepConsumed: (
+    consumed: RuntimeCheckpoint['prep_consumed_ms'],
+  ) => void;
   readonly startPrep: (input: {
-    readonly side: DebateSide;
+    readonly side: SideKey;
     readonly startedAtMs: number;
   }) => void;
   readonly endPrep: () => void;
@@ -59,6 +61,8 @@ export type RoundStore = {
     readonly grantedAtMs: number;
   }) => void;
   readonly clearFloor: () => void;
+  /** This seat left a Round no forfeit ends: absent from now on (TAB-6.8). */
+  readonly markAbsent: (participantId: string) => void;
 };
 
 const hydrate = (
@@ -127,12 +131,10 @@ const hydrate = (
       const prepStartedAtMs = db.resources.activePrepStartedAtMs;
       const floorId = db.resources.floorParticipantId;
       const floorGrantedAtMs = db.resources.floorGrantedAtMs;
+      const absent = db.resources.absentParticipantIds;
       return {
         version: 1,
-        prep_consumed_ms: {
-          affirmative: db.resources.prepConsumedAffirmativeMs,
-          negative: db.resources.prepConsumedNegativeMs,
-        },
+        prep_consumed_ms: { ...db.resources.prepConsumedMs },
         active_prep:
           side === null || prepStartedAtMs === null
             ? null
@@ -148,6 +150,8 @@ const hydrate = (
         prep_ended_at: db.resources.prepEndedAt,
         start_gate: db.resources.startGate,
         clock_stops: db.resources.clockStops,
+        // Omitted until a seat leaves, so no other checkpoint changes shape.
+        ...(absent.length > 0 ? { absent_participant_ids: [...absent] } : {}),
       };
     },
     openRow: () => readRows().find((row) => row.endedAtMs === null),
@@ -166,26 +170,26 @@ const hydrate = (
     setStartGate: (gate) => db.transactions.setStartGate(gate),
     closeSegment: (input) => db.transactions.closeSegment(input),
     setLifecycle: (lifecycle) => db.transactions.setLifecycle(lifecycle),
-    setPrepConsumed: (side, ms) =>
-      db.transactions.setPrepConsumed({ side, ms }),
+    setPrepConsumed: (consumed) => db.transactions.setPrepConsumed(consumed),
     startPrep: ({ side, startedAtMs }) =>
       db.transactions.startPrep({ side, startedAtMs }),
     endPrep: () => db.transactions.endPrep(),
     setFloor: ({ participantId, grantedAtMs }) =>
       db.transactions.setFloor({ participantId, grantedAtMs }),
     clearFloor: () => db.transactions.clearFloor(),
+    markAbsent: (participantId) => db.transactions.markAbsent(participantId),
   };
 };
 
 /** Opens a store hydrated from durable inputs, checkpoint validated first. */
 export const createRoundStore = (input: {
   readonly lifecycle: Lifecycle;
-  readonly checkpoint: unknown;
+  readonly checkpoint: RuntimeCheckpoint;
   readonly rows: readonly StoreRow[];
 }): RoundStore =>
   hydrate(
     input.lifecycle,
-    runtimeCheckpointSchema.parse(input.checkpoint ?? emptyRuntimeCheckpoint),
+    runtimeCheckpointSchema.parse(input.checkpoint),
     input.rows,
   );
 

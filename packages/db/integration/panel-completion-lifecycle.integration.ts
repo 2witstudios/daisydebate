@@ -1,11 +1,12 @@
+import { judgedRound } from './judged-round.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { withFixture, rejectedBy } from './constraint-helpers';
 import { validRules } from './round-fixtures';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const zeroRules = { ...validRules, seats: { ...validRules.seats, judge: 0 } };
-const judgedRules = { ...zeroRules, seats: { ...zeroRules.seats, judge: 1 } };
+const zeroRules = { ...validRules, seats: { ...validRules.seats, judges: 0 } };
+const judgedRules = { ...zeroRules, seats: { ...zeroRules.seats, judges: 1 } };
 const start = new Date('2026-10-22T10:00:00.000Z');
 const end = new Date('2026-10-22T10:01:00.000Z');
 const completed = {
@@ -13,7 +14,8 @@ const completed = {
   started_at: start,
   completed_at: end,
   current_stage: null,
-  outcome: null,
+  winning_side: null,
+  ranking: null,
 };
 
 test('a judged casual Round completes without a winner only once the database clock reaches its persisted ballot deadline (DEC-201, DEC-207)', async () => {
@@ -24,18 +26,13 @@ test('a judged casual Round completes without a winner only once the database cl
     const [{ now }] = await f.sql`select clock_timestamp() as now`;
     const future = new Date(now.getTime() + 3_600_000);
     const judgedAt = async (deadline: Date | null, completedAt: Date) => {
-      const id = await f.round({
-        status: 'active',
-        current_stage: 'live',
-        started_at: start,
-        rules_snapshot: judgedRules,
-        ballot_deadline_at: deadline,
-      });
+      const id = await judgedRound(f, { ballot_deadline_at: deadline });
       await f.seat(id, 'judge');
+      await f.sql`update rounds set status='active',current_stage='live',started_at=${start} where id=${id}`;
       return rejectedBy(() =>
         f.sql.begin(
           (tx) =>
-            tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=${completedAt} where id=${id}`,
+            tx`update rounds set status='completed',current_stage=null,winning_side=null,ranking=null,completed_at=${completedAt} where id=${id}`,
         ),
       );
     };
@@ -76,23 +73,14 @@ test('a judged casual Round completes without a winner only once the database cl
 test('actual judge seats cannot bypass or follow unjudged completion', async () => {
   await withFixture(databaseUrl, async (f) => {
     const id = await f.round({ rules_snapshot: zeroRules });
-    await f.seat(id, 'judge');
-    const withJudge = await rejectedBy(() =>
-      f.sql.begin(async (tx) => {
-        await tx`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,outcome=null where id=${id}`;
-      }),
-    );
-    await f.sql`delete from round_participants where round_id=${id}`;
-    await f.sql`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,outcome=null where id=${id}`;
+    const withJudge = await rejectedBy(() => f.seat(id, 'judge'));
+    await f.sql`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,winning_side=null,ranking=null where id=${id}`;
     const added = await rejectedBy(() => f.seat(id, 'judge'));
     assert({
-      given: 'a zero-judge rules snapshot with contradictory actual judge rows',
-      should: 'refuse at commit both completion and later judge insertion',
+      given: 'a zero-judge rules snapshot before and after completion',
+      should: 'refuse undeclared judge insertion at both lifecycle stages',
       actual: [withJudge, added],
-      expected: [
-        'rounds_winnerless_completion_check',
-        'rounds_winnerless_completion_check',
-      ],
+      expected: ['round_judge_assignment_slot', 'round_judge_assignment_slot'],
     });
     await f.sql`delete from rounds where id=${id}`;
   });
@@ -117,7 +105,7 @@ test('a ranked Round may end with no winner (DEC-277) and practice is no competi
       }),
     );
     const [ranked] =
-      await f.sql`select status,outcome from rounds where id=${rankedId}`;
+      await f.sql`select status,winning_side as outcome from rounds where id=${rankedId}`;
     assert({
       given: 'completed ranked and practice rows without an outcome',
       should:
@@ -132,35 +120,45 @@ test('concurrent judge admission cannot commit behind an unjudged completion', a
   await withFixture(databaseUrl, async (f) => {
     const roundId = await f.round({ rules_snapshot: zeroRules });
     const actorId = await f.actor();
-    const held = Promise.withResolvers<void>(),
-      inserted = Promise.withResolvers<void>();
+    const held = Promise.withResolvers<number>();
     const finish = Promise.withResolvers<void>();
     const completing = f.sql.begin(async (tx) => {
-      await tx`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,outcome=null where id=${roundId}`;
-      held.resolve();
+      await tx`update rounds set status='completed',started_at=${start},completed_at=${end},current_stage=null,winning_side=null,ranking=null where id=${roundId}`;
+      const [backend] = await tx`select pg_backend_pid() as pid`;
+      held.resolve(Number(backend!.pid));
       await finish.promise;
     });
     try {
-      await held.promise;
+      const holderPid = await held.promise;
       const adding = rejectedBy(() =>
         f.sql.begin(async (tx) => {
-          await tx`insert into round_participants(id,round_id,actor_id,role,slot) values (${actorId},${roundId},${actorId},'judge',0)`;
-          inserted.resolve();
+          await tx`insert into round_participants(id,round_id,actor_id,seat_kind,slot) values (${actorId},${roundId},${actorId},'judge',0)`;
         }),
       );
-      await inserted.promise;
+      let blocked = false;
+      const deadline = performance.now() + 5000;
+      while (!blocked && performance.now() < deadline) {
+        const [wait] =
+          await f.sql`select exists(select 1 from pg_stat_activity where ${holderPid}=any(pg_blocking_pids(pid))) blocked`;
+        blocked = Boolean(wait!.blocked);
+        if (!blocked) await Bun.sleep(5);
+      }
+      assert({
+        given: 'a frozen-slot admission racing a held Round completion',
+        should: 'wait on the actual Round writer',
+        actual: blocked,
+        expected: true,
+      });
       finish.resolve();
       await completing;
       assert({
-        given:
-          'a judge insertion whose FK admits while the Round writer is held',
-        should:
-          'refuse the deferred contradictory admission after completion commits',
+        given: 'a judge insertion waiting on the actual Round writer',
+        should: 'refuse the undeclared slot after completion commits',
         actual: [
           await adding,
           await f.count('round_participants', 'round_id', roundId),
         ],
-        expected: ['rounds_winnerless_completion_check', 0],
+        expected: ['round_judge_assignment_slot', 0],
       });
     } finally {
       finish.resolve();

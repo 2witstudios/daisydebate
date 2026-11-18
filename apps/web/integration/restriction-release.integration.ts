@@ -80,8 +80,8 @@ const banOn = async (f: Fixture, subject: Member, commandId: string) => {
 
 const roomRow = async (f: Fixture, roomId: string) => {
   const [row] = await f.sql`select r.status, r.host_actor_id as host,
-    (select coalesce(json_agg(p.actor_id order by p.role),'[]'::json) from room_participants p where p.room_id=r.id) as seats,
-    (select coalesce(json_agg(m.actor_id order by m.actor_id),'[]'::json) from room_active_memberships m where m.room_id=r.id) as members
+    (select coalesce(json_agg(p.actor_id order by coalesce(p.side,p.seat_kind)),'[]'::json) from room_participants p where p.room_id=r.id) as seats,
+    (select coalesce(json_agg(m.actor_id order by m.actor_id),'[]'::json) from active_seats m where m.room_id=r.id) as members
     from rooms r where r.id=${roomId}`;
   return {
     status: row.status as string,
@@ -92,7 +92,7 @@ const roomRow = async (f: Fixture, roomId: string) => {
 };
 
 const roundRow = async (f: Fixture, roundId: string) => {
-  const [row] = await f.sql`select r.status, r.outcome,
+  const [row] = await f.sql`select r.status, r.winning_side as outcome,
     (select coalesce(json_agg(json_build_array(c.type,c.service_id,c.actor_id)),'[]'::json) from round_commands c where c.round_id=r.id and c.type='forfeit') as forfeits
     from rounds r where r.id=${roundId}`;
   return row as {
@@ -217,8 +217,7 @@ test('a debater who inherits a Room never learns the hidden judge, in the Room o
     const claimed = (
       await f.command(third, roomRead, {
         type: 'claim-seat',
-        role: 'affirmative',
-        slot: 0,
+        seat: { kind: 'side', side: 'affirmative', slot: 0 },
       })
     ).view;
     const everyone = await everyoneReady(f, claimed, [
@@ -236,6 +235,7 @@ test('a debater who inherits a Room never learns the hidden judge, in the Room o
       () => true,
       readRoundOpening,
       roundWaitingOn,
+      () => false,
     );
     const judgeRound = await f.store.readLaunchedRound(
       roundId,
@@ -243,6 +243,7 @@ test('a debater who inherits a Room never learns the hidden judge, in the Room o
       () => true,
       readRoundOpening,
       roundWaitingOn,
+      () => false,
     );
     const [frozen] =
       await f.sql`select host_inherited,created_by_actor_id from rounds where id=${roundId}`;
@@ -372,7 +373,7 @@ test('a seat held for a restricted member stops holding', async () => {
   await withBans(async (f, ban) => {
     const room = (await f.create({}, f.host)).view;
     await f.sql`insert into room_seat_holds(room_id,actor_id,seat,until)
-      values(${room.id},${f.guest.actorId},'debater',clock_timestamp()+interval '10 minutes')`;
+      values(${room.id},${f.guest.actorId},'side',clock_timestamp()+interval '10 minutes')`;
     const [before] =
       await f.sql`select version,change_version from rooms where id=${room.id}`;
     await ban(f.guest);

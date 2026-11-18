@@ -1,4 +1,11 @@
-import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  sideOfSeat,
+  TRANSCRIPT_ADMISSION_WINDOW_MS,
+  twoSideKeys,
+  winnerOutcome,
+  type SideKey,
+} from '@daisy/protocol';
 import type {
   APIRequestContext,
   Browser,
@@ -65,15 +72,15 @@ export async function checkIn(
   const stamp = attendanceReceiptSchema.parse(await receipt.json());
   expect([stamp.roundId, stamp.segmentId]).toEqual([view.id, segmentId]);
 }
-/** The member's legal yield of their own `role` seat. */
+/** The member's legal yield of their own seat on `side`. */
 export function yieldSpeech(
   member: Members[number],
   view: RoundView,
-  role: 'affirmative' | 'negative',
+  side: SideKey,
 ) {
   const seat = view.participants
     .filter(isNamedSeat)
-    .find((p) => p.role === role)!;
+    .find((p) => sideOfSeat(p.seat) === side)!;
   return ballotRoundCommand(member.context.request, view, {
     type: 'yield',
     participantId: seat.id,
@@ -86,9 +93,7 @@ export async function playActualSpeeches(
   judgeSeats: 0 | 2 = 2,
 ) {
   let view = await createHumanBallotRound(members, judgeSeats);
-  for (const [sequence, role] of (
-    ['affirmative', 'negative'] as const
-  ).entries()) {
+  for (const [sequence, side] of twoSideKeys.entries()) {
     const opened = await openSpeech(
       members[0]!.context.request,
       view,
@@ -98,7 +103,7 @@ export async function playActualSpeeches(
     if (sequence === 0)
       for (const member of members.slice(0, 2))
         await checkIn(member, view, opened.open.id);
-    view = await yieldSpeech(members[sequence]!, view, role);
+    view = await yieldSpeech(members[sequence]!, view, side);
   }
   return view;
 }
@@ -162,7 +167,7 @@ export async function proveHumanJudgedJourney(browser: Browser) {
       await page
         .locator('label')
         .filter({
-          has: page.locator('input[name="winner"][value="affirmative"]'),
+          has: page.locator(`input[name="winner"][value="${affirmativeSide}"]`),
         })
         .click();
       await page
@@ -195,7 +200,7 @@ export async function proveHumanJudgedJourney(browser: Browser) {
     const completed = await readBallotRound(host.request, view.id);
     expect([completed.status, completed.outcome]).toEqual([
       'completed',
-      'affirmative',
+      winnerOutcome(affirmativeSide),
     ]);
   } finally {
     await native?.close();

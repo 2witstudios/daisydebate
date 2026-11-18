@@ -74,6 +74,31 @@ const customStanding = (definition: FormatDefinition) =>
   });
 
 describe('formatStanding', () => {
+  test('a basis read back from storage', () => {
+    // PostgreSQL jsonb returns an object's keys shortest first, so a stored
+    // basis can read `{ negative, affirmative }` where the room built
+    // `{ affirmative, negative }` (TAB-6.2's side counts are a record).
+    const reversed = (record: Readonly<Record<string, number>>) =>
+      Object.fromEntries(Object.entries(record).reverse());
+    const stored: FormatDefinition = {
+      ...oneOnOneFormatFixture,
+      seats: {
+        ...oneOnOneFormatFixture.seats,
+        sides: reversed(oneOnOneFormatFixture.seats.sides),
+      },
+    };
+    assert({
+      given:
+        'a basis whose stored side counts list the same sides in another order',
+      should: 'still be Standard: the same rules, whatever the key order',
+      actual: formatStanding({
+        active: active(),
+        basis: basis({ definition: stored }),
+      }),
+      expected: { kind: 'standard', formatId: 'freestyle' },
+    });
+  });
+
   test('standard', () => {
     assert({
       given: 'a room still running its standard basis unchanged',
@@ -195,7 +220,7 @@ describe('formatStanding', () => {
     const removed = oneOnOneFormatFixture.segments.at(-1)!.key;
     const definition: FormatDefinition = {
       ...withoutSegment(removed),
-      seats: { ...oneOnOneFormatFixture.seats, judge: 3 },
+      seats: { ...oneOnOneFormatFixture.seats, judges: 3 },
     };
     assert({
       given: 'a custom definition with a judge panel and one speech dropped',
@@ -207,8 +232,8 @@ describe('formatStanding', () => {
         changes: [
           {
             kind: 'seats',
-            role: 'judge',
-            from: oneOnOneFormatFixture.seats.judge,
+            of: { kind: 'judge' },
+            from: oneOnOneFormatFixture.seats.judges,
             to: 3,
           },
           { kind: 'segments', added: [], removed: [removed], changed: [] },

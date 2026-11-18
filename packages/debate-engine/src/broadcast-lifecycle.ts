@@ -4,7 +4,7 @@ import {
   type RoundStatus,
 } from '@daisy/protocol';
 import {
-  runningEgress,
+  unsettledEgress,
   stagePrivacyActions,
   type StageEgressFact,
   type StagePhaseFact,
@@ -52,7 +52,7 @@ export const decideBroadcast = (
   facts: BroadcastFacts,
 ): readonly BroadcastAction[] => {
   if (facts.completedAtMs !== null) return [];
-  const live = runningEgress(facts.egress);
+  const live = unsettledEgress(facts.egress);
   if (facts.stoppedAtMs !== null)
     return live
       ? [{ type: 'stop-egress', id: live.id, reason: 'stopped' }]

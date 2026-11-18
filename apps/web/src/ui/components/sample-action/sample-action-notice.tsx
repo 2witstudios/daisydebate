@@ -13,7 +13,8 @@ export function SampleActionNotice() {
   const pathname = usePathname() ?? '';
   const params = useSearchParams();
   const message = sampleActionMessage(params?.get('did') ?? null);
-  if (message === null) return null;
+  if (message === null || !pathname.startsWith('/tournaments/walk'))
+    return null;
   return (
     <div
       role="status"

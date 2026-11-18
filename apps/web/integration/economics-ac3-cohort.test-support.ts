@@ -1,5 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
+import { judgeSeat } from '@daisy/protocol';
 import { canUseRoundAnalysis } from '../src/features/round-analysis/authorization';
 import {
   withRoomRuntime,
@@ -21,8 +22,7 @@ export async function prepareAc3Round(f: RuntimeFixture, fresh: boolean) {
   const assigned = (
     await f.command(cast.host, room, {
       type: 'assign-seat',
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
       actorId: judge.actorId,
     })
   ).view;
@@ -46,7 +46,7 @@ async function assembleJudgedRoomSelection() {
     kind: 'custom' as const,
     definition: {
       ...oneOnOneDefinition,
-      seats: { ...oneOnOneDefinition.seats, judge: 1 },
+      seats: { ...oneOnOneDefinition.seats, judges: 1 },
     },
     config: oneOnOneSettings,
     competitionType: 'casual' as const,

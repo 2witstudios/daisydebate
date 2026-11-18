@@ -16,6 +16,7 @@ const onAir = (stream: BroadcastStream): SpectatorTimeline => ({
   broadcast: { state: 'on_air', stream },
   recording: 'none',
   resolution: null,
+  sides: [],
   seats: [],
   stage: { kind: 'slate', moment: 'unreleased' },
   result: null,

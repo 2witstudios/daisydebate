@@ -368,12 +368,14 @@ export function createBotPublisher(input: {
      * the phrase never waits on it. Its publish uses this authorization.
      */
     const writeAhead = (job: BotSpeechJob) => {
-      if (room === undefined || prepared.has(job.phraseId)) return;
+      if (prepared.has(job.phraseId)) return;
       // Timed by the phrase now starting: asked once its schedule is known.
+      // Its first join may still be pending, so remember this before checking room.
       if (starting) {
         waitingPrepare = job;
         return;
       }
+      if (room === undefined) return;
       const startsInMs = Math.max(
         0,
         Math.round(scheduledEndMs - input.monotonicNowMs()),

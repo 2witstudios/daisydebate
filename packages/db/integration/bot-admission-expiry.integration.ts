@@ -64,9 +64,10 @@ test('bot admission evaluates entitlement time after a blocked grant read', asyn
       let waiting = false;
       for (let attempt = 0; attempt < 200 && !waiting; attempt++) {
         const [row] =
-          await fixture.sql`select exists(select 1 from pg_stat_activity
-          where datname=current_database() and ${pid}=any(pg_blocking_pids(pid))
-          and query like '%account_entitlement_grants%') as waiting`;
+          await fixture.sql`select exists(select 1 from pg_stat_activity a
+          join pg_locks l on l.pid=a.pid
+          where a.datname=current_database() and ${pid}=any(pg_blocking_pids(a.pid))
+          and l.relation='account_entitlement_grants'::regclass and not l.granted) as waiting`;
         waiting = row.waiting;
         if (!waiting) await Bun.sleep(5);
       }

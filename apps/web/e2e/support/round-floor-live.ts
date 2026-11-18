@@ -1,9 +1,11 @@
 import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  affirmativeSide,
   roomViewSchema,
   roundViewSchema,
   serverMessageSchema,
+  sideOfSeat,
 } from '@daisy/protocol';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';
 import { expect, openPage, test } from './fixtures';
@@ -468,7 +470,7 @@ export function testRoundFloorLive() {
       await forfeitOwnSeat(
         host.request,
         roundId,
-        (seat) => seat.role === 'affirmative',
+        (seat) => sideOfSeat(seat.seat) === affirmativeSide,
       );
       for (const page of [host, peer]) {
         await page.goto(`/rounds/${roundId}/floor`);
@@ -511,7 +513,7 @@ export function testRoundFloorLive() {
         await forfeitOwnSeat(
           accounts.members[0]!.context.request,
           roundId,
-          (seat) => seat.role === 'affirmative',
+          (seat) => sideOfSeat(seat.seat) === affirmativeSide,
         );
       await settleLeftRounds(accounts.members);
       await accounts.closeContexts();

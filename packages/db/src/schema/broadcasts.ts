@@ -48,6 +48,10 @@ export const broadcasts = pgTable(
     stageCredentialHash: text('stage_credential_hash'),
     egressId: text('egress_id'),
     egressStartedAt: timestampColumn('egress_started_at'),
+    /** Durably dispatched before calling the provider; an unknown answer keeps this attempt open. */
+    egressDispatchedAt: timestampColumn('egress_dispatched_at'),
+    /** Confirmed physical completion or absence, separate from logical Round/feed completion. */
+    egressSettledAt: timestampColumn('egress_settled_at'),
     observerRevokedAt: timestampColumn('observer_revoked_at'),
     revocationFailures: integer('revocation_failures').notNull().default(0),
     nextSegment: integer('next_segment').notNull().default(0),
@@ -103,6 +107,11 @@ export const broadcasts = pgTable(
     index('broadcasts_feed_up_idx')
       .on(table.createdAt)
       .where(sql`${table.feedWithdrawnAt} is null`),
+    index('broadcasts_physical_unsettled_idx')
+      .on(table.roundId)
+      .where(
+        sql`(${table.egressId} is not null or ${table.egressDispatchedAt} is not null) and (${table.egressSettledAt} is null or ${table.observerRevokedAt} is null)`,
+      ),
     check(
       'broadcasts_delivery_path_check',
       sql`${table.deliveryPath} in ('owned_hls')`,

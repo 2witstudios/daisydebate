@@ -22,6 +22,7 @@ const callPhase = {
  * segment; a finished one has it only as a post-round call (ADR 0127).
  */
 export const mediaPhase = (facts: MediaWindowFacts): MediaPhase => {
+  if (facts.sourceVoided) return 'closed';
   if (isRoundRunning(facts.status))
     return facts.finalSegmentEndedAt !== null &&
       Date.parse(facts.now) >= mediaWindowEndsAt(facts.finalSegmentEndedAt)

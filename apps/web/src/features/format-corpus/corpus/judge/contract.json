@@ -1,0 +1,808 @@
+{
+  "ballotWireSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "feedback": {
+        "additionalProperties": false,
+        "properties": {
+          "affirmative": {
+            "description": "At most 280 characters.",
+            "type": "string"
+          },
+          "negative": {
+            "description": "At most 280 characters.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "affirmative",
+          "negative"
+        ],
+        "type": "object"
+      },
+      "reason": {
+        "description": "At most 600 characters.",
+        "type": "string"
+      },
+      "rubricVersion": {
+        "enum": [
+          "speaker-10@2"
+        ],
+        "type": "string"
+      },
+      "scores": {
+        "additionalProperties": false,
+        "properties": {
+          "affirmative": {
+            "additionalProperties": false,
+            "properties": {
+              "answering": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "burdens": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "coherence": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "delivery": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "organization": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "questioning": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "refutation": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "thesis": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "warrants": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "weighing": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              }
+            },
+            "required": [
+              "thesis",
+              "burdens",
+              "warrants",
+              "coherence",
+              "refutation",
+              "weighing",
+              "questioning",
+              "answering",
+              "organization",
+              "delivery"
+            ],
+            "type": "object"
+          },
+          "negative": {
+            "additionalProperties": false,
+            "properties": {
+              "answering": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "burdens": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "coherence": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "delivery": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "organization": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "questioning": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "refutation": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "thesis": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "warrants": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              },
+              "weighing": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "type": "integer"
+              }
+            },
+            "required": [
+              "thesis",
+              "burdens",
+              "warrants",
+              "coherence",
+              "refutation",
+              "weighing",
+              "questioning",
+              "answering",
+              "organization",
+              "delivery"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "affirmative",
+          "negative"
+        ],
+        "type": "object"
+      },
+      "winner": {
+        "enum": [
+          "affirmative",
+          "negative"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "rubricVersion",
+      "winner",
+      "reason",
+      "feedback",
+      "scores"
+    ],
+    "type": "object"
+  },
+  "caseMapWireSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "about": {
+        "additionalProperties": false,
+        "properties": {
+          "affirmative": {
+            "description": "At most 600 characters.",
+            "type": "string"
+          },
+          "negative": {
+            "description": "At most 600 characters.",
+            "type": "string"
+          },
+          "question": {
+            "description": "At most 600 characters.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "affirmative",
+          "negative"
+        ],
+        "type": "object"
+      },
+      "attacks": {
+        "description": "At most 48 items.",
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "answeredBy": {
+              "description": "At most 12 items.",
+              "items": {
+                "description": "At most 80 characters.",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "by": {
+              "enum": [
+                "affirmative",
+                "negative"
+              ],
+              "type": "string"
+            },
+            "claim": {
+              "description": "At most 400 characters.",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "direct",
+                "premise",
+                "cross-application",
+                "turn",
+                "concession"
+              ],
+              "type": "string"
+            },
+            "level": {
+              "enum": [
+                "thesis",
+                "framework",
+                "burden",
+                "premise",
+                "warrant"
+              ],
+              "type": "string"
+            },
+            "line": {
+              "description": "At most 80 characters.",
+              "type": "string"
+            },
+            "removes": {
+              "description": "At most 16 items.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "dependency": {
+                    "description": "At most 400 characters.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "At most 32 characters.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "dependency"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "succeeds": {
+              "enum": [
+                "yes",
+                "partly",
+                "no"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "description": "At most 32 characters.",
+              "type": "string"
+            },
+            "why": {
+              "description": "At most 600 characters.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "by",
+            "line",
+            "target",
+            "level",
+            "kind",
+            "claim",
+            "answeredBy",
+            "succeeds",
+            "why",
+            "removes"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "cases": {
+        "additionalProperties": false,
+        "properties": {
+          "affirmative": {
+            "additionalProperties": false,
+            "properties": {
+              "burdens": {
+                "description": "At most 12 items.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "claim": {
+                      "description": "At most 400 characters.",
+                      "type": "string"
+                    },
+                    "id": {
+                      "description": "At most 32 characters.",
+                      "type": "string"
+                    },
+                    "line": {
+                      "description": "At most 80 characters.",
+                      "type": "string"
+                    },
+                    "warrants": {
+                      "description": "At most 12 items.",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "claim": {
+                            "description": "At most 400 characters.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "At most 32 characters.",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "reasoning",
+                              "example",
+                              "evidence",
+                              "assertion"
+                            ],
+                            "type": "string"
+                          },
+                          "line": {
+                            "description": "At most 80 characters.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "claim",
+                          "line",
+                          "kind"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "claim",
+                    "line",
+                    "warrants"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "framework": {
+                "description": "At most 1200 characters.",
+                "type": "string"
+              },
+              "thesis": {
+                "additionalProperties": false,
+                "properties": {
+                  "claim": {
+                    "description": "At most 400 characters.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "At most 32 characters.",
+                    "type": "string"
+                  },
+                  "line": {
+                    "description": "At most 80 characters.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "claim",
+                  "line"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "thesis",
+              "framework",
+              "burdens"
+            ],
+            "type": "object"
+          },
+          "negative": {
+            "additionalProperties": false,
+            "properties": {
+              "burdens": {
+                "description": "At most 12 items.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "claim": {
+                      "description": "At most 400 characters.",
+                      "type": "string"
+                    },
+                    "id": {
+                      "description": "At most 32 characters.",
+                      "type": "string"
+                    },
+                    "line": {
+                      "description": "At most 80 characters.",
+                      "type": "string"
+                    },
+                    "warrants": {
+                      "description": "At most 12 items.",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "claim": {
+                            "description": "At most 400 characters.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "At most 32 characters.",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "reasoning",
+                              "example",
+                              "evidence",
+                              "assertion"
+                            ],
+                            "type": "string"
+                          },
+                          "line": {
+                            "description": "At most 80 characters.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "claim",
+                          "line",
+                          "kind"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "claim",
+                    "line",
+                    "warrants"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "framework": {
+                "description": "At most 1200 characters.",
+                "type": "string"
+              },
+              "thesis": {
+                "additionalProperties": false,
+                "properties": {
+                  "claim": {
+                    "description": "At most 400 characters.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "At most 32 characters.",
+                    "type": "string"
+                  },
+                  "line": {
+                    "description": "At most 80 characters.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "claim",
+                  "line"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "thesis",
+              "framework",
+              "burdens"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "affirmative",
+          "negative"
+        ],
+        "type": "object"
+      },
+      "coherence": {
+        "additionalProperties": false,
+        "properties": {
+          "affirmative": {
+            "description": "At most 12 items.",
+            "items": {
+              "description": "At most 600 characters.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "negative": {
+            "description": "At most 12 items.",
+            "items": {
+              "description": "At most 600 characters.",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "affirmative",
+          "negative"
+        ],
+        "type": "object"
+      },
+      "concessions": {
+        "description": "At most 24 items.",
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "againstOwnCase": {
+              "type": "boolean"
+            },
+            "bearsOn": {
+              "description": "At most 32 characters.",
+              "type": "string"
+            },
+            "by": {
+              "enum": [
+                "affirmative",
+                "negative"
+              ],
+              "type": "string"
+            },
+            "limits": {
+              "description": "At most 400 characters.",
+              "type": "string"
+            },
+            "line": {
+              "description": "At most 80 characters.",
+              "type": "string"
+            },
+            "quote": {
+              "description": "At most 400 characters.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "by",
+            "line",
+            "quote",
+            "limits",
+            "bearsOn",
+            "againstOwnCase"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "framework": {
+        "additionalProperties": false,
+        "properties": {
+          "contested": {
+            "description": "At most 16 items.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "by": {
+                  "enum": [
+                    "affirmative",
+                    "negative"
+                  ],
+                  "type": "string"
+                },
+                "how": {
+                  "description": "At most 400 characters.",
+                  "type": "string"
+                },
+                "line": {
+                  "description": "At most 80 characters.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "by",
+                "line",
+                "how"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "dispute": {
+            "description": "At most 1200 characters.",
+            "type": "string"
+          },
+          "liveBurdens": {
+            "description": "At most 24 items.",
+            "items": {
+              "description": "At most 32 characters.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ruling": {
+            "description": "At most 1200 characters.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dispute",
+          "contested",
+          "ruling",
+          "liveBurdens"
+        ],
+        "type": "object"
+      },
+      "standing": {
+        "additionalProperties": false,
+        "properties": {
+          "affirmative": {
+            "description": "At most 48 items.",
+            "items": {
+              "description": "At most 32 characters.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "negative": {
+            "description": "At most 48 items.",
+            "items": {
+              "description": "At most 32 characters.",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "affirmative",
+          "negative"
+        ],
+        "type": "object"
+      }
+    },
+    "required": [
+      "about",
+      "cases",
+      "framework",
+      "attacks",
+      "concessions",
+      "coherence",
+      "standing"
+    ],
+    "type": "object"
+  },
+  "version": "judge-contract@4"
+}

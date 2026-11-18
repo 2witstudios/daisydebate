@@ -13,7 +13,10 @@ import {
 import { eq, sql } from 'drizzle-orm';
 import { insertCommandRow } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
-import { sampleRoundExecutionTime } from './round-execution-time';
+import {
+  sampleRoundExecutionTime,
+  type RoundTimeSource,
+} from './round-execution-time';
 import {
   attendanceSamples,
   closedAttendanceSegments,
@@ -101,6 +104,7 @@ async function readReplay(
 /** Attendance stores facts only; competitive decisions/projections remain pure engine work. */
 export function createAttendanceOperations(deps: {
   readonly transaction: AttendanceTransaction;
+  readonly roundTime?: RoundTimeSource | undefined;
   readonly nextAttemptId: () => string;
   readonly verifyWorker: WorkerVerifier;
 }) {
@@ -156,7 +160,7 @@ export function createAttendanceOperations(deps: {
             segmentId: row.segment_id,
             receivedAt: row.received_at,
           })),
-          now: await sampleRoundExecutionTime(tx),
+          now: await sampleRoundExecutionTime(tx, deps.roundTime),
         };
       });
     },

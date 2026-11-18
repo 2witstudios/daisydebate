@@ -1,6 +1,7 @@
 import { createAppError, createRefusal } from '@daisy/errors';
+import { daisyOrganizationId } from './daisy-reference';
 import {
-  debateSides,
+  twoSideKeys,
   type DebaterStanding,
   type PlannedRatingChange,
   type RatingLadder,
@@ -17,6 +18,7 @@ import {
 } from './rating-decisions';
 import { readRatingFacts } from './rating-discovery';
 import { retryStale } from './retry-stale';
+import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
@@ -154,22 +156,34 @@ async function rateOnce(
     throw createRefusal('CONFLICT', 'attendance-unsettled');
   if (eligibility.kind !== 'rated') return eligibility;
 
-  const seats = await tx
-    .select({
-      actorId: roundParticipants.actorId,
-      role: roundParticipants.role,
-    })
-    .from(roundParticipants)
-    .where(
-      and(
-        eq(roundParticipants.roundId, roundId),
-        inArray(roundParticipants.role, [...debateSides]),
-      ),
-    );
+  // A rating compares the two sides' seats (ADR 0055): the preset's pair.
+  const seats = (
+    await tx
+      .select({
+        actorId: roundParticipants.actorId,
+        seatKind: roundParticipants.seatKind,
+        side: roundParticipants.side,
+        slot: roundParticipants.slot,
+      })
+      .from(roundParticipants)
+      .where(
+        and(
+          eq(roundParticipants.roundId, roundId),
+          eq(roundParticipants.seatKind, 'side'),
+          inArray(roundParticipants.side, [...twoSideKeys]),
+        ),
+      )
+  ).map(({ actorId, ...seat }) => ({ actorId, seat: seatOfColumns(seat) }));
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
-    .where(eq(seasons.status, 'active'))
+    // Daisy's own season: every organization may have an active one.
+    .where(
+      and(
+        eq(seasons.status, 'active'),
+        eq(seasons.organizationId, daisyOrganizationId),
+      ),
+    )
     .for('share');
   if (!season) throw createAppError('CONFLICT', 'No season is active');
   const seasonId = season.id;
@@ -179,7 +193,10 @@ async function rateOnce(
   const keys =
     await tx.execute(sql`select key::text as key from (select distinct
     hashtext(${eligibility.ladder} || ':' || actor_id) as key
-    from round_participants where round_id=${roundId} and role in ('affirmative','negative')) locks
+    from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
+      twoSideKeys.map((side) => sql`${side}`),
+      sql`, `,
+    )})) locks
     order by locks.key`);
   for (const { key } of keys as unknown as { key: string }[])
     await tx.execute(sql`select pg_advisory_xact_lock(59090, ${key}::integer)`);

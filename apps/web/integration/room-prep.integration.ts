@@ -131,8 +131,8 @@ test('a forfeit during prep stands as a result and frees the Room', async () => 
       expectedVersion: round.version,
       command: { type: 'forfeit', participantId: seat.id },
     });
-    const [row] = await f.sql`select status, outcome,
-      (select count(*)::int from room_active_memberships m where m.room_id = ${view.id}) members
+    const [row] = await f.sql`select status, winning_side as outcome,
+      (select count(*)::int from active_seats m where m.room_id = ${view.id}) members
       from rounds where id = ${roundId}`;
     assert({
       given: 'the Negative forfeiting during prep',

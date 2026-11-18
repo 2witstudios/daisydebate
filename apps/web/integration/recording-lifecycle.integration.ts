@@ -6,7 +6,12 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
+import {
+  CONTENT_MODERATION_DELIVERY_BOUND_MS,
+  isJudgeSeat,
+  isModeratorSeat,
+} from '@daisy/protocol';
+import { plannedRecording } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { audienceLinkHash } from '../src/features/audience-link/audience-link';
 import type { RecordingViewer } from '../src/features/recording/audience';
@@ -52,6 +57,7 @@ const withReadyRecording = (
       change: Parameters<RunModerationCommand>[0]['change'],
     ) => ReturnType<RunModerationCommand>;
   }) => Promise<void>,
+  status: 'completed' | 'abandoned' = 'completed',
 ) =>
   withRoomRuntime(async (f) => {
     const room = await f.assemble({
@@ -59,14 +65,14 @@ const withReadyRecording = (
         kind: 'custom',
         definition: {
           ...oneOnOneDefinition,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
+          seats: { ...oneOnOneDefinition.seats, judges: 0 },
         },
         competitionType: 'casual',
         config: oneOnOneSettings,
       },
     });
     const { roundId } = await launchRuntimeRound(f, room);
-    await f.sql`update rounds set status='completed', current_stage=null, started_at=${at}::timestamptz, completed_at=${at}::timestamptz where id=${roundId}`;
+    await f.sql`update rounds set status=${status}, current_stage=null, started_at=${at}::timestamptz, completed_at=${at}::timestamptz where id=${roundId}`;
     const database = f.store as never as Parameters<
       typeof recordingPersistence
     >[0]['database'];
@@ -84,6 +90,12 @@ const withReadyRecording = (
             hostActorId: round.hostActorId,
             completedAtMs: round.completedAtMs,
             seatedActorIds: round.seats.map((seat) => seat.actorId),
+            recordingPolicy: plannedRecording(round),
+            officialActorIds: round.seats
+              .filter(
+                (seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat),
+              )
+              .map((seat) => seat.actorId),
           }
         );
       },
@@ -174,6 +186,7 @@ test('an unlisted Recording opens only past its current link', async () => {
                 ...round!,
                 title: 'Round',
                 resolution: 'x',
+                sides: [],
                 outcome: null,
                 debaters: [],
               }),
@@ -192,12 +205,14 @@ test('an unlisted Recording opens only past its current link', async () => {
           path: ['master.m3u8'],
           viewer: stranger,
           presentedLinkHashOf: () => link,
+          nowMs,
         });
       const download = (link: string | null) =>
         openDownload(deps, {
           recordingId: id,
           viewer: stranger,
           presentedLinkHashOf: () => link,
+          nowMs,
         });
       const first = audienceLinkHash('first-link');
       const second = audienceLinkHash('second-link');
@@ -266,6 +281,7 @@ test('a Recording taken down during an open Broadcast comes back to its audience
           path: ['720p', 'seg.ts'],
           viewer: stranger,
           presentedLinkHashOf: () => null,
+          nowMs,
         });
       const listed = async () =>
         (
@@ -351,8 +367,7 @@ test('a Recording taken down during an open Broadcast comes back to its audience
 
 test('a Recording of an abandoned Round can be found, and a participant can remove it', async () => {
   await withReadyRecording(
-    async ({ store, inputs, id, roundId, sql, seat, stranger }) => {
-      await sql`update rounds set status='abandoned', outcome=null where id=${roundId}`;
+    async ({ store, inputs, id, roundId, seat, stranger }) => {
       const list = async (scope: 'all' | 'mine', viewerActorId: string) =>
         (
           await store.listArchive({
@@ -387,6 +402,7 @@ test('a Recording of an abandoned Round can be found, and a participant can remo
         expected: 'removing',
       });
     },
+    'abandoned',
   );
 });
 
@@ -545,6 +561,7 @@ test('racing removals and a takedown settle to one state, and every link goes st
       recordingId: id,
       viewer: seat,
       presentedLinkHashOf: () => null,
+      nowMs,
     });
     assert({
       given: 'a subscriber before the takedown',
@@ -585,6 +602,7 @@ test('racing removals and a takedown settle to one state, and every link goes st
           recordingId: id,
           viewer: seat,
           presentedLinkHashOf: () => null,
+          nowMs,
         }),
     });
     await assertRejects({
@@ -597,6 +615,7 @@ test('racing removals and a takedown settle to one state, and every link goes st
           path: ['720p', 'seg.ts'],
           viewer: seat,
           presentedLinkHashOf: () => null,
+          nowMs,
         }),
     });
   });
@@ -620,6 +639,7 @@ test('a takedown through the operator command leaves no new read, within the bou
     const viewer = {
       viewer: seat,
       presentedLinkHashOf: () => null,
+      nowMs,
       recordingId: id,
     };
     await openPlayback(deps, { ...viewer, path: ['720p', 'seg.ts'] });
@@ -758,6 +778,7 @@ test('history reads the real Round and offers each panel on its own permission',
               ...round,
               title: 'Round',
               resolution: 'x',
+              sides: [],
               outcome: null,
               debaters: [],
             }),

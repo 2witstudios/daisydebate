@@ -1,5 +1,10 @@
-import { isNamedSeat, type DebateSide, type RoundView } from '@daisy/protocol';
-import { sideName } from '../../features/round-runtime/round-reading';
+import {
+  isNamedSeat,
+  sideOfSeat,
+  type RoundView,
+  type SideKey,
+} from '@daisy/protocol';
+import { sideName } from '../../features/debate-room/seat-names';
 import { countdownClock } from '../../features/rooms/duration-input';
 import {
   resolutionCategoryLabel,
@@ -11,18 +16,18 @@ import { StrikeSubmit } from './strike-submit';
 type Opening = NonNullable<RoundView['opening']>;
 type Draw = NonNullable<Opening['draw']>;
 /** The debater on a side, by name, or the side's own word. */
-const nameOf = (view: RoundView, side: DebateSide) =>
+const nameOf = (view: RoundView, side: SideKey) =>
   view.participants
     .filter(isNamedSeat)
-    .filter((seat) => seat.role === side)
+    .filter((seat) => sideOfSeat(seat.seat) === side)
     .map((seat) => seat.label)
-    .join(' and ') || sideName[side];
+    .join(' and ') || sideName(view.rules.sides, side);
 
-const viewerSideOf = (view: RoundView, actorId: string): DebateSide | null => {
+const viewerSideOf = (view: RoundView, actorId: string): SideKey | null => {
   const seat = view.participants
     .filter(isNamedSeat)
     .find((p) => p.actorId === actorId);
-  return seat && seat.role !== 'judge' ? seat.role : null;
+  return seat ? sideOfSeat(seat.seat) : null;
 };
 
 /** The turn's time left, counted from its own due instant. */
@@ -96,7 +101,7 @@ function StrikeForm({
   readonly draw: Extract<Draw, { visibility: 'debater' }>;
   readonly view: RoundView;
   readonly opening: Opening;
-  readonly viewerSide: DebateSide | null;
+  readonly viewerSide: SideKey | null;
   readonly participantId: string;
   readonly commandId: string;
   readonly post: (form: FormData) => void;

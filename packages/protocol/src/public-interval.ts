@@ -71,6 +71,8 @@ export const publicIntervals = (
   captureFromMs: number,
   /** When each prep began. Whatever is public stops short of it. */
   prepStartsAtMs: readonly number[],
+  /** A finite authorized capture may end before physical Egress settles. */
+  captureUntilMs: number | null = null,
 ): readonly PublicInterval[] =>
   segments
     .map((segment) => {
@@ -86,6 +88,7 @@ export const publicIntervals = (
           startEdgeLagMs(segment.startedAtMs, captureFromMs),
         toMs: Math.min(
           toMs,
+          captureUntilMs ?? Infinity,
           ...prepStartsAtMs
             .filter(
               (startMs) =>

@@ -17,16 +17,14 @@ export const neg = {
   actorId: 'o4n6p8r2t4v6x8z1k3b5c7d9',
   kind: 'bot',
   label: 'Practice bot',
-  role: 'negative',
-  slot: 0,
+  seat: { kind: 'side', side: 'negative', slot: 0 } as const,
 } as const;
 export const judge = {
   id: 'j4n6p8r2t4v6x8z1k3b5c7d9',
   actorId: 'k4n6p8r2t4v6x8z1k3b5c7d9',
   kind: 'human',
   label: 'Riley Judge',
-  role: 'judge',
-  slot: 0,
+  seat: { kind: 'judge', slot: 0 } as const,
 } as const;
 /** What a debater receives: the human judge's seat is anonymous at the source. */
 export const view: OpeningRoundView = {
@@ -34,7 +32,11 @@ export const view: OpeningRoundView = {
   participants: [
     { ...aff, label: 'Sam Reyes' },
     neg,
-    { role: 'judge', kind: 'human', slot: 0, anonymous: true },
+    {
+      seat: { kind: 'judge', slot: 0 } as const,
+      kind: 'human',
+      anonymous: true,
+    },
   ],
 };
 /** A Round view once it has started and before it ends. */
@@ -100,6 +102,6 @@ export const unjudgedClosed = (): ActiveRoundView => {
   const closed = ran(rules.length, true);
   return {
     ...closed,
-    participants: closed.participants.filter((p) => p.role !== 'judge'),
+    participants: closed.participants.filter((p) => p.seat.kind !== 'judge'),
   };
 };

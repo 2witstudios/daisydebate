@@ -1,3 +1,4 @@
+import { lockedRound } from '../round-runtime/locked-round.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createBroadcastSweep } from './sweep';
 
@@ -8,6 +9,10 @@ const open = (over = {}) => ({
   id: 'b1',
   roundId: 'r1',
   egressId: null,
+  egressDispatchedAt: null,
+  egressSettledAt: null,
+  egressGeneration: 0,
+  stageCredentialHash: null,
   releasePolicy: { kind: 'delay', seconds: 60 } as const,
   observerRevokedAt: null,
   revocationFailures: 0,
@@ -33,6 +38,11 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
     listOpen: async () => [] as unknown[],
     readRound: async () => null as unknown,
     claimReconcile: async () => true,
+    beginEgressAttempt: async () => {
+      log.push('begin');
+      return true;
+    },
+    settleEgressAttempt: async () => true,
     recordEgressStarted: async (input: {
       egressId: string;
       stageCredentialHash: string;
@@ -86,13 +96,13 @@ describe('createBroadcastSweep', () => {
               release: { kind: 'delay', seconds: 300 },
               debatersReadChat: true,
             },
-            recording: false,
+            recordingPolicy: 'off',
           },
         },
         {
           roundId: 'recorded',
           competitionType: 'casual',
-          capture: { broadcast: null, recording: true },
+          capture: { broadcast: null, recordingPolicy: 'released' },
         },
       ],
     });
@@ -158,5 +168,124 @@ describe('createBroadcastSweep', () => {
       actual: reads,
       expected: [],
     });
+  });
+});
+
+test('a logically completed Broadcast retains pending recovery and stops unknown physical work even if observer revocation fails', async () => {
+  const traces = [];
+  for (const pending of [true, false]) {
+    const { deps, log } = world({
+      listOpen: async () => [
+        open({
+          completedAt: new Date(1),
+          egressId: pending ? null : 'EG',
+          egressDispatchedAt: new Date(0),
+          egressGeneration: 1,
+          stageCredentialHash: 'HASH',
+        }),
+      ],
+      readRound: async () => ({
+        round: lockedRound.round,
+        endedAt: null,
+        roomName: 'media-room',
+      }),
+      recordRevocationFailed: async () => {
+        log.push('failed-revocation');
+      },
+    });
+    const sweep = createBroadcastSweep({
+      ...deps,
+      egress: {
+        ...deps.egress,
+        read: async () => ({ kind: 'unresolved', id: 'EG' }),
+        readStageAttempt: async () => {
+          log.push('recover');
+          return { kind: 'unresolved' };
+        },
+        revokeObserver: async () => {
+          throw new Error('Controlled revocation refusal');
+        },
+        stop: async (id) => {
+          log.push(`stop ${id}`);
+        },
+      },
+    });
+    await sweep();
+    await sweep.settled();
+    traces.push(log);
+  }
+  assert({
+    given:
+      'completed feeds with a lost Start answer or unknown physical job, and unavailable revocation',
+    should:
+      'retain exact recovery or still request physical stop, never restart, settle, restore or reopen the feed',
+    actual: traces,
+    expected: [
+      [
+        'report broadcast.observer.revoke_retry_failed',
+        'failed-revocation',
+        'recover',
+      ],
+      [
+        'report broadcast.observer.revoke_retry_failed',
+        'failed-revocation',
+        'stop EG',
+      ],
+    ],
+  });
+});
+
+test('a pre-Tab Broadcast whose Egress LiveKit no longer knows settles, not fails, every pass', async () => {
+  const settled: unknown[] = [];
+  const { deps, log } = world({
+    listOpen: async () => [
+      open({
+        completedAt: new Date(1),
+        observerRevokedAt: new Date(1),
+        egressId: 'EG_old',
+        egressGeneration: 1,
+      }),
+    ],
+    readRound: async () => ({
+      round: lockedRound.round,
+      endedAt: null,
+      roomName: 'media-room',
+    }),
+    recordObserverRevoked: async () => undefined,
+    settleEgressAttempt: async (input: unknown) => {
+      settled.push(input);
+      return true;
+    },
+  });
+  const sweep = createBroadcastSweep({
+    ...deps,
+    egress: {
+      ...deps.egress,
+      read: async (id) => ({ kind: 'failed', id, reason: 'not_found' }),
+      revokeObserver: async () => undefined,
+      stop: async (id) => {
+        log.push(`stop ${id}`);
+      },
+    },
+  });
+  await sweep();
+  await sweep.settled();
+  assert({
+    given:
+      'a completed legacy Broadcast of an over Round whose Egress record LiveKit has dropped',
+    should:
+      'settle that exact attempt and say why, without a failure or a stop',
+    actual: [settled, log],
+    expected: [
+      [
+        {
+          id: 'b1',
+          generation: 1,
+          egressId: 'EG_old',
+          observation: { kind: 'failed', id: 'EG_old', reason: 'not_found' },
+        },
+      ],
+      ['report broadcast.egress.settled_absent'],
+    ],
   });
 });

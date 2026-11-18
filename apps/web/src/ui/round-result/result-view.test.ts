@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { speechName } from '../../features/debate-room/vocabulary';
-import { seatLabel } from '../rooms/room-page/assembly-controls';
+import { twoSides } from '@daisy/protocol';
+import { segmentSeatLabel } from '../rooms/room-page/assembly-controls';
 import { asActive } from '../debate-room/live-round.test-support';
 import { completed, speeches } from './result.test-support';
 import { resultBallots, transcriptSections } from './result-view';
@@ -52,7 +53,7 @@ describe('transcriptSections()', () => {
   test('lines grouped by speech', () => {
     const heading = (index: number) => {
       const speech = speeches[index]!;
-      return `${speechName(speech)} · ${seatLabel(speech.side, speech.slot)}`;
+      return `${speechName(speech)} · ${segmentSeatLabel(twoSides, speech.speak)}`;
     };
     assert({
       given: 'two frozen lines in two played speeches',

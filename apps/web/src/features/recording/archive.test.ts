@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { twoSides } from '@daisy/protocol';
 import { archiveEntries, type ArchiveRound } from './archive';
 import { account, nowMs, visitor } from './fixture.test-support';
 
@@ -13,18 +14,25 @@ const row: ArchiveRound = {
   hostActorId: 'host',
   completedAtMs: nowMs,
   seatedActorIds: ['aff', 'neg'],
+  recordingPolicy: 'released',
+  officialActorIds: [],
   release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stop: 'none' },
   status: 'ready',
   durationMs: 1_800_000,
   hasTranscript: true,
-  outcome: 'affirmative',
+  sides: twoSides,
+  outcome: { kind: 'winner', side: 'affirmative' },
   debaters: [
-    { role: 'affirmative', label: 'ada' },
-    { role: 'negative', label: 'lin' },
+    { seat: { kind: 'side', side: 'affirmative', slot: 0 }, label: 'ada' },
+    { seat: { kind: 'side', side: 'negative', slot: 0 }, label: 'lin' },
   ],
 };
 const entries = (over: Partial<ArchiveRound>, viewer = visitor) =>
-  archiveEntries({ rows: [{ ...row, ...over }], nextBefore: null }, viewer);
+  archiveEntries(
+    { rows: [{ ...row, ...over }], nextBefore: null },
+    viewer,
+    nowMs,
+  );
 
 describe('archiveEntries', () => {
   test('a ranked Recording for the audience', () => {
@@ -40,8 +48,7 @@ describe('archiveEntries', () => {
           ranked: true,
           date: '2026-11-02',
           length: '30 min',
-          aff: '@ada',
-          neg: '@lin',
+          seats: ['@ada', '@lin'],
           result: 'Affirmative wins',
           media: 'watch',
           transcript: true,

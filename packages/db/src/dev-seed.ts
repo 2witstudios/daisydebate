@@ -6,11 +6,16 @@ import { actors } from './schema/actors';
 import { accountBetaAccess } from './schema/beta-access';
 import { applyBetaEntitlementGrants } from './entitlement-grants';
 import { roundParticipants } from './schema/round-participants';
-import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 import { seedVersions } from './schema/seed-versions';
 import { users } from './schema/users';
-import type { RoundRules } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  type RoundRules,
+  type SideSeat,
+} from '@daisy/protocol';
+import { frozenJudgingFor } from './round-judging-freeze';
+import { columnsOfSeat } from './seat-columns';
 
 /**
  * Dev and demo content for `bun db:seed` (ISSUE-8 AC4): fixed-id people,
@@ -37,11 +42,11 @@ export type DevSeed = {
     readonly formatId: string;
     readonly formatVersion: number;
     readonly rules: RoundRules;
+    /** The seeded debaters, each in a side's seat. */
     readonly seats: ReadonlyArray<{
       readonly id: string;
       readonly actorId: string;
-      readonly role: 'affirmative' | 'negative';
-      readonly slot: number;
+      readonly seat: SideSeat;
     }>;
   };
 };
@@ -124,67 +129,41 @@ export async function applyDevSeed({
           .onConflictDoNothing();
         await applyBetaEntitlementGrants(tx, person.userId, 'approved');
       }
-      await tx
-        .insert(rounds)
-        .values({
-          id: seed.round.id,
-          createdByActorId: seed.round.createdByActorId,
-          resolution: seed.round.resolution,
-          competitionType: 'casual',
-          formatId: seed.round.formatId,
-          formatVersion: seed.round.formatVersion,
-          presetVersion: null,
-          rulesSnapshot: seed.round.rules,
-          status: 'opening',
-          ladderId: null,
+      const [previous] = await tx
+        .select({
+          createdAt: sql<string>`${rounds.createdAt}::text`,
+          updatedAt: sql<string>`${rounds.updatedAt}::text`,
         })
-        .onConflictDoUpdate({
-          target: rounds.id,
-          set: {
-            createdByActorId: sql`excluded.created_by_actor_id`,
-            resolution: sql`excluded.resolution`,
-            formatId: sql`excluded.format_id`,
-            formatVersion: sql`excluded.format_version`,
-            rulesSnapshot: sql`excluded.rules_snapshot`,
-            status: sql`excluded.status`,
-            currentStage: null,
-            outcome: null,
-            ladderId: sql`excluded.ladder_id`,
-            startedAt: null,
-            completedAt: null,
-            // The checkpoint is lifecycle too: a seeded round that ran a prep
-            // must come back with no active prep and nothing consumed.
-            runtimeState: sql`excluded.runtime_state`,
-          },
-        });
-      // Execution rows reconstruct the runtime; resetting only its checkpoint
-      // would resume the old speech. Segment deletion cascades to utterances.
-      await tx
-        .delete(roundSegments)
-        .where(sql`${roundSegments.roundId} = ${seed.round.id}`);
-      await tx
-        .delete(roundParticipants)
-        .where(
-          sql`${roundParticipants.roundId} = ${seed.round.id} and (${roundParticipants.role} <> 'affirmative' and ${roundParticipants.role} <> 'negative')`,
-        );
+        .from(rounds)
+        .where(sql`${rounds.id} = ${seed.round.id}`);
+      await tx.delete(rounds).where(sql`${rounds.id} = ${seed.round.id}`);
+      await tx.insert(rounds).values({
+        id: seed.round.id,
+        ...(previous
+          ? {
+              createdAt: sql`${previous.createdAt}::timestamptz`,
+              updatedAt: sql`${previous.updatedAt}::timestamptz`,
+            }
+          : {}),
+        createdByActorId: seed.round.createdByActorId,
+        resolution: seed.round.resolution,
+        competitionType: 'casual',
+        formatId: seed.round.formatId,
+        formatVersion: seed.round.formatVersion,
+        presetVersion: null,
+        rulesSnapshot: seed.round.rules,
+        judging: frozenJudgingFor(seed.round.rules),
+        runtimeState: emptyRuntimeCheckpointFor(seed.round.rules),
+        status: 'opening',
+        ladderId: null,
+      });
       for (const seat of seed.round.seats) {
-        await tx
-          .insert(roundParticipants)
-          .values({
-            id: seat.id,
-            roundId: seed.round.id,
-            actorId: seat.actorId,
-            role: seat.role,
-            slot: seat.slot,
-          })
-          .onConflictDoUpdate({
-            target: roundParticipants.id,
-            set: {
-              actorId: sql`excluded.actor_id`,
-              role: sql`excluded.role`,
-              slot: sql`excluded.slot`,
-            },
-          });
+        await tx.insert(roundParticipants).values({
+          id: seat.id,
+          roundId: seed.round.id,
+          actorId: seat.actorId,
+          ...columnsOfSeat(seat.seat),
+        });
       }
       await tx
         .insert(seedVersions)

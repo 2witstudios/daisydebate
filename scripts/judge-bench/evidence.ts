@@ -1,18 +1,25 @@
 import {
-  judgingStageMessages,
+  aiJudgeFor,
   transcriptLines,
   type TranscriptEvidenceInput,
 } from '@daisy/ai-voice';
 import { stubCaseMap } from '@daisy/ai-voice/testing';
+import { daisyWinnerBallot, twoSides } from '@daisy/protocol';
 import type { CallOptions, Placeholders } from './prompt-file';
 
 const EVIDENCE = /Frozen evidence:\n(\{.*\})\n/;
 
+/** The judge the bench studies: Daisy's winner ballot over the two-sided preset. */
+export const benchJudge = aiJudgeFor(daisyWinnerBallot, {
+  sides: twoSides,
+  segments: [],
+});
+
 /** The exact evidence JSON inside production's first-pass prompt. */
 const evidenceJson = (input: TranscriptEvidenceInput) => {
-  const user = judgingStageMessages(input, { stage: 'first' }).find(
-    (message) => message.role === 'user',
-  );
+  const user = benchJudge
+    .stageMessages(input, { stage: 'first' })
+    .find((message) => message.role === 'user');
   const evidence = user && EVIDENCE.exec(user.content)?.[1];
   if (!evidence)
     throw new Error(
@@ -29,19 +36,19 @@ const evidenceJson = (input: TranscriptEvidenceInput) => {
  */
 export function productionPipeline(input: TranscriptEvidenceInput) {
   const calls: {
-    readonly messages: ReturnType<typeof judgingStageMessages>;
+    readonly messages: ReturnType<typeof benchJudge.stageMessages>;
     readonly options: CallOptions;
   }[] = [
     {
-      messages: judgingStageMessages(input, { stage: 'first' }),
+      messages: benchJudge.stageMessages(input, { stage: 'first' }),
       options: { schema: 'ballot', maxTokens: 6000 },
     },
     {
-      messages: judgingStageMessages(input, { stage: 'map' }),
+      messages: benchJudge.stageMessages(input, { stage: 'map' }),
       options: { schema: 'case_map', maxTokens: 16000 },
     },
     {
-      messages: judgingStageMessages(input, {
+      messages: benchJudge.stageMessages(input, {
         stage: 'final',
         caseMap: stubCaseMap,
       }),

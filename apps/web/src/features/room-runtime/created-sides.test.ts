@@ -1,5 +1,16 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { fourTeams, twoSides } from '@daisy/protocol';
 import { createdSides } from './created-sides';
+
+const seating = (affirmative: number, negative: number) => ({
+  sides: twoSides,
+  seats: {
+    sides: { affirmative, negative },
+    speakers: 0,
+    judges: 1,
+    moderators: 0,
+  },
+});
 
 setupRitewayBun();
 
@@ -7,7 +18,7 @@ const casual = {
   competitionType: 'casual' as const,
   sides: undefined,
   castNamesDebater: false,
-  seats: { affirmative: 1, negative: 1 },
+  seating: seating(1, 1),
 };
 
 test('a new Room’s sides (ADR 0145)', () => {
@@ -22,7 +33,7 @@ test('a new Room’s sides (ADR 0145)', () => {
       createdSides({
         ...casual,
         sides: 'open',
-        seats: { affirmative: 2, negative: 3 },
+        seating: seating(2, 3),
       }),
       createdSides({ ...casual, castNamesDebater: true }),
       createdSides({ ...casual, sides: 'open' }),
@@ -38,5 +49,33 @@ test('a new Room’s sides (ADR 0145)', () => {
       'affirmative',
       null,
     ],
+  });
+});
+
+test('an event Room’s sides (ADR 0145, Tab)', () => {
+  assert({
+    given:
+      'a Tab event Room asking for nothing, for open sides and stored as ranked, and a casual Room whose format seats four teams',
+    should:
+      'fix the event Room’s sides as its draw seated them, and fix a Room with no two teams',
+    actual: [
+      createdSides({ ...casual, eventRoom: true }),
+      createdSides({ ...casual, eventRoom: true, sides: 'open' }),
+      createdSides({ ...casual, eventRoom: true, competitionType: 'ranked' }),
+      createdSides({
+        ...casual,
+        sides: 'open',
+        seating: {
+          sides: fourTeams,
+          seats: {
+            sides: Object.fromEntries(fourTeams.map((side) => [side.key, 2])),
+            speakers: 0,
+            judges: 1,
+            moderators: 0,
+          },
+        },
+      }),
+    ],
+    expected: ['affirmative', 'affirmative', 'affirmative', 'affirmative'],
   });
 });

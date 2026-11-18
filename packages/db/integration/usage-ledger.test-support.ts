@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
 import { betaAllowance } from './bot-admission.test-support';
 import { createId } from '@paralleldrive/cuid2';
@@ -23,7 +24,7 @@ export async function withFreeBundle(
   }) => Promise<void>,
 ) {
   await withBoundedRound(async (f, run, roundId) => {
-    const replacement = await f.round();
+    const replacement = await judgedRound(f);
     const actorId = await admissionSponsor(f, [roundId, replacement]);
     await f.sql`delete from account_entitlement_grants where user_id=(select user_id from actors where id=${actorId})`;
     const judge = createId();
@@ -51,7 +52,7 @@ export async function withFreeBundle(
         releaseBinding: canReleaseFreeJudgeBinding,
       }),
     });
-  });
+  }, judgedRound);
 }
 
 type HeldCommit = {

@@ -103,11 +103,18 @@ async function onTimeFixture(
   receivedAt: string,
 ) {
   const opening = new Date('2026-10-22T00:00:00.000Z');
-  const roundId = await fixture.round({
-    status: 'active',
-    current_stage: 'live',
-    started_at: opening,
+  const roundId = await fixture.round({});
+  const actorId = await fixture.actor(await fixture.user());
+  const participantId = createId();
+  await fixture.insert('round_participants', {
+    id: participantId,
+    round_id: roundId,
+    actor_id: actorId,
+    seat_kind: 'side',
+    side: 'affirmative',
+    slot: 0,
   });
+  await fixture.sql`update rounds set status='active',current_stage='live',started_at=${opening} where id=${roundId}`;
   const segmentId = createId();
   const first = validRules.segments.find((s) => s.type === 'speech')!;
   await fixture.insert('round_segments', {
@@ -118,15 +125,6 @@ async function onTimeFixture(
     rules_segment_key: first.key,
     started_at: opening,
     duration_ms: first.durationMs,
-  });
-  const actorId = await fixture.actor(await fixture.user());
-  const participantId = createId();
-  await fixture.insert('round_participants', {
-    id: participantId,
-    round_id: roundId,
-    actor_id: actorId,
-    role: 'affirmative',
-    slot: 0,
   });
   const command = async (type: string) => {
     const commandId = createId();

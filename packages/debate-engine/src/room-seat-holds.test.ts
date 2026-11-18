@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { judgeSeat, sideSeat, type SeatRef } from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { seatsHeldFrom } from './room-edit-transitions';
@@ -11,10 +12,9 @@ const human = (actorId: string) => ({
   actorId,
   label: actorId,
   kind: 'human' as const,
-  role: 'negative' as const,
-  slot: 0,
+  seat: sideSeat('negative'),
   eligible: true,
-  seatRole: null,
+  aiRole: null,
   teamOpen: false,
   positionOpen: false,
   consentVersion: 0,
@@ -23,7 +23,7 @@ const human = (actorId: string) => ({
 type Hold = {
   actorId: string;
   until: string;
-  seat?: 'debater' | 'judge';
+  seat?: 'side' | 'judge';
 };
 const held = (holds: readonly Hold[]) => {
   const base = state();
@@ -31,33 +31,34 @@ const held = (holds: readonly Hold[]) => {
     ...base,
     participants: [],
     status: 'assembling' as const,
-    rules: { ...base.rules, seats: { ...base.rules.seats, judge: 1 } },
-    seatHolds: holds.map((hold) => ({ seat: 'debater' as const, ...hold })),
+    rules: { ...base.rules, seats: { ...base.rules.seats, judges: 1 } },
+    seatHolds: holds.map((hold) => ({ seat: 'side' as const, ...hold })),
   };
 };
 const claim = (
   room: ReturnType<typeof held>,
   actorId: string,
-  role: 'affirmative' | 'negative' | 'judge' = 'negative',
-) =>
-  executeRoomCommand(
+  side: 'affirmative' | 'negative' | 'judge' = 'negative',
+) => {
+  const seat: SeatRef = side === 'judge' ? judgeSeat() : sideSeat(side);
+  return executeRoomCommand(
     room,
     actorId,
     {
       type: 'claim-seat',
       commandId: 'claim',
       expectedVersion: room.version,
-      role,
-      slot: 0,
+      seat,
     },
     consent,
     {
       ...edges,
       now: '2026-11-02T00:00:00.000Z',
       participantId: 'candidate',
-      target: { ...human(actorId), role },
+      target: { ...human(actorId), seat },
     },
   );
+};
 
 test('a held debater seat goes only to the member it is held for', () => {
   const room = held([
@@ -94,13 +95,12 @@ test('a judge hold keeps the judge seat for the invited judge', () => {
   const assign = (actorId: string) =>
     executeRoomCommand(
       room,
-      room.hostActorId,
+      'host',
       {
         type: 'assign-seat',
         commandId: 'assign',
         expectedVersion: room.version,
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
         actorId,
       },
       consent,
@@ -108,7 +108,7 @@ test('a judge hold keeps the judge seat for the invited judge', () => {
         ...edges,
         now: '2026-11-02T00:00:00.000Z',
         participantId: 'candidate',
-        target: { ...human(actorId), role: 'judge' },
+        target: { ...human(actorId), seat: judgeSeat() },
       },
     );
   assert({
@@ -135,7 +135,7 @@ test('a hold ends with its time', () => {
     should: 'open the seats to anyone',
     actual: [
       claim(room, 'carl').ok,
-      seatsHeldFrom(room, 'carl', 'debater', '2026-11-02T00:00:00.000Z'),
+      seatsHeldFrom(room, 'carl', 'side', '2026-11-02T00:00:00.000Z'),
     ],
     expected: [true, 0],
   });
@@ -153,8 +153,8 @@ test('a member who arrived holds nothing back', () => {
     given: 'one named member seated and one on the way',
     should: 'keep one seat from a stranger and none from the other member',
     actual: [
-      seatsHeldFrom(room, 'carl', 'debater', '2026-11-02T00:00:00.000Z'),
-      seatsHeldFrom(room, 'bea', 'debater', '2026-11-02T00:00:00.000Z'),
+      seatsHeldFrom(room, 'carl', 'side', '2026-11-02T00:00:00.000Z'),
+      seatsHeldFrom(room, 'bea', 'side', '2026-11-02T00:00:00.000Z'),
     ],
     expected: [1, 0],
   });

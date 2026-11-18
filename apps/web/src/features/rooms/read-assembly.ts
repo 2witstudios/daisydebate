@@ -2,11 +2,13 @@ import { type ZodType } from 'zod';
 import { realtimeEndpointOf } from '../realtime/endpoint-header';
 import {
   activeRoomReadSchema,
+  hostedRoomsReadSchema,
   idSchema,
   roomViewSchema,
   roomListPageSchema,
   roomListQuerySchema,
   type ActiveRoom,
+  type HostedRoom,
   type RoomListPage,
   type RoomListQuery,
   type RoomView,
@@ -125,4 +127,19 @@ export async function readActiveRoom(
     activeRoomReadSchema,
   );
   return result.kind === 'found' ? result.value.activeRoom : null;
+}
+
+/**
+ * The open Rooms the signed-in member hosts (TAB-6.16), for display only: a
+ * Room route that is off, refused or down answers that none are shown.
+ */
+export async function readHostedRooms(
+  fetch: FetchLike,
+): Promise<readonly HostedRoom[]> {
+  const result = await readProjection(
+    fetch,
+    '/api/rooms/hosted',
+    hostedRoomsReadSchema,
+  );
+  return result.kind === 'found' ? result.value.rooms : [];
 }

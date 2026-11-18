@@ -1,3 +1,4 @@
+import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundBallotRead, RoundBallotReceipt } from '@daisy/protocol';
 import {
@@ -11,10 +12,16 @@ import { formValues } from '../forms/form-state';
 import { ballotFormFixture } from './ballot-form.test-support';
 import type { RoundBallotFormState } from './form';
 import { ballotDisplay } from './presentation';
+import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 
 setupRitewayBun();
 
 const open: RoundBallotRead = {
+  judging: {
+    source: daisyBallotSource(daisyWinnerBallot),
+    ballot: daisyWinnerBallot,
+    panel: panelRuleFor(daisyWinnerBallot),
+  },
   round: {
     ...asActive(view),
     participants: [
@@ -41,7 +48,7 @@ const receipt: RoundBallotReceipt = {
   judgeParticipantId: judge.id,
   freezeRevision: 1,
   resultingVersion: 4,
-  outcome: 'affirmative',
+  outcome: { kind: 'winner', side: 'affirmative' },
 };
 
 const values = formValues(ballotFormFixture());

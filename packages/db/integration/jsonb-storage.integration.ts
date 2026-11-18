@@ -1,3 +1,4 @@
+import { judgedRound } from './judged-round.test-support';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -11,6 +12,8 @@ import { ballots } from '../src/schema/ballots';
 import { roundCommands } from '../src/schema/round-commands';
 import { at, roundAuthoring, digest, withFixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { validRules } from './round-fixtures';
 
 setupRitewayBun();
 
@@ -58,7 +61,7 @@ test('createRound stores rules_snapshot as a real jsonb object, not a double-enc
           },
         },
         expected: {
-          afterCreate: { type: 'object', version: '2' },
+          afterCreate: { type: 'object', version: '3' },
         },
       });
     } finally {
@@ -145,7 +148,7 @@ test('a non-object jsonb write fails with a typed VALIDATION error before any ro
 test('every jsonb column refuses a scalar written around the application (ISSUE-24)', async () => {
   await withFixture(url, async (fixture) => {
     const scalar = 'a bare string';
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const freezeRevision = await fixture.freeze(roundId);
     const judge = (await fixture.seat(roundId, 'judge')).id;
     const refusals = {
@@ -156,6 +159,7 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
         format_id: 'foundation',
         format_version: 1,
         rules_snapshot: scalar,
+        runtime_state: emptyRuntimeCheckpointFor(validRules),
         status: 'opening',
       }),
       definition: await fixture.rejectedBy(
@@ -217,7 +221,7 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
 test('ballots.scores and round_commands.result round-trip as jsonb objects through jsonbColumn (ISSUE-24)', async () => {
   await withFixture(url, async (fixture) => {
     const database = drizzle({ client: fixture.sql });
-    const roundId = await fixture.round();
+    const roundId = await judgedRound(fixture);
     const freezeRevision = await fixture.freeze(roundId);
     const judge = (await fixture.seat(roundId, 'judge')).id;
     const ballotId = createId();

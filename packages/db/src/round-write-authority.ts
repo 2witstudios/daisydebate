@@ -1,3 +1,4 @@
+import { currentRoundParticipant } from './round-current-participant';
 import {
   lockRoundCommandWorker,
   roundCommandWorkerActive,
@@ -12,7 +13,10 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';
 import { actorFact } from './room-command-facts';
-import { sampleRoundExecutionTime } from './round-execution-time';
+import {
+  sampleRoundExecutionTime,
+  type RoundTimeSource,
+} from './round-execution-time';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { agentRuns } from './schema/agent-runs';
@@ -33,6 +37,7 @@ export async function readRoundWriteContext(
   input: RoundWriteScope,
   accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
   purpose: 'command' | 'ballot' = 'command',
+  roundTime?: RoundTimeSource,
 ) {
   const round = await hydrateRoundRows(tx, input.roundId);
   if (!round) throw createAppError('NOT_FOUND');
@@ -76,7 +81,7 @@ export async function readRoundWriteContext(
     purpose === 'ballot'
       ? null
       : await lockRoundCommandWorker(tx, input.principal);
-  const now = await sampleRoundExecutionTime(tx);
+  const now = await sampleRoundExecutionTime(tx, roundTime);
   return {
     round,
     runKind,
@@ -128,7 +133,12 @@ export async function fenceRoundWrite(tx: Tx, input: RoundWriteScope) {
   const initialSeats = await tx
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, input.roundId));
+    .where(
+      and(
+        eq(roundParticipants.roundId, input.roundId),
+        currentRoundParticipant(roundParticipants.id),
+      ),
+    );
   const [initialRound] = await tx
     .select({ hostActorId: rounds.createdByActorId })
     .from(rounds)

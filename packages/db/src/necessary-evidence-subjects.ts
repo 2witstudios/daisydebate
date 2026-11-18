@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { seatOfColumns } from './seat-columns';
 import {
   idSchema,
   MAX_FORMAT_SEATS,
@@ -24,7 +25,8 @@ async function evidenceCast(tx: Tx, roundId: string) {
       id: roundParticipants.id,
       actorId: roundParticipants.actorId,
       kind: actors.kind,
-      role: roundParticipants.role,
+      seatKind: roundParticipants.seatKind,
+      side: roundParticipants.side,
       slot: roundParticipants.slot,
     })
     .from(roundParticipants)
@@ -33,7 +35,13 @@ async function evidenceCast(tx: Tx, roundId: string) {
     .orderBy(roundParticipants.id)
     .limit(MAX_FORMAT_SEATS + 1);
   if (seats.length > MAX_FORMAT_SEATS) throw createAppError('INVARIANT');
-  return { creator: round.creator, seats };
+  return {
+    creator: round.creator,
+    seats: seats.map(({ seatKind, side, slot, ...seat }) => ({
+      ...seat,
+      seat: seatOfColumns({ seatKind, side, slot }),
+    })),
+  };
 }
 
 /** Raw-evidence privacy fence only. Never call after Round or after a weaker fence that will be upgraded. */

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { usageSourceSchema } from './billing';
-import { idSchema, debateRoleSchema, debateSideSchema } from './primitives';
+import { idSchema } from './primitives';
+import { aiRoleSchema } from './ai-roles';
+import { seatRefSchema } from './seats';
+import { teamSideSchema } from './seat-draw';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
 import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
@@ -17,8 +20,7 @@ const participant = z.strictObject({
   kind: z.enum(['human', 'bot']),
   label: z.string(),
   consentVersion: z.int().nonnegative(),
-  role: debateRoleSchema,
-  slot: z.int().nonnegative(),
+  seat: seatRefSchema,
   teamOpen: z.boolean(),
   positionOpen: z.boolean(),
   /**
@@ -64,6 +66,8 @@ export const roomRefusalSchema = z.enum([
   'active-room',
   /** The selected catalog format, revision or preset is not available to this selection (FMT-1). */
   'format-unavailable',
+  /** The exact pinned ballot cannot run on this Room; never substitute a default. */
+  'ballot-definition-unavailable',
   'ranked-unavailable',
   /** The draw's source cannot supply enough resolutions. */
   'draw-unavailable',
@@ -183,11 +187,13 @@ const roomViewFields = z.strictObject({
     .nullable(),
   rules: roundRulesSchema,
   /** Team 1's side, or null while the sides are open to the coin flip (ADR 0145). */
-  teamOneSide: debateSideSchema.nullable(),
+  teamOneSide: teamSideSchema.nullable(),
   /** Free seats of each kind this viewer may not take: held for named members (ADR 0103, ADR 0124). */
   seatsHeldFromViewer: z.strictObject({
-    debater: z.int().nonnegative(),
+    side: z.int().nonnegative(),
+    speaker: z.int().nonnegative(),
     judge: z.int().nonnegative(),
+    moderator: z.int().nonnegative(),
   }),
   participants: z
     .array(
@@ -195,9 +201,11 @@ const roomViewFields = z.strictObject({
         participant.extend(seatState),
         /** A human judge for a viewer who is neither that judge nor the host (DEC-174). */
         z.strictObject({
-          role: z.literal('judge'),
+          seat: z.strictObject({
+            kind: z.literal('judge'),
+            slot: z.int().nonnegative(),
+          }),
           kind: z.literal('human'),
-          slot: z.int().nonnegative(),
           anonymous: z.literal(true),
           ...seatState,
         }),
@@ -261,12 +269,13 @@ export const botDifficulties = [
   'intermediate',
   'advanced',
 ] as const;
-/** An AI actor a host may seat: a bot debater for a side, or the AI judge for the judge seat (ISSUE-750). */
+/** An AI actor a host may seat: a bot debater for a side's seat, or the AI judge for a judge seat (ISSUE-750). */
 export const roomCastChoiceSchema = z.strictObject({
   actorId: idSchema,
   label: z.string(),
   kind: z.literal('bot'),
-  seatRole: z.enum(['debater', 'judge']),
+  /** Which AI it is, and so which seats it may hold (ISSUE-750). */
+  aiRole: aiRoleSchema,
   eligible: z.boolean(),
   /** The roster card's display facts; the AI judge carries none. */
   persona: z.string().optional(),

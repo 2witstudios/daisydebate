@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { formatChangeLine } from './format-changes';
+import { fourTeams, twoSides } from '@daisy/protocol';
+import { formatChangeLine as lineOf } from './format-changes';
+
+const formatChangeLine = (change: Parameters<typeof lineOf>[0]) =>
+  lineOf(change, twoSides);
 
 setupRitewayBun();
 
@@ -41,10 +45,15 @@ describe('formatChangeLine', () => {
       given: 'seat, speech and interaction changes',
       should: 'name each in the room’s vocabulary, Aff and Neg for sides',
       actual: [
-        formatChangeLine({ kind: 'seats', role: 'judge', from: 1, to: 3 }),
         formatChangeLine({
           kind: 'seats',
-          role: 'affirmative',
+          of: { kind: 'judge' },
+          from: 1,
+          to: 3,
+        }),
+        formatChangeLine({
+          kind: 'seats',
+          of: { kind: 'side', side: 'affirmative' },
           from: 1,
           to: 2,
         }),
@@ -97,5 +106,22 @@ describe('formatChangeLine', () => {
         'Resolution strike: off → 3 from the host’s list · Affirmative strikes first · 1:30 per strike',
       ],
     });
+  });
+});
+
+test('a four-team format names its own benches', () => {
+  assert({
+    given: 'a seat change on a four-team format’s closing government',
+    should: 'read the side’s own short name',
+    actual: lineOf(
+      {
+        kind: 'seats',
+        of: { kind: 'side', side: 'closing_government' },
+        from: 2,
+        to: 1,
+      },
+      fourTeams,
+    ),
+    expected: 'CG debaters 2 → 1',
   });
 });

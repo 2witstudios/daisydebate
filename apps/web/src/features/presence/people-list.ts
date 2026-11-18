@@ -14,7 +14,7 @@ import type {
   RatingState,
   RoundStatus,
   RoundOutcome,
-  DebateRole,
+  SeatRef,
 } from '@daisy/protocol';
 import type { PublicProfileCard } from '@daisy/db';
 import { ratingLadders } from '@daisy/protocol';
@@ -68,8 +68,8 @@ export type PeopleListDependencies = {
     readonly records: readonly {
       readonly actorId: string;
       readonly status: string;
-      readonly outcome: string | null;
-      readonly role: string;
+      readonly outcome: RoundOutcome | null;
+      readonly seat: SeatRef;
       readonly rounds: number;
     }[];
   }>;
@@ -182,8 +182,8 @@ export async function readPeopleList(
         .filter((group) => group.actorId === row.actorId)
         .map((group) => ({
           status: group.status as RoundStatus,
-          outcome: group.outcome as RoundOutcome | null,
-          role: group.role as DebateRole,
+          outcome: group.outcome,
+          seat: group.seat,
           rounds: group.rounds,
         })),
     );

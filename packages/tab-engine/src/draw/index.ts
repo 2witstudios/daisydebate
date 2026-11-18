@@ -1,0 +1,478 @@
+import { compareBytes } from '@daisy/seeded-random';
+import {
+  ASSESS_VERSION,
+  assessPlan,
+  callFacts,
+  type CallContext,
+} from '../assess/assessment';
+import type { Entry, Fixture, Id } from '../shapes/competition';
+import type {
+  Draw,
+  DrawAnswer,
+  DrawInput,
+  EventRequest,
+  Judge,
+  Plan,
+  SlotJudge,
+} from '../shapes/draw';
+import { entriesOf, panelOf } from './facts';
+import { FOUR_SIDE_VERSION } from './four-side';
+import { inputsRecord } from './inputs-record';
+import { blockingRules, JUDGES_VERSION, staff, type StaffTask } from './judges';
+import { conflictingRules, placeWith } from './place';
+import type { Placed, PlacementAnswer } from './placement';
+import { prepare, type Prepared } from './prepare';
+import { PROGRESSION_VERSION } from './progression';
+import { ROUND_ROBIN_VERSION } from './schedule';
+import { SECTIONS_VERSION } from './sections';
+import { slotCollisions } from './slot';
+import { TWO_SIDED_VERSION } from './two-sided';
+
+const versionOf = (prepared: Prepared): Record<string, string> => {
+  const method = (() => {
+    switch (prepared.method.kind) {
+      case 'matched':
+      case 'prematched':
+        return TWO_SIDED_VERSION;
+      case 'round_robin':
+        return ROUND_ROBIN_VERSION;
+      case 'four_side':
+        return FOUR_SIDE_VERSION;
+      case 'sections':
+        return SECTIONS_VERSION;
+      case 'progression':
+        return PROGRESSION_VERSION;
+    }
+  })();
+  return { method, judges: JUDGES_VERSION, assess: ASSESS_VERSION };
+};
+
+/** The call's event requests, and each one's existing fixtures, in canonical order of id, so no input order can matter. */
+export const requestsOf = (input: DrawInput): readonly EventRequest[] =>
+  [...(input.call === 'slot' ? input.events : [input.event])]
+    .sort((a, b) => compareBytes(a.event, b.event))
+    .map(
+      (request) =>
+        ({
+          ...request,
+          existing: [...request.existing].sort((a, b) =>
+            compareBytes(a.id, b.id),
+          ),
+        }) as EventRequest,
+    );
+
+export const callContext = (input: DrawInput): CallContext => {
+  const judges = input.judges;
+  const committed = new Map<Id, Id>();
+  if (input.call === 'slot')
+    for (const c of input.commitments)
+      for (const person of c.people) committed.set(person, c.fixture);
+  return {
+    judges:
+      judges === null
+        ? null
+        : new Map<Id, Judge | SlotJudge>(judges.map((j) => [j.id, j])),
+    leastLoad: Math.min(
+      ...(judges ?? []).map((j) => j.tabRoundsJudged),
+      Infinity,
+    ),
+    committed,
+    slot: input.call === 'slot',
+  };
+};
+
+/** Each entry's members, for the slot rule. */
+export const peopleOf = (requests: readonly EventRequest[]) =>
+  new Map(
+    requests.flatMap((r) => r.entries.map((e) => [e.id, e.members] as const)),
+  );
+
+const asPlan = (
+  prepared: Prepared,
+  placed: Placed,
+  panels: ReadonlyMap<Fixture, readonly Id[]>,
+): Plan => {
+  const withPanel = (fixture: Fixture): Fixture =>
+    fixture.kind === 'bye'
+      ? fixture
+      : { ...fixture, panel: panels.get(fixture) ?? fixture.panel };
+  return {
+    event: prepared.request.event,
+    keep: placed.kept.map((k) => ({ id: k.id, fixture: withPanel(k.fixture) })),
+    add: placed.added.map((fixture, i) => ({
+      ordinal: i + 1,
+      fixture: withPanel(fixture),
+    })),
+    withdraw: [...placed.withdrawn].sort(),
+  } as Plan;
+};
+
+/** The solver's own plan, passed through `assess` before it is returned. */
+const finish = (
+  input: DrawInput,
+  prepared: readonly Prepared[],
+  plans: readonly Plan[],
+): Draw[] => {
+  const context = callContext(input);
+  const shared = callFacts(
+    plans,
+    context,
+    peopleOf(prepared.map((p) => p.request)),
+  );
+  return plans.map((plan, i) => {
+    const p = prepared[i]!;
+    const assessment = assessPlan(p, plan, context);
+    return {
+      ...plan,
+      format: p.request.format,
+      tabRound: p.request.tabRound,
+      assessment: {
+        ...assessment,
+        invalid: [...assessment.invalid, ...shared],
+      },
+      inputs: inputsRecord(p, input, prepared, versionOf(p)),
+    } as Draw;
+  });
+};
+
+/** The entries a placement seats in a Room; a bye occupies nobody. */
+const fixtureEntries = (prepared: Prepared, placed: Placed): Entry[] => {
+  const byId = new Map(prepared.request.entries.map((e) => [e.id, e]));
+  return [...placed.kept.map((k) => k.fixture), ...placed.added]
+    .filter((f) => f.kind !== 'bye')
+    .flatMap((f) => entriesOf(f))
+    .flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+};
+
+/**
+ * A movable fixture whose seated judge may no longer sit there (a judging
+ * rule, their own entry, an event they may not judge) is withdrawn: a rule is
+ * never relaxed to keep a fixture, and a kept fixture's judges stay.
+ */
+const releasedMovable = (
+  p: Prepared,
+  input: DrawInput,
+  leastLoad: number,
+  occupied: ReadonlySet<Id>,
+  /** People seated on fixtures already kept by earlier events of the call, or on fixed fixtures. */
+  taken: ReadonlySet<Id>,
+  /** Movable fixtures placement withdraws anyway: they claim no judge. */
+  unclaimed: ReadonlySet<Id> = new Set(),
+): Set<Id> => {
+  if (input.judges === null) return new Set();
+  const byId = new Map<Id, Judge | SlotJudge>(
+    input.judges.map((j) => [j.id, j]),
+  );
+  const people = peopleOf([p.request]);
+  const released = new Set<Id>();
+  /** This event's movable seats, claimed in canonical order: the first fixture keeps a shared judge. */
+  const local = new Set<Id>();
+  for (const f of p.request.existing) {
+    const fixture = f.fixture as Fixture;
+    if (f.hold !== 'movable' || fixture.kind === 'bye') continue;
+    const competitors = new Set(
+      entriesOf(fixture).flatMap((e) => people.get(e) ?? []),
+    );
+    const task: StaffTask = {
+      facts: p.facts,
+      ref: { kind: 'existing', id: f.id },
+      fixture,
+      size: fixture.panel.length,
+      competitors,
+      slot: input.call === 'slot',
+    };
+    const blocked = fixture.panel.some((id, seat) => {
+      const judge = byId.get(id);
+      return (
+        judge !== undefined &&
+        (competitors.has(judge.person) ||
+          occupied.has(judge.person) ||
+          taken.has(judge.person) ||
+          local.has(judge.person) ||
+          (judge.events !== null && !judge.events.includes(p.request.event)) ||
+          blockingRules(task, seat, judge, leastLoad).length > 0)
+      );
+    });
+    if (blocked) released.add(f.id);
+    else if (!unclaimed.has(f.id))
+      for (const id of fixture.panel) local.add(byId.get(id)?.person ?? id);
+  }
+  return released;
+};
+
+/**
+ * The one draw: for one time slot, places the entries of one or more events
+ * into fixtures and seats judges across all of them, keeping, adding and
+ * withdrawing against the fixtures that exist; or the same for one tab round
+ * of a windowed stage. The method is chosen from each event's format and
+ * stage, never by the caller. All or nothing: one draw per event, or one
+ * reason why not.
+ */
+export const draw = (input: DrawInput): DrawAnswer => {
+  const prepared = requestsOf(input).map((request) =>
+    prepare(request, input.seed),
+  );
+  const placements: Placed[] = [];
+  const leastLoad = callContext(input).leastLoad;
+  /** In a slot, the people an event's seated judges would collide with: other entries and the commitments. */
+  const occupiedElsewhere = (): ReadonlySet<Id> =>
+    input.call === 'slot'
+      ? new Set([
+          ...input.commitments.flatMap((c) => c.people),
+          ...prepared.flatMap((q) =>
+            q.request.entries
+              .filter((e) => e.status === 'active')
+              .flatMap((e) => e.members),
+          ),
+        ])
+      : new Set<Id>();
+  const occupied = occupiedElsewhere();
+  /**
+   * One judge, one fixture: fixed fixtures' seated judges hold their seats
+   * first, then movable fixtures keep theirs in canonical order (event, then
+   * fixture), and a later movable fixture whose judge is taken is released.
+   */
+  const judgePerson = new Map(
+    (input.judges ?? []).map((j) => [j.id, j.person]),
+  );
+  const taken = new Set(
+    prepared.flatMap((p) =>
+      p.request.existing.flatMap((f) =>
+        f.hold === 'fixed' && f.fixture.kind !== 'bye'
+          ? f.fixture.panel.map((id) => judgePerson.get(id) ?? id)
+          : [],
+      ),
+    ),
+  );
+  for (const p of prepared) {
+    /**
+     * Settle the event's keeps before its judge claims bind: when placement
+     * withdraws a movable fixture (a counting proof, a rule), that fixture
+     * stops claiming its judges and the event is placed again; a kept fixture
+     * that clashes on a judge is released outright. Each pass grows the
+     * unclaimed or the released set, and neither can outgrow the event's
+     * movable fixtures, so the loop ends.
+     */
+    let unclaimed = new Set<Id>();
+    let forced = new Set<Id>();
+    let released: Set<Id>;
+    let placing: Prepared;
+    let answer: PlacementAnswer;
+    for (;;) {
+      released = new Set([
+        ...releasedMovable(p, input, leastLoad, occupied, taken, unclaimed),
+        ...forced,
+      ]);
+      const held = released;
+      placing =
+        held.size === 0
+          ? p
+          : ({
+              ...p,
+              request: {
+                ...p.request,
+                existing: p.request.existing.filter((f) => !held.has(f.id)),
+              },
+            } as Prepared);
+      answer = placeWith(placing, p.request.settings, input.seed);
+      if (answer.kind !== 'placed' && answer.kind !== 'unresolved') break;
+      // A fixture that claimed no judge may still be kept: then a later kept fixture on its judge goes.
+      const seen = new Set(taken);
+      const clash = answer.placed.kept
+        .filter(({ id }) =>
+          p.request.existing.some((f) => f.id === id && f.hold === 'movable'),
+        )
+        .sort((a, b) => compareBytes(a.id, b.id))
+        .find(({ fixture }) => {
+          const people = panelOf(fixture).map(
+            (id) => judgePerson.get(id) ?? id,
+          );
+          const busy = people.some((person) => seen.has(person));
+          for (const person of people) seen.add(person);
+          return busy;
+        });
+      if (clash !== undefined) {
+        forced = new Set([...forced, clash.id]);
+        continue;
+      }
+      const withdrawnByPlacement = answer.placed.withdrawn.filter(
+        (id) => !unclaimed.has(id),
+      );
+      if (withdrawnByPlacement.length === 0 || released.size === 0) break;
+      unclaimed = new Set([...unclaimed, ...withdrawnByPlacement]);
+    }
+    const finalReleased = released;
+    const withReleased = (placed: Placed): Placed => ({
+      ...placed,
+      withdrawn: [...placed.withdrawn, ...finalReleased],
+    });
+    switch (answer.kind) {
+      case 'placed':
+        placements.push(withReleased(answer.placed));
+        // A judge is taken only once the event has settled which fixtures it keeps.
+        for (const { fixture } of answer.placed.kept)
+          if (fixture.kind !== 'bye')
+            for (const id of fixture.panel)
+              taken.add(judgePerson.get(id) ?? id);
+        break;
+      case 'infeasible': {
+        const conflict = conflictingRules(placing, input.seed);
+        return conflict === null
+          ? {
+              kind: 'infeasible',
+              cause: 'structure',
+              event: p.request.event,
+              fact: 'no_plan',
+            }
+          : {
+              kind: 'infeasible',
+              cause: 'rules',
+              event: p.request.event,
+              ...conflict,
+              // A witness accounts for every existing fixture: those released for their judges are withdrawn.
+              witnesses: conflict.witnesses.map((w) => ({
+                ...w,
+                plan: {
+                  ...w.plan,
+                  withdraw: [...w.plan.withdraw, ...finalReleased],
+                } as Plan,
+              })),
+            };
+      }
+      case 'structure':
+        return answer.fact === 'missing_result'
+          ? {
+              kind: 'infeasible',
+              cause: 'structure',
+              event: p.request.event,
+              fact: answer.fact,
+              fixture: answer.fixture,
+            }
+          : {
+              kind: 'infeasible',
+              cause: 'structure',
+              event: p.request.event,
+              fact: answer.fact,
+            };
+      case 'unresolved': {
+        const attempt = finish(
+          input,
+          [p],
+          [asPlan(p, withReleased(answer.placed), new Map())],
+        )[0]!;
+        return {
+          kind: 'unresolved',
+          event: p.request.event,
+          method: versionOf(p).method!,
+          attempt,
+          broken: attempt.assessment.broken,
+        };
+      }
+    }
+  }
+  if (input.call === 'slot') {
+    /** A judge already seated on a kept fixture holds that fixture in the slot. */
+    const person = new Map((input.judges ?? []).map((j) => [j.id, j.person]));
+    const judgeHolds = prepared.flatMap((p, i) =>
+      placements[i]!.kept.flatMap(({ id, fixture }) =>
+        fixture.kind === 'bye'
+          ? []
+          : fixture.panel.map((judge) => ({
+              event: p.request.event,
+              fixture: id,
+              judge,
+              person: person.get(judge) ?? judge,
+            })),
+      ),
+    );
+    const collisions = slotCollisions(
+      prepared.map((p, i) => ({
+        event: p.request.event,
+        entries: fixtureEntries(p, placements[i]!),
+      })),
+      input.commitments,
+      judgeHolds,
+    );
+    if (collisions.length > 0)
+      return { kind: 'infeasible', cause: 'slot', collisions };
+  }
+  const panels = new Map<Fixture, readonly Id[]>();
+  if (input.judges !== null) {
+    const people = peopleOf(prepared.map((p) => p.request));
+    const tasks: StaffTask[] = prepared.flatMap((p, i) => {
+      const placed = placements[i]!;
+      const size =
+        p.request.settings['judging.panel'][p.request.stage.kind].size;
+      return [
+        ...placed.kept.map((k) => ({
+          ref: { kind: 'existing', id: k.id } as const,
+          fixture: k.fixture,
+        })),
+        ...placed.added.map((fixture, o) => ({
+          ref: { kind: 'new', ordinal: o + 1 } as const,
+          fixture,
+        })),
+      ].flatMap(({ ref, fixture }) =>
+        fixture.kind === 'bye'
+          ? []
+          : [
+              {
+                facts: p.facts,
+                ref,
+                fixture,
+                size,
+                slot: input.call === 'slot',
+                competitors: new Set(
+                  entriesOf(fixture).flatMap((e) => people.get(e) ?? []),
+                ),
+              },
+            ],
+      );
+    });
+    const committedPeople = new Set(
+      input.call === 'slot' ? input.commitments.flatMap((c) => c.people) : [],
+    );
+    const occupied =
+      input.call === 'slot'
+        ? new Set([
+            ...committedPeople,
+            ...tasks
+              .flatMap((t) => entriesOf(t.fixture))
+              .flatMap(
+                (e) => peopleOf(prepared.map((p) => p.request)).get(e) ?? [],
+              ),
+          ])
+        : new Set<Id>();
+    const staffing = staff({
+      tasks,
+      judges: input.judges,
+      occupied,
+      committedPeople,
+      seed: input.seed,
+    });
+    tasks.forEach((task, t) => panels.set(task.fixture, staffing.panels[t]!));
+    if (staffing.kind === 'short') {
+      const draws = finish(
+        input,
+        prepared,
+        prepared.map((p, i) => asPlan(p, placements[i]!, panels)),
+      );
+      return {
+        kind: 'infeasible',
+        cause: 'panels',
+        short: staffing.short,
+        removed: staffing.removed,
+        committed: staffing.committed,
+        draws,
+      };
+    }
+  }
+  return {
+    kind: 'drawn',
+    draws: finish(
+      input,
+      prepared,
+      prepared.map((p, i) => asPlan(p, placements[i]!, panels)),
+    ),
+  };
+};

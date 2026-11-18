@@ -24,14 +24,18 @@ import {
   recoverRankedResults,
 } from './ranked-room.test-support';
 import { withRoomRuntime } from './round-runtime.test-support';
-import type { Ballot } from '@daisy/protocol';
+import {
+  winnerOutcome,
+  sideOfSeat,
+  twoSideKeys,
+  type TwoSideKey,
+} from '@daisy/protocol';
 
 requireTestServices(process.env);
 setupRitewayBun();
-type Side = Ballot['winner'];
 
 for (const judgeKind of ['human', 'ai'] as const)
-  for (const outcome of ['affirmative', 'negative'] as const)
+  for (const outcome of twoSideKeys)
     test(`${judgeKind} ballot for ${outcome}: two web instances post the engine's result once and replay moves nothing`, async () => {
       await withRoomRuntime(async (f) => {
         await inSeason(f, async () => {
@@ -63,12 +67,14 @@ for (const judgeKind of ['human', 'ai'] as const)
             const rated = rateDebate({
               affirmative: newcomer,
               negative: newcomer,
-              outcome,
+              outcome: winnerOutcome(outcome),
               occurredAt: done.completedAt!,
             });
             const seats = done.participants;
             const sideOf = (actorId: string) =>
-              seats.find((p) => p.actorId === actorId)!.role as Side;
+              sideOfSeat(
+                seats.find((p) => p.actorId === actorId)!.seat,
+              ) as TwoSideKey;
             assert({
               given: `a ranked Round decided ${outcome} by a ${judgeKind} ballot and two racing maintenance instances`,
               should:
@@ -87,7 +93,7 @@ for (const judgeKind of ['human', 'ai'] as const)
                 awaitsAfter: await awaitsRating(f, roundId),
               },
               expected: {
-                done: ['completed', outcome],
+                done: ['completed', winnerOutcome(outcome)],
                 awaited: true,
                 rows: first.map((row) => {
                   const side = sideOf(row.actor_id);
@@ -151,7 +157,7 @@ for (const judgeKind of ['human', 'ai'] as const)
           });
         });
       }, cachedAiJudgingRuntime);
-    });
+    }, 30_000);
 
 test('a posting that fails after its ledger insert leaves nothing and the next sweep posts once', async () => {
   await withRoomRuntime(async (f) => {

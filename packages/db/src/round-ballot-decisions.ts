@@ -1,9 +1,18 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import { captureWithinLimit } from '@daisy/protocol';
+import {
+  ballotSchemaFor,
+  ballotSubjectsFor,
+  captureWithinLimit,
+} from '@daisy/protocol';
 import type {
+  Ballot,
   RoundBallotEnvelope,
   RoundBallotReceipt,
   RoundCommandPrincipal,
+  RoundJudging,
+  RoundOutcome,
+  RoundParticipantSeat,
+  RoundRules,
 } from '@daisy/protocol';
 
 /**
@@ -80,7 +89,10 @@ export function requireFrozenRevision<
 export function requireBallotAdmission(input: {
   readonly version: number;
   readonly expectedVersion: number;
-  readonly round: { readonly status: string; readonly outcome: string | null };
+  readonly round: {
+    readonly status: string;
+    readonly outcome: RoundOutcome | null;
+  };
   readonly submittedJudgeIds: readonly string[];
   readonly judgeParticipantId: string;
   readonly now: string;
@@ -118,3 +130,44 @@ export const ballotReceipt = (input: {
   resultingVersion: input.version + (input.changed ? 1 : 0),
   outcome: input.outcome ?? null,
 });
+
+/**
+ * The ballot as the Round's own schema reads it (TAB-6.11): the definition
+ * frozen on the Round over its sides, competitors and segments. A ballot
+ * that does not fit it is refused, human or AI alike; a Round that is judged
+ * by nobody takes no ballot.
+ */
+export function requireRoundBallot(
+  round: {
+    readonly judging: RoundJudging;
+    readonly rules: Pick<RoundRules, 'sides' | 'segments'>;
+    readonly participants: readonly Pick<RoundParticipantSeat, 'id' | 'seat'>[];
+  },
+  ballot: unknown,
+): Ballot {
+  if (!round.judging)
+    throw createAppError(
+      'INVARIANT',
+      'A Round judged by nobody takes no ballot',
+    );
+  const parsed = ballotSchemaFor(
+    round.judging.ballot,
+    ballotSubjectsFor(round.rules, round.participants),
+  ).safeParse(ballot);
+  if (!parsed.success) throw createAppError('VALIDATION');
+  return parsed.data as Ballot;
+}
+
+/** What a ballot decided, in the columns a ballot row stores it in. */
+export const ballotDecisionColumns = (ballot: Ballot) => {
+  if (ballot.ranking !== undefined)
+    return {
+      decision: 'ranking' as const,
+      winner: null,
+      ranking: ballot.ranking.map((place) => [...place]),
+    };
+  const decision = ballot.decision ?? 'win';
+  if ((decision === 'win') !== (ballot.winner != null))
+    throw createAppError('VALIDATION');
+  return { decision, winner: ballot.winner ?? null, ranking: null };
+};

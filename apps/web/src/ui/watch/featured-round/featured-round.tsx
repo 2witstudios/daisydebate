@@ -10,7 +10,7 @@ export type FeaturedRoundProps = {
   readonly card: LiveCard;
 };
 
-function Seat({ seat }: { seat: LiveCard['aff'] }) {
+function Seat({ seat }: { seat: LiveCard['seats'][number] }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1 max-compact:w-full">
       <span className="text-2xs font-bold tracking-wider text-ink-faint uppercase">
@@ -50,7 +50,9 @@ export function FeaturedRound({ card }: FeaturedRoundProps) {
         ) : null}
       </div>
       <div className="flex items-center gap-6 max-compact:flex-col max-compact:items-stretch max-compact:gap-4">
-        <Seat seat={card.aff} />
+        {card.seats.slice(0, 1).map((seat, index) => (
+          <Seat key={index} seat={seat} />
+        ))}
         <div className="flex flex-col items-center gap-1 text-center">
           <span className="text-sm text-ink-muted">{card.phaseName}</span>
           {card.secondsLeft === null ? null : (
@@ -60,7 +62,9 @@ export function FeaturedRound({ card }: FeaturedRoundProps) {
             />
           )}
         </div>
-        <Seat seat={card.neg} />
+        {card.seats.slice(1).map((seat, index) => (
+          <Seat key={index} seat={seat} />
+        ))}
       </div>
       <div className="flex gap-1" aria-hidden="true">
         {card.progress.map((step, index) => (

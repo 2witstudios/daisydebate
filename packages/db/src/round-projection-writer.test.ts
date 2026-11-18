@@ -1,6 +1,10 @@
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint, type RoundProjection } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  type RoundProjection,
+} from '@daisy/protocol';
+import { validRules } from './testing-rules';
 import { fakeSql, type ScriptedResult } from './scripted-bun-wire';
 import { writeProjectionWithPhaseSignal } from './round-projection-writer';
 
@@ -14,7 +18,7 @@ const current = {
   startedAt: new Date('2026-10-09T00:00:00.000Z'),
   completedAt: null,
   outcome: null,
-  runtimeState: emptyRuntimeCheckpoint,
+  runtimeState: emptyRuntimeCheckpointFor(validRules),
 };
 const projection = (releases: boolean): RoundProjection => ({
   ...(releases ? { releasesRoomMembers: true as const } : {}),
@@ -41,7 +45,7 @@ const releases = async (ruled: boolean) => {
     '2026-10-09T00:02:00.000Z',
   );
   return queries.some(({ query }) =>
-    query.startsWith('delete from "room_active_memberships"'),
+    query.startsWith('delete from "active_seats"'),
   );
 };
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
@@ -8,6 +8,7 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
+import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 import {
   factReleasedSql,
   spectatorHorizonSql,
@@ -20,8 +21,6 @@ const roundColumns = {
   competitionType: rounds.competitionType,
   completedAt: rounds.completedAt,
 };
-
-const debateRoles = ['affirmative', 'negative'] as const;
 
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
@@ -52,7 +51,7 @@ const searched = (q: string): SQL | undefined => {
     join actors a on a.id = p.actor_id
     left join users u on u.id = a.user_id
     left join bot_profiles b on b.actor_id = a.id
-    where p.round_id = ${rounds.id} and p.role <> 'judge'
+    where p.round_id = ${rounds.id} and p.seat_kind <> 'judge'
       and (u.username ilike ${like} or b.name ilike ${like})))`;
 };
 
@@ -63,7 +62,7 @@ const seatedAny = (usernames: readonly string[] | undefined) =>
     select 1 from round_participants p
     join actors a on a.id = p.actor_id
     join users u on u.id = a.user_id
-    where p.round_id = ${rounds.id} and p.role in ('affirmative','negative')
+    where p.round_id = ${rounds.id} and ${isDebatingSeatSql(sql`p.seat_kind`)}
       and u.username in ${
         usernames.length === 0
           ? sql`(null)`
@@ -169,10 +168,12 @@ export const liveBroadcastReads = ({
         const shown = page.slice(0, input.limit);
         const ids = shown.map((row) => row.id);
         if (ids.length === 0) return { rows: [], nextBefore: null };
-        const seats = await tx
+        const seatRows = await tx
           .select({
             roundId: roundParticipants.roundId,
-            side: roundParticipants.role,
+            seatKind: roundParticipants.seatKind,
+            side: roundParticipants.side,
+            slot: roundParticipants.slot,
             kind: actors.kind,
             username: users.username,
             botName: botProfiles.name,
@@ -184,10 +185,14 @@ export const liveBroadcastReads = ({
           .where(
             and(
               inArray(roundParticipants.roundId, ids),
-              inArray(roundParticipants.role, [...debateRoles]),
+              isDebatingSeatSql(roundParticipants.seatKind),
             ),
           )
-          .orderBy(asc(roundParticipants.role));
+          .orderBy(...seatRowOrder(roundParticipants));
+        const seats = seatRows.map(({ seatKind, side, slot, ...seat }) => ({
+          ...seat,
+          seat: seatOfColumns({ seatKind, side, slot }),
+        }));
         const segments = await tx
           .selectDistinctOn([roundSegments.roundId], {
             roundId: roundSegments.roundId,

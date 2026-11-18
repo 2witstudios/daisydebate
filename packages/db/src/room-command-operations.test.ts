@@ -1,3 +1,4 @@
+import { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -22,6 +23,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
     [],
     [],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }],
+    [], // public lobby has no league ladder selection
     [],
     [],
     [],
@@ -33,7 +35,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
 
   const receipt = await database.createRoomCommand({
     room,
-    members: [room.hostActorId],
+    membersOf: () => [room.hostActorId],
     commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
     payloadDigest: 'a'.repeat(64),
     definition: foundationDefinition,
@@ -93,7 +95,7 @@ test('Room create rechecks its catalog selection under the create transaction (P
     actual: () =>
       database.createRoomCommand({
         room,
-        members: [room.hostActorId],
+        membersOf: () => [room.hostActorId],
         commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
         payloadDigest: 'a'.repeat(64),
         definition: null,
@@ -161,7 +163,7 @@ const startInput: Parameters<
       draw: null,
       seatDraw: null,
       roundSeed: null,
-      members: [state.hostActorId],
+      members: [caller.actorId],
     },
   }),
 };
@@ -195,6 +197,7 @@ const startRows = (changeVersion = 1) => [
       'c5a1b3d7e9f2h4j6k8m1n3p5',
       readyRoom.id,
       caller.actorId,
+      'side',
       'affirmative',
       0,
       'r1',
@@ -204,6 +207,7 @@ const startRows = (changeVersion = 1) => [
       'c6a4e2f8h1j3k5m7n9p2r4t6',
       readyRoom.id,
       secondActorId,
+      'side',
       'negative',
       0,
       'r2',
@@ -226,6 +230,7 @@ const startRows = (changeVersion = 1) => [
   [],
   [],
   [[readyRoom.id]], // the host's active membership is this Room's
+  [[null]], // the source Room has no league ladder selection to freeze
   [],
   [],
   [[2n, '42']], // Round phase signal for the frozen Round
@@ -245,11 +250,13 @@ const attemptRows = (prepared: number, locked: number) => {
     [accountRow()],
     ...before.slice(4, 11),
     [], // no seat holds
+    before[12]!, // fresh authorization instant before preparation's receipt read
     [],
     before[12]!,
     ...after.slice(0, 3),
     ...after.slice(4, 11),
     [], // no seat holds
+    after[12]!, // final authorization is sampled after account and Room fences
   ];
 };
 /** A whole accepted start at `changeVersion`, through its receipt. */
@@ -257,6 +264,7 @@ const successRows = (changeVersion = 1) => [
   ...attemptRows(changeVersion, changeVersion),
   startRows(changeVersion)[13]!, // grants precede the mutation's authority clock
   startRows(changeVersion)[12]!,
+  [[readyRoom.id, publicLobbyId, null, null, daisyOrganizationId, null]], // exact locked Room ballot-source lookup, genuinely unpinned
   ...startRows(changeVersion).slice(14),
 ];
 

@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { DebateRole, RoundOutcome, RoundStatus } from '@daisy/protocol';
+import type { RoundOutcome, RoundStatus, SeatRef } from '@daisy/protocol';
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -9,6 +9,8 @@ import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
+import { roundOutcomeSql } from './round-outcome-sql';
+import { seatOfColumns } from './seat-columns';
 import {
   outcomeReleasedSql,
   type SpectatorClock,
@@ -35,13 +37,16 @@ type MemberRow = {
   readonly closed: boolean;
 };
 
-/** The member's debating Rounds, counted per state, outcome and side. */
-type RecordGroup = {
+/** The member's debating Rounds, counted per state, outcome and seat. */
+export type RecordGroup = {
   readonly status: RoundStatus;
   readonly outcome: RoundOutcome | null;
-  readonly role: DebateRole;
+  readonly seat: SeatRef;
   readonly rounds: number;
 };
+
+/** A Round row's outcome, selected and grouped as the protocol RoundOutcome. */
+const outcome = sql<RoundOutcome | null>`${roundOutcomeSql('rounds')}`;
 
 export type MemberProfileRead = {
   readonly member: MemberRow;
@@ -117,15 +122,28 @@ const recordGroups = async (
     await tx
       .select({
         status: rounds.status,
-        outcome: rounds.outcome,
-        role: roundParticipants.role,
+        outcome,
+        seatKind: roundParticipants.seatKind,
+        side: roundParticipants.side,
+        slot: roundParticipants.slot,
         rounds: count(),
       })
       .from(roundParticipants)
       .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
       .where(seatsShown(actorId, scope, clock))
-      .groupBy(rounds.status, rounds.outcome, roundParticipants.role)
-  ).map((row) => ({ ...row, role: row.role as DebateRole }));
+      .groupBy(
+        rounds.status,
+        outcome,
+        roundParticipants.seatKind,
+        roundParticipants.side,
+        roundParticipants.slot,
+      )
+  ).map(({ status, outcome, rounds, ...seat }) => ({
+    status,
+    outcome,
+    seat: seatOfColumns(seat),
+    rounds,
+  }));
 
 /**
  * One page of completed Rounds, newest first, keyed on (completed_at, id) so
@@ -161,8 +179,10 @@ async function historyPage(
       completedAt: rounds.completedAt,
       resolution: rounds.resolution,
       visibility: rounds.visibility,
-      outcome: rounds.outcome,
-      role: roundParticipants.role,
+      outcome,
+      seatKind: roundParticipants.seatKind,
+      side: roundParticipants.side,
+      slot: roundParticipants.slot,
     })
     .from(roundParticipants)
     .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
@@ -177,7 +197,12 @@ async function historyPage(
     )
     .orderBy(desc(rounds.completedAt), desc(rounds.id))
     .limit(input.limit + 1);
-  const shown = page.slice(0, input.limit);
+  const shown = page
+    .slice(0, input.limit)
+    .map(({ seatKind, side, slot, ...row }) => ({
+      ...row,
+      seat: { seatKind, side, slot },
+    }));
   return {
     rows: await historyRows(tx, shown),
     nextBefore:
