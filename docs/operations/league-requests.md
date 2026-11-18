@@ -15,15 +15,18 @@ opens it.
 
 - The request is stored in `league_requests` (one row per request id, so a
   resend after a lost answer is stored once) and emailed to
-  `LEAGUE_REQUEST_NOTIFY_EMAIL` through the shared mail path (purpose
+  `LEAGUE_REQUEST_NOTIFY_EMAIL`, or, when that is not set, to the beta
+  owner address `BETA_NOTIFY_EMAIL` (point guard, 2026-11-18: no new secret
+  needed), through the shared mail path (purpose
   `league-request`). The email carries every field and a "Reply to" link
   that starts a reply to the contact; the form promised a reply within two
   working days.
-- The address is personal data, so it is a deploy secret, never committed:
+- Both addresses are personal data, so they are deploy secrets, never
+  committed. To send League requests somewhere other than the beta digest:
   `fly secrets set LEAGUE_REQUEST_NOTIFY_EMAIL=<address> -a <app>` (owner
-  action). Without it each web process logs
+  action). With neither set, each web process logs
   `league_request.mail.unconfigured` once at start, requests are still
-  stored, and their email waits queued; setting the secret (which restarts
+  stored, and their email waits queued; setting a secret (which restarts
   the app) sends the backlog.
 - A send that fails retries with backoff for about two hours and then
   fails for good (`state = 'failed'`); a suppressed owner address ends

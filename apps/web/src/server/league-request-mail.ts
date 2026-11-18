@@ -1,4 +1,5 @@
 import type { ErrorReporter } from '@daisy/observability';
+import { leagueRequestOwnerAddress } from '../features/league-requests/owner-address';
 import { createLeagueRequestNotices } from '../features/league-requests/owner-notice';
 import { startMailQueueWorker } from '../features/mail/queue-worker';
 import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
@@ -9,8 +10,9 @@ import { nextWorkerToken } from './worker-token';
 
 /**
  * The League request email worker (PYL-17): every web instance runs it, and
- * the notice leases keep instances off each other's mail. Without an owner
- * address it does not run, so requests stay stored and their email waits
+ * the notice leases keep instances off each other's mail. The address is
+ * League requests' own, else the beta owner address; with neither it does
+ * not run, so requests stay stored and their email waits
  * queued until one is set; the start says so once.
  */
 export function startLeagueRequestMail(input: {
@@ -19,7 +21,7 @@ export function startLeagueRequestMail(input: {
   readonly reporter?: ErrorReporter;
 }) {
   const { app } = input;
-  const ownerAddress = app.config.LEAGUE_REQUEST_NOTIFY_EMAIL;
+  const ownerAddress = leagueRequestOwnerAddress(app.config);
   if (!ownerAddress) {
     app.logger.log(
       'league_request.mail.unconfigured',
