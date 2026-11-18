@@ -22,7 +22,7 @@ export function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
   readonly timers: WorkerTimers;
-  /** Each worker's wake for the work it looks for (ADR 0153). */
+  /** Each worker's wake for the work it looks for (ADR 0154). */
   readonly wakes: WorkWakes;
   /** Bot seat ending deadlines (ISSUE-789). */
   readonly deadlineTimer: OneShotTimer;

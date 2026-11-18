@@ -52,7 +52,7 @@ export function startBotControlService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
-  /** A Round changed; a bot's turn may be due (ADR 0153). */
+  /** A Round changed; a bot's turn may be due (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   /**
    * Settles when a seat's ending has run too long, so a stop that never

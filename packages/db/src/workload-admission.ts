@@ -69,7 +69,7 @@ const SUBSCRIBE_ADMISSION = lane(1, 100, RUNTIME_SESSION.lock_timeout + 1000);
 export const WORKLOAD_PROFILES = {
   web: {
     name: 'web',
-    // The availability election session, and the worker wake LISTEN (ADR 0153).
+    // The availability election session, and the worker wake LISTEN (ADR 0154).
     dedicated: 2,
     lanes: {
       competitive: COMPETITIVE,

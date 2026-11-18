@@ -8,7 +8,7 @@ import {
 /**
  * A durable mail queue's loop (beta mail intents, ADR 0075; notification
  * emails, ADR 0124): one batch per pass, never two at once in this process,
- * backing off while a pass sends nothing (ADR 0153).
+ * backing off while a pass sends nothing (ADR 0154).
  * Several web instances may run it together; the store's leases keep them
  * off each other's mail.
  */

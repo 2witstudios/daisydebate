@@ -186,7 +186,7 @@ export const persistRoomMutation = async (
         .insert(roundDrawSeeds)
         .values({ roundId, seed: mutation.roundSeed });
     await appendRoundPhaseChanged(tx, roundId, 1);
-    // The live Round loops find it now, not at their idle cap (ADR 0153).
+    // The live Round loops find it now, not at their idle cap (ADR 0154).
     await notifyWork(tx, 'round');
     // A Round with nothing to run first begins at this click (ADR 0144).
     if (roundBegan(null, opens ? 'opening' : 'active'))

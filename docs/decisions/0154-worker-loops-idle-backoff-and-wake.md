@@ -1,4 +1,4 @@
-# 0153: Worker loops back off when idle and wake on new work
+# 0154: Worker loops back off when idle and wake on new work
 
 Status: accepted (point guard brief of 2026-11-18, `staging-noise`, with its
 root-cause addendum). Replaces `startSingleFlightWorker` and the hand-rolled

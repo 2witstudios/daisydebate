@@ -26,7 +26,7 @@ export function startRoundAnalysisService(input: {
     readonly scanMs: number;
   };
   readonly timers: WorkerTimers;
-  /** An analysis was requested; scan now (ADR 0153). */
+  /** An analysis was requested; scan now (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   /** `stage` names the work that failed: analyse or scan. */
   readonly failed: (error: unknown, stage: string) => void;

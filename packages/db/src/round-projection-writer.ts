@@ -139,7 +139,7 @@ export async function writeProjectionWithPhaseSignal(
   if (projection.round && roundBegan(current.status, projection.round.status))
     await oweRoundStarted(tx, { roundId, at: now });
   // Every Round write may hand a live loop work: a bot's turn, a due step
-  // (ADR 0153). A lossy hint, delivered on commit.
+  // (ADR 0154). A lossy hint, delivered on commit.
   await notifyWork(tx, 'round');
   // The engine rules when a Round stops holding its Room's members (ADR 0070).
   if (projection.releasesRoomMembers)

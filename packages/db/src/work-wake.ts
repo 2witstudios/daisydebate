@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 
 /**
  * The kinds of background work a command can create, each waking the
- * worker loops that look for it (ADR 0153). A wake is a lossy hint: it
+ * worker loops that look for it (ADR 0154). A wake is a lossy hint: it
  * grants nothing and carries no row, so a missed one costs at most a
  * loop's idle back-off cap.
  */

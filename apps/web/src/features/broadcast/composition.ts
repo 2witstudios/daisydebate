@@ -22,7 +22,7 @@ const PASS_BUDGET_MS = 750;
 export const startBroadcastSweep = (
   app: App,
   timers: WorkerTimers,
-  /** A Round changed: one may need a Broadcast now (ADR 0153). */
+  /** A Round changed: one may need a Broadcast now (ADR 0154). */
   wake?: WorkWake,
 ) => {
   const egress = stageEgressOf(app);

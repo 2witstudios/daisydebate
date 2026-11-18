@@ -17,7 +17,7 @@ export type WorkWake = {
 };
 
 /**
- * Every polling background worker's loop (ADR 0153). One pass at a time in
+ * Every polling background worker's loop (ADR 0154). One pass at a time in
  * this process: it runs at once, then after a wait the idle back-off sets
  * from what each pass found. A wake runs a pass now, or once more straight
  * after the pass in flight, and resets the back-off; the back-off cap bounds

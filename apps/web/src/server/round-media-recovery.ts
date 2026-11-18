@@ -10,7 +10,7 @@ import type { WorkerTimers } from '../lib/worker-timers';
 export const MEDIA_RECOVERY_MS = 500;
 
 /**
- * Optional media recovery on its own worker loop (ADR 0153), never waiting
+ * Optional media recovery on its own worker loop (ADR 0154), never waiting
  * behind generation or control. A pass waits only for the session list: the
  * recovery it starts runs on, so a slow Round holds only itself and the
  * next pass still starts on time (ISSUE-972). It is busy while any session

@@ -43,7 +43,7 @@ type MaintenancePorts = {
   /** How many Rounds it rated, or more pages wait: zero is an idle sweep. */
   readonly rateUnrated: () => Promise<number>;
   readonly timers: WorkerTimers;
-  /** A Round changed: discover now (ADR 0153). */
+  /** A Round changed: discover now (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   readonly failed: (error: unknown, stage: MaintenanceWork) => void;
   /** Monotonic milliseconds. */

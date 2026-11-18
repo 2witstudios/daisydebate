@@ -234,7 +234,7 @@ const startRows = (changeVersion = 1) => [
   [],
   [],
   [[2n, '42']], // Round phase signal for the frozen Round
-  [], // the live Round loops' work wake (ADR 0153)
+  [], // the live Round loops' work wake (ADR 0154)
   [],
   [], // the seated members its start tells: none in this fake (ADR 0144)
   [], // command receipt insert follows the Round phase signal

@@ -100,7 +100,7 @@ app.logger.log(
   },
   'Release flag default resolved',
 );
-// ADR 0153: each worker loop wakes on the work it looks for. Lossy hints: a
+// ADR 0154: each worker loop wakes on the work it looks for. Lossy hints: a
 // LISTEN that cannot start leaves every loop on its idle back-off cap.
 const workWakes = createWorkWakes();
 const workWakeListen = app.database

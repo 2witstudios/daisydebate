@@ -62,7 +62,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
-  /** Judging work was created; scan now (ADR 0153). */
+  /** Judging work was created; scan now (ADR 0154). */
   readonly wake?: WorkWake | undefined;
   /** A renewal found the job over and ended it, for this reason. */
   readonly jobEnded?: (reason: JudgingTerminalReason) => void;

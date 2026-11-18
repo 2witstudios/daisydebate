@@ -355,7 +355,7 @@ export function createDatabase({
     listenRealtimeHints(handlers: RealtimeHintHandlers) {
       return subscribeRealtimeHints(dedicated, handlers);
     },
-    /** Lossy worker wakes (ADR 0153) over a dedicated connection. */
+    /** Lossy worker wakes (ADR 0154) over a dedicated connection. */
     listenWorkWakes(handlers: WorkWakeHandlers) {
       return subscribeWorkWakes(dedicated, handlers);
     },

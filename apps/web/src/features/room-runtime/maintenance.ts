@@ -59,7 +59,7 @@ export function startRoomMaintenance(input: {
   return startWorkerLoop({
     run: () => input.maintainRooms(input.failed),
     // A Room idle past the timeout is found within the cap; one being
-    // maintained keeps the pulse (ADR 0153).
+    // maintained keeps the pulse (ADR 0154).
     backoff: { busyMs: ROOM_MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => input.failed(error, 'discover'),

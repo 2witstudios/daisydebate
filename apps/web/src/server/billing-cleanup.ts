@@ -98,7 +98,7 @@ export function startBillingCleanup(input: {
     },
   });
   // A due privacy job is delivered within a second while any is due; an
-  // empty queue backs off to the housekeeping cap (ADR 0153).
+  // empty queue backs off to the housekeeping cap (ADR 0154).
   const schedule = startWorkerLoop({
     run,
     backoff: { busyMs: 1000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },

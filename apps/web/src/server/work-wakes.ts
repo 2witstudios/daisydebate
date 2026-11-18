@@ -2,7 +2,7 @@ import type { WorkKind } from '@daisy/db';
 import type { WorkWake } from '../lib/worker-loop';
 
 /**
- * The process's worker wakes (ADR 0153): each worker loop subscribes to the
+ * The process's worker wakes (ADR 0154): each worker loop subscribes to the
  * kinds of work it looks for; a NOTIFY on `daisy_work` wakes those loops,
  * and a (re)established LISTEN wakes every loop once, since notifications
  * sent while it was down are lost.

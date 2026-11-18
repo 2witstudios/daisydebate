@@ -11,7 +11,7 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('a work wake reaches a listener on commit, at once, and never for a rollback (ADR 0153)', async () => {
+test('a work wake reaches a listener on commit, at once, and never for a rollback (ADR 0154)', async () => {
   const listener = new SQL(process.env.TEST_DATABASE_URL!, { max: 1 });
   const writer = new SQL(process.env.TEST_DATABASE_URL!, { max: 1 });
   const db = drizzle({ client: writer });
