@@ -5,6 +5,8 @@ import type {
 } from '@daisy/protocol/lobby/entry-command';
 import type { entryStatuses, responsibleKinds } from '@daisy/protocol/lobby';
 import type { FixtureChange } from '@daisy/protocol/lobby/command';
+import type { AgeBand, RatingDivision } from '@daisy/protocol';
+import { divisionAdmission } from '@daisy/protocol/lobby/event-division';
 import {
   eventAllowance,
   type HostingTier,
@@ -34,6 +36,8 @@ export type EntryPersonFacts = {
   readonly minor: boolean;
   /** Within the event's `entry.age_band`, from the account's age facts. */
   readonly withinAgeBand: boolean;
+  /** Their age band on the tournament's first day; null with no valid record (ADR 0147). */
+  readonly bandOnFirstDay: AgeBand | null;
   /** The event's divisions this person may enter. */
   readonly divisions: readonly string[];
   /** In another entry of this event that is not withdrawn. */
@@ -102,6 +106,8 @@ export type EntryFacts = {
     readonly approval: 'automatic' | 'host';
     /** `entry.cap`; null is none. */
     readonly entryCap: number | null;
+    /** `entry.age_division`: who may enter, aged on the first day. */
+    readonly ageDivision: RatingDivision;
     /** Entries not withdrawn. */
     readonly entryCount: number;
     readonly registration: {
@@ -143,6 +149,25 @@ export type EntryFacts = {
     readonly tier: HostingTier;
     readonly acceptedEntries: number;
   } | null;
+};
+
+/**
+ * The first entrant outside the event's division, by the reason they are
+ * (PYL-16); a missing age record is the age-band refusal's, already made.
+ */
+const divisionRefusalOf = (
+  facts: EntryFacts,
+  people: readonly EntryPersonFacts[],
+): 'over-youth-age' | 'under-open-age' | null => {
+  for (const person of people) {
+    const admission = divisionAdmission(
+      person.bandOnFirstDay,
+      facts.event.ageDivision,
+    );
+    if (admission.kind === 'refused' && admission.reason !== 'no-age-record')
+      return admission.reason;
+  }
+  return null;
 };
 
 /** Whether the tournament may hold one more accepted entry. */
@@ -332,6 +357,8 @@ const submitEntry = (
   if (people.some((person) => person.enteredInEvent))
     return refuse('already-entered');
   if (people.some((person) => !person.withinAgeBand)) return refuse('age-band');
+  const outsideDivision = divisionRefusalOf(facts, people);
+  if (outsideDivision) return refuse(outsideDivision);
   if (!hasResponsibleAdult(facts, command, people))
     return refuse('no-responsible-adult');
   const division = command.division;
@@ -445,6 +472,8 @@ const replaceEntryMember = (
     return refuse('fixture-started');
   if (incoming.enteredInEvent) return refuse('already-entered');
   if (!incoming.withinAgeBand) return refuse('age-band');
+  const outsideDivision = divisionRefusalOf(facts, [incoming]);
+  if (outsideDivision) return refuse(outsideDivision);
   if (incoming.enteredInSharedSlot) return refuse('slot-clash');
   if (entry.division !== null && !incoming.divisions.includes(entry.division))
     return refuse('division-ineligible');

@@ -29,6 +29,7 @@ const person = (
   enteredInEvent: false,
   enteredInSharedSlot: false,
   boundary: null,
+  bandOnFirstDay: 'adult',
   ...overrides,
 });
 const ada = person('ada');
@@ -70,6 +71,7 @@ const facts = (overrides: Partial<EntryFacts> = {}): EntryFacts => ({
     approval: 'host',
     entryCap: null,
     entryCount: 3,
+    ageDivision: 'open',
     registration: { opensAt: null, closesAt: '2026-11-20T00:00:00.000Z' },
     started: false,
   },
@@ -389,6 +391,63 @@ describe('a minor outside the guardian allowed lobbies (TAB-5.23)', () => {
         ),
       ),
       expected: 'guardian-pending',
+    });
+  });
+});
+
+describe('the event division (PYL-16)', () => {
+  const youth = (overrides: Partial<EntryFacts> = {}) =>
+    facts({ event: { ...facts().event, ageDivision: 'youth' }, ...overrides });
+  test('an entrant outside the division is refused at registration, with the reason', () => {
+    const adult = person('ada', { bandOnFirstDay: 'adult' });
+    const sixteen = person('ada', { bandOnFirstDay: '16-17' });
+    assert({
+      given:
+        'a Youth event with an entrant who is 18 on its first day, and an Open event with one who is 16',
+      should: 'refuse them as over the Youth age and under the Open age',
+      actual: [
+        refusalOf(decideEntry(youth({ people: [adult, ben] }), submit())),
+        refusalOf(decideEntry(facts({ people: [sixteen, ben] }), submit())),
+      ],
+      expected: ['over-youth-age', 'under-open-age'],
+    });
+    assert({
+      given: 'a Youth event with entrants who are 16 and 17 on its first day',
+      should: 'accept the submission',
+      actual: refusalOf(
+        decideEntry(
+          youth({
+            people: [
+              person('ada', { bandOnFirstDay: '16-17', minor: true }),
+              person('ben', { bandOnFirstDay: '16-17', minor: true }),
+            ],
+          }),
+          submit(),
+        ),
+      ),
+      expected: 'accepted',
+    });
+  });
+  test('a replacement member is held to the division too', () => {
+    assert({
+      given:
+        'a Youth event whose entry swaps in someone who is 18 on its first day',
+      should: 'refuse the replacement as over the Youth age',
+      actual: refusalOf(
+        decideEntry(
+          youth({
+            people: [person('cat', { bandOnFirstDay: 'adult' })],
+            entry: entry({ status: 'accepted' }),
+          }),
+          {
+            type: 'replace-entry-member',
+            entryId,
+            outActorId: ada.actorId,
+            inActorId: person('cat').actorId,
+          },
+        ),
+      ),
+      expected: 'over-youth-age',
     });
   });
 });

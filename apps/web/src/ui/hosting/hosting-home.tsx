@@ -101,7 +101,7 @@ export function HostingHome({
                 key={tournament.handle}
                 title={tournament.name}
                 facts="· hosted by you"
-                detail={`Freestyle · ${hostingTierWords[tournament.tier]} · ${entriesOfCap(tournament.acceptedEntries, tournament.entryCap)}`}
+                detail={`Freestyle · ${tournament.division === 'youth' ? 'Youth' : 'Open'} · ${hostingTierWords[tournament.tier]} · ${entriesOfCap(tournament.acceptedEntries, tournament.entryCap)}`}
                 trailing={
                   <a
                     href={addressOf(tournament.handle)}

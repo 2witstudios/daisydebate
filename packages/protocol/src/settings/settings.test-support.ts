@@ -114,6 +114,7 @@ export const otherValues: SettingValues = {
   'conflict.handling': { value: 'denied' },
   'recording.capture': { value: 'off' },
   'judging.ai_judge': { value: 'on' },
+  'entry.age_division': { value: 'youth' },
   'broadcast.live': { value: 'on' },
   'audience.posting': { ...open, link: 'at_once', public: 'at_once' },
   'audience.decision': { ...open, link: 'certified', public: 'certified' },

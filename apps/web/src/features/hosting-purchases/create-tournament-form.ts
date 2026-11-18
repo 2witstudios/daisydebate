@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
+import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
+import type { RatingDivision } from '@daisy/protocol';
 import {
   field,
   idle,
@@ -17,6 +19,7 @@ import {
 export const createTournamentContextSchema = z.strictObject({
   lobbyCommandId: idSchema,
   eventCommandId: idSchema,
+  divisionCommandId: idSchema,
   /** Lower-case letters and digits that make the handle unique. */
   suffix: z.string().regex(/^[a-z0-9]{6}$/),
 });
@@ -26,6 +29,7 @@ export type CreateTournamentContext = z.infer<
 export type CreateTournamentState = Idle | Refused | Unacknowledged | Moved;
 export const initialCreateTournament: CreateTournamentState = idle({
   name: '',
+  division: 'open',
 });
 export const createTournamentUnacknowledged = (
   form: FormData,
@@ -33,7 +37,11 @@ export const createTournamentUnacknowledged = (
 export const createTournamentRefused = (
   form: FormData,
   error: string,
-): CreateTournamentState => refusedWith({ name: field(form, 'name') }, error);
+): CreateTournamentState =>
+  refusedWith(
+    { name: field(form, 'name'), division: field(form, 'division') },
+    error,
+  );
 
 /** "Friday Scrimmage!" → "friday-scrimmage-k3x9q2": readable, unique, within 48. */
 export const tournamentHandle = (name: string, suffix: string) => {
@@ -55,6 +63,13 @@ const nameOf = (form: FormData) => {
   return name.length >= 1 && name.length <= 120 ? name : null;
 };
 
+const divisionOf = (form: FormData): RatingDivision | null => {
+  const values = form.getAll('division');
+  return values.length === 1 && (values[0] === 'open' || values[0] === 'youth')
+    ? values[0]
+    : null;
+};
+
 /** The tournament the form makes: the host owns it; it admits no minors. */
 export function createTournamentEnvelope(
   untrusted: CreateTournamentContext,
@@ -62,10 +77,12 @@ export function createTournamentEnvelope(
 ) {
   const context = createTournamentContextSchema.parse(untrusted);
   const name = nameOf(form);
-  if (name === null) return null;
+  const division = divisionOf(form);
+  if (name === null || division === null) return null;
   const handle = tournamentHandle(name, context.suffix);
   return {
     handle,
+    division,
     envelope: lobbySetupCommandEnvelopeSchema.parse({
       version: 1,
       commandId: context.lobbyCommandId,
@@ -80,6 +97,27 @@ export function createTournamentEnvelope(
     }),
   };
 }
+
+/**
+ * Its division (PYL-16), set on the new lobby, whose settings start at
+ * version 1. Open is the default and needs no row.
+ */
+export const divisionSettingEnvelope = (
+  context: CreateTournamentContext,
+  lobbyId: string,
+) =>
+  settingCommandEnvelopeSchema.parse({
+    version: 1,
+    commandId: context.divisionCommandId,
+    expected: { settings: 1 },
+    command: {
+      type: 'set-setting',
+      scope: { kind: 'lobby', id: lobbyId },
+      key: 'entry.age_division',
+      value: { value: 'youth' },
+      hold: 'default',
+    },
+  });
 
 /** Its one event: Freestyle, the only style today. */
 export const freestyleEventEnvelope = (

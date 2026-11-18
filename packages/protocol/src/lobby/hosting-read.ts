@@ -46,6 +46,7 @@ export const hostedTournamentsViewSchema = z.strictObject({
         handle: z.string().min(1).max(80),
         name: z.string().min(1).max(200),
         tier,
+        division: z.enum(['open', 'youth']),
         acceptedEntries: count,
         entryCap: count.nullable(),
       }),

@@ -85,6 +85,8 @@ export const entryRefusals = [
   'not-double-qualified',
   'choice-closed',
   'hosting-upgrade-required',
+  'over-youth-age',
+  'under-open-age',
 ] as const;
 export type EntryRefusal = (typeof entryRefusals)[number];
 
@@ -107,6 +109,8 @@ export const entryCommandCatalogue = {
       'division-ineligible',
       'entry-cap',
       'slot-clash',
+      'over-youth-age',
+      'under-open-age',
     ],
   },
   'accept-entry': {
@@ -140,6 +144,8 @@ export const entryCommandCatalogue = {
       'division-ineligible',
       'guardian-pending',
       'age-band',
+      'over-youth-age',
+      'under-open-age',
     ],
   },
   'set-entry-division': {

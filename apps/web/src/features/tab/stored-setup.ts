@@ -84,6 +84,7 @@ const policyLabels = {
 const settingLabels = {
   'judging.panel': 'Judges',
   'pairing.preset': 'Pairing',
+  'entry.age_division': 'Style and division',
   'standings.tiebreaks': 'Tiebreaks',
   'recording.capture': 'Recording',
   'conflict.handling': 'Staff with a connection to a room',

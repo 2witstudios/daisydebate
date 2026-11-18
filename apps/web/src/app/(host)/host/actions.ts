@@ -5,6 +5,7 @@ import {
   createTournamentEnvelope,
   createTournamentRefused,
   createTournamentUnacknowledged,
+  divisionSettingEnvelope,
   freestyleEventEnvelope,
   type CreateTournamentContext,
   type CreateTournamentState,
@@ -13,6 +14,7 @@ import { hostRoutes } from '../../../features/tab/routes';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { moveOn } from '../../../server/form-action';
 import { POST } from '../../api/tab/lobby-command/route';
+import { POST as settingsPOST } from '../../api/tab/settings-command/route';
 
 /** Free hosting (decision 80): any adult makes a tournament, with its Freestyle event. */
 export async function createTournamentAction(
@@ -50,6 +52,18 @@ export async function createTournamentAction(
   try {
     const lobby = await send(made.envelope);
     if (lobby.kind !== 'accepted') return lobby;
+    if (made.division === 'youth') {
+      const division = await inProcessFetch(settingsPOST, incoming)(
+        '/api/tab/settings-command',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(divisionSettingEnvelope(context, lobby.lobbyId)),
+        },
+      );
+      // The tournament exists either way; Setup shows its division to change.
+      void division;
+    }
     const event = await send(
       freestyleEventEnvelope(context, lobby.lobbyId, lobby.version),
     );

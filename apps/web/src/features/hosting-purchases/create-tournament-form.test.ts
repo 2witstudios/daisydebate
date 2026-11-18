@@ -11,11 +11,13 @@ setupRitewayBun();
 const context = {
   lobbyCommandId: 'a'.padEnd(24, '1'),
   eventCommandId: 'b'.padEnd(24, '1'),
+  divisionCommandId: 'c'.padEnd(24, '1'),
   suffix: 'k3x9q2',
 };
-const form = (name: string) => {
+const form = (name: string, division = 'open') => {
   const data = new FormData();
   data.set('name', name);
+  data.set('division', division);
   return data;
 };
 
@@ -83,7 +85,7 @@ test('createTournamentAnswer', () => {
     expected: [
       {
         kind: 'refused',
-        values: { name: 'Cup' },
+        values: { name: 'Cup', division: 'open' },
         error: 'That name is taken. Try another.',
       },
       'unacknowledged',

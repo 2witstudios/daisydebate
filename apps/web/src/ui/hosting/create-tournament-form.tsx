@@ -88,6 +88,42 @@ export function CreateTournamentForm({
             <option value="freestyle">Freestyle</option>
           </select>
         </div>
+        <fieldset className="flex flex-col gap-2 border-0 p-0">
+          <legend className="mb-2 font-strong">Division</legend>
+          <div className="flex gap-2 max-compact:flex-col">
+            {(
+              [
+                { value: 'youth', title: 'Youth', detail: 'Under 18' },
+                { value: 'open', title: 'Open', detail: '18 and over' },
+              ] as const
+            ).map((choice) => (
+              <label
+                key={choice.value}
+                className="flex min-h-room-target flex-1 cursor-pointer items-start gap-2 rounded-md border border-border-strong bg-surface-raised px-3 py-2 has-[:checked]:border-2 has-[:checked]:border-ink"
+              >
+                <input
+                  type="radio"
+                  name="division"
+                  value={choice.value}
+                  defaultChecked={
+                    (fields.values.division ?? 'open') === choice.value
+                  }
+                  className="mt-1 size-4 accent-ink"
+                />
+                <span className="flex flex-col">
+                  <strong>{choice.title}</strong>
+                  <span className="text-sm text-ink-muted">
+                    {choice.detail}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <span className="text-sm text-ink-muted">
+            Entries outside the division are refused at registration, with the
+            reason.
+          </span>
+        </fieldset>
         <div className="flex flex-col gap-2">
           <Button type="submit" className="self-start">
             {state.kind === 'unacknowledged'

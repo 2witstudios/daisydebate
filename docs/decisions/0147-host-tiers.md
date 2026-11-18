@@ -94,5 +94,17 @@ unlimited). League hosting is sales-led (S9) and not part of this.
   refund event.
 - Waiting entries are accepted by the host after payment; nothing writes
   entries from the payment path.
-- Divisions (PYL-16) follow PR 792: an event declares its division and
-  refuses mismatched entries at registration with the reason.
+- Divisions (PYL-16, after PR 792): a tournament declares its division as
+  the `entry.age_division` setting (`open` by default, `youth`), chosen on the
+  host home's create form and shown on Setup and the host home. An entrant's
+  age band is read on the tournament's first day (its earliest time slot, or
+  now while none is set): `divisionAdmission` refuses an adult at a Youth
+  event `over-youth-age` and a minor at an Open one `under-open-age`, at
+  `submit-entry` and `replace-entry-member`; `divisionRefusalWords` says why
+  in the entrant's terms. Minors stay behind the guardian and counsel gate,
+  so today a Youth event admits no one until that gate opens.
+- Tab event Rounds are casual and rate on no Daisy ladder; a tournament's
+  seeding reads its league ladder. So no Round is rated on (Freestyle, the
+  event's division) yet; when Tab Rounds become rated they take that ladder.
+- The public tournament page (ISSUE-1472) and the host's refused-entries list
+  and division editor (ISSUE-1473) wait: neither page exists yet.

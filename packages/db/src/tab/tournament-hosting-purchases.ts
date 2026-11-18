@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
+import { settings } from '../schema/settings';
 import { fenceTabAccountRead } from './account-read-fence';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import type { PaidHostingTier } from '@daisy/protocol/lobby/hosting-tier';
@@ -232,8 +233,24 @@ const loadHostedTournaments = async (
       .where(
         and(eq(entries.lobbyId, lobby.id), eq(entries.status, 'accepted')),
       );
+    // A personal tournament sets its division at its own lobby (PYL-16).
+    const [division] = await tx
+      .select({ value: settings.value })
+      .from(settings)
+      .where(
+        and(
+          eq(settings.lobbyId, lobby.id),
+          eq(settings.scopeKind, 'lobby'),
+          eq(settings.key, 'entry.age_division'),
+        ),
+      );
     hosted.push({
       ...lobby,
+      division:
+        (division?.value as { readonly value?: unknown } | undefined)?.value ===
+        'youth'
+          ? ('youth' as const)
+          : ('open' as const),
       paidTiers: paid.map((row) => row.tier),
       acceptedEntries: accepted?.count ?? 0,
     });

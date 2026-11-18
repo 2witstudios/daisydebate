@@ -25,6 +25,7 @@ export const readHostedTournaments =
           handle: tournament.handle,
           name: tournament.name,
           tier,
+          division: tournament.division,
           acceptedEntries: tournament.acceptedEntries,
           entryCap: hostingEntryCap(tier),
         };
