@@ -142,8 +142,35 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     lobby('ballot_screenings'),
     { table: 'sanctions', key: 'both' },
     organization('season_standing_rules'),
+    organization('club_seats', { subject: 'user' }),
+    organization('club_seat_invitations'),
   ],
   exempt: [
+    {
+      table: 'billing_customers',
+      reason:
+        'The billing owner (ADR 0148): a Club plan’s organisation owns this row as its payer, read and written only under the billing fence (the organisation row locked after the acting account), never as tenant data a club scope may list.',
+    },
+    {
+      table: 'billing_purchases',
+      reason:
+        'The billing owner (ADR 0148): a Club plan’s organisation owns this row as its payer, read and written only under the billing fence (the organisation row locked after the acting account), never as tenant data a club scope may list.',
+    },
+    {
+      table: 'billing_subscriptions',
+      reason:
+        'The billing owner (ADR 0148): a Club plan’s organisation owns this row as its payer, read and written only under the billing fence (the organisation row locked after the acting account), never as tenant data a club scope may list.',
+    },
+    {
+      table: 'account_entitlement_grants',
+      reason:
+        "An account's own grants, read by that account. An organization_seat grant names its paying club as provenance only (ADR 0148); it confers no club read authority.",
+    },
+    {
+      table: 'mail_intents',
+      reason:
+        'Durable mail owned by the mail worker. A club seat invitation id says which offer to send; the worker reads that one invitation under its club scope at send time.',
+    },
     {
       table: 'notifications',
       reason:

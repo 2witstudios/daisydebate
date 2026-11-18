@@ -114,6 +114,8 @@ export const usageReservations = pgTable(
       when 'beta' then ${table.source}-array['kind','startsAt','endsAt']='{}'::jsonb
       when 'subscription' then ${table.source}-array['kind','subscriptionId','startsAt','endsAt']='{}'::jsonb
         and ${table.source}->>'subscriptionId' ~ '^[a-z][a-z0-9]{23}$'
+      when 'organization_seat' then ${table.source}-array['kind','organizationId','startsAt','endsAt']='{}'::jsonb
+        and ${table.source}->>'organizationId' ~ '^[a-z0-9]{24}$'
       else false end, false) and coalesce(
         ${table.source}->>'kind'='lifetime' or (
           jsonb_typeof(${table.source}->'startsAt')='string' and jsonb_typeof(${table.source}->'endsAt')='string'
