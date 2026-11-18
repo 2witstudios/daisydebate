@@ -116,7 +116,7 @@ describe('Room chat Messaging producer', () => {
                 store.readChat({ ...scope, ...who }, async (frame) => {
                   if (
                     Object.keys(frame.fact).sort().join() !==
-                    'actorId,channelId,endedAt,host,kind,policyKey,policyRevision,revision,roomId,seatKind,status,visibility'
+                    'actorId,channelId,endedAt,host,kind,policyKey,policyRevision,revision,roomId,seatKind,status,visibility,youthRoom,youthStaff'
                   )
                     throw new Error('The fact carries more than its contract');
                   return null;

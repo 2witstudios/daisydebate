@@ -13,6 +13,8 @@ type RoomCommunityRow = {
   readonly seat_kind: RoomCommunityFact['seatKind'];
   readonly channel_id: string | null;
   readonly authority_revision: number | null;
+  readonly youth_room: boolean;
+  readonly youth_staff: boolean;
 };
 const factOf = (roomId: string, row: RoomCommunityRow): RoomCommunityFact => ({
   kind: 'room_community',
@@ -27,6 +29,8 @@ const factOf = (roomId: string, row: RoomCommunityRow): RoomCommunityFact => ({
   actorId: row.actor_id,
   host: row.host === true,
   seatKind: row.seat_kind,
+  youthRoom: row.youth_room === true,
+  youthStaff: row.youth_staff === true,
 });
 
 /** Only the requested callers' own facts cross the boundary, in one cohort statement. */

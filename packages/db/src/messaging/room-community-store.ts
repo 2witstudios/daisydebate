@@ -1,7 +1,7 @@
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
+  roomCommunityReadsOnly,
   roomCommunityRetentionMs,
-  roomCommunitySeatReadsOnly,
   type RoomCommunityFact,
 } from '@daisy/protocol/room-community';
 import { sql } from 'drizzle-orm';
@@ -21,13 +21,13 @@ import type {
 
 type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
 /**
- * Read-only for a judge, who reads and never posts, and for everyone once the
- * Room has ended, when own removal is all that is left and the rows expire.
+ * Read-only for a judge, who reads and never posts, for a seatless spectator
+ * of a Youth Room (decision 84), and for everyone once the Room has ended,
+ * when own removal is all that is left and the rows expire.
  */
 export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => ({
   channelId: fact.channelId!,
-  readOnly:
-    !isOpenRoomStatus(fact.status) || roomCommunitySeatReadsOnly(fact.seatKind),
+  readOnly: !isOpenRoomStatus(fact.status) || roomCommunityReadsOnly(fact),
   expiresAt:
     fact.endedAt === null
       ? null

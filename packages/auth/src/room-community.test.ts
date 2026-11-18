@@ -28,6 +28,8 @@ const fact: RoomCommunityFact = {
   actorId: 'actor',
   host: false,
   seatKind: 'side',
+  youthRoom: false,
+  youthStaff: false,
 };
 const actions = ['read', 'post', 'remove'] as const;
 const visibilities = ['public', 'unlisted', 'private'] as const;
@@ -67,7 +69,13 @@ describe('decideRoomCommunity', () => {
           [true, false].flatMap((host) =>
             seatKinds.map((seatKind) => [
               `${visibility}/${host ? 'host' : 'other'}/${seatKind ?? 'no seat'}`,
-              roomCommunityStanding({ visibility, host, seatKind }),
+              roomCommunityStanding({
+                visibility,
+                host,
+                seatKind,
+                youthRoom: false,
+                youthStaff: false,
+              }),
             ]),
           ),
         ),
@@ -274,6 +282,58 @@ describe('decideRoomCommunity', () => {
         ['read', 'post', 'remove'],
         ['read', 'remove'],
       ],
+    });
+  });
+  test('a Youth Room’s chat (decision 84)', () => {
+    const youth = { ...fact, youthRoom: true };
+    const staff = { ...callers.visitor, youthStaff: true };
+    assert({
+      given:
+        'a Youth Room seen by a seatless visitor (adult or minor), a seated debater, a judge, the host, and a youth debater’s club staff, and an Open Room’s visitor',
+      should:
+        'let the visitor read and remove their own message but not post, keep debaters, the host and club staff posting, the judge reading, and leave the Open Room as it was',
+      actual: {
+        visitor: allowedActions({ fact: { ...youth, ...callers.visitor } }),
+        minorVisitor: allowedActions({
+          fact: { ...youth, ...callers.visitor },
+          account: { ...account, ageBand: '16-17' },
+        }),
+        seated: allowedActions({ fact: { ...youth, ...callers.seated } }),
+        judge: allowedActions({ fact: { ...youth, ...callers.judge } }),
+        host: allowedActions({ fact: { ...youth, ...callers.host } }),
+        staff: allowedActions({ fact: { ...youth, ...staff } }),
+        openVisitor: allowedActions({ fact: { ...fact, ...callers.visitor } }),
+        standings: [
+          roomCommunityStanding({ ...youth, ...callers.visitor }),
+          roomCommunityStanding({ ...youth, ...staff }),
+          roomCommunityStanding({
+            ...youth,
+            ...callers.visitor,
+            visibility: 'private',
+          }),
+        ],
+      },
+      expected: {
+        visitor: ['read', 'remove'],
+        minorVisitor: ['read', 'remove'],
+        seated: ['read', 'post', 'remove'],
+        judge: ['read', 'remove'],
+        host: ['read', 'post', 'remove'],
+        staff: ['read', 'post', 'remove'],
+        openVisitor: ['read', 'post', 'remove'],
+        standings: ['spectator', 'visitor', null],
+      },
+    });
+  });
+  test('what a Youth Room spectator’s decision says', () => {
+    assert({
+      given: 'a seatless visitor reading an open Youth Room',
+      should: 'be read-only with no expiry',
+      actual: decide({
+        action: 'read',
+        fact: { ...fact, ...callers.visitor, youthRoom: true },
+      }),
+      expected: { allow: true, readOnly: true, expiresAt: null },
     });
   });
 });

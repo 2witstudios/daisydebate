@@ -32,6 +32,8 @@ const fact: RoomCommunityFact = {
   actorId: 'actor',
   host: false,
   seatKind: null,
+  youthRoom: false,
+  youthStaff: false,
 };
 const input = {
   principal,

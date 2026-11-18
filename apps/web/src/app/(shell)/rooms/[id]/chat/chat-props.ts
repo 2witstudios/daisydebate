@@ -15,7 +15,9 @@ import {
  * authority or content: every client entry uses the canonical gate. Discovery
  * is a read and never opens the chat. An admitted member's page opens it on
  * entering the Room, with the protected POST; a reader who may not post (a
- * judge) is given a read-only thread that never asks to. A discovery that
+ * judge, or a seatless spectator of a Youth Room, decision 84) is given a
+ * read-only thread that never asks to. The chat's own metadata, when found,
+ * outranks the view: it alone knows a youth debater's club staff, who post. A discovery that
  * fails for any other reason must not take down the Room page, so the thread is
  * still given and offers its own retry.
  */
@@ -23,8 +25,9 @@ export async function roomChatProps(
   roomId: string,
   actorId: string,
   socketUrl: string | null,
-  readsOnly: boolean,
+  reader: 'judge' | 'spectator' | null,
 ): Promise<RoomChatProps | null> {
+  const readsOnly = reader !== null;
   let discovered: string | null = null;
   let readOnlyHint = readsOnly;
   try {
@@ -47,6 +50,7 @@ export async function roomChatProps(
     socketUrl: socketUrl ?? discovered,
     requestId: systemId.next(),
     readOnlyHint,
+    reader,
     sendAction: sendRoomChatMessageAction.bind(null, roomId),
     mutateAction: mutateRoomChatMessageAction.bind(null, roomId),
     reportAction: reportRoomChatMessageAction.bind(null, roomId),
