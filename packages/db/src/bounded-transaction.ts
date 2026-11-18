@@ -41,7 +41,7 @@ class TransactionAttempt {
   private readonly controller = new AbortController();
   private readonly expired = createAppError(
     'INFRASTRUCTURE',
-    'Transcript transaction budget exceeded',
+    'Bounded transaction budget exceeded',
   );
   private readonly deadline: number;
   private watchdog: ReservedSQL | undefined;
@@ -154,7 +154,7 @@ class TransactionAttempt {
       this.committing = false;
       throw createAppError(
         'INFRASTRUCTURE',
-        'Transcript transaction did not commit',
+        'Bounded transaction did not commit',
       );
     }
     await this.runLifecycle('committed');
@@ -198,7 +198,7 @@ class TransactionAttempt {
     )
       throw createAppError(
         'INFRASTRUCTURE',
-        'Transcript transaction recovery pending',
+        'Bounded transaction recovery pending',
         {
           recovery: 'pending',
           cause: error,
@@ -215,11 +215,7 @@ class TransactionAttempt {
         recovery: 'rolled-back',
       });
     if (isAppError(error)) throw error;
-    throw createAppError(
-      'INFRASTRUCTURE',
-      'Transcript transaction failed',
-      error,
-    );
+    throw createAppError('INFRASTRUCTURE', 'Bounded transaction failed', error);
   }
 
   private async closeAbortedLifecycle(
