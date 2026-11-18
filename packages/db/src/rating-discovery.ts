@@ -101,7 +101,8 @@ const readCandidates = async (
   selection: SQL,
 ): Promise<readonly RatingCandidate[]> => {
   const rows = (await db.execute(sql`select ${endingColumns},
-      r.competition_type as "competitionType", r.ladder_id as "ladderId",
+      r.competition_type as "competitionType",
+      case when r.ladder_id is null then null else jsonb_build_object('style', r.ladder_id, 'division', r.ladder_division) end as ladder,
       exists(select 1 from rating_changes l where l.round_id=r.id) as "alreadyRated"
     from rounds r ${recordedEndingJoins}
     where (r.room_id is null or exists(select 1 from rooms rating_room join lobbies rating_lobby on rating_lobby.id=rating_room.lobby_id where rating_room.id=r.room_id and rating_lobby.owner_organization_id=${daisyOrganizationId})) and ${selection}`)) as unknown as FactsRow[];

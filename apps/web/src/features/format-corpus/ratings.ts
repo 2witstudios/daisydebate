@@ -65,7 +65,7 @@ const plan = (name: string, outcome: WinnerOutcome) => {
   const pair = standings[name]!;
   const result = attempt(() =>
     planRating({
-      ladder: 'freestyle',
+      ladder: { style: 'freestyle', division: 'open' },
       outcome,
       occurredAt: completedAt,
       seasonId: 'season000000000000000001',
@@ -91,7 +91,7 @@ const plan = (name: string, outcome: WinnerOutcome) => {
 
 const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
-  ladderId: 'freestyle',
+  ladder: { style: 'freestyle', division: 'open' },
   status: 'completed',
   outcome: winnerOutcome('affirmative'),
   completedAt,
@@ -112,7 +112,7 @@ const eligibility = () => {
     ['rated', completed],
     ['negative-wins', { ...completed, outcome: winnerOutcome('negative') }],
     ['null-outcome', { ...completed, outcome: null }],
-    ['casual', { ...completed, competitionType: 'casual', ladderId: null }],
+    ['casual', { ...completed, competitionType: 'casual', ladder: null }],
     ['abandoned', { ...completed, status: 'abandoned', outcome: null }],
     ['already-rated', { ...completed, alreadyRated: true }],
     ['forfeit', { ...completed, ending: 'forfeit' }],

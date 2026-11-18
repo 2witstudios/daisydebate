@@ -22,7 +22,6 @@ import {
 } from './format-operations';
 
 import { sql } from 'drizzle-orm';
-import { rankedAgeAdmitted } from '@daisy/auth/age-floor';
 import { createAppError, createRefusal } from '@daisy/errors';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -131,17 +130,14 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
-        // Decision 79: opening a ranked Room is ranked play.
-        if (
-          input.room.competitionType === 'ranked' &&
-          !rankedAgeAdmitted(account?.ageBand ?? null)
-        )
-          throw createRefusal('CONFLICT', 'ranked-age');
+        // A ranked Room's ladder is set by who sits (ADR 0146), so opening
+        // one needs a Daisy season on some division; Start checks the
+        // seated division's own season. The host's age decides nothing.
         if (input.room.competitionType === 'ranked') {
           const active = await tx.execute(
             sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} for share`,
           );
-          if (active.length !== 1)
+          if (active.length === 0)
             throw createRefusal('CONFLICT', 'ranked-unavailable');
         }
         if (

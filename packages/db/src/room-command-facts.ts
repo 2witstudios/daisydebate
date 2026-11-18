@@ -22,9 +22,9 @@ import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { accountAge } from './schema/account-age';
-import type { AgeBand } from '@daisy/auth';
-import { rankedAgeAdmitted } from '@daisy/auth/age-floor';
-import { rankedAgeSeatFits } from './ranked-age-seat';
+import { divisionOfAgeBand, type RatingDivision } from '@daisy/protocol';
+import { divisionAgeBand } from './ladder-division-band';
+import { leagueLadderSeatFits } from './league-ladder-seat';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
@@ -89,10 +89,10 @@ export type Actor = {
   readonly label: string;
   readonly eligible: boolean;
   /**
-   * The person meets the ranked age floor on the instant this was read
-   * (decision 79); a bot always does. A rated Room seats no one without it.
+   * The person's ladder division as read now (ADR 0146), fixed for the
+   * season; null for a bot and for a person with no valid age record.
    */
-  readonly rankedAge: boolean;
+  readonly division: RatingDivision | null;
   /** Which AI the actor is (ISSUE-750); null for a human. */
   readonly aiRole: AiRole | null;
   /** The roster card's display facts; present for bot debaters only. */
@@ -121,8 +121,7 @@ export const actorFact = async (
       verified: users.emailVerified,
       botName: botProfiles.name,
       judgeName: aiJudgeProfiles.name,
-      // ADR 0075's one band rule, read now; the birth month stays in SQL.
-      ageBand: sql<AgeBand | null>`public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp())`,
+      ageBand: divisionAgeBand(),
     })
     .from(actors)
     .leftJoin(users, eq(users.id, actors.userId))
@@ -140,7 +139,7 @@ export const actorFact = async (
         row.verified === true &&
         row.username !== null &&
         row.deletedAt === null,
-      rankedAge: rankedAgeAdmitted(row.ageBand),
+      division: divisionOfAgeBand(row.ageBand),
       aiRole: null,
     };
   const aiRole = aiRoleOf(row.botName, row.judgeName);
@@ -149,7 +148,7 @@ export const actorFact = async (
     kind: row.kind,
     label: row.botName ?? row.judgeName ?? '',
     eligible: aiRole !== null,
-    rankedAge: true,
+    division: null,
     aiRole,
   };
 };
@@ -234,7 +233,7 @@ const hydrateRoom = async (
         // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
         eligible:
           actor.eligible &&
-          rankedAgeSeatFits(room, actor) &&
+          leagueLadderSeatFits(room, actor) &&
           (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
         id: row.id,
         seat,

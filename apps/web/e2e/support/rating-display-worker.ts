@@ -7,7 +7,7 @@ import {
   emptyRuntimeCheckpointFor,
   idSchema,
   negativeSide,
-  ratingLadders,
+  ratingStyles,
 } from '@daisy/protocol';
 import { rateCompletedRound } from '../../src/features/ratings/rate-debate';
 import { betaAccessTarget } from './beta-access-target';
@@ -17,8 +17,8 @@ const { username, rooms } = z
   .object({
     username: z.string().regex(/^[a-z0-9-]{1,40}$/),
     rooms: z
-      .array(z.object({ ladder: z.enum(ratingLadders), id: idSchema }))
-      .length(ratingLadders.length),
+      .array(z.object({ ladder: z.enum(ratingStyles), id: idSchema }))
+      .length(ratingStyles.length),
   })
   .parse(JSON.parse(await Bun.stdin.text()));
 const url = betaAccessTarget(process.env);
@@ -36,7 +36,7 @@ try {
   await sql`insert into users(id,username) values(${user},${`proof-${user}`})`;
   await sql`insert into actors(id,kind,user_id) values(${opponent},'human',${user})`;
   const evidence = [];
-  for (const ladder of ratingLadders) {
+  for (const ladder of ratingStyles) {
     const id = createId(),
       command = createId();
     const roomId = rooms.find((r) => r.ladder === ladder)!.id;

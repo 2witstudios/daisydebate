@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { ageBand, type AgeBand } from './index';
+import type { AgeBand } from '@daisy/protocol';
+import { ageBand } from './index';
 
 setupRitewayBun();
 

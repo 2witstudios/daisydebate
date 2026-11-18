@@ -1,10 +1,13 @@
 import { and, eq, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
+import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
 import {
   buildUserInboxTopic,
+  divisionForSeatedDebaters,
   idSchema,
-  type RatingLadder,
+  type RatingDivision,
+  type RatingStyle,
   type CompetitionType,
 } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
@@ -32,7 +35,7 @@ export type ChallengeFrame = {
     /** Mints the challenged member's notification ids (ADR 0144). */
     readonly nextId: () => string;
     readonly mode: CompetitionType;
-    readonly format: RatingLadder;
+    readonly format: RatingStyle;
     readonly now: string;
     readonly expiresAt: string;
   }) => Promise<{ readonly challengeId: string }>;
@@ -123,6 +126,25 @@ export const challengeContactReactions = {
   },
 };
 
+/** The division both members debate on, or null when they differ or lack one. */
+async function pairDivision(
+  tx: Tx,
+  challenger: string,
+  challenged: string,
+): Promise<RatingDivision | null> {
+  const rows = await rowsOf<{ division: RatingDivision | null }>(
+    tx,
+    sql`select ${divisionOfBandSql(divisionAgeBand())} as division
+      from actors member left join account_age on account_age.user_id = member.user_id
+      where member.id in (${challenger}, ${challenged})`,
+  );
+  const divisions = rows.map((row) => row.division);
+  const shared = divisionForSeatedDebaters(divisions);
+  return rows.length === 2 && (shared === 'open' || shared === 'youth')
+    ? shared
+    : null;
+}
+
 /**
  * Challenge writes inside the contact frame: accounts and the pair are locked,
  * so no block or decline races past them. Every write reauthorizes first. A
@@ -153,6 +175,12 @@ export function challengeFrame(
       // One answer with a block, no such member and no lease: never which.
       if (theirs.placement !== null || theirs.chosen !== 'online')
         throw createAppError('NOT_FOUND');
+      // A ranked offer is on one ladder (ADR 0146): both members' division,
+      // read under the pair's lock. Across divisions only casual is offered.
+      const division =
+        mode === 'ranked' ? await pairDivision(tx, input.actorId, other) : null;
+      if (mode === 'ranked' && division === null)
+        throw createRefusal('CONFLICT', 'ranked-division');
       await tx.execute(sql`
         delete from challenges
         where challenger_actor_id = ${input.actorId} and challenged_actor_id = ${other}
@@ -165,6 +193,7 @@ export function challengeFrame(
           challengedActorId: other,
           mode,
           formatId: format,
+          division,
           createdAt: new Date(now),
           expiresAt: new Date(expiresAt),
         })
@@ -194,6 +223,7 @@ export function challengeFrame(
         .set({
           mode,
           formatId: format,
+          division,
           expiresAt: new Date(expiresAt),
         })
         .where(

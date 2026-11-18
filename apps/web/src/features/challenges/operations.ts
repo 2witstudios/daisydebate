@@ -4,7 +4,7 @@ import type { ChallengeListRow, ChallengeStore } from '@daisy/db/challenges';
 import { createAppError, createRefusal, isAppError } from '@daisy/errors';
 import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import type {
-  RatingLadder,
+  RatingStyle,
   ChallengeList,
   CompetitionType,
   ChallengeResult,
@@ -28,6 +28,7 @@ export const challengeSendLimit = {
 } as const;
 
 type Capability =
+  | 'social.challenge.send'
   | 'social.challenge.accept'
   | 'social.challenge.decline'
   | 'social.challenge.cancel';
@@ -41,13 +42,11 @@ export type ChallengeDependencies = {
   /** Whether a season is active, which a ranked room needs. */
   readonly rankedOpen: () => Promise<boolean>;
   /** Whether the catalog offers this format, which Accept's room needs. */
-  readonly formatOffered: (format: RatingLadder) => Promise<boolean>;
+  readonly formatOffered: (format: RatingStyle) => Promise<boolean>;
   /** The one username port: it spends discovery before each lookup. */
   readonly discover: DiscoverActor;
   readonly activity: (actorId: string) => Promise<PresenceActivity | null>;
   readonly store: (capability: Capability) => ChallengeStore;
-  /** The store an offer is sent through, fenced for its mode (decision 79). */
-  readonly sendStore: (mode: CompetitionType) => ChallengeStore;
   /** The actor an offer names on the other end, for its contact fence. */
   readonly counterpart: (
     actorId: string,
@@ -78,7 +77,7 @@ export async function sendChallenge(
     readonly commandId: string;
     readonly username: string;
     readonly mode: CompetitionType;
-    readonly format: RatingLadder;
+    readonly format: RatingStyle;
   },
   dependencies: ChallengeDependencies,
 ): Promise<Omit<ChallengeResult, 'version'>> {
@@ -98,7 +97,7 @@ export async function sendChallenge(
   const now = dependencies.clock.now();
   const { challengeId } = await unnamed(() =>
     dependencies
-      .sendStore(input.mode)
+      .store('social.challenge.send')
       .withContacts(
         { actorId, userId, memberActorIds: [actorId, otherActorId] },
         (frame) =>
@@ -186,6 +185,7 @@ export function challengeListOf(
     username,
     mode,
     format,
+    division,
     createdAt,
     expiresAt,
   }: ChallengeListRow) => ({
@@ -193,6 +193,7 @@ export function challengeListOf(
     username,
     mode,
     format,
+    division,
     createdAt,
     expiresAt,
   });

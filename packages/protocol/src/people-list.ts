@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { memberStatuses } from './presence-setting';
-import { idSchema, ratingLadders } from './primitives';
+import { idSchema, ratingStyles } from './primitives';
 
 const count = z.number().int().nonnegative().safe();
 
 /** One rating a member shows; null is a ladder they have not played. */
 const shownRatingSchema = z.strictObject({
-  ladder: z.enum(ratingLadders),
+  ladder: z.enum(ratingStyles),
   rating: z.number().int().nullable(),
   provisional: z.boolean(),
   /** A judge may not see this debater's rating before their ballot. */

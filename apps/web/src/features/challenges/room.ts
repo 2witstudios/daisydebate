@@ -1,4 +1,4 @@
-import type { RatingLadder, CompetitionType } from '@daisy/protocol';
+import type { RatingStyle, CompetitionType } from '@daisy/protocol';
 import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import { defaultRoomVisibility } from '../rooms/room-visibility';
@@ -54,6 +54,6 @@ export function challengeRoomForm(input: {
 /** The catalog entry a challenge's format names, if the catalog still has it. */
 export const templateFor = (
   choices: readonly RoomTemplate[],
-  format: RatingLadder,
+  format: RatingStyle,
 ): RoomTemplate | undefined =>
   choices.find((choice) => choice.formatId === format);

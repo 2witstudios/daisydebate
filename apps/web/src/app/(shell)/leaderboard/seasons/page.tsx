@@ -1,8 +1,9 @@
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requestLadder } from '../../../../lib/request-session';
+import { requestLadder, requestMemberDivision } from '../../../../lib/request-session';
 import { boardLadder } from '../../../../features/leaderboard/board-ladder';
+import { parseLadderQuery } from '../../../../features/leaderboard/query';
 import {
   buildSeasonsView,
   parseSeasonsQuery,
@@ -18,11 +19,14 @@ export default async function SeasonsRoute({
   searchParams: Promise<SearchParams>;
 }) {
   const now = systemClock.now();
+  const params = await searchParams;
+  const query = parseLadderQuery(params);
   const read = await requestLadder({
-    seasonId: parseSeasonsQuery(await searchParams),
-    ladder: boardLadder,
+    seasonId: parseSeasonsQuery(params),
+    ladder: boardLadder(query.division, await requestMemberDivision()),
     now,
   });
-  const view = read && buildSeasonsView(read.data, now, read.viewer);
+  const view =
+    read && buildSeasonsView(read.data, read.ladder, now, read.viewer);
   return <SeasonsPage view={view} />;
 }

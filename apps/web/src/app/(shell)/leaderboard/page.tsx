@@ -5,7 +5,7 @@ import { buildDetail } from '../../../features/leaderboard/detail';
 import { buildLadder } from '../../../features/leaderboard/ladder';
 import { boardLadder } from '../../../features/leaderboard/board-ladder';
 import { parseLadderQuery } from '../../../features/leaderboard/query';
-import { requestLadder } from '../../../lib/request-session';
+import { requestLadder, requestMemberDivision } from '../../../lib/request-session';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
 
 export const metadata: Metadata = { title: 'Leaderboard' };
@@ -20,7 +20,7 @@ export default async function LeaderboardPage({
   const now = systemClock.now();
   const read = await requestLadder({
     seasonId: query.season,
-    ladder: boardLadder,
+    ladder: boardLadder(query.division, await requestMemberDivision()),
     now,
   });
   if (!read)

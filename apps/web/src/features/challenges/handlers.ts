@@ -3,7 +3,7 @@ import {
   challengeCommandSchemas,
   challengeListSchema,
   challengeResultSchema,
-  type RatingLadder,
+  type RatingStyle,
   type ChallengeList,
   type CompetitionType,
   type ChallengeResult,
@@ -30,7 +30,7 @@ export function createChallengeHandlers(dependencies: {
       readonly commandId: string;
       readonly username: string;
       readonly mode: CompetitionType;
-      readonly format: RatingLadder;
+      readonly format: RatingStyle;
     },
   ) => Answer;
   readonly accept: (

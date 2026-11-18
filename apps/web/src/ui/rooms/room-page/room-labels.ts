@@ -1,4 +1,3 @@
-import { RANKED_AGE_FLOOR } from '@daisy/auth/age-floor';
 import {
   isNamedSeat,
   isOpenRoomStatus,
@@ -180,8 +179,8 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
-  // Start names the caller's own age only; another seat answers actor-ineligible.
-  'ranked-age': `members ${RANKED_AGE_FLOOR} and over`,
+  // A seat names the caller's own ladder only; Start never refuses on it.
+  'ranked-division': 'a debater seat on your own ladder',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
   'ai-judge-premium':

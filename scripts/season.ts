@@ -8,19 +8,35 @@ import { parseArgs } from 'node:util';
 import { systemClock, systemId } from '@daisy/clock';
 import { withSeasons, type SeasonRecord } from '@daisy/db/seasons';
 import { isAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import {
+  idSchema,
+  ratingDivisions,
+  type RatingDivision,
+} from '@daisy/protocol';
 
 const usage = `usage:
   bun season list
   bun season activate-beta
-  bun season open --name "<name>" [--starts <ISO 8601>]
+  bun season open --name "<name>" --division <open|youth> [--starts <ISO 8601>]
   bun season close --id <seasonId> [--ends <ISO 8601>]`;
 
-type NewSeason = { id: string; name: string; startsAt: Date };
+type NewSeason = {
+  id: string;
+  name: string;
+  division: RatingDivision;
+  startsAt: Date;
+};
 
 export type SeasonCommand =
   | { readonly kind: 'list' }
-  | { readonly kind: 'activate-beta'; readonly id: string }
+  /** Each division's Season 1 (ADR 0146), each with its own id. */
+  | {
+      readonly kind: 'activate-beta';
+      readonly seasons: readonly {
+        readonly id: string;
+        readonly division: RatingDivision;
+      }[];
+    }
   | { readonly kind: 'open'; readonly season: NewSeason }
   | { readonly kind: 'close'; readonly id: string; readonly endsAt: Date }
   | { readonly kind: 'usage'; readonly message: string };
@@ -61,13 +77,14 @@ const instant = (value: string | undefined): Date | null | undefined => {
 const allowedFlags: Readonly<Record<string, readonly string[]>> = {
   list: [],
   'activate-beta': [],
-  open: ['name', 'starts'],
+  open: ['name', 'division', 'starts'],
   close: ['id', 'ends'],
 };
 
 type Flags = {
   readonly command: string;
   readonly name: string | undefined;
+  readonly division: RatingDivision | undefined;
   readonly id: string | undefined;
   readonly starts: Date | undefined;
   readonly ends: Date | undefined;
@@ -86,6 +103,7 @@ function readFlags(argv: readonly string[]): Flags | null {
       strict: true,
       options: {
         name: { type: 'string' },
+        division: { type: 'string' },
         id: { type: 'string' },
         starts: { type: 'string' },
         ends: { type: 'string' },
@@ -97,6 +115,9 @@ function readFlags(argv: readonly string[]): Flags | null {
   const [command] = parsed.positionals;
   const name = parsed.values.name?.trim();
   const { id } = parsed.values;
+  const division = ratingDivisions.find(
+    (known) => known === parsed.values.division,
+  );
   const starts = instant(parsed.values.starts);
   const ends = instant(parsed.values.ends);
   const allowed = allowedFlags[command ?? ''] ?? [];
@@ -107,8 +128,9 @@ function readFlags(argv: readonly string[]): Flags | null {
     starts !== null &&
     ends !== null &&
     validName(name) &&
+    (parsed.values.division === undefined || division !== undefined) &&
     (id === undefined || idSchema.safeParse(id).success);
-  return valid ? { command, name, id, starts, ends } : null;
+  return valid ? { command, name, division, id, starts, ends } : null;
 }
 
 /**
@@ -122,16 +144,23 @@ export function parseSeasonCommand(
   const refusal: SeasonCommand = { kind: 'usage', message: usage };
   const flags = readFlags(argv);
   if (!flags) return refusal;
-  const { command, name, id, starts, ends } = flags;
+  const { command, name, division, id, starts, ends } = flags;
   if (command === 'list') return { kind: 'list' };
   if (command === 'activate-beta')
-    return { kind: 'activate-beta', id: edge.newId() };
-  if (command === 'open' && name)
+    return {
+      kind: 'activate-beta',
+      seasons: ratingDivisions.map((each) => ({
+        id: edge.newId(),
+        division: each,
+      })),
+    };
+  if (command === 'open' && name && division)
     return {
       kind: 'open',
       season: {
         id: edge.newId(),
         name,
+        division,
         startsAt: starts ?? new Date(edge.now),
       },
     };
@@ -152,6 +181,7 @@ export function refusalLine(error: unknown): string | null {
 const line = (season: SeasonRecord) =>
   [
     season.id,
+    season.division,
     season.status,
     season.startsAt,
     season.endsAt ?? '-',
@@ -176,7 +206,8 @@ async function main() {
           console.log(line(season));
         return;
       case 'activate-beta':
-        console.log(line(await seasons.activateBetaSeason({ id: command.id })));
+        for (const season of command.seasons)
+          console.log(line(await seasons.activateBetaSeason(season)));
         return;
       case 'open':
         console.log(line(await seasons.openSeason(command.season)));

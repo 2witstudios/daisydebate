@@ -2,7 +2,7 @@ import {
   ADMITTED_AGE_BANDS,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
-import type { AgeBand } from '@daisy/auth';
+import type { AgeBand } from '@daisy/protocol';
 import { tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type {
@@ -10,14 +10,14 @@ import type {
   Person,
   PeopleList,
   PresenceActivity,
-  RatingLadder,
+  RatingStyle,
   RatingState,
   RoundStatus,
   RoundOutcome,
   SeatRef,
 } from '@daisy/protocol';
 import type { PublicProfileCard } from '@daisy/db';
-import { ratingLadders } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol';
 import type {
   PeopleListCursor,
   PersonRow,
@@ -62,7 +62,7 @@ export type PeopleListDependencies = {
   readonly cards: (actorIds: readonly string[]) => Promise<{
     readonly ratings: readonly (RatingState & {
       readonly actorId: string;
-      readonly ladder: RatingLadder;
+      readonly ladder: RatingStyle;
       readonly lastRatedAt: string | null;
     })[];
     readonly records: readonly {
@@ -194,7 +194,7 @@ export async function readPeopleList(
       photoId: profile?.photoId ?? null,
       status,
       relation: relationOf(row, actorId),
-      ratings: ratingLadders.map((ladder) => {
+      ratings: ratingStyles.map((ladder) => {
         const state = cards.ratings.find(
           (rating) =>
             rating.actorId === row.actorId && rating.ladder === ladder,

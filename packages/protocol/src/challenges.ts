@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { idSchema, ratingLadders } from './primitives';
+import { idSchema, ratingStyles } from './primitives';
+import { ratingDivisions } from './ladder';
 import { competitionTypes } from './round';
 import { usernameSchema as username } from './username';
 
@@ -9,7 +10,7 @@ export const challengeCommandSchemas = {
     commandId: idSchema,
     username,
     mode: z.enum(competitionTypes),
-    format: z.enum(ratingLadders),
+    format: z.enum(ratingStyles),
   }),
   /** Records the room the acceptor just opened for this challenge. */
   accept: z.strictObject({
@@ -32,7 +33,9 @@ const challengeSummary = {
   id: idSchema,
   username: z.string(),
   mode: z.enum(competitionTypes),
-  format: z.enum(ratingLadders),
+  format: z.enum(ratingStyles),
+  /** A ranked offer's ladder division (ADR 0146), set at send; null when casual. */
+  division: z.enum(ratingDivisions).nullable(),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
 };

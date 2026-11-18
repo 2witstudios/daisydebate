@@ -1,4 +1,4 @@
-import type { AgeBand } from '@daisy/auth';
+import type { AgeBand } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {

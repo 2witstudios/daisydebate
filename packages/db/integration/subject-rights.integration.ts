@@ -2,7 +2,7 @@ import { judgedRound as createJudgedRound } from './judged-round.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
-import { ratingLadders } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { createAuthorizationSubject } from './authorization.test-support';
@@ -190,7 +190,7 @@ test('exporting a member includes their competitive record and nothing of anothe
     });
     // The ladder name comes from the protocol's own catalog, so the fixture
     // can never drift from the merged ratings vocabulary.
-    const ladder = ratingLadders[0];
+    const ladder = ratingStyles[0];
     await rating(fixture, {
       actorId: subject.actorId,
       formatId,

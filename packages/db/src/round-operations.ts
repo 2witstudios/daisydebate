@@ -1,7 +1,6 @@
 import {
   emptyRuntimeCheckpointFor,
   roundRulesSchema,
-  type CompetitionType,
   type RoundRules,
 } from '@daisy/protocol';
 import { frozenJudgingFor } from './round-judging-freeze';
@@ -11,7 +10,7 @@ import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { hydrateRound, type RoundHydration } from './round-hydration';
 import { isUniqueViolation } from './unique-violation';
-import { roundLadder, rounds } from './schema/rounds';
+import { rounds } from './schema/rounds';
 
 export const roundOperations = ({
   database,
@@ -41,7 +40,8 @@ export const roundOperations = ({
     readonly id: string;
     readonly createdByActorId: string | null;
     readonly resolution: string;
-    readonly competitionType: CompetitionType;
+    /** A Round with no Room seats no one at Start, so it never rates. */
+    readonly competitionType: 'casual';
     readonly formatId: string;
     readonly formatVersion: number;
     readonly presetVersion: number | null;
@@ -70,7 +70,8 @@ export const roundOperations = ({
           judging: frozenJudgingFor(input.rules),
           runtimeState: emptyRuntimeCheckpointFor(input.rules),
           status: 'opening',
-          ladderId: roundLadder(input.competitionType, input.formatId),
+          ladderId: null,
+          ladderDivision: null,
         });
       } catch (error) {
         if (isUniqueViolation(error))

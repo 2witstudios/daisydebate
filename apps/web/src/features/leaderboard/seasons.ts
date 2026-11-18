@@ -1,7 +1,7 @@
 import type { SearchParams } from '../access/decision';
-import { ladderLabels } from '../ratings/ladder-labels';
+import { ladderLabel } from '../ratings/ladder-labels';
 import { rankRatingEntries } from '../ratings/rank';
-import { boardLadder } from './board-ladder';
+import type { Ladder } from '@daisy/protocol';
 import { toRow } from './ladder-rows';
 import type { LadderData, LadderRow, LadderViewer } from './ladder-view';
 import { defaultQuery, ladderHref } from './query';
@@ -59,6 +59,7 @@ export type SeasonsView = {
 /** A season's overview, its champion and top ten, from its ladder entries. */
 export function buildSeasonsView(
   data: LadderData,
+  ladder: Ladder,
   now: string,
   viewer: LadderViewer | null = null,
 ): SeasonsView {
@@ -73,7 +74,7 @@ export function buildSeasonsView(
   const { day, length, percent } = seasonProgress(season, now);
   return {
     season,
-    ladderLabel: ladderLabels[boardLadder],
+    ladderLabel: ladderLabel(ladder),
     label: seasonLabel(season),
     state: !closed
       ? 'running'

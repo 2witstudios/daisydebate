@@ -1,8 +1,8 @@
 import {
   competitionTypes,
-  canonicalRatingLadder,
   type CompetitionType,
-  ratingLadders,
+  ratingDivisions,
+  ratingStyles,
   roundRulesSchema,
   frozenRoomConfigSchema,
   roomCaptureSchema,
@@ -17,7 +17,8 @@ import {
   type RoundDecisionRelease,
   type RoundStage,
   type RoundStatus,
-  type RatingLadder,
+  type RatingDivision,
+  type RatingStyle,
   seatDrawSchema,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -60,13 +61,6 @@ const rankingPlacesSchema = z
   .min(1);
 /** The frozen judging as stored: present, or the column is null. */
 const storedJudgingSchema = roundJudgingSchema.unwrap();
-
-/** Canonical mapping frozen at construction; null denotes casual play. */
-export const roundLadder = (
-  competitionType: CompetitionType,
-  formatId: string,
-): RatingLadder | null =>
-  competitionType === 'ranked' ? canonicalRatingLadder(formatId) : null;
 
 /**
  * The durable competitive occurrence (ADR 0058 §6). Every actual debate is
@@ -154,7 +148,13 @@ export const rounds = pgTable(
     /** The one authority for ratedness: null when this round never rates. */
     /** Own standing league ladder frozen from the source Room at Start. */
     leagueLadderId: text('league_ladder_id'),
-    ladderId: text('ladder_id').$type<RatingLadder>(),
+    ladderId: text('ladder_id').$type<RatingStyle>(),
+    /**
+     * The division of the ladder the Round rates on (ADR 0146), frozen at
+     * Start from who sat: the ladder is (`ladder_id`, `ladder_division`), and
+     * both are null together on a casual Round.
+     */
+    ladderDivision: text('ladder_division').$type<RatingDivision>(),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
     /** The Daisy checkpoint (ADR 0058 §4); only what has no durable row. */
@@ -210,6 +210,10 @@ export const rounds = pgTable(
       ),
       /** Lets `rating_changes` pin a change to the round's own format. */
       unique('rounds_id_format_unique').on(table.id, table.formatId),
+      unique('rounds_id_ladder_division_unique').on(
+        table.id,
+        table.ladderDivision,
+      ),
       index('rounds_status_competition_created_idx').on(
         table.status,
         table.competitionType,
@@ -328,7 +332,11 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_ladder_check',
-        sql`${table.ladderId} is null or ${oneOf(table.ladderId, ratingLadders)}`,
+        sql`${table.ladderId} is null or ${oneOf(table.ladderId, ratingStyles)}`,
+      ),
+      check(
+        'rounds_ladder_division_check',
+        sql`(${table.ladderId} is null) = (${table.ladderDivision} is null) and (${table.ladderDivision} is null or ${oneOf(table.ladderDivision, ratingDivisions)})`,
       ),
       check(
         'rounds_lifecycle_check',

@@ -1,4 +1,9 @@
-import { competitionTypes, ratingLadders } from '@daisy/protocol';
+import {
+  competitionTypes,
+  ratingDivisions,
+  ratingStyles,
+  type RatingDivision,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
@@ -19,6 +24,11 @@ export const challenges = pgTable(
     challengedActorId: contactActorColumn('challenged_actor_id'),
     mode: text('mode').notNull(),
     formatId: text('format_id').notNull(),
+    /**
+     * The ladder's division a ranked offer is on, decided at send from both
+     * members (ADR 0146); null on a casual offer.
+     */
+    division: text('division').$type<RatingDivision>(),
     roomId: text('room_id')
       .unique()
       .references(() => rooms.id, { onDelete: 'cascade' }),
@@ -45,6 +55,10 @@ export const challenges = pgTable(
       sql`(${table.roomId} is null) = (${table.followUntil} is null)`,
     ),
     check('challenges_mode_check', oneOf(table.mode, competitionTypes)),
-    check('challenges_format_check', oneOf(table.formatId, ratingLadders)),
+    check('challenges_format_check', oneOf(table.formatId, ratingStyles)),
+    check(
+      'challenges_division_check',
+      sql`(${table.mode} = 'ranked') = (${table.division} is not null) and (${table.division} is null or ${oneOf(table.division, ratingDivisions)})`,
+    ),
   ],
 );

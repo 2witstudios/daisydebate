@@ -2,7 +2,7 @@ import {
   buildUserInboxTopic,
   type CompetitionType,
   type NotificationKind,
-  type RatingLadder,
+  type RatingStyle,
   type SeatKind,
   type TournamentNotificationKind,
 } from '@daisy/protocol';
@@ -56,7 +56,7 @@ export type InboxRow = {
       readonly kind: 'challenge_received';
       readonly challenger: string | null;
       readonly mode: CompetitionType;
-      readonly format: RatingLadder;
+      readonly format: RatingStyle;
     }
   | {
       readonly kind: 'challenge_accepted';
@@ -83,7 +83,7 @@ type FlatRow = {
   seat: SeatKind | null;
   about: string | null;
   mode: CompetitionType | null;
-  format: RatingLadder | null;
+  format: RatingStyle | null;
   readAt: string | null;
   surfacedAt: string;
 };

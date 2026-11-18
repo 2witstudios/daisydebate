@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { RatingLadder } from '@daisy/protocol';
+import type { RatingStyle } from '@daisy/protocol';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import {
@@ -30,7 +30,7 @@ export const minute = (n: number) =>
   new Date(Date.UTC(2026, 9, 5, 12, n)).toISOString();
 
 type RoundInput = {
-  readonly ladder?: RatingLadder;
+  readonly ladder?: RatingStyle;
   readonly affirmative: string;
   readonly negative: string;
   /** `ladderId` null marks a casual round. */

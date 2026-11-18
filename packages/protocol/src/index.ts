@@ -26,11 +26,30 @@ export { dueAfterStops, runningMs } from './clock-stops';
 export type { ClockStop } from './clock-stops';
 export {
   idSchema,
-  ratingLadders,
-  canonicalRatingLadder,
+  ratingStyles,
+  canonicalRatingStyle,
   errorSchema,
 } from './primitives';
-export type { ProtocolError, RatingLadder } from './primitives';
+export type { ProtocolError, RatingStyle } from './primitives';
+export {
+  ageBands,
+  daisyLadders,
+  daisyLaddersOf,
+  divisionForSeatedDebaters,
+  divisionOfAgeBand,
+  ladderKey,
+  ladderSchema,
+  ratingDivisions,
+  roundCompetition,
+  seatedDivision,
+} from './ladder';
+export type {
+  AgeBand,
+  Ladder,
+  RatingDivision,
+  RoundCompetition,
+  SeatedDivision,
+} from './ladder';
 export { aiRoleFits, aiRoleOfSeat, aiRoleSchema, aiRoles } from './ai-roles';
 export type { AiRole } from './ai-roles';
 export {

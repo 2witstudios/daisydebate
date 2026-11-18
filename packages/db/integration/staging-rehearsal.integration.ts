@@ -3,7 +3,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
 import {
-  ratingLadders,
+  ratingStyles,
   recordingLifecycleSchema,
   roundRulesSchema,
   type RoundRules,
@@ -235,7 +235,7 @@ test(
         starts_at: at,
         status: 'active',
       });
-      for (const ladder of ratingLadders) {
+      for (const ladder of ratingStyles) {
         const format = catalog.find(({ id }) => id === ladder)!;
         const compiled = resolveRoomConfiguration(
           format.definition,

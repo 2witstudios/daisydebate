@@ -1,10 +1,16 @@
-import type { RatingLadder, RatingState, RoomView } from '@daisy/protocol';
+import type {
+  RatingDivision,
+  RatingStyle,
+  RatingState,
+  RoomView,
+} from '@daisy/protocol';
 import { ratingStanding } from './standing';
 
 /** A seat's rating as the card read has it: released, active season. */
 export type SeatRatingState = RatingState & {
   readonly actorId: string;
-  readonly ladder: RatingLadder;
+  readonly ladder: RatingStyle;
+  readonly division: RatingDivision;
   readonly lastRatedAt: string | null;
 };
 
@@ -20,8 +26,8 @@ export type SeatRatingReads = {
 /** Any Room view: the overlay reads and rewrites its participants alone. */
 type SeatedView = Pick<RoomView, 'participants'>;
 
-/** Daisy's one ladder (ADR 0142): every Room seat stands on Freestyle. */
-const seatLadder: RatingLadder = 'freestyle';
+/** Daisy's one style (ADR 0142): every Room seat stands on Freestyle. */
+const seatStyle: RatingStyle = 'freestyle';
 
 /** The seated humans whose ratings a view may carry: never a bot or an anonymous judge. */
 export const ratedSeatActorIds = (view: SeatedView): readonly string[] => [
@@ -53,8 +59,13 @@ export const overlaySeatRatings = <View extends SeatedView>(
       if ('anonymous' in p) return p;
       if (p.kind !== 'human' || hidden.has(p.actorId))
         return { ...p, rating: null };
+      // A ranked debater's own ladder (ADR 0146); anyone else's active
+      // season rating, which is on one division at a time.
       const state = input.ratings.find(
-        (r) => r.actorId === p.actorId && r.ladder === seatLadder,
+        (r) =>
+          r.actorId === p.actorId &&
+          r.ladder === seatStyle &&
+          (p.division === null || r.division === p.division),
       );
       if (!state) return { ...p, rating: null };
       const standing = ratingStanding(state, state.lastRatedAt, input.now);

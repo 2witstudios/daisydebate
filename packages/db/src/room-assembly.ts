@@ -13,7 +13,7 @@ import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
-import { seatableInRoom } from './ranked-age-seat';
+import { seatableInRoom } from './league-ladder-seat';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
 import { columnsOfSeat } from './seat-columns';
 import { holdActiveRoomMembers } from './room-membership-persistence';

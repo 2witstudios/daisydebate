@@ -13,6 +13,7 @@ const seats = oneOnOneSeats.map((seat) => ({
   ...seat,
   kind: 'human' as const,
   eligible: true,
+  division: 'open' as const,
 }));
 const grants = (
   world = runtimeWorld(),

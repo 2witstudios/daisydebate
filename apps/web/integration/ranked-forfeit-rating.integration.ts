@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { withSeasons } from '@daisy/db/seasons';
 import { createId } from '@paralleldrive/cuid2';
-import { ratingLadders } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   withRoomRuntime,
@@ -14,7 +14,7 @@ import {
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-for (const ladder of ratingLadders)
+for (const ladder of ratingStyles)
   test(`${ladder}: a pre-freeze human forfeit posts the original terminal command exactly once`, async () => {
     await withRoomRuntime(async (f) => {
       const seasonId = createId();
