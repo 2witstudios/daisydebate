@@ -50,15 +50,15 @@ const confirmBody = z.object({
   students: z.array(idSchema).max(200),
   form: z.unknown(),
 });
+const publishBody = z.object({ roundId: idSchema });
 const manageLinkBody = z.object({ email: z.string().max(400) });
 const stopBody = z.object({ a: z.string().max(80), t: z.string().max(128) });
 
 export type MediaReleaseRouteDependencies = {
   readonly boundary: BudgetedMemberBoundary;
-  /** The youth-publishing release flag: the one counsel gate (PYL-8). */
-  readonly released: (accountId: string | null) => Promise<boolean>;
   readonly recipientSubkey: () => string;
   readonly stopSubkey: () => string;
+  readonly nowMs: () => number;
   readonly store: Pick<
     Database,
     'mediaReleases' | 'mediaReleaseClubs' | 'youthRoundPublications'
@@ -69,14 +69,23 @@ export type MediaReleaseRouteDependencies = {
  * The media release routes (ADR 0151), all behind the youth-publishing flag:
  * the minor's request, the parent's link pages (no account, same origin, the
  * token in the body, never the URL), the club's confirmation, and sharing a
- * Youth Recording. A closed flag answers not found.
+ * Youth Recording. A closed flag answers not found. Each route takes the
+ * youth-publishing flag's reader from its Next route module or server action,
+ * so release flags stay out of the proxy's route table (ADR 0118).
  */
+export type MediaReleasesReleased = (
+  accountId: string | null,
+) => Promise<boolean>;
+
 export function composeMediaReleaseHandlers(
   deps: MediaReleaseRouteDependencies,
 ) {
   const { boundary } = deps;
-  const gate = async (accountId: string | null) => {
-    if (!(await deps.released(accountId))) throw createAppError('NOT_FOUND');
+  const gate = async (
+    released: MediaReleasesReleased,
+    accountId: string | null,
+  ) => {
+    if (!(await released(accountId))) throw createAppError('NOT_FOUND');
   };
   const member =
     (
@@ -84,14 +93,16 @@ export function composeMediaReleaseHandlers(
       bucket: string,
       rule: RateRule,
       work: (caller: MemberCaller, request: Request) => Promise<unknown>,
+      readOnly = false,
     ) =>
+    (released: MediaReleasesReleased) =>
     (request: Request) =>
       runMemberRoute(
         boundary,
         request,
-        { name, readOnly: false, bucket, rule },
+        { name, readOnly, bucket, rule },
         async (caller) => {
-          await gate(caller.userId);
+          await gate(released, caller.userId);
           return json(await work(caller, request));
         },
       );
@@ -103,6 +114,7 @@ export function composeMediaReleaseHandlers(
       work: (request: Request) => Promise<unknown>,
       gated = true,
     ) =>
+    (released: MediaReleasesReleased) =>
     (request: Request) =>
       handleOperation(
         boundary.logger,
@@ -110,7 +122,7 @@ export function composeMediaReleaseHandlers(
         name,
         async () => {
           requireSameOrigin(request, boundary.origin());
-          if (gated) await gate(null);
+          if (gated) await gate(released, null);
           const client = request.headers.get(CLIENT_IP_HEADER) ?? 'unresolved';
           await consumeOrThrow(
             boundary.limiter(),
@@ -191,22 +203,37 @@ export function composeMediaReleaseHandlers(
           });
         },
       ),
-    /** A debater shares a Youth Recording publicly. */
-    publish: (roundId: string) =>
+    /** The club's Youth students and their releases, for its owner or a school's staff. */
+    clubRead: (club: string) =>
       member(
-        'media-release.publish',
-        'media-release:publish',
-        publishRule,
+        'media-release.club-read',
+        'media-release:club-read',
+        { max: 120, windowSeconds: 60 },
         async (caller) => {
-          if (!idSchema.safeParse(roundId).success)
-            throw createAppError('NOT_FOUND');
-          return deps.store.youthRoundPublications.publishYouthRound({
-            roundId,
-            userId: caller.userId,
-            open: true,
-          });
+          if (club.length > 80) throw createAppError('NOT_FOUND');
+          const read = await deps.store.mediaReleaseClubs.readClubReleases(
+            caller.userId,
+            decodeURIComponent(club),
+          );
+          if (read === null) throw createAppError('NOT_FOUND');
+          return { read, nowMs: deps.nowMs() };
         },
+        true,
       ),
+    /** A debater shares a Youth Recording publicly. */
+    publish: member(
+      'media-release.publish',
+      'media-release:publish',
+      publishRule,
+      async (caller, request) => {
+        const { roundId } = await body(request, publishBody);
+        return deps.store.youthRoundPublications.publishYouthRound({
+          roundId,
+          userId: caller.userId,
+          open: true,
+        });
+      },
+    ),
     sign: parent(
       'media-release.parent.sign',
       parentClientRule,

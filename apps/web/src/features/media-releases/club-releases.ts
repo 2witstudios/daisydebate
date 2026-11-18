@@ -101,7 +101,7 @@ export const sameUtcDay = (at: string | null, nowMs: number): boolean =>
     new Date(nowMs).toISOString().slice(0, 10);
 
 /** The coach view's tiles. */
-export const coachTallies = (
+export const youthStudentTallies = (
   students: readonly Pick<
     ClubReleaseStudent,
     'standing' | 'username' | 'youthRounds'
@@ -135,15 +135,24 @@ export const recordingsLineOf = (
 };
 
 /** The coach view's release filter. */
-export const coachFilters = ['any', 'none', 'waiting', 'on_file'] as const;
-export type CoachFilter = (typeof coachFilters)[number];
+export const youthStudentFilters = [
+  'any',
+  'none',
+  'waiting',
+  'on_file',
+] as const;
+export type YouthStudentFilter = (typeof youthStudentFilters)[number];
 
-export const coachFilterOf = (value: unknown): CoachFilter =>
-  coachFilters.includes(value as CoachFilter) ? (value as CoachFilter) : 'any';
+export const youthStudentFilterOf = (value: unknown): YouthStudentFilter =>
+  youthStudentFilters.includes(value as YouthStudentFilter)
+    ? (value as YouthStudentFilter)
+    : 'any';
 
-export const coachShown = <S extends Pick<ClubReleaseStudent, 'standing'>>(
+export const youthStudentsShown = <
+  S extends Pick<ClubReleaseStudent, 'standing'>,
+>(
   students: readonly S[],
-  filter: CoachFilter,
+  filter: YouthStudentFilter,
 ): readonly S[] =>
   filter === 'any'
     ? students

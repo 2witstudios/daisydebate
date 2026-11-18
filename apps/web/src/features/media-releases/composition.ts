@@ -1,6 +1,5 @@
 import type { App } from '../../server/app';
 import { memberHttpBoundary } from '../../server/member-boundary';
-import { routeReleaseFor } from '../flags/route-release';
 import { deriveRecipientSubkey } from '../mail/recipient-key';
 import { composeMediaReleaseHandlers } from './handlers';
 import { deriveReleaseStopSubkey } from './stop-token';
@@ -9,8 +8,7 @@ import { deriveReleaseStopSubkey } from './stop-token';
 export const composeMediaReleaseRoutes = (app: App) =>
   composeMediaReleaseHandlers({
     boundary: memberHttpBoundary(app),
-    released: (accountId) =>
-      routeReleaseFor(app)('youth-publishing', accountId),
+    nowMs: () => Date.parse(app.clock.now()),
     recipientSubkey: () =>
       deriveRecipientSubkey(app.mailConfig().RECIPIENT_HASH_SECRET),
     stopSubkey: () =>

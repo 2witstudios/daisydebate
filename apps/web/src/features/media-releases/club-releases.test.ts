@@ -7,9 +7,9 @@ import type {
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   clubReleaseFilterOf,
-  coachFilterOf,
-  coachShown,
-  coachTallies,
+  youthStudentFilterOf,
+  youthStudentsShown,
+  youthStudentTallies,
   confirmable,
   filterCounts,
   recordingsLineOf,
@@ -198,7 +198,7 @@ test('the coach view', () => {
     given: 'four Youth students',
     should:
       'count releases on file, those waiting on a parent, and private Rounds',
-    actual: coachTallies(students),
+    actual: youthStudentTallies(students),
     expected: {
       onFile: 1,
       youth: 4,
@@ -230,11 +230,11 @@ test('the coach view', () => {
     should:
       'show the students in that state; no release includes a withdrawn one',
     actual: [
-      coachShown(students, 'any').length,
-      coachShown(students, 'none').map((s) => s.username),
-      coachShown(students, 'waiting').map((s) => s.username),
-      coachShown(students, 'on_file').map((s) => s.username),
-      coachFilterOf('nope'),
+      youthStudentsShown(students, 'any').length,
+      youthStudentsShown(students, 'none').map((s) => s.username),
+      youthStudentsShown(students, 'waiting').map((s) => s.username),
+      youthStudentsShown(students, 'on_file').map((s) => s.username),
+      youthStudentFilterOf('nope'),
     ],
     expected: [4, ['priya', 'kai'], ['theo'], ['sam'], 'any'],
   });

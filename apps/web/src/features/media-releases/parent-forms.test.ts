@@ -15,10 +15,7 @@ test('reading a parent route’s answer', async () => {
   assert({
     given: 'a done answer',
     should: 'pass it on',
-    actual: await readParentAnswer(
-      Response.json({ kind: 'done' }),
-      form(),
-    ),
+    actual: await readParentAnswer(Response.json({ kind: 'done' }), form()),
     expected: { ok: true, body: { kind: 'done' } },
   });
   const refused = await readParentAnswer(

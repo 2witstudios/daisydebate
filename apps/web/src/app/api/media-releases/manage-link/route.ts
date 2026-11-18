@@ -1,5 +1,8 @@
+import { mediaReleasesReleased } from '../../../../features/media-releases/route-release';
 import { processRoute } from '../../../../server/process-app';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const POST = processRoute((routes) => routes.mediaReleases.manageLink);
+export const POST = processRoute((routes, app) =>
+  routes.mediaReleases.manageLink(mediaReleasesReleased(app)),
+);

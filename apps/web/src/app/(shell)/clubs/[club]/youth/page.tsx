@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../../features/access/decision';
 import {
-  coachFilterOf,
-  coachShown,
-  coachTallies,
+  youthStudentFilterOf,
+  youthStudentsShown,
+  youthStudentTallies,
   recordingsLineOf,
 } from '../../../../../features/media-releases/club-releases';
 import {
@@ -11,7 +11,7 @@ import {
   standingBadgeWords,
 } from '../../../../../features/media-releases/release-words';
 import { ClubReleaseFrame } from '../../../../../ui/clubs/club-frame';
-import { CoachViewPage } from '../../../../../ui/clubs/releases/coach-view-page';
+import { YouthStudentsPage } from '../../../../../ui/clubs/releases/youth-students-page';
 import { readClubReleasePage } from '../releases/read';
 
 export const metadata: Metadata = { title: 'Youth tournaments' };
@@ -30,7 +30,7 @@ export default async function ClubYouth({
     `/clubs/${club}/youth`,
     searchParams,
   );
-  const filter = coachFilterOf((await searchParams).release);
+  const filter = youthStudentFilterOf((await searchParams).release);
   return (
     <ClubReleaseFrame
       club={read.club}
@@ -38,11 +38,11 @@ export default async function ClubYouth({
       releases={releases}
       section="youth"
     >
-      <CoachViewPage
+      <YouthStudentsPage
         clubId={read.club.id}
         filter={filter}
-        tallies={coachTallies(read.students)}
-        rows={coachShown(read.students, filter).map((student) => {
+        tallies={youthStudentTallies(read.students)}
+        rows={youthStudentsShown(read.students, filter).map((student) => {
           const badge = standingBadgeOf(student.standing);
           return {
             userId: student.userId,

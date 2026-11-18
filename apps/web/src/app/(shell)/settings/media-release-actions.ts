@@ -12,14 +12,23 @@ import {
   askRefusalWords,
   resendRefusalWords,
 } from '../../../features/media-releases/release-words';
+import { mediaReleasesReleased } from '../../../features/media-releases/route-release';
 import { processRoute } from '../../../server/process-app';
 import { post } from '../form-post';
 
 const routes = {
-  ask: processRoute((all) => all.mediaReleases.ask),
-  resend: processRoute((all) => all.mediaReleases.resend),
-  cancel: processRoute((all) => all.mediaReleases.cancel),
-  askClub: processRoute((all) => all.mediaReleases.askClub),
+  ask: processRoute((all, app) =>
+    all.mediaReleases.ask(mediaReleasesReleased(app)),
+  ),
+  resend: processRoute((all, app) =>
+    all.mediaReleases.resend(mediaReleasesReleased(app)),
+  ),
+  cancel: processRoute((all, app) =>
+    all.mediaReleases.cancel(mediaReleasesReleased(app)),
+  ),
+  askClub: processRoute((all, app) =>
+    all.mediaReleases.askClub(mediaReleasesReleased(app)),
+  ),
 };
 
 type Answer = {

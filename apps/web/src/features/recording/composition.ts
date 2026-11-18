@@ -1,4 +1,3 @@
-import { routeReleaseFor } from '../flags/route-release';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { hostHoldsCasualCapture as holdsCasualCapture } from '../room-runtime/capture-offer';
 import {
@@ -84,7 +83,19 @@ const youthPeople = (app: App) => {
 };
 
 /** The named read-only inputs, in one place. */
-const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
+/**
+ * Whether shared Youth Recordings are public at all (the youth-publishing
+ * flag, ADR 0151). Release flags never enter the route table (ADR 0118), so
+ * a Next route module or the page supplies it; without one a shared Youth
+ * Recording stays private.
+ */
+export type YouthPublishingOpen = () => Promise<boolean>;
+const closed: YouthPublishingOpen = async () => false;
+
+const recordingInputs = (
+  app: App,
+  youthPublishing: YouthPublishingOpen = closed,
+): RecordingInputs & HistoryInputs => {
   const readHistoryRound = async (roundId: string) => {
     const round = await app.database.readRecordingRound(roundId);
     if (!round) return null;
@@ -94,7 +105,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     const [people, shared, open] = await Promise.all([
       youthPeople(app)(roundId),
       app.database.youthRoundPublications.readYouthRoundShared(roundId),
-      routeReleaseFor(app)('youth-publishing', null),
+      youthPublishing(),
     ]);
     // Public only while a debater's share stands and publishing is open (ADR 0151).
     return asRound(round, { ...people, public: shared && open });
@@ -127,18 +138,26 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
   };
 };
 
-export const composeRecordingRoutes = (app: App) =>
-  createRecordingHandlers({
-    logger: app.logger,
-    reporter: app.reporter,
-    origin: () => app.auth().config.PUBLIC_APP_URL,
-    identify: (request) => identify(app.auth(), request.headers),
-    limiter: () => app.limiter,
-    clock: app.clock,
-    store: recordingPersistence(app),
-    objects: app.recordingObjects,
-    inputs: recordingInputs(app),
-  });
+export const composeRecordingRoutes = (app: App) => {
+  const handlers = (youthPublishing?: YouthPublishingOpen) =>
+    createRecordingHandlers({
+      logger: app.logger,
+      reporter: app.reporter,
+      origin: () => app.auth().config.PUBLIC_APP_URL,
+      identify: (request) => identify(app.auth(), request.headers),
+      limiter: () => app.limiter,
+      clock: app.clock,
+      store: recordingPersistence(app),
+      objects: app.recordingObjects,
+      inputs: recordingInputs(app, youthPublishing),
+    });
+  return {
+    ...handlers(),
+    /** Playback, which serves a shared Youth Recording while publishing is open. */
+    playbackWith: (youthPublishing: YouthPublishingOpen) =>
+      handlers(youthPublishing).playback,
+  };
+};
 
 /** What capture and processing (REC-1.2) are given. */
 const composeRecordingCapture = (app: App) =>
@@ -191,7 +210,10 @@ export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
   return { stop: () => running.stop().then(sweep.settled) };
 };
 
-export const recordingReads = (app: App) => ({
-  inputs: recordingInputs(app),
+export const recordingReads = (
+  app: App,
+  youthPublishing?: YouthPublishingOpen,
+) => ({
+  inputs: recordingInputs(app, youthPublishing),
   archive: recordingPersistence(app),
 });

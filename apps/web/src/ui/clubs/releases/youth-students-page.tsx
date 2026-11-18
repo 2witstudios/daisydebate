@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CoachFilter } from '../../../features/media-releases/club-releases';
+import type { YouthStudentFilter } from '../../../features/media-releases/club-releases';
 import type { StandingBadge } from '../../../features/media-releases/release-words';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
@@ -11,7 +11,7 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { releaseBadgeTone } from './confirm-releases-form';
 
 /** One Youth student, as the coach view shows them. */
-export type CoachStudentRow = {
+export type YouthStudentRow = {
   readonly userId: string;
   readonly username: string | null;
   readonly badge: StandingBadge;
@@ -19,7 +19,7 @@ export type CoachStudentRow = {
   readonly recordings: string;
 };
 
-const filterLabels: Record<CoachFilter, string> = {
+const filterLabels: Record<YouthStudentFilter, string> = {
   any: 'Any release status',
   none: 'No release',
   waiting: 'Waiting for parent',
@@ -49,14 +49,14 @@ function Tile({
  * and whether their Rounds can be published. Youth tournament entries join
  * it once Youth events open; until then it lists the students themselves.
  */
-export function CoachViewPage({
+export function YouthStudentsPage({
   clubId,
   filter,
   tallies,
   rows,
 }: {
   readonly clubId: string;
-  readonly filter: CoachFilter;
+  readonly filter: YouthStudentFilter;
   readonly tallies: {
     readonly onFile: number;
     readonly youth: number;
@@ -64,7 +64,7 @@ export function CoachViewPage({
     readonly waitingNames: readonly string[];
     readonly privateRounds: number;
   };
-  readonly rows: readonly CoachStudentRow[];
+  readonly rows: readonly YouthStudentRow[];
 }) {
   return (
     <>
@@ -104,16 +104,16 @@ export function CoachViewPage({
       </div>
       <AutoSubmitForm className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <label htmlFor="coach-release" className="text-sm font-strong">
+          <label htmlFor="youth-release" className="text-sm font-strong">
             Release
           </label>
           <select
-            id="coach-release"
+            id="youth-release"
             name="release"
             defaultValue={filter}
             className={`${controlClass} min-h-nav-target`}
           >
-            {(Object.keys(filterLabels) as CoachFilter[]).map((id) => (
+            {(Object.keys(filterLabels) as YouthStudentFilter[]).map((id) => (
               <option key={id} value={id}>
                 {filterLabels[id]}
               </option>
@@ -125,10 +125,10 @@ export function CoachViewPage({
         </button>
       </AutoSubmitForm>
       <section
-        aria-labelledby="coach-students-h"
+        aria-labelledby="youth-students-h"
         className="flex flex-col gap-2"
       >
-        <h2 id="coach-students-h" className="font-display text-xl font-bold">
+        <h2 id="youth-students-h" className="font-display text-xl font-bold">
           Your Youth students{' '}
           <span className="text-base font-book text-ink-muted">
             · Youth – Freestyle

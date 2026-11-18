@@ -500,6 +500,8 @@ describe('a Youth Round’s history (PYL-5)', () => {
             { actorId: 'neg', name: 'Negative', released: false },
           ],
           releasesComplete: false,
+          public: false,
+          viewerDebated: false,
         },
         download: null,
         takedown: true,

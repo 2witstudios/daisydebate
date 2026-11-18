@@ -149,7 +149,11 @@ export const readRecordingArchive = async (
 /** A finished Round's history screen for this viewer. */
 export const readRecordingHistory = (
   input: Parameters<typeof openRecordingHistory>[1],
-) => openRecordingHistory(recordingReads(processApp()).inputs, input);
+) =>
+  openRecordingHistory(
+    recordingReads(processApp(), youthPublishingOpen).inputs,
+    input,
+  );
 
 /** When this account's suspension ends; null for a ban or nothing in force. */
 export const requestRestrictionEnd = (userId: string) => {
