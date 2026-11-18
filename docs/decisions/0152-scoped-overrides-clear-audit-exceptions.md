@@ -1,4 +1,4 @@
-# 0151: Scoped overrides to patched versions clear the audit exceptions
+# 0152: Scoped overrides to patched versions clear the audit exceptions
 
 Status: accepted (owner brief of 2026-11-18, `audit-gate`, after main's
 `policy` job went red on Incidents). Amends [ADR 0039](0039-dated-dependency-audit-exceptions.md)

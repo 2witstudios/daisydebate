@@ -118,7 +118,7 @@ one whose advisory reaches a package it does not list.
 The registry is empty: no advisory is excepted. Fix a new advisory first with
 an exact, patched pin in the root `package.json` `overrides`, scoped to the
 parent that pulls it when another dependent needs a different major (ADR
-0151). Add an exception only when no patched version exists or no override
+0152). Add an exception only when no patched version exists or no override
 can reach one without breaking a dependent.
 
 ### Security overrides

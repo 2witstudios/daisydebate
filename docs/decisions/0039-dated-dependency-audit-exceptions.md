@@ -5,7 +5,7 @@ Amended by [ADR 0052](0052-braces-audit-exception.md) (braces, withdrawn
 2026-10-23 with its advisory) and [ADR 0056](0056-tinypool-audit-exceptions.md) (tinypool), and
 [ADR 0068](0068-vitest-manual-mock-audit-exception.md) (manual mock interception), which add dated
 exceptions beyond the two named below under the same rules.
-Amended by [ADR 0151](0151-scoped-overrides-clear-audit-exceptions.md): a
+Amended by [ADR 0152](0152-scoped-overrides-clear-audit-exceptions.md): a
 scoped `overrides` pin to a patched version is now the preferred fix, and
 both exceptions named below were retired on 2026-11-18.
 Supersedes the fix-at-source-only rule recorded in ADR 0038's context

@@ -194,7 +194,7 @@ const overridesHeading = '### Security overrides';
 /**
  * The overrides docs/dependencies.md records: the first cell of each row of
  * its Security overrides table, as `pkg` → `version` or
- * `parent` → `pkg` `version` (ADR 0151).
+ * `parent` → `pkg` `version` (ADR 0152).
  */
 export function documentedOverrides(markdown: string): readonly string[] {
   const start = markdown.indexOf(overridesHeading);
@@ -222,7 +222,7 @@ export function documentedOverrides(markdown: string): readonly string[] {
 /**
  * Every root override is documented, and every documented override is
  * still in package.json, with the same version, so a pin cannot outlive
- * its record or appear without one (ADR 0151).
+ * its record or appear without one (ADR 0152).
  */
 export function overrideProblems(
   overrides: unknown,
