@@ -156,6 +156,22 @@ describe('decideSetting: a tournament division is fixed once entries exist (PYL-
       ],
       expected: ['accepted', 'entries-exist'],
     });
+    const clear = {
+      type: 'clear-setting',
+      scope: cup,
+      key: 'entry.age_division',
+    } as const;
+    const held = [row(cup, 'entry.age_division', { value: 'youth' })];
+    assert({
+      given:
+        'a Youth tournament clearing its division back to Open, before and after an entry',
+      should: 'accept the clear, then refuse it with entries-exist',
+      actual: [
+        refusalOf(facts({ tournamentEntries: 0, rows: held }), clear),
+        refusalOf(facts({ tournamentEntries: 1, rows: held }), clear),
+      ],
+      expected: ['accepted', 'entries-exist'],
+    });
   });
 });
 

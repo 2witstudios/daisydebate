@@ -531,6 +531,8 @@ function clearSetting(
 ): Decision {
   if (!rowAt(facts.rows, command.scope, command.key))
     return refuse('setting-absent');
+  if (command.key === 'entry.age_division' && facts.tournamentEntries > 0)
+    return refuse('entries-exist');
   const after = withoutSettingRow(facts.rows, command.scope, command.key);
   const broken = firstBroken(facts.reached, facts.rows, after);
   if (broken) return refuse(broken);

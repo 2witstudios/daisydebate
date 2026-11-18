@@ -194,6 +194,7 @@ export const settingCommandCatalogue = {
   ]),
   'clear-setting': setting([
     'setting-absent',
+    'entries-exist',
     'sanction-holds',
     'division-in-use',
     'breaks-share-slot',
