@@ -4,6 +4,7 @@ import { ActionTile } from './action-tile/action-tile';
 import { tiles } from './tiles';
 import type { SeasonGlance } from '../../features/leaderboard/season';
 import { BetaOpenTeaser } from './beta-open-teaser/beta-open-teaser';
+import { AboutStrip } from './about-strip/about-strip';
 import type { HomeLadder } from './home-ladder';
 
 /**
@@ -59,6 +60,7 @@ export function Dashboard({
         <BetaOpenTeaser />
         {liveNow}
       </div>
+      <AboutStrip />
     </div>
   );
 }

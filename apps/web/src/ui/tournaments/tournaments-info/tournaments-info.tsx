@@ -16,8 +16,16 @@ const events = [
   },
 ] as const;
 
-/** What Daisy plans for tournaments: information only, with nothing to act on. */
-export function TournamentsInfo() {
+/**
+ * What Daisy plans for tournaments: information only, with nothing to act on.
+ * Its tabulation note says whether Daisy Tab's early access is open to the
+ * viewer yet.
+ */
+export function TournamentsInfo({
+  tabReleased = false,
+}: {
+  readonly tabReleased?: boolean;
+}) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-narrow:px-4">
       <header className="flex flex-col gap-2">
@@ -70,9 +78,9 @@ export function TournamentsInfo() {
           Tabulation software
         </h2>
         <p className="text-base leading-tile-copy text-ink-muted">
-          We&apos;re also planning tabulation software for running speech and
-          debate tournaments, in person, virtual or hybrid: pairings, ballots
-          and results in one place.
+          {tabReleased
+            ? 'Tabulation is open to your account in early access: run your league or tournament on Daisy, online or in person, with pairings, ballots and results in one place.'
+            : 'Tabulation is rolling out in early access: running speech and debate tournaments on Daisy, online or in person, with pairings, ballots and results in one place.'}
         </p>
       </section>
     </div>

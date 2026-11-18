@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import { DaisyStep } from '../../../../ui/onboarding/intro/intro';
+import { tabReleased } from '../../../tab-release';
 import { stepSkip } from '../skip';
 import { readStepEntry, stepRobots } from '../step-entry';
 import { readStepLinks } from '../step-links';
@@ -16,12 +17,16 @@ export default async function OnboardingDaisyStepPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { destination } = await readStepEntry(searchParams, 'daisy');
-  const { nextHref, backHref } = await readStepLinks('daisy', destination);
+  const [{ nextHref, backHref }, released] = await Promise.all([
+    readStepLinks('daisy', destination),
+    tabReleased(),
+  ]);
   return (
     <DaisyStep
       nextHref={nextHref}
       backHref={backHref}
       skip={stepSkip(destination)}
+      tabReleased={released}
     />
   );
 }

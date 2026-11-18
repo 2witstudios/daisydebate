@@ -24,6 +24,8 @@ export type HeroJoinProps = {
   readonly backdrop: ReactNode;
   /** The hero's copy, laid out beside the form. */
   readonly children: ReactNode;
+  /** A link under the form, such as the way to About Daisy. */
+  readonly footer?: ReactNode;
   /** Injected so the resend cooldown never reads ambient time. */
   readonly clock?: Clock;
 };
@@ -38,6 +40,7 @@ export function HeroJoin({
   requestLink,
   backdrop,
   children,
+  footer,
   clock = systemClock,
 }: HeroJoinProps) {
   const { state, dispatch, now, postLink, resend, changeEmail } =
@@ -124,6 +127,7 @@ export function HeroJoin({
             .
           </p>
         </form>
+        {footer}
       </div>
     </section>
   );

@@ -30,8 +30,10 @@ type Row = readonly [
 const admitted: readonly Row[] = [
   ['daisy', true, 'styles', null],
   ['styles', true, 'debate', 'daisy'],
-  ['debate', true, 'about', 'styles'],
-  ['about', true, 'experience', 'debate'],
+  ['debate', true, 'practice', 'styles'],
+  ['practice', true, 'host', 'debate'],
+  ['host', true, 'about', 'practice'],
+  ['about', true, 'experience', 'host'],
   ['experience', true, 'topics', 'about'],
   ['topics', true, 'ready', 'experience'],
   ['ready', true, null, 'topics'],
@@ -41,11 +43,13 @@ const admitted: readonly Row[] = [
 const notAdmitted: readonly Row[] = [
   ['daisy', true, 'styles', null],
   ['styles', true, 'debate', 'daisy'],
-  ['debate', true, 'ready', 'styles'],
-  ['about', false, 'ready', 'debate'],
-  ['experience', false, 'ready', 'debate'],
-  ['topics', false, 'ready', 'debate'],
-  ['ready', true, null, 'debate'],
+  ['debate', true, 'practice', 'styles'],
+  ['practice', true, 'host', 'debate'],
+  ['host', true, 'ready', 'practice'],
+  ['about', false, 'ready', 'host'],
+  ['experience', false, 'ready', 'host'],
+  ['topics', false, 'ready', 'host'],
+  ['ready', true, null, 'host'],
 ];
 
 const read = (optionalAnswersAdmitted: boolean): readonly Row[] =>
@@ -78,7 +82,7 @@ describe('the onboarding flow', () => {
     assert({
       given: 'each step for a member optional answers do not admit',
       should:
-        'refuse the three questions, send them on to the send-off and back to the debate step',
+        'refuse the three questions, send them on to the send-off and back to the host step',
       actual: read(false),
       expected: notAdmitted,
     });
@@ -142,9 +146,9 @@ describe('the onboarding flow', () => {
     assert({
       given: 'every step',
       should:
-        'need the optional-answers fact from the debate step on, never for the two steps before it',
+        'need the optional-answers fact from the host step on, never for the four intro steps before it',
       actual: onboardingSteps.filter(optionalAnswersBearOn),
-      expected: ['debate', 'about', 'experience', 'topics', 'ready'],
+      expected: ['host', 'about', 'experience', 'topics', 'ready'],
     });
   });
 });
@@ -170,12 +174,12 @@ describe('onboarding step links', () => {
   test('forward and back from a step', () => {
     assert({
       given:
-        'the debate step either way, the first step going back, and the last going forward',
+        'the host step either way, the first step going back, and the last going forward',
       should:
         'lead to the next or previous step that admits the member, nowhere before the first, and to the destination after the last',
       actual: [
-        nextStepHref('debate', true, '/lobby'),
-        nextStepHref('debate', false, '/lobby'),
+        nextStepHref('host', true, '/lobby'),
+        nextStepHref('host', false, '/lobby'),
         previousStepHref('about', true, '/lobby'),
         previousStepHref('daisy', true, '/lobby'),
         nextStepHref('ready', true, '/lobby?tab=a'),
@@ -183,7 +187,7 @@ describe('onboarding step links', () => {
       expected: [
         '/onboarding/about?next=%2Flobby',
         '/onboarding/ready?next=%2Flobby',
-        '/onboarding/debate?next=%2Flobby',
+        '/onboarding/host?next=%2Flobby',
         null,
         '/lobby?tab=a',
       ],
@@ -205,12 +209,14 @@ test('each step is numbered by its place in the flow, and the send-off shows no 
         ['daisy', 1],
         ['styles', 2],
         ['debate', 3],
-        ['about', 4],
-        ['experience', 5],
-        ['topics', 6],
+        ['practice', 4],
+        ['host', 5],
+        ['about', 6],
+        ['experience', 7],
+        ['topics', 8],
         ['ready', null],
       ],
-      6,
+      8,
     ],
   });
 });

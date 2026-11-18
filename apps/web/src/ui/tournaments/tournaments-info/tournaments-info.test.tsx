@@ -36,4 +36,20 @@ describe('TournamentsInfo', () => {
       expected: [false, false, false, false],
     });
   });
+
+  test('with Daisy Tab released', () => {
+    const released = renderToString(h(TournamentsInfo, { tabReleased: true }));
+    assert({
+      given: 'a viewer Daisy Tab is released to, and one it is not',
+      should:
+        'say early access is open to the first and rolling out to the second, linking nowhere and claiming no hybrid',
+      actual: [
+        released.includes('Tabulation is open to your account in early access'),
+        html.includes('Tabulation is rolling out in early access'),
+        released.includes('<a '),
+        released.includes('hybrid') || html.includes('hybrid'),
+      ],
+      expected: [true, true, false, false],
+    });
+  });
 });

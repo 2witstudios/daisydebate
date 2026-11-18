@@ -91,11 +91,11 @@ describe('AboutStep', () => {
     const html = render(AboutStep);
     assert({
       given: 'the about step',
-      should: 'post the step name, say "I want to" and say 4 of 6',
+      should: 'post the step name, say "I want to" and say 6 of 8',
       actual: [
         html.includes('<input type="hidden" name="step" value="about"/>'),
         html.includes('I want to'),
-        html.includes('4 of 6'),
+        html.includes('6 of 8'),
         html.includes('>Next</button>'),
       ],
       expected: [true, true, true, true],
@@ -216,7 +216,7 @@ describe('a step opened to change one answer (ISSUE-324)', () => {
       given:
         'the about, experience and topics steps opened from Settings, and the about step during onboarding',
       should:
-        'label the submit Save and show no step count when editing, and keep Next with "4 of 6" during onboarding',
+        'label the submit Save and show no step count when editing, and keep Next with "6 of 8" during onboarding',
       actual: [
         editing.map(
           (html) => html.includes('>Save<') && !/\d of \d/.test(html),

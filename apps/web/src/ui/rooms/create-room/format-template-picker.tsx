@@ -31,7 +31,7 @@ const subscribeNever = () => () => undefined;
 const selectionValue = (choice: RoomTemplate) =>
   JSON.stringify(casualSelection(choice));
 
-/** "Freestyle (1v1) · about 30 min · resolution by strike", from the template's own config. */
+/** "Freestyle (1v1) · about 45 min · resolution by strike", from the template's own config. */
 function templateLine(choice: RoomTemplate) {
   const [shape, ...rest] = choiceSummary(choice).split(' · ');
   return `${choice.label} (${shape}) · ${rest.join(' · ')}`;
