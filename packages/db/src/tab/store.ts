@@ -56,6 +56,12 @@ export type {
   LoadedReleaseCommand,
   ReleaseCommandWrite,
 } from './release-command';
+import { createTournamentHostingPurchaseStore } from './tournament-hosting-purchases';
+export type {
+  TournamentHostingAccount,
+  TournamentHostingPurchaseRow,
+  TournamentHostingPurchaseWrites,
+} from './tournament-hosting-purchases';
 export {
   loadTournamentHostingFacts,
   type TournamentHostingFacts,
@@ -228,6 +234,7 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createConflictWaiverRequestStore(database),
   ...createReleaseCommandStore(database),
   ...createTournamentSponsorshipStore(database),
+  ...createTournamentHostingPurchaseStore(database),
   ...createGuardianCommandStore(database),
   ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),

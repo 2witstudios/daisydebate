@@ -101,6 +101,7 @@ test('refund HTTP acknowledgement waits for retained-action receipt durability a
     clock: fixedClock(new Date(now).toISOString()),
     deadline: () => new AbortController().signal,
     failed: () => {},
+    settleHosting: async () => null,
     receive: async (receipt) => {
       calls.push(receipt);
       entered.resolve();

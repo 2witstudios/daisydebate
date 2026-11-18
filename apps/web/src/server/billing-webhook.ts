@@ -2,6 +2,8 @@ import { createAppError } from '@daisy/errors';
 import type { App } from './app';
 import { createBillingWebhook } from '../features/billing/webhook-handler';
 import { workerFailures } from './recoverable-failure';
+import { hostingPurchaseDependencies } from './hosting-purchases';
+import { settleHostingPurchase } from '../features/hosting-purchases/checkout';
 
 /** A durable receipt is independent of purchase release; no vendor body/error enters telemetry. */
 export function composeBillingWebhook(app: App) {
@@ -10,8 +12,10 @@ export function composeBillingWebhook(app: App) {
     'billing.webhook',
     'Verified billing receipt remains undelivered',
   );
+  const settleHosting = settleHostingPurchase(hostingPurchaseDependencies(app));
   return (request: Request) =>
     createBillingWebhook({
+      settleHosting,
       config: app.config.billing,
       clock: app.clock,
       receive: app.database.receiveBillingReceipt,

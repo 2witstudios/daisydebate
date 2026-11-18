@@ -10,6 +10,11 @@ export function createBillingWebhook(input: {
   readonly clock: Clock;
   readonly deadline: () => AbortSignal;
   readonly receive: Database['receiveBillingReceipt'];
+  /** Settles a hosted tournament's payment from Stripe's own session (ADR 0147). */
+  readonly settleHosting: (target: {
+    readonly purchaseId: string;
+    readonly lobbyId: string;
+  }) => Promise<unknown>;
   readonly failed: () => void;
 }) {
   return async (request: Request): Promise<Response> => {
@@ -36,6 +41,10 @@ export function createBillingWebhook(input: {
         status: verified.kind === 'rejected' ? 400 : 204,
       });
     try {
+      if ('hosting' in verified.hint) {
+        await input.settleHosting(verified.hint.hosting);
+        return new Response(null, { status: 204 });
+      }
       await input.receive({
         eventId: verified.hint.eventId,
         ...('refund' in verified.hint
