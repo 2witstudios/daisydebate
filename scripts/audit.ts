@@ -175,6 +175,77 @@ export function liveAuditProblems(
   }
 }
 
+/** One root override as "<parent> > <package>@<version>" or "<package>@<version>". */
+export function flattenOverrides(overrides: unknown): readonly string[] {
+  if (typeof overrides !== 'object' || overrides === null) return [];
+  return Object.entries(overrides).flatMap(([name, value]) =>
+    typeof value === 'string'
+      ? [`${name}@${value}`]
+      : typeof value === 'object' && value !== null
+        ? Object.entries(value).map(
+            ([child, version]) => `${name} > ${child}@${String(version)}`,
+          )
+        : [`${name}@${String(value)}`],
+  );
+}
+
+const overridesHeading = '### Security overrides';
+
+/**
+ * The overrides docs/dependencies.md records: the first cell of each row of
+ * its Security overrides table, as `pkg` → `version` or
+ * `parent` → `pkg` `version` (ADR 0152).
+ */
+export function documentedOverrides(markdown: string): readonly string[] {
+  const start = markdown.indexOf(overridesHeading);
+  if (start === -1) return [];
+  const rows = markdown
+    .slice(start + overridesHeading.length)
+    .split('\n')
+    .map((line) => line.trim());
+  const table = rows
+    .slice(rows.findIndex((line) => line.startsWith('|')))
+    .filter((line, index, lines) =>
+      lines.slice(0, index + 1).every((row) => row.startsWith('|')),
+    )
+    .slice(2);
+  return table.flatMap((row) => {
+    const names = [...(row.split('|')[1] ?? '').matchAll(/`([^`]+)`/g)].map(
+      ([, name]) => name,
+    );
+    if (names.length === 2) return [`${names[0]}@${names[1]}`];
+    if (names.length === 3) return [`${names[0]} > ${names[1]}@${names[2]}`];
+    return [`unparsed row: ${row.split('|')[1]?.trim() ?? row}`];
+  });
+}
+
+/**
+ * Every root override is documented, and every documented override is
+ * still in package.json, with the same version, so a pin cannot outlive
+ * its record or appear without one (ADR 0152).
+ */
+export function overrideProblems(
+  overrides: unknown,
+  markdown: string,
+): readonly string[] {
+  const actual = new Set(flattenOverrides(overrides));
+  const documented = new Set(documentedOverrides(markdown));
+  return [
+    ...[...actual]
+      .filter((override) => !documented.has(override))
+      .map(
+        (override) =>
+          `overrides: ${override} is not in docs/dependencies.md § Security overrides`,
+      ),
+    ...[...documented]
+      .filter((override) => !actual.has(override))
+      .map(
+        (override) =>
+          `overrides: docs/dependencies.md lists ${override}, which package.json overrides does not pin`,
+      ),
+  ];
+}
+
 /** `bun policy`'s edge: runs the unfiltered audit on the root lockfile. */
 export async function auditPolicyProblems(
   knownPaths: ReadonlySet<string>,
@@ -184,11 +255,20 @@ export async function auditPolicyProblems(
     stdout: 'pipe',
     stderr: 'pipe',
   });
-  return liveAuditProblems(
-    (await Bun.file(auditRegistryPath).json()) as Registry,
-    { stdout: result.stdout.toString(), exitCode: result.exitCode },
-    { knownPaths },
-  );
+  const manifest = (await Bun.file(join(root, 'package.json')).json()) as {
+    readonly overrides?: unknown;
+  };
+  return [
+    ...liveAuditProblems(
+      (await Bun.file(auditRegistryPath).json()) as Registry,
+      { stdout: result.stdout.toString(), exitCode: result.exitCode },
+      { knownPaths },
+    ),
+    ...overrideProblems(
+      manifest.overrides,
+      await Bun.file(join(root, 'docs/dependencies.md')).text(),
+    ),
+  ];
 }
 
 if (import.meta.main) {
