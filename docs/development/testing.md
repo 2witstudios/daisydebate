@@ -676,8 +676,10 @@ quiescence/reaping end by +236 seconds. The four-minute step deadline includes
 reporting, and the job still has twenty minutes.
 
 Update and authenticated download-only share an 80-second acquisition window,
-with at most one retry. Recovery replaces the configured Azure Ubuntu hostname
-in source files and the runner's mirror list with the primary archive. Suites,
+with at most one retry. Recovery replaces any regional `*.archive.ubuntu.com`
+host (Azure until 2026-11, then `us-east-2.ec2`) in source files and the
+runner's mirror list with the primary archive; the Azure-only rewrite matched
+nothing once the runners moved, so the retry trickled from the same mirror. Suites,
 components, signing keys and signature policy remain unchanged. Installation
 runs once with `--no-download`, after acquisition, followed by both `ffmpeg
 -version` and `ffprobe -version` under the original deadline. No lock is deleted

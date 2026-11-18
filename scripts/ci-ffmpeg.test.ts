@@ -5,6 +5,7 @@ import {
   offlineCheckCommand,
   preparationDeadline,
   prefillCommand,
+  regionalMirrorRewrite,
   runnerImage,
 } from './ci-ffmpeg';
 
@@ -85,6 +86,31 @@ describe('ffmpeg package cache', () => {
       should: 'only print the URIs apt would still fetch',
       actual: [script.includes('--print-uris'), script.includes('-y')],
       expected: [true, false],
+    });
+  });
+});
+
+describe('primary Ubuntu mirror recovery', () => {
+  test('moves any regional archive host to the primary archive', () => {
+    const list = [
+      'http://us-east-2.ec2.archive.ubuntu.com/ubuntu/\tpriority:1',
+      'http://azure.archive.ubuntu.com/ubuntu/\tpriority:1',
+      'https://archive.ubuntu.com/ubuntu/\tpriority:2',
+      'https://security.ubuntu.com/ubuntu/\tpriority:3',
+    ].join('\n');
+    const rewritten = Bun.spawnSync(['sed', '-E', regionalMirrorRewrite], {
+      stdin: new TextEncoder().encode(list),
+    });
+    assert({
+      given: 'the runner mirror list with an EC2 or an Azure regional mirror',
+      should: 'point both at archive.ubuntu.com and leave the others alone',
+      actual: rewritten.stdout.toString().split('\n'),
+      expected: [
+        'http://archive.ubuntu.com/ubuntu/\tpriority:1',
+        'http://archive.ubuntu.com/ubuntu/\tpriority:1',
+        'https://archive.ubuntu.com/ubuntu/\tpriority:2',
+        'https://security.ubuntu.com/ubuntu/\tpriority:3',
+      ],
     });
   });
 });

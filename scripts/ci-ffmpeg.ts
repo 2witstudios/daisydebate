@@ -56,6 +56,15 @@ export const listsReusable = (stagedImage: string | undefined, image: string) =>
   stagedImage.trim() === image &&
   !image.includes('unknown');
 
+/**
+ * The runner's mirror list leads with a cloud-regional archive
+ * (azure.archive.ubuntu.com, then us-east-2.ec2.archive.ubuntu.com from
+ * 2026-11), which only fails over on errors, never on a slow mirror. Any
+ * regional host under archive.ubuntu.com becomes the primary archive.
+ */
+export const regionalMirrorRewrite =
+  's#://[A-Za-z0-9.-]+\\.archive\\.ubuntu\\.com/#://archive.ubuntu.com/#g';
+
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 
 export const prefillCommand = (stage: string, withLists: boolean) => {
@@ -370,7 +379,8 @@ async function acquire(runner: ReturnType<typeof createPreparation>) {
       await runner.run('primary Ubuntu mirror recovery', [
         'sh',
         '-ec',
-        `for file in ${sourceFiles}; do if [ -f "$file" ]; then sed -i 's#azure\\.archive\\.ubuntu\\.com#archive.ubuntu.com#g' "$file"; fi; done`,
+        `regionalMirror=${quote(regionalMirrorRewrite)}\n` +
+          `for file in ${sourceFiles}; do if [ -f "$file" ]; then sed -E -i "$regionalMirror" "$file"; fi; done`,
       ]);
       await runner.run('recovered package sources', [
         'sh',
