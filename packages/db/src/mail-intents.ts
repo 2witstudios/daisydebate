@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { DIGEST_WINDOW } from './beta-access';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { mailIntentQueue } from './mail-intent-queue';
+import { scopeTransaction } from './tenant-scope';
 import type { MailJobClaimInput, MailJobOutcome } from './mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import {
@@ -38,6 +39,16 @@ export type MailIntentDelivery =
       readonly kind: 'member';
       readonly to: string;
       readonly username: string;
+    }
+  | {
+      /** A Club seat offer (ADR 0148): the link names the invitation; the verified address accepts it. */
+      readonly kind: 'club-seat-invitation';
+      readonly to: string;
+      readonly clubName: string;
+      readonly manager: string;
+      readonly organizationId: string;
+      readonly invitationId: string;
+      readonly expiresAt: string;
     }
   | {
       readonly kind: 'owner-digest';
@@ -100,7 +111,7 @@ export function mailIntentOperations({
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
         // A digest counts its own window, which retries never move.
         const [intent] =
-          (await database.execute(sql`select purpose, recipient_user_id, preapproval_id, state, window_start,
+          (await database.execute(sql`select purpose, recipient_user_id, preapproval_id, state, window_start, dedupe_key, club_seat_invitation_id,
             to_char((created_at + interval '23 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as invitation_deadline
           from mail_intents where id = ${id}`)) as unknown as {
             purpose: string;
@@ -109,8 +120,12 @@ export function mailIntentOperations({
             preapproval_id: string | null;
             recipient_user_id: string | null;
             window_start: Date | null;
+            dedupe_key: string;
+            club_seat_invitation_id: string | null;
           }[];
         if (!intent) throw createAppError('NOT_FOUND');
+        if (intent.purpose === 'club-seat-invitation')
+          return clubSeatInvitationDelivery(database, intent);
         if (intent.purpose === 'beta-invitation') {
           if (intent.state !== 'leased') return { kind: 'not-owed' };
           const [grant] =
@@ -210,4 +225,59 @@ export function mailIntentOperations({
         ),
       ),
   };
+}
+
+const clubInvitationKey =
+  /^club-seat-invitation:([a-z0-9]{24,32}):([a-z0-9]{24,32}):[a-z0-9]{24,32}$/;
+
+/**
+ * The address and club a seat invitation mail names, read at send time under
+ * the club's scope (the dedupe key carries the club). A lapsed, answered or
+ * cancelled invitation is no longer owed.
+ */
+async function clubSeatInvitationDelivery(
+  database: Database,
+  intent: {
+    readonly state: string;
+    readonly dedupe_key: string;
+    readonly club_seat_invitation_id: string | null;
+  },
+): Promise<MailIntentDelivery> {
+  const key = clubInvitationKey.exec(intent.dedupe_key);
+  if (
+    intent.state !== 'leased' ||
+    !key ||
+    key[2] !== intent.club_seat_invitation_id
+  )
+    return { kind: 'not-owed' };
+  const [, organizationId, invitationId] = key as unknown as [
+    string,
+    string,
+    string,
+  ];
+  return database.transaction(async (tx) => {
+    await scopeTransaction(tx, { organizationId });
+    const [row] = (await tx.execute(sql`select i.email, i.expires_at, o.name,
+        coalesce(nullif(u.name, ''), u.username, 'Your club') as manager
+      from club_seat_invitations i
+      join organizations o on o.id = i.organization_id and o.closed_at is null
+      left join users u on u.id = o.owner_user_id
+      where i.organization_id = ${organizationId} and i.id = ${invitationId}
+        and i.expires_at > now()`)) as unknown as {
+      email: string;
+      expires_at: Date | string;
+      name: string;
+      manager: string;
+    }[];
+    if (!row) return { kind: 'not-owed' } as const;
+    return {
+      kind: 'club-seat-invitation',
+      to: row.email,
+      clubName: row.name,
+      manager: row.manager,
+      organizationId,
+      invitationId,
+      expiresAt: new Date(row.expires_at).toISOString(),
+    } as const;
+  });
 }

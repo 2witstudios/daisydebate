@@ -5,6 +5,7 @@ export { clubSeatGrants } from './club-seat-grants';
 export {
   canManageBilling,
   canPurchasePremium,
+  canPurchaseClub,
   holdsGrantedPremium,
 } from './billing-policy';
 export { admitAllowance, canUseAiAllowance } from './allowance';

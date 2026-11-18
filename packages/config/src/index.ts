@@ -5,7 +5,7 @@ import {
   refineBillingConfig,
   withBillingConfig,
 } from './billing-config';
-export type { BillingConfig } from './billing-config';
+export type { BillingConfig, ClubBillingConfig } from './billing-config';
 import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
