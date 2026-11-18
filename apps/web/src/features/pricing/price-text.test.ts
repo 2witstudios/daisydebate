@@ -3,7 +3,7 @@ import {
   entryLimitText,
   eventUpgradeText,
   formatUsd,
-  perSeatPriceText,
+  perSeatPeriodText,
 } from './price-text';
 setupRitewayBun();
 
@@ -39,9 +39,9 @@ test('formatUsd', () => {
 test('per-seat and per-event wording', () => {
   assert({
     given: 'a Club seat price',
-    should: 'read as a per-seat monthly price in prose',
-    actual: perSeatPriceText(1000),
-    expected: '$10 per seat a month',
+    should: 'read per seat, a month beside the amount',
+    actual: `${formatUsd(1000)} ${perSeatPeriodText}`,
+    expected: '$10 per seat, a month',
   });
   assert({
     given: 'a capped and an unlimited Host tier',

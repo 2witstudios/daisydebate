@@ -21,10 +21,6 @@ export const monthlyPeriodText = 'a month';
 /** The period beside a per-seat price: "per seat, a month". */
 export const perSeatPeriodText = 'per seat, a month';
 
-/** A per-seat price in running prose: "$10 per seat a month". */
-export const perSeatPriceText = (cents: number): string =>
-  `${formatUsd(cents)} per seat a month`;
-
 /** A Host event tier's name: "Up to 64 entries" or "Unlimited entries". */
 export const entryLimitText = (entryLimit: number | null): string =>
   entryLimit === null ? 'Unlimited entries' : `Up to ${entryLimit} entries`;

@@ -20,10 +20,10 @@ export type PlanReleases = {
 };
 
 /** Billing holds checkout; its access guard signs a visitor in first. */
-export const premiumCheckoutHref = '/settings/billing';
-export const startClubHref = '/clubs/new';
-export const hostHref = '/host';
-export const leagueRequestHref = '/contact/league';
+const premiumCheckoutHref = '/settings/billing';
+const startClubHref = '/clubs/new';
+const hostHref = '/host';
+const leagueRequestHref = '/contact/league';
 
 export const planActions = (releases: PlanReleases): PlanActions => ({
   premium: { kind: 'link', href: premiumCheckoutHref, label: 'Get Premium' },
