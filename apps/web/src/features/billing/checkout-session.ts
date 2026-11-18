@@ -169,7 +169,7 @@ function observedSession(session: Session): CheckoutObservation {
 export function normalizeCheckoutSession(
   purchase: Purchase,
   value: unknown,
-  offer: 'current' | 'subscribed' = 'subscribed',
+  offer: 'current' | 'subscribed',
 ): CheckoutObservation {
   if (
     !purchaseSchema.safeParse(purchase).success ||

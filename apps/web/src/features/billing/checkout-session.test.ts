@@ -53,20 +53,28 @@ test('verified Checkout completion identifies a subscription without claiming th
     should:
       'return minimal verified identities and expose a hosted URL only while open',
     actual: [
-      normalizeCheckoutSession(purchase, checkoutSession),
-      normalizeCheckoutSession(purchase, {
-        ...checkoutSession,
-        status: 'complete',
-        customer: 'cus_owned',
-        subscription: 'sub_owned',
-        url: null,
-        payment_status: 'unpaid',
-      }),
-      normalizeCheckoutSession(purchase, {
-        ...checkoutSession,
-        status: 'expired',
-        url: null,
-      }),
+      normalizeCheckoutSession(purchase, checkoutSession, 'subscribed'),
+      normalizeCheckoutSession(
+        purchase,
+        {
+          ...checkoutSession,
+          status: 'complete',
+          customer: 'cus_owned',
+          subscription: 'sub_owned',
+          url: null,
+          payment_status: 'unpaid',
+        },
+        'subscribed',
+      ),
+      normalizeCheckoutSession(
+        purchase,
+        {
+          ...checkoutSession,
+          status: 'expired',
+          url: null,
+        },
+        'subscribed',
+      ),
     ],
     expected: [
       {
@@ -166,7 +174,7 @@ test('forged session authority, altered offers and unsafe redirects are refused'
       'one altered authority, price, deadline, recovery or redirect field per observation',
     should: 'refuse every candidate before any mapping or redirect can be used',
     actual: invalid.map(
-      (value) => normalizeCheckoutSession(purchase, value).kind,
+      (value) => normalizeCheckoutSession(purchase, value, 'subscribed').kind,
     ),
     expected: invalid.map(() => 'refuse'),
   });
@@ -177,6 +185,7 @@ test('forged session authority, altered offers and unsafe redirects are refused'
     actual: normalizeCheckoutSession(
       { ...purchase, customerId: 'cus_existing' },
       { ...checkoutSession, customer: 'cus_other' },
+      'subscribed',
     ),
     expected: { kind: 'refuse' },
   });
@@ -208,7 +217,7 @@ test('a new Checkout sells only the $20 offer; an existing $10 session still com
         at({ lookup_key: 'daisy_premium_monthly_usd_10' }),
         'current',
       ).kind,
-      normalizeCheckoutSession(purchase, grandfathered).kind,
+      normalizeCheckoutSession(purchase, grandfathered, 'subscribed').kind,
     ],
     expected: ['observed', 'refuse', 'refuse', 'refuse', 'observed'],
   });
