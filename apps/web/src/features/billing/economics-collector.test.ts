@@ -473,7 +473,7 @@ test('a monthly run never treats its own month as a correction, whatever the clo
   });
 });
 
-test('club seat use is attributed to its club and keeps the self-paid plans’ coverage', async () => {
+test('club seat use keeps the self-paid plans’ coverage only when costs come from usage counters', async () => {
   const attempt = (sourceKind: 'organization_seat' | 'unattributed') => ({
     sourceKind,
     sourceStartsAt: sourceKind === 'organization_seat' ? month : null,
@@ -493,12 +493,27 @@ test('club seat use is attributed to its club and keeps the self-paid plans’ c
     outputTokens: 0,
     characters: 0,
   });
-  const coverage = async (sourceKind: 'organization_seat' | 'unattributed') => {
+  const coverage = async (
+    sourceKind: 'organization_seat' | 'unattributed',
+    basis: 'provider_invoice' | 'usage_counters' = 'usage_counters',
+  ) => {
     const collector = createBillingEconomicsCollector({
       store: {
         read: async () => ({ ...snapshot(), attempts: [attempt(sourceKind)] }),
       },
-      feed: { read: async () => feed() },
+      feed: {
+        read: async () => {
+          const value = { ...feed(), modelCostBasis: basis };
+          return basis === 'usage_counters'
+            ? {
+                ...value,
+                costs: value.costs.filter(
+                  (c: { category: string }) => c.category !== 'models',
+                ),
+              }
+            : value;
+        },
+      },
       now: () => now,
       save: async () => undefined,
     });

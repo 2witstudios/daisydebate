@@ -143,9 +143,9 @@ test('a club handle comes from its name and steps on when taken', () => {
       'a name with spaces and accents, a short name, a retry, a non-Latin name and a third try',
     should: 'give a valid lower-case handle',
     actual: [
-      handleFrom('Lakeside Débate Club!'),
-      handleFrom('A'),
-      handleFrom('Lakeside Debate', 1),
+      handleFrom('Lakeside Débate Club!', 0, 'x7k2pq'),
+      handleFrom('A', 0, 'x7k2pq'),
+      handleFrom('Lakeside Debate', 1, 'x7k2pq'),
       handleFrom('北京辩论社', 0, 'x7k2pq'),
       handleFrom('Lakeside Debate', 2, 'x7k2pq'),
     ],

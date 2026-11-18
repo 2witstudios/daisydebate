@@ -14,7 +14,7 @@ export const clubSeatBounds = {
   /** One invitation mails at most this many times, at most once an hour. */
   sendsPerInvitation: 5,
   resendAfterMs: 60 * 60 * 1000,
-  /** A club sends at most this many invitation mails a day, plus three per seat. */
+  /** A club sends at most this many invitation mails a day, plus one per seat. */
   dailyInvitationMails: 20,
 } as const;
 

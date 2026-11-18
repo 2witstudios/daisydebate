@@ -161,7 +161,7 @@ async function queueInvitationMail(
 /**
  * Invitation mail is bounded (ADR 0148): one invitation sends at most once an
  * hour, never while a send is still waiting, and five times in all; a club
- * sends at most 20 plus three per seat a day. Counted from the durable mail
+ * sends at most 20 plus one per seat a day. Counted from the durable mail
  * intents, whose dedupe key names the club and the invitation.
  */
 async function invitationMailLimit(
@@ -176,10 +176,12 @@ async function invitationMailLimit(
   const club = `club-seat-invitation:${input.organizationId}:%`;
   const [today] =
     await tx.execute(sql`select count(*)::int as n from mail_intents
-    where dedupe_key like ${club} and created_at > ${input.now}::timestamptz - interval '1 day'`);
+    where purpose = 'club-seat-invitation'
+      and created_at > ${input.now}::timestamptz - interval '1 day'
+      and dedupe_key like ${club}`);
   if (
     Number(today?.n ?? 0) >=
-    clubSeatBounds.dailyInvitationMails + 3 * input.seatCount
+    clubSeatBounds.dailyInvitationMails + input.seatCount
   )
     return 'invitation-mail-limit' as const;
   if (input.invitationId === null) return null;
@@ -428,7 +430,12 @@ export function createClubSeats(input: {
             seats,
             invitations: await readInvitations(tx, club.id),
           };
+          const active =
+            plan.evidence !== null &&
+            input.planActive(plan.evidence, now.toISOString());
           if (command.kind === 'resend') {
+            // A lapsed plan offers no seat worth mailing.
+            if (!active) return refused('no-active-plan');
             const invitation = before.invitations.find(
               (candidate) => candidate.id === command.invitationId,
             );
@@ -462,9 +469,6 @@ export function createClubSeats(input: {
             organizationId: club.id,
             subjectUserId: subject.userId,
           });
-          const active =
-            plan.evidence !== null &&
-            input.planActive(plan.evidence, now.toISOString());
           // Giving a seat, or changing the plan, needs a plan that grants access;
           // freeing a seat or cancelling an invitation never does.
           if (
@@ -509,13 +513,14 @@ export function createClubSeats(input: {
             nextId: input.nextId,
           });
           await project(tx, club, decision.state.seats);
+          if (command.kind !== 'prepare-seat-count') return { kind: 'changed' };
+          // Checked before any write above; repeated here only to narrow types.
           if (
-            command.kind !== 'prepare-seat-count' ||
             !plan.customer ||
             !plan.subscription ||
             (plan.customer.mode !== 'test' && plan.customer.mode !== 'live')
           )
-            return { kind: 'changed' };
+            throw createAppError('CONFLICT');
           return {
             kind: 'seat-count-ready',
             mode: plan.customer.mode,

@@ -88,18 +88,18 @@ export type SeatChangeAnswer =
   | { readonly kind: 'unavailable' };
 
 /**
- * One Stripe idempotency key per intended change. The subscription's latest
- * invoice moves with every paid increase, so the same from→to transition
- * recurring later (5→6, 6→5, 5→6) gets a new key, while retries of one
- * submit against the same state share it.
+ * One Stripe idempotency key per call. The seat quantity is absolute, so a
+ * duplicate submit sets the same count again and charges nothing more; a key
+ * reused across calls would instead replay an earlier answer (a recurring
+ * 5→6, or a retry after a declined card) and change nothing.
  */
 export const seatChangeKey = (input: {
   readonly subscriptionId: string;
-  readonly latestInvoice: string | null;
   readonly from: number;
   readonly to: number;
+  readonly nonce: string;
 }) =>
-  `club-seats:${input.subscriptionId}:${input.latestInvoice ?? 'none'}:${input.from}:${input.to}`;
+  `club-seats:${input.subscriptionId}:${input.from}:${input.to}:${input.nonce}`;
 
 /**
  * Club billing (ADR 0148): Checkout for N seats, the Club portal, the
@@ -120,6 +120,8 @@ export function createClubBilling(input: {
   } | null;
   readonly clock: Clock;
   readonly returnOrigin: string;
+  /** A fresh cuid2 per Stripe call. */
+  readonly nextId: () => string;
   readonly purchases: PurchaseStore;
   readonly member: MemberStore;
   readonly seats: SeatStore;
@@ -176,8 +178,10 @@ export function createClubBilling(input: {
           seats,
         )({ ...subject, organizationId });
       } catch (error) {
-        // A Checkout already open for another seat count holds the club's one
-        // purchase until it completes or expires: the page says it is pending.
+        // A purchase the club cannot start now: chiefly a Checkout already open
+        // for another seat count, which holds the club's one purchase until it
+        // completes or expires. A misconfigured mode or an existing plan also
+        // conflicts; the page says pending and the manager can open billing.
         if (isAppError(error) && error.code === 'CONFLICT')
           return { kind: 'pending' } as const;
         throw error;
@@ -248,9 +252,9 @@ export function createClubBilling(input: {
           },
           seatChangeKey({
             subscriptionId: ready.vendorSubscriptionId,
-            latestInvoice: current.data.latest_invoice,
             from: item.quantity,
             to: ready.seatCount,
+            nonce: input.nextId(),
           }),
         );
       } catch (error) {

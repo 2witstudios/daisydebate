@@ -72,6 +72,7 @@ export function composeClubs(
         : null,
     clock: app.clock,
     returnOrigin,
+    nextId: createId,
     purchases: app.database.billingPurchases({
       purchase: canPurchaseClub,
       manage: canManageBilling,

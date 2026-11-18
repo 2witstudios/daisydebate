@@ -819,7 +819,7 @@ test('invitation mail is throttled, and a lapsed plan gives no seats', async () 
       const member = await person(fixture, organizationId);
       assert({
         given:
-          'a cancelled plan, then an invitation, an assignment and a seat change',
+          'a cancelled plan, then an invitation, an assignment, a seat change and a resend',
         should: 'refuse each with no active plan, writing nothing',
         actual: [
           await seatStore.command(owner, organizationId, {
@@ -835,11 +835,16 @@ test('invitation mail is throttled, and a lapsed plan gives no seats', async () 
             seatCount: 1,
             release: { seats: [], invitations: [invitationId] },
           }),
+          await seatStore.command(owner, organizationId, {
+            kind: 'resend',
+            invitationId,
+          }),
           (
             await fixture.sql`select count(*)::int as n from club_seat_invitations where organization_id=${organizationId}`
           )[0]!.n,
         ],
         expected: [
+          { kind: 'refused', reason: 'no-active-plan' },
           { kind: 'refused', reason: 'no-active-plan' },
           { kind: 'refused', reason: 'no-active-plan' },
           { kind: 'refused', reason: 'no-active-plan' },

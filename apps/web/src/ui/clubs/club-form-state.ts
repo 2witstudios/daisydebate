@@ -92,9 +92,9 @@ export function seatCountFrom(form: FormData): unknown {
 /** A club's handle from its name: lower-case words joined by hyphens, 3 to 40 characters. */
 export function handleFrom(
   name: string,
-  attempt = 0,
+  attempt: number,
   /** Six random lower-case letters or digits, from the caller. */
-  random = '',
+  random: string,
 ): string {
   const slug = name
     .normalize('NFKD')

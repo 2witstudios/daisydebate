@@ -68,6 +68,11 @@ export const mailIntents = pgTable(
       sql`(${table.purpose} = 'club-seat-invitation' and (${table.clubSeatInvitationId} is not null or ${table.state} in ('sent', 'failed', 'cancelled'))) or (${table.purpose} <> 'club-seat-invitation' and ${table.clubSeatInvitationId} is null)`,
     ),
     index('mail_intents_club_invitation_idx').on(table.clubSeatInvitationId),
+    /** A club's daily invitation-mail count reads one purpose's recent rows (ADR 0148). */
+    index('mail_intents_purpose_created_idx').on(
+      table.purpose,
+      table.createdAt,
+    ),
     check(
       'mail_intents_recipient_check',
       sql`(${table.purpose} = 'beta-approved') = (${table.recipientUserId} is not null)`,
