@@ -31,11 +31,42 @@ export const flagCatalogue = [
     dependencies: ['daisy-tab'],
   },
   {
-    // The host home at /host and paid event upgrades (ADR 0147).
+    // /pricing and the links to it; opens once the owner approves pricing
+    // in production (epic PYL win condition 5).
+    key: 'pricing-page',
+    kind: 'release',
+    owner: 'Billing (@2witstudios)',
+    taskCode: 'PYL-12',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
+  {
+    // The host home at /host, event upgrades and Host a tournament on /pricing (ADR 0147).
     key: 'host-tiers',
     kind: 'release',
     owner: 'Daisy Tab (@2witstudios)',
     taskCode: 'PYL-14',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
+  {
+    // Start a Club on /pricing; S7 opens it with /clubs/new.
+    key: 'club-seats',
+    kind: 'release',
+    owner: 'Billing (@2witstudios)',
+    taskCode: 'PYL-13',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
+  {
+    // League's Talk to us on /pricing; S9 opens it with /contact/league.
+    key: 'league-requests',
+    kind: 'release',
+    owner: 'Daisy Tab (@2witstudios)',
+    taskCode: 'PYL-17',
     expiresOn: '2027-03-31',
     safeDefault: false,
     dependencies: [],

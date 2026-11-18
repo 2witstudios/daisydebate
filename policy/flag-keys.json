@@ -23,11 +23,32 @@
       "taskCode": "TAB-8.2"
     },
     {
+      "key": "pricing-page",
+      "retired": false,
+      "kind": "release",
+      "owner": "Billing (@2witstudios)",
+      "taskCode": "PYL-12"
+    },
+    {
       "key": "host-tiers",
       "retired": false,
       "kind": "release",
       "owner": "Daisy Tab (@2witstudios)",
       "taskCode": "PYL-14"
+    },
+    {
+      "key": "club-seats",
+      "retired": false,
+      "kind": "release",
+      "owner": "Billing (@2witstudios)",
+      "taskCode": "PYL-13"
+    },
+    {
+      "key": "league-requests",
+      "retired": false,
+      "kind": "release",
+      "owner": "Daisy Tab (@2witstudios)",
+      "taskCode": "PYL-17"
     }
   ]
 }

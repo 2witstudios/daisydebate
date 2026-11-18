@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { helpTopics } from './topics';
+import { helpTopics, visibleHelpTopics } from './topics';
 
 setupRitewayBun();
 
@@ -19,5 +19,27 @@ describe('helpTopics', () => {
       ],
       expected: [true, true],
     });
+  });
+});
+
+test('the plans topic waits for /pricing', () => {
+  const links = (open: boolean) =>
+    visibleHelpTopics(open).flatMap((topic) =>
+      topic.links.map((link) => link.href),
+    );
+  assert({
+    given: '/pricing closed, then open',
+    should: 'leave out the topic that links to it until it opens',
+    actual: [
+      links(false).includes('/pricing'),
+      links(true).includes('/pricing'),
+    ],
+    expected: [false, true],
+  });
+  assert({
+    given: '/pricing closed',
+    should: 'keep every other topic',
+    actual: visibleHelpTopics(false).length,
+    expected: helpTopics.length - 1,
   });
 });
