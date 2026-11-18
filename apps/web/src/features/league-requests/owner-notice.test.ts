@@ -19,7 +19,6 @@ const request: Extract<LeagueRequestNotice, { kind: 'request' }>['request'] = {
   contactEmail: 'dana@gulfcoastspeech.org',
   contactPhone: '',
   receivedAt: '2026-11-18T09:00:00.000Z',
-  revision: 1,
 };
 
 const scripted = (input: {
@@ -30,6 +29,7 @@ const scripted = (input: {
   const sent: EmailMessage[] = [];
   const settled: unknown[] = [];
   const failures: unknown[] = [];
+  const lost: unknown[] = [];
   const notices = createLeagueRequestNotices({
     store: {
       claimLeagueRequestNotices: async () => [
@@ -55,8 +55,9 @@ const scripted = (input: {
     nextToken: () => 'tok',
     now: () => '2026-11-18T10:00:00.000Z',
     failed: (error) => failures.push(error),
+    gaveUp: (error) => lost.push(error),
   });
-  return { notices, sent, settled, failures };
+  return { notices, sent, settled, failures, lost };
 };
 
 test('a League request notice', async () => {
@@ -86,7 +87,7 @@ test('a League request notice', async () => {
       expected: {
         count: 1,
         to: 'owner@daisy.example',
-        key: `${request.id}-1`,
+        key: request.id,
         subject: 'League request: Gulf Coast Speech League',
         labels: true,
         phoneLine: false,
@@ -147,21 +148,14 @@ test('a League request notice', async () => {
     const { sent, notices } = scripted({
       notice: {
         kind: 'request',
-        request: {
-          ...request,
-          revision: 2,
-          needs: 'Standings.\n\nSanctioning.',
-        },
+        request: { ...request, needs: 'Standings.\n\nSanctioning.' },
       },
     });
     await notices.run(10);
     assert({
-      given: 'a request a resend changed, with notes over several lines',
-      should:
-        'send it marked updated under its new revision, a paragraph a line',
+      given: 'notes over several lines',
+      should: 'send each line as its own paragraph',
       actual: {
-        subject: sent[0]?.subject,
-        key: sent[0]?.idempotencyKey,
         paragraphs: (
           sent[0]?.html.match(
             /<p[^>]*>(What they need:|Standings\.|Sanctioning\.)<\/p>/g,
@@ -169,15 +163,13 @@ test('a League request notice', async () => {
         ).length,
       },
       expected: {
-        subject: 'League request (updated): Gulf Coast Speech League',
-        key: `${request.id}-2`,
         paragraphs: 3,
       },
     });
   }
 
   {
-    const { failures, notices } = scripted({
+    const { failures, lost, notices } = scripted({
       deliver: async () => {
         throw new Error('provider down');
       },
@@ -186,14 +178,14 @@ test('a League request notice', async () => {
     assert({
       given: 'a send that fails with attempts left',
       should: 'report nothing yet',
-      actual: failures.length,
+      actual: failures.length + lost.length,
       expected: 0,
     });
   }
 
   {
     const gaveUp = new Error('still down');
-    const { settled, failures, notices } = scripted({
+    const { settled, lost, notices } = scripted({
       attempts: MAIL_MAX_ATTEMPTS,
       deliver: async () => {
         throw gaveUp;
@@ -202,11 +194,30 @@ test('a League request notice', async () => {
     await notices.run(10);
     assert({
       given: 'a send that fails on its last attempt',
-      should: 'fail for good and report it, so the lost lead is seen',
-      actual: { settled, failures },
+      should: 'fail for good and report it as lost, so the lead is seen',
+      actual: { settled, lost },
       expected: {
         settled: [{ kind: 'failed', errorCode: 'delivery' }],
-        failures: [gaveUp],
+        lost: [gaveUp],
+      },
+    });
+  }
+
+  {
+    const unreadable = new Error('pool refused');
+    const { settled, failures, lost, notices } = scripted({
+      attempts: MAIL_MAX_ATTEMPTS,
+      notice: unreadable,
+    });
+    await notices.run(10);
+    assert({
+      given: 'a read that fails on the last attempt',
+      should: 'report it as lost, not as a retryable failure',
+      actual: { settled, failures, lost },
+      expected: {
+        settled: [{ kind: 'failed', errorCode: 'delivery' }],
+        failures: [],
+        lost: [unreadable],
       },
     });
   }

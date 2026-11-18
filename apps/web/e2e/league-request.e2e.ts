@@ -29,6 +29,8 @@ const stored = async () =>
   ) as {
     count: number;
     state: string | null;
+    schools: string | null;
+    divisions: string | null;
   };
 
 test.describe.configure({ mode: 'serial' });
@@ -61,17 +63,20 @@ test('a signed-out visitor sends a League request from /pricing', async ({
   await assertNoSeriousFindings(page);
 
   const form = page.getByRole('form', { name: 'Talk to us about a league' });
-  // Sent empty, each required field says what it needs and focus goes to the first.
+  // Sent with only two choices made, each required field says what it needs,
+  // focus goes to the first, and the choices are still the ones made.
+  await form.getByLabel('How many schools').selectOption('26-50');
+  await form.getByLabel('Divisions').selectOption('youth-and-open');
   await form.getByRole('button', { name: 'Send to Daisy' }).click();
   await expect(form.getByLabel('League name')).toBeFocused();
   await expect(
     form.getByText('Enter your name, up to 120 characters.'),
   ).toBeVisible();
+  await expect(form.getByLabel('How many schools')).toHaveValue('26-50');
+  await expect(form.getByLabel('Divisions')).toHaveValue('youth-and-open');
   expect((await stored()).count).toBe(0);
 
   await form.getByLabel('League name').fill(`Gulf Coast ${marker}`);
-  await form.getByLabel('How many schools').selectOption('26-50');
-  await form.getByLabel('Divisions').selectOption('youth-and-open');
   await form
     .getByLabel('What you need')
     .fill('We run 8 tournaments a season and keep standings in a spreadsheet.');
@@ -86,7 +91,12 @@ test('a signed-out visitor sends a League request from /pricing', async ({
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toBeFocused();
   await assertNoSeriousFindings(page);
-  expect(await stored()).toEqual({ count: 1, state: 'queued' });
+  expect(await stored()).toEqual({
+    count: 1,
+    state: 'queued',
+    schools: '26-50',
+    divisions: 'youth-and-open',
+  });
 });
 
 test('/contact/league stacks on a phone', async ({ page }) => {

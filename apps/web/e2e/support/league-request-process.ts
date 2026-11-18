@@ -16,10 +16,13 @@ if (import.meta.main) {
     const pattern = `%${marker}`;
     if (verb === 'count') {
       const [row] =
-        (await sql`select count(*)::int as count, min(state) as state
+        (await sql`select count(*)::int as count, min(state) as state,
+          min(schools) as schools, min(divisions) as divisions
         from league_requests where league_name like ${pattern}`) as Array<{
           count: number;
           state: string | null;
+          schools: string | null;
+          divisions: string | null;
         }>;
       process.stdout.write(JSON.stringify(row));
     } else if (verb === 'remove') {

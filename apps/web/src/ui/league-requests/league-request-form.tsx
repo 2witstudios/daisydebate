@@ -174,7 +174,13 @@ export function LeagueRequestForm({
       </Field>
       <div className={twoUp}>
         <Field name="schools" label="How many schools" fields={fields}>
-          <select {...props('schools')} className={inputClass}>
+          <select
+            // Remount on the answer's value: React resets a mounted select to
+            // its first default, not the one an answer hands back.
+            key={fields.values.schools}
+            {...props('schools')}
+            className={inputClass}
+          >
             {leagueRequestSchoolCounts.map((count) => (
               <option key={count} value={count}>
                 {schoolCountLabels[count]}
@@ -183,7 +189,13 @@ export function LeagueRequestForm({
           </select>
         </Field>
         <Field name="seasons" label="Seasons a year" fields={fields}>
-          <select {...props('seasons')} className={inputClass}>
+          <select
+            // Remount on the answer's value: React resets a mounted select to
+            // its first default, not the one an answer hands back.
+            key={fields.values.seasons}
+            {...props('seasons')}
+            className={inputClass}
+          >
             {leagueRequestSeasonCounts.map((count) => (
               <option key={count} value={count}>
                 {seasonCountLabels[count]}
@@ -205,7 +217,13 @@ export function LeagueRequestForm({
           />
         </Field>
         <Field name="divisions" label="Divisions" fields={fields}>
-          <select {...props('divisions')} className={inputClass}>
+          <select
+            // Remount on the answer's value: React resets a mounted select to
+            // its first default, not the one an answer hands back.
+            key={fields.values.divisions}
+            {...props('divisions')}
+            className={inputClass}
+          >
             {leagueRequestDivisions.map((divisions) => (
               <option key={divisions} value={divisions}>
                 {divisionsLabels[divisions]}

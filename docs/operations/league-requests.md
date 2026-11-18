@@ -15,8 +15,9 @@ opens it.
 
 - The request is stored in `league_requests` (one row per request id: a
   resend after a lost answer is stored once and spends no allowance; a
-  resend with a field changed, such as a corrected email, updates the row
-  and sends the owner a "League request (updated)" email) and emailed to
+  resend with a field changed, such as a corrected email, is stored as a
+  new request, because a stored request never changes and its id is no
+  edit credential, ADR 0018) and emailed to
   `LEAGUE_REQUEST_NOTIFY_EMAIL`, or, when that is not set, to the beta
   owner address `BETA_NOTIFY_EMAIL` (point guard, 2026-11-18: no new secret
   needed), through the shared mail path (purpose
@@ -54,6 +55,15 @@ A request is deleted 365 days after it was made, sent or not
 have no account, so a deletion request to the privacy contact is an
 owner-approved data action:
 `delete from league_requests where lower(contact_email) = lower('<address>');`
+
+The database row is not the only copy. Each request was also emailed to the
+owner address, and replies to the contact are ordinary correspondence in
+that mailbox. A deletion request therefore also covers, by hand: the owner
+notices for that contact (search the owner mailbox for "League request" and
+the address), the replies and any call notes, and Resend's own copy of the
+sent message, which Resend keeps for its documented log window as Daisy's
+processor ([compliance](compliance.md), processors). Reply to the requester
+once all three are gone.
 
 ## Granting a league
 

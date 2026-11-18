@@ -16,7 +16,7 @@ type Outcome = Parameters<Store['settleLeagueRequestNotice']>[0]['outcome'];
 /**
  * Tells the owner about each League request that is due (PYL-17). Each claim
  * reads the request fresh, renders it, sends it to the owner's address under
- * the request's id and revision as the idempotency key, and settles the
+ * the request's id as the idempotency key, and settles the
  * outcome. A request gone before its turn (retention) is cancelled; a failed
  * send backs off, and the send that fails for good is reported, so a lost
  * lead never goes unnoticed. The send happens outside any transaction; a
@@ -29,11 +29,25 @@ export function createLeagueRequestNotices(input: {
   readonly ownerAddress: string;
   readonly nextToken: () => string;
   readonly now: () => string;
-  /** A notice that could not be decided or sent for good: logged by code, raw only to the reporter. */
+  /** A notice that could not be decided and will be tried again: logged by code, raw only to the reporter. */
   readonly failed: (error: unknown) => void;
+  /**
+   * A notice that failed for good: always reported, never deferred as
+   * capacity backpressure, because nothing will try it again.
+   */
+  readonly gaveUp: (error: unknown) => void;
 }) {
-  const retry = (claim: Claim): Outcome =>
-    retryOrFail(claim.attempts, input.now(), 'delivery');
+  /** The next outcome after a failed attempt; the last one is reported as lost. */
+  const afterFailure = (
+    claim: Claim,
+    error: unknown,
+    retrying: (error: unknown) => void,
+  ): Outcome => {
+    const outcome = retryOrFail(claim.attempts, input.now(), 'delivery');
+    if (outcome.kind === 'failed') input.gaveUp(error);
+    else retrying(error);
+    return outcome;
+  };
   const decide = async (claim: Claim): Promise<Outcome> => {
     const notice = await input.store.readLeagueRequestNotice(claim.id);
     if (notice.kind === 'gone')
@@ -42,16 +56,14 @@ export function createLeagueRequestNotices(input: {
       const sent = await input.deliver({
         ...renderLeagueRequestEmail(notice.request),
         to: input.ownerAddress,
-        // The revision read is the one rendered, so each version sends once.
-        idempotencyKey: `${claim.id}-${notice.request.revision}`,
+        idempotencyKey: claim.id,
       });
       return sent === 'sent'
         ? { kind: 'sent' }
         : { kind: 'cancelled', errorCode: 'suppressed' };
     } catch (error) {
-      const outcome = retry(claim);
-      if (outcome.kind === 'failed') input.failed(error);
-      return outcome;
+      // Earlier provider failures retry silently, as other mail queues do.
+      return afterFailure(claim, error, () => {});
     }
   };
   return {
@@ -62,10 +74,7 @@ export function createLeagueRequestNotices(input: {
         nextToken: input.nextToken,
         claim: input.store.claimLeagueRequestNotices,
         decide,
-        undecided: (claim, error) => {
-          input.failed(error);
-          return retry(claim);
-        },
+        undecided: (claim, error) => afterFailure(claim, error, input.failed),
         settle: input.store.settleLeagueRequestNotice,
       }),
   };

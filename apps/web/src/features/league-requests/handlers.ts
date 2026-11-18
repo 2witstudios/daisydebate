@@ -53,6 +53,8 @@ export const createLeagueRequestHandlers = (deps: {
   readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly limiter: () => RateLimiter;
+  /** The id a changed resend is stored under: a stored request never changes. */
+  readonly newId: () => string;
   readonly store: Pick<
     Database,
     'leagueRequestUnchanged' | 'recordLeagueRequest'
@@ -83,7 +85,7 @@ export const createLeagueRequestHandlers = (deps: {
           'league-request:everyone',
           leagueRequestEveryoneRule,
         );
-        await deps.store.recordLeagueRequest(body);
+        await deps.store.recordLeagueRequest(body, deps.newId());
         return Response.json({ received: true });
       },
       deps.reporter,

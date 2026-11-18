@@ -66,6 +66,7 @@ const notices = () =>
     nextToken: nextWorkerToken,
     now: () => new Date().toISOString(),
     failed: () => {},
+    gaveUp: () => {},
   });
 
 test('a League request is stored once and reaches the owner', async () => {
@@ -105,8 +106,8 @@ test('a League request is stored once and reaches the owner', async () => {
   });
 
   const settled = await notices().run(10);
-  const mail = t.mailbox.mails.filter((sent) =>
-    sent.idempotencyKey.startsWith(`${request.requestId}-`),
+  const mail = t.mailbox.mails.filter(
+    (sent) => sent.idempotencyKey === request.requestId,
   );
 
   assert({
@@ -143,15 +144,15 @@ test('a League request is stored once and reaches the owner', async () => {
     actual: [
       (await rowsOf([request.requestId]))[0]?.state,
       await notices().run(10),
-      t.mailbox.mails.filter((sent) =>
-        sent.idempotencyKey.startsWith(`${request.requestId}-`),
+      t.mailbox.mails.filter(
+        (sent) => sent.idempotencyKey === request.requestId,
       ).length,
     ],
     expected: ['sent', 0, 1],
   });
 });
 
-test('a resend changes the request only when a field changed', async () => {
+test('a resend never changes a stored request', async () => {
   const client = t.newClient();
   const send = (request: LeagueRequest) =>
     openRoute.POST(
@@ -168,34 +169,44 @@ test('a resend changes the request only when a field changed', async () => {
     unchanged.push((await send(request)).status);
   const corrected = { ...request, contactEmail: 'dana.w@example.test' };
   const edited = await send(corrected);
-  const requeued = (await rowsOf([request.requestId]))[0]?.state;
   await notices().run(10);
+  const rows = (await withSql(
+    (sql) =>
+      sql`select id, contact_email, state from league_requests
+        where league_name = ${request.leagueName} order by created_at, id`,
+  )) as Array<{ id: string; contact_email: string; state: string }>;
+  stored.push(...rows.map(({ id }) => id));
   const mails = t.mailbox.mails.filter((sent) =>
-    sent.idempotencyKey.startsWith(`${request.requestId}-`),
+    rows.some(({ id }) => id === sent.idempotencyKey),
   );
 
   assert({
     given:
-      'a sent request resent unchanged five times, then with a corrected email',
+      'a sent request resent unchanged five times, then under its id with a corrected email',
     should:
-      'take every resend without spending allowance, and send the owner the correction',
+      'take every resend without spending allowance, keep the first as it was, and store the correction as a new request the owner also gets',
     actual: {
       unchanged,
       edited: edited.status,
-      requeued,
-      keys: mails.map((sent) => sent.idempotencyKey),
-      subject: mails[1]?.subject,
-      corrected: mails[1]?.text.includes('Email: dana.w@example.test'),
-      state: (await rowsOf([request.requestId]))[0]?.state,
+      rows: rows.map(({ id, contact_email, state }) => ({
+        first: id === request.requestId,
+        contact_email,
+        state,
+      })),
+      mails: mails.length,
+      correctedMail: mails.some((sent) =>
+        sent.text.includes('Email: dana.w@example.test'),
+      ),
     },
     expected: {
       unchanged: [200, 200, 200, 200, 200],
       edited: 200,
-      requeued: 'queued',
-      keys: [`${request.requestId}-1`, `${request.requestId}-2`],
-      subject: `League request (updated): ${request.leagueName}`,
-      corrected: true,
-      state: 'sent',
+      rows: [
+        { first: true, contact_email: 'dana@example.test', state: 'sent' },
+        { first: false, contact_email: 'dana.w@example.test', state: 'sent' },
+      ],
+      mails: 2,
+      correctedMail: true,
     },
   });
 });

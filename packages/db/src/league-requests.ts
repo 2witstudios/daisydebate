@@ -25,8 +25,8 @@ type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
 /**
  * A lapsed lease is not marked `delivery-unknown`: the next claim sends the
- * notice again, and only the provider idempotency key (the request id and
- * its revision) keeps that resend from reaching the owner twice.
+ * notice again, and only the provider idempotency key (the request id)
+ * keeps that resend from reaching the owner twice.
  */
 const noticeQueue = mailQueue(leagueRequests, {
   unknownAfterLapse: sql`false`,
@@ -47,8 +47,6 @@ export type LeagueRequestNotice =
         readonly id: string;
         /** UTC ISO instant the request was made. */
         readonly receivedAt: string;
-        /** 1 for the request as first sent; higher once a resend changed it. */
-        readonly revision: number;
       };
     }
   /** The request was deleted (retention) before its notice went. */
@@ -76,7 +74,6 @@ const requestRow = z.object({
   contact_email: z.string(),
   contact_phone: z.string().nullable(),
   received_at: z.string(),
-  revision: z.coerce.number().int().positive(),
 });
 
 /** How a request's own fields compare, as one row value, phone empty for none. */
@@ -117,37 +114,39 @@ export function leagueRequestOperations({
       }),
     /**
      * Stores a validated request with its email queued now. Sent again
-     * under the same id unchanged, it is left as it is; sent with a field
-     * changed (a corrected address after a lost answer), it takes the new
-     * values and its email is queued again under the next revision, even
-     * if the first went or is going now: the owner always has the latest.
-     * A worker holding the old revision cannot settle it once requeued.
+     * under the same id unchanged, it is left as it is (a resend after a
+     * lost answer). Sent under a stored id with any field changed, it is a
+     * new request under `newId`: a stored request never changes, because a
+     * request id is an identifier, not an edit credential (ADR 0018), so
+     * holding one never lets anyone rewrite the contact the owner replies
+     * to. The owner then has both, the later one last.
      */
-    recordLeagueRequest: (request: LeagueRequest): Promise<void> =>
+    recordLeagueRequest: (
+      request: LeagueRequest,
+      newId: string,
+    ): Promise<void> =>
       instrumented(eventSink, 'recordLeagueRequest', async () => {
-        await database.execute(sql`insert into league_requests as stored (
-            id, league_name, schools, seasons, style, divisions, needs,
-            contact_name, contact_role, contact_email, contact_phone, next_attempt_at
-          ) values (
-            ${request.requestId}, ${request.leagueName}, ${request.schools},
-            ${request.seasons}, ${request.style}, ${request.divisions},
-            ${request.needs}, ${request.contactName}, ${request.contactRole},
-            ${request.contactEmail}, ${request.contactPhone === '' ? null : request.contactPhone},
-            clock_timestamp()
-          ) on conflict (id) do update set
-            league_name = excluded.league_name, schools = excluded.schools,
-            seasons = excluded.seasons, style = excluded.style,
-            divisions = excluded.divisions, needs = excluded.needs,
-            contact_name = excluded.contact_name, contact_role = excluded.contact_role,
-            contact_email = excluded.contact_email, contact_phone = excluded.contact_phone,
-            revision = stored.revision + 1,
-            state = 'queued', attempts = 0, last_error_code = null,
-            lease_token_digest = null, lease_expires_at = null, completed_at = null,
-            next_attempt_at = clock_timestamp()
-          where (stored.league_name, stored.schools, stored.seasons, stored.style,
-              stored.divisions, stored.needs, stored.contact_name, stored.contact_role,
-              stored.contact_email, coalesce(stored.contact_phone, ''))
-            is distinct from ${fieldsOf(request)}`);
+        const insert = (id: string) =>
+          rowsOf(
+            database,
+            sql`insert into league_requests (
+              id, league_name, schools, seasons, style, divisions, needs,
+              contact_name, contact_role, contact_email, contact_phone, next_attempt_at
+            ) values (
+              ${id}, ${request.leagueName}, ${request.schools},
+              ${request.seasons}, ${request.style}, ${request.divisions},
+              ${request.needs}, ${request.contactName}, ${request.contactRole},
+              ${request.contactEmail}, ${request.contactPhone === '' ? null : request.contactPhone},
+              clock_timestamp()
+            ) on conflict (id) do nothing returning id`,
+          );
+        if ((await insert(request.requestId)).length === 1) return;
+        const [same] = await rowsOf(
+          database,
+          sql`select 1 from league_requests where id = ${request.requestId}
+            and ${storedFields} = ${fieldsOf(request)}`,
+        );
+        if (!same) await insert(newId);
       }),
     claimLeagueRequestNotices: (
       input: MailJobClaimInput,
@@ -162,7 +161,7 @@ export function leagueRequestOperations({
         const [row] = await rowsOf<unknown>(
           database,
           sql`select id, league_name, schools, seasons, style, divisions, needs,
-              contact_name, contact_role, contact_email, contact_phone, revision,
+              contact_name, contact_role, contact_email, contact_phone,
               to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at
             from league_requests where id = ${id}`,
         );
@@ -183,7 +182,6 @@ export function leagueRequestOperations({
             contactEmail: stored.contact_email,
             contactPhone: stored.contact_phone ?? '',
             receivedAt: stored.received_at,
-            revision: stored.revision,
           },
         };
       }),

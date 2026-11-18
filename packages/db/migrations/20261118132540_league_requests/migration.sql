@@ -10,7 +10,6 @@ CREATE TABLE "league_requests" (
 	"contact_role" text NOT NULL,
 	"contact_email" text NOT NULL,
 	"contact_phone" text,
-	"revision" integer DEFAULT 1 NOT NULL,
 	"state" text DEFAULT 'queued' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"lease_token_digest" text,
@@ -29,7 +28,6 @@ CREATE TABLE "league_requests" (
         and char_length("contact_role") between 1 and 120
         and char_length("contact_email") between 3 and 320
         and ("contact_phone" is null or char_length("contact_phone") between 1 and 32)),
-	CONSTRAINT "league_requests_revision_check" CHECK ("revision" >= 1),
 	CONSTRAINT "league_requests_state_check" CHECK ("state" in ('queued', 'leased', 'sent', 'failed', 'cancelled')),
 	CONSTRAINT "league_requests_attempts_check" CHECK ("attempts" >= 0),
 	CONSTRAINT "league_requests_lease_check" CHECK (("state" = 'leased') = ("lease_token_digest" is not null and "lease_expires_at" is not null) and ("lease_token_digest" is null or "lease_token_digest" ~ '^[0-9a-f]{64}$')),

@@ -5,7 +5,8 @@ import { startMailQueueWorker } from '../features/mail/queue-worker';
 import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
 import type { WorkerTimers } from '../lib/worker-timers';
 import type { App } from './app';
-import { workerFailures } from './recoverable-failure';
+import { noopErrorReporter } from '@daisy/observability';
+import { recoverableFailure, workerFailures } from './recoverable-failure';
 import { nextWorkerToken } from './worker-token';
 
 /**
@@ -35,6 +36,18 @@ export function startLeagueRequestMail(input: {
     'league_request.mail',
     'League request email stays queued',
   );
+  // A notice lost for good is reported at once: capacity deferral is only
+  // for work a later tick will retry.
+  const gaveUp = recoverableFailure({
+    logger: app.logger,
+    reporter: input.reporter ?? noopErrorReporter,
+    nextId: () => app.ids.next(),
+    isCapacity: () => false,
+    isLeaseLapse: () => false,
+    event: 'league_request.mail.failed',
+    operation: 'league_request.mail',
+    message: 'League request email failed for good',
+  });
   return startMailQueueWorker({
     run: (limit) =>
       createLeagueRequestNotices({
@@ -44,6 +57,7 @@ export function startLeagueRequestMail(input: {
         nextToken: nextWorkerToken,
         now: () => app.clock.now(),
         failed: (error) => failed(error, 'decide'),
+        gaveUp: (error) => gaveUp(error, 'gave_up'),
       }).run(limit),
     batch: MAIL_QUEUE_BATCH,
     everyMs: 15_000,

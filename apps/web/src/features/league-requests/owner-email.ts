@@ -44,7 +44,7 @@ export function renderLeagueRequestEmail(request: StoredRequest) {
     `Received: ${request.receivedAt}`,
   ];
   return renderEmailLayout({
-    subject: `League request${request.revision > 1 ? ' (updated)' : ''}: ${request.leagueName}`,
+    subject: `League request: ${request.leagueName}`,
     preheader: `${request.contactName} wants to run ${request.leagueName} on Daisy.`,
     eyebrow: 'League request',
     headline: request.leagueName,

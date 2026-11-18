@@ -61,6 +61,7 @@ const routeWith = (input: {
         return (input.consume ?? allowEvery)(key, rule);
       },
     }),
+    newId: () => 'n3w1d2w8e7r6t5y4u3i2o1pa',
     store: {
       leagueRequestUnchanged: async () => input.unchanged ?? false,
       recordLeagueRequest: async (request) => {

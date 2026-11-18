@@ -8,5 +8,6 @@ export const composeLeagueRequestRoutes = (app: App) =>
     reporter: app.reporter,
     origin: () => app.config.PUBLIC_APP_URL,
     limiter: () => app.limiter,
+    newId: () => app.ids.next(),
     store: app.database,
   });
