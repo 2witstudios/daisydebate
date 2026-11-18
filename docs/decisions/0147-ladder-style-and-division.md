@@ -52,10 +52,19 @@ the style. Nothing recorded who may play.
    - The migration backfills `open`. It reads and writes no rating value and
      cannot refuse.
 3. **Who a member is.** A member's division comes from the stored birth month
-   (ADR 0075's one band rule). It is aged on the start of Daisy's active Youth
-   season, so a mid-season birthday finishes on Youth and Open starts with the
-   next season. With no Youth season active, the member is aged now. The birth
-   month never leaves SQL; pages name a ladder, never an age.
+   (ADR 0075's one band rule). The record must be valid now; the age is taken
+   on the latest of three instants, never after now:
+   - the start of Daisy's active Youth season, so a mid-season birthday
+     finishes that season on Youth and Open starts with the next;
+   - the member's own age record, so nobody is aged before they told Daisy,
+     and a member who signs up at 18 is on Open from the start;
+   - `YOUTH_CARRY_MONTHS` (12) ago, so a Youth season that never closes
+     (DEC-111 keeps Season 1 open) holds nobody on Youth for more than a year
+     past their 18th birthday.
+
+   With no Youth season active, the member is aged now. The birth month never
+   leaves SQL; pages name a ladder, never an age.
+
 4. **A ranked Room's ladder follows who sits.**
    - The Room stores no division. Its seated human debaters set it: unset until
      one sits, then one division, or mixed. A stored copy would be a second

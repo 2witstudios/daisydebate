@@ -166,3 +166,7 @@ export const divisionHref = (
 /** The chart or the table alternative, at the latest debate. */
 export const viewHref = (query: LadderQuery, view: HistoryView): string =>
   ladderHref({ ...query, view, step: null });
+
+/** The leaderboard open on one ladder's division, from a card that names it. */
+export const ladderBoardHref = (division: RatingDivision): string =>
+  divisionHref(defaultQuery, division);

@@ -128,7 +128,7 @@ const otherLadderOf = (
 
 const otherLadderNotes: Readonly<Record<RatingDivision, string>> = {
   open: 'Debater seats: 18 and over.',
-  youth: 'Debater seats: under 18. You can still judge.',
+  youth: 'Debater seats: under 18.',
 };
 
 /** Under a Room whose debater seats are not the viewer's, with a judge seat free. */

@@ -1,3 +1,4 @@
+import { ladderBoardHref } from '../../features/leaderboard/query';
 import Link from 'next/link';
 import type { SeasonHistoryRow } from '../../features/profile/season-history';
 import { ladderLabel } from '../../features/ratings/ladder-labels';
@@ -48,7 +49,7 @@ function LadderCard({ standing }: { readonly standing: MemberStanding }) {
     >
       <div className="flex items-center justify-between gap-2">
         <Link
-          href="/leaderboard"
+          href={ladderBoardHref(standing.ladder.division)}
           className="font-strong text-ink no-underline hover:underline"
         >
           {ladderLabel(standing.ladder)}

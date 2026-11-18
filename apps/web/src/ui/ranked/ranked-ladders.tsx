@@ -1,3 +1,4 @@
+import { ladderBoardHref } from '../../features/leaderboard/query';
 import Link from 'next/link';
 import type { RatingDivision } from '@daisy/protocol';
 import {
@@ -58,7 +59,7 @@ function OwnLadder({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2">
           <Link
-            href="/leaderboard"
+            href={ladderBoardHref(view.ladder.division)}
             className="font-strong text-ink no-underline hover:underline"
           >
             {ladderLabel(view.ladder)}
@@ -99,7 +100,7 @@ function LockedOpenLadder({
     <li className={cn(ladderCard, 'bg-surface-sunken')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
-          href="/leaderboard"
+          href={ladderBoardHref(view.ladder.division)}
           className="font-strong text-ink-muted no-underline hover:underline"
         >
           {ladderLabel(view.ladder)}

@@ -379,8 +379,10 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
 
 - **No new data.** A member's division is derived from the stored birth month
   by ADR 0075's band rule. It is aged on the start of the active Youth season
-  (a mid-season 18th birthday finishes that season on Youth), and the birth
-  month never leaves SQL. No new data class, purpose or retention exists:
+  (a mid-season 18th birthday finishes that season on Youth), but never before
+  the member's own age record and never more than 12 months back, so nobody
+  stays on Youth for more than a year past turning 18. The birth month never
+  leaves SQL. No new data class, purpose or retention exists:
   ratings, seasons, Rounds and challenges carry the division, never an age.
 - **Pages name only a ladder.** A host sees each debater's ladder, never an
   age, and a member's own seat refusal (`ranked-division`) names only the

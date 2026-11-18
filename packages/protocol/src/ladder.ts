@@ -57,6 +57,15 @@ export const daisyLaddersOf = <S extends string>(
 export const daisyLadders: readonly Ladder[] = daisyLaddersOf(ratingStyles);
 
 /**
+ * How long a member is held on Youth past their 18th birthday, at most
+ * (ADR 0147 §3): a member is aged on the Youth season's start, so a mid-season
+ * birthday finishes that season on Youth, but never on an instant before their
+ * own age record nor more than this many months back. A Youth season that never
+ * closes therefore holds no one on Youth for longer than this.
+ */
+export const YOUTH_CARRY_MONTHS = 12;
+
+/**
  * The division an age band debates on: 18 and over is Open, any younger
  * member is Youth. No valid age record has no division, so no ranked seat.
  */

@@ -310,7 +310,8 @@ A ranked Room's ladder follows who sits
 no division: its seated human debaters set it. It is unset until one sits,
 then Open – Freestyle (all 18 and over) or Youth – Freestyle (all under 18),
 or mixed. Each person's division comes from the stored birth month, aged on
-the start of the active Youth season.
+the start of the active Youth season, bounded by their own age record and a
+12-month carry (ADR 0147 §3).
 
 - **Own claims.** A member's own claim of a ranked debater seat is refused with
   `ranked-division` when the others are on the other ladder or the member has

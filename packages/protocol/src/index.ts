@@ -32,6 +32,7 @@ export {
 } from './primitives';
 export type { ProtocolError, RatingStyle } from './primitives';
 export {
+  YOUTH_CARRY_MONTHS,
   ageBands,
   daisyLadders,
   daisyLaddersOf,

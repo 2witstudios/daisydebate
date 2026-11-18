@@ -11,6 +11,7 @@ import {
   pageHref,
   parseLadderQuery,
   scopeHref,
+  ladderBoardHref,
 } from './query';
 
 setupRitewayBun();
@@ -197,5 +198,14 @@ describe('hrefs', () => {
         '/leaderboard?division=youth&season=3&scope=around&debater=debater-b&view=table&step=4',
       ],
     });
+  });
+});
+
+test('ladderBoardHref', () => {
+  assert({
+    given: 'a card naming the Open and the Youth ladder',
+    should: 'open the leaderboard on that division, not the viewer’s own',
+    actual: [ladderBoardHref('open'), ladderBoardHref('youth')],
+    expected: ['/leaderboard?division=open', '/leaderboard?division=youth'],
   });
 });

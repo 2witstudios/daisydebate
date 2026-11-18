@@ -201,7 +201,7 @@ describe('lobbyRow ladders', () => {
         { kind: 'locked', label: '18 and over' },
         'Debater seats: 18 and over.',
         { kind: 'locked', label: 'Under 18' },
-        'Debater seats: under 18. You can still judge.',
+        'Debater seats: under 18.',
       ],
     });
   });

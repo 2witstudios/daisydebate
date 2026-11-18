@@ -32,11 +32,19 @@ type Member = Fixture['host'];
 const ages = {
   seventeen: '17 years 11 months',
   eighteen: '18 years',
+  eighteenAndAHalf: '18 years 6 months',
+  nineteenAndAMonth: '19 years 1 month',
   adult: '30 years',
 } as const;
-const setAge = (f: Fixture, member: Member, age: keyof typeof ages) =>
+const setAge = (
+  f: Fixture,
+  member: Member,
+  age: keyof typeof ages,
+  recordedAgo = '1 second',
+) =>
   f.sql`update account_age
-    set birth_month = to_char(now() - ${ages[age]}::interval, 'YYYY-MM'), version = version + 1
+    set birth_month = to_char(now() - ${ages[age]}::interval, 'YYYY-MM'), version = version + 1,
+      recorded_at = now() - ${recordedAgo}::interval
     where user_id = ${member.userId}`;
 
 /**
@@ -299,8 +307,9 @@ test('a member who turns 18 mid-season finishes it on Youth', async () => {
     withSeasons(
       f,
       async () => {
-        // Eighteen this month: still 17 when the Youth season began.
-        await setAge(f, f.host, 'eighteen');
+        // Eighteen this month, on record since before the Youth season
+        // began, when they were still 17.
+        await setAge(f, f.host, 'eighteen', '1 year');
         await setAge(f, f.guest, 'adult');
         const room = await rankedRoomSetBy(f, f.host);
         assert({
@@ -315,6 +324,40 @@ test('a member who turns 18 mid-season finishes it on Youth', async () => {
         });
       },
       { youthStartedAgo: '3 months' },
+    ),
+  );
+});
+
+test('the Youth carry is bounded: no one is aged before their own record, nor more than a year back', async () => {
+  await withRoomRuntime(async (f) =>
+    withSeasons(
+      f,
+      async () => {
+        // Signed up at 18 and a half, long after the Youth season began.
+        await setAge(f, f.host, 'eighteenAndAHalf');
+        // On record since before the season, 18 six months into it: carried.
+        await setAge(f, f.guest, 'eighteenAndAHalf', '4 years');
+        // On record since before the season, 19 and a month: past the carry.
+        await setAge(f, f.outsider, 'nineteenAndAMonth', '4 years');
+        const lateSignUp = (await rankedRoomSetBy(f, f.host)).ladder;
+        assert({
+          given:
+            'a Youth season begun three years ago, a member who recorded their age at 18 and a half, one on record since before it who is 18 and a half, and one who is 19 and a month',
+          should:
+            'put the late sign-up on Open, carry the 18-and-a-half on Youth, and put the 19-year-old on Open',
+          actual: {
+            lateSignUp,
+            carried: (await rankedRoomSetBy(f, f.guest)).ladder,
+            pastTheCarry: (await rankedRoomSetBy(f, f.outsider)).ladder,
+          },
+          expected: {
+            lateSignUp: 'open',
+            carried: 'youth',
+            pastTheCarry: 'open',
+          },
+        });
+      },
+      { youthStartedAgo: '3 years' },
     ),
   );
 });
