@@ -1,4 +1,4 @@
-# 0155: A Room's division is its lobby's
+# 0156: A Room's division is its lobby's
 
 Status: accepted (owner decision 85, 2026-11-18; slice YLS S1 + S2,
 [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/hw2qw76pqfg7129vwteleik0),
@@ -37,8 +37,8 @@ Rooms included, and its debater seats are for that lobby's members.
    school club holding `school.roster.manage`) may also create a Youth Room
    for their students, from either lobby. Any other choice is refused
    `other-division`. A challenge's Room opens in the pair's lobby, a rematch
-   in its Room's, a tournament Room in its event's age division and a league
-   ladder Room in its league's.
+   in its Room's, a tournament Room in its event's age division, and a league
+   lobby's Room in its league's division.
 4. **Seats** (`seatAllowed`). Judge seats take anyone, so minors may judge
    Open Rooms and adults Youth Rooms. Debater seats, ranked and casual, take
    only the Room's division, whether claimed or assigned by the host. A
@@ -60,7 +60,7 @@ Rooms included, and its debater seats are for that lobby's members.
 ## Backfill
 
 Existing Rooms take, in order: their launched Round's `ladder_division`; a
-league ladder Room's league division; a tournament Room's
+league lobby Room's league division; a tournament Room's
 `entry.age_division` lobby setting (Open by default); else the host's
 division from the birth month read at migration time; else Open. Unanswered
 casual challenges, which held no lobby and could cross lobbies, are

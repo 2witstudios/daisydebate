@@ -276,7 +276,7 @@ const seatAdmission = (
     return 'actor-ineligible';
   if (unassignableHuman(room, actorId, command.type, target))
     return 'actor-ineligible';
-  // Debater seats are for the Room's own lobby, judges for anyone (ADR 0155):
+  // Debater seats are for the Room's own lobby, judges for anyone (ADR 0156):
   // a member's claim and a host's assignment alike.
   return seatAllowed(target, room, command.seat) ? null : 'other-division';
 };

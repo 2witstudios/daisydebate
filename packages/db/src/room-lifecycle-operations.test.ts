@@ -22,7 +22,7 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
     [],
     [],
     [],
-    // the creator's division, scope, club staff, scope back (ADR 0155)
+    // the creator's division, scope, club staff, scope back (ADR 0156)
     [],
     [],
     [],

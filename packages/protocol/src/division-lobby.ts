@@ -2,7 +2,7 @@ import type { RatingDivision } from './ladder';
 import { isDebatingSeat, type SeatRef } from './seats';
 
 /**
- * Two lobbies, Open and Youth (owner decision 85, ADR 0155). They are the
+ * Two lobbies, Open and Youth (owner decision 85, ADR 0156). They are the
  * divisions of ADR 0147 as members browse them, not the `lobbies` container a
  * Room lives in: every Room still sits in its container, and carries the
  * division it was created in. These rules decide who lands where, which

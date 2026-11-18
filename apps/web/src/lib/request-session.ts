@@ -34,7 +34,11 @@ import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { PublicProfileCard } from '@daisy/db';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import { type MatchHistoryQuery, type RatingDivision } from '@daisy/protocol';
+import {
+  lobbyOf,
+  type MatchHistoryQuery,
+  type RatingDivision,
+} from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
@@ -271,6 +275,22 @@ export const requestMemberDivision = cache(
     const identity = await requestIdentity();
     if (identity.state !== 'member') return null;
     return processApp().database.readMemberDivision(identity.principal.userId);
+  },
+);
+
+/**
+ * Club staff's default lobby for the create form's Lobby choice (ADR 0156):
+ * their own lobby; null for everyone else, who sees no choice. The create
+ * command decides again under the creator's lock.
+ */
+export const requestStaffLobby = cache(
+  async (): Promise<RatingDivision | null> => {
+    const identity = await requestIdentity();
+    if (identity.state !== 'member') return null;
+    const creator = await processApp().database.readRoomCreatorFact(
+      identity.principal.userId,
+    );
+    return creator.clubStaff ? lobbyOf(creator) : null;
   },
 );
 

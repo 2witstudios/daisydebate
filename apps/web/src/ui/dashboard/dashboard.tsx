@@ -18,7 +18,7 @@ export function Dashboard({
   hero,
   liveNow,
   seasonGlance = null,
-  ladder = { playCaption: null, leaderboardTagline: null },
+  ladder = { playCaption: null },
 }: {
   readonly audience: 'visitor' | 'member';
   readonly hero: ReactNode;
@@ -26,7 +26,7 @@ export function Dashboard({
   readonly liveNow: ReactNode;
   /** The Seasons note's reveal; null when no season is running. */
   readonly seasonGlance?: SeasonGlance | null;
-  /** The member's ladder words for the Play and Leaderboard notes. */
+  /** The member's ladder words for the Play note. */
   readonly ladder?: HomeLadder;
 }) {
   return (
@@ -43,11 +43,7 @@ export function Dashboard({
           <li key={tile.href} className="min-w-0">
             <ActionTile
               {...tile}
-              description={
-                tile.destination === 'leaderboard'
-                  ? (ladder.leaderboardTagline ?? tile.description)
-                  : tile.description
-              }
+              description={tile.description}
               caption={tile.destination === 'lobby' ? ladder.playCaption : null}
               seasonGlance={
                 tile.destination === 'seasons' ? seasonGlance : null

@@ -69,7 +69,7 @@ export const roomRefusalSchema = z.enum([
   'ballot-definition-unavailable',
   'ranked-unavailable',
   /**
-   * The seat or Room is for the other lobby (ADR 0155): a debater seat of a
+   * The seat or Room is for the other lobby (ADR 0156): a debater seat of a
    * Room created in the other division, or a league ladder's while the
    * caller is under 18, or a Room created in a lobby the creator may not
    * open. A caller with no division (no valid age record) debates only in an
@@ -195,7 +195,7 @@ const roomViewFields = z.strictObject({
   }),
   competitionType: z.enum(competitionTypes),
   /**
-   * The lobby the Room was created in (ADR 0155): its debater seats are for
+   * The lobby the Room was created in (ADR 0156): its debater seats are for
    * that division's members, and a ranked Round rates on its ladder.
    */
   division: z.enum(ratingDivisions),

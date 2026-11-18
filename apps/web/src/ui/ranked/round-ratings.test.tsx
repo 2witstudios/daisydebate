@@ -75,14 +75,14 @@ describe('the ladder a Round rated', () => {
       should:
         'head with the ladder and season, and name the ladder on each change',
       actual: [
-        /<h2[^>]*><span[^>]*text-hue-plum[^>]*>Youth – Freestyle<\/span> · Fall 2026<\/h2>/.test(
+        /<h2[^>]*>Ranked · Freestyle · Fall 2026<\/h2>/.test(
           html,
         ),
         html.includes(
-          '1526<span class="font-body text-base font-book not-italic text-online"> Youth – Freestyle +14</span>',
+          '1526<span class="font-body text-base font-book not-italic text-online"> Freestyle +14</span>',
         ),
         html.includes(
-          '1466*<span class="font-body text-base font-book not-italic text-hue-clay"> Youth – Freestyle −12</span>',
+          '1466*<span class="font-body text-base font-book not-italic text-hue-clay"> Freestyle −12</span>',
         ),
         html.includes('Win +14 · Loss −12'),
       ],
@@ -100,8 +100,8 @@ describe('the ladder a Round rated', () => {
     assert({
       given: 'a provisional debater who gained 162 on Youth – Freestyle',
       should:
-        'read the rating, then the ladder it moved on with the change: "1662* Youth – Freestyle +162"',
-      actual: text.includes('1662* Youth – Freestyle +162'),
+        'read the rating, then the style it moved on with the change, no division: "1662* Freestyle +162"',
+      actual: text.includes('1662* Freestyle +162'),
       expected: true,
     });
   });
@@ -117,7 +117,7 @@ describe('the ladder a Round rated', () => {
       ],
       expected: [
         ['+14', '−12', '0'],
-        'Open – Freestyle −3',
+        'Freestyle −3',
         ['text-online', 'text-hue-clay', 'text-ink-muted'],
       ],
     });

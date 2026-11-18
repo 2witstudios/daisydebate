@@ -25,7 +25,7 @@ export const challenges = pgTable(
     mode: text('mode').notNull(),
     formatId: text('format_id').notNull(),
     /**
-     * The lobby both members share, decided at send (ADR 0155): the
+     * The lobby both members share, decided at send (ADR 0156): the
      * challenge's Room opens in it, and a ranked offer rates on its ladder.
      */
     division: text('division').$type<RatingDivision>().notNull(),

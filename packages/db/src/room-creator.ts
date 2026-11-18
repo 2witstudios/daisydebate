@@ -6,7 +6,7 @@ import type { Tx } from './room-command-facts';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 
 /**
- * Who creates a Room, as its lobby is decided (ADR 0155): their division, and
+ * Who creates a Room, as its lobby is decided (ADR 0156): their division, and
  * whether they are club staff, who may also open a Youth Room for their
  * students. Club staff own an open club, or hold a live organisation grant
  * carrying `school.roster.manage` in an open school club they are an active

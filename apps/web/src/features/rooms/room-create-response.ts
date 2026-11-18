@@ -64,7 +64,7 @@ const conflictAnswer = (
     case 'broadcast-private':
     case 'content-waiver-required':
     case 'content-waiver-changed':
-    case 'ranked-division':
+    case 'other-division':
       return { kind: 'refused', reason: 'settings' };
     case 'capture-notice-changed':
       return { kind: 'refused', reason: 'notice-changed' };

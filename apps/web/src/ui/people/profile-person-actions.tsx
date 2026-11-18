@@ -8,10 +8,10 @@ import {
   type RatingDivision,
 } from '@daisy/protocol';
 import {
+  challengeModeLine,
+  mayChallenge,
   offersRanked,
-  rankedChallengeLine,
-  rankedChallengeOf,
-} from '../../features/challenges/challenge-ladder';
+} from '../../features/challenges/challenge-lobby';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -57,7 +57,8 @@ export function ProfilePersonActions({
   readonly theirDivision: RatingDivision | null;
   readonly actions: Pick<PersonActions, 'sendChallenge' | 'report' | 'block'>;
 }) {
-  const ranked = rankedChallengeOf(memberDivision, theirDivision);
+  const ranked = offersRanked(memberDivision, theirDivision);
+  const line = ranked ? null : challengeModeLine(memberDivision);
   const ladderLineId = useId();
   const [sent, send, sending] = useFormAction(
     actions.sendChallenge,
@@ -79,6 +80,7 @@ export function ProfilePersonActions({
   const blockNotice = personBlockNotice(blocked);
   return (
     <>
+      {mayChallenge(memberDivision, theirDivision) ? (
       <details>
         <summary className={summary}>Challenge</summary>
         <form action={send} className="flex flex-wrap items-center gap-2 pt-2">
@@ -87,30 +89,33 @@ export function ProfilePersonActions({
             <span className="sr-only">Mode</span>
             <select
               name="mode"
-              aria-describedby={ladderLineId}
-              defaultValue={offersRanked(ranked) ? 'ranked' : 'casual'}
+              aria-describedby={line === null ? undefined : ladderLineId}
+              defaultValue={ranked ? 'ranked' : 'casual'}
               className={controlClass}
             >
               {competitionTypes.map((mode) => (
                 <option
                   key={mode}
                   value={mode}
-                  disabled={mode === 'ranked' && !offersRanked(ranked)}
+                  disabled={mode === 'ranked' && !ranked}
                 >
                   {modeLabels[mode]}
                 </option>
               ))}
             </select>
           </label>
-          <p id={ladderLineId} className="w-full text-sm text-ink-muted">
-            {rankedChallengeLine(ranked, username)}
-          </p>
+          {line === null ? null : (
+            <p id={ladderLineId} className="w-full text-sm text-ink-muted">
+              {line}
+            </p>
+          )}
           <input type="hidden" name="format" value="freestyle" />
           <Button type="submit" disabled={sending}>
             Send challenge
           </Button>
         </form>
       </details>
+      ) : null}
       <details>
         <summary className={summary}>Report</summary>
         <form

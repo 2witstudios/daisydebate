@@ -95,7 +95,7 @@ const assign = (division: RatingDivision, taker: RatingDivision) => {
   return outcome.ok ? 'seated' : outcome.refusal;
 };
 
-test('a debater seat is for the Room’s own lobby (ADR 0155)', () => {
+test('a debater seat is for the Room’s own lobby (ADR 0156)', () => {
   assert({
     given: 'a member claiming a debater seat in their own lobby’s Room',
     should: 'seat them',

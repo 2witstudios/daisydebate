@@ -13,10 +13,7 @@ import {
   requestMemberStandings,
   requestSeasonGlance,
 } from '../../lib/request-session';
-import {
-  homeLadderOf,
-  leaderboardTagline,
-} from '../../ui/dashboard/home-ladder';
+import { homeLadderOf } from '../../ui/dashboard/home-ladder';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 import { requestPricingOpen } from './pricing/releases';
@@ -48,10 +45,7 @@ export default async function HomePage() {
         audience="visitor"
         liveNow={liveNow}
         seasonGlance={seasonGlance}
-        ladder={{
-          playCaption: null,
-          leaderboardTagline: leaderboardTagline(null),
-        }}
+        ladder={{ playCaption: null }}
         hero={
           <HeroBanner
             requestLink={requestLinkAction.bind(null, '/')}

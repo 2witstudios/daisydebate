@@ -6,6 +6,7 @@ import {
   type RoomListQuery,
 } from '@daisy/protocol';
 import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
+import { lobbyNames } from '../../features/lobby/lobby-names';
 import { lobbySections, type LobbyViewer } from '../../features/lobby/rows';
 import { openRoomHref, playOptions } from '../../features/play/options';
 import { YourRoom, type ActiveRoomSummary } from '../active-room/your-room';
@@ -36,13 +37,8 @@ export type LobbyProps = {
   readonly viewer: LobbyViewer;
 };
 
-const lobbyNames: Readonly<Record<RatingDivision, string>> = {
-  open: 'Open lobby',
-  youth: 'Youth lobby',
-};
-
 /**
- * The two lobbies (ADR 0155, YLLobbySwitch): plain links, so the switch works
+ * The two lobbies (ADR 0156, YLLobbySwitch): plain links, so the switch works
  * before hydration and the choice lives in the URL.
  */
 function LobbySwitch({ query }: { readonly query: LobbyProps['query'] }) {

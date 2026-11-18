@@ -11,15 +11,10 @@ export const divisionLabels: Readonly<Record<RatingDivision, string>> = {
   youth: 'Youth',
 };
 
-/** Who may debate on each division, in the words a seat or filter shows. */
-export const divisionAudiences: Readonly<Record<RatingDivision, string>> = {
-  open: '18 and over',
-  youth: 'Under 18',
-};
-
 /**
- * The one formatter for a ladder's name on a card, a badge, a menu or a rail:
- * its division, then its style, as "Open – Freestyle".
+ * The one formatter for a ladder's full name where a page outside the lobbies
+ * names one (Watch, Recordings, league lobbies): its division, then its style,
+ * as "Open – Freestyle". Inside a lobby a page names the style alone (ADR 0156).
  */
 export const ladderLabel = (ladder: Ladder): string =>
   `${divisionLabels[ladder.division]} – ${styleLabels[ladder.style]}`;

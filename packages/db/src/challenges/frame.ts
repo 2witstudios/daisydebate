@@ -127,7 +127,7 @@ export const challengeContactReactions = {
 };
 
 /**
- * The lobby both members share (ADR 0155), or null when they are in
+ * The lobby both members share (ADR 0156), or null when they are in
  * different lobbies; a ranked offer also needs both to hold a division (an
  * age record), as a ranked debater seat does.
  */
@@ -181,7 +181,7 @@ export function challengeFrame(
       // One answer with a block, no such member and no lease: never which.
       if (theirs.placement !== null || theirs.chosen !== 'online')
         throw createAppError('NOT_FOUND');
-      // A challenge stays inside one lobby (ADR 0155): both members',
+      // A challenge stays inside one lobby (ADR 0156): both members',
       // read under the pair's lock.
       const division = await pairLobby(tx, input.actorId, other, mode);
       if (division === null) throw createRefusal('CONFLICT', 'other-division');

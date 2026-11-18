@@ -35,7 +35,7 @@ const narrowing = (value: SearchParams[string], everything: string) =>
  * The Lobby's URL as the canonical listing query. One policy for every key:
  * an absent value, `all`, `any` or `newest` changes nothing; an unknown or repeated
  * value is refused, never repaired or guessed. `lobby` is the Open or Youth
- * lobby (ADR 0155); absent, the page shows the viewer's own.
+ * lobby (ADR 0156); absent, the page shows the viewer's own.
  */
 export function parseRoomDiscoveryQuery(raw: SearchParams) {
   return roomListQuerySchema.safeParse({

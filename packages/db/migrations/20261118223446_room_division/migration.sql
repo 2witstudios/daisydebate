@@ -1,7 +1,7 @@
--- A Room belongs to the lobby it was created in (ADR 0155): Open or Youth,
+-- A Room belongs to the lobby it was created in (ADR 0156): Open or Youth,
 -- the ADR 0147 division vocabulary. Existing Rooms take, in order: their
 -- launched Round's ladder division (a ranked Round froze one at Start); a
--- league ladder Room's league division; a tournament Room's age division
+-- league lobby Room's league division; a tournament Room's age division
 -- (the `entry.age_division` lobby setting, Open by default); else their
 -- host's division from the stored birth month, read now (adult is Open, any
 -- younger band Youth); else Open (no host, or no age record).
@@ -11,8 +11,8 @@ UPDATE "rooms" AS r SET "division" = coalesce(
   (SELECT d.ladder_division FROM rounds d
     WHERE d.room_id = r.id AND d.ladder_division IS NOT NULL
     ORDER BY d.created_at DESC, d.id DESC LIMIT 1),
-  (SELECT o.league_division FROM ladders l JOIN organizations o ON o.id = l.organization_id
-    WHERE l.id = r.league_ladder_id),
+  (SELECT o.league_division FROM lobbies lb JOIN organizations o ON o.id = lb.owner_organization_id
+    WHERE lb.id = r.lobby_id),
   CASE WHEN r.lobby_kind = 'tournament' THEN coalesce(
     (SELECT s.value->>'value' FROM settings s
       WHERE s.scope_kind = 'lobby' AND s.lobby_id = r.lobby_id
@@ -45,7 +45,7 @@ $guard_room_division$;--> statement-breakpoint
 CREATE TRIGGER rooms_division_immutable BEFORE UPDATE OF "division" ON "rooms"
 FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_room_division();
 --> statement-breakpoint
--- Every challenge carries the lobby both members share (ADR 0155), casual
+-- Every challenge carries the lobby both members share (ADR 0156), casual
 -- included. An unanswered casual offer from before held no lobby and may
 -- cross lobbies, so it is withdrawn (offers live minutes; DEC-304 states a
 -- destructive step in its PR). An answered one takes its Room's division.

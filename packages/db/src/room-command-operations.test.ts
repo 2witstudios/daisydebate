@@ -22,7 +22,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
     [],
     [],
     [],
-    // the creator's division, scope, club staff, scope back (ADR 0155)
+    // the creator's division, scope, club staff, scope back (ADR 0156)
     [],
     [],
     [],

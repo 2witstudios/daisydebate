@@ -5,7 +5,6 @@ import { refreshActiveRoom } from './refresh-membership';
 import { usePathname } from 'next/navigation';
 import { matchesRoute } from '../components/nav-item/nav-item';
 import { MediaPageLink } from '../round-media/media-page-link';
-import { SeatedLadderBadge } from '../ladder-badge/ladder-badge';
 import {
   activeRoomDotClass,
   activeRoomPhaseLabel,
@@ -54,7 +53,6 @@ export function ActiveRoomBar({
         <strong className="font-strong">{room.title}</strong>
         {` · ${activeRoomPhaseLabel(room.phase)}`}
       </span>
-      {room.ladder ? <SeatedLadderBadge seated={room.ladder} /> : null}
       <span className="ml-auto shrink-0 font-heavy underline">
         Return to room
       </span>

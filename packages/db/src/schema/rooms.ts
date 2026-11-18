@@ -103,7 +103,7 @@ export const rooms = pgTable(
       .$type<CompetitionType>()
       .notNull(),
     /**
-     * The lobby the Room was created in (ADR 0155), fixed for its life: its
+     * The lobby the Room was created in (ADR 0156), fixed for its life: its
      * debater seats are for that division's members, and a ranked Round
      * rates on its ladder. Not written after insert.
      */

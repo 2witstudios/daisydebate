@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
-import type { RatingDivision, RoomCatalogChoice } from '@daisy/protocol';
+import {
+  ratingDivisions,
+  type RatingDivision,
+  type RoomCatalogChoice,
+} from '@daisy/protocol';
+import { lobbyNames } from '../../../features/lobby/lobby-names';
 import {
   changeRoomValue,
   chooseRoomChoice,
@@ -20,7 +25,6 @@ import { FormError } from '../../components/form-field/form-field';
 import { DraftSettings } from './draft-settings';
 import { DraftPreview } from './draft-preview';
 import { noLadderReason } from '../../../features/play/ladder-division-words';
-import { RankedLadderNote } from './ranked-ladder';
 
 /** Daisy's one standard, or any rules of your own (ADR 0142). */
 const formats = [
@@ -35,6 +39,7 @@ export function CreateRoomEditor({
   commandId,
   initialRanked,
   memberDivision,
+  staffLobby,
   pending,
   error,
 }: {
@@ -49,6 +54,12 @@ export function CreateRoomEditor({
    * record, so no ranked play.
    */
   readonly memberDivision: RatingDivision | null;
+  /**
+   * Club staff's Lobby choice and its default (ADR 0156, YLCreateRoomClub):
+   * they may open a Youth Room for their students. Null for everyone else,
+   * whose Room opens in their own lobby with no choice shown.
+   */
+  readonly staffLobby: RatingDivision | null;
   readonly pending: boolean;
   readonly error?: string | undefined;
 }) {
@@ -98,6 +109,32 @@ export function CreateRoomEditor({
         <div id="create-room-answer" tabIndex={-1}>
           <FormError error={error} />
         </div>
+        {staffLobby === null ? null : (
+          <section className="create-room-section">
+            <div
+              role="radiogroup"
+              aria-label="Lobby"
+              className="flex flex-wrap gap-3"
+            >
+              {ratingDivisions.map((division) => (
+                <label
+                  key={division}
+                  className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md border border-border bg-surface-raised px-4 has-checked:border-ink has-checked:bg-surface max-narrow:basis-full"
+                >
+                  <input
+                    type="radio"
+                    name="lobby"
+                    value={division}
+                    defaultChecked={(values.lobby ?? staffLobby) === division}
+                  />
+                  <strong className="font-strong">
+                    {lobbyNames[division]}
+                  </strong>
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
         <section
           className="create-room-section"
           aria-labelledby="create-format-title"
@@ -175,19 +212,16 @@ export function CreateRoomEditor({
                 />
                 Ranked
               </label>
-              <span>
-                {isCustom
-                  ? 'Standard settings required'
-                  : draft.basis.preset.rankedEligible
-                    ? `${draft.basis.label} · Open or Youth, set by the debaters`
-                    : 'Ranked unavailable'}
-              </span>
+              {isCustom ? (
+                <span>Standard settings required</span>
+              ) : draft.basis.preset.rankedEligible ? null : (
+                <span>Ranked unavailable</span>
+              )}
             </div>
           ) : (
             // No age on record: no ladder, so no ranked control at all.
             <p className="text-sm text-ink-muted">{noLadderReason}</p>
           )}
-          {isRanked ? <RankedLadderNote /> : null}
           <div className="create-room-ranked">
             <label>
               <input
@@ -353,9 +387,7 @@ export function CreateRoomEditor({
               <span>Who can join</span>
               <input type="hidden" name="visibility" value="public" />
               <p>
-                Listed in the lobby. Ranked Rounds are always public, and are
-                broadcast with a delay and recorded when capture has capacity.
-                Play casual to choose who can join.
+                Listed in the lobby. Play casual to choose who can join.
               </p>
             </div>
           ) : (

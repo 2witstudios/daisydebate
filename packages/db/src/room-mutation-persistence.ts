@@ -133,7 +133,7 @@ export const persistRoomMutation = async (
       .select({ leagueLadderId: rooms.leagueLadderId })
       .from(rooms)
       .where(eq(rooms.id, next.id));
-    // A ranked Round rates on the Room's own division (ADR 0155).
+    // A ranked Round rates on the Room's own division (ADR 0156).
     const competition = roundCompetition(next);
     if (competition.ladder) await lockLadderSeason(tx, competition.ladder);
     await tx.insert(rounds).values({

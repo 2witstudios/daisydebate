@@ -149,28 +149,24 @@ describe('Dashboard', () => {
 });
 
 describe('Dashboard ladder words', () => {
-  test('Play carries the member’s ladder and Leaderboard names every ladder', () => {
+  test('Play carries the member’s rating; Leaderboard keeps its own words (YHomeActive)', () => {
     const html = renderInStore(
       h(Dashboard, {
         audience: 'member',
         hero: null,
         liveNow: null,
-        ladder: {
-          playCaption: 'Youth – Freestyle · 1526',
-          leaderboardTagline: 'Youth – Freestyle and Open – Freestyle ladders.',
-        },
+        ladder: { playCaption: 'Freestyle · 1526' },
       }),
     );
     assert({
       given: 'a youth member rated 1526',
       should:
-        'caption Play with their ladder and rating, and name both ladders on Leaderboard instead of its own tagline',
+        'caption Play with the style and rating, and keep the Leaderboard tagline',
       actual: [
-        html.includes('>Youth – Freestyle · 1526<'),
-        html.includes('Youth – Freestyle and Open – Freestyle ladders.'),
+        html.includes('>Freestyle · 1526<'),
         html.includes('The season ladder.'),
       ],
-      expected: [true, true, false],
+      expected: [true, true],
     });
   });
 });

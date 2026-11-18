@@ -11,6 +11,7 @@ import { roomAssembly } from '../actions';
 import {
   requestMemberDivision,
   requestRoomDraftAnswer,
+  requestStaffLobby,
 } from '../../../../../lib/request-session';
 export default async function FreshRoomPage({
   params,
@@ -41,6 +42,11 @@ export default async function FreshRoomPage({
       choices={templates.choices}
       commandId={systemId.next()}
       memberDivision={await requestMemberDivision()}
+      // Club staff's rematch keeps its Room's lobby (ADR 0156); a member's
+      // opens in their own, as their first Room did.
+      staffLobby={
+        (await requestStaffLobby()) === null ? null : source.view.division
+      }
     />
   );
 }

@@ -9,6 +9,7 @@ import type {
 import type { DrawFacts } from '../commands/draw';
 import type { TabPrincipal } from '../tab-principal';
 import { eventRoomPins } from './event-room-pins';
+import { eventSettingResolution } from './event-setting-resolution';
 
 type RoomPlan = DrawRoomAssembly['rooms'][number];
 /** The exact publication cast enters through the ordinary pure seat transitions. */
@@ -26,6 +27,10 @@ export const eventRoomAssemblies = (
       'INVARIANT',
       'Publication has no resolved Room authority',
     );
+  // An event's Rooms are in its age division (ADR 0156): Open or Youth.
+  const division = eventSettingResolution(loaded.configuration).settings[
+    'entry.age_division'
+  ].value.value;
   let resolutionPin: DrawRoomAssembly['resolutionPin'] = null;
   const rooms = writes.flatMap((write): RoomPlan[] => {
     if (write.table !== 'rooms' || write.op !== 'insert') return [];
@@ -67,6 +72,7 @@ export const eventRoomAssemblies = (
         room: {
           id: write.row.id,
           hostActorId: null,
+          division,
           title: write.row.title,
           topic: pins.topic,
           visibility: 'private',

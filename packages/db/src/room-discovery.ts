@@ -67,7 +67,7 @@ const statusScope = (status: RoomListQuery['status']) => ({
 });
 const modeMatches = (mode: RoomListQuery['mode']) =>
   mode === undefined ? sql`true` : sql`r.competition_type=${mode}`;
-/** The lobby filter (ADR 0155): Rooms created in that division, casual and ranked. */
+/** The lobby filter (ADR 0156): Rooms created in that division, casual and ranked. */
 const divisionMatches = (division: RoomListQuery['division']) =>
   division === undefined ? sql`true` : sql`r.division=${division}`;
 /** Free judge seats of the Room's rules, read with the page. */

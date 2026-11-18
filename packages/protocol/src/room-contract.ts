@@ -139,6 +139,12 @@ export const roomCreateSchema = z
     practice: z.literal(true).optional(),
     /** The capture notice the create form showed its host, to be recorded; only a casual create with capture states one. */
     noticeVersion: z.string().min(1).max(64).optional(),
+    /**
+     * The lobby the Room opens in (ADR 0156). Omitted: the creator's own.
+     * Only club staff may name Youth from the Open lobby; any other lobby
+     * not the creator's own is refused `other-division`.
+     */
+    lobby: z.enum(ratingDivisions).optional(),
   })
   .refine(
     (create) =>
@@ -443,7 +449,7 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly holdsHost?: boolean;
   readonly competitionType: CompetitionType;
   /**
-   * The lobby the Room was created in, fixed for its life (ADR 0155): its
+   * The lobby the Room was created in, fixed for its life (ADR 0156): its
    * debater seats are for that division's members.
    */
   readonly division: RatingDivision;
@@ -519,7 +525,7 @@ export const roomListQuerySchema = z.strictObject({
   status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
   /**
-   * The lobby (ADR 0155): Rooms created in this division, casual and ranked.
+   * The lobby (ADR 0156): Rooms created in this division, casual and ranked.
    * The Lobby page always names one; omitted lists both.
    */
   division: z.enum(ratingDivisions).optional(),
@@ -560,7 +566,7 @@ const roomListEntryFields = z.strictObject({
    * otherwise, while no ladder is set, or hidden.
    */
   hostRating: z.int().nullable(),
-  /** The lobby the Room was created in (ADR 0155). */
+  /** The lobby the Room was created in (ADR 0156). */
   division: z.enum(ratingDivisions),
   /** Free judge seats: anyone may judge, whatever the lobby. */
   openJudgeSeats: z.int().nonnegative(),

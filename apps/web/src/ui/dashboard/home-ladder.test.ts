@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { MemberStanding } from '../../features/ratings/read-member';
-import { leaderboardTagline, playCaption } from './home-ladder';
+import { playCaption } from './home-ladder';
 
 setupRitewayBun();
 
@@ -21,38 +21,14 @@ describe('playCaption', () => {
       given:
         'a youth member rated 1526, one rated only last season, one judged, and no ladder',
       should:
-        'name the ladder with its rating, the ladder alone twice, then nothing',
+        'name the style with its rating, the style alone twice, then nothing; never a division',
       actual: [
         playCaption([youth()], 'youth'),
         playCaption([youth({ current: false })], 'youth'),
         playCaption([youth({ hidden: true })], 'youth'),
         playCaption([youth()], null),
       ],
-      expected: [
-        'Youth – Freestyle · 1526',
-        'Youth – Freestyle',
-        'Youth – Freestyle',
-        null,
-      ],
-    });
-  });
-});
-
-describe('leaderboardTagline', () => {
-  test('every ladder by name, the member’s own first', () => {
-    assert({
-      given: 'a youth member, an adult, and a visitor',
-      should: 'lead with their own ladder, Youth for a visitor',
-      actual: [
-        leaderboardTagline('youth'),
-        leaderboardTagline('open'),
-        leaderboardTagline(null),
-      ],
-      expected: [
-        'Youth – Freestyle and Open – Freestyle ladders.',
-        'Open – Freestyle and Youth – Freestyle ladders.',
-        'Youth – Freestyle and Open – Freestyle ladders.',
-      ],
+      expected: ['Freestyle · 1526', 'Freestyle', 'Freestyle', null],
     });
   });
 });

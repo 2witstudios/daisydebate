@@ -16,7 +16,7 @@ const freeAlways = [
   'Debate other people, casual and ranked',
   'AI judging on every ranked Round',
   'Tournaments, ballots and results',
-  'Spectate and watch public Recordings',
+  'Watch live and public Recordings',
   'One bot Round with its AI judge, and one analysis, to try them',
 ];
 

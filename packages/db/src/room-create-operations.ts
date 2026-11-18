@@ -56,7 +56,7 @@ export const roomCreateOperations = ({
   async createRoomCommand(input: {
     readonly room: Omit<NewRoom, 'division'> & { readonly hostActorId: string };
     /**
-     * The lobby the creator chose (ADR 0155); null is their own. Decided
+     * The lobby the creator chose (ADR 0156); null is their own. Decided
      * under the creator's account lock by `roomLobbyAtCreation`.
      */
     readonly lobbyChoice: RatingDivision | null;
@@ -138,7 +138,7 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
-        // A Room belongs to the lobby it is created in (ADR 0155).
+        // A Room belongs to the lobby it is created in (ADR 0156).
         const lobby = roomLobbyAtCreation(
           await readRoomCreator(tx, input.caller.userId),
           input.lobbyChoice,

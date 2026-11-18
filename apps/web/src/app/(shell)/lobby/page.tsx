@@ -29,7 +29,7 @@ export default async function LobbyPage({
   // Only the rows' actions and the landing lobby read it; the Room's own seat
   // check decides.
   const viewerDivision = await requestMemberDivision().catch(() => null);
-  // A member lands in their own lobby unless the URL names one (ADR 0155).
+  // A member lands in their own lobby unless the URL names one (ADR 0156).
   const query = {
     ...parsed.data,
     division: parsed.data.division ?? lobbyOf({ division: viewerDivision }),
