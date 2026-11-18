@@ -26,6 +26,7 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
   const log: string[] = [];
   const store = {
     discoverUnopened: async () => [],
+    endYouthBroadcasts: async () => [] as string[],
     open: async (input: {
       roundId: string;
       feedKey: string;
@@ -71,6 +72,27 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
 };
 
 describe('createBroadcastSweep', () => {
+  test('a Youth Round opens no Broadcast, and one opened earlier is stopped (ADR 0149)', async () => {
+    const { deps, log } = world({
+      endYouthBroadcasts: async () => ['b-youth'],
+      discoverUnopened: async () => [
+        {
+          roundId: 'youth',
+          competitionType: 'ranked',
+          capture: null,
+          ladderDivision: 'youth',
+        },
+      ],
+    });
+    await createBroadcastSweep(deps)();
+    assert({
+      given: 'an open Youth Broadcast and a running Youth Round with none',
+      should: 'report the stop and open nothing',
+      actual: log,
+      expected: ['report broadcast.youth_round_stopped'],
+    });
+  });
+
   test('opens a Broadcast for a ranked Round at the fixed ranked policy', async () => {
     const { deps, log } = world({
       discoverUnopened: async () => [

@@ -787,6 +787,25 @@ export const endRoundFeed = async (
 };
 
 /**
+ * A Youth Round is never broadcast (ADR 0149). A Broadcast one opened before
+ * that rule shipped is stopped and its video held back, as an operator's stop
+ * would; a complete one's feed is asked to go at once. Ids it stopped.
+ */
+export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
+  const at = now.toISOString();
+  const youth = sql`round_id in (select id from rounds where ladder_division = 'youth')`;
+  const stopped = (await tx.execute(sql`update broadcasts
+    set stopped_at=${at}::timestamptz, stop_reason='youth_round_private', media_withheld=true
+    where ${youth} and stopped_at is null and completed_at is null
+    returning id`)) as unknown as readonly { readonly id: string }[];
+  await tx.execute(sql`update broadcasts
+    set feed_withdrawal_requested_at=${at}::timestamptz, media_withheld=true
+    where ${youth} and completed_at is not null
+      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
+  return stopped.map((row) => row.id);
+};
+
+/**
  * An operator stops a Broadcast (WATCH-7): its feed ends and its video is held back
  * from the audience, even if something else had already ended the feed.
  */

@@ -67,6 +67,7 @@ export const createBroadcastSweep = (deps: {
     event:
       | Parameters<ReconcilePorts['report']>[0]
       | 'broadcast.reconcile_failed'
+      | 'broadcast.youth_round_stopped'
       | 'broadcast.release_delayed'
       | 'broadcast.egress.settled_absent',
   ) => void;
@@ -230,6 +231,11 @@ export const createBroadcastSweep = (deps: {
   };
   const pass = createSweepPass(deps.passBudget);
   const sweep = async () => {
+    // A Youth Round is never broadcast (ADR 0149), including one opened before that rule.
+    const youthStopped = await deps.store.endYouthBroadcasts(
+      new Date(deps.now()),
+    );
+    if (youthStopped.length > 0) deps.report('broadcast.youth_round_stopped');
     for (const round of await deps.store.discoverUnopened(BATCH)) {
       const plan = plannedBroadcast(round);
       if (plan)
