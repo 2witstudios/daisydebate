@@ -283,7 +283,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.reports',
             'retention.moderation',
           ],
-          failuresByTarget: Array.from({ length: 38 }, () => 1),
+          failuresByTarget: Array.from({ length: 40 }, () => 1),
           lastSuccessDuringOutage: null,
           recoveredAfterOutage: true,
         },
