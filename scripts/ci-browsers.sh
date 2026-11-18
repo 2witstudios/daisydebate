@@ -47,8 +47,10 @@ until sudo timeout -k 10 "$attempt_seconds" \
   echo "Retrying browser OS dependencies on archive.ubuntu.com (attempt $attempt)" >&2
   sudo dpkg --configure -a
   # ubuntu-24.04 runners resolve the archive through mirror+file, which only
-  # fails over on errors, never on a slow mirror.
-  sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#' \
+  # fails over on errors, never on a slow mirror. The list leads with a
+  # regional host (azure., then us-east-2.ec2. from 2026-11); any of them
+  # becomes the primary archive.
+  sudo sed -E -i 's#://[A-Za-z0-9.-]+\.archive\.ubuntu\.com/#://archive.ubuntu.com/#g' \
     /etc/apt/apt-mirrors.txt
 done
 
