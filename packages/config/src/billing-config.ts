@@ -13,6 +13,14 @@ export type BillingConfig =
       readonly portalConfigurationId: string;
       /** Club seats (ADR 0148): off until both of its ids are configured. */
       readonly club: ClubBillingConfig | null;
+      /**
+       * The one-time host event prices (ADR 0149); null where they are not
+       * configured, which leaves event upgrades unavailable and Premium as is.
+       */
+      readonly hostEventPrices: {
+        readonly event_64: string;
+        readonly event_unlimited: string;
+      } | null;
     };
 export type ClubBillingConfig = {
   /** USD 10 per seat a month, lookup key daisy_club_seat_monthly_usd_10. */
@@ -50,8 +58,21 @@ export const clubBillingFields = {
     .optional(),
 };
 
+/** Host event prices are their own optional group too (ADR 0149). */
+export const hostEventPriceFields = {
+  STRIPE_HOST_EVENT_64_PRICE_ID: z
+    .string()
+    .regex(/^price_[A-Za-z0-9]+$/)
+    .optional(),
+  STRIPE_HOST_EVENT_UNLIMITED_PRICE_ID: z
+    .string()
+    .regex(/^price_[A-Za-z0-9]+$/)
+    .optional(),
+};
+
 type BillingFields = z.output<z.ZodObject<typeof billingFields>> &
-  z.output<z.ZodObject<typeof clubBillingFields>>;
+  z.output<z.ZodObject<typeof clubBillingFields>> &
+  z.output<z.ZodObject<typeof hostEventPriceFields>>;
 
 /** An incomplete group cannot silently disable management of existing billing. */
 export function refineBillingConfig(
@@ -70,17 +91,24 @@ export function refineBillingConfig(
           message: 'Required for billing',
         });
     }
-  const clubSet = club.filter((field) => config[field] !== undefined);
-  if (clubSet.length === 0) return;
-  for (const field of club)
-    if (absent || config[field] === undefined)
-      ctx.addIssue({
-        code: 'custom',
-        path: [field],
-        message: absent
-          ? 'Club billing needs the Stripe billing group'
-          : 'Required for Club billing',
-      });
+  // Each optional group is all or nothing, and needs the billing group.
+  const optional = (group: readonly (keyof BillingFields)[], name: string) => {
+    if (group.every((field) => config[field] === undefined)) return;
+    for (const field of group)
+      if (absent || config[field] === undefined)
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: absent
+            ? `${name} billing needs the Stripe billing group`
+            : `Required for ${name} billing`,
+        });
+  };
+  optional(club, 'Club');
+  optional(
+    Object.keys(hostEventPriceFields) as (keyof BillingFields)[],
+    'Host event',
+  );
 }
 
 export function withBillingConfig<Config extends BillingFields>({
@@ -90,6 +118,8 @@ export function withBillingConfig<Config extends BillingFields>({
   STRIPE_PORTAL_CONFIGURATION_ID: portalConfigurationId,
   STRIPE_CLUB_SEAT_PRICE_ID: seatPriceId,
   STRIPE_CLUB_PORTAL_CONFIGURATION_ID: clubPortalConfigurationId,
+  STRIPE_HOST_EVENT_64_PRICE_ID: hostEvent64,
+  STRIPE_HOST_EVENT_UNLIMITED_PRICE_ID: hostEventUnlimited,
   ...config
 }: Config) {
   const billing: BillingConfig =
@@ -113,6 +143,10 @@ export function withBillingConfig<Config extends BillingFields>({
                   seatPriceId,
                   portalConfigurationId: clubPortalConfigurationId,
                 }
+              : null,
+          hostEventPrices:
+            hostEvent64 !== undefined && hostEventUnlimited !== undefined
+              ? { event_64: hostEvent64, event_unlimited: hostEventUnlimited }
               : null,
         }
       : { kind: 'disabled' };

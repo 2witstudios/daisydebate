@@ -1,3 +1,5 @@
+import { seedHostingGrant } from './tab-hosting-grant.test-support';
+import { seedPaidHosting } from './hosting-purchase.test-support';
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -19,6 +21,11 @@ export const committedEventRoom = async (
     readonly noPrep?: boolean;
     readonly recording?: 'off' | 'on';
     readonly tournamentOwner?: 'personal' | 'organization';
+    /**
+     * What lets a recorded tournament record (ADR 0149): a paid hosting
+     * purchase, or a hosting grant naming it (for suites about grant funding).
+     */
+    readonly hosting?: 'paid' | 'granted';
   } = {},
 ) => {
   const bots = await createBots(owner, [
@@ -49,6 +56,17 @@ export const committedEventRoom = async (
       async () => {
         copied.value = await copyForeignBallot(world, mode);
         const lobbyId = state.made.get('tournament-lobby')!;
+        if (options.recording === 'on' && options.hosting === 'granted')
+          await seedHostingGrant(frame.sql, state.bots.Director!.userId, {
+            tournamentIds: [lobbyId],
+            replaceCurrent: true,
+          });
+        else if (options.recording === 'on')
+          await seedPaidHosting(
+            frame.sql,
+            lobbyId,
+            state.bots.Director!.userId,
+          );
         const [lobby] =
           await frame.sql`select settings_version from lobbies where id=${lobbyId}`;
         const answer = await settingCommand({

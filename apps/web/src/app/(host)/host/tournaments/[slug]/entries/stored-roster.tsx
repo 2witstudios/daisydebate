@@ -17,7 +17,14 @@ import {
 
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 import { hostRosterPath } from '../../../../../../features/tab/host-roster-route';
-import { requireTabRelease } from '../../../../../../features/tab/release';
+import {
+  hostTiersReleased,
+  requireTabRelease,
+} from '../../../../../../features/tab/release';
+import { hostingAccountViewSchema } from '@daisy/protocol/lobby/hosting-read';
+import { hostingAccountPath } from '../../../../../../features/hosting-purchases/routes';
+import { EntryLimitNotice } from '../../../../../../ui/hosting/hosting-panels';
+import { GET as hostingGET } from '../../../../../api/tab/hosting/route';
 import { hostRoutes } from '../../../../../../features/tab/routes';
 import { HostEntries } from '../../../../../../ui/tab/host-entries/host-entries';
 import { HostJudges } from '../../../../../../ui/tab/host-entries/host-judges';
@@ -85,9 +92,24 @@ export async function StoredRoster({
   const policy = obligation
     ? settingValueSchemas['entry.judge_obligation'].parse(obligation.value)
     : null;
+  const hosting = (await hostTiersReleased())
+    ? await readOwnRoute(
+        hostingGET,
+        hostingAccountPath(handle),
+        hostingAccountViewSchema,
+      )
+    : null;
   return (
     <HostEntries
       rail={rail}
+      notice={
+        hosting ? (
+          <EntryLimitNotice
+            account={hosting}
+            upgradeHref={hostRoutes.upgrade(handle)}
+          />
+        ) : null
+      }
       entries={{
         ...entries,
         actions: [],

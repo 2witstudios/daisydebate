@@ -29,6 +29,7 @@ const person = (
   enteredInEvent: false,
   enteredInSharedSlot: false,
   boundary: null,
+  bandOnFirstDay: 'adult',
   ...overrides,
 });
 const ada = person('ada');
@@ -70,6 +71,7 @@ const facts = (overrides: Partial<EntryFacts> = {}): EntryFacts => ({
     approval: 'host',
     entryCap: null,
     entryCount: 3,
+    ageDivision: 'open',
     registration: { opensAt: null, closesAt: '2026-11-20T00:00:00.000Z' },
     started: false,
   },
@@ -81,6 +83,7 @@ const facts = (overrides: Partial<EntryFacts> = {}): EntryFacts => ({
     found: true,
   },
   entry: entry(),
+  hosting: { tier: 'free', acceptedEntries: 3 },
   ...overrides,
 });
 
@@ -388,6 +391,170 @@ describe('a minor outside the guardian allowed lobbies (TAB-5.23)', () => {
         ),
       ),
       expected: 'guardian-pending',
+    });
+  });
+});
+
+describe('the event division (PYL-16)', () => {
+  const youth = (overrides: Partial<EntryFacts> = {}) =>
+    facts({ event: { ...facts().event, ageDivision: 'youth' }, ...overrides });
+  test('an entrant outside the division is refused at registration, with the reason', () => {
+    const adult = person('ada', { bandOnFirstDay: 'adult' });
+    const sixteen = person('ada', { bandOnFirstDay: '16-17' });
+    assert({
+      given:
+        'a Youth event with an entrant who is 18 on its first day, and an Open event with one who is 16',
+      should: 'refuse them as over the Youth age and under the Open age',
+      actual: [
+        refusalOf(decideEntry(youth({ people: [adult, ben] }), submit())),
+        refusalOf(decideEntry(facts({ people: [sixteen, ben] }), submit())),
+      ],
+      expected: ['over-youth-age', 'under-open-age'],
+    });
+    assert({
+      given: 'a Youth event with entrants who are 16 and 17 on its first day',
+      should: 'accept the submission',
+      actual: refusalOf(
+        decideEntry(
+          youth({
+            people: [
+              person('ada', { bandOnFirstDay: '16-17', minor: true }),
+              person('ben', { bandOnFirstDay: '16-17', minor: true }),
+            ],
+          }),
+          submit(),
+        ),
+      ),
+      expected: 'accepted',
+    });
+  });
+  test('a replacement member is held to the division too', () => {
+    assert({
+      given:
+        'a Youth event whose entry swaps in someone who is 18 on its first day',
+      should: 'refuse the replacement as over the Youth age',
+      actual: refusalOf(
+        decideEntry(
+          youth({
+            people: [person('cat', { bandOnFirstDay: 'adult' })],
+            entry: entry({ status: 'accepted' }),
+          }),
+          {
+            type: 'replace-entry-member',
+            entryId,
+            outActorId: ada.actorId,
+            inActorId: person('cat').actorId,
+          },
+        ),
+      ),
+      expected: 'over-youth-age',
+    });
+  });
+});
+
+describe('the hosting tier entry cap (PYL-14)', () => {
+  const statusOf = (decision: EntryDecision) => {
+    const write = insertedEntry(decision);
+    return write?.op === 'insert' && write.table === 'entries'
+      ? write.row.status
+      : refusalOf(decision);
+  };
+  const automatic = (
+    tier: 'free' | 'event_64' | 'event_unlimited',
+    acceptedEntries: number,
+  ) =>
+    facts({
+      event: { ...facts().event, approval: 'automatic' },
+      hosting: { tier, acceptedEntries },
+    });
+  test('a submission past the cap waits for the host', () => {
+    assert({
+      given:
+        'automatic approval on a free tournament with 15 and then 16 accepted entries',
+      should: 'accept the 16th and hold the 17th as pending',
+      actual: [
+        statusOf(decideEntry(automatic('free', 15), submit())),
+        statusOf(decideEntry(automatic('free', 16), submit())),
+      ],
+      expected: ['accepted', 'pending'],
+    });
+    assert({
+      given: 'a USD 99 tournament with 63 and then 64 accepted entries',
+      should: 'accept the 64th and hold the 65th as pending',
+      actual: [
+        statusOf(decideEntry(automatic('event_64', 63), submit())),
+        statusOf(decideEntry(automatic('event_64', 64), submit())),
+      ],
+      expected: ['accepted', 'pending'],
+    });
+    assert({
+      given: 'the host entering a 17th on a free tournament',
+      should: 'hold it as pending too',
+      actual: statusOf(
+        decideEntry(
+          facts({
+            sender: { userId: coach, host: true },
+            hosting: { tier: 'free', acceptedEntries: 16 },
+          }),
+          submit(),
+        ),
+      ),
+      expected: 'pending',
+    });
+    assert({
+      given: 'an unlimited tournament with 500 accepted entries',
+      should: 'accept another at once',
+      actual: statusOf(
+        decideEntry(automatic('event_unlimited', 500), submit()),
+      ),
+      expected: 'accepted',
+    });
+  });
+  test('accepting past the cap needs an upgrade', () => {
+    const accept = { type: 'accept-entry', entryId } as const;
+    assert({
+      given: 'a free tournament at 15 and then at 16 accepted entries',
+      should: 'accept the 16th and refuse the 17th',
+      actual: [
+        refusalOf(
+          decideEntry(
+            facts({ hosting: { tier: 'free', acceptedEntries: 15 } }),
+            accept,
+          ),
+        ),
+        refusalOf(
+          decideEntry(
+            facts({ hosting: { tier: 'free', acceptedEntries: 16 } }),
+            accept,
+          ),
+        ),
+      ],
+      expected: ['accepted', 'hosting-upgrade-required'],
+    });
+    assert({
+      given: 'a USD 99 tournament at 64 accepted entries',
+      should: 'refuse the 65th',
+      actual: refusalOf(
+        decideEntry(
+          facts({ hosting: { tier: 'event_64', acceptedEntries: 64 } }),
+          accept,
+        ),
+      ),
+      expected: 'hosting-upgrade-required',
+    });
+    assert({
+      given: 'a league tournament, which has no hosting tier',
+      should: 'accept with no cap',
+      actual: refusalOf(
+        decideEntry(
+          facts({
+            hosting: null,
+            event: { ...facts().event, entryCount: 900 },
+          }),
+          accept,
+        ),
+      ),
+      expected: 'accepted',
     });
   });
 });

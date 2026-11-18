@@ -137,6 +137,7 @@ export const settingRefusals = [
   'entries-exist',
   'already-following',
   'not-following',
+  'hosting-upgrade-required',
 ] as const;
 export type SettingRefusal = (typeof settingRefusals)[number];
 
@@ -182,6 +183,8 @@ const setting = (refusals: readonly SettingRefusal[]): Definition =>
 
 export const settingCommandCatalogue = {
   'set-setting': setting([
+    'hosting-upgrade-required',
+    'entries-exist',
     'setting-enforced',
     'enforced-conflict',
     'format-forbids',
@@ -191,6 +194,7 @@ export const settingCommandCatalogue = {
   ]),
   'clear-setting': setting([
     'setting-absent',
+    'entries-exist',
     'sanction-holds',
     'division-in-use',
     'breaks-share-slot',

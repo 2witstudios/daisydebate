@@ -42,14 +42,14 @@ export const flagCatalogue = [
     dependencies: [],
   },
   {
-    // Host a tournament on /pricing; S8 opens it with the host home at /host.
+    // The host home at /host, event upgrades and Host a tournament on /pricing (ADR 0149).
     key: 'host-tiers',
     kind: 'release',
     owner: 'Daisy Tab (@2witstudios)',
     taskCode: 'PYL-14',
     expiresOn: '2027-03-31',
     safeDefault: false,
-    dependencies: [],
+    dependencies: ['daisy-tab'],
   },
   {
     // Club seats (ADR 0148): Start a Club on /pricing opens /clubs/new, then

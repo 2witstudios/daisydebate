@@ -1,5 +1,6 @@
 import { lockTabCommandAccounts } from './command-accounts';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
+import { entries } from '../schema/entries';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import type {
   ActionHistoryEntry,
@@ -18,6 +19,7 @@ import {
 } from './command-record';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 import { applySettingWrites, type SettingWrite } from './setting-writes';
+import { loadTournamentHostingFacts } from './tournament-hosting-facts';
 
 export type SettingCommandInput = {
   readonly senderUserId: string;
@@ -74,13 +76,13 @@ const load = async (tx: TabTransaction, input: SettingCommandInput) => {
   const graph = await loadSettingGraph(tx, {
     subjectUserId: input.senderUserId,
   });
-  const named = target(graph, input.command);
+  const located = target(graph, input.command);
   const scope: TenantScope = {
     subjectUserId: input.senderUserId,
     organizationId: graph.organizations.find(
-      (row) => row.id === named.organizationId,
+      (row) => row.id === located.organizationId,
     )?.id,
-    lobbyId: named.lobby?.id,
+    lobbyId: located.lobby?.id,
   };
   await scopeTransaction(tx, scope);
   const authorization = await loadAuthorityContext(
@@ -88,30 +90,49 @@ const load = async (tx: TabTransaction, input: SettingCommandInput) => {
     scope,
     input.senderUserId,
   );
-  if (named.lobby)
+  if (located.lobby)
     await tx
       .select({ id: lobbies.id })
       .from(lobbies)
-      .where(eq(lobbies.id, named.lobby.id))
+      .where(eq(lobbies.id, located.lobby.id))
       .for('update');
-  if (named.event)
+  if (located.event)
     await tx
       .select({ id: events.id })
       .from(events)
-      .where(eq(events.id, named.event.id))
+      .where(eq(events.id, located.event.id))
       .for('update');
-  const [owner] = named.lobby?.ownerUserId
+  const [owner] = located.lobby?.ownerUserId
     ? await tx
         .select({ id: actors.id })
         .from(actors)
-        .where(eq(actors.userId, named.lobby.ownerUserId))
+        .where(eq(actors.userId, located.lobby.ownerUserId))
     : [];
   // Root locks can have waited behind administration. The graph is read again
   // after acquiring them, so versions and names are never from before the wait.
   const current = await loadSettingGraph(tx, scope);
+  const named = target(current, input.command);
   return {
     graph: current,
-    named: target(current, input.command),
+    named,
+    hosting:
+      named.lobby?.kind === 'tournament'
+        ? await loadTournamentHostingFacts(tx, named.lobby.id)
+        : null,
+    tournamentEntries:
+      named.lobby?.kind === 'tournament'
+        ? ((
+            await tx
+              .select({ count: sql<number>`count(*)::int` })
+              .from(entries)
+              .where(
+                and(
+                  eq(entries.lobbyId, named.lobby.id),
+                  ne(entries.status, 'withdrawn'),
+                ),
+              )
+          )[0]?.count ?? 0)
+        : 0,
     authorization,
     scope,
     ownerActorId: owner?.id ?? null,

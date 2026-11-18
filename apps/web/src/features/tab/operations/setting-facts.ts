@@ -10,6 +10,7 @@ import {
 import type { SettingFacts, TemplateRow } from '../commands/settings';
 import { formatSettingDefaults } from './format-setting-defaults';
 import { reachedSettingChains, settingEventFact } from './setting-chains';
+import { tournamentHostingTier } from '../hosting-tier';
 
 type StoredSetting = SettingGraph['settings'][number];
 export const settingRow = (row: StoredSetting): SettingRow => {
@@ -148,6 +149,12 @@ export const settingFacts = (
       : named.template?.organizationId;
   return {
     ...input,
+    hostingTier:
+      loaded.hosting !== null &&
+      (scope?.kind === 'lobby' || scope?.kind === 'event')
+        ? tournamentHostingTier(loaded.hosting, input.now)
+        : null,
+    tournamentEntries: loaded.tournamentEntries,
     rows: graph.settings.map(settingRow),
     scope: scope === null ? null : scopeFact(loaded, scope),
     reached: reachedSettingChains(graph, scope),

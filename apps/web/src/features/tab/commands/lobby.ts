@@ -74,8 +74,6 @@ export type LobbyFacts = {
   /** An id minted at the edge for the row a creation command makes. */
   readonly newId: string;
   readonly actorUserId: string | null;
-  /** Whether the new lobby's owner's plan allows a lobby of its kind. */
-  readonly planAllows: boolean;
   readonly handleTaken: boolean;
   /** The organization the command names, if it exists. */
   readonly organization: {
@@ -239,7 +237,6 @@ const createLobby = (
       return refuse('not-found');
     if (facts.organization.kind !== 'league') return refuse('owner-not-league');
   }
-  if (!facts.planAllows) return refuse('plan-required');
   if (facts.handleTaken) return refuse('handle-taken');
   const lobbyId = facts.newId;
   const lobby: LobbyWrite = {

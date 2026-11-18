@@ -1,4 +1,5 @@
 import { namedTournamentPeople } from './tournament-people';
+import { loadTournamentHostingFacts } from './tournament-hosting-facts';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import { actors } from '../schema/actors';
@@ -243,6 +244,7 @@ export const loadDrawContext = async (
     publicationResolution: input.withPublicationResolution
       ? await loadDrawResolutionPool(tx, configuration, round)
       : null,
+    hosting: await loadTournamentHostingFacts(tx, input.lobbyId, 'read'),
     stage: stage ?? null,
     slot: slot ?? null,
     accounts,

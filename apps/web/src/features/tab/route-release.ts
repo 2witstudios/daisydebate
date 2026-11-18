@@ -10,3 +10,9 @@ export const tabMinorsReleasedFor =
   (app: App) =>
   (userId: string): Promise<boolean> =>
     routeReleaseFor(app)('daisy-tab-minors', userId);
+/** Host tiers ride on Tab: both must be released (ADR 0149). */
+export const hostTiersReleasedFor =
+  (app: App) =>
+  async (userId: string): Promise<boolean> =>
+    (await tabReleasedFor(app)(userId)) &&
+    routeReleaseFor(app)('host-tiers', userId);
