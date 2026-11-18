@@ -158,21 +158,20 @@ describe('Dashboard ladder words', () => {
         leaderboardTagline: 'Youth – Freestyle and Open – Freestyle ladders.',
       }),
     );
-    const play =
-      /<a[^>]*href="\/lobby"[^>]*>[\s\S]*?<\/a>/.exec(html)?.[0] ?? '';
+    const play = (
+      /<a[^>]*href="\/lobby"[^>]*>[\s\S]*?<\/a>/.exec(html)?.[0] ?? ''
+    ).replace(/<[^>]*>/g, '');
     const playTile = tiles.find((tile) => tile.destination === 'lobby');
     assert({
       given: 'a youth member on Home',
       should:
-        'show Play with only its title and tagline, no ladder or rating, and name both ladders on Leaderboard instead of its own tagline',
+        'show Play with only its title and tagline (no ladder, no rating), and name both ladders on Leaderboard instead of its own tagline',
       actual: [
-        play.includes(`>${playTile?.description}<`),
-        play.match(/<p[\s>]/g)?.length,
-        play.includes('Youth'),
+        play,
         html.includes('Youth – Freestyle and Open – Freestyle ladders.'),
         html.includes('The season ladder.'),
       ],
-      expected: [true, 1, false, true, false],
+      expected: [`${playTile?.title}${playTile?.description}`, true, false],
     });
   });
 });

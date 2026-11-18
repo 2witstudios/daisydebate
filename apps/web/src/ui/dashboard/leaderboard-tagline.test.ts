@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { leaderboardTagline } from './home-ladder';
+import { leaderboardTagline } from './leaderboard-tagline';
 
 setupRitewayBun();
 

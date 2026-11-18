@@ -12,7 +12,7 @@ import {
   requestMemberDivision,
   requestSeasonGlance,
 } from '../../lib/request-session';
-import { leaderboardTagline } from '../../ui/dashboard/home-ladder';
+import { leaderboardTagline } from '../../ui/dashboard/leaderboard-tagline';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 import { requestPricingOpen } from './pricing/releases';
