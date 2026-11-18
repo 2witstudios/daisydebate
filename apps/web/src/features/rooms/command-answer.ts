@@ -9,6 +9,7 @@ import {
   type FormState,
   type FormValues,
   type Moved,
+  type Refused,
   type Unacknowledged,
 } from '../forms/form-state';
 import { aiJudgePremiumText } from './ai-judge-copy';
@@ -28,7 +29,18 @@ export type RoomAccepted = {
  * them unchanged under their command identifier, an edit form keeps what
  * was typed for a new save on the latest room.
  */
-export type RoomFormState = FormState | RoomAccepted | Unacknowledged;
+export type RoomFormState =
+  FormState | RoomRefused | RoomAccepted | Unacknowledged;
+
+/** A refused room command, with the Room's closed refusal word when it gave one. */
+export type RoomRefused = Refused & { readonly reason: RoomRefusal | null };
+
+/** The Room refused the caller with this closed word. */
+export const refusedFor = (
+  answer: RoomFormState,
+  reason: RoomRefusal,
+): boolean =>
+  answer.kind === 'refused' && 'reason' in answer && answer.reason === reason;
 
 export const roomAccepted = (view: RoomView): RoomAccepted => ({
   kind: 'accepted',
@@ -161,7 +173,10 @@ const unaccepted = (result: Unaccepted, form: FormData): RoomFormState => {
   const notice = noticeOf(result);
   return notice.kind === 'unacknowledged'
     ? unacknowledged(form)
-    : refused(form, commandRefusalText(notice.reason));
+    : {
+        ...refused(form, commandRefusalText(notice.reason)),
+        reason: notice.reason,
+      };
 };
 
 /**

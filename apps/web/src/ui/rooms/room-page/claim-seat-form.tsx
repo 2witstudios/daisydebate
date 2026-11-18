@@ -2,6 +2,7 @@
 
 import type { SeatRef } from '@daisy/protocol';
 import {
+  refusedFor,
   roomFormFields,
   type RoomFormState,
 } from '../../../features/rooms/command-answer';
@@ -40,11 +41,8 @@ export function ClaimSeatForm({
   /** This seat's ladder words for the viewer; null when it is theirs. */
   readonly otherLadder: OtherLadderSeat | null;
 }) {
-  // A claim of a seat known to be on the viewer's other ladder is refused
-  // on that ground before any other (the engine's seat admission runs first),
-  // so its refusal reads as the ladder, never matched by its words.
   const onOtherLadder = (answer: RoomFormState) =>
-    otherLadder !== null && answer.kind === 'refused';
+    otherLadder !== null && refusedFor(answer, 'ranked-division');
   const fields = (answer: RoomFormState): FormFields =>
     onOtherLadder(answer)
       ? { ...roomFormFields(answer), error: undefined }

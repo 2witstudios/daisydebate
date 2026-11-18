@@ -86,10 +86,10 @@ const pressed = async (
 };
 
 test('a debater seat on the viewer’s other ladder says whose seat it is', async () => {
-  const onOtherLadder = refused(
-    new FormData(),
-    commandRefusalText('ranked-division'),
-  );
+  const onOtherLadder = {
+    ...refused(new FormData(), commandRefusalText('ranked-division')),
+    reason: 'ranked-division' as const,
+  };
   assert({
     given:
       'an adult whose claim of a Youth Room’s debater seat is refused for its ladder',
@@ -119,7 +119,10 @@ test('any other refusal reads as every room command’s', async () => {
   assert({
     given: 'a seat someone else just took, on a Room on the other ladder',
     should: 'say the seat went, and keep Take seat',
-    actual: await pressed(refused(new FormData(), taken), youthRoom),
+    actual: await pressed(
+      { ...refused(new FormData(), taken), reason: 'seat-unavailable' },
+      youthRoom,
+    ),
     expected: { disabled: false, status: null, alert: taken },
   });
 });
