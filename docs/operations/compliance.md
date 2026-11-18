@@ -138,6 +138,18 @@ vendor error messages. The proposed lawful basis is performance of the paid
 service contract. These records are private and included in the subject's
 account export; internal claim identifiers and discovery cursors are excluded.
 
+Hosted event payments (ADR 0147) are their own record,
+`tournament_hosting_purchases`: the tournament, the paying account, the tier,
+the amount, the mode and Stripe's Checkout Session and PaymentIntent ids and
+receipt link. Daisy sends Stripe only the purchase and tournament ids and the
+configured price; Stripe collects the payer's card and contact details and
+Daisy stores none of them. The lawful basis is performance of the one-time
+hosting contract. The record is private to the tournament's managers and is
+kept with the tournament as its financial record; the paying account's
+reference is not removed by closure (the row restricts deletion of that
+account row, which closure keeps). Inclusion in the payer's account export is
+tracked as an Issue.
+
 Subscription facts last for the account's life. Local closure removes them
 and all grants in the same canonical account transaction. Only the minimal
 customer/unfinished-purchase references needed to cancel, resolve an in-flight
