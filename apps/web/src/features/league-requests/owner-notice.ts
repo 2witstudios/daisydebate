@@ -1,11 +1,7 @@
 import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
-import {
-  MAIL_LEASE_MS,
-  MAIL_MAX_ATTEMPTS,
-  MAIL_QUEUE_BATCH,
-  retryOrFail,
-} from '../mail/retry-policy';
+import { retryOrFail } from '../mail/retry-policy';
+import { runMailQueue } from '../mail/run-queue';
 import { renderLeagueRequestEmail } from './owner-email';
 
 type Store = Pick<
@@ -20,10 +16,12 @@ type Outcome = Parameters<Store['settleLeagueRequestNotice']>[0]['outcome'];
 /**
  * Tells the owner about each League request that is due (PYL-17). Each claim
  * reads the request fresh, renders it, sends it to the owner's address under
- * the request's own idempotency key and settles the outcome. A request gone
- * before its turn (retention) is cancelled; a failed send backs off until it
- * fails for good. The send happens outside any transaction; a crash before
- * settling only delays it, and the same key keeps a resend single.
+ * the request's id and revision as the idempotency key, and settles the
+ * outcome. A request gone before its turn (retention) is cancelled; a failed
+ * send backs off, and the send that fails for good is reported, so a lost
+ * lead never goes unnoticed. The send happens outside any transaction; a
+ * crash before settling only delays it, and the same key keeps a resend
+ * single.
  */
 export function createLeagueRequestNotices(input: {
   readonly store: Store;
@@ -31,7 +29,7 @@ export function createLeagueRequestNotices(input: {
   readonly ownerAddress: string;
   readonly nextToken: () => string;
   readonly now: () => string;
-  /** A notice that could not be decided: logged by code, raw only to the reporter. */
+  /** A notice that could not be decided or sent for good: logged by code, raw only to the reporter. */
   readonly failed: (error: unknown) => void;
 }) {
   const retry = (claim: Claim): Outcome =>
@@ -44,42 +42,31 @@ export function createLeagueRequestNotices(input: {
       const sent = await input.deliver({
         ...renderLeagueRequestEmail(notice.request),
         to: input.ownerAddress,
-        idempotencyKey: claim.id,
+        // The revision read is the one rendered, so each version sends once.
+        idempotencyKey: `${claim.id}-${notice.request.revision}`,
       });
       return sent === 'sent'
         ? { kind: 'sent' }
         : { kind: 'cancelled', errorCode: 'suppressed' };
-    } catch {
-      return retry(claim);
+    } catch (error) {
+      const outcome = retry(claim);
+      if (outcome.kind === 'failed') input.failed(error);
+      return outcome;
     }
   };
   return {
     /** Sends up to `limit` due notices one after another; resolves to how many it settled. */
-    async run(limit: number): Promise<number> {
-      const claims = await input.store.claimLeagueRequestNotices({
-        limit: Math.min(limit, MAIL_QUEUE_BATCH),
-        leaseMs: MAIL_LEASE_MS,
-        maxAttempts: MAIL_MAX_ATTEMPTS,
+    run: (limit: number): Promise<number> =>
+      runMailQueue({
+        limit,
         nextToken: input.nextToken,
-      });
-      let settled = 0;
-      for (const claim of claims) {
-        // One notice whose read fails counts as a failed attempt; it never
-        // aborts the rest of the batch.
-        const outcome = await decide(claim).catch((error: unknown) => {
+        claim: input.store.claimLeagueRequestNotices,
+        decide,
+        undecided: (claim, error) => {
           input.failed(error);
           return retry(claim);
-        });
-        if (
-          await input.store.settleLeagueRequestNotice({
-            id: claim.id,
-            token: claim.token,
-            outcome,
-          })
-        )
-          settled += 1;
-      }
-      return settled;
-    },
+        },
+        settle: input.store.settleLeagueRequestNotice,
+      }),
   };
 }

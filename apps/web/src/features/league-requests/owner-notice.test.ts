@@ -19,6 +19,7 @@ const request: Extract<LeagueRequestNotice, { kind: 'request' }>['request'] = {
   contactEmail: 'dana@gulfcoastspeech.org',
   contactPhone: '',
   receivedAt: '2026-11-18T09:00:00.000Z',
+  revision: 1,
 };
 
 const scripted = (input: {
@@ -85,7 +86,7 @@ test('a League request notice', async () => {
       expected: {
         count: 1,
         to: 'owner@daisy.example',
-        key: request.id,
+        key: `${request.id}-1`,
         subject: 'League request: Gulf Coast Speech League',
         labels: true,
         phoneLine: false,
@@ -143,18 +144,70 @@ test('a League request notice', async () => {
   }
 
   {
-    const { settled, notices } = scripted({
+    const { sent, notices } = scripted({
+      notice: {
+        kind: 'request',
+        request: {
+          ...request,
+          revision: 2,
+          needs: 'Standings.\n\nSanctioning.',
+        },
+      },
+    });
+    await notices.run(10);
+    assert({
+      given: 'a request a resend changed, with notes over several lines',
+      should:
+        'send it marked updated under its new revision, a paragraph a line',
+      actual: {
+        subject: sent[0]?.subject,
+        key: sent[0]?.idempotencyKey,
+        paragraphs: (
+          sent[0]?.html.match(
+            /<p[^>]*>(What they need:|Standings\.|Sanctioning\.)<\/p>/g,
+          ) ?? []
+        ).length,
+      },
+      expected: {
+        subject: 'League request (updated): Gulf Coast Speech League',
+        key: `${request.id}-2`,
+        paragraphs: 3,
+      },
+    });
+  }
+
+  {
+    const { failures, notices } = scripted({
+      deliver: async () => {
+        throw new Error('provider down');
+      },
+    });
+    await notices.run(10);
+    assert({
+      given: 'a send that fails with attempts left',
+      should: 'report nothing yet',
+      actual: failures.length,
+      expected: 0,
+    });
+  }
+
+  {
+    const gaveUp = new Error('still down');
+    const { settled, failures, notices } = scripted({
       attempts: MAIL_MAX_ATTEMPTS,
       deliver: async () => {
-        throw new Error('still down');
+        throw gaveUp;
       },
     });
     await notices.run(10);
     assert({
       given: 'a send that fails on its last attempt',
-      should: 'fail for good',
-      actual: settled,
-      expected: [{ kind: 'failed', errorCode: 'delivery' }],
+      should: 'fail for good and report it, so the lost lead is seen',
+      actual: { settled, failures },
+      expected: {
+        settled: [{ kind: 'failed', errorCode: 'delivery' }],
+        failures: [gaveUp],
+      },
     });
   }
 

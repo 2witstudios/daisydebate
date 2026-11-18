@@ -13,6 +13,20 @@ type StoredRequest = Extract<
 >['request'];
 
 /**
+ * "What you need" as the person wrote it: each line its own paragraph, so a
+ * list or several paragraphs arrive as written in the HTML part too.
+ */
+const needsParagraphs = (needs: string): readonly string[] => {
+  const lines = needs
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  return lines.length === 0
+    ? ['No notes given.']
+    : ['What they need:', ...lines];
+};
+
+/**
  * The owner's email for one League request (PYL-17): everything the form
  * asked, so the owner can reply without opening anything else. Its one link
  * starts a reply to the contact.
@@ -30,13 +44,13 @@ export function renderLeagueRequestEmail(request: StoredRequest) {
     `Received: ${request.receivedAt}`,
   ];
   return renderEmailLayout({
-    subject: `League request: ${request.leagueName}`,
+    subject: `League request${request.revision > 1 ? ' (updated)' : ''}: ${request.leagueName}`,
     preheader: `${request.contactName} wants to run ${request.leagueName} on Daisy.`,
     eyebrow: 'League request',
     headline: request.leagueName,
     paragraphs: [
       ...lines,
-      request.needs ? `What they need: ${request.needs}` : 'No notes given.',
+      ...needsParagraphs(request.needs),
       'They were told you reply within two working days.',
     ],
     linkLabel: `Reply to ${request.contactName}`,

@@ -27,10 +27,14 @@ export const leagueRequestClientRules: readonly RateRule[] = [
   { windowSeconds: 3_600, max: 5 },
   { windowSeconds: 86_400, max: 10 },
 ];
-/** Every client together: caps what rotating addresses can put in the owner's inbox. */
+/**
+ * Every client together: caps what rotating addresses can put in the
+ * owner's inbox, set high enough above any real day of leagues that a few
+ * abusive clients cannot close the form to everyone else.
+ */
 export const leagueRequestEveryoneRule: RateRule = {
   windowSeconds: 86_400,
-  max: 100,
+  max: 500,
 };
 
 /** Big enough for every field at its limit, with JSON escaping. */
@@ -41,15 +45,18 @@ const MAX_BODY_BYTES = 32_768;
  * in or not. Same origin only, open only while `league-requests` is (the
  * Next route module supplies `released`, so the flag stays out of the
  * proxy's route table), and limited per client and for everyone before
- * anything is stored. A request id already stored answers the same, so a
- * resend is safe.
+ * anything is stored. A resend of a request already stored unchanged
+ * answers the same without spending any allowance, so a resend is safe.
  */
 export const createLeagueRequestHandlers = (deps: {
   readonly logger: Logger;
   readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly limiter: () => RateLimiter;
-  readonly store: Pick<Database, 'recordLeagueRequest'>;
+  readonly store: Pick<
+    Database,
+    'leagueRequestUnchanged' | 'recordLeagueRequest'
+  >;
 }) => ({
   POST: (released: () => Promise<boolean>) => (request: Request) =>
     handleOperation(
@@ -63,6 +70,8 @@ export const createLeagueRequestHandlers = (deps: {
           leagueRequestSchema,
           await readJson(request, MAX_BODY_BYTES),
         );
+        if (await deps.store.leagueRequestUnchanged(body))
+          return Response.json({ received: true });
         const client = request.headers.get(CLIENT_IP_HEADER) ?? 'unresolved';
         await consumeWindowsOrThrow(
           deps.limiter(),

@@ -84,7 +84,10 @@ export const leagueRequestSchema = z.strictObject({
     .max(leagueRequestLimits.contactEmail)
     .pipe(z.email()),
   /** Empty when the contact gave none. */
-  contactPhone: z.union([z.literal(''), phoneSchema]),
+  contactPhone: z
+    .string()
+    .trim()
+    .pipe(z.union([z.literal(''), phoneSchema])),
 });
 export type LeagueRequest = z.infer<typeof leagueRequestSchema>;
 

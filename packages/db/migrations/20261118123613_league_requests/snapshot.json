@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "e799d503-3f57-458d-b6e4-9b136fa27390",
+  "id": "fe699e6a-3cde-4f60-a848-b332a588dbdc",
   "prevIds": [
     "243bde54-28cf-4a8d-9dce-3b0f5aaec056"
   ],
@@ -9309,6 +9309,19 @@
       "generated": null,
       "identity": null,
       "name": "contact_phone",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "revision",
       "entityType": "columns",
       "schema": "public",
       "table": "league_requests"
@@ -48537,6 +48550,13 @@
     {
       "value": "char_length(\"league_name\") between 1 and 120\n        and char_length(\"needs\") <= 4000\n        and char_length(\"contact_name\") between 1 and 120\n        and char_length(\"contact_role\") between 1 and 120\n        and char_length(\"contact_email\") between 3 and 320\n        and (\"contact_phone\" is null or char_length(\"contact_phone\") between 1 and 32)",
       "name": "league_requests_text_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "league_requests"
+    },
+    {
+      "value": "\"revision\" >= 1",
+      "name": "league_requests_revision_check",
       "entityType": "checks",
       "schema": "public",
       "table": "league_requests"

@@ -32,7 +32,7 @@ import {
   type RequestFormState,
 } from '../../features/league-requests/request-form';
 
-export const CONFIRMATION_HEADING_ID = 'league-request-sent';
+const CONFIRMATION_HEADING_ID = 'league-request-sent';
 const NOTICE_ID = 'league-request-notice';
 const fieldId = (name: RequestField) => `league-request-${name}`;
 const errorId = (name: RequestField) => `league-request-${name}-error`;

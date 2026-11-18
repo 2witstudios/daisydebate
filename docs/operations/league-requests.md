@@ -13,8 +13,10 @@ from League's "Talk to us" on `/pricing`. Both sit behind the
 release default (decision 77); production keeps it closed until the owner
 opens it.
 
-- The request is stored in `league_requests` (one row per request id, so a
-  resend after a lost answer is stored once) and emailed to
+- The request is stored in `league_requests` (one row per request id: a
+  resend after a lost answer is stored once and spends no allowance; a
+  resend with a field changed, such as a corrected email, updates the row
+  and sends the owner a "League request (updated)" email) and emailed to
   `LEAGUE_REQUEST_NOTIFY_EMAIL`, or, when that is not set, to the beta
   owner address `BETA_NOTIFY_EMAIL` (point guard, 2026-11-18: no new secret
   needed), through the shared mail path (purpose
@@ -29,11 +31,12 @@ opens it.
   stored, and their email waits queued; setting a secret (which restarts
   the app) sends the backlog.
 - A send that fails retries with backoff for about two hours and then
-  fails for good (`state = 'failed'`); a suppressed owner address ends
+  fails for good (`state = 'failed'`), which is logged as
+  `league_request.mail.failed` and reported; a suppressed owner address ends
   `cancelled` with `suppressed`. The request itself is kept either way.
 - Spam: a hidden trap field answers the ordinary confirmation and stores
   nothing; each client address may send 5 an hour and 10 a day, and Daisy
-  takes 100 a day in all (Redis limiter, fails closed). The client address
+  takes 500 a day in all (Redis limiter, fails closed). The client address
   is hashed into the limiter key and never logged.
 
 To read requests whose email did not go, use a read-only session through

@@ -46,6 +46,13 @@ test('leagueRequestOf', () => {
   });
 
   assert({
+    given: 'a phone of only spaces',
+    should: 'read as no phone',
+    actual: leagueRequestOf({ ...filled, contactPhone: '   ' }),
+    expected: leagueRequestOf(filled),
+  });
+
+  assert({
     given: 'a phone number with punctuation',
     should: 'accept it',
     actual: leagueRequestOf({ ...filled, contactPhone: '+1 (251) 555-0143' })

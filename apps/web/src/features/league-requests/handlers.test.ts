@@ -43,6 +43,7 @@ const post = (payload: unknown, headers: Record<string, string> = {}) =>
 
 const routeWith = (input: {
   readonly released?: boolean;
+  readonly unchanged?: boolean;
   readonly consume?: (
     key: string,
     rule: RateRule,
@@ -61,6 +62,7 @@ const routeWith = (input: {
       },
     }),
     store: {
+      leagueRequestUnchanged: async () => input.unchanged ?? false,
       recordLeagueRequest: async (request) => {
         stored.push(request);
       },
@@ -97,6 +99,27 @@ test('POST /api/league-requests', async () => {
           })),
           { key: 'league-request:everyone', rule: leagueRequestEveryoneRule },
         ],
+      },
+    });
+  }
+
+  {
+    const { route, stored, consumed } = routeWith({ unchanged: true });
+    const response = await route.POST(post(body));
+    assert({
+      given: 'a resend of a request already stored unchanged',
+      should: 'answer received without spending allowance or writing',
+      actual: {
+        status: response.status,
+        answer: await response.json(),
+        stored,
+        consumed,
+      },
+      expected: {
+        status: 200,
+        answer: { received: true },
+        stored: [],
+        consumed: [],
       },
     });
   }

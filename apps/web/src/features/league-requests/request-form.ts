@@ -141,10 +141,7 @@ export const requestReceived = (): RequestReceived => ({ kind: 'received' });
 
 /** Too many requests from this network: the typed values stay for later. */
 export const requestRateLimited = (values: RequestValues): RequestRefused =>
-  refusedWith(
-    values,
-    'Too many requests from your network. Try again in an hour, or email us.',
-  );
+  refusedWith(values, 'Too many requests right now. Try again later.');
 
 /** The server could not take the request; it was not received. */
 export const requestUnavailable = (values: RequestValues): RequestRefused =>

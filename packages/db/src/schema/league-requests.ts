@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import {
   leagueRequestDivisions,
   leagueRequestLimits,
@@ -21,10 +21,11 @@ export const leagueRequestNoticeErrorCodes = [
  * up with them, signed in or not. The row is the request and its one owner
  * notice: the mail job columns carry that email's delivery, which the web
  * mail worker sends to the configured owner address, reading the request
- * fresh at send time. It holds the contact's personal data and is deleted
+ * fresh at send time. A resend that changes a field updates the row and
+ * queues its email again under the next `revision`. It holds the contact's personal data and is deleted
  * 365 days after it was made (compliance: league requests). `id` is chosen
- * when the form is shown, so a request sent twice is stored once, and it is
- * the notice's provider idempotency key.
+ * when the form is shown, so a request sent twice is stored once; with the
+ * revision it is the notice's provider idempotency key.
  */
 export const leagueRequests = pgTable(
   'league_requests',
@@ -40,6 +41,8 @@ export const leagueRequests = pgTable(
     contactRole: text('contact_role').notNull(),
     contactEmail: text('contact_email').notNull(),
     contactPhone: text('contact_phone'),
+    /** 1 when made; one more each time a resend changes it. */
+    revision: integer('revision').notNull().default(1),
     ...mailJobColumns(),
   },
   (table) => [
@@ -68,6 +71,7 @@ export const leagueRequests = pgTable(
         and char_length(${table.contactEmail}) between 3 and ${sql.raw(String(leagueRequestLimits.contactEmail))}
         and (${table.contactPhone} is null or char_length(${table.contactPhone}) between 1 and ${sql.raw(String(leagueRequestLimits.contactPhone))})`,
     ),
+    check('league_requests_revision_check', sql`${table.revision} >= 1`),
     ...mailJobChecks('league_requests', table, leagueRequestNoticeErrorCodes),
     index('league_requests_due_idx').on(table.state, table.nextAttemptAt),
     index('league_requests_created_idx').on(table.createdAt),

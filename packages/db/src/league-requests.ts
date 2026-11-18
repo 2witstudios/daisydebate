@@ -23,7 +23,11 @@ import {
 
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
-/** A league request's owner notice is never sent twice by a lapsed lease. */
+/**
+ * A lapsed lease is not marked `delivery-unknown`: the next claim sends the
+ * notice again, and only the provider idempotency key (the request id and
+ * its revision) keeps that resend from reaching the owner twice.
+ */
 const noticeQueue = mailQueue(leagueRequests, {
   unknownAfterLapse: sql`false`,
 });
@@ -43,6 +47,8 @@ export type LeagueRequestNotice =
         readonly id: string;
         /** UTC ISO instant the request was made. */
         readonly receivedAt: string;
+        /** 1 for the request as first sent; higher once a resend changed it. */
+        readonly revision: number;
       };
     }
   /** The request was deleted (retention) before its notice went. */
@@ -70,7 +76,18 @@ const requestRow = z.object({
   contact_email: z.string(),
   contact_phone: z.string().nullable(),
   received_at: z.string(),
+  revision: z.coerce.number().int().positive(),
 });
+
+/** How a request's own fields compare, as one row value, phone empty for none. */
+const storedFields = sql`(league_name, schools, seasons, style, divisions, needs,
+  contact_name, contact_role, contact_email, coalesce(contact_phone, ''))`;
+const fieldsOf = (
+  request: LeagueRequest,
+) => sql`(${request.leagueName}, ${request.schools},
+  ${request.seasons}, ${request.style}, ${request.divisions}, ${request.needs},
+  ${request.contactName}, ${request.contactRole}, ${request.contactEmail},
+  ${request.contactPhone})`;
 
 /**
  * League requests (PYL-17): stored once per request id, then told to the
@@ -86,13 +103,29 @@ export function leagueRequestOperations({
 }) {
   return {
     /**
-     * Stores a validated request with its notice queued now. A request id
-     * already stored is left as it is, so sending the form again after a
-     * lost answer stores and tells the owner once.
+     * Whether this exact request is already stored: a resend after a lost
+     * answer, which needs no new allowance and changes nothing.
+     */
+    leagueRequestUnchanged: (request: LeagueRequest): Promise<boolean> =>
+      instrumented(eventSink, 'leagueRequestUnchanged', async () => {
+        const rows = await rowsOf(
+          database,
+          sql`select 1 from league_requests where id = ${request.requestId}
+            and ${storedFields} = ${fieldsOf(request)}`,
+        );
+        return rows.length === 1;
+      }),
+    /**
+     * Stores a validated request with its email queued now. Sent again
+     * under the same id unchanged, it is left as it is; sent with a field
+     * changed (a corrected address after a lost answer), it takes the new
+     * values and its email is queued again under the next revision, even
+     * if the first went or is going now: the owner always has the latest.
+     * A worker holding the old revision cannot settle it once requeued.
      */
     recordLeagueRequest: (request: LeagueRequest): Promise<void> =>
       instrumented(eventSink, 'recordLeagueRequest', async () => {
-        await database.execute(sql`insert into league_requests (
+        await database.execute(sql`insert into league_requests as stored (
             id, league_name, schools, seasons, style, divisions, needs,
             contact_name, contact_role, contact_email, contact_phone, next_attempt_at
           ) values (
@@ -101,7 +134,20 @@ export function leagueRequestOperations({
             ${request.needs}, ${request.contactName}, ${request.contactRole},
             ${request.contactEmail}, ${request.contactPhone === '' ? null : request.contactPhone},
             clock_timestamp()
-          ) on conflict (id) do nothing`);
+          ) on conflict (id) do update set
+            league_name = excluded.league_name, schools = excluded.schools,
+            seasons = excluded.seasons, style = excluded.style,
+            divisions = excluded.divisions, needs = excluded.needs,
+            contact_name = excluded.contact_name, contact_role = excluded.contact_role,
+            contact_email = excluded.contact_email, contact_phone = excluded.contact_phone,
+            revision = stored.revision + 1,
+            state = 'queued', attempts = 0, last_error_code = null,
+            lease_token_digest = null, lease_expires_at = null, completed_at = null,
+            next_attempt_at = clock_timestamp()
+          where (stored.league_name, stored.schools, stored.seasons, stored.style,
+              stored.divisions, stored.needs, stored.contact_name, stored.contact_role,
+              stored.contact_email, coalesce(stored.contact_phone, ''))
+            is distinct from ${fieldsOf(request)}`);
       }),
     claimLeagueRequestNotices: (
       input: MailJobClaimInput,
@@ -116,7 +162,7 @@ export function leagueRequestOperations({
         const [row] = await rowsOf<unknown>(
           database,
           sql`select id, league_name, schools, seasons, style, divisions, needs,
-              contact_name, contact_role, contact_email, contact_phone,
+              contact_name, contact_role, contact_email, contact_phone, revision,
               to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at
             from league_requests where id = ${id}`,
         );
@@ -137,6 +183,7 @@ export function leagueRequestOperations({
             contactEmail: stored.contact_email,
             contactPhone: stored.contact_phone ?? '',
             receivedAt: stored.received_at,
+            revision: stored.revision,
           },
         };
       }),

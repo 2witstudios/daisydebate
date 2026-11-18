@@ -105,8 +105,8 @@ test('a League request is stored once and reaches the owner', async () => {
   });
 
   const settled = await notices().run(10);
-  const mail = t.mailbox.mails.filter(
-    (sent) => sent.idempotencyKey === request.requestId,
+  const mail = t.mailbox.mails.filter((sent) =>
+    sent.idempotencyKey.startsWith(`${request.requestId}-`),
   );
 
   assert({
@@ -124,7 +124,8 @@ test('a League request is stored once and reaches the owner', async () => {
         'Contact: Dana Whitfield, League director',
         'Email: dana@example.test',
         'Phone: +1 251 555 0143',
-        'What they need: Sanctioning and season standings.',
+        'What they need:',
+        'Sanctioning and season standings.',
       ].every((line) => mail[0]?.text.includes(line)),
     },
     expected: {
@@ -142,11 +143,60 @@ test('a League request is stored once and reaches the owner', async () => {
     actual: [
       (await rowsOf([request.requestId]))[0]?.state,
       await notices().run(10),
-      t.mailbox.mails.filter(
-        (sent) => sent.idempotencyKey === request.requestId,
+      t.mailbox.mails.filter((sent) =>
+        sent.idempotencyKey.startsWith(`${request.requestId}-`),
       ).length,
     ],
     expected: ['sent', 0, 1],
+  });
+});
+
+test('a resend changes the request only when a field changed', async () => {
+  const client = t.newClient();
+  const send = (request: LeagueRequest) =>
+    openRoute.POST(
+      t.jsonPost('/api/league-requests', request, {
+        [CLIENT_IP_HEADER]: client,
+      }),
+    );
+  const request = requestFor();
+  await send(request);
+  await notices().run(10);
+  // Five unchanged resends spend nothing: the client's hourly five stay unused.
+  const unchanged: number[] = [];
+  for (let resend = 0; resend < 5; resend += 1)
+    unchanged.push((await send(request)).status);
+  const corrected = { ...request, contactEmail: 'dana.w@example.test' };
+  const edited = await send(corrected);
+  const requeued = (await rowsOf([request.requestId]))[0]?.state;
+  await notices().run(10);
+  const mails = t.mailbox.mails.filter((sent) =>
+    sent.idempotencyKey.startsWith(`${request.requestId}-`),
+  );
+
+  assert({
+    given:
+      'a sent request resent unchanged five times, then with a corrected email',
+    should:
+      'take every resend without spending allowance, and send the owner the correction',
+    actual: {
+      unchanged,
+      edited: edited.status,
+      requeued,
+      keys: mails.map((sent) => sent.idempotencyKey),
+      subject: mails[1]?.subject,
+      corrected: mails[1]?.text.includes('Email: dana.w@example.test'),
+      state: (await rowsOf([request.requestId]))[0]?.state,
+    },
+    expected: {
+      unchanged: [200, 200, 200, 200, 200],
+      edited: 200,
+      requeued: 'queued',
+      keys: [`${request.requestId}-1`, `${request.requestId}-2`],
+      subject: `League request (updated): ${request.leagueName}`,
+      corrected: true,
+      state: 'sent',
+    },
   });
 });
 
