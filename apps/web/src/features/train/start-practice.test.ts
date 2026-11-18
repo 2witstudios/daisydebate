@@ -202,7 +202,6 @@ test('Start practice moves on only on the answer every Room form reads', async (
           phase: 'assembling',
           role: 'host',
           seated: true,
-          ladder: null,
           href: `/rooms/${'r'.repeat(24)}`,
         },
       }),

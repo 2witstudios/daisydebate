@@ -50,6 +50,7 @@ test('an event Room uses the shared assembly without a host person or fabricated
           room: {
             id: roomId,
             hostActorId: null,
+            division: 'open',
             title: 'Event fixture',
             topic: 'Resolved: the event topic.',
             visibility: 'unlisted',

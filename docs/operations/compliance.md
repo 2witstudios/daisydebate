@@ -405,21 +405,22 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
   the member's own age record and never more than 12 months back, so nobody
   stays on Youth for more than a year past turning 18. The birth month never
   leaves SQL. No new data class, purpose or retention exists:
-  ratings, seasons, Rounds and challenges carry the division, never an age.
-- **What a ladder discloses.** Pages name a member's ladder, never an age
-  or birth month. A ladder still discloses an age class: a Youth badge
-  (lobby rows, a Room's roster and status line, profile cards, the Youth
-  leaderboard) tells other members and spectators that a named member is
-  under 18, and Open that they are 18 or over. The people list carries each
-  listed member's division to signed-in members, so a challenge can say whether
-  ranked is possible ("Ranked needs you both on one ladder…", which names the
-  other member's ladder). A people card names a ladder only where the member is
-  rated on it. The basis is owner decision 79: play is split by this class, so
-  the class is what the ladder is. Nothing finer is shown. A member's own seat
-  refusal (`ranked-division`) names only the ladder.
+  ratings, seasons, Rooms, Rounds and challenges carry the division, never
+  an age.
+- **What a lobby discloses.** Pages never name an age or birth month. A
+  lobby still discloses an age class (ADR 0156): a member seated in a
+  Youth Room, or listed in the Youth lobby's Rooms, is under 18; Open, 18 or
+  over. Inside a lobby no Room, Round, result, challenge, rating, profile or
+  rail names a division, so nothing labels a named member's age class beyond
+  the lobby they play in; the leaderboard's Open | Youth switch and Watch,
+  Recordings and league pages still name a ladder. The people list carries each
+  listed member's division to signed-in members only to offer a challenge
+  inside one lobby (a member of the other lobby is offered none, and nothing
+  says why) and to show a rating only within one lobby. The basis is owner
+  decisions 79 and 85: play is split by this class. Nothing finer is shown.
 - **Who sits where.** An adult cannot take a Youth debater seat and a minor
-  cannot take an Open one. Anyone may judge. A Room whose debaters mix
-  divisions plays casual and rates no one.
+  cannot take an Open one, ranked or casual, and no host can seat them there.
+  Anyone may judge. A Youth Room's Round has no public live audience.
 - **Leagues and tournaments.** A league carries one division (PYL-16): its
   Rooms seat only members in it, so a Youth league seats only members under
   18 and an Open league only adults. Tournament entries already refuse every entrant

@@ -141,7 +141,6 @@ export function CreateAssemblyForm({
         initialRanked={initialRanked}
         memberDivision={memberDivision}
         staffLobby={staffLobby}
-      staffLobby={staffLobby}
       />
     </form>
   );

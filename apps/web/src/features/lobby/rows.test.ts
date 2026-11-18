@@ -40,7 +40,8 @@ const live = (over: Partial<RoomListEntry> = {}) =>
     ...over,
   });
 const room = `/rooms/${id('a')}`;
-const watch = (href = room) => ({ verb: 'Watch', href, primary: false });
+const watch = (href = room) =>
+  ({ verb: 'Watch', href, primary: false }) as const;
 
 describe('lobbyRow', () => {
   test('an assembling Room in the viewer’s own lobby', () => {
@@ -59,7 +60,7 @@ describe('lobbyRow', () => {
         facts: ['1 of 3 seats', 'Waiting 7 min'],
         state: 'open',
         status: 'Open',
-        actions: [watch(), { verb: 'Join', href: room, primary: true }],
+        actions: [watch(), { verb: 'Join', href: room, primary: true } as const],
       },
     });
   });

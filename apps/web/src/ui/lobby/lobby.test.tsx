@@ -32,8 +32,8 @@ const query = (
 ): LobbyProps['query'] => ({
   q: '',
   pageSize: 20,
-  division: 'open',
   ...over,
+  division: over.division ?? 'open',
 });
 const render = (props: Partial<LobbyProps> = {}) =>
   renderToStaticMarkup(

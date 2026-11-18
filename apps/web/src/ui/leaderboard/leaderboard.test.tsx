@@ -125,26 +125,21 @@ describe('Leaderboard', () => {
     });
   });
 
-  test('the chosen ladder is named above the table', () => {
+  test('no division is named above the table (YLeaderboard)', () => {
     const youth = render(field(40), {
       query: { division: 'youth' },
       ladder: { style: 'freestyle', division: 'youth' },
     });
-    const open = render(field(3));
     assert({
-      given: 'the Youth ladder asked for, and the Open one by default',
+      given: 'the Youth ladder asked for',
       should:
-        'name each ladder with who is on it and its count, inside the ladder card, and keep the Seasons link on the division',
+        'show no ladder badge or audience line, and keep the Seasons link on the division',
       actual: [
-        youth.includes(
-          'Youth – Freestyle</span> Members under 18 · 40 debaters',
-        ),
-        youth.indexOf('aria-label="Ladder"') <
-          youth.indexOf('Members under 18'),
+        youth.includes('Members under 18'),
+        youth.includes('Youth – Freestyle'),
         youth.includes('href="/leaderboard/seasons?division=youth&amp;season='),
-        open.includes('Open – Freestyle</span> Members 18 and over · '),
       ],
-      expected: [true, true, true, true],
+      expected: [false, false, true],
     });
   });
 

@@ -25,7 +25,7 @@ export type SeatRatingReads = {
 };
 
 /** Any Room view: the overlay reads and rewrites its participants alone. */
-type SeatedView = Pick<RoomView, 'participants'>;
+type SeatedView = Pick<RoomView, 'participants' | 'division'>;
 
 /** Daisy's one style (ADR 0142): every Room seat stands on Freestyle. */
 const seatStyle: RatingStyle = 'freestyle';

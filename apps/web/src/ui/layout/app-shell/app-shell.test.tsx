@@ -307,7 +307,6 @@ describe('AppShell', () => {
       title: 'Tuesday night',
       phase: 'assembling',
       href: roomHref,
-      ladder: null,
     });
     const main = inRoom.slice(inRoom.indexOf('<main'));
     assert({

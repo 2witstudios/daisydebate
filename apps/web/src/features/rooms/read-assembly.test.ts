@@ -118,7 +118,6 @@ test('the active room read shows only a canonical own Room', async () => {
     phase: 'assembling',
     role: 'host',
     seated: false,
-    ladder: null,
     href: `/rooms/${'m'.repeat(24)}`,
   };
   const calls: string[] = [];
