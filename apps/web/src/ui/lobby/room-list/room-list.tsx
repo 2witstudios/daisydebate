@@ -17,13 +17,19 @@ const tones: Readonly<Record<LobbyRow['state'], StatusTone>> = {
   live: 'live',
 };
 
+/** The id of a row's seat note, which its locked action points at. */
+const noteIdOf = (row: LobbyRow) => `lobby-seat-note-${row.id}`;
+
 /** The row's one action: a link to the Room's page, or who its seats are for. */
 function RowAction({
   action,
   title,
+  describedBy,
 }: {
   readonly action: LobbyAction;
   readonly title: string;
+  /** The id of the line that says who the row's seats are for, if any. */
+  readonly describedBy: string | undefined;
 }) {
   switch (action.kind) {
     case 'locked':
@@ -32,6 +38,7 @@ function RowAction({
           type="button"
           disabled
           aria-label={`Debater seats are ${action.label.toLowerCase()}: ${title}`}
+          aria-describedby={describedBy}
           className={`${buttonClass('secondary')} justify-self-end whitespace-nowrap`}
         >
           <Icon name="lock" size={18} />
@@ -72,13 +79,19 @@ function Row({ row }: { readonly row: LobbyRow }) {
           {[row.format, ...row.facts, row.topic].join(' · ')}
         </p>
         {row.note === null ? null : (
-          <p className="text-sm text-ink-muted">{row.note}</p>
+          <p id={noteIdOf(row)} className="text-sm text-ink-muted">
+            {row.note}
+          </p>
         )}
       </div>
       <span className="max-narrow:hidden">
         <StatusLine tone={tones[row.state]}>{row.status}</StatusLine>
       </span>
-      <RowAction action={row.action} title={row.title} />
+      <RowAction
+        action={row.action}
+        title={row.title}
+        describedBy={row.note === null ? undefined : noteIdOf(row)}
+      />
     </li>
   );
 }

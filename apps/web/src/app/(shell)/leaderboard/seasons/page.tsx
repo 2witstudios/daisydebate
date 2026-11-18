@@ -26,7 +26,11 @@ export default async function SeasonsRoute({
   const query = parseLadderQuery(params);
   const read = await requestLadder({
     seasonId: parseSeasonsQuery(params),
-    ladder: boardLadder(query.division, await requestMemberDivision()),
+    ladder: boardLadder(
+      query.division,
+      // A public page: a failed division read falls back to Open.
+      await requestMemberDivision().catch(() => null),
+    ),
     now,
   });
   const view =

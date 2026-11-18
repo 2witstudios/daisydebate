@@ -1,5 +1,9 @@
 import { roomListDefaultPageSize, type RoomListQuery } from '@daisy/protocol';
 import {
+  divisionAudiences,
+  divisionLabels,
+} from '../../../features/ratings/ladder-labels';
+import {
   filterCount,
   isFiltered,
   lobbyDivisionChoices,
@@ -46,14 +50,14 @@ const modeOptions = lobbyModeChoices.map(
 );
 
 /** Who debates on each division, as the filter names it (ADR 0147). */
-const divisionLabels: Readonly<Record<LobbyDivision, string>> = {
+const divisionChoiceLabels: Readonly<Record<LobbyDivision, string>> = {
   any: 'Any division',
-  youth: 'Youth (under 18)',
-  open: 'Open (18 and over)',
+  youth: `${divisionLabels.youth} (${divisionAudiences.youth.toLowerCase()})`,
+  open: `${divisionLabels.open} (${divisionAudiences.open})`,
 };
 
 const divisionOptions = lobbyDivisionChoices.map(
-  (division) => [division, divisionLabels[division]] as const,
+  (division) => [division, divisionChoiceLabels[division]] as const,
 );
 
 const sortLabels: Readonly<Record<LobbySort, string>> = {

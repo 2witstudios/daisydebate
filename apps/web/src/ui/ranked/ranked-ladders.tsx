@@ -5,6 +5,7 @@ import {
   ladderRoomsLine,
   lockedLadderLine,
   noLadderReason,
+  rankedRoomLadder,
 } from '../../features/play/ladder-division-words';
 import {
   divisionAudiences,
@@ -23,8 +24,7 @@ const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
 const heading = 'text-xs font-bold tracking-widest text-ink-muted uppercase';
 const ladderCard = 'flex flex-col gap-3 rounded-md p-4';
 
-const ladderOf = (division: RatingDivision) =>
-  ({ style: 'freestyle', division }) as const;
+const ladderOf = rankedRoomLadder;
 
 /**
  * What the Ranked page shows of each ladder (ADR 0147): the member's own,

@@ -1,5 +1,6 @@
 import { daisyLadders, type RatingDivision } from '@daisy/protocol';
 import { ladderLabel } from '../../features/ratings/ladder-labels';
+import { rankedRoomLadder } from '../../features/play/ladder-division-words';
 import type { MemberStanding } from '../../features/ratings/read-member';
 import { markedRating } from '../../features/ratings/provisional-mark';
 
@@ -29,7 +30,7 @@ export function playCaption(
 ): string | null {
   if (division === null) return null;
   const own = standings.find((s) => s.ladder.division === division);
-  const label = ladderLabel(own?.ladder ?? { style: 'freestyle', division });
+  const label = ladderLabel(own?.ladder ?? rankedRoomLadder(division));
   return own && own.current && own.rating !== null && !own.hidden
     ? `${label} · ${markedRating(own.rating, own.provisional)}`
     : label;

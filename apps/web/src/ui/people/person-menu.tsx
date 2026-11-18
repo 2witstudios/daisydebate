@@ -249,6 +249,7 @@ function ChallengeView({
     if (wasSent(answer)) onDone();
   });
   const { refusal } = challengeFields(answer);
+  const ladderLineId = `challenge-ladder-${username}`;
   return (
     <form action={post} className="flex flex-col gap-2">
       <input type="hidden" name="username" value={username} />
@@ -261,6 +262,11 @@ function ChallengeView({
             type="button"
             aria-pressed={mode === value}
             disabled={value === 'ranked' && !offersRanked(ranked)}
+            aria-describedby={
+              value === 'ranked' && !offersRanked(ranked)
+                ? ladderLineId
+                : undefined
+            }
             onClick={() => setMode(value)}
             className={chip}
           >
@@ -269,7 +275,7 @@ function ChallengeView({
         ))}
       </div>
       {mode === 'ranked' || !offersRanked(ranked) ? (
-        <p className="text-sm text-ink-muted">
+        <p id={ladderLineId} className="text-sm text-ink-muted">
           {rankedChallengeLine(ranked, username)}
         </p>
       ) : null}

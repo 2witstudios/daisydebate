@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import type { SeatRef } from '@daisy/protocol';
 import {
   refusedFor,
@@ -41,6 +42,7 @@ export function ClaimSeatForm({
   /** This seat's ladder words for the viewer; null when it is theirs. */
   readonly otherLadder: OtherLadderSeat | null;
 }) {
+  const reasonId = useId();
   const onOtherLadder = (answer: RoomFormState) =>
     otherLadder !== null && refusedFor(answer, 'ranked-division');
   const fields = (answer: RoomFormState): FormFields =>
@@ -64,12 +66,14 @@ export function ClaimSeatForm({
               type="submit"
               aria-label={name}
               disabled={onOtherLadder(answer)}
+              aria-describedby={onOtherLadder(answer) ? reasonId : undefined}
               className={`${className} ml-auto`}
             >
               Take seat
             </button>
             {otherLadder !== null && onOtherLadder(answer) ? (
               <div
+                id={reasonId}
                 role="status"
                 data-ladder-refusal=""
                 className="flex basis-full items-start gap-3 rounded-lg bg-hue-plum-soft px-4 py-3 text-sm"

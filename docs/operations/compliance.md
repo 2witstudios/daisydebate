@@ -384,9 +384,14 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
   stays on Youth for more than a year past turning 18. The birth month never
   leaves SQL. No new data class, purpose or retention exists:
   ratings, seasons, Rounds and challenges carry the division, never an age.
-- **Pages name only a ladder.** A host sees each debater's ladder, never an
-  age, and a member's own seat refusal (`ranked-division`) names only the
-  ladder.
+- **What a ladder discloses.** Pages name a member's ladder, never an age
+  or birth month. A ladder still discloses an age class: a Youth badge
+  (lobby rows, a Room's roster and status line, profile cards, the Youth
+  leaderboard) tells other members and spectators that a named member is
+  under 18, and Open that they are 18 or over. The basis is owner decision 79:
+  play is split by this class, so the class is what the ladder is. Nothing
+  finer is shown. A member's own seat refusal (`ranked-division`) names only
+  the ladder.
 - **Who sits where.** An adult cannot take a Youth debater seat and a minor
   cannot take an Open one. Anyone may judge. A Room whose debaters mix
   divisions plays casual and rates no one.

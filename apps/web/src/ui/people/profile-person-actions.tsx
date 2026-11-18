@@ -85,6 +85,7 @@ export function ProfilePersonActions({
             <span className="sr-only">Mode</span>
             <select
               name="mode"
+              aria-describedby={`profile-challenge-ladder-${username}`}
               defaultValue={offersRanked(ranked) ? 'ranked' : 'casual'}
               className={controlClass}
             >
@@ -99,7 +100,10 @@ export function ProfilePersonActions({
               ))}
             </select>
           </label>
-          <p className="w-full text-sm text-ink-muted">
+          <p
+            id={`profile-challenge-ladder-${username}`}
+            className="w-full text-sm text-ink-muted"
+          >
             {rankedChallengeLine(ranked, username)}
           </p>
           <input type="hidden" name="format" value="freestyle" />

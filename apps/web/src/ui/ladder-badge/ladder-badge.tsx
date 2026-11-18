@@ -20,10 +20,6 @@ const tones: Readonly<Record<SeatedDivision, BadgeTone>> = {
   mixed: 'gold',
 };
 
-/** A division's tone, for a badge that says something else on its ladder. */
-export const divisionTone = (division: RatingDivision): BadgeTone =>
-  tones[division];
-
 /** A ladder's name in its division's colour: "Youth – Freestyle". */
 export function LadderBadge({ ladder }: { readonly ladder: Ladder }) {
   return <Badge tone={tones[ladder.division]}>{ladderLabel(ladder)}</Badge>;

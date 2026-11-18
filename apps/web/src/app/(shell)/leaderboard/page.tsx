@@ -23,7 +23,11 @@ export default async function LeaderboardPage({
   const now = systemClock.now();
   const read = await requestLadder({
     seasonId: query.season,
-    ladder: boardLadder(query.division, await requestMemberDivision()),
+    ladder: boardLadder(
+      query.division,
+      // A public page: a failed division read falls back to Open.
+      await requestMemberDivision().catch(() => null),
+    ),
     now,
   });
   if (!read)

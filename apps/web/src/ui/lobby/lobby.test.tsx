@@ -352,7 +352,7 @@ describe('Lobby', () => {
       given:
         'a youth member over a Youth, an Open, an Open-with-judge-seat, an unset and a mixed ranked Room',
       should:
-        'chip each ladder, Join the Youth Room, lock the Open seat, offer Judge, and say who sets an unset ladder',
+        'chip each ladder, Join the Youth Room, lock the Open seat with its reason described, offer Judge, and say who sets an unset ladder',
       actual: [
         html.includes('text-hue-plum">Youth – Freestyle</span>'),
         html.includes('text-accent">Open – Freestyle</span>'),
@@ -363,6 +363,8 @@ describe('Lobby', () => {
           html,
         ),
         html.includes('Debater seats: 18 and over.'),
+        html.includes(`aria-describedby="lobby-seat-note-${id('b')}"`) &&
+          html.includes(`id="lobby-seat-note-${id('b')}"`),
         new RegExp(
           `href="/rooms/${id('c')}"[^>]*aria-label="Judge: Judge wanted"[^>]*>Judge</a>`,
         ).test(html),
@@ -371,7 +373,19 @@ describe('Lobby', () => {
           'The first debater to sit sets the ladder: Youth or Open.',
         ),
       ],
-      expected: [true, true, true, true, true, true, true, true, true, true],
+      expected: [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+      ],
     });
   });
 
