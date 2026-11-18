@@ -50,7 +50,16 @@ export async function createMessagingRecoveryControl(app: App, port: number) {
   const selectors = z
     .object({ channelId: idSchema, actorId: idSchema, userId: idSchema })
     .strict();
-  const owner = createMessagingPressureControl(pressure);
+  const expired = (error: unknown) =>
+    capacityRefusalFields(error)?.cause === 'social.expired';
+  // Only a setup whose every failure is the lane's own wait expiring retries.
+  const owner = createMessagingPressureControl(
+    pressure,
+    (error) =>
+      error instanceof AggregateError &&
+      error.errors.length > 0 &&
+      error.errors.every(expired),
+  );
   const prepare = (request: IncomingMessage, next: 'history' | 'entry') =>
     owner.prepare(next, async () => {
       let body = '';
