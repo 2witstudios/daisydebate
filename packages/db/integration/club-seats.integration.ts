@@ -597,3 +597,57 @@ test('a lapsed seat invitation is purged 30 days after it lapses, with its unsen
     });
   });
 });
+
+test('erasing an account gives up its seat and the invitations addressed to it', async () => {
+  await withPaidClub(
+    3,
+    async ({
+      fixture,
+      owner,
+      organizationId,
+      customerId,
+      paid,
+      sync,
+      seatStore,
+    }) => {
+      await apply(sync, customerId, paid, 3);
+      const holder = await person(fixture, organizationId);
+      await seatStore.command(owner, organizationId, {
+        kind: 'assign',
+        userId: holder.userId,
+      });
+      await seatStore.command(owner, organizationId, {
+        kind: 'invite',
+        email: holder.email,
+      });
+      const { clubSeatPrivacyAdopter } =
+        await import('../src/club-seat-privacy');
+      const { drizzle } = await import('drizzle-orm/bun-sql/postgres');
+      const database = drizzle({ client: fixture.sql });
+      const exported = await database.transaction((tx) =>
+        clubSeatPrivacyAdopter.export(tx, holder),
+      );
+      await database.transaction((tx) =>
+        clubSeatPrivacyAdopter.erase(tx, holder, {
+          now: new Date().toISOString(),
+        }),
+      );
+      assert({
+        given:
+          'a seat holder with an invitation to their address, exported then erased',
+        should: 'export both, then leave neither',
+        actual: [
+          exported.club_seats?.length,
+          exported.club_seat_invitations?.length,
+          (
+            await fixture.sql`select count(*)::int as n from club_seats where user_id=${holder.userId}`
+          )[0]!.n,
+          (
+            await fixture.sql`select count(*)::int as n from club_seat_invitations where email=${holder.email}`
+          )[0]!.n,
+        ],
+        expected: [1, 1, 0, 0],
+      });
+    },
+  );
+});

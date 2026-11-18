@@ -125,15 +125,3 @@ export async function writeClubSeatGrants(
     );
   }
 }
-
-/** A former holder loses the club's grants at once (seat removed or moved). */
-export async function revokeClubSeatGrants(
-  tx: BoundedTransactionContext,
-  organizationId: string,
-  userId: string,
-) {
-  await tx.execute(sql`delete from account_entitlement_grants
-    where user_id=${userId} and source='organization_seat'
-    and organization_id=${organizationId}`);
-  await tx.execute(sql`update users set version=version+1 where id=${userId}`);
-}
