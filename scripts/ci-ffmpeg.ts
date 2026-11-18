@@ -355,9 +355,10 @@ async function prepareFfmpeg(
   cache: Cache | undefined,
 ) {
   const offline = cache ? await restoreFromCache(runner, cache) : false;
-  // The workflow saves the stage only beside an image file (staged=true). A
-  // restored stage this run will not reuse goes now, so a failed or skipped
-  // refresh leaves nothing to save under this image's exact key.
+  // The workflow saves the stage only when its image file names this image
+  // (staged=true). A restored stage this run will not reuse goes now; even if
+  // that drop fails, another image's stage never names this one, so it is not
+  // saved under this image's exact key.
   if (cache && !offline)
     await optional(
       runner,
