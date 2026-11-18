@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { normalizeEmail } from './email';
+import { ageBandAdmitted } from './age-floor';
 
 export const preapprovalAction = 'beta.preapproval.update';
 export const preapprovalEmailSchema = z
@@ -83,4 +84,4 @@ export const canClaimPreapproval = (input: {
   !input.erased &&
   !input.restricted &&
   input.state === 'pending' &&
-  (input.ageBand === 'adult' || input.ageBand === '16-17');
+  ageBandAdmitted(input.ageBand);

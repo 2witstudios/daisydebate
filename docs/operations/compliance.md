@@ -392,7 +392,9 @@ DEC-244's beta floor of 16; one trusted configuration value,
 themselves up: there is no parental sign-up step. The age step stores only a
 birth month. Members aged 13 to 15 are held to every under-18 rule exactly as
 16 and 17 are: the Youth ladder division, private Youth Recordings, media
-releases before anything is published, and the Youth Room chat rules. Whether
+releases before anything is published, and the Youth Room chat rules. A beta
+preapproval is claimed and invited at the same floor (`@daisy/protocol/age-floor`
+owns the floor and its bands for auth, the database and shared rules). Whether
 state social-media laws require parental consent for some 13 to 15 year olds
 is a counsel question (YLS-9); the build does not wait on it. An under-13
 answer is refused neutrally: nothing is stored and the provisional account is

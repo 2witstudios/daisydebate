@@ -19,11 +19,9 @@ const provisional: Identity = {
 
 const handlerWith = ({
   identity = provisional,
-  floor = 13 as const,
   forgets = 'deleted' as const,
 }: {
   identity?: Identity;
-  floor?: 13;
   forgets?: 'deleted' | 'refused';
 } = {}) => {
   const recorded: unknown[] = [];
@@ -35,7 +33,6 @@ const handlerWith = ({
     identify: async () => identity,
     limiter: () => ({ consume: allowEvery }),
     clock: { now: () => NOW },
-    floor,
     termsVersion: 'draft-0',
     record: async (input) => {
       recorded.push(input);

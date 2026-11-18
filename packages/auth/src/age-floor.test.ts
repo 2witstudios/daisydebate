@@ -55,13 +55,3 @@ test('the birth-month boundary turns at UTC midnight on the 1st', () => {
     ],
   });
 });
-
-test('the floor comes from the injected trusted value', () => {
-  const now = at('2026-11-18T12:00:00.000Z');
-  assert({
-    given: 'the floor passed explicitly and left to its default',
-    should: 'decide the same',
-    actual: memberFloorDecision('2013-11', now, ACCOUNT_AGE_FLOOR),
-    expected: memberFloorDecision('2013-11', now),
-  });
-});

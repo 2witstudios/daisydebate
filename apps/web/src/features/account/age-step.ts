@@ -3,11 +3,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
-import {
-  memberFloorDecision,
-  type AgeFloor,
-  type AgeRefusal,
-} from '@daisy/auth/age-floor';
+import { memberFloorDecision, type AgeRefusal } from '@daisy/auth/age-floor';
 import { z } from 'zod';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
@@ -79,8 +75,6 @@ type AgeStepDependencies = {
   readonly identify: (request: Request) => Promise<Identity>;
   readonly limiter: () => RateLimiter;
   readonly clock: Clock;
-  /** The one trusted floor (`ACCOUNT_AGE_FLOOR`), injected. */
-  readonly floor: AgeFloor;
   readonly termsVersion: string;
   readonly record: (input: {
     readonly userId: string;
@@ -147,11 +141,7 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
         );
         const birthMonth = `${year}-${String(month).padStart(2, '0')}`;
         const now = dependencies.clock.now();
-        const decision = memberFloorDecision(
-          birthMonth,
-          new Date(now),
-          dependencies.floor,
-        );
+        const decision = memberFloorDecision(birthMonth, new Date(now));
         if (decision.outcome === 'refused') {
           // Refused means the account answered already or became a member:
           // the first answer stands, so no refusal page and no hold.

@@ -113,8 +113,8 @@ export function BetaWaiting({
             One more step, @{username}
           </h1>
           <p className="text-md text-ink-muted">
-            The Daisy beta is open to people 16 and older. Tell us your birth
-            month and year to continue.
+            Daisy is for people 13 and older. Tell us your birth month and year
+            to continue.
           </p>
         </div>
         <AccountExit failed={signOutFailed} returnTo="/beta">

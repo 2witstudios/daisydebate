@@ -2,9 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   decidePreapprovalChange,
   canInviteClaimedPreapproval,
-  INVITABLE_AGE_BANDS,
 } from './beta-preapproval-decision';
-import { ADMITTED_AGE_BANDS } from '@daisy/auth/age-floor';
 setupRitewayBun();
 
 test('preapproval command decisions preserve revision, one-invitation and account authority', () => {
@@ -100,15 +98,5 @@ test('claimed invitation eligibility follows current verified identity and acces
       { ...eligible, erased: true },
     ].map(canInviteClaimedPreapproval),
     expected: [true, false, false, true, false, false, false, false, false],
-  });
-});
-
-test("the invitable age bands are the account floor's", () => {
-  assert({
-    given:
-      'the bands a claimed grant may invite and the bands @daisy/auth admits',
-    should: 'be the same, so the floor has one owner',
-    actual: INVITABLE_AGE_BANDS,
-    expected: ADMITTED_AGE_BANDS,
   });
 });

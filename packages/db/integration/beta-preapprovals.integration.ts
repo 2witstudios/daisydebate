@@ -238,6 +238,37 @@ describe('beta email grants through participant operations', () => {
     });
   });
 
+  test('a preapproved 13 to 15 year old is approved by the age step (decision 88)', async () => {
+    await withFixture(url, async (f) => {
+      const account = await pendingAccount(f);
+      const db = trackedDatabase(f, { url, nextActorId: createId });
+      await f.sql`delete from account_age where user_id = ${account.userId}`;
+      try {
+        const result = await db.runPreapprovalCommand(
+          inputFor(add(`${account.userId}@operator.invalid`)),
+        );
+        await db.recordAgeStep({
+          userId: account.userId,
+          birthMonth: '2012-01',
+          termsVersion: 'test',
+          now: '2026-11-06T20:00:00.000Z',
+        });
+        assert({
+          given: 'a preapproved pending account answering the age step at 14',
+          should:
+            'consume the grant and approve the account, as for 16 and over',
+          actual: [
+            await access(f, account.userId),
+            (await grant(f, result.preapprovalId)).claimed_user_id,
+          ],
+          expected: ['approved', account.userId],
+        });
+      } finally {
+        await db.close();
+      }
+    });
+  });
+
   test('expired commands roll back all grant and mail writes', async () => {
     await withFixture(url, async (f) => {
       const db = trackedDatabase(f, { url, nextActorId: createId });
