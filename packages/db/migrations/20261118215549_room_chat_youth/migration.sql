@@ -5,7 +5,8 @@
 -- holds a live grant there whose role carries school.roster.manage, as
 -- `readLinkedAdultUserIds` reads staff). The division expression is
 -- `divisionOfBandSql(divisionAgeBand())` rendered with its parameters inlined;
--- `room-chat-youth-migration.test.ts` fails if the TypeScript rule moves.
+-- `packages/db/src/messaging/room-community-fact-division.test.ts` fails if the
+-- TypeScript rule moves.
 DROP FUNCTION public.daisy_room_community_fact(text,text);--> statement-breakpoint
 CREATE FUNCTION public.daisy_room_community_fact(requested_room_id text, requested_actor_id text)
 RETURNS TABLE(version bigint,status text,visibility text,ended_at timestamptz,host boolean,seat_kind text,channel_id text,authority_revision bigint,youth_room boolean,youth_staff boolean)

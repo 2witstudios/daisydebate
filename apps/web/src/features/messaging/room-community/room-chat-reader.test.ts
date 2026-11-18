@@ -56,22 +56,28 @@ test('who reads Room chat without posting, as the Room view shows it', () => {
 
 test('the live Room page’s chat hint', () => {
   const youth = roomOf('youth');
+  const paint = (
+    readOnlyHint: boolean,
+    reader: 'judge' | 'spectator' | null,
+  ) => ({ readOnlyHint, reader });
   assert({
     given:
-      'a Youth Room’s spectator the server read as read-only, the same viewer the server read as posting (club staff), a judge, and a spectator who took a seat',
+      'a Youth Room’s spectator the server painted read-only, the same viewer the server let post (club staff), a judge, a spectator who took a seat, and club staff first painted as a judge who then left the seat',
     should:
-      'hold the spectator read-only, leave club staff posting, hold the judge whatever the server said, and lift the hint from a seat',
+      'hold the spectator read-only, leave club staff posting, hold the judge whatever the server said, lift the hint from a seat, and not carry a judge’s first paint over to a seatless viewer',
     actual: [
-      roomChatHint(youth, 'visitor', true),
-      roomChatHint(youth, 'visitor', false),
-      roomChatHint(youth, 'judge', false),
-      roomChatHint(youth, 'debater', true),
+      roomChatHint(youth, 'visitor', paint(true, 'spectator')),
+      roomChatHint(youth, 'visitor', paint(false, 'spectator')),
+      roomChatHint(youth, 'judge', paint(false, null)),
+      roomChatHint(youth, 'debater', paint(true, 'spectator')),
+      roomChatHint(youth, 'visitor', paint(true, 'judge')),
     ],
     expected: [
       { reader: 'spectator', readOnlyHint: true },
       { reader: 'spectator', readOnlyHint: false },
       { reader: 'judge', readOnlyHint: true },
       { reader: null, readOnlyHint: false },
+      { reader: 'spectator', readOnlyHint: false },
     ],
   });
 });

@@ -156,7 +156,7 @@ export function RoomLive(props: Props) {
           props.chat && isOpenRoomStatus(view.status) ? (
             <RoomChat
               {...props.chat}
-              {...roomChatHint(view, props.actorId, props.chat.readOnlyHint)}
+              {...roomChatHint(view, props.actorId, props.chat)}
               ownerRevision={view.version}
               authorLabel={(actorId) => chatAuthorSeat(view, actorId)}
             />
