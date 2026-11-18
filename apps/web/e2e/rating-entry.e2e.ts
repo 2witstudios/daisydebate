@@ -108,9 +108,10 @@ test('native no-JavaScript ranked entry preserves canonical setup for the one Fr
       await expect(ratings).toContainText(`${row.rating}*`);
       await capture(`${row.ladder}-profile`);
       await page.goto(`/rounds/${row.roundId}`);
+      // YRoundResult: the rating, then the ladder it moved on with the change.
       await expect(
         page.getByRole('region', { name: 'Round ratings', exact: true }),
-      ).toContainText(`${row.rating}* (+${row.delta})`);
+      ).toContainText(`${row.rating}* Open – Freestyle +${row.delta}`);
       await capture(`${row.ladder}-round-rating`);
     }
     await page.goto('/leaderboard/privacy');

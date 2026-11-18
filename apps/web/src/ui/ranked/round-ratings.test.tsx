@@ -90,6 +90,22 @@ describe('the ladder a Round rated', () => {
     });
   });
 
+  test('the text a reader meets, as YRoundResult words it', () => {
+    const text = render({
+      posting: 'rated',
+      rows: [{ ...row, rating: 1662, provisional: true, delta: 162 }],
+    })
+      .replace(/<[^>]+>/g, '')
+      .replace(/&#x27;/g, "'");
+    assert({
+      given: 'a provisional debater who gained 162 on Youth – Freestyle',
+      should:
+        'read the rating, then the ladder it moved on with the change: "1662* Youth – Freestyle +162"',
+      actual: text.includes('1662* Youth – Freestyle +162'),
+      expected: true,
+    });
+  });
+
   test('change words', () => {
     assert({
       given: 'a gain, a loss and no change',
