@@ -15,9 +15,9 @@ export type PopoverDialogProps<C extends string> = Omit<
   'popover' | 'role' | 'className'
 > & {
   /** How the open dialog lays out its children; closed, it is hidden. */
-  readonly layout?: PopoverLayout;
+  readonly layout?: PopoverLayout | undefined;
   /** Surface classes only: the dialog owns display and direction. */
-  readonly className?: C & PopoverClassName<C>;
+  readonly className?: (C & PopoverClassName<C>) | undefined;
 };
 
 /**

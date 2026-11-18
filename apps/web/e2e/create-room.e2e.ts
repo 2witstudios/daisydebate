@@ -102,9 +102,10 @@ const fillMenusStayHiddenUntilAsked = async (
   await expect(menus).toHaveCount(count);
   for (const menu of await menus.all()) await expect(menu).toBeHidden();
   for (const opener of await openers.all()) {
-    const name = (await opener.getAttribute('aria-label')) ?? '';
+    const name = await opener.getAttribute('aria-label');
+    expect(name).toMatch(/^Fill /);
     const menu = page.getByRole('dialog', {
-      name,
+      name: name ?? '',
       exact: true,
       includeHidden: true,
     });

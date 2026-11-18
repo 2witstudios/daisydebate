@@ -66,7 +66,14 @@ describe('popover primitives', () => {
 
 // Compile-time: a literal display class on either primitive does not build.
 // The elements are created, never rendered.
+const passedThrough: { readonly className?: string | undefined } = {};
 void [
+  // An optional prop passes straight through, as it did to a div.
+  <PopoverDialog
+    key="u"
+    className={passedThrough.className}
+    layout={undefined}
+  />,
   // @ts-expect-error a popover owns its display (SEAT-14a)
   <PopoverDialog key="d" className="m-auto flex gap-2" />,
   // @ts-expect-error a popover owns its direction

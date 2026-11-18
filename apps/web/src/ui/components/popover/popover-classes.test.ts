@@ -82,10 +82,10 @@ describe('popoverClasses', () => {
 
   test('a variant that styles children is the caller’s', () => {
     assert({
-      given: 'display set on children with *:, **: and combinator variants',
+      given: 'display set on children, the backdrop or a pseudo-element',
       should: 'leave them to the caller, while a self variant is still owned',
       actual: ownedUtilitiesIn(
-        '*:flex **:block [&>li]:block [&_p]:grid [&:hover]:flex',
+        '*:flex **:block [&>li]:block [&_p]:grid backdrop:hidden before:block md:after:flex [&:hover]:flex',
       ),
       expected: ['[&:hover]:flex'],
     });
@@ -133,8 +133,8 @@ const refusedProperty: [PopoverClassName<'gap-2 [display:flex]'>] extends [
 ]
   ? true
   : false = true;
-const childVariants: PopoverClassName<'*:flex [&>li]:block gap-2'> =
-  '*:flex [&>li]:block gap-2';
+const childVariants: PopoverClassName<'*:flex [&>li]:block backdrop:hidden'> =
+  '*:flex [&>li]:block backdrop:hidden';
 void [
   accepted,
   refused,

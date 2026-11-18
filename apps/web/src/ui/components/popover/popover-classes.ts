@@ -66,13 +66,29 @@ const variantsAndUtility = (word: string): readonly string[] => {
   return [...parts, current];
 };
 
+/** Variants that style a pseudo-element, not the popover's own box. */
+const pseudoElements = [
+  'backdrop',
+  'before',
+  'after',
+  'placeholder',
+  'file',
+  'marker',
+  'selection',
+  'first-line',
+  'first-letter',
+  'details-content',
+] as const;
+
 /**
- * A variant that styles the popover's children, not the popover: `*:`,
- * `**:`, or an arbitrary variant with a combinator (`[&>li]:`, `[&_p]:`).
+ * A variant that styles something other than the popover's box: a
+ * pseudo-element (`backdrop:`, `before:`), `*:`, `**:`, or an arbitrary
+ * variant with a combinator (`[&>li]:`, `[&_p]:`).
  */
-const targetsChildren = (variant: string): boolean =>
+const targetsOtherBox = (variant: string): boolean =>
   variant === '*' ||
   variant === '**' ||
+  (pseudoElements as readonly string[]).includes(variant) ||
   (variant.startsWith('[&') && /[>_+~]/.test(variant));
 
 /** An arbitrary property that sets display or direction, as `[display:flex]`. */
@@ -81,7 +97,7 @@ const ownedProperty = /^\[(?:display|flex-direction):/;
 const ownsLayout = (word: string): boolean => {
   const parts = variantsAndUtility(word.replace(/^!|!$/g, ''));
   const utility = (parts.at(-1) ?? '').replace(/^!|!$/g, '');
-  if (parts.slice(0, -1).some(targetsChildren)) return false;
+  if (parts.slice(0, -1).some(targetsOtherBox)) return false;
   return (
     primitiveOwnedUtilities.includes(utility) || ownedProperty.test(utility)
   );
@@ -101,9 +117,11 @@ type Unmarked<W extends string> = W extends `!${infer U}` | `${infer U}!`
 type Bare<W extends string> = W extends `${string}:${infer U}`
   ? Bare<U>
   : Unmarked<W>;
-/** Mirrors ownsLayout: child variants pass, arbitrary display properties do not. */
+/** Mirrors ownsLayout: other boxes pass, arbitrary display properties do not. */
 type Owned<W extends string> = W extends
-  `*${string}` | `[&${string}${'>' | '_' | '+' | '~'}${string}]:${string}`
+  | `*${string}`
+  | `${string}${(typeof pseudoElements)[number]}:${string}`
+  | `[&${string}${'>' | '_' | '+' | '~'}${string}]:${string}`
   ? never
   : W extends `${string}[${'display' | 'flex-direction'}:${string}`
     ? W

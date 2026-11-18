@@ -59,6 +59,9 @@ count was right while the page was wrong.
 - A new popover is a `PopoverDialog` or `PopoverMenu` with a `layout`. A
   popover that needs grid or another display gets a new `layout` value in
   `popoverClasses`, with a test, rather than a class on the caller.
+- A closed popover leaves layout at once: the important base-layer rule
+  cannot be overridden, so no exit transition on `display` is possible. A
+  popover that needs one amends this ADR and the rule, not its caller.
 - `check-styling` reads every tracked `.tsx` and `.jsx` file as well as its
   path, and `scripts/check-styling.ts` imports the owned-utility list from
   the primitive so the two cannot disagree.

@@ -12,9 +12,9 @@ export type PopoverMenuProps<C extends string> = Omit<
   'popover' | 'role' | 'className'
 > & {
   /** How the open menu lays out its items; closed, it is hidden. */
-  readonly layout?: PopoverLayout;
+  readonly layout?: PopoverLayout | undefined;
   /** Surface and placement classes only: the menu owns display and direction. */
-  readonly className?: C & PopoverClassName<C>;
+  readonly className?: (C & PopoverClassName<C>) | undefined;
 };
 
 /**
