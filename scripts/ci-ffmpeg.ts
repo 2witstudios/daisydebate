@@ -149,7 +149,7 @@ export const refreshStageCommand = (
     '-ec',
     [
       // Only the versions now installed, so older images' .debs do not pile up.
-      `for deb in ${quote(next.archives)}/*.deb; do [ -f "$deb" ] || continue; package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""; version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""; if [ "$(dpkg-query -W -f='\${Version}' "$package" 2>/dev/null || true)" != "$version" ]; then rm "$deb"; fi; done`,
+      `for deb in ${quote(next.archives)}/*.deb; do [ -f "$deb" ] || continue; package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""; version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""; if [ -z "$version" ] || [ "$(dpkg-query -W -f='\${Version}' "$package" 2>/dev/null || true)" != "$version" ]; then rm "$deb"; fi; done`,
       `mkdir -p ${quote(next.lists)}`,
       `find /var/lib/apt/lists -maxdepth 1 -type f ! -name lock -exec cp {} ${quote(next.lists)}/ \\;`,
       // Written last: lists are reused only beside it.
