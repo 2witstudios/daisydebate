@@ -1,4 +1,8 @@
-import type { CompetitionType, RecordingEligibility } from '@daisy/protocol';
+import type {
+  CompetitionType,
+  RatingDivision,
+  RecordingEligibility,
+} from '@daisy/protocol';
 
 /**
  * Whether a Round is captured. Ranked always is, as the deal for competing. Any
@@ -7,6 +11,8 @@ import type { CompetitionType, RecordingEligibility } from '@daisy/protocol';
  */
 export const captureEligibility = (input: {
   readonly competitionType: CompetitionType;
+  /** A ranked Round's ladder division; a Youth Round's Recording says so. */
+  readonly ladderDivision?: RatingDivision | null;
   readonly hostActorId: string | null;
   readonly hostOptedIn: boolean;
   readonly hostHoldsRecording: boolean;
@@ -18,7 +24,10 @@ export const captureEligibility = (input: {
   readonly roundId?: string;
   readonly now?: string;
 }): RecordingEligibility | null => {
-  if (input.competitionType === 'ranked') return { kind: 'ranked' };
+  if (input.competitionType === 'ranked')
+    return input.ladderDivision === 'youth'
+      ? { kind: 'ranked', youth: true }
+      : { kind: 'ranked' };
   const admitted = input.tournamentAdmission;
   if (
     admitted &&

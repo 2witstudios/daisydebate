@@ -96,7 +96,7 @@ const withReadyRecording = (
                 (seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat),
               )
               .map((seat) => seat.actorId),
-            youth: round.youth,
+            youth: null,
           }
         );
       },

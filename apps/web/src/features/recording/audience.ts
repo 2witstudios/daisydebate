@@ -3,6 +3,7 @@ import { audienceAdmits } from '../audience-link/audience-link';
 import {
   mayTakeDownYouthRecording,
   recordingAudience,
+  removableStatus,
   type YouthRoundPeople,
 } from './youth-audience';
 import {
@@ -262,10 +263,7 @@ const casualRemoval = (input: {
 }): boolean =>
   input.recordingClass === 'casual' &&
   seated(input.round, input.viewer) &&
-  input.status !== null &&
-  input.status !== 'taken_down' &&
-  input.status !== 'removing' &&
-  input.status !== 'removed';
+  removableStatus(input.status);
 
 /**
  * Any participant of a casual Recording; nobody on a ranked one, host included,

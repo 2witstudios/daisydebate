@@ -22,6 +22,16 @@ test('captureEligibility', () => {
     expected: { kind: 'ranked' },
   });
   assert({
+    given: 'a ranked Round on Youth – Freestyle',
+    should: 'capture it as a Youth Recording (ADR 0149)',
+    actual: captureEligibility({
+      ...casual,
+      competitionType: 'ranked',
+      ladderDivision: 'youth',
+    }),
+    expected: { kind: 'ranked', youth: true },
+  });
+  assert({
     given: 'a casual Round whose entitled host opted in',
     should: 'capture, naming the host',
     actual: captureEligibility(casual),

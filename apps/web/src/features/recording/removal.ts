@@ -44,7 +44,6 @@ export const requestParticipantRemoval = async (
         type: 'removal_requested',
         cause: 'participant_request',
         at: input.now,
-        ...(round.youth === null ? {} : { youthRound: true }),
         ...(underOpenReport
           ? {
               evidenceHeldUntil: new Date(

@@ -284,7 +284,15 @@ describe('removal', () => {
     assert({
       given: 'a participant asking on a Youth Round’s ranked Recording',
       should: 'take the whole Recording down (ADR 0107, PYL-5)',
-      actual: apply(ready, { ...participant, youthRound: true }, 'ranked'),
+      actual: transitionRecording(
+        {
+          id,
+          class: 'ranked',
+          eligibility: { kind: 'ranked', youth: true },
+          lifecycle: ready,
+        },
+        participant,
+      ),
       expected: {
         kind: 'moved',
         next: {

@@ -202,6 +202,25 @@ describe('a Recording on a Broadcast', () => {
   });
 });
 
+describe('a Youth Round (ADR 0149)', () => {
+  test('runs its own Egress, and keeps a Broadcast that opened before the deploy', async () => {
+    const own = setup({
+      open: [row({ ladderDivision: 'youth', broadcast: null })],
+    });
+    await own.sweep();
+    const kept = setup({ open: [row({ ladderDivision: 'youth' })] });
+    await kept.sweep();
+    assert({
+      given:
+        'a Youth Round with no Broadcast, and one whose Broadcast already opened',
+      should:
+        'capture the first on its own Egress and follow the second’s Broadcast',
+      actual: [own.calls[0]?.[0], kept.calls[0]?.[0]],
+      expected: ['openOwn', 'openJob'],
+    });
+  });
+});
+
 describe('a Recording with no Broadcast', () => {
   test('starts its own Egress under its own hold, storing only the digest', async () => {
     const { sweep, calls } = setup({ open: [row(casualOwn)] });

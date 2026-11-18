@@ -1,5 +1,6 @@
 import type {
   RecordingClass,
+  RecordingEligibility,
   RecordingLifecycle,
   RecordingMedia,
   RecordingRemovalCause,
@@ -45,12 +46,6 @@ export type RecordingEvent =
        * the removal is owed, and waits until then at the latest.
        */
       readonly evidenceHeldUntil?: string;
-      /**
-       * A participant's request on a Youth Round, whose ranked Recording any
-       * youth debater or linked adult may take down (ADR 0107, PYL-5). The
-       * caller sets it only after deciding the Round is a Youth Round.
-       */
-      readonly youthRound?: boolean;
     }
   | { readonly type: 'evidence_hold_ended' }
   | { readonly type: 'objects_gone'; readonly at: string };
@@ -75,7 +70,16 @@ type Subject = {
   readonly id: string;
   readonly class: RecordingClass;
   readonly lifecycle: RecordingLifecycle;
+  /** What the Recording was requested under; a Youth one says so (ADR 0149). */
+  readonly eligibility?: RecordingEligibility;
 };
+
+/** A ranked Recording is kept from its participants, except a Youth Round's. */
+const keptFromParticipants = (subject: Subject): boolean =>
+  subject.class === 'ranked' &&
+  !(
+    subject.eligibility?.kind === 'ranked' && subject.eligibility.youth === true
+  );
 
 const moved = (next: RecordingLifecycle): RecordingTransition => ({
   kind: 'moved',
@@ -229,11 +233,7 @@ const removalRequested = (
   event: Extract<RecordingEvent, { type: 'removal_requested' }>,
 ): RecordingTransition => {
   const { lifecycle } = subject;
-  if (
-    subject.class === 'ranked' &&
-    event.cause === 'participant_request' &&
-    event.youthRound !== true
-  )
+  if (keptFromParticipants(subject) && event.cause === 'participant_request')
     return refused('ranked_is_kept');
   if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
     return unchanged;

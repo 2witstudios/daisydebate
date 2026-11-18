@@ -115,7 +115,7 @@ const recordingRoundOf = async (
     officialActorIds: round.seats
       .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
       .map((seat) => seat.actorId),
-    youth: round.youth,
+    youth: null,
   };
 };
 

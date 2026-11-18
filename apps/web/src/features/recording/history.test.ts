@@ -493,8 +493,8 @@ describe('a Youth Round’s history (PYL-5)', () => {
         ladder: { style: 'freestyle', division: 'youth' },
         youth: {
           debaters: [
-            { name: '@ada', released: true },
-            { name: 'Negative', released: false },
+            { actorId: 'aff', name: '@ada', released: true },
+            { actorId: 'neg', name: 'Negative', released: false },
           ],
           releasesComplete: false,
         },

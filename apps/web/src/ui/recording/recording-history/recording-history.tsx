@@ -168,13 +168,15 @@ const shareReason = (
   youth: NonNullable<History['youth']>,
   publishing: boolean,
 ): string => {
-  const missing = youth.debaters
-    .filter((debater) => !debater.released)
-    .map((debater) => debater.name);
-  if (missing.length > 0)
+  if (!youth.releasesComplete) {
+    const missing = youth.debaters
+      .filter((debater) => !debater.released)
+      .map((debater) => debater.name);
     return `${names(missing)} ${missing.length === 1 ? 'has' : 'have'} no media release yet.`;
+  }
+  // The publish action arrives with media releases (S4); until then it waits.
   return publishing
-    ? 'Every youth debater has a media release.'
+    ? 'Every youth debater has a media release. Sharing arrives with media releases.'
     : 'Sharing Youth recordings is not open yet.';
 };
 
@@ -206,7 +208,7 @@ function YouthSharing({
         </p>
         <ul className="flex flex-col gap-2 text-sm text-ink">
           {youth.debaters.map((debater) => (
-            <li key={debater.name} className="flex items-center gap-2">
+            <li key={debater.actorId} className="flex items-center gap-2">
               {debater.released ? (
                 <Icon name="check" size={16} className="text-accent" />
               ) : (
@@ -227,10 +229,13 @@ function YouthSharing({
           </li>
         </ul>
       </div>
-      <p className="text-sm text-ink">{shareReason(youth, publishing)}</p>
+      <p id="share-publicly-reason" className="text-sm text-ink">
+        {shareReason(youth, publishing)}
+      </p>
       <button
         type="button"
         disabled
+        aria-describedby="share-publicly-reason"
         className={`${buttonClass('secondary')} self-start`}
       >
         <Icon name="lock" size={18} />

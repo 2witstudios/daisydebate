@@ -112,19 +112,19 @@ test('Watch, the archive and a stranger never find a Youth Round', async ({
   browser,
 }) => {
   const tag = createId().slice(0, 8);
-  await ranked({
+  const openLive = await ranked({
     title: `Open final ${tag}`,
-    resolution: `Resolved ${tag}`,
+    resolution: `Open motion ${tag}`,
   });
   const youthLive = await ranked({
     division: 'youth',
     title: `Youth live ${tag}`,
-    resolution: `Resolved ${tag}`,
+    resolution: `Youth live motion ${tag}`,
   });
   const youthEnded = await ranked({
     division: 'youth',
     title: `Youth ended ${tag}`,
-    resolution: `Resolved ${tag}`,
+    resolution: `Youth ended motion ${tag}`,
   });
   await seed({ command: 'end', roundId: youthEnded });
   await seed({ command: 'recording-ready', roundId: youthEnded });
@@ -148,14 +148,31 @@ test('Watch, the archive and a stranger never find a Youth Round', async ({
       visitor.getByRole('combobox', { name: 'Ladder' }),
     ).toBeVisible();
 
-    await visitor.goto(`/watch/${youthLive}`);
-    await expect(visitor.getByText(`Youth live ${tag}`)).toHaveCount(0);
+    // The Open Round's page shows its motion, so the Youth checks below can fail.
+    await visitor.goto(`/watch/${openLive}`);
+    await expect(visitor.getByText(`Open motion ${tag}`).first()).toBeVisible();
+
+    // Live or ended, a Youth Round's spectator page answers as a missing one.
+    for (const [roundId, motion] of [
+      [youthLive, `Youth live motion ${tag}`],
+      [youthEnded, `Youth ended motion ${tag}`],
+    ] as const) {
+      await visitor.goto(`/watch/${roundId}`);
+      await expect(
+        visitor.getByText('This debate is not available'),
+      ).toBeVisible();
+      await expect(visitor.getByText(motion)).toHaveCount(0);
+    }
 
     await visitor.goto(`/recordings?q=${tag}`);
     await expect(visitor.getByText(`Youth ended ${tag}`)).toHaveCount(0);
+    await expect(visitor.getByText(`Youth ended motion ${tag}`)).toHaveCount(0);
 
     await visitor.goto(`/recordings/${youthEnded}`);
-    await expect(visitor.getByText(`Youth ended ${tag}`)).toHaveCount(0);
+    await expect(
+      visitor.getByText('This debate is not available'),
+    ).toBeVisible();
+    await expect(visitor.getByText(`Youth ended motion ${tag}`)).toHaveCount(0);
     await expect(visitor.locator('video')).toHaveCount(0);
   } finally {
     await context.close();

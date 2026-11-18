@@ -125,9 +125,14 @@ export const watchNotificationOperations = ({
               where f.kind='followed_debater_live' and f.round_id=b.round_id)
           order by b.created_at limit ${input.limit}`,
       );
-      const ready = await rowsOf<{ round_id: string; visibility: string }>(
+      const ready = await rowsOf<{
+        round_id: string;
+        visibility: string;
+        youth: boolean;
+      }>(
         database,
-        sql`select rc.round_id,r.visibility
+        sql`select rc.round_id,r.visibility,
+            coalesce(r.ladder_division = 'youth', false) as youth
           from recordings rc join rounds r on r.id=rc.round_id
           left join broadcasts b on b.round_id=rc.round_id
           where rc.status='ready'
@@ -158,8 +163,9 @@ export const watchNotificationOperations = ({
             tx,
             seatedAccounts(event.round_id),
           );
+          // A Youth Round is private to its people (ADR 0149): no follower hears of it.
           const followers =
-            event.visibility === 'public'
+            event.visibility === 'public' && !event.youth
               ? await rowsOf<Recipient>(tx, followersOf(event.round_id, kind))
               : [];
           return owe(

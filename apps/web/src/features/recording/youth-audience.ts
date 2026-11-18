@@ -84,14 +84,20 @@ export const youthRoundPublishable = (
   releases: readonly MediaRelease[],
 ): boolean =>
   debaters.length > 0 &&
-  debaters.every((debater) =>
-    releases.some(
-      (release) =>
-        release.subjectUserId === debater.userId && release.status === 'active',
-    ),
+  debaters.every((debater) => holdsActiveRelease(debater, releases));
+
+/** Whether this youth debater holds an active media release: the one test. */
+export const holdsActiveRelease = (
+  debater: Pick<YouthDebater, 'userId'>,
+  releases: readonly MediaRelease[],
+): boolean =>
+  releases.some(
+    (release) =>
+      release.subjectUserId === debater.userId && release.status === 'active',
   );
 
-const removable = (status: RecordingStatus | null): boolean =>
+/** A Recording that exists and is not already going: what any removal may act on. */
+export const removableStatus = (status: RecordingStatus | null): boolean =>
   status !== null &&
   status !== 'taken_down' &&
   status !== 'removing' &&
@@ -106,7 +112,8 @@ export const mayTakeDownYouthRecording = (input: {
   readonly viewer: RecordingViewer;
   readonly status: RecordingStatus | null;
 }): boolean => {
-  if (!removable(input.status) || input.viewer.kind !== 'account') return false;
+  if (!removableStatus(input.status) || input.viewer.kind !== 'account')
+    return false;
   const { actorId } = input.viewer;
   return input.round.youth.debaters.some(
     (debater) =>

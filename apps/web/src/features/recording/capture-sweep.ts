@@ -154,7 +154,10 @@ export const createRecordingCaptureSweep = (deps: {
     }
   };
 
+  // A Broadcast that already opened is followed whatever today's plan says,
+  // so a Round live across a deploy keeps one capture.
   const onBroadcast = (open: Open) =>
+    open.broadcast?.id != null ||
     plannedBroadcast({
       competitionType: open.competitionType,
       capture: open.roundCapture,
@@ -524,6 +527,7 @@ export const createRecordingCaptureSweep = (deps: {
         await port.request({
           roundId: round.roundId,
           competitionType: round.competitionType,
+          ladderDivision: round.ladderDivision,
           hostActorId: round.hostActorId,
           hostOptedIn: (round.capture?.recordingPolicy ?? 'off') !== 'off',
           hostHoldsRecording: deps.holdsCapture(round.hostGrants),

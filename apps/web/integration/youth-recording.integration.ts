@@ -134,7 +134,7 @@ const recordingRoundOf = async (
     officialActorIds: round.seats
       .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
       .map((seat) => seat.actorId),
-    youth: round.youth,
+    youth: await database.readYouthRecordingPeople(roundId),
   };
 };
 
@@ -266,6 +266,46 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
           },
           expected: { publicArchive: false, ownList: true },
         });
+
+        // A follower of a youth debater is never told of the Recording; its seats are.
+        const [host] =
+          await f.sql`select username from users where id=${f.host.userId}`;
+        await f.store.setDebaterFollow({
+          followerUserId: stranger.userId,
+          username: host!.username,
+          state: 'following',
+        });
+        made.rounds.push(roundId);
+        await f.sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
+          values (${createId()},${roundId},'ranked',${{ kind: 'ranked', youth: true }},'ready',${{ status: 'ready' }})`;
+        await f.store.sweepNotificationFanouts({
+          clock: spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
+          limit: 50,
+          nextId: createId,
+        });
+        const told = async (member: Member) =>
+          (
+            await f.store.readNotifications({
+              after: null,
+              userId: member.userId,
+              unreadOnly: false,
+              limit: 10,
+              now: new Date().toISOString(),
+            })
+          ).rows.some((row) => row.kind === 'recording_ready');
+        assert({
+          given:
+            'a stranger following a youth debater whose Recording is ready',
+          should: 'tell the debater and not the follower',
+          actual: {
+            debater: await told(f.host),
+            follower: await told(stranger),
+          },
+          expected: { debater: true, follower: false },
+        });
+        await f.sql`delete from notifications where round_id=${roundId}`;
+        await f.sql`delete from notification_fanouts where round_id=${roundId}`;
+        await f.sql`delete from debater_follows where follower_user_id=${stranger.userId}`;
       }),
     ),
   );
@@ -288,7 +328,7 @@ test('any youth debater of a Youth Round, or their linked adult, takes its Recor
           id: createId(),
           roundId,
           class: 'ranked',
-          eligibility: { kind: 'ranked' },
+          eligibility: { kind: 'ranked', youth: true },
         });
         const inputs = {
           readRound: (id: string) => recordingRoundOf(database, id),

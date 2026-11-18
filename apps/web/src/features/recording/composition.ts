@@ -22,6 +22,8 @@ import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
+import type { YouthRoundPeople } from './youth-audience';
+import { youthPeopleCache } from './youth-people-cache';
 import type { RecordingInputs } from './ports';
 
 /** As often as a Broadcast's: its own Egress has the same revocation lead to meet. */
@@ -33,7 +35,10 @@ type RoundRow = NonNullable<
   Awaited<ReturnType<App['database']['readRecordingRound']>>
 >;
 
-const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
+const asRound = (
+  round: RoundRow,
+  youth: YouthRoundPeople | null,
+): HistoryRound & RecordingRound => ({
   id: round.id,
   competitionType: round.competitionType,
   visibility: round.visibility,
@@ -45,7 +50,7 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   officialActorIds: round.seats
     .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
     .map((seat) => seat.actorId),
-  youth: round.youth,
+  youth,
   ladder: round.ladder,
   title: round.title,
   resolution: round.resolution,
@@ -61,11 +66,30 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   })),
 });
 
+/** One cache of Youth Round people per app, shared by every request. */
+const youthPeopleOf = new WeakMap<
+  App,
+  (roundId: string) => Promise<YouthRoundPeople>
+>();
+const youthPeople = (app: App) => {
+  const known = youthPeopleOf.get(app);
+  if (known) return known;
+  const cached = youthPeopleCache({
+    read: app.database.readYouthRecordingPeople,
+    nowMs: () => Date.parse(app.clock.now()),
+  });
+  youthPeopleOf.set(app, cached);
+  return cached;
+};
+
 /** The named read-only inputs, in one place. */
 const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
   const readHistoryRound = async (roundId: string) => {
     const round = await app.database.readRecordingRound(roundId);
-    return round && asRound(round);
+    if (!round) return null;
+    const youthRound =
+      round.competitionType === 'ranked' && round.ladder?.division === 'youth';
+    return asRound(round, youthRound ? await youthPeople(app)(roundId) : null);
   };
   const store = recordingPersistence(app);
   return {

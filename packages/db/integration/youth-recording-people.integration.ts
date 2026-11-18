@@ -66,27 +66,34 @@ test('a youth debater’s linked adults are read through the tenant fence', asyn
       values(${createId()}, ${formerParent}, ${student}, 'parent', 'ended', now())`;
 
     await sql.unsafe('set local role daisy_web');
+    // A scope the caller set before the read must survive it.
+    await sql`select set_config('daisy.lobby_scope', 'caller-lobby', true)`;
     const linked = await readLinkedAdultUserIds(
       drizzle({ client: sql }),
       student,
     );
     const [scope] =
       await sql`select current_setting('daisy.organization_scope', true) as organization,
-      current_setting('daisy.subject_scope', true) as subject`;
+      current_setting('daisy.subject_scope', true) as subject,
+      current_setting('daisy.lobby_scope', true) as lobby`;
     await sql.unsafe('reset role');
 
     assert({
       given:
         'a student’s school owner, an adult coach and a minor with roster grants, another school’s coach, a parent and a former parent',
       should:
-        'name the owner, the adult coach and the parent only, and leave no scope behind',
+        'name the owner, the adult coach and the parent only, and leave the caller’s own scope as it found it',
       actual: {
         linked: [...linked].sort(),
-        scope: { organization: scope!.organization, subject: scope!.subject },
+        scope: {
+          organization: scope!.organization,
+          subject: scope!.subject,
+          lobby: scope!.lobby,
+        },
       },
       expected: {
         linked: [owner, coach, parent].sort(),
-        scope: { organization: '', subject: '' },
+        scope: { organization: '', subject: '', lobby: 'caller-lobby' },
       },
     });
   });

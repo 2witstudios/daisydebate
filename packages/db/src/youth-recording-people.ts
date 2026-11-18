@@ -25,6 +25,17 @@ export const readLinkedAdultUserIds = async (
   tx: Tx,
   debaterUserId: string,
 ): Promise<readonly string[]> => {
+  // Each step sets its own scope; the caller's comes back at the end.
+  const [caller] = await rows<{
+    organization: string | null;
+    lobby: string | null;
+    subject: string | null;
+  }>(
+    tx,
+    sql`select current_setting('daisy.organization_scope', true) as organization,
+      current_setting('daisy.lobby_scope', true) as lobby,
+      current_setting('daisy.subject_scope', true) as subject`,
+  );
   await scopeTransaction(tx, { subjectUserId: debaterUserId });
   const guardians = await rows<{ user_id: string }>(
     tx,
@@ -61,7 +72,11 @@ export const readLinkedAdultUserIds = async (
     );
     staff.push(...found.map((row) => row.user_id));
   }
-  await scopeTransaction(tx, {});
+  await scopeTransaction(tx, {
+    organizationId: caller?.organization || undefined,
+    lobbyId: caller?.lobby || undefined,
+    subjectUserId: caller?.subject || undefined,
+  });
   return [
     ...new Set([...guardians.map((row) => row.user_id), ...staff]),
   ].filter((userId) => userId !== debaterUserId);

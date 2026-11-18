@@ -38,6 +38,7 @@ import {
 } from './audience';
 import type { RecordingRecord } from './ports';
 import {
+  holdsActiveRelease,
   youthRoundPublishable,
   type MediaRelease,
   type YouthRoundPeople,
@@ -110,7 +111,9 @@ export type HistoryInputs = {
 
 /** A Youth Round's private panel: who still needs a release to publish it. */
 export type YouthPanel = {
+  /** In seat order, keyed by actor. */
   readonly debaters: readonly {
+    readonly actorId: string;
     readonly name: string;
     readonly released: boolean;
   }[];
@@ -381,23 +384,26 @@ const youthPanel = async (
   const releases = await inputs.readMediaReleases(
     youth.debaters.map((debater) => debater.userId),
   );
+  const seatOrder = (actorId: string) => {
+    const index = round.debaters.findIndex((d) => d.actorId === actorId);
+    return index === -1 ? round.debaters.length : index;
+  };
   return {
-    debaters: youth.debaters.map((debater) => {
-      const seat = round.debaters.find((d) => d.actorId === debater.actorId);
-      return {
-        name:
-          seat === undefined
-            ? 'A debater'
-            : seat.label === null
-              ? unnamedSeat(round, seat.seat)
-              : `@${seat.label}`,
-        released: releases.some(
-          (release) =>
-            release.subjectUserId === debater.userId &&
-            release.status === 'active',
-        ),
-      };
-    }),
+    debaters: [...youth.debaters]
+      .sort((a, b) => seatOrder(a.actorId) - seatOrder(b.actorId))
+      .map((debater) => {
+        const seat = round.debaters.find((d) => d.actorId === debater.actorId);
+        return {
+          actorId: debater.actorId,
+          name:
+            seat === undefined
+              ? 'A debater'
+              : seat.label === null
+                ? unnamedSeat(round, seat.seat)
+                : `@${seat.label}`,
+          released: holdsActiveRelease(debater, releases),
+        };
+      }),
     releasesComplete: youthRoundPublishable(youth, releases),
   };
 };

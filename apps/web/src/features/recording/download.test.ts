@@ -46,7 +46,7 @@ describe('openDownload', () => {
         'a subscribed youth debater on their own Youth Round (PYL-5)',
         () =>
           download(
-            deps(record({ class: 'ranked' }), { round: youthRound }),
+            deps(record({ class: 'ranked', eligibility: { kind: 'ranked', youth: true } }), { round: youthRound }),
             account('aff'),
           ),
       ],

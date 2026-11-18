@@ -139,8 +139,8 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
     ladder: { style: 'freestyle', division: 'youth' },
     youth: {
       debaters: [
-        { name: '@maya', released: true },
-        { name: '@jules', released: false },
+        { actorId: 'maya', name: '@maya', released: true },
+        { actorId: 'jules', name: '@jules', released: false },
       ],
       releasesComplete: false,
     },
@@ -195,7 +195,7 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
           ...screen,
           ranked: true,
           youth: {
-            debaters: [{ name: '@maya', released: true }],
+            debaters: [{ actorId: 'maya', name: '@maya', released: true }],
             releasesComplete: true,
           },
         },

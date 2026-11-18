@@ -112,11 +112,6 @@ export const recordingRoundReadOperations = ({
           round.ladderStyle !== null && round.ladderDivision !== null
             ? { style: round.ladderStyle, division: round.ladderDivision }
             : null,
-        /** A Youth Round's youth debaters and linked adults (PYL-5); null otherwise. */
-        youth:
-          round.competitionType === 'ranked' && round.ladderDivision === 'youth'
-            ? await readYouthRecordingPeople(tx, roundId)
-            : null,
         /** Both lists are in seat order, so they pair up. */
         debaters: debaters.map((seat, index) => ({
           ...seat,
@@ -125,6 +120,14 @@ export const recordingRoundReadOperations = ({
       };
     });
   },
+
+  /**
+   * A Youth Round's youth debaters and their linked adults (ADR 0149), for a
+   * Round the caller read as ranked on Youth – Freestyle. Its own transaction,
+   * so the scopes it sets never reach another read.
+   */
+  readYouthRecordingPeople: (roundId: string) =>
+    database.transaction((tx) => readYouthRecordingPeople(tx, roundId)),
 
   readRecordingBroadcastRelease: (roundId: string, clock: SpectatorClock) =>
     readBroadcastRelease(database, roundId, clock),

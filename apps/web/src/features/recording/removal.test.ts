@@ -68,7 +68,7 @@ describe('requestParticipantRemoval', () => {
 
   test('takes a Youth Round’s ranked Recording down for a youth debater or linked adult', async () => {
     const youth = (viewer: RecordingViewer) => {
-      const d = deps(record({ class: 'ranked' }), { round: youthRound });
+      const d = deps(record({ class: 'ranked', eligibility: { kind: 'ranked', youth: true } }), { round: youthRound });
       return remove(d, viewer).then((result) => result.lifecycle.status);
     };
     assert({
@@ -84,7 +84,7 @@ describe('requestParticipantRemoval', () => {
       should: 'refuse: only the debaters and their adults take it down',
       actual: () =>
         remove(
-          deps(record({ class: 'ranked' }), { round: youthRound }),
+          deps(record({ class: 'ranked', eligibility: { kind: 'ranked', youth: true } }), { round: youthRound }),
           account('judge'),
         ),
       code: 'AUTHORIZATION',
@@ -94,7 +94,7 @@ describe('requestParticipantRemoval', () => {
       should: 'refuse',
       actual: () =>
         remove(
-          deps(record({ class: 'ranked' }), { round: youthRound }),
+          deps(record({ class: 'ranked', eligibility: { kind: 'ranked', youth: true } }), { round: youthRound }),
           account('stranger'),
         ),
       code: 'AUTHORIZATION',
