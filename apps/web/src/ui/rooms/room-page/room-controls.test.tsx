@@ -154,17 +154,34 @@ test('a free host reaching for a capture switch sees the upgrade panel, and noth
       '#room-recording',
     ) as unknown as { click: () => void; checked: boolean };
     await client.act(async () => record.click());
+    const after = panel();
+    const notNow = () =>
+      [...client.container.querySelectorAll('button')].find(
+        (button) => button.textContent === 'Not now',
+      ) as unknown as { click: () => void };
+    await client.act(async () => notNow().click());
+    const dismissed = panel();
+    await client.act(async () => record.click());
     assert({
       given: 'a free casual host who clicks the Record switch',
       should:
-        'show the Premium panel in place, leave the switch off and post no capture command',
+        'show the Premium panel in place, hide it on Not now, show it again on the next reach, leave the switch off and post nothing',
       actual: {
         before,
-        after: panel(),
+        after,
+        dismissed,
+        again: panel(),
         checked: record.checked,
         posted: client.posted.length,
       },
-      expected: { before: false, after: true, checked: false, posted: 0 },
+      expected: {
+        before: false,
+        after: true,
+        dismissed: false,
+        again: true,
+        checked: false,
+        posted: 0,
+      },
     });
   } finally {
     await client.act(async () => client.root.unmount());

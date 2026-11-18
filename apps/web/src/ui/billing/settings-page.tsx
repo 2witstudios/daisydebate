@@ -225,14 +225,23 @@ function PremiumConfirmed({
         <h2 className="font-display text-2xl font-bold">You have Premium</h2>
       </div>
       <p>
-        Payment confirmed.
-        {settings.priceMinor ? ` ${monthlyPrice(settings.priceMinor)}` : ''}
-        {settings.accessEndsAt ? (
+        Payment confirmed.{' '}
+        {settings.priceMinor ? (
           <>
-            , renewing <Day at={settings.accessEndsAt} />
+            {monthlyPrice(settings.priceMinor)}
+            {settings.accessEndsAt ? (
+              <>
+                , renewing <Day at={settings.accessEndsAt} />
+              </>
+            ) : null}
+            .{' '}
+          </>
+        ) : settings.accessEndsAt ? (
+          <>
+            Renewing <Day at={settings.accessEndsAt} />.{' '}
           </>
         ) : null}
-        . A receipt is on its way to your email.
+        A receipt is on its way to your email.
       </p>
       <div className="grid gap-3 narrow:grid-cols-3">
         {included.map(([title, body]) => (

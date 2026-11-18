@@ -216,8 +216,14 @@ export function admitAllowance(
   const source = sourceFor(access, grants, kinds[0]!, now);
   if (!holdsRequestedGrants(source, kinds, grants))
     return refuse('not-eligible');
+  // A free judge already bound to another Round is used; with no binding yet,
+  // it can only come with the free bot Round.
   if (freeJudgeUnbound(source, request, facts))
-    return refuse('free-judge-unbound');
+    return refuse(
+      facts.freeBotRoundId === null
+        ? 'free-judge-unbound'
+        : 'free-limit-reached',
+    );
   const verdict = bundleVerdict(facts, source, kinds, policy);
   return verdict === 'allow'
     ? { kind: 'admit', reservations: kinds.map((kind) => ({ kind, source })) }

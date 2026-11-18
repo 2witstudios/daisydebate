@@ -57,9 +57,10 @@ export function createCheckoutVendor(input: {
   const observe = async (
     purchase: Purchase,
     run: () => Promise<unknown>,
+    offer: 'current' | 'subscribed' = 'subscribed',
   ): Promise<Result> => {
     try {
-      return normalizeCheckoutSession(purchase, await run());
+      return normalizeCheckoutSession(purchase, await run(), offer);
     } catch {
       return { kind: 'unknown' };
     }
@@ -77,11 +78,15 @@ export function createCheckoutVendor(input: {
         Date.parse(now) >= Date.parse(state.claim.expiresAt)
       )
         return Promise.resolve(refuse);
-      return observe(purchase, () =>
-        input.port.create(
-          checkoutParameters(purchase),
-          purchaseIdempotencyKey(purchase),
-        ),
+      // A new session sells only the current offer (ADR 0146).
+      return observe(
+        purchase,
+        () =>
+          input.port.create(
+            checkoutParameters(purchase),
+            purchaseIdempotencyKey(purchase),
+          ),
+        'current',
       );
     },
     retrieve(purchase: Purchase): Promise<Result> {

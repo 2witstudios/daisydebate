@@ -130,11 +130,7 @@ test('forged session authority, altered offers and unsafe redirects are refused'
     },
     withPrice({ id: 'price_other' }),
     withPrice({ unit_amount: 100 }),
-    // The grandfathered $10 offer is never sold to a new Checkout (PYL-9).
-    withPrice({ unit_amount: 1000 }),
     { ...checkoutSession, amount_subtotal: 1000 },
-    withPrice({ lookup_key: null }),
-    withPrice({ lookup_key: 'daisy_premium_monthly_usd_10' }),
     withPrice({ currency: 'eur' }),
     withPrice({ livemode: true }),
     withPrice({
@@ -183,5 +179,37 @@ test('forged session authority, altered offers and unsafe redirects are refused'
       { ...checkoutSession, customer: 'cus_other' },
     ),
     expected: { kind: 'refuse' },
+  });
+});
+
+test('a new Checkout sells only the $20 offer; an existing $10 session still completes', () => {
+  const price = checkoutSession.line_items.data[0]!.price;
+  const at = (delta: Record<string, unknown>, subtotal = 2000) => ({
+    ...checkoutSession,
+    amount_subtotal: subtotal,
+    line_items: {
+      ...checkoutSession.line_items,
+      data: [{ quantity: 1, price: { ...price, ...delta } }],
+    },
+  });
+  const grandfathered = at({ unit_amount: 1000, lookup_key: null }, 1000);
+  assert({
+    given:
+      'a created session at $20, at $10, at $20 without or with another lookup key, and an existing $10 session read back',
+    should:
+      'create only at the current offer, and read back the $10 session opened before the price changed (PYL-9)',
+    actual: [
+      normalizeCheckoutSession(purchase, at({}), 'current').kind,
+      normalizeCheckoutSession(purchase, grandfathered, 'current').kind,
+      normalizeCheckoutSession(purchase, at({ lookup_key: null }), 'current')
+        .kind,
+      normalizeCheckoutSession(
+        purchase,
+        at({ lookup_key: 'daisy_premium_monthly_usd_10' }),
+        'current',
+      ).kind,
+      normalizeCheckoutSession(purchase, grandfathered).kind,
+    ],
+    expected: ['observed', 'refuse', 'refuse', 'refuse', 'observed'],
   });
 });

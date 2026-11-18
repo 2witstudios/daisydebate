@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type {
   AllowanceDecision,
@@ -53,12 +53,10 @@ async function currentBinding(tx: Tx, actorId: string): Promise<string | null> {
   return row?.roundId ?? null;
 }
 
-const holding = () =>
-  inArray(sql<string>`${usageReservations.state}->>'kind'`, usageHoldingStates);
-
 /**
- * Per requested kind: one indexed count for the quoted source and one for the
- * quote's UTC day, independent of account history size beyond that window.
+ * Per requested kind, one indexed read of two counts: holding use for the
+ * quoted source and for the quote's UTC day. The verdict picks the one its
+ * tier needs (ADR 0146).
  */
 async function readQuotedUse(
   tx: Tx,
@@ -70,31 +68,34 @@ async function readQuotedUse(
   const usage: AllowanceFacts['usage'][number][] = [];
   const today: NonNullable<AllowanceFacts['today']>['usage'][number][] = [];
   for (const reservation of quote.reservations) {
-    const mine = and(
-      eq(usageReservations.actorId, actorId),
-      eq(usageReservations.kind, reservation.kind),
-      holding(),
+    const inSource = eq(usageReservations.source, reservation.source);
+    const inDay = and(
+      gte(usageReservations.reservedAt, new Date(day.startsAt)),
+      lt(usageReservations.reservedAt, new Date(day.endsAt)),
     );
-    const [period] = await tx
-      .select({ spent: sql<number>`count(*)::int` })
-      .from(usageReservations)
-      .where(and(mine, eq(usageReservations.source, reservation.source)));
-    const [daily] = await tx
-      .select({ spent: sql<number>`count(*)::int` })
+    const [row] = await tx
+      .select({
+        period: sql<number>`count(*) filter (where ${inSource})::int`,
+        daily: sql<number>`count(*) filter (where ${inDay})::int`,
+      })
       .from(usageReservations)
       .where(
         and(
-          mine,
-          gte(usageReservations.reservedAt, new Date(day.startsAt)),
-          lt(usageReservations.reservedAt, new Date(day.endsAt)),
+          eq(usageReservations.actorId, actorId),
+          eq(usageReservations.kind, reservation.kind),
+          inArray(
+            sql<string>`${usageReservations.state}->>'kind'`,
+            usageHoldingStates,
+          ),
+          or(inSource, inDay),
         ),
       );
     usage.push({
       kind: reservation.kind,
       source: reservation.source,
-      spent: period?.spent ?? 0,
+      spent: row?.period ?? 0,
     });
-    today.push({ kind: reservation.kind, spent: daily?.spent ?? 0 });
+    today.push({ kind: reservation.kind, spent: row?.daily ?? 0 });
   }
   return { usage, today: { startsAt: day.startsAt, usage: today } };
 }

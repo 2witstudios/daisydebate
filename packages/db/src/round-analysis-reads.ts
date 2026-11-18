@@ -37,7 +37,8 @@ export const roundAnalysisReads = ({
   }): Promise<{
     readonly access: RoundAnalysisAccess;
     readonly facts: RoundAnalysisFacts;
-    readonly allowance: 'included' | 'free' | 'fair-use' | 'unavailable';
+    readonly allowance:
+      'included' | 'free' | 'used' | 'fair-use' | 'unavailable';
   }> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
@@ -99,7 +100,9 @@ export const roundAnalysisReads = ({
             : 'included'
           : quote?.decision.reason === 'abuse-ceiling'
             ? 'fair-use'
-            : 'unavailable';
+            : quote?.decision.reason === 'free-limit-reached'
+              ? 'used'
+              : 'unavailable';
       return {
         access,
         facts: await readRoundAnalysisFacts(tx, target),

@@ -233,8 +233,9 @@ export function RoomControls({
   };
   readonly commandAction: FormAction<RoomFormState>;
 }) {
-  const [reached, setReached] = useState(false);
-  const reach = () => setReached(true);
+  // Each reach mounts a fresh panel, so it shows again after "Not now".
+  const [reaches, setReaches] = useState(0);
+  const reach = () => setReaches((count) => count + 1);
   return (
     <section
       aria-label="Room controls"
@@ -261,9 +262,10 @@ export function RoomControls({
             action={commandAction}
             onReach={reach}
           />
-          {reached && view.captureOffer === 'premium' ? (
+          {reaches > 0 && view.captureOffer === 'premium' ? (
             <div className="py-3">
               <UpgradePanel
+                key={reaches}
                 title="Recording and broadcast are Premium"
                 alternative={{ kind: 'dismiss', label: 'Not now' }}
               >

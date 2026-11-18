@@ -193,3 +193,27 @@ test('beta-granted Premium has nothing to pay and no checkout', () => {
     expected: [true, true, false, false],
   });
 });
+
+test('the confirmation reads as one sentence whichever terms are known yet', () => {
+  const confirm = (over: Partial<BillingSettings>) =>
+    words(
+      renderToString(
+        <BillingSettingsPage settings={{ ...premium, ...over }} returned />,
+      ),
+    );
+  assert({
+    given:
+      'a confirmed return with no price yet, and with neither price nor date',
+    should: 'never print a stray comma or double full stop',
+    actual: [
+      confirm({ priceMinor: null }).includes(
+        'Payment confirmed. Renewing 17 Dec 2026. A receipt',
+      ),
+      confirm({ priceMinor: null, accessEndsAt: null }).includes(
+        'Payment confirmed. A receipt',
+      ),
+      /\.,|\.\./.test(confirm({ priceMinor: null })),
+    ],
+    expected: [true, true, false],
+  });
+});

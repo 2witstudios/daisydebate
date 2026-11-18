@@ -258,7 +258,8 @@ test('optional free bot and judge form one atomic admission decision', () => {
         kind: 'admit',
         reservations: [{ kind: 'casual_ai_judge', source: free }],
       },
-      { kind: 'refuse', reason: 'free-judge-unbound' },
+      // Bound to another Round: the free judge is used there.
+      { kind: 'refuse', reason: 'free-limit-reached' },
       { kind: 'refuse', reason: 'free-judge-unbound' },
     ],
   });
@@ -322,8 +323,9 @@ test('a refunded free judge cannot transfer through a replacement bot bundle', (
       }),
     ],
     expected: [
-      { kind: 'refuse', reason: 'free-judge-unbound' },
-      { kind: 'refuse', reason: 'free-judge-unbound' },
+      // The binding keeps the free judge with its original Round: used.
+      { kind: 'refuse', reason: 'free-limit-reached' },
+      { kind: 'refuse', reason: 'free-limit-reached' },
       {
         kind: 'admit',
         reservations: [{ kind: 'ai_round', source: free }],

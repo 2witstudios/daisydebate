@@ -47,6 +47,7 @@ export const premiumPriceSchema = z.object({
  */
 export const subscribedPriceSchema = z.object({
   ...priceShape,
+  lookup_key: z.string().max(200).nullable().optional(),
   unit_amount: z.union([
     z.literal(premiumOffer.unitAmount),
     z.literal(grandfatheredUnitAmount),
