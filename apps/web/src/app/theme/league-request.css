@@ -1,0 +1,8 @@
+/* Component-owned size tokens for /contact/league (ADR 0028). Theme variables only; classes stay in the markup. */
+@theme {
+  /* The form and the What happens next panel sit side by side, and stack below these widths. */
+  --spacing-league-request-form: 520px;
+  --spacing-league-request-aside: 260px;
+  /* The What you need box opens tall enough for a paragraph. */
+  --spacing-league-request-notes: 120px;
+}
