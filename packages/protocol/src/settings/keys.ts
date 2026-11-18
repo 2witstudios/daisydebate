@@ -43,6 +43,8 @@ export const settingKeys = [
   'entry.judge_obligation',
   'conflict.handling',
   'recording.capture',
+  'judging.ai_judge',
+  'broadcast.live',
   'audience.posting',
   'audience.decision',
   'audience.scores',

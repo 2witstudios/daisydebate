@@ -1,3 +1,4 @@
+import { tournamentHostingTier } from '../hosting-tier';
 import { ageAdmitted } from '@daisy/auth/authorization';
 import type {
   LoadedEntryEnrollment,
@@ -121,6 +122,14 @@ export const entryEnrollmentFacts = (
       ),
     },
     sender: { userId: input.senderUserId, host: input.host },
+    hosting: loaded.hosting
+      ? {
+          tier: tournamentHostingTier(loaded.hosting, input.now),
+          acceptedEntries: loaded.entries.filter(
+            (entry) => entry.status === 'accepted',
+          ).length,
+        }
+      : null,
     people,
     responsible:
       responsible?.kind === 'school'

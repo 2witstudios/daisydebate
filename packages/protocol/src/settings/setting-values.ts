@@ -199,6 +199,8 @@ export const settingValueSchemas = {
   }),
   'conflict.handling': z.strictObject({ value: conflictHandlingSchema }),
   'recording.capture': choice(['on', 'off']),
+  'judging.ai_judge': choice(['on', 'off']),
+  'broadcast.live': choice(['on', 'off']),
   'audience.posting': audienceMapSchema,
   'audience.decision': audienceMapSchema,
   'audience.scores': participantAudienceMapSchema,

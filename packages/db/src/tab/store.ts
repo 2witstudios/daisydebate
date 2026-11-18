@@ -56,6 +56,10 @@ export type {
   LoadedReleaseCommand,
   ReleaseCommandWrite,
 } from './release-command';
+export {
+  loadTournamentHostingFacts,
+  type TournamentHostingFacts,
+} from './tournament-hosting-facts';
 import { createTournamentSponsorshipStore } from './tournament-sponsorship';
 export type { LoadedTournamentSponsorship } from './tournament-sponsorship';
 import {

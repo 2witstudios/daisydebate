@@ -24,6 +24,7 @@ import {
   type StoredTabCommand,
 } from './command-record';
 import { applyEntryEnrollmentWrites } from './entry-enrollment-writes';
+import { loadTournamentHostingFacts } from './tournament-hosting-facts';
 import type { EntryEnrollmentWrite } from './entry-enrollment-write';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 export type EntryEnrollmentCommand = Exclude<
@@ -123,6 +124,8 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
         .from(actors)
         .where(eq(actors.userId, lobby.ownerUserId))
     : [];
+  // Locks the tournament row, so every event's entries count against one cap in turn.
+  const hosting = lobby ? await loadTournamentHostingFacts(tx, lobby.id) : null;
   const currentEntries = await tx
     .select()
     .from(entries)
@@ -190,6 +193,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     guardianActorId: guardianActor?.id ?? null,
     ownerActorId: owner?.id ?? null,
     configuration,
+    hosting,
     entries: currentEntries,
     members,
     rounds: await tx

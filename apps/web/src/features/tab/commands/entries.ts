@@ -5,6 +5,10 @@ import type {
 } from '@daisy/protocol/lobby/entry-command';
 import type { entryStatuses, responsibleKinds } from '@daisy/protocol/lobby';
 import type { FixtureChange } from '@daisy/protocol/lobby/command';
+import {
+  eventAllowance,
+  type HostingTier,
+} from '@daisy/protocol/lobby/hosting-tier';
 import { isRepairable, type LiveFixtureState } from './fixture-lifecycle';
 import { refuse, type CommandDecision } from './run-command';
 
@@ -131,7 +135,21 @@ export type EntryFacts = {
     | { readonly kind: 'self' }
     | null;
   readonly entry: EntryRowFacts | null;
+  /**
+   * The hosted tournament's tier and its accepted entries across every
+   * event (ADR 0147); null where no tier applies.
+   */
+  readonly hosting: {
+    readonly tier: HostingTier;
+    readonly acceptedEntries: number;
+  } | null;
 };
+
+/** Whether the tournament may hold one more accepted entry. */
+const roomForEntry = (facts: EntryFacts) =>
+  facts.hosting === null ||
+  eventAllowance(facts.hosting.tier, facts.hosting.acceptedEntries, 'entry')
+    .kind === 'allowed';
 
 type EntryRow = {
   readonly id: string;
@@ -334,8 +352,11 @@ const submitEntry = (
   const awaited = people.some((person) =>
     guardianAwaited(person, facts.event.lobbyId, facts.sender.userId),
   );
+  // Past the hosting tier's cap an entry waits for the host to upgrade.
   const status: EntryStatus =
-    !awaited && (facts.sender.host || facts.event.approval === 'automatic')
+    !awaited &&
+    roomForEntry(facts) &&
+    (facts.sender.host || facts.event.approval === 'automatic')
       ? 'accepted'
       : 'pending';
   const entryId = facts.newEntryId;
@@ -400,6 +421,7 @@ const acceptEntry = (
     )
   )
     return refuse('guardian-pending');
+  if (!roomForEntry(facts)) return refuse('hosting-upgrade-required');
   return accepted(facts, [
     setStatus(entry.id, 'accepted'),
     ...boundaryRevisions(entry.members),

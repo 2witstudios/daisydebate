@@ -84,6 +84,7 @@ export const entryRefusals = [
   'stage-started',
   'not-double-qualified',
   'choice-closed',
+  'hosting-upgrade-required',
 ] as const;
 export type EntryRefusal = (typeof entryRefusals)[number];
 
@@ -111,7 +112,12 @@ export const entryCommandCatalogue = {
   'accept-entry': {
     ...onEntries,
     gate: ['tournament.entries.manage'],
-    refusals: ['entry-settled', 'slot-clash', 'guardian-pending'],
+    refusals: [
+      'entry-settled',
+      'slot-clash',
+      'guardian-pending',
+      'hosting-upgrade-required',
+    ],
   },
   'decline-entry': {
     ...onEntries,
