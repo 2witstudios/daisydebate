@@ -54,4 +54,60 @@ describe('RoundBar vocabulary', () => {
       expected: [false, true],
     });
   });
+
+  test('a long format draws only the live speech and the next', () => {
+    const base = sampleRound('opponent-speaking', 'casual');
+    const speeches = Array.from({ length: 12 }, (_, i) => ({
+      ...base.speeches[0]!,
+      id: `${i}-S${i}`,
+      code: `S${i}`,
+      name: `Speech number ${i}`,
+    }));
+    const html = renderToString(
+      h(RoundBar, {
+        round: { ...base, speeches, liveIndex: 5 },
+        leave: noLeave,
+      }),
+    );
+    const strip = html.slice(html.indexOf('aria-label="Speeches"'));
+    assert({
+      given: 'twelve speeches with the sixth live',
+      should:
+        'name the live one in full, show the next code, count the rest, and keep every speech in the order',
+      actual: [
+        strip.includes('S5 · Speech number 5'),
+        strip.includes('>S6<'),
+        strip.includes('>S7<'),
+        />5<span class="sr-only"> done</.test(strip),
+        /\+(<!-- -->)?5<span class="sr-only"> more</.test(strip),
+        strip.includes('6 of 12'),
+        speeches.every((s) => html.includes(s.name)),
+      ],
+      expected: [true, true, false, true, true, true, true],
+    });
+  });
+
+  test('a finished round reads All done at every width', () => {
+    const base = sampleRound('opponent-speaking', 'casual');
+    const html = renderToString(
+      h(RoundBar, {
+        round: { ...base, liveIndex: base.speeches.length },
+        leave: noLeave,
+      }),
+    );
+    const strip = html.slice(html.indexOf('aria-label="Speeches"'));
+    const done = strip.slice(0, strip.indexOf('All done'));
+    assert({
+      given: 'every speech over (the round is being judged)',
+      should:
+        'say All done outside the narrow-only class, with no live chip and no done count',
+      actual: [
+        strip.includes('All done'),
+        done.slice(done.lastIndexOf('<li')).includes('round-speech-narrow'),
+        strip.includes('aria-current="step"'),
+        strip.includes('<span class="sr-only"> done</span>'),
+      ],
+      expected: [true, false, false, false],
+    });
+  });
 });
