@@ -5,9 +5,11 @@ import {
   type SubscriptionEvidence,
 } from '@daisy/protocol/billing';
 import type { ClubSeat, SeatInvitation } from '@daisy/protocol/club-seats';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { loadAuthorizationAccount } from './authorization';
-import { lockOwnerBillingRows, type LockedClub } from './billing-owner-lock';
+import { ownedBy, type LockedClub } from './billing-owner-lock';
+import { billingCustomers } from './schema/billing-customers';
+import { billingSubscriptions } from './schema/billing-subscriptions';
 import type { BoundedTransaction } from './bounded-transaction';
 import { invitedAs, type ClubSeatSubject } from './club-seat-commands';
 import { readClubSeats } from './club-seat-grants';
@@ -103,10 +105,25 @@ export function createClubSeatReads(input: {
         });
         const club = await readClub(tx, organizationId);
         if (!club || club.ownerUserId !== subject.userId) return null;
-        const { customer, subscription } = await lockOwnerBillingRows(tx, {
-          kind: 'organization',
-          organizationId,
-        });
+        // A read takes no row locks: the page reads the plan, never fences it.
+        const [customer] = await tx
+          .select()
+          .from(billingCustomers)
+          .where(
+            ownedBy(billingCustomers, { kind: 'organization', organizationId }),
+          );
+        const [subscription] = await tx
+          .select()
+          .from(billingSubscriptions)
+          .where(
+            and(
+              ownedBy(billingSubscriptions, {
+                kind: 'organization',
+                organizationId,
+              }),
+              eq(billingSubscriptions.current, true),
+            ),
+          );
         const seats = await readClubSeats(tx, organizationId);
         const invitations = await tx.execute(
           sql`select id, email, created_at, expires_at from club_seat_invitations

@@ -172,8 +172,11 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
       'economics-feed-conflicting-basis',
       'Conflicting model cost bases',
     );
+  // Club seat use (ADR 0148) is attributed to its club and kept out of the
+  // three self-paid plans; only use nobody can attribute voids coverage.
   const unassigned = snapshot.attempts.some(
-    (a) => planFor(a.sourceKind) === null,
+    (a) =>
+      planFor(a.sourceKind) === null && a.sourceKind !== 'organization_seat',
   );
   const coverage = feed.coverage.filter(() => snapshot.complete && !unassigned);
   const rows = usageRows(

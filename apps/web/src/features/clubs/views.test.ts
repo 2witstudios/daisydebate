@@ -227,3 +227,43 @@ test('the club and invitation come from the path, never the body', () => {
     ],
   });
 });
+
+test('a plan awaiting its first verified payment is starting, not ended', () => {
+  assert({
+    given: 'Checkout completed and the first invoice not yet verified paid',
+    should: 'read none (seats being confirmed), not ended',
+    actual: clubSeatsView(
+      read({
+        evidence: { lifecycle: 'incomplete', settlement: { kind: 'unpaid' } },
+      }),
+    ).plan.state,
+    expected: 'none',
+  });
+});
+
+test('the board lists live invitations and only the latest lapsed ones', () => {
+  const lapsed = Array.from({ length: 300 }, (_, n) => ({
+    id: `${n}`.padStart(24, 'l'),
+    email: `l${n}@club.example`,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    expiresAt: new Date(
+      Date.parse('2026-10-15T00:00:00.000Z') + n * 60_000,
+    ).toISOString(),
+  }));
+  const base = read();
+  const view = clubSeatsView({
+    ...base,
+    invitations: [...base.invitations, ...lapsed],
+  });
+  assert({
+    given: 'one live invitation and 301 lapsed ones',
+    should:
+      'list the live one and the 50 latest lapsed, so the page always renders',
+    actual: [
+      view.invitations.filter((i) => !i.expired).length,
+      view.invitations.filter((i) => i.expired).length,
+      view.invitations.find((i) => i.expired)?.email,
+    ],
+    expected: [1, 50, 'l299@club.example'],
+  });
+});

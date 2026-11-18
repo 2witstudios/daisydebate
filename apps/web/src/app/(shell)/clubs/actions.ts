@@ -1,4 +1,5 @@
 'use server';
+import { createId } from '@paralleldrive/cuid2';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { field, refused } from '../../../features/forms/form-state';
@@ -121,7 +122,7 @@ export async function startClubAction(
       const { incoming, response } = await postJson(createRoute, '/api/clubs', {
         kind,
         name,
-        handle: handleFrom(name, attempt),
+        handle: handleFrom(name, attempt, createId().slice(0, 6)),
         seats,
       });
       if (response.status === 404)

@@ -63,7 +63,7 @@ export const clubSeatsViewSchema = z.strictObject({
         expired: z.boolean(),
       }),
     )
-    .max(400),
+    .max(250),
   /** Active members without a seat: who a seat may be assigned or moved to. */
   members: z.array(person).max(500),
 });
@@ -107,6 +107,9 @@ export const clubInvitationViewSchema = z.discriminatedUnion('kind', [
 ]);
 export type ClubInvitationView = z.infer<typeof clubInvitationViewSchema>;
 
+/** How many lapsed invitations the board lists for resending. */
+const lapsedShown = 50;
+
 const ladderOf = (band: 'minor' | 'adult' | null) =>
   band === null
     ? null
@@ -130,8 +133,14 @@ function planView(read: ClubSeatingRead) {
         ? evidence.settlement.previous.period
         : evidence.settlement.period
       : null;
+  // Checkout completed but the first invoice is not yet verified paid: the
+  // plan is still starting, not ended.
+  const starting =
+    evidence !== null &&
+    evidence.settlement.kind === 'unpaid' &&
+    ['incomplete', 'active', 'trialing'].includes(evidence.lifecycle);
   const state =
-    evidence === null
+    evidence === null || starting
       ? 'none'
       : access.kind === 'paid'
         ? read.plan.renewalOff
@@ -193,7 +202,15 @@ export function clubSeatsView(read: ClubSeatingRead): ClubSeatsView {
       assignedAt: seat.assignedAt,
       funded: funded.has(seat.userId),
     })),
-    invitations: read.invitations.map((invitation) => ({
+    // Every live invitation (at most one per seat), and the latest lapsed ones
+    // to resend; lapsed rows wait 30 days for their purge.
+    invitations: [
+      ...read.invitations.filter((invitation) => live.has(invitation.id)),
+      ...read.invitations
+        .filter((invitation) => !live.has(invitation.id))
+        .sort((a, b) => b.expiresAt.localeCompare(a.expiresAt))
+        .slice(0, lapsedShown),
+    ].map((invitation) => ({
       id: invitation.id,
       email: invitation.email,
       expiresAt: invitation.expiresAt,

@@ -1,5 +1,6 @@
 import type Stripe from 'stripe';
 import { z } from 'zod';
+import { isAppError } from '@daisy/errors';
 import type { Clock } from '@daisy/clock';
 import type { ClubBillingConfig } from '@daisy/config';
 import type { ClubSeatAnswer, Database } from '@daisy/db';
@@ -167,9 +168,20 @@ export function createClubBilling(input: {
         seats > clubSeatBounds.maxSeats
       )
         return unavailable;
-      return config
-        ? flowFor(config, organizationId, seats)({ ...subject, organizationId })
-        : unavailable;
+      if (!config) return unavailable;
+      try {
+        return await flowFor(
+          config,
+          organizationId,
+          seats,
+        )({ ...subject, organizationId });
+      } catch (error) {
+        // A Checkout already open for another seat count holds the club's one
+        // purchase until it completes or expires: the page says it is pending.
+        if (isAppError(error) && error.code === 'CONFLICT')
+          return { kind: 'pending' } as const;
+        throw error;
+      }
     },
 
     portal(subject: Subject, organizationId: string) {

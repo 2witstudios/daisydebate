@@ -472,3 +472,49 @@ test('a monthly run never treats its own month as a correction, whatever the clo
     expected: ['reported', 'missing', 1],
   });
 });
+
+test('club seat use is attributed to its club and keeps the self-paid plans’ coverage', async () => {
+  const attempt = (sourceKind: 'organization_seat' | 'unattributed') => ({
+    sourceKind,
+    sourceStartsAt: sourceKind === 'organization_seat' ? month : null,
+    sourceEndsAt:
+      sourceKind === 'organization_seat' ? '2026-11-01T00:00:00.000Z' : null,
+    feature: 'ai_round' as const,
+    model: null,
+    provider: 'openrouter',
+    firstAt: month,
+    lastAt: month,
+    runs: 1,
+    knownResponses: 0,
+    unmeasuredResponses: 0,
+    unknownCalls: 0,
+    definiteFailures: 1,
+    inputTokens: 0,
+    outputTokens: 0,
+    characters: 0,
+  });
+  const coverage = async (sourceKind: 'organization_seat' | 'unattributed') => {
+    const collector = createBillingEconomicsCollector({
+      store: {
+        read: async () => ({ ...snapshot(), attempts: [attempt(sourceKind)] }),
+      },
+      feed: { read: async () => feed() },
+      now: () => now,
+      save: async () => undefined,
+    });
+    const r = await collector.run(window);
+    return r.kind === 'reported' && r.report.kind === 'report'
+      ? r.report.sources.coverage.length > 0
+      : r.kind;
+  };
+  assert({
+    given: 'an AI round from a club seat, and one nobody can attribute',
+    should:
+      'keep the feed’s coverage for the seat, and void it for the unattributed one',
+    actual: [
+      await coverage('organization_seat'),
+      await coverage('unattributed'),
+    ],
+    expected: [true, false],
+  });
+});

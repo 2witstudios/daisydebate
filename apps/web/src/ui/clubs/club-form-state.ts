@@ -90,16 +90,23 @@ export function seatCountFrom(form: FormData): unknown {
 }
 
 /** A club's handle from its name: lower-case words joined by hyphens, 3 to 40 characters. */
-export function handleFrom(name: string, attempt = 0): string {
-  const base =
-    name
-      .normalize('NFKD')
-      .replace(/\p{M}+/gu, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 34)
-      .replace(/-+$/, '') || 'club';
-  const padded = base.length < 3 ? `${base}-club` : base;
+export function handleFrom(
+  name: string,
+  attempt = 0,
+  /** Six random lower-case letters or digits, from the caller. */
+  random = '',
+): string {
+  const slug = name
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30)
+    .replace(/-+$/, '');
+  // A name with no Latin letters or digits (Chinese, Arabic, emoji) has no
+  // slug; it, and every later retry, takes a random suffix so handles never run out.
+  if (slug === '' || attempt >= 2) return `${slug || 'club'}-${random}`;
+  const padded = slug.length < 3 ? `${slug}-club` : slug;
   return attempt === 0 ? padded : `${padded}-${attempt + 1}`;
 }

@@ -462,11 +462,11 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
           const created = await input.createClub(subject, club);
           if ('refusal' in created)
             return { kind: 'refused', refusal: created.refusal } as const;
-          const result = await input.billing.checkout(
-            subject,
-            created.organizationId,
-            seats,
-          );
+          // The club exists now; a Checkout that cannot open leaves the
+          // manager on its billing page to retry, never a second club.
+          const result = await input.billing
+            .checkout(subject, created.organizationId, seats)
+            .catch(() => ({ kind: 'unavailable' }) as const);
           return {
             kind: 'created',
             organizationId: created.organizationId,

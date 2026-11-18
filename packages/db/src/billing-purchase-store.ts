@@ -88,11 +88,14 @@ export function createBillingPurchases(input: {
           readonly kind: 'admitted' | 'existing';
           readonly purchase: Purchase;
         }> => {
-          const { account, customer, subscription } = await lockPurchaseSubject(
-            tx,
-            subject,
-          );
-          if (!input.policies.purchase(account) || customer?.closedAt)
+          const { account, club, customer, subscription } =
+            await lockPurchaseSubject(tx, subject);
+          // A closed club cannot buy seats that would never grant access.
+          if (
+            !input.policies.purchase(account) ||
+            customer?.closedAt ||
+            club?.closed
+          )
             throw createAppError('AUTHORIZATION');
           if (customer && customer.mode !== offer.mode)
             throw createAppError('CONFLICT');

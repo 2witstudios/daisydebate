@@ -849,3 +849,26 @@ test('invitation mail is throttled, and a lapsed plan gives no seats', async () 
     },
   );
 });
+
+test('a closed club cannot buy seats', async () => {
+  await withBillingPurchases(async ({ fixture, subject, purchases }) => {
+    const organizationId = await club(fixture, subject.userId);
+    try {
+      await fixture.sql`update organizations set closed_at=now() where id=${organizationId}`;
+      const outcome = await purchases
+        .admit({ ...subject, organizationId }, { ...offer, quantity: 3 })
+        .then(
+          () => 'admitted',
+          (error: { code?: string }) => error.code ?? 'refused',
+        );
+      assert({
+        given: 'a club whose organisation is closed',
+        should: 'refuse its Checkout admission',
+        actual: outcome,
+        expected: 'AUTHORIZATION',
+      });
+    } finally {
+      await cleanup(fixture, [organizationId]);
+    }
+  });
+});
