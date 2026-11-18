@@ -39,7 +39,8 @@ export const acquisitionCommands = () => [
  * lists and the exact .deb set one successful run used, restored by the
  * workflow into a runner-owned directory. Lists are only reused on the exact
  * runner image that produced them; .debs from any image prefill apt's
- * archive, and each is verified against the current index's SHA256 first.
+ * archive after each is verified against the current index's SHA256 (apt
+ * itself accepts a cached archive on its size alone).
  */
 export const stagePaths = (stage: string) => ({
   archives: `${stage}/archives`,
@@ -113,6 +114,8 @@ export const offlineCheckCommand = () => [
   '-ec',
   `missing=$(${['apt-get', '-o', 'Dpkg::Use-Pty=0', 'install', '-qq', '--print-uris', '--no-install-recommends', 'ffmpeg'].join(' ')})\nif [ -n "$missing" ]; then echo "$missing" | wc -l | xargs echo "archives still to download:"; exit 1; fi`,
 ];
+
+export const dropStageCommand = (stage: string) => ['rm', '-rf', '--', stage];
 
 /**
  * Copies apt's archive aside before dpkg runs: an image whose apt hook cleans
@@ -303,10 +306,12 @@ async function optional(
 ) {
   try {
     await runner.run(phase, command);
+    return true;
   } catch (error) {
     if (error instanceof Error && error.cause === 'cleanup-unproven')
       throw error;
     runner.log(`${phase} skipped: ${String(error)}`);
+    return false;
   }
 }
 
@@ -323,11 +328,13 @@ async function restoreFromCache(
   runner.log(
     `cache: staged image ${staged?.trim() ?? 'none'}; lists ${withLists ? 'reused' : 'not reused'}`,
   );
-  await runner.run(
+  // A failed prefill only means acquiring as on a cold run.
+  const prefilled = await optional(
+    runner,
     'prefill from cache',
     prefillCommand(cache.stage, withLists),
   );
-  if (!withLists) return false;
+  if (!prefilled || !withLists) return false;
   try {
     await runner.run('verify cached archives', verifyArchivesCommand());
     await runner.run('offline readiness', offlineCheckCommand());
@@ -345,6 +352,15 @@ async function prepareFfmpeg(
   cache: Cache | undefined,
 ) {
   const offline = cache ? await restoreFromCache(runner, cache) : false;
+  // The workflow saves the stage only beside an image file (staged=true). A
+  // restored stage this run will not reuse goes now, so a failed or skipped
+  // refresh leaves nothing to save under this image's exact key.
+  if (cache && !offline)
+    await optional(
+      runner,
+      'drop restored stage',
+      dropStageCommand(cache.stage),
+    );
   if (!offline) {
     await acquire(runner);
     if (cache)

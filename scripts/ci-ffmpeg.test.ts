@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   acquisitionCommands,
+  dropStageCommand,
   listsReusable,
   offlineCheckCommand,
   preparationDeadline,
@@ -77,6 +78,26 @@ describe('ffmpeg package cache', () => {
         .join(' ')
         .includes('/var/lib/apt/lists'),
       expected: false,
+    });
+  });
+  test('restores lists beside the .debs on the image that wrote them', () => {
+    const script = prefillCommand('/stage', true).at(-1)!;
+    assert({
+      given: 'a stage from this image',
+      should: 'copy its .debs and its lists into apt',
+      actual: [
+        script.includes("'/stage/archives'"),
+        script.includes("cp -R '/stage/lists'/. /var/lib/apt/lists/"),
+      ],
+      expected: [true, true],
+    });
+  });
+  test('drops a restored stage the run will not reuse', () => {
+    assert({
+      given: 'a stage this run did not install from',
+      should: 'remove exactly that directory',
+      actual: dropStageCommand("/home/runner/.cache/daisy ffmpeg's"),
+      expected: ['rm', '-rf', '--', "/home/runner/.cache/daisy ffmpeg's"],
     });
   });
   test('checks offline readiness without dpkg or downloads', () => {

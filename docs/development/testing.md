@@ -687,8 +687,10 @@ and no interrupted installation is retried.
 
 A warm cache skips acquisition entirely. The workflow restores
 `~/.cache/daisy-ffmpeg-apt` keyed on runner architecture and image
-(`ImageOS`/`ImageVersion`), falling back to the newest entry for an earlier
-image, and saves it straight after a preparation that was not an exact hit. The
+(`ImageOS`/`ImageVersion`), falling back to the newest entry for another
+image (restore keys take the most recent match, which may be a newer image
+during a rollout), and saves it straight after a preparation that was not an
+exact hit and staged its own entry. The
 directory holds apt's lists, the `.deb` versions that run installed (copied
 aside before dpkg, filtered to installed versions afterwards) and the image that
 wrote them. Every run prefills apt's archive with those `.debs`. apt itself reuses a
@@ -703,9 +705,12 @@ network at all. Otherwise the bounded acquisition above runs, downloading only
 what the cached `.debs` lack. Restored lists are not re-verified (offline, the archive check is only as
 good as those lists): cache entries
 are written only by this repository's workflows, main's only by pushes to main,
-the same trust that already governs `ci.yml`. A failure to stage the cache does
-not fail the step; it only costs the next run its offline path, because lists
-are reused only beside the image file written last.
+the same trust that already governs `ci.yml`. A run that does not install
+offline drops the restored directory before acquiring, and the workflow saves
+only beside an image file (`staged=true`), so a failed or skipped refresh saves
+nothing rather than another image's entry under this image's exact key. Cache
+phases (prefill, hold, stage, drop) never fail the step except on unproven
+group cleanup; cancellation or a spent budget still does.
 
 Proof (2026-11-18, Ubuntu 24.04 arm64 container with `docker-clean` removed to
 match the runner): a cold run staged 195 archives; the same image with
