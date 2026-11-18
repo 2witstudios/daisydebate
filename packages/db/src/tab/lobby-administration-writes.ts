@@ -130,7 +130,11 @@ const apply = async (
           .select({ division: organizations.leagueDivision })
           .from(organizations)
           .where(eq(organizations.id, write.row.organizationId));
-        if (!league?.division) throw createAppError('INVARIANT');
+        if (!league) throw createAppError('INVARIANT');
+        // Daisy (kind league) carries no division: its seasons are opened
+        // only by the operator's season command (ADR 0055), so a lobby
+        // command naming it finds nothing to open.
+        if (!league.division) throw createAppError('NOT_FOUND');
         await tx.insert(seasons).values({
           ...write.row,
           division: league.division,
