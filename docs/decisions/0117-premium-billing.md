@@ -7,7 +7,9 @@ not approve production activation or turn provisional defaults into owner decisi
 Amended by [ADR 0146](0146-premium-twenty-unlimited-fair-use.md): new
 Checkouts sell USD 20 a month, Premium is unlimited with only a per-day
 fair-use ceiling, existing subscribers keep their price, and no usage
-counter is shown anywhere.
+counter is shown anywhere. Amended by
+[ADR 0148](0148-club-seats.md): billing is owned by an account or an
+organisation, and a Club plan sells Premium per seat.
 
 ## Decision
 

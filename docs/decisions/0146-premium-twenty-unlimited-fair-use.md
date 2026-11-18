@@ -7,6 +7,8 @@ tasks PYL-9, PYL-10 and PYL-11). Amends
 quota and the member usage display) and
 [ADR 0058](0058-one-round-model.md) (the flat beta monthly cap,
 `AI_ROUND_MONTHLY_CAP`, is retired).
+Amended by [ADR 0148](0148-club-seats.md): Club seats grant the same
+Premium, from source `organization_seat`, under the same renewal grace.
 
 ## Context
 
