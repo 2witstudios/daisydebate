@@ -58,7 +58,8 @@ export function AiJudgeNotice({
           Invite a person to judge, or try again tomorrow.
         </p>
       );
-    default:
+    case 'included':
+    case null:
       return null;
   }
 }

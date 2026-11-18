@@ -20,7 +20,13 @@ const day = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
 });
 /** "17 Dec 2026" in UTC, the instant the verified period ends. */
-function Day({ at, strong = false }: { readonly at: string; readonly strong?: boolean }) {
+function Day({
+  at,
+  strong = false,
+}: {
+  readonly at: string;
+  readonly strong?: boolean;
+}) {
   const text = day.format(new Date(at));
   return <time dateTime={at}>{strong ? <strong>{text}</strong> : text}</time>;
 }
@@ -30,7 +36,7 @@ const monthlyPrice = (minor: number) => {
   return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}/month`;
 };
 
-const secondary = `${buttonClass('secondary')} min-h-11 self-start`;
+const secondary = `${buttonClass('secondary')} min-h-nav-target self-start`;
 
 function Portal({
   children,
@@ -68,7 +74,7 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
     case 'premium':
       return (
         <Panel title="Daisy Premium">
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-3">
             {settings.priceMinor ? (
               <p className="text-lg">
                 <strong>{monthlyPrice(settings.priceMinor)}</strong>
@@ -89,7 +95,7 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
     case 'cancelled':
       return (
         <Panel title="Daisy Premium · cancelled">
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-3">
             {ends ? (
               <p>
                 Renewal is off. Premium stays on until <Day at={ends} strong />,
@@ -111,7 +117,7 @@ function PlanPanel({ settings }: { readonly settings: BillingSettings }) {
     case 'club-seat':
       return (
         <Panel title="Daisy Premium">
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-3">
             {settings.club ? (
               <div className="flex items-center gap-3">
                 <span
@@ -185,16 +191,20 @@ const included = [
 ] as const;
 
 /** The checkout return once current server evidence shows Premium, never the return URL alone. */
-function PremiumConfirmed({ settings }: { readonly settings: BillingSettings }) {
+function PremiumConfirmed({
+  settings,
+}: {
+  readonly settings: BillingSettings;
+}) {
   return (
     <section
       role="status"
-      className="flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-7"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-6"
     >
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
-          className="inline-flex size-11 items-center justify-center rounded-full bg-sage text-ink"
+          className="inline-flex size-12 items-center justify-center rounded-full bg-sage text-ink"
         >
           <Icon name="check" size={22} />
         </span>
@@ -210,16 +220,22 @@ function PremiumConfirmed({ settings }: { readonly settings: BillingSettings }) 
         ) : null}
         . A receipt is on its way to your email.
       </p>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+      <div className="grid gap-3 narrow:grid-cols-3">
         {included.map(([title, body]) => (
-          <div key={title} className="flex flex-col gap-1 rounded-lg bg-surface p-4">
+          <div
+            key={title}
+            className="flex flex-col gap-1 rounded-lg bg-surface p-4"
+          >
             <strong>{title}</strong>
             <span className="text-sm text-ink-muted">{body}</span>
           </div>
         ))}
       </div>
       <div className="flex flex-wrap gap-3">
-        <Link href="/play" className={`${buttonClass('primary')} min-h-11`}>
+        <Link
+          href="/play"
+          className={`${buttonClass('primary')} min-h-nav-target`}
+        >
           Debate a bot
         </Link>
         <Link href="/settings/billing" className={secondary}>
@@ -253,7 +269,7 @@ export function BillingSettingsPage({
     <ReadingPage>
       <PageHeader title="Billing" />
       {message ? (
-        <p role="status" className="rounded-lg bg-surface-sunken px-4 py-3.5">
+        <p role="status" className="rounded-lg bg-surface-sunken px-4 py-3">
           {message}
         </p>
       ) : null}

@@ -63,9 +63,7 @@ test('every other state says where the analysis is or why there is none', () => 
       render({ status: 'unavailable' }).includes(
         'not available for this round',
       ),
-      render({ status: 'locked' }).includes(
-        'You’ve used your free analysis',
-      ),
+      render({ status: 'locked' }).includes('You’ve used your free analysis'),
       render({ status: 'locked' }).includes('href="/premium"'),
       render({ status: 'locked' }).includes('Not now'),
       render({ status: 'locked' }).includes(report.summary),

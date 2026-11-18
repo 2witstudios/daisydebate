@@ -103,7 +103,9 @@ function admissionRefusal(
       case 'abuse-ceiling':
       case 'renewal-grace':
         return decision.reason;
-      default:
+      case 'not-eligible':
+      case 'invalid-facts':
+      case 'free-judge-unbound':
         return 'not-eligible' as const;
     }
   return busy >= busyCap ? ('capacity' as const) : null;

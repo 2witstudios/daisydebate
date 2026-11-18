@@ -22,7 +22,7 @@ panel at the moment it reaches for one of them.
 ## Decision
 
 1. **One pure allowance rule.** `allowanceVerdict(tier, kind, usedToday,
-   usedThisPeriod)` in `packages/auth/src/allowance.ts` returns `allow`,
+usedThisPeriod)` in `packages/auth/src/allowance.ts` returns `allow`,
    `free-limit-reached` or `abuse-ceiling`. The lifetime source is the free
    tier; a subscription or a beta grant is Premium. Free compares the
    period (lifetime) use with one; Premium compares today's use with the

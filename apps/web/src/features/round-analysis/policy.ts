@@ -36,7 +36,8 @@ export function roundAnalysisView(input: {
       return { status: 'locked' };
     case 'fair-use':
       return { status: 'fair-use' };
-    default:
+    case 'free':
+    case 'included':
       return { status: 'requestable', allowance: input.allowance };
   }
 }

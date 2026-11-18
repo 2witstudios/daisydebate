@@ -9,7 +9,11 @@ import { Icon } from '../icon/icon';
  */
 export type UpgradeAlternative =
   | { readonly kind: 'link'; readonly label: string; readonly href: string }
-  | { readonly kind: 'dialog'; readonly label: string; readonly titleId: string }
+  | {
+      readonly kind: 'dialog';
+      readonly label: string;
+      readonly titleId: string;
+    }
   | { readonly kind: 'dismiss'; readonly label: string };
 
 const openDialog = (titleId: string) =>
@@ -18,7 +22,7 @@ const openDialog = (titleId: string) =>
     ?.showModal();
 
 const action =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-sm border px-3.5 text-sm leading-tight font-strong whitespace-nowrap transition-colors duration-120 ease-standard';
+  'inline-flex min-h-room-target items-center justify-center gap-2 rounded-sm border px-4 text-sm leading-tight font-strong whitespace-nowrap transition-colors duration-120 ease-standard';
 const primary = `${action} border-transparent bg-accent text-accent-ink hover:bg-accent-strong`;
 const quiet = `${action} cursor-pointer border-transparent bg-transparent text-ink hover:bg-accent-soft`;
 
@@ -42,16 +46,16 @@ export function UpgradePanel({
   return (
     <div
       role="status"
-      className="flex flex-col gap-3 rounded-xl border border-border-strong bg-surface-raised px-[18px] py-4"
+      className="flex flex-col gap-3 rounded-xl border border-border-strong bg-surface-raised px-4 py-4"
     >
-      <div className="flex items-start gap-2.5">
-        <Icon name="sparkle" size={20} className="mt-0.5 shrink-0 text-gold" />
+      <div className="flex items-start gap-3">
+        <Icon name="sparkle" size={20} className="shrink-0 text-gold" />
         <div className="flex min-w-0 flex-col gap-1">
           <strong className="font-strong text-ink">{title}</strong>
           <span className="text-sm text-ink-muted">{children}</span>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2.5">
+      <div className="flex flex-wrap gap-3">
         <a href={premiumHref} className={primary}>
           Get Premium
         </a>

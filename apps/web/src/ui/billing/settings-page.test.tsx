@@ -27,10 +27,13 @@ test('billing never shows a usage counter or the old Explore Premium link', () =
     premium,
     { ...premium, plan: 'cancelled' as const },
     { ...settings, checkoutAvailable: true },
-  ].map((value) => words(renderToString(<BillingSettingsPage settings={value} />)));
+  ].map((value) =>
+    words(renderToString(<BillingSettingsPage settings={value} />)),
+  );
   assert({
     given: 'free, paying, cancelled and purchasable accounts',
-    should: 'show no Bot debates panel, no remaining count and no Explore Premium',
+    should:
+      'show no Bot debates panel, no remaining count and no Explore Premium',
     actual: pages.map((text) =>
       /Bot debates|remaining|Explore Premium|\d+ of \d+/.test(text),
     ),
@@ -76,7 +79,8 @@ test('cancelled shows when Premium ends and offers to keep it', () => {
   );
   assert({
     given: 'renewal turned off with paid access through 17 Dec 2026',
-    should: 'say so, keep the work theirs, and offer Keep Premium and Manage billing',
+    should:
+      'say so, keep the work theirs, and offer Keep Premium and Manage billing',
     actual: [
       text.includes('Daisy Premium · cancelled'),
       text.includes('Renewal is off. Premium stays on until 17 Dec 2026'),
@@ -123,7 +127,8 @@ test('the checkout return confirms only from current Premium evidence', () => {
   );
   assert({
     given: 'a return with Premium evidence, and a return still unpaid',
-    should: 'show You have Premium with the price and date, or the pending notice',
+    should:
+      'show You have Premium with the price and date, or the pending notice',
     actual: [
       confirmed.includes('You have Premium'),
       confirmed.includes('Payment confirmed. $20/month, renewing 17 Dec 2026.'),

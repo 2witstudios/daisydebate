@@ -4,8 +4,8 @@ import { PageHeader } from '../components/page-header/page-header';
 import { Panel } from '../components/panel/panel';
 import { ReadingPage } from '../components/reading-page/reading-page';
 
-const primary = `${buttonClass('primary')} min-h-11 w-full whitespace-nowrap sm:w-auto`;
-const secondary = `${buttonClass('secondary')} min-h-11 self-start whitespace-nowrap`;
+const primary = `${buttonClass('primary')} min-h-nav-target w-full whitespace-nowrap narrow:w-auto`;
+const secondary = `${buttonClass('secondary')} min-h-nav-target self-start whitespace-nowrap`;
 
 /**
  * Premium pays for AI and capture while human play and official results stay

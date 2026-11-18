@@ -11,7 +11,10 @@ import { allowanceDay, requestedUsageKinds } from '@daisy/protocol/billing';
 import { subscriptionAccess } from './subscription-policy';
 import { participantAccess } from './participant-access';
 import type { AccountAuthorizationFact } from './authorization-facts';
-import { allowanceCeilings, type AllowanceCeilings } from './allowance-ceilings';
+import {
+  allowanceCeilings,
+  type AllowanceCeilings,
+} from './allowance-ceilings';
 import {
   currentEntitlementGrants,
   type EntitlementEvaluation,
@@ -108,7 +111,9 @@ export function allowanceVerdict(
 }
 
 const counts = (entries: readonly { readonly spent: number }[]) =>
-  entries.every((entry) => Number.isSafeInteger(entry.spent) && entry.spent >= 0);
+  entries.every(
+    (entry) => Number.isSafeInteger(entry.spent) && entry.spent >= 0,
+  );
 function validFacts(facts: AllowanceFacts, policy: Policy): boolean {
   return (
     Number.isFinite(Date.parse(policy.now)) &&

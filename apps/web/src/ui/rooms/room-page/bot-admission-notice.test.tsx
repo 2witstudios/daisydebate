@@ -8,7 +8,9 @@ type Refusal = Extract<
   NonNullable<RoomView['botAdmission']>,
   { kind: 'allowance' }
 >['refusal'];
-const allowance = (refusal: Refusal): NonNullable<RoomView['botAdmission']> => ({
+const allowance = (
+  refusal: Refusal,
+): NonNullable<RoomView['botAdmission']> => ({
   kind: 'allowance',
   refusal,
 });
@@ -20,7 +22,8 @@ const words = (html: string) =>
 test('a bot-debater cast that can start says nothing and never counts', () => {
   assert({
     given: 'a host whose bot Round is admitted',
-    should: 'render nothing: no remaining count, no period, no reservation copy',
+    should:
+      'render nothing: no remaining count, no period, no reservation copy',
     actual: render(allowance(null)),
     expected: '',
   });

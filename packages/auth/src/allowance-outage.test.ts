@@ -63,7 +63,7 @@ test('unchanged verified evidence carries paid-to-grace authority through worker
         reservations: [
           {
             kind: 'ai_round',
-            source: { kind: 'subscription', ...period }
+            source: { kind: 'subscription', ...period },
           },
         ],
       },

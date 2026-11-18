@@ -189,7 +189,7 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
       'require capacity and select beta or lifetime attribution from locked facts',
     actual: [
       aiAdmissionOptions({
-            PREMIUM_BETA_GRANT: true,
+        PREMIUM_BETA_GRANT: true,
       }).botAdmission,
       configured.botAdmission?.busyCap,
       configured.aiAllowance?.decide(
@@ -235,9 +235,7 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
       },
       {
         kind: 'admit',
-        reservations: [
-          { kind: 'ai_round', source: { kind: 'lifetime' } },
-        ],
+        reservations: [{ kind: 'ai_round', source: { kind: 'lifetime' } }],
       },
     ],
   });

@@ -128,7 +128,10 @@ test('paying yourself, cancelled and grandfathered show their own price and stat
       'show premium, cancelled through the paid end, and each subscriber their own price',
     actual: [
       [view({}).plan, view({}).priceMinor, view({}).accessEndsAt],
-      [view({ renewalOff: true }).plan, view({ renewalOff: true }).accessEndsAt],
+      [
+        view({ renewalOff: true }).plan,
+        view({ renewalOff: true }).accessEndsAt,
+      ],
       view({ amountMinor: 1000 }).priceMinor,
     ],
     expected: [['premium', 2000, endsAt], ['cancelled', endsAt], 1000],

@@ -125,8 +125,7 @@ test('the actual web role reads only current owned member facts and Portal routi
       const view = await member.read(subject);
       assert({
         given: 'actual daisy_web execution after stable purchase completion',
-        should:
-          'read current own customer without inventing paid access',
+        should: 'read current own customer without inventing paid access',
         actual: [
           role,
           await member.portalCustomer(subject),

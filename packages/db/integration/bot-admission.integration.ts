@@ -43,11 +43,7 @@ test('the per-day fair-use ceiling admits the 12th bot Round and refuses the 13t
       should:
         'reserve exactly 12 and read the abuse ceiling, with no grant or caller entitlement',
       actual: [attempts.map((a) => a.status).sort(), n, exhausted],
-      expected: [
-        ['fulfilled', 'rejected'],
-        12,
-        { refusal: 'abuse-ceiling' },
-      ],
+      expected: [['fulfilled', 'rejected'], 12, { refusal: 'abuse-ceiling' }],
     });
   });
 });

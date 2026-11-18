@@ -66,7 +66,10 @@ test('a test may pass tighter ceilings without touching the trusted config', () 
     should: 'refuse the third',
     actual: allowanceVerdict(
       { tier: 'premium', kind: 'ai_round', usedToday: 2, usedThisPeriod: 2 },
-      { freeLifetime: 1, premiumPerDay: { ...allowanceCeilings.premiumPerDay, ai_round: 2 } },
+      {
+        freeLifetime: 1,
+        premiumPerDay: { ...allowanceCeilings.premiumPerDay, ai_round: 2 },
+      },
     ),
     expected: 'abuse-ceiling',
   });

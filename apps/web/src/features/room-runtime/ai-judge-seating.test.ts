@@ -10,9 +10,7 @@ const room = {
 } as const;
 const free: AllowanceDecision = {
   kind: 'admit',
-  reservations: [
-    { kind: 'casual_ai_judge', source: { kind: 'lifetime' } },
-  ],
+  reservations: [{ kind: 'casual_ai_judge', source: { kind: 'lifetime' } }],
 };
 const included: AllowanceDecision = {
   kind: 'admit',
@@ -31,7 +29,10 @@ const refused: AllowanceDecision = {
   kind: 'refuse',
   reason: 'free-judge-unbound',
 };
-const used: AllowanceDecision = { kind: 'refuse', reason: 'free-limit-reached' };
+const used: AllowanceDecision = {
+  kind: 'refuse',
+  reason: 'free-limit-reached',
+};
 const ceiling: AllowanceDecision = { kind: 'refuse', reason: 'abuse-ceiling' };
 
 test('a host sees the allowance source for seating a judge in this Room', async () => {
