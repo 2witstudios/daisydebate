@@ -62,6 +62,10 @@ import type { RecordingViewer } from '../features/recording/audience';
 import { recordingReads } from '../features/recording/composition';
 import { openRecordingHistory } from '../features/recording/history';
 import { resolveSession } from './identity';
+import {
+  mediaReleaseSettingsView,
+  type MediaReleaseSettingsView,
+} from '../features/media-releases/settings-view';
 import type { ParentLinkRead } from '@daisy/db';
 import type { ReleaseLinkPurpose } from '@daisy/protocol/media-release';
 import {
@@ -680,3 +684,17 @@ export const readReleaseLink = async (
 
 /** The app's clock, for what a release page derives from a link's dates. */
 export const releaseNowMs = (): number => Date.parse(processApp().clock.now());
+
+/**
+ * A youth member's media release section (ADR 0151), or null: only on Youth –
+ * Freestyle and only while the youth-publishing flag (the counsel gate) is
+ * open for them.
+ */
+export const requestMediaReleaseSettings = async (
+  userId: string,
+): Promise<MediaReleaseSettingsView | null> => {
+  if (!(await requestReleaseEnabled('youth-publishing', userId))) return null;
+  const read =
+    await processApp().database.mediaReleases.readMinorRelease(userId);
+  return read.division === 'youth' ? mediaReleaseSettingsView(read) : null;
+};

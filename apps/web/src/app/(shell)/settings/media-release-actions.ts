@@ -12,23 +12,17 @@ import {
   askRefusalWords,
   resendRefusalWords,
 } from '../../../features/media-releases/release-words';
-import { mediaReleasesReleased } from '../../../features/media-releases/route-release';
-import { processRoute } from '../../../server/process-app';
+import { POST as askRoute } from '../../api/media-releases/ask/route';
+import { POST as resendRoute } from '../../api/media-releases/resend/route';
+import { POST as cancelRoute } from '../../api/media-releases/cancel/route';
+import { POST as askClubRoute } from '../../api/media-releases/ask-club/route';
 import { post } from '../form-post';
 
 const routes = {
-  ask: processRoute((all, app) =>
-    all.mediaReleases.ask(mediaReleasesReleased(app)),
-  ),
-  resend: processRoute((all, app) =>
-    all.mediaReleases.resend(mediaReleasesReleased(app)),
-  ),
-  cancel: processRoute((all, app) =>
-    all.mediaReleases.cancel(mediaReleasesReleased(app)),
-  ),
-  askClub: processRoute((all, app) =>
-    all.mediaReleases.askClub(mediaReleasesReleased(app)),
-  ),
+  ask: askRoute,
+  resend: resendRoute,
+  cancel: cancelRoute,
+  askClub: askClubRoute,
 };
 
 type Answer = {

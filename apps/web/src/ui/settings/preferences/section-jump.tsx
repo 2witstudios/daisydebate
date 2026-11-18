@@ -14,7 +14,7 @@ export function SectionJump({
 }) {
   const router = useRouter();
   return (
-    <div className="gap-1 hidden flex-col max-compact:flex">
+    <div className="hidden flex-col gap-1 max-compact:flex">
       <label htmlFor="settings-jump" className="text-sm font-strong text-ink">
         Section
       </label>

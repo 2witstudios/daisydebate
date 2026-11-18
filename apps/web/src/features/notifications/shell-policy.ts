@@ -47,7 +47,6 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'tournament_draw_changed':
     case 'tournament_room_ready':
     case 'tournament_results_released':
-    // Tab's tournament notices tell; the tournament's pages are where to act.
     case 'media_release_requested':
     case 'media_release_declined':
     case 'media_release_signed':
@@ -55,7 +54,8 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'media_release_withdrawn':
     case 'media_release_club_asked':
     case 'youth_round_published':
-      // A release notice tells; Settings and the club's page are where to act.
+      // Tab's tournament notices and media release notices tell; the
+      // tournament's pages, Settings and the club's page are where to act.
       return false;
   }
 };

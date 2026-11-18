@@ -1,13 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { mediaReleasesReleased } from '../../../../features/media-releases/route-release';
-import { processRoute } from '../../../../server/process-app';
+import { POST as route } from '../../../api/media-releases/publish/route';
 import { post } from '../../form-post';
-
-const route = processRoute((routes, app) =>
-  routes.mediaReleases.publish(mediaReleasesReleased(app)),
-);
 
 const roundIdPattern = /^[a-z0-9]{24}$/u;
 

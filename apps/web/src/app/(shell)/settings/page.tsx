@@ -9,7 +9,7 @@ import {
   requestAudienceSettings,
   requestOnboardingAnswers,
   requestOptionalAnswersAdmitted,
-  requestReleaseEnabled,
+  requestMediaReleaseSettings,
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
@@ -31,7 +31,6 @@ import { ProfilePhotoControl } from '../../../ui/settings/preferences/profile-ph
 import { StatusForm } from '../../../ui/people/status-form';
 import { setStatusAction } from '../people/actions';
 import { readChosenStatus } from '../people/read-people';
-import { readMediaReleaseSettings } from '../../../features/media-releases/read-settings';
 import { MediaReleaseSection } from '../../../ui/settings/media-release/media-release-section';
 import {
   askClubAction,
@@ -121,13 +120,7 @@ export default async function SettingsRoute({
       : null,
     identity.state === 'member' ? readChosenStatus() : null,
     identity.state === 'member'
-      ? readMediaReleaseSettings({
-          userId: identity.principal.userId,
-          released: await requestReleaseEnabled(
-            'youth-publishing',
-            identity.principal.userId,
-          ),
-        })
+      ? requestMediaReleaseSettings(identity.principal.userId)
       : null,
   ]);
   return (

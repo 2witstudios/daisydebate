@@ -188,7 +188,7 @@ export function MediaReleaseSection({
             <ActionForm
               action={actions.askClub}
               label="Ask my club"
-              className="py-3 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-dashed border-border-strong px-4"
+              className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-dashed border-border-strong px-4 py-3"
             >
               {({ error, pending }) => (
                 <>
@@ -253,7 +253,7 @@ export function MediaReleaseSection({
             We emailed <strong className="font-strong">{view.recipient}</strong>
             . Your Rounds stay private until they sign.
           </p>
-          <div className="gap-2 flex flex-wrap">
+          <div className="flex flex-wrap gap-2">
             <ActionButton
               action={actions.resend}
               label="Send again"
@@ -339,7 +339,7 @@ export function MediaReleaseSection({
             A Round goes public only when every Youth debater in it has a
             release. You can ask for any Round or clip to come down.
           </p>
-          <div className="gap-2 flex flex-wrap">
+          <div className="flex flex-wrap gap-2">
             {takedown}
             {view.kind === 'parent' ? <SignedTerms /> : null}
           </div>
