@@ -1,5 +1,5 @@
 import {
-  canonicalRatingLadder,
+  canonicalRatingStyle,
   daisyBallotFor,
   daisyWinnerBallot,
 } from '@daisy/protocol';
@@ -89,7 +89,7 @@ const oneOnOneSeats = (definition: FormatDefinition) =>
 /** Ranked admission: the current eligible preset of a 1/1/1 format, no picker role needed. */
 const rankedAdmits = (facts: FormatSelectionFacts) =>
   isCurrent(facts) &&
-  canonicalRatingLadder(facts.format.id) !== null &&
+  canonicalRatingStyle(facts.format.id) !== null &&
   facts.preset.rankedEligible &&
   facts.preset.config.interruptions?.mode !== 'open' &&
   oneOnOneSeats(facts.definition);

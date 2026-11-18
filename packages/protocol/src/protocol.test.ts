@@ -6,7 +6,7 @@ import {
   roundStatuses,
   runtimeCheckpointSchema,
 } from './index';
-import { errorSchema, ratingLadders } from './primitives';
+import { errorSchema, ratingStyles } from './primitives';
 import { parseOutcome } from './parse-outcome.test-support';
 import { oneOnOneFormatFixture } from './format-fixtures.test-support';
 
@@ -91,7 +91,7 @@ describe('competition vocabulary', () => {
     assert({
       given: 'the rating ladder vocabulary',
       should: 'be exactly Freestyle, the one Daisy standard (ADR 0142)',
-      actual: ratingLadders,
+      actual: ratingStyles,
       expected: ['freestyle'],
     });
     assert({

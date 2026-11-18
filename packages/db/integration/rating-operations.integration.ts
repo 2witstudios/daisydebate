@@ -30,7 +30,7 @@ describe('rateDebate (RATE-1.3)', () => {
         given: 'a completed ranked debate',
         should: 'report it rated on the ranked ladder in the active season',
         actual: result.kind === 'rated' && [result.ladder, result.seasonId],
-        expected: ['freestyle', seasonId],
+        expected: [{ style: 'freestyle', division: 'open' }, seasonId],
       });
       assert({
         given: 'the decided changes',

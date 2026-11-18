@@ -22,12 +22,26 @@ test('starting ranked discovery projects the host current-season Freestyle ratin
         competition_type: mode,
         status,
       });
+    // The host sits as an adult debater, so the ranked Rooms are on Open –
+    // Freestyle and the host's rating there is the one a row shows (ADR 0147).
+    await f.sql`insert into account_age (user_id, birth_month, version, recorded_at)
+      values (${caller.userId}, '1990-01', 1, '2001-01-01T00:00:00Z') on conflict do nothing`;
+    for (const roomId of [starting])
+      await f.insert('room_participants', {
+        id: nextId(),
+        room_id: roomId,
+        actor_id: caller.actorId,
+        seat_kind: 'side',
+        side: 'affirmative',
+        slot: 0,
+      });
     for (const [status, rating] of [
       ['closed', 2200],
       ['active', 1612.6],
     ] as const) {
       const seasonId = nextId();
       await f.insert('seasons', {
+        division: 'open',
         id: seasonId,
         name: token,
         starts_at: new Date('2026-01-01'),
@@ -40,6 +54,7 @@ test('starting ranked discovery projects the host current-season Freestyle ratin
           actor_id: caller.actorId,
           season_id: seasonId,
           ladder: 'freestyle',
+          division: 'open',
           rating,
           deviation: 100,
           volatility: 0.06,

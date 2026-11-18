@@ -1,5 +1,9 @@
 import Link from 'next/link';
-import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
+import type {
+  RatingDivision,
+  RoomListEntry,
+  RoomListQuery,
+} from '@daisy/protocol';
 import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
 import { lobbySections } from '../../features/lobby/rows';
 import { openRoomHref, playOptions } from '../../features/play/options';
@@ -23,6 +27,11 @@ export type LobbyProps = {
   readonly activeRoom: ActiveRoomSummary | null;
   /** When the page is read (epoch ms), for how long open Rooms have waited. */
   readonly now: number;
+  /**
+   * The viewer's ladder division (ADR 0147): which ranked debater seats are
+   * theirs. Null for a visitor or a member with no age on record.
+   */
+  readonly viewerDivision: RatingDivision | null;
 };
 
 const emptyClass =
@@ -71,8 +80,9 @@ export function Lobby({
   retry,
   activeRoom,
   now,
+  viewerDivision,
 }: LobbyProps) {
-  const sections = lobbySections(now, rooms);
+  const sections = lobbySections(now, rooms, viewerDivision);
   const { cursor } = query;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:px-4">

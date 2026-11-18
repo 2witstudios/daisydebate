@@ -1,4 +1,4 @@
-import { ratingLadders } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { catalogFormats } from '../src/catalog-formats';
@@ -44,7 +44,7 @@ test('the migrations seed the catalog with a current preset each', async () => {
           role,
           family,
           version: 1,
-          ranked: ratingLadders.some((ladder) => ladder === id),
+          ranked: ratingStyles.some((ladder) => ladder === id),
         })),
         oneOnOneRanked: false,
       },

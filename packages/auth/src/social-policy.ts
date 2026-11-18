@@ -1,6 +1,6 @@
 import { currentAgeFact } from './authorization-age';
 import type { AccountAgeFact } from './account-age';
-import type { AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
 import type {
   AccountAuthorizationFact,
   ChannelAuthorizationFact,

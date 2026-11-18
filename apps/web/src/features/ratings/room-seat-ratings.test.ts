@@ -29,6 +29,7 @@ const seat = (
   teamOpen: false,
   positionOpen: false,
   rating: null,
+  division: null,
   ...seatState,
 });
 const established = 'a1aaaaaaaaaaaaaaaaaaaaaa';
@@ -59,6 +60,7 @@ const rated = (
 ): SeatRatingState => ({
   actorId,
   ladder: 'freestyle',
+  division: 'open',
   rating,
   deviation,
   volatility: 0.06,

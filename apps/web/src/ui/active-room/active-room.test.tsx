@@ -14,6 +14,7 @@ const room = {
   title: 'Tuesday night',
   phase: 'assembling',
   href: roomHref,
+  ladder: null,
 } as const;
 
 describe('activeRoomPhaseLabel', () => {
@@ -94,6 +95,24 @@ describe('showsActiveRoomBar', () => {
 });
 
 describe('ActiveRoomBar', () => {
+  test('names a ranked Room’s ladder (ADR 0147)', () => {
+    const html = renderToStaticMarkup(
+      <ActiveRoomBar room={{ ...room, ladder: 'youth' }} />,
+    );
+    const casual = renderToStaticMarkup(
+      <ActiveRoomBar room={{ ...room, ladder: null }} />,
+    );
+    assert({
+      given: 'a Youth ranked Room and a casual one',
+      should: 'show the ladder on the ranked bar only',
+      actual: [
+        html.includes('Youth – Freestyle'),
+        casual.includes('Freestyle'),
+      ],
+      expected: [true, false],
+    });
+  });
+
   test('links back to the Room with its title and phase', () => {
     const html = renderToStaticMarkup(
       <ActiveRoomBar room={{ ...room, phase: 'live' }} />,

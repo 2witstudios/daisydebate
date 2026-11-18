@@ -30,6 +30,7 @@ test('Start round is the one commitment of readiness', () => {
       participants: ineligible.participants.map((p) => ({
         ...p,
         eligible: false,
+        division: 'open' as const,
       })),
     }),
     expected: { ok: false, refusal: 'actor-ineligible' },

@@ -26,6 +26,7 @@ const seated = (
   teamOpen: false,
   positionOpen: false,
   rating: null,
+  division: null,
   needsReady: true,
   eligible: true,
   ready: 'not-ready' as const,
@@ -184,23 +185,32 @@ describe('room lobby labels', () => {
   test('the meta line names the host, who can join and what the result counts for', () => {
     assert({
       given:
-        'a hosted unlisted casual room, then a ranked public room without a host label',
+        'a hosted unlisted casual room, a ranked public room without a host label, and a ranked room whose debaters mix ladders',
       should: 'explain visibility and rating in words, with no badges',
       actual: [
         roomMeta({
           hostLabel: 'Maya',
           visibility: 'unlisted',
           competitionType: 'casual',
+          ladder: null,
         }),
         roomMeta({
           hostLabel: null,
           visibility: 'public',
           competitionType: 'ranked',
+          ladder: 'youth',
+        }),
+        roomMeta({
+          hostLabel: 'Coach',
+          visibility: 'public',
+          competitionType: 'ranked',
+          ladder: 'mixed',
         }),
       ],
       expected: [
         ['Hosted by Maya', 'Anyone with the link', 'Casual'],
         ['Listed in the lobby', 'Ranked'],
+        ['Hosted by Coach', 'Listed in the lobby', 'Ranked, playing casual'],
       ],
     });
   });
@@ -213,6 +223,7 @@ describe('room lobby labels', () => {
         hostLabel: '',
         visibility: 'private',
         competitionType: 'casual',
+        ladder: null,
       }),
       expected: ['Invite only', 'Casual'],
     });
@@ -391,6 +402,7 @@ describe('chatAuthorSeat', () => {
           teamOpen: false,
           positionOpen: false,
           rating: null,
+          division: null,
           needsReady: true,
           eligible: true,
           ready: 'not-ready' as const,

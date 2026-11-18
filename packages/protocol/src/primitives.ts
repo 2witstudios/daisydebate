@@ -11,13 +11,14 @@ import { z } from 'zod';
 export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
 
 /**
- * Daisy's rating ladders (ADR 0142): Freestyle, the one standard, is the one
- * ladder. The rating key stays (actor, ladder, season), and the ladder
- * CHECKs on `ratings`, `rating_changes`, `rounds` and `challenges` derive
- * from this list, so a later ladder extends it rather than a literal.
+ * Daisy's rating styles (ADR 0142, ADR 0147): Freestyle, the one standard, is
+ * the one style. A ladder is a style in a division (`./ladder`), so a style
+ * added here yields its Open and Youth ladders; the style CHECKs on
+ * `ratings`, `rating_changes`, `rounds` and `challenges` derive from this
+ * list, so a later style extends it rather than a literal.
  */
-export const ratingLadders = ['freestyle'] as const;
-export type RatingLadder = (typeof ratingLadders)[number];
+export const ratingStyles = ['freestyle'] as const;
+export type RatingStyle = (typeof ratingStyles)[number];
 
 /**
  * The one public error-code vocabulary. `@daisy/errors` maps each code to
@@ -49,5 +50,5 @@ export const errorSchema = z.strictObject({
 export type ProtocolError = z.infer<typeof errorSchema>;
 
 /** Stable catalog identities, never mutable format names or revisions. */
-export const canonicalRatingLadder = (formatId: string): RatingLadder | null =>
-  ratingLadders.find((ladder) => ladder === formatId) ?? null;
+export const canonicalRatingStyle = (formatId: string): RatingStyle | null =>
+  ratingStyles.find((ladder) => ladder === formatId) ?? null;

@@ -13,16 +13,25 @@ export function assertRankedRoundIntegrity(round: {
   readonly competitionType: string;
   readonly presetVersion: unknown;
   readonly ladderId: string | null;
+  readonly ladderDivision: string | null;
 }): void {
   if (round.competitionType === 'ranked') {
-    if (round.presetVersion === null || round.ladderId === null)
+    if (
+      round.presetVersion === null ||
+      round.ladderId === null ||
+      round.ladderDivision === null
+    )
       throw createInvariantError(
         'round.rating.integrity',
         'A ranked round pins its preset and ladder',
       );
     return;
   }
-  if (round.presetVersion !== null || round.ladderId !== null)
+  if (
+    round.presetVersion !== null ||
+    round.ladderId !== null ||
+    round.ladderDivision !== null
+  )
     throw createInvariantError(
       'round.rating.integrity',
       'Only a ranked round carries a preset or a ladder',
@@ -37,7 +46,8 @@ export const ratingChangeRows = (
   plan.changes.map((change) => ({
     formatId: scope.formatId,
     seasonId: plan.seasonId,
-    ladder: plan.ladder,
+    ladder: plan.ladder.style,
+    division: plan.ladder.division,
     id: change.changeId,
     roundId: scope.roundId,
     actorId: change.actorId,

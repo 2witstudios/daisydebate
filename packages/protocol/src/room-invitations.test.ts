@@ -26,6 +26,7 @@ const seat = (actorId: string, kind: 'judge' | 'side') => ({
   teamOpen: false,
   positionOpen: false,
   eligible: true,
+  division: null,
   consentVersion: 0,
   consentCommandId: null,
 });

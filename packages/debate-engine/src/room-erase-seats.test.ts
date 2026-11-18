@@ -117,6 +117,7 @@ test('the heir is the first eligible debater by side and slot, then a judge', ()
     actorId,
     seat: seatOf(role, slot),
     eligible,
+    division: 'open' as const,
     kind: 'human' as const,
   });
   const heirOf = (seats: readonly (typeof room.participants)[number][]) =>
@@ -287,6 +288,7 @@ describe('assign-seat from a host who inherited the Room', () => {
           ...target,
           kind: 'human',
           eligible: true,
+          division: 'open' as const,
           aiRole: null,
         },
       },

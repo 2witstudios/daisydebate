@@ -6,7 +6,7 @@ import { requireAccess } from '../../../../lib/access';
 import { CreateRoomPage } from '../../../../ui/rooms/create-room/create-room-page';
 import { roomTemplates } from '../actions';
 import {
-  requestRankedPlayAdmitted,
+  requestMemberDivision,
   requestRoomDraftAnswer,
 } from '../../../../lib/request-session';
 
@@ -23,7 +23,7 @@ export default async function OpenRoomPage({
   return (
     <CreateRoomPage
       initialRanked={(await searchParams).ranked === '1'}
-      rankedAgeAdmitted={await requestRankedPlayAdmitted()}
+      memberDivision={await requestMemberDivision()}
       initialState={await requestRoomDraftAnswer((await searchParams).draft)}
       choices={templates.choices}
       commandId={systemId.next()}

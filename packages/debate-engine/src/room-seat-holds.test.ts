@@ -14,6 +14,7 @@ const human = (actorId: string) => ({
   kind: 'human' as const,
   seat: sideSeat('negative'),
   eligible: true,
+  division: 'open' as const,
   aiRole: null,
   teamOpen: false,
   positionOpen: false,

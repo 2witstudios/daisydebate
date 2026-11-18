@@ -17,6 +17,7 @@ const entry = (overrides: Partial<MatchHistoryEntry>): MatchHistoryEntry => ({
   forfeit: false,
   judges: 'ai',
   visibility: 'public',
+  ladder: null,
   ...overrides,
 });
 
@@ -57,6 +58,30 @@ describe('ProfilePage', () => {
         stranger.includes(`href="/watch/${roundId}"`),
       ],
       expected: [true, false, true],
+    });
+  });
+
+  test('a ranked Round names its ladder; a casual one names none', () => {
+    const html = render(
+      profile({
+        history: [
+          entry({
+            roundId: 'a'.repeat(24),
+            ladder: { style: 'freestyle', division: 'youth' },
+          }),
+          entry({ roundId: 'b'.repeat(24) }),
+        ],
+      }),
+    );
+    assert({
+      given: 'a ranked Youth Round and a casual Round in the history',
+      should: 'chip the ranked row with its ladder in plum, once',
+      actual: [
+        html.match(/Youth – Freestyle/g)?.length,
+        html.includes('text-hue-plum'),
+        html.includes('Open – Freestyle'),
+      ],
+      expected: [1, true, false],
     });
   });
 

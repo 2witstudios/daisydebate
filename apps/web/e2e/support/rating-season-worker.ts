@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
+import { ratingDivisions } from '@daisy/protocol';
 import { betaAccessTarget } from './beta-access-target';
 // Same isolated e2e role/database boundary as beta approval; never deploy data.
 const url = betaAccessTarget(process.env);
@@ -12,7 +13,9 @@ try {
   await withSeasons(
     url,
     async (seasons) => {
-      await seasons.activateBetaSeason({ id: createId() });
+      // Each division's Season 1 (ADR 0147): Youth Rooms rate too.
+      for (const division of ratingDivisions)
+        await seasons.activateBetaSeason({ id: createId(), division });
     },
     client,
   );

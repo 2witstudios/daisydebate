@@ -1,4 +1,4 @@
-import type { AgeBand } from './age-band';
+import type { AgeBand } from '@daisy/protocol';
 
 /** The youngest age, in whole years, an account may be opened at. */
 export type AgeFloor = 13 | 16;
@@ -9,25 +9,6 @@ export type AgeFloor = 13 | 16;
  * here and nowhere else.
  */
 export const ACCOUNT_AGE_FLOOR: AgeFloor = 16;
-
-/**
- * The one trusted floor for ranked play, in whole years (owner decision 79):
- * ranked Rounds are published and licensed to Daisy, which a minor cannot
- * agree to alone. Membership keeps ACCOUNT_AGE_FLOOR; a member between the
- * two plays casual only. The rule below reads the adult band, whose edge is
- * 18; `age-floor.test.ts` pins the two together, so a different floor needs
- * a matching band edge in `ageBand` first.
- */
-export const RANKED_AGE_FLOOR = 18 as const;
-
-/**
- * Whether a durable age band, computed on the Round's instant, meets the
- * ranked floor. 18 is the top band's edge (`ageBand`'s 216 months), so it is
- * the adult band; a floor between edges would need a band edge first. No
- * record never does.
- */
-export const rankedAgeAdmitted = (band: AgeBand | null): boolean =>
-  band === 'adult';
 
 /** What an age-step answer leads to; only `accept` stores anything. */
 export type AgeStepDecision = 'accept' | 'under-13' | 'below-floor';

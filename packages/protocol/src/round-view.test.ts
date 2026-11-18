@@ -45,7 +45,7 @@ const view = {
   version: 3,
   status: 'active',
   competitionType: 'ranked',
-  ladderId: 'freestyle',
+  ladder: { style: 'freestyle', division: 'open' },
   topic: 'A topic',
   opening: null,
   visibility: 'public',

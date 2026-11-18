@@ -8,8 +8,10 @@ const season = {
   startsAt: '2026-10-01T00:00:00.000Z',
   endsAt: at,
   status: 'closed' as const,
+  division: 'open' as const,
   version: 1,
 };
+const open = { style: 'freestyle', division: 'open' } as const;
 const source = (rating = 1888.125) => ({
   ratings: [
     {
@@ -45,7 +47,7 @@ const store = (blinded: readonly string[] = []): RatingReadStore => ({
 
 test('closed-season standings and classification never drift with later read time', async () => {
   const input = {
-    ladder: 'freestyle' as const,
+    ladder: open,
     seasonId: season.id,
     now: '2026-10-29T00:00:00.000Z',
   };
@@ -67,7 +69,7 @@ test('closed-season standings and classification never drift with later read tim
 
 test('published viewer blinding removes numeric standing and history before every consumer', async () => {
   const read = await readRatingStandings(store(['actor-a']), {
-    ladder: 'freestyle',
+    ladder: open,
     seasonId: season.id,
     now: at,
     viewerActorId: 'judge',
@@ -90,5 +92,19 @@ test('published viewer blinding removes numeric standing and history before ever
       entry: 0,
       blinded: ['ada'],
     },
+  });
+});
+
+test('a ladder reads only its own division’s seasons', async () => {
+  const read = await readRatingStandings(store(), {
+    ladder: { style: 'freestyle', division: 'youth' },
+    seasonId: season.id,
+    now: at,
+  });
+  assert({
+    given: 'only an Open season, read for the Youth ladder',
+    should: 'find no season for it',
+    actual: read,
+    expected: null,
   });
 });

@@ -12,6 +12,7 @@ import { replaceRoute } from '../../round-media/replace-route';
 import { systemId } from '@daisy/clock';
 import { isOpenRoomStatus } from '@daisy/protocol';
 import type {
+  RatingDivision,
   RoomCastChoice,
   RoomCatalogChoice,
   RoomView,
@@ -50,6 +51,11 @@ type Props = {
   readonly ids: RoomCommandIds;
   readonly actorId: string;
   readonly viewerLabel: string;
+  /**
+   * The viewer's ladder division (ADR 0147), so a refused debater seat can
+   * name the ladder that is theirs. Null with no age on record.
+   */
+  readonly viewerDivision: RatingDivision | null;
   readonly bots: readonly RoomCastChoice[];
   /** The picker's catalog for Room setup (FMT-3). */
   readonly choices: readonly RoomCatalogChoice[];
@@ -160,7 +166,11 @@ export function RoomLive(props: Props) {
         main={(start) => (
           <RoomRoster
             view={view}
-            viewer={{ actorId: props.actorId, label: props.viewerLabel }}
+            viewer={{
+              actorId: props.actorId,
+              label: props.viewerLabel,
+              division: props.viewerDivision,
+            }}
             bots={props.bots}
             action={props.commandAction}
             commandIds={ids}

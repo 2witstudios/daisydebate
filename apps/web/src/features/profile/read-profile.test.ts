@@ -19,6 +19,7 @@ const row = {
   outcome: { kind: 'winner', side: 'negative' },
   seat: { kind: 'side', side: 'affirmative', slot: 0 },
   forfeit: true,
+  ladder: { style: 'freestyle', division: 'youth' },
   seats: [
     {
       seat: { kind: 'side', side: 'affirmative', slot: 0 },
@@ -185,6 +186,7 @@ describe('readProfile', () => {
           forfeit: true,
           judges: 'ai',
           visibility: 'public',
+          ladder: { style: 'freestyle', division: 'youth' },
         },
         nextBefore: roundId,
       },

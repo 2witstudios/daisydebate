@@ -1,13 +1,23 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
+  ratingStyles,
+  type Ladder,
+  type RatingDivision,
+} from '@daisy/protocol';
+import {
   MAX_SEARCH_LENGTH,
   activeFilterCount,
   clearFiltersHref,
+  divisionHref,
   isFiltered,
   scopeHref,
   type LadderQuery,
 } from '../../../features/leaderboard/query';
+import {
+  divisionLabels,
+  styleLabels,
+} from '../../../features/ratings/ladder-labels';
 import {
   isClosed,
   seasonLabel,
@@ -21,6 +31,8 @@ import { Segmented } from '../segmented/segmented';
 
 export type LadderFiltersProps = {
   readonly query: LadderQuery;
+  /** The ladder on screen, which Division and Style show. */
+  readonly ladder: Ladder;
   readonly seasons: readonly Season[];
   /** The season on screen, which the season select shows. */
   readonly season: Season;
@@ -33,7 +45,8 @@ type Option = { readonly value: string; readonly label: string };
 const option = (value: string, label: string): Option => ({ value, label });
 
 type SelectProps = {
-  readonly name: string;
+  /** The URL parameter it submits; none for a choice with one option. */
+  readonly name?: string;
   readonly label: string;
   readonly value: string;
   readonly options: readonly Option[];
@@ -72,6 +85,12 @@ function FiltersSummary({ active }: { readonly active: number }): ReactNode {
   );
 }
 
+/** Youth first, as the board shows them. */
+const divisionOrder = [
+  'youth',
+  'open',
+] as const satisfies readonly RatingDivision[];
+
 const statusOptions: readonly Option[] = [
   option('established', 'Established'),
   option('provisional', 'New players'),
@@ -79,13 +98,14 @@ const statusOptions: readonly Option[] = [
 ];
 
 /**
- * Season, scope, search and the status filter as one GET form: the URL
- * carries the state, so the ladder filters on the server with no script.
- * Scope and search sit in the first row; season and status live behind one
- * "Filters" line, open when either is active.
+ * Division, style, season, scope, search and the status filter as one GET
+ * form: the URL carries the state, so the ladder filters on the server with no
+ * script. Division, style, scope and search sit in the first row; season and
+ * status live behind one "Filters" line, open when either is active.
  */
 export function LadderFilters({
   query,
+  ladder,
   seasons,
   season,
   hasStanding,
@@ -104,12 +124,35 @@ export function LadderFilters({
       aria-label="Filter the ladder"
       className="flex flex-wrap items-center gap-x-3 gap-y-0"
     >
+      {query.division === null ? null : (
+        <input type="hidden" name="division" value={query.division} />
+      )}
       {query.scope === 'around' ? (
         <input type="hidden" name="scope" value="around" />
       ) : null}
+      <Segmented
+        label="Division"
+        captioned
+        segments={divisionOrder.map((division) => ({
+          label: divisionLabels[division],
+          href: divisionHref(query, division),
+          selected: ladder.division === division,
+        }))}
+      />
+      <label className="flex items-center gap-2 text-sm text-ink-faint">
+        <span>Style</span>
+        <Select
+          label="Style"
+          value={ladder.style}
+          options={ratingStyles.map((style) =>
+            option(style, styleLabels[style]),
+          )}
+        />
+      </label>
       {hasStanding ? (
         <Segmented
           label="Scope"
+          captioned
           segments={[
             {
               label: 'Top of the ladder',

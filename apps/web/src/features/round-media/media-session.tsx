@@ -97,7 +97,7 @@ function RoundMediaSession({
   onCallEnded,
 }: SessionInput & { readonly view: RoundView }) {
   const { owns, onStepDown } = tab;
-  const questioning = view.ladderId === null && hasOpenQuestioning(view.rules);
+  const questioning = view.ladder === null && hasOpenQuestioning(view.rules);
   const muteOffered = questioning || postRoundCallChosen(view);
   const refresh = useRef(onRefresh);
   useEffect(() => {

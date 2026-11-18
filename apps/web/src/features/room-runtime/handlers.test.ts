@@ -123,6 +123,7 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
     phase: 'assembling',
     role: 'host',
     seated: false,
+    ladder: null,
     href: `/rooms/${'m'.repeat(24)}`,
   };
   const handlers = createRoomHandlers(
