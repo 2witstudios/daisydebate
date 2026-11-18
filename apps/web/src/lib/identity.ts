@@ -57,13 +57,14 @@ export async function resolveSession(
   const { readSession, clock, logger } = auth;
   const cookie = requestHeaders.get('cookie');
   let expiresAt: string | null = null;
-  let participation: Participation | null = null;
+  // Assigned in the read callback; a holder keeps TypeScript from narrowing it.
+  const read: { participation: Participation | null } = { participation: null };
   const identity = await resolveIdentity({
     // No session cookie at all: nothing to look up, and no budget spent.
     readActor: auth.getActorByUserId,
     readParticipation: async (userId) => {
-      participation = await auth.getParticipationByUserId(userId);
-      return participation;
+      read.participation = await auth.getParticipationByUserId(userId);
+      return read.participation;
     },
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
@@ -99,6 +100,6 @@ export async function resolveSession(
     sessionExpiresAt: signedIn ? expiresAt : null,
     rankedAgeAdmitted:
       identity.state === 'member' &&
-      rankedAgeAdmitted(participation?.ageBand ?? null),
+      rankedAgeAdmitted(read.participation?.ageBand ?? null),
   };
 }
