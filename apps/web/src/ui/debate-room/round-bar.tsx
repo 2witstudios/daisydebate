@@ -6,6 +6,7 @@ import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
 import type { RoundSnapshot } from './round';
+import { speechPosition, speechWindow } from './speech-window';
 
 const chip =
   'inline-flex shrink-0 items-center rounded-round px-3 py-1 text-xs font-strong whitespace-nowrap';
@@ -21,12 +22,6 @@ const sideChip: Readonly<
   aff: { label: 'You’re Affirmative', tone: 'bg-hue-sky-soft text-hue-sky' },
   neg: { label: 'You’re Negative', tone: 'bg-hue-clay-soft text-hue-clay' },
 };
-
-function speechTone(index: number, live: number) {
-  if (index === live) return 'bg-accent text-accent-ink';
-  if (live >= 0 && index < live) return 'text-ink-faint';
-  return 'border border-border-strong text-ink-muted';
-}
 
 function speechState(index: number, live: number) {
   if (index === live) return 'Now';
@@ -97,6 +92,66 @@ function RoundDetails({ round }: { readonly round: RoundSnapshot }) {
   );
 }
 
+const counter =
+  'round-speech-wide shrink-0 items-center gap-1 px-1 text-ink-muted';
+
+/**
+ * Where the round is, in a strip that fits any width and any format: the
+ * live speech by its full name and the next by its code, with counts for
+ * the rest (speech-window.ts). Its own width, as a container, decides what
+ * shows; the full order is the Speech order disclosure.
+ */
+function SpeechStrip({ round }: { readonly round: RoundSnapshot }) {
+  const strip = speechWindow(round.speeches.length, round.liveIndex);
+  const live = strip.live === null ? null : round.speeches[strip.live];
+  return (
+    <div className="@container/round-speeches flex min-w-0 grow basis-round-speech-strip items-center">
+      <ol
+        aria-label="Speeches"
+        className="flex min-w-0 items-center gap-1 text-xs font-strong"
+      >
+        {strip.done > 0 ? (
+          <li className={counter}>
+            <Icon name="check" size={12} />
+            {strip.done}
+            <span className="sr-only"> done</span>
+          </li>
+        ) : null}
+        {live ? (
+          <li
+            aria-current="step"
+            title={`${live.code} · ${live.name}`}
+            className="min-w-0 truncate rounded-sm bg-accent px-2 py-1 text-accent-ink"
+          >
+            {`${live.code} · ${live.name}`}
+          </li>
+        ) : null}
+        {strip.upcoming.map((index) => {
+          const slot = round.speeches[index]!;
+          return (
+            <li
+              key={slot.id}
+              title={slot.name}
+              className="round-speech-wide shrink-0 rounded-sm border border-border-strong px-2 py-1 text-ink-muted"
+            >
+              {slot.code}
+            </li>
+          );
+        })}
+        {strip.remaining > 0 ? (
+          <li className={counter}>
+            +{strip.remaining}
+            <span className="sr-only"> more</span>
+          </li>
+        ) : null}
+        <li className="round-speech-narrow shrink-0 px-1 text-ink-muted">
+          {speechPosition(strip)}
+        </li>
+      </ol>
+    </div>
+  );
+}
+
 /**
  * The round bar: the labelled resolution, the speech the
  * round is on by its full name, the viewer's side, judge, and
@@ -122,26 +177,7 @@ export function RoundBar({
         </p>
         <RoundDetails round={round} />
       </div>
-      <ol
-        aria-label="Speeches"
-        className="flex shrink-0 items-center gap-1 text-xs font-strong max-compact:hidden"
-      >
-        {round.speeches.map((slot, index) => (
-          <li
-            key={slot.id}
-            aria-current={index === round.liveIndex ? 'step' : undefined}
-            title={slot.name}
-            className={cn(
-              'rounded-sm px-2 py-1',
-              speechTone(index, round.liveIndex),
-            )}
-          >
-            {index === round.liveIndex
-              ? `${slot.code} · ${slot.name}`
-              : slot.code}
-          </li>
-        ))}
-      </ol>
+      <SpeechStrip round={round} />
       <span className={cn(chip, side.tone)}>{side.label}</span>
       {round.judge ? (
         <span

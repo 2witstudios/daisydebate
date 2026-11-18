@@ -423,6 +423,26 @@ img.ProseMirror-separator {
   --spacing-round-title: 16rem;
   --spacing-round-details: 20rem;
   --spacing-round-speeches: 18rem;
+  /* The bar's speech strip: wide enough for "CX1 · Cross-examination of the
+     affirmative" beside the next code. Narrower, it wraps to its own line. */
+  --spacing-round-speech-strip: 26rem;
+}
+
+/* The speech strip's own width picks what it shows (round-bar.tsx): wide, the
+   done count, the live speech, the next and the remaining count; narrow, the
+   live speech alone with its position ("3 of 7"). */
+@utility round-speech-wide {
+  display: none;
+  @container round-speeches (min-width: 22rem) {
+    display: flex;
+  }
+}
+
+@utility round-speech-narrow {
+  display: flex;
+  @container round-speeches (min-width: 22rem) {
+    display: none;
+  }
 }
 
 @utility room-setup {
