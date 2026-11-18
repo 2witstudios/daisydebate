@@ -1,6 +1,7 @@
 /**
- * Each plan's primary action on /pricing. A plan whose route has not shipped
- * shows "Coming soon" in place of its button, decided by its release flag.
+ * Each plan's primary action on /pricing. A plan whose destination is not
+ * released shows "Coming soon" in place of its button, decided by the
+ * release flag that owns that destination.
  */
 export type PlanAction =
   | { readonly kind: 'link'; readonly href: string; readonly label: string }
@@ -13,11 +14,17 @@ export type PlanActions = {
   readonly league: PlanAction;
 };
 
-/** Which not-yet-shipped plans are open, from their release flags. */
+/** Which plans can be started, each from its own release flag. */
 export type PlanReleases = {
+  /** `premium-checkout`: billing sells Premium. */
+  readonly premiumCheckout: boolean;
+  /** `daisy-tab`: the host home at /host exists. */
+  readonly tabHosting: boolean;
   readonly clubSeats: boolean;
   readonly leagueRequests: boolean;
 };
+
+const comingSoon: PlanAction = { kind: 'coming-soon' };
 
 /** Billing holds checkout; its access guard signs a visitor in first. */
 const premiumCheckoutHref = '/settings/billing';
@@ -26,12 +33,16 @@ const hostHref = '/host';
 const leagueRequestHref = '/contact/league';
 
 export const planActions = (releases: PlanReleases): PlanActions => ({
-  premium: { kind: 'link', href: premiumCheckoutHref, label: 'Get Premium' },
+  premium: releases.premiumCheckout
+    ? { kind: 'link', href: premiumCheckoutHref, label: 'Get Premium' }
+    : comingSoon,
   club: releases.clubSeats
     ? { kind: 'link', href: startClubHref, label: 'Start a Club' }
-    : { kind: 'coming-soon' },
-  host: { kind: 'link', href: hostHref, label: 'Host a tournament' },
+    : comingSoon,
+  host: releases.tabHosting
+    ? { kind: 'link', href: hostHref, label: 'Host a tournament' }
+    : comingSoon,
   league: releases.leagueRequests
     ? { kind: 'link', href: leagueRequestHref, label: 'Talk to us' }
-    : { kind: 'coming-soon' },
+    : comingSoon,
 });

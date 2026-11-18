@@ -8,8 +8,19 @@ import {
 import { PricingPage } from './pricing-page';
 setupRitewayBun();
 
-const closed = planActions({ clubSeats: false, leagueRequests: false });
-const open = planActions({ clubSeats: true, leagueRequests: true });
+// Checkout and Tab's host home released; Club and League not yet.
+const closed = planActions({
+  premiumCheckout: true,
+  tabHosting: true,
+  clubSeats: false,
+  leagueRequests: false,
+});
+const open = planActions({
+  premiumCheckout: true,
+  tabHosting: true,
+  clubSeats: true,
+  leagueRequests: true,
+});
 const render = (actions = closed, prices: PlanPrices = planPrices) =>
   renderToStaticMarkup(<PricingPage prices={prices} actions={actions} />);
 

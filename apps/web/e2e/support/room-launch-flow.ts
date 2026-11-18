@@ -391,8 +391,16 @@ export async function assertFrozenLaunch(view: RoomView) {
   expect(proof.launchDoorbells).toBe(1);
   return proof;
 }
-/** The host's Fill seat on an open seat's row opens its picker (ADR 0145). */
-export async function openSeatPicker(page: Page, seatName: string) {
+/**
+ * The host's Fill seat on an open seat's row opens its picker (ADR 0145).
+ * Pass `script: false` for a JavaScript-disabled page: the menu still opens
+ * natively, but only PopoverDialog's script moves focus to the choice (#784).
+ */
+export async function openSeatPicker(
+  page: Page,
+  seatName: string,
+  { script = true }: { script?: boolean } = {},
+) {
   const select = page.getByLabel(`Seat someone in ${seatName}`, {
     exact: true,
   });
@@ -402,8 +410,8 @@ export async function openSeatPicker(page: Page, seatName: string) {
     .getByRole('button', { name: `Fill ${seatName}`, exact: true })
     .click();
   await expect(select).toBeVisible();
-  // Opening it moves keyboard focus to the choice.
-  await expect(select).toBeFocused();
+  // With script, opening it moves keyboard focus to the choice.
+  if (script) await expect(select).toBeFocused();
   return select;
 }
 

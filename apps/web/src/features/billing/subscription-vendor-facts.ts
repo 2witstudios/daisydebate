@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { subscriptionLifecycles } from '@daisy/protocol/billing';
-import { premiumPriceSchema } from './premium-price';
+import { subscribedPriceSchema } from './premium-price';
 
 const vendorId = (prefix: string) =>
   z
@@ -49,7 +49,7 @@ export const subscriptionSchema = z.object({
             quantity: z.literal(1),
             current_period_start: seconds,
             current_period_end: seconds,
-            price: premiumPriceSchema,
+            price: subscribedPriceSchema,
           })
           .refine(
             (value) => value.current_period_start < value.current_period_end,

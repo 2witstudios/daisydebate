@@ -17,7 +17,7 @@ const facts = (
 });
 const view = (
   value: RoundAnalysisFacts,
-  allowance: 'free' | 'included' | 'unavailable' = 'free',
+  allowance: 'free' | 'included' | 'used' | 'fair-use' | 'unavailable' = 'free',
   enabled = true,
 ) => roundAnalysisView({ facts: value, allowance, enabled, now });
 const historical = {
@@ -50,7 +50,9 @@ test('analysis is requested only with actual evidence, without any Round-age win
       view(facts({ status: 'active' })),
       view(facts({ completedAt: null })),
       view(facts(), 'free', false),
+      view(facts(), 'used'),
       view(facts(), 'unavailable'),
+      view(facts(), 'fair-use'),
     ].map((s) => s.status),
     expected: [
       'unavailable',
@@ -59,6 +61,8 @@ test('analysis is requested only with actual evidence, without any Round-age win
       'unavailable',
       'unavailable',
       'locked',
+      'unavailable',
+      'fair-use',
     ],
   });
 });

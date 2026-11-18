@@ -1,5 +1,6 @@
 'use client';
 
+import { invitePeopleTitleId } from './invite-people-title';
 import { Fragment, useState } from 'react';
 import type { RoomView } from '@daisy/protocol';
 import { invitedTo } from '../../../features/notifications/notification-words';
@@ -127,7 +128,7 @@ export function InvitePeople({
           ) : null}
         </span>
       }
-      titleId="invite-people-title"
+      titleId={invitePeopleTitleId}
       title="Invite people"
       onClose={() => setOpening((count) => count + 1)}
     >

@@ -143,8 +143,14 @@ test.describe('requested Round analysis without JavaScript', () => {
       await expect(
         report.getByRole('button', { name: 'Request analysis', exact: true }),
       ).toHaveCount(0);
+      // PYL-11: the upgrade panel in place, with no count.
       await expect(
-        report.getByRole('link', { name: 'See Premium', exact: true }),
+        report
+          .getByRole('status')
+          .filter({ hasText: 'You’ve used your free analysis' }),
+      ).toBeVisible();
+      await expect(
+        report.getByRole('link', { name: 'Get Premium', exact: true }),
       ).toBeVisible();
       expect((await post(lockedRound)).status()).toBe(409);
       expect((await inspect(lockedRound)).kind).toBeNull();
@@ -155,17 +161,17 @@ test.describe('requested Round analysis without JavaScript', () => {
       );
       expect(refused.status()).toBe(303);
       await page.goto(refused.headers().location!);
-      await expect(report.getByRole('status')).toContainText(
-        'could not be accepted',
-      );
+      await expect(
+        report.getByRole('status').filter({ hasText: 'could not be accepted' }),
+      ).toBeVisible();
       await report
-        .getByRole('link', { name: 'See Premium', exact: true })
+        .getByRole('link', { name: 'Get Premium', exact: true })
         .click();
       await expect(
         page.getByRole('heading', { name: 'Daisy Premium', exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText('Premium · USD 10/month', { exact: true }).first(),
+        page.getByText('Premium · $20/month', { exact: true }).first(),
       ).toBeVisible();
     } finally {
       await other.close();

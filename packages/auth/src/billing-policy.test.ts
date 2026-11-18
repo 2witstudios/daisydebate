@@ -1,6 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AccountAuthorizationFact } from './authorization-facts';
-import { canManageBilling, canPurchasePremium } from './billing-policy';
+import {
+  canManageBilling,
+  canPurchasePremium,
+  holdsGrantedPremium,
+} from './billing-policy';
 setupRitewayBun();
 const member: AccountAuthorizationFact = {
   userId: 'u'.repeat(24),
@@ -45,5 +49,20 @@ test('purchasing Premium requires current participant admission while billing ma
       [false, false],
       [false, false],
     ],
+  });
+});
+
+test('a current beta grant of AI Rounds is Premium for display, only while beta grants Premium', () => {
+  const now = '2026-11-18T00:00:00.000Z';
+  const beta = [{ entitlement: 'ai_rounds' as const, source: 'beta' as const }];
+  assert({
+    given: 'a beta AI Rounds grant with beta Premium on and off, and no grant',
+    should: 'read as granted Premium only while beta grants Premium',
+    actual: [
+      holdsGrantedPremium(beta, { now, betaGrantsPremium: true }),
+      holdsGrantedPremium(beta, { now, betaGrantsPremium: false }),
+      holdsGrantedPremium([], { now, betaGrantsPremium: true }),
+    ],
+    expected: [true, false, false],
   });
 });

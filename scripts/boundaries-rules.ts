@@ -333,8 +333,9 @@ export const stageSurfaceIssue = (
  * (tests may name the word to prove it is absent); the only current users
  * are the onboarding choice of wanting to coach, the guardian link a
  * school's coach holds for a minor, Daisy Tab, where a coach is the
- * person who enters a school's debaters, and /pricing, where Club is sold
- * to coaches, schools and families (decision 78). All of them mean a human.
+ * person who enters a school's debaters, billing, where a Club's coach
+ * seats students (ADR 0146), and /pricing, where Club is sold to coaches,
+ * schools and families (decision 78). All of them mean a human.
  */
 const humanCoaching = [
   'packages/protocol/src/onboarding.ts',
@@ -345,6 +346,8 @@ const humanCoaching = [
   'apps/web/src/ui/mock/debate-room.test-support.ts',
   'apps/web/src/features/tab/',
   'apps/web/src/ui/tab/',
+  'apps/web/src/features/billing/settings-view.ts',
+  'apps/web/src/ui/billing/',
   'apps/web/src/ui/pricing/',
 ];
 export const reservedWordIssue = (file: string, word: string): string | null =>

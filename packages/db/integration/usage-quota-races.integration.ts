@@ -41,6 +41,9 @@ for (const source of ['lifetime', 'subscription'] as const) {
               settlement: { kind: 'paid', invoiceId: 'in_quota', period },
             },
           });
+          // Premium has no period quota (ADR 0146): four bot Rounds today
+          // put it one below a daily ceiling of five.
+          const [{ now }] = await f.sql`select clock_timestamp() as now`;
           for (let i = 0; i < 4; i++) {
             const prior = await f.round({ created_by_actor_id: actorId });
             await f.insert('usage_reservations', {
@@ -49,16 +52,16 @@ for (const source of ['lifetime', 'subscription'] as const) {
               round_id: prior,
               kind: 'ai_round',
               source: { kind: source, ...period },
-              reserved_at: new Date(startsAt),
+              reserved_at: now,
               state: {
                 kind: 'unknown',
-                countedAt: startsAt,
+                countedAt: (now as Date).toISOString(),
                 countBasis: 'dispatch_record',
               },
             });
           }
         }
-        const admission = testBotAdmission(run);
+        const admission = testBotAdmission(run, 4, 5);
         const results = await Promise.allSettled(
           [roundId, other].map((roundId) =>
             admission.reserve({ actorId, roundId }),
@@ -67,7 +70,7 @@ for (const source of ['lifetime', 'subscription'] as const) {
         const [row] =
           await f.sql`select count(*)::int as n,count(distinct source)::int as sources from usage_reservations where actor_id=${actorId}`;
         assert({
-          given: `two concurrent requests for the last ${source} use`,
+          given: `two concurrent requests for the last ${source === 'subscription' ? 'bot Round under the daily ceiling' : 'lifetime use'}`,
           should:
             'admit exactly one under the account fence without falling back to another source',
           actual: [

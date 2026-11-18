@@ -129,7 +129,8 @@ error reporter. See [Billing economics](billing-economics.md) for the concrete
 source, retention and delivery limitations.
 
 Billing stores the account-to-Stripe mapping, local subscription identity,
-verified invoice IDs and periods, bounded synchronization receipts, and the
+verified invoice IDs and periods, whether renewal is off and the verified
+monthly price (for the billing page, ADR 0146), bounded synchronization receipts, and the
 account's immutable purchase offer/admission, possible execution and minimal
 Checkout identity. It does
 not store card details, invoice/customer contact payloads, webhook bodies or

@@ -2,10 +2,10 @@ import type Stripe from 'stripe';
 import {
   canManageBilling,
   canPurchasePremium,
+  holdsGrantedPremium,
 } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { aiAdmissionOptions } from '../../server/round-worker-policy';
 import { releaseAdmission } from '../flags/admission';
 import { createRequestFlagReader } from '../flags/reader';
 import { releaseFlagDefault } from '../flags/release-default';
@@ -37,12 +37,6 @@ export function composeNativeBilling(
           portal: stripePortalPort(stripe),
         }
       : { kind: 'disabled' };
-  const allowance = aiAdmissionOptions(app.config).aiAllowance;
-  if (!allowance)
-    throw createAppError(
-      'INVARIANT',
-      'Billing allowance policy is unavailable',
-    );
   const releaseDefault = releaseFlagDefault(app.config);
   const purchaseStore = app.database.billingPurchases({
     purchase: canPurchasePremium,
@@ -64,7 +58,11 @@ export function composeNativeBilling(
     memberStore: app.database.billingMember({
       manage: canManageBilling,
       purchase: canPurchasePremium,
-      allowance: allowance.decide,
+      granted: (grants, now) =>
+        holdsGrantedPremium(grants, {
+          now,
+          betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
+        }),
     }),
     release: (key, accountId) =>
       createRequestFlagReader({

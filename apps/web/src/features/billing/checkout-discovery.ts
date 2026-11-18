@@ -106,7 +106,11 @@ export async function discoverCheckout(
     if (matching.length > 1) return { kind: 'refuse' };
     const found = matching[0];
     if (found)
-      return normalizeCheckoutSession(purchase, await port.retrieve(found.id));
+      return normalizeCheckoutSession(
+        purchase,
+        await port.retrieve(found.id),
+        'subscribed',
+      );
     return {
       kind: 'searched',
       beforeSessionId: cursor(purchase),

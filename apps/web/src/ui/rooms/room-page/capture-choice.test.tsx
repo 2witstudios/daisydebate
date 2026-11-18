@@ -2,11 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { WithAppRouter } from '../../test-support/app-router';
-import {
-  CaptureChoice,
-  CaptureSummary,
-  capturePremiumText,
-} from './capture-choice';
+import { CaptureChoice, CaptureSummary } from './capture-choice';
 
 setupRitewayBun();
 
@@ -35,17 +31,21 @@ describe('The capture choice', () => {
     });
   });
 
-  test('a host with no grant is offered neither', () => {
+  test('a host with no grant sees the upgrade panel in place', () => {
     const html = render('premium');
     assert({
       given: 'no entitlement',
-      should: 'say so and offer no control at all',
+      should:
+        'show both switches disabled, the Premium panel and no form or named field',
       actual: [
-        html.includes(capturePremiumText.replaceAll("'", '&#x27;')),
-        html.includes('<input'),
+        html.includes('Recording and broadcast are Premium'),
+        html.includes('href="/premium"'),
+        html.includes('Not now'),
+        html.match(/role="switch" disabled=""/g)?.length,
         html.includes('<form'),
+        html.includes('name="'),
       ],
-      expected: [true, false, false],
+      expected: [true, true, true, 2, false, false],
     });
   });
 

@@ -8,22 +8,28 @@ import { assertNoSeriousFindings } from './support/axe';
 /**
  * PYL-12: a signed-out visitor compares every plan at /pricing and can start
  * each one, at desktop and phone width, with no serious accessibility
- * finding. The page is behind `pricing-page`, which this file opens and
- * closes again; Club and League keep their safe default, so they show their
- * closed state ("Coming soon").
+ * finding. The page is behind `pricing-page`, which this file opens (with
+ * `premium-checkout`, so Get Premium links) and closes again. The suite runs
+ * one worker, so no other spec sees them open. Host (`daisy-tab`), Club and
+ * League keep their safe default and show "Coming soon".
  */
-const setPricing = (state: 'enabled' | 'default') =>
+const setFlag = (key: string, state: 'enabled' | 'default') =>
   promisify(execFile)(
     'bun',
     [
       fileURLToPath(
         new URL('./support/release-flag-process.ts', import.meta.url),
       ),
-      'pricing-page',
+      key,
       state,
     ],
     { timeout: 20000, maxBuffer: 4096 },
   );
+const setPricing = (state: 'enabled' | 'default') =>
+  Promise.all([
+    setFlag('pricing-page', state),
+    setFlag('premium-checkout', state),
+  ]);
 
 test.describe.configure({ mode: 'serial' });
 test.afterAll(async () => {
@@ -94,9 +100,7 @@ for (const { name, width, height, columns } of widths) {
       name: 'Get Premium',
     });
     await expect(premium).toHaveAttribute('href', '/settings/billing');
-    await expect(
-      card(page, 'Host').getByRole('link', { name: 'Host a tournament' }),
-    ).toHaveAttribute('href', '/host');
+    await expect(card(page, 'Host')).toContainText('Coming soon');
     await expect(card(page, 'Club')).toContainText('Coming soon');
     await expect(card(page, 'League')).toContainText('Coming soon');
 

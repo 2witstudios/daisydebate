@@ -1,5 +1,6 @@
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
+import { observedTerms } from './subscription-observation';
 import {
   readSubscriptionObservation,
   type SubscriptionReadPort,
@@ -60,7 +61,11 @@ export function createSubscriptionReconciliation(input: {
     });
     if (stopped) return;
     if (observed.kind === 'observed') {
-      await input.store.apply(claim, observed.evidence);
+      await input.store.apply(
+        claim,
+        observed.evidence,
+        observedTerms(observed),
+      );
     } else {
       await input.store.retry(claim);
       input.failed(

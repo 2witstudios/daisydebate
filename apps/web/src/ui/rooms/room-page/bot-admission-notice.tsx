@@ -1,12 +1,18 @@
 import type { RoomView } from '@daisy/protocol';
+import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
 const refusals = {
   'not-eligible': 'because access is unavailable.',
   'renewal-grace': 'until your subscription payment is restored.',
-  allowance: 'because your bot debate allowance is used.',
+  'abuse-ceiling':
+    'today: this account has reached the fair-use ceiling. Try again tomorrow.',
   capacity: 'right now: bots are busy, try again shortly.',
 } as const;
 
+/**
+ * Whether a bot debater can start, never how many are left (PYL-10). A free
+ * account that has used its one bot Round sees the upgrade panel in place.
+ */
 export function BotAdmissionNotice({
   admission,
 }: {
@@ -19,37 +25,24 @@ export function BotAdmissionNotice({
         A round with a bot debater can’t start right now: bots are unavailable.
       </p>
     );
+  const { refusal } = admission;
+  if (refusal === null) return null;
+  if (refusal === 'free-limit-reached')
+    return (
+      <UpgradePanel
+        title="Your free bot Round is used"
+        alternative={{ kind: 'link', label: 'Find a person', href: '/play' }}
+      >
+        Premium gives you unlimited bot Rounds. Or debate a person: that’s
+        always free.
+      </UpgradePanel>
+    );
   return (
-    <div role="status" className="text-sm text-ink-muted">
-      {admission.refusal === 'not-eligible' ? null : (
-        <>
-          <p>
-            {admission.remaining} of {admission.limit} bot debates remaining
-            {admission.source?.kind === 'lifetime'
-              ? ' in your lifetime free allowance.'
-              : admission.source
-                ? ` in this ${admission.source.kind === 'beta' ? 'beta month' : 'billing period'}, ending ${admission.source.endsAt} (UTC).`
-                : '.'}
-          </p>
-          <p>
-            Starting reserves one bot debate. It counts at the first model call.
-            Definite provider failure or a qualifying platform failure restores
-            it; an unknown result stays counted. Availability is checked when
-            the round starts.
-          </p>
-        </>
-      )}
-      {admission.refusal ? (
-        <p>
-          A round with a bot debater can’t start {refusals[admission.refusal]}
-        </p>
-      ) : null}
-      {admission.refusal === 'allowance' ||
-      admission.refusal === 'renewal-grace' ? (
+    <div role="status" className="flex flex-col gap-1 text-sm text-ink-muted">
+      <p>A round with a bot debater can’t start {refusals[refusal]}</p>
+      {refusal === 'renewal-grace' ? (
         <a href="/settings/billing" className="underline">
-          {admission.refusal === 'renewal-grace'
-            ? 'Manage billing'
-            : 'View plan and usage'}
+          Manage billing
         </a>
       ) : null}
     </div>

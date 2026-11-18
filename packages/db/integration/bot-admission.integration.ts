@@ -15,28 +15,23 @@ import { createBotActor, createBotSeat } from './bot-seat.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('the flat beta cap admits the 20th AI Round and refuses the 21st under concurrency', async () => {
+test('the per-day fair-use ceiling admits the 12th bot Round and refuses the 13th under concurrency', async () => {
   await withBoundedRound(async (fixture, run, firstRound) => {
     const roundIds = [firstRound];
-    for (let index = 0; index < 20; index++)
+    for (let index = 0; index < 12; index++)
       roundIds.push(await fixture.round());
     const actorId = await admissionSponsor(fixture, roundIds);
-    const admission = testBotAdmission(run, 21);
+    const admission = testBotAdmission(run, 13);
     const initial = await admission.readStatus(actorId);
     assert({
-      given: 'an approved beta host before any AI Round this month',
-      should: 'read the trusted cap of 20 for the exact UTC calendar month',
+      given: 'an approved Premium-beta host before any bot Round today',
+      should: 'read only that a bot Round can start: no count, limit or period',
       actual: initial,
-      expected: {
-        ...initial,
-        limit: 20,
-        remaining: 20,
-        refusal: null,
-      },
+      expected: { refusal: null },
     });
-    for (const roundId of roundIds.slice(0, 19))
+    for (const roundId of roundIds.slice(0, 11))
       await admission.reserve({ actorId, roundId });
-    const boundary = roundIds.slice(19);
+    const boundary = roundIds.slice(11);
     const attempts = await Promise.allSettled(
       boundary.map((roundId) => admission.reserve({ actorId, roundId })),
     );
@@ -44,16 +39,11 @@ test('the flat beta cap admits the 20th AI Round and refuses the 21st under conc
     const [{ n }] =
       await fixture.sql`select count(*)::int as n from usage_reservations where actor_id=${actorId}`;
     assert({
-      given: '19 reservations and two concurrent requests at the cap',
+      given: '11 reservations today and two concurrent requests at the ceiling',
       should:
-        'reserve exactly 20 and show the exhausted allowance, with no grant or caller entitlement',
-      actual: [
-        attempts.map((a) => a.status).sort(),
-        n,
-        exhausted.remaining,
-        exhausted.refusal,
-      ],
-      expected: [['fulfilled', 'rejected'], 20, 0, 'allowance'],
+        'reserve exactly 12 and read the abuse ceiling, with no grant or caller entitlement',
+      actual: [attempts.map((a) => a.status).sort(), n, exhausted],
+      expected: [['fulfilled', 'rejected'], 12, { refusal: 'abuse-ceiling' }],
     });
   });
 });
@@ -68,13 +58,9 @@ test('only an approved beta host is eligible, re-read inside each admission', as
     const pendingStatus = await admission.readStatus(pending);
     assert({
       given: 'a pending beta account',
-      should: 'show no AI rounds and say why, not that the allowance is spent',
-      actual: [
-        pendingStatus.limit,
-        pendingStatus.remaining,
-        pendingStatus.refusal,
-      ],
-      expected: [0, 0, 'not-eligible'],
+      should: 'say why, not that an allowance is spent, and carry no count',
+      actual: pendingStatus,
+      expected: { refusal: 'not-eligible' },
     });
     await assertRejects({
       given: 'a pending beta account starting a bot Round',
@@ -106,28 +92,31 @@ test('only an approved beta host is eligible, re-read inside each admission', as
   });
 });
 
-test('the month boundary counts only reservations made in the current UTC month', async () => {
+test('the day boundary counts only reservations made in the current UTC day', async () => {
   await withBoundedRound(async (fixture, run, firstRound) => {
     const earlier = await fixture.round();
     const actorId = await admissionSponsor(fixture, [firstRound, earlier]);
     const [{ start }] =
-      await fixture.sql`select date_trunc('month', clock_timestamp() at time zone 'UTC') at time zone 'UTC' as start`;
+      await fixture.sql`select date_trunc('day', clock_timestamp() at time zone 'UTC') at time zone 'UTC' as start`;
+    const before = new Date(start.getTime() - 1);
     await fixture.insert('usage_reservations', {
       id: createId(),
       actor_id: actorId,
       round_id: earlier,
       kind: 'ai_round',
-      reserved_at: new Date(start.getTime() - 1),
+      reserved_at: before,
       source: {
         kind: 'beta',
         startsAt: new Date(
-          Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - 1, 1),
+          Date.UTC(before.getUTCFullYear(), before.getUTCMonth(), 1),
         ).toISOString(),
-        endsAt: start.toISOString(),
+        endsAt: new Date(
+          Date.UTC(before.getUTCFullYear(), before.getUTCMonth() + 1, 1),
+        ).toISOString(),
       },
       state: {
         kind: 'unknown',
-        countedAt: new Date(start.getTime() - 1).toISOString(),
+        countedAt: before.toISOString(),
         countBasis: 'dispatch_record',
       },
     });
@@ -137,20 +126,20 @@ test('the month boundary counts only reservations made in the current UTC month'
       actorId,
       roundId: firstRound,
     });
+    const after = await admission.readStatus(actorId);
     const [row] =
       await fixture.sql`select reserved_at from usage_reservations where id=${reservation.id}`;
     assert({
       given:
-        'a counted reservation one millisecond before this UTC month and a cap of 1',
+        'a counted bot Round one millisecond before this UTC day and a daily ceiling of 1',
       should:
-        'exclude it from this month, admit one, and date the reservation inside the selected month',
+        'leave it out of today, admit one dated today, then read the ceiling',
       actual: [
-        (status.source?.kind === 'beta' ? status.source.startsAt : null) ===
-          start.toISOString(),
-        status.remaining,
+        status.refusal,
         row.reserved_at.getTime() >= start.getTime(),
+        after.refusal,
       ],
-      expected: [true, 1, true],
+      expected: [null, true, 'abuse-ceiling'],
     });
   });
 });
@@ -226,8 +215,8 @@ test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', as
     assert({
       given: 'that live bot-debater Round and one spent AI Round',
       should: 'refuse for capacity while the allowance still has room',
-      actual: [status.refusal, status.remaining],
-      expected: ['capacity', 19],
+      actual: status,
+      expected: { refusal: 'capacity' },
     });
   });
 });

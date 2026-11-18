@@ -190,7 +190,9 @@ for (const javaScriptEnabled of [true, false]) {
         host.getByRole('listitem', { name, exact: true });
       await expect(picker('Negative 1')).toHaveValue('');
       const seatBot = async (seat: string, actorId: string, label: string) => {
-        const select = await openSeatPicker(host, rosterSeatName(view, seat));
+        const select = await openSeatPicker(host, rosterSeatName(view, seat), {
+          script: javaScriptEnabled,
+        });
         const form = host.locator('form').filter({ has: select });
         await select.selectOption(actorId);
         await form.getByRole('button', { name: 'Seat', exact: true }).click();
