@@ -49,10 +49,11 @@ test('bot workers require a complete explicit bounded resource policy', () => {
     renewMs: 5000,
     callTimeoutMs: 60000,
     models: {
-      speech: 'anthropic/claude-sonnet-5.5',
+      speech: 'anthropic/claude-haiku-5.5',
       cross_ex: 'openai/gpt-6-luna',
       tts: 'deepgram/aura-2',
     },
+    reasoning: 'none',
   };
   assert({
     given: 'missing or explicitly configured worker resources',
@@ -67,6 +68,20 @@ test('bot workers require a complete explicit bounded resource policy', () => {
     ],
     expected: [undefined, policy],
   });
+  assert({
+    given: 'a language model whose endpoint makes reasoning mandatory',
+    should: 'keep the low effort the operator names for it',
+    actual: readServerConfig({
+      ...env,
+      ROUND_BOT_WORKER_POLICY: JSON.stringify({
+        ...policy,
+        models: { ...policy.models, speech: 'anthropic/claude-sonnet-5.5' },
+        reasoning: 'low',
+      }),
+      COMPETITIVE_PROVIDER_CONCURRENCY: '2',
+    }).ROUND_BOT_WORKER_POLICY?.reasoning,
+    expected: 'low',
+  });
   for (const value of [
     '',
     '{}',
@@ -76,6 +91,9 @@ test('bot workers require a complete explicit bounded resource policy', () => {
     JSON.stringify({ ...policy, models: { ...policy.models, judge: 'x' } }),
     JSON.stringify({ ...policy, models: { ...policy.models, tts: '' } }),
     JSON.stringify({ ...policy, inferredPremium: true }),
+    // The language calls' reasoning effort is named with their models (ISSUE-1460).
+    JSON.stringify({ ...policy, reasoning: undefined }),
+    JSON.stringify({ ...policy, reasoning: 'max' }),
   ]) {
     expect(() =>
       readServerConfig({
@@ -158,6 +176,7 @@ test('AI judging and round analysis each have their own policy, and competitive 
                 renewMs: 3000,
                 callTimeoutMs: 30000,
                 models: { speech: 'a', cross_ex: 'b', tts: 'c' },
+                reasoning: 'none',
               }),
       }),
     ).toThrow('Invalid server configuration: COMPETITIVE_PROVIDER_CONCURRENCY');

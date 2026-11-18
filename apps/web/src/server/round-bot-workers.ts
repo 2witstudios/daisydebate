@@ -62,6 +62,7 @@ export function startRoundBotWorkers(input: {
         nextId: () => app.ids.next(),
         nowMs: () => Date.parse(app.clock.now()),
         callTimeoutMs: policy.callTimeoutMs,
+        reasoning: policy.reasoning,
         failed: failure(
           'round.speaking.failed',
           'round.speaking',

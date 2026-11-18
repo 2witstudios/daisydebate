@@ -46,6 +46,8 @@ export function createBotGeneration(input: {
   /** How long a language stream may go without a word before it is stopped. */
   readonly stallMs: number;
   readonly maxTokens: number;
+  /** The language calls' reasoning effort, from the bot worker policy (ISSUE-1460). */
+  readonly reasoning: 'none' | 'low' | 'medium' | 'high';
 }) {
   if (
     !Number.isSafeInteger(input.maxTokens) ||
@@ -202,8 +204,8 @@ export function createBotGeneration(input: {
         messages: debaterPrompt(context, scope, input.nowMs(), to),
         maxTokens: input.maxTokens,
         temperature: 0.6,
-        // Thinking comes before the first word: a speaker must start.
-        reasoning: 'none' as const,
+        // Thinking comes before the first word: the least the model accepts.
+        reasoning: input.reasoning,
         signal,
       }),
       call: (voice, request) => {

@@ -63,6 +63,8 @@ export function createSpeakingBotControl(input: {
   readonly nextId: () => string;
   readonly nowMs: () => number;
   readonly callTimeoutMs: number;
+  /** The language calls' reasoning effort (ISSUE-1460). */
+  readonly reasoning: Parameters<typeof createBotGeneration>[0]['reasoning'];
   readonly failed: (error: unknown, stage: string) => void;
   /** The seat's own hearing's unexpected join failures (ISSUE-764). */
   readonly hearingFailed: (error: unknown) => void;
@@ -80,6 +82,7 @@ export function createSpeakingBotControl(input: {
     timer: input.oneShot,
     stallMs: input.callTimeoutMs,
     maxTokens: MAX_TOKENS,
+    reasoning: input.reasoning,
   });
   const publisher = createBotPublisher({
     store: input.store,

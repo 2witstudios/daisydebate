@@ -73,6 +73,7 @@ const env = {
       cross_ex: 'explicit-cross',
       tts: 'explicit-tts',
     },
+    reasoning: 'none',
   }),
   ROUND_JUDGING_POLICY: JSON.stringify({
     scanBatch: 4,

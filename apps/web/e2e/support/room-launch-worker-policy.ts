@@ -15,10 +15,11 @@ export const launchWorkerEnv = {
     renewMs: 3000,
     callTimeoutMs: 30000,
     models: {
-      speech: 'anthropic/claude-sonnet-5.5',
-      cross_ex: 'anthropic/claude-sonnet-5.5',
+      speech: 'anthropic/claude-haiku-5.5',
+      cross_ex: 'anthropic/claude-haiku-5.5',
       tts: 'deepgram/aura-2',
     },
+    reasoning: 'none',
   }),
   ROUND_JUDGING_POLICY: JSON.stringify({
     scanBatch: 16,
