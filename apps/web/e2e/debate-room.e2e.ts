@@ -372,6 +372,40 @@ test('the round room fits the viewport and the workspace starts on one line', as
   await expect(lastTab).toBeInViewport();
 });
 
+test('the round bar’s speeches fit at every width, phones included', async ({
+  liveRoom,
+}) => {
+  const { page } = liveRoom;
+  const bar = page.locator('header').filter({
+    has: page.getByRole('list', { name: 'Speeches' }),
+  });
+  const strip = bar.getByRole('list', { name: 'Speeches' });
+  for (const [width, height] of [
+    [1440, 900],
+    [1280, 800],
+    [1024, 700],
+    [900, 700],
+    [640, 800],
+    [390, 844],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await expect(strip).toBeVisible();
+    await expect
+      .poll(() => bar.evaluate((el) => el.scrollWidth <= el.clientWidth))
+      .toBe(true);
+    const live = strip.locator('[aria-current="step"]');
+    if ((await live.count()) > 0) {
+      const [chip, box] = await Promise.all([
+        live.boundingBox(),
+        bar.boundingBox(),
+      ]);
+      expect(chip && box && chip.x + chip.width <= box.x + box.width).toBe(
+        true,
+      );
+    }
+  }
+});
+
 test('an open document survives every sidebar and phone tab switch', async ({
   liveRoom,
 }) => {

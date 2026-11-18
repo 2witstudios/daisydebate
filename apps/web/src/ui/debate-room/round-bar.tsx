@@ -16,7 +16,6 @@ const competitionName: Readonly<Record<CompetitionType, string>> = {
   casual: 'Casual',
 };
 
-
 function speechState(index: number, live: number) {
   if (index === live) return 'Now';
   if (live >= 0 && index < live) return 'Done';
