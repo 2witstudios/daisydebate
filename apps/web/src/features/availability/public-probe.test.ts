@@ -167,3 +167,74 @@ test('a session read that never answers never delays the probe (ISSUE-531)', asy
     expected: true,
   });
 });
+test('a rejected session stops the probe asking, once reported', async () => {
+  const calls: string[] = [];
+  let reported = 0;
+  const probe = createPublicCheckInProbe({
+    configuration: {
+      origin: 'http://localhost:13140',
+      roundId: 'a'.repeat(24),
+      segmentId: 'b'.repeat(24),
+      participantId: 'c'.repeat(24),
+      cookie: 'isolated-fixture-only',
+    },
+    nextId: () => 'd'.repeat(24),
+    nowMs: () => 0,
+    fetch: async (url) => {
+      calls.push(new URL(url).pathname);
+      return Response.json(
+        { error: { code: 'AUTHENTICATION' } },
+        { status: 401 },
+      );
+    },
+    sessionRejected: () => {
+      reported += 1;
+    },
+  });
+  const samples = [await probe(), await probe(), await probe()];
+  assert({
+    given: 'check-in answering 401 for the probe session',
+    should: 'report unhealthy every second',
+    actual: samples,
+    expected: [false, false, false],
+  });
+  assert({
+    given: 'three samples after the first 401',
+    should: 'post check-in once and report the dead session once',
+    actual: {
+      checkIns: calls.filter((path) => path.endsWith('/check-in')).length,
+      reported,
+    },
+    expected: { checkIns: 1, reported: 1 },
+  });
+});
+
+test('other failures keep sampling every second, as health evidence', async () => {
+  let checkIns = 0;
+  const probe = createPublicCheckInProbe({
+    configuration: {
+      origin: 'http://localhost:13140',
+      roundId: 'a'.repeat(24),
+      segmentId: 'b'.repeat(24),
+      participantId: 'c'.repeat(24),
+      cookie: 'isolated-fixture-only',
+    },
+    nextId: () => 'd'.repeat(24),
+    nowMs: () => 0,
+    fetch: async (url) => {
+      if (url.endsWith('/check-in')) checkIns += 1;
+      return new Response(null, { status: 503 });
+    },
+    sessionRejected: () => {
+      throw new Error('must not report');
+    },
+  });
+  await probe();
+  await probe();
+  assert({
+    given: 'an outage answering 503',
+    should: 'keep posting check-in, since recovery must be seen at once',
+    actual: checkIns,
+    expected: 2,
+  });
+});

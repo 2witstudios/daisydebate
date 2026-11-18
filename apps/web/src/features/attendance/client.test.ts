@@ -1,6 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceClient } from './client';
 setupRitewayBun();
+/** Each test's monotonic clock; a heartbeat test advances it past the back-off. */
+const clock = { now: 0 };
 const snapshot = {
   status: 'active' as const,
   segments: [
@@ -13,6 +15,7 @@ test('HTTP attendance covers actual speech openings and historical unresolved wi
   const sent: Array<{ segmentId: string; commandId: string }> = [];
   let next = 0;
   const client = createAttendanceClient({
+    nowMs: () => clock.now,
     read: async () => null,
     nextCommandId: () => `command-${++next}`,
     send: async (command) => {
@@ -48,6 +51,7 @@ test('unknown acknowledgement retries exact identity until receipt', async () =>
   const sent: string[] = [];
   let ready = false;
   const client = createAttendanceClient({
+    nowMs: () => clock.now,
     read: async () => null,
     nextCommandId: () => 'same-command',
     send: async (c) => {
@@ -57,6 +61,7 @@ test('unknown acknowledgement retries exact identity until receipt', async () =>
   });
   await client.update({ status: 'active', segments: [snapshot.segments[0]!] });
   ready = true;
+  clock.now += 15_000;
   await client.heartbeat();
   await client.heartbeat();
   assert({
@@ -72,6 +77,7 @@ test('closed historical windows retire permanently while current opening receive
   const sent: string[] = [];
   let next = 0;
   const consumer = createAttendanceClient({
+    nowMs: () => clock.now,
     read: async () => null,
     nextCommandId: () => String(++next),
     send: async (c) => {
@@ -95,6 +101,7 @@ test('closed historical windows retire permanently while current opening receive
 test('heartbeat discovers a persisted opening without a socket or resource-view update', async () => {
   const sent: string[] = [];
   const client = createAttendanceClient({
+    nowMs: () => clock.now,
     read: async () => snapshot,
     nextCommandId: () => 'actual-opening-command',
     send: async (command) => {
@@ -122,6 +129,7 @@ test('a late discovery response cannot restart a stopped or terminal consumer', 
       reading = resolve;
     });
     const client = createAttendanceClient({
+      nowMs: () => clock.now,
       read: () => {
         reading();
         return new Promise((resolve) => {
@@ -153,6 +161,7 @@ test('a late discovery response cannot restart a stopped or terminal consumer', 
 test('failed discovery preserves unknown command identity and historical receipt retries', async () => {
   const sent: string[] = [];
   const client = createAttendanceClient({
+    nowMs: () => clock.now,
     read: async () => {
       throw new Error('Unavailable actual read');
     },
@@ -170,5 +179,103 @@ test('failed discovery preserves unknown command identity and historical receipt
       'retain the same actual command rather than infer attendance or abandon retry',
     actual: sent,
     expected: ['same-command', 'same-command'],
+  });
+});
+
+test('a 401 stops check-in for good and reports signed out once', async () => {
+  let sends = 0;
+  let reads = 0;
+  let signedOut = 0;
+  const client = createAttendanceClient({
+    nowMs: () => clock.now,
+    read: async () => {
+      reads += 1;
+      return snapshot;
+    },
+    nextCommandId: () => 'command',
+    send: async () => {
+      sends += 1;
+      return 'signed-out';
+    },
+    signedOut: () => {
+      signedOut += 1;
+    },
+  });
+  await client.update(snapshot);
+  await client.heartbeat();
+  await client.reconnect();
+  await client.update(snapshot);
+  assert({
+    given: 'check-in answered 401, then heartbeats, reconnects and views',
+    should: 'send once, read nothing more, and report signed out once',
+    actual: { sends, reads, signedOut },
+    expected: { sends: 1, reads: 0, signedOut: 1 },
+  });
+});
+
+test('a 401 on the Round read also signs the client out', async () => {
+  let signedOut = 0;
+  let sends = 0;
+  const client = createAttendanceClient({
+    nowMs: () => clock.now,
+    read: async () => 'signed-out',
+    nextCommandId: () => 'command',
+    send: async () => {
+      sends += 1;
+      return true;
+    },
+    signedOut: () => {
+      signedOut += 1;
+    },
+  });
+  await client.heartbeat();
+  await client.update(snapshot);
+  assert({
+    given: 'the read answering 401',
+    should: 'stop before any check-in',
+    actual: { signedOut, sends },
+    expected: { signedOut: 1, sends: 0 },
+  });
+});
+
+test('failing heartbeats back off; a reconnect retries at once', async () => {
+  let now = 0;
+  let sends = 0;
+  const client = createAttendanceClient({
+    read: async () => snapshot,
+    nextCommandId: () => 'command',
+    nowMs: () => now,
+    send: async () => {
+      sends += 1;
+      return false;
+    },
+  });
+  await client.update(snapshot);
+  const afterUpdate = sends;
+  now = 15_000;
+  await client.heartbeat();
+  const afterFirst = sends;
+  now = 30_000;
+  await client.heartbeat();
+  const insideBackoff = sends;
+  now = 45_000;
+  await client.heartbeat();
+  const afterSecond = sends;
+  await client.reconnect();
+  assert({
+    given: 'every check-in unacknowledged, heartbeats every 15 s',
+    should: 'skip heartbeats inside the growing wait and retry on reconnect',
+    actual: [afterUpdate, afterFirst, insideBackoff, afterSecond, sends],
+    expected: [2, 4, 4, 6, 8],
+  });
+});
+
+test('the retry wait doubles from the heartbeat to a one-minute cap', async () => {
+  const { attendanceRetryWaitMs } = await import('./client');
+  assert({
+    given: 'zero to five consecutive failures',
+    should: 'wait nothing, then 15 s doubling to 60 s',
+    actual: [0, 1, 2, 3, 4, 5].map(attendanceRetryWaitMs),
+    expected: [0, 15_000, 30_000, 60_000, 60_000, 60_000],
   });
 });

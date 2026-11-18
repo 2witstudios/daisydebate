@@ -21,6 +21,12 @@ export function createPublicCheckInProbe(input: {
   /** Monotonic milliseconds, for the session refresh cadence. */
   readonly nowMs: () => number;
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
+  /**
+   * Check-in answered 401: the probe's session is gone and no retry can
+   * revive it, only a repaired secret and a restart. Called once; the probe
+   * then reports unhealthy without asking again.
+   */
+  readonly sessionRejected?: () => void;
 }): () => Promise<boolean> {
   const config = input.configuration;
   if (!config) return async () => false;
@@ -39,6 +45,7 @@ export function createPublicCheckInProbe(input: {
   )
     throw new Error('Invalid public check-in probe configuration');
   let refreshedAtMs: number | null = null;
+  let rejected = false;
   // Its outcome never decides health: only the check-in receipt does.
   const slideSession = async () => {
     const now = input.nowMs();
@@ -65,6 +72,7 @@ export function createPublicCheckInProbe(input: {
     }
   };
   return async () => {
+    if (rejected) return false;
     // Not awaited: the session read never delays this second's sample.
     void slideSession();
     const commandId = input.nextId();
@@ -87,6 +95,12 @@ export function createPublicCheckInProbe(input: {
           }),
         },
       );
+      if (response.status === 401) {
+        await response.body?.cancel();
+        if (!rejected) input.sessionRejected?.();
+        rejected = true;
+        return false;
+      }
       if (!response.ok) return false;
       const parsed = attendanceReceiptSchema.safeParse(await response.json());
       return (

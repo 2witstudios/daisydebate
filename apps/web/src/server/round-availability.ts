@@ -27,6 +27,12 @@ export function startRoundAvailability(input: {
       nextId: () => app.ids.next(),
       nowMs: () => performance.now(),
       fetch: input.fetch,
+      sessionRejected: () =>
+        app.logger.log(
+          'availability.probe_invalid',
+          { operation: 'availability.probe', cause: 'session_rejected' },
+          'Public check-in probe cannot prove health',
+        ),
     }),
     probeResources: () =>
       configuration

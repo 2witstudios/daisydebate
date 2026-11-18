@@ -29,6 +29,7 @@ export function createAttendanceHttpClient(input: {
         ...options(),
         cache: 'no-store',
       });
+      if (response.status === 401) return 'signed-out' as const;
       if (!response.ok) return null;
       const parsed = attendanceRoundReadSchema.safeParse(await response.json());
       return parsed.success && parsed.data.id === input.roundId
@@ -48,6 +49,8 @@ export function createAttendanceHttpClient(input: {
           body: JSON.stringify({ version: 1, ...command }),
         },
       );
+      // The session is gone: no retry can succeed (staging-noise).
+      if (response.status === 401) return 'signed-out' as const;
       const body: unknown = await response.json().catch(() => null);
       if (response.status === 409 && closedWindow.safeParse(body).success)
         return 'closed' as const;
