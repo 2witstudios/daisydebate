@@ -33,6 +33,13 @@ test('notification kinds', () => {
       'tournament_draw_changed',
       'tournament_room_ready',
       'tournament_results_released',
+      'media_release_requested',
+      'media_release_declined',
+      'media_release_signed',
+      'media_release_club_confirmed',
+      'media_release_withdrawn',
+      'media_release_club_asked',
+      'youth_round_published',
     ],
   });
 });
@@ -63,6 +70,13 @@ test('choice pairs', () => {
       'tournament_draw_changed.in_app',
       'tournament_room_ready.in_app',
       'tournament_results_released.in_app',
+      'media_release_requested.in_app',
+      'media_release_declined.in_app',
+      'media_release_signed.in_app',
+      'media_release_club_confirmed.in_app',
+      'media_release_withdrawn.in_app',
+      'media_release_club_asked.in_app',
+      'youth_round_published.in_app',
     ],
   });
 });
@@ -120,6 +134,9 @@ test('catalogue', () => {
       kindsAbout('challenge'),
       kindsAbout('friendship'),
       kindsAbout('fixture'),
+      kindsAbout('media_release_request'),
+      kindsAbout('media_release'),
+      kindsAbout('media_release_club_ask'),
     ],
     expected: [
       [
@@ -127,6 +144,7 @@ test('catalogue', () => {
         'recording_ready',
         'round_started',
         'round_decision_released',
+        'youth_round_published',
       ],
       ['challenge_received', 'challenge_accepted'],
       ['friend_request_received', 'friend_request_accepted'],
@@ -138,6 +156,13 @@ test('catalogue', () => {
         'tournament_room_ready',
         'tournament_results_released',
       ],
+      ['media_release_requested', 'media_release_declined'],
+      [
+        'media_release_signed',
+        'media_release_club_confirmed',
+        'media_release_withdrawn',
+      ],
+      ['media_release_club_asked'],
     ],
   });
 });
