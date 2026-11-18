@@ -74,6 +74,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
           auth: 1,
           'beta-access': 1,
           notification: 0,
+          'league-request': 0,
         },
         authMailShedTotal: 2,
         // An unknown scope is not a label: cardinality stays bounded.
@@ -155,6 +156,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
           auth: 0,
           'beta-access': 0,
           notification: 0,
+          'league-request': 0,
         },
         authMailShedTotal: 0,
         networkDeniedByScope: { ipv6_56: 0, ipv6_48: 0, ipv4_24: 0 },

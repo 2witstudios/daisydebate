@@ -198,6 +198,7 @@ export function sampleSeasonView(scene: SampleScene): SeasonView {
     seasonId: sampleId('season2026'),
     name: '2026 to 27 season',
     organization: { organizationId: sampleIds.league, name: LEAGUE_NAME },
+    division: 'youth',
     counting: 'sanction',
     calendar: [
       {

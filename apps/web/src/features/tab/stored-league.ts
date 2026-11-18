@@ -134,8 +134,13 @@ export function storedLeagueLobbyOf(
         : view.tab === 'rooms'
           ? 'rooms'
           : 'season';
+  const leagueLadder = {
+    style: 'freestyle',
+    division: read.view.division,
+  } as const;
   return {
     name: read.view.organization.name,
+    ladder: leagueLadder,
     lede: read.view.name,
     create: rooms?.canCreate
       ? linkTo('New room', tabRoutes.newLeagueRoom(handle), true)

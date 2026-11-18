@@ -29,6 +29,7 @@ const season = {
   seasonId: id('season'),
   name: '2026 to 27 season',
   organization: { organizationId: id('league'), name: 'Southeast League' },
+  division: 'youth',
   counting: 'sanction',
   calendar: [
     tournament,

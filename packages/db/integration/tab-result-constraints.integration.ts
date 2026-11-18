@@ -308,6 +308,7 @@ test('a league sanctions an event once, naming its own template and season and s
       name: 'Another League',
       handle: `league-${otherLeague}`,
       owner_user_id: await fixture.user(),
+      league_division: 'open',
     });
     await insertRow(sql, 'templates', {
       id: otherTemplate,
