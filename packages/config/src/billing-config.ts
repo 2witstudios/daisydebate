@@ -11,6 +11,14 @@ export type BillingConfig =
       readonly webhookSecret: string;
       readonly premiumPriceId: string;
       readonly portalConfigurationId: string;
+      /**
+       * The one-time host event prices (ADR 0147); null where they are not
+       * configured, which leaves event upgrades unavailable and Premium as is.
+       */
+      readonly hostEventPrices: {
+        readonly event_64: string;
+        readonly event_unlimited: string;
+      } | null;
     };
 
 export const billingFields = {
@@ -30,23 +38,48 @@ export const billingFields = {
     .optional(),
 };
 
-type BillingFields = z.output<z.ZodObject<typeof billingFields>>;
+const priceId = z
+  .string()
+  .regex(/^price_[A-Za-z0-9]+$/)
+  .optional();
+/** Host event prices are their own group: an environment may sell Premium without them. */
+export const hostEventPriceFields = {
+  STRIPE_HOST_EVENT_64_PRICE_ID: priceId,
+  STRIPE_HOST_EVENT_UNLIMITED_PRICE_ID: priceId,
+};
+
+type BillingFields = z.output<z.ZodObject<typeof billingFields>> &
+  z.output<z.ZodObject<typeof hostEventPriceFields>>;
 
 /** An incomplete group cannot silently disable management of existing billing. */
 export function refineBillingConfig(
   config: BillingFields,
   ctx: z.RefinementCtx,
 ) {
-  const fields = Object.keys(billingFields) as (keyof BillingFields)[];
-  if (fields.every((field) => config[field] === undefined)) return;
-  for (const field of fields) {
-    if (config[field] === undefined)
-      ctx.addIssue({
-        code: 'custom',
-        path: [field],
-        message: 'Required for billing',
-      });
-  }
+  const complete = (fields: readonly (keyof BillingFields)[]) => {
+    if (fields.every((field) => config[field] === undefined)) return false;
+    for (const field of fields) {
+      if (config[field] === undefined)
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'Required for billing',
+        });
+    }
+    return true;
+  };
+  const billing = complete(
+    Object.keys(billingFields) as (keyof BillingFields)[],
+  );
+  const hostEvent = complete(
+    Object.keys(hostEventPriceFields) as (keyof BillingFields)[],
+  );
+  if (hostEvent && !billing)
+    ctx.addIssue({
+      code: 'custom',
+      path: ['STRIPE_HOST_EVENT_64_PRICE_ID'],
+      message: 'Host event prices need the billing group',
+    });
 }
 
 export function withBillingConfig<Config extends BillingFields>({
@@ -54,6 +87,8 @@ export function withBillingConfig<Config extends BillingFields>({
   STRIPE_WEBHOOK_SECRET: webhookSecret,
   STRIPE_PREMIUM_PRICE_ID: premiumPriceId,
   STRIPE_PORTAL_CONFIGURATION_ID: portalConfigurationId,
+  STRIPE_HOST_EVENT_64_PRICE_ID: hostEvent64,
+  STRIPE_HOST_EVENT_UNLIMITED_PRICE_ID: hostEventUnlimited,
   ...config
 }: Config) {
   const billing: BillingConfig =
@@ -71,6 +106,10 @@ export function withBillingConfig<Config extends BillingFields>({
           webhookSecret,
           premiumPriceId,
           portalConfigurationId,
+          hostEventPrices:
+            hostEvent64 !== undefined && hostEventUnlimited !== undefined
+              ? { event_64: hostEvent64, event_unlimited: hostEventUnlimited }
+              : null,
         }
       : { kind: 'disabled' };
   return { ...config, billing };

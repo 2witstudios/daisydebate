@@ -13,6 +13,7 @@ const config = {
   secretKey: 'sk_test_unused',
   premiumPriceId: 'price_fixture',
   portalConfigurationId: 'bpc_fixture',
+  hostEventPrices: null,
 };
 const refund = {
   object: 'refund',

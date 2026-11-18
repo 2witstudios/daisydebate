@@ -23,6 +23,7 @@ test('changing or failed display Flags cannot substitute for durable admission o
         webhookSecret: 'whsec_unused',
         premiumPriceId: 'price_fixture',
         portalConfigurationId: 'bpc_fixture',
+        hostEventPrices: null,
       },
       checkout: {
         create: async () => {

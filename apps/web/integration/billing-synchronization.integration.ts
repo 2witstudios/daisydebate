@@ -72,6 +72,7 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
         secretKey: 'sk_test_unused',
         premiumPriceId: identity.priceId,
         portalConfigurationId: 'bpc_fixture',
+        hostEventPrices: null,
       },
       clock: fixedClock(now),
       deadline: () => AbortSignal.timeout(5000),

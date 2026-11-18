@@ -36,6 +36,7 @@ const billing = {
   webhookSecret: 'whsec_fixture',
   premiumPriceId: 'price_replacement',
   portalConfigurationId: 'bpc_fixture',
+  hostEventPrices: null,
 };
 
 function harness() {
