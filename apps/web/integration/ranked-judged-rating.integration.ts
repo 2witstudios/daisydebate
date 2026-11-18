@@ -151,7 +151,8 @@ for (const ladder of ratingStyles)
                   'show the exact same host rating on profile, leaderboard and Round',
                 actual: [
                   member.find(
-                    (r) => r.ladder.style === ladder && r.ladder.division === 'open',
+                    (r) =>
+                      r.ladder.style === ladder && r.ladder.division === 'open',
                   )?.rating,
                   Math.round(
                     leaderboard!.data.entries.find(

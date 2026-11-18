@@ -13,7 +13,9 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
     ids.forEach((id) => f.track('seasons', id));
     const [started] = await f.sql`select clock_timestamp() as at`;
     const results = await Promise.all(
-      ids.map((id) => withSeasons(url, (s) => s.activateBetaSeason({ id, division: 'open' }))),
+      ids.map((id) =>
+        withSeasons(url, (s) => s.activateBetaSeason({ id, division: 'open' })),
+      ),
     );
     const first = results[0]!;
     const [bounds] = await f.sql`select clock_timestamp() as now`;
@@ -100,7 +102,9 @@ test('activation refuses a competing season unchanged', async () => {
       given: 'a competing season identity',
       should: 'refuse beta activation without inventing history',
       actual: () =>
-        withSeasons(url, (s) => s.activateBetaSeason({ id: createId(), division: 'open' })),
+        withSeasons(url, (s) =>
+          s.activateBetaSeason({ id: createId(), division: 'open' }),
+        ),
       code: 'CONFLICT',
     });
     assert({

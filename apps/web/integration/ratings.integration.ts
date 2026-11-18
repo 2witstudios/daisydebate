@@ -82,7 +82,9 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
       });
       const result = await rate(youth);
       const rows = await withSql(
-        (sql) => sql`select division, season_id from rating_changes where round_id=${youth}
+        (
+          sql,
+        ) => sql`select division, season_id from rating_changes where round_id=${youth}
           union all select division, season_id from ratings where actor_id in (${first}, ${second})`,
       );
       const won = newcomers('affirmative');

@@ -204,7 +204,10 @@ test('every public and member read holds a ranked outcome until release', async 
           ladderEntries: (ladder?.data.entries ?? []).filter(
             (e) => e.id === f.host.actorId,
           ).length,
-          memberRating: member.find((m) => m.ladder.style === 'freestyle' && m.ladder.division === 'open')?.rating,
+          memberRating: member.find(
+            (m) =>
+              m.ladder.style === 'freestyle' && m.ladder.division === 'open',
+          )?.rating,
           historyRows: profile?.history.length,
           profileRecord: profile?.record,
           card: await personCard(),

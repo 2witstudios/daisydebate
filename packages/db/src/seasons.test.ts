@@ -73,7 +73,12 @@ describe('season operations', () => {
       given: 'no active season',
       should: 'return the opened season',
       actual: await scripted([[], [], [seasonRow('s2', 'active')]], (seasons) =>
-        seasons.openSeason({ id: 's2', name: 'Season 1', division: 'open', startsAt }),
+        seasons.openSeason({
+          id: 's2',
+          name: 'Season 1',
+          division: 'open',
+          startsAt,
+        }),
       ).result,
       expected: record('s2', 'active'),
     });
@@ -81,7 +86,12 @@ describe('season operations', () => {
 
   test('refuses to open a season while any season exists (DEC-111)', async () => {
     const refused = scripted([[], [{ id: 's1' }]], (seasons) =>
-      seasons.openSeason({ id: 's3', name: 'Season 2', division: 'open', startsAt }),
+      seasons.openSeason({
+        id: 's3',
+        name: 'Season 2',
+        division: 'open',
+        startsAt,
+      }),
     );
     await assertRejects({
       given: 'an earlier season, active or closed',

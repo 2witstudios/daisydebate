@@ -44,9 +44,7 @@ const withActiveSeason = async (
   try {
     await run(seasonId);
   } finally {
-    await client.unsafe('delete from account_age where user_id = $1', [
-      userId,
-    ]);
+    await client.unsafe('delete from account_age where user_id = $1', [userId]);
     await client.unsafe(
       'delete from agreement_signatures where season_id = $1',
       [seasonId],

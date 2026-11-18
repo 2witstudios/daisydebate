@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { canonicalRatingStyle, ratingStyles, type RatingStyle } from './primitives';
+import {
+  canonicalRatingStyle,
+  ratingStyles,
+  type RatingStyle,
+} from './primitives';
 import type { CompetitionType } from './round';
 import { isDebatingSeat, type SeatRef } from './seats';
 

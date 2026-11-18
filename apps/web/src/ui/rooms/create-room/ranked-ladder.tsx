@@ -21,8 +21,8 @@ export function RankedLadderNote() {
         </strong>
         <span>
           If every debater is 18 or over, the Round is ranked on{' '}
-          <SeatedLadderBadge seated="open" />. If every debater is under 18, it is
-          ranked on <SeatedLadderBadge seated="youth" />.
+          <SeatedLadderBadge seated="open" />. If every debater is under 18, it
+          is ranked on <SeatedLadderBadge seated="youth" />.
         </span>
         <span>
           If the debaters mix ages, the Round plays casual and no ratings

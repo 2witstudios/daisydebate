@@ -1,10 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  DivisionBadge,
-  LadderBadge,
-  SeatedLadderBadge,
-} from './ladder-badge';
+import { DivisionBadge, LadderBadge, SeatedLadderBadge } from './ladder-badge';
 
 setupRitewayBun();
 
@@ -29,7 +25,8 @@ describe('ladder badges', () => {
     });
     assert({
       given: 'a ranked Room no debater has set, one that mixes, and a debater',
-      should: 'say the ladder is set by who sits, that it plays casual, and name the division',
+      should:
+        'say the ladder is set by who sits, that it plays casual, and name the division',
       actual: [
         renderToString(<SeatedLadderBadge seated="unset" />).includes(
           'Ladder set by who sits',

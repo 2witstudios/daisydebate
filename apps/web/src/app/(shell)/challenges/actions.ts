@@ -66,11 +66,7 @@ export async function sendChallengeAction(
     });
     if (!response.ok)
       return challengeRefused(
-        challengeRefusal(
-          'send',
-          response.status,
-          await refusalOf(response),
-        ),
+        challengeRefusal('send', response.status, await refusalOf(response)),
       );
     return challengeResultSchema.safeParse(await response.json()).success
       ? challengeSent

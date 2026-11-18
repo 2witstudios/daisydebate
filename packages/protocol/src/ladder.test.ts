@@ -17,7 +17,8 @@ setupRitewayBun();
 test('divisionOfAgeBand', () => {
   assert({
     given: 'an adult band, each band under 18 and no age record',
-    should: 'put adults on Open, every younger member on Youth and no record nowhere',
+    should:
+      'put adults on Open, every younger member on Youth and no record nowhere',
     actual: [
       divisionOfAgeBand('adult'),
       divisionOfAgeBand('16-17'),
@@ -180,7 +181,10 @@ test('seatedDivision', () => {
   assert({
     given: 'a youth and an adult debater',
     should: 'call the seating mixed',
-    actual: seatedDivision([person('a', 'youth', aff), person('b', 'open', neg)]),
+    actual: seatedDivision([
+      person('a', 'youth', aff),
+      person('b', 'open', neg),
+    ]),
     expected: 'mixed',
   });
   assert({
@@ -193,7 +197,6 @@ test('seatedDivision', () => {
     expected: 'open',
   });
 });
-
 
 test('roomLadderOf', () => {
   const ranked = {

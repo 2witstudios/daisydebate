@@ -60,7 +60,9 @@ function Row({ row }: { readonly row: LobbyRow }) {
         <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="min-w-0 truncate font-strong">{row.title}</span>
           {row.mode === 'Ranked' ? <Badge tone="clay">Ranked</Badge> : null}
-          {row.ladder === null ? null : <SeatedLadderBadge seated={row.ladder} />}
+          {row.ladder === null ? null : (
+            <SeatedLadderBadge seated={row.ladder} />
+          )}
         </p>
         <p className="truncate text-sm text-ink-muted">
           <span className="hidden max-narrow:inline">{`${row.status} · `}</span>

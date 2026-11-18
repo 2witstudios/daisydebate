@@ -46,7 +46,9 @@ export async function withClients<T>(
 /** An active season for the work, and no rating residue after it. */
 export async function inSeason<T>(f: Fixture, work: () => Promise<T>) {
   const seasonId = createId();
-  await withSeasons(databaseUrl, (s) => s.activateBetaSeason({ id: seasonId, division: 'open' }));
+  await withSeasons(databaseUrl, (s) =>
+    s.activateBetaSeason({ id: seasonId, division: 'open' }),
+  );
   try {
     return await work();
   } finally {

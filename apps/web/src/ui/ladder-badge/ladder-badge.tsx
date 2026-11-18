@@ -1,8 +1,4 @@
-import type {
-  Ladder,
-  RatingDivision,
-  SeatedDivision,
-} from '@daisy/protocol';
+import type { Ladder, RatingDivision, SeatedDivision } from '@daisy/protocol';
 import type { ReactNode } from 'react';
 import { seatedLadderLabel } from '../../features/play/ladder-division-words';
 import {

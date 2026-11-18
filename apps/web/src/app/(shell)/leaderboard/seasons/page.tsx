@@ -1,7 +1,10 @@
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requestLadder, requestMemberDivision } from '../../../../lib/request-session';
+import {
+  requestLadder,
+  requestMemberDivision,
+} from '../../../../lib/request-session';
 import { boardLadder } from '../../../../features/leaderboard/board-ladder';
 import { parseLadderQuery } from '../../../../features/leaderboard/query';
 import {

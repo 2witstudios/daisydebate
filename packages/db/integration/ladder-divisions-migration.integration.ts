@@ -180,9 +180,12 @@ test(
         should:
           'put every season, rating, ledger row, ranked Round and ranked challenge on Open, and leave casual ones without a division',
         actual: {
-          seasons: await f.sql`select division from seasons where id=${seasonId}`,
+          seasons:
+            await f.sql`select division from seasons where id=${seasonId}`,
           ratings: (await f.sql`select distinct division from ratings`).length,
-          ratingDivision: (await f.sql`select distinct division from ratings`)[0],
+          ratingDivision: (
+            await f.sql`select distinct division from ratings`
+          )[0],
           ledger: await f.sql`select distinct division from rating_changes`,
           rankedRounds:
             await f.sql`select distinct ladder_division from rounds where ladder_id is not null`,

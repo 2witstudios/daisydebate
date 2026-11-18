@@ -25,7 +25,11 @@ test('rankedSeatClaimRefusal', () => {
   assert({
     given: 'an adult claiming a debater seat on a Youth ranked Room',
     should: 'refuse with the division reason',
-    actual: rankedSeatClaimRefusal(youthRoom, claim, person('devon', 'open', neg)),
+    actual: rankedSeatClaimRefusal(
+      youthRoom,
+      claim,
+      person('devon', 'open', neg),
+    ),
     expected: 'ranked-division',
   });
   assert({
@@ -41,7 +45,11 @@ test('rankedSeatClaimRefusal', () => {
   assert({
     given: 'a youth member claiming on a Youth ranked Room',
     should: 'seat them',
-    actual: rankedSeatClaimRefusal(youthRoom, claim, person('jules', 'youth', neg)),
+    actual: rankedSeatClaimRefusal(
+      youthRoom,
+      claim,
+      person('jules', 'youth', neg),
+    ),
     expected: null,
   });
   assert({
