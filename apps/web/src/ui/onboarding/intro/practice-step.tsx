@@ -1,6 +1,6 @@
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
-import { catalogTemplates } from './freestyle';
+import { catalogTemplates } from './templates';
 import { heading, pill, type IntroStepProps } from './intro';
 
 const marker =
@@ -17,7 +17,7 @@ const steps = [
   ],
   [
     'Debate, then read the ballot',
-    'The judge scores each side and writes why. No judge free? Add an AI judge.',
+    'The judge scores each side and writes why. No judge free? Add an AI judge, premium on casual rounds.',
   ],
 ] as const;
 

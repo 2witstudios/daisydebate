@@ -293,6 +293,7 @@ describe('AppShell', () => {
         '/profile/ada-byron',
         '/settings',
         '/help',
+        '/about',
         '/terms',
         '/privacy',
         '/analytics',

@@ -29,7 +29,7 @@ export const onboardingSteps: readonly OnboardingStep[] = flow.map(
 /**
  * How many steps show a count: every step but the send-off. The count is of
  * the whole flow for every member, so one whose age passes over the optional
- * answers goes from the third of six to the send-off.
+ * answers goes from the fifth of eight to the send-off.
  */
 export const numberedSteps = onboardingSteps.length - 1;
 

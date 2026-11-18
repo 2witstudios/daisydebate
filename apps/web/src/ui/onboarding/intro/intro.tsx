@@ -72,7 +72,7 @@ export function DaisyStep({
         'Run any kind of round with your team or club. Start from a league template, or write your own rules.',
       points: [
         'IPDA, Lincoln-Douglas, Public Forum, Policy and more',
-        'Invite a judge, or use an AI judge',
+        'Invite a judge, or add an AI judge (premium)',
         'Read the judge’s ballot afterwards',
       ],
     },

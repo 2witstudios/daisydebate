@@ -11,7 +11,7 @@ import { StylesStep } from './styles-step';
 import { DebateStep } from './debate-step';
 import { PracticeStep } from './practice-step';
 import { HostStep } from './host-step';
-import { catalogTemplates } from './freestyle';
+import { catalogTemplates } from './templates';
 import { DaisyStep, type IntroStepProps } from './intro';
 
 setupRitewayBun();
