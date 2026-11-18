@@ -8,7 +8,7 @@ import { releaseFlagDefault } from '../flags/release-default';
  * modules import it, so the flag stays out of the proxy's route table.
  */
 const releaseFor =
-  (app: App, key: 'daisy-tab' | 'daisy-tab-minors') =>
+  (app: App, key: 'daisy-tab' | 'daisy-tab-minors' | 'host-tiers') =>
   (userId: string): Promise<boolean> =>
     createRequestFlagReader({
       read: app.database.readFlagSnapshot,
@@ -25,3 +25,9 @@ const releaseFor =
 export const tabReleasedFor = (app: App) => releaseFor(app, 'daisy-tab');
 export const tabMinorsReleasedFor = (app: App) =>
   releaseFor(app, 'daisy-tab-minors');
+/** Host tiers ride on Tab: both must be released (ADR 0147). */
+export const hostTiersReleasedFor = (app: App) => {
+  const tab = tabReleasedFor(app),
+    tiers = releaseFor(app, 'host-tiers');
+  return async (userId: string) => (await tab(userId)) && tiers(userId);
+};

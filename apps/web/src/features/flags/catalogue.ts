@@ -30,6 +30,16 @@ export const flagCatalogue = [
     safeDefault: false,
     dependencies: ['daisy-tab'],
   },
+  {
+    // The host home at /host and paid event upgrades (ADR 0147).
+    key: 'host-tiers',
+    kind: 'release',
+    owner: 'Daisy Tab (@2witstudios)',
+    taskCode: 'PYL-14',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
 ] as const satisfies readonly FlagDefinition[];
 
 export type ReleaseFlagKey = Extract<

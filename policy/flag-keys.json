@@ -21,6 +21,13 @@
       "kind": "release",
       "owner": "Daisy Tab (@2witstudios)",
       "taskCode": "TAB-8.2"
+    },
+    {
+      "key": "host-tiers",
+      "retired": false,
+      "kind": "release",
+      "owner": "Daisy Tab (@2witstudios)",
+      "taskCode": "PYL-14"
     }
   ]
 }

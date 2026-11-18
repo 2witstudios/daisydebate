@@ -1,3 +1,4 @@
+import { seedPaidHosting } from './hosting-purchase.test-support';
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -49,6 +50,8 @@ export const committedEventRoom = async (
       async () => {
         copied.value = await copyForeignBallot(world, mode);
         const lobbyId = state.made.get('tournament-lobby')!;
+        if (options.recording === 'on')
+          await seedPaidHosting(frame.sql, lobbyId, state.bots.Director!.userId);
         const [lobby] =
           await frame.sql`select settings_version from lobbies where id=${lobbyId}`;
         const answer = await settingCommand({
