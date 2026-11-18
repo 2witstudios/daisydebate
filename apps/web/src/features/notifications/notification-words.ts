@@ -121,5 +121,57 @@ export const notificationWords = (
         text: `${subject.friend ? `@${subject.friend}` : 'A member'} accepted your friend request.`,
         href: '/friends',
       };
+    case 'media_release_requested':
+      return {
+        text: `Your release request to ${subject.recipient} is waiting. It stops working on ${releaseDay(subject.expiresAt)}.`,
+        href: mediaReleaseSettings,
+      };
+    case 'media_release_declined':
+      return {
+        text: 'Your parent or guardian declined your media release. Your Youth Rounds stay private.',
+        href: mediaReleaseSettings,
+      };
+    case 'media_release_signed':
+      return {
+        text: 'Your parent signed your media release. Your Youth Rounds can now be published.',
+        href: mediaReleaseSettings,
+      };
+    case 'media_release_club_confirmed':
+      return {
+        text: 'Your club confirmed a media release for you.',
+        href: mediaReleaseSettings,
+      };
+    case 'media_release_withdrawn':
+      return subject.own
+        ? {
+            text: 'Your media release was withdrawn. Your public Rounds are coming down.',
+            href: mediaReleaseSettings,
+          }
+        : {
+            text: `${subject.minor ? `@${subject.minor}` : 'A student'}’s media release was withdrawn. Their public Rounds are coming down.`,
+            href: subject.minor
+              ? `/profile/${subject.minor}`
+              : '/notifications',
+          };
+    case 'media_release_club_asked':
+      return {
+        text: `${subject.student ? `@${subject.student}` : 'A student'} asked your club to confirm their media release.`,
+        href: `/clubs/${subject.clubHandle}/releases`,
+      };
+    case 'youth_round_published':
+      return {
+        text: `Your Round${subject.by ? ` with @${subject.by}` : ''} is now public.`,
+        href: `/recordings/${subject.roundId}`,
+      };
   }
 };
+
+const mediaReleaseSettings = '/settings#media-release';
+
+/** "29 Nov": the day a release request stops working, in UTC. */
+const releaseDay = (at: string): string =>
+  new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(at));

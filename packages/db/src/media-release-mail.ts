@@ -210,6 +210,7 @@ export function mediaReleaseMailOperations({
           },
           batch,
         );
+        if (ended >= batch.limit) return ended;
         const lapsed = await deleteExpiredBatch(
           database,
           {
@@ -218,7 +219,7 @@ export function mediaReleaseMailOperations({
             at: mediaReleaseRequests.expiresAt,
             eligible: sql`${mediaReleaseRequests.outcome} is null and ${unheld}`,
           },
-          batch,
+          { before: batch.before, limit: batch.limit - ended },
         );
         return ended + lapsed;
       }),

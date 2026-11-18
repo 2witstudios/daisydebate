@@ -134,7 +134,10 @@ const recordingRoundOf = async (
     officialActorIds: round.seats
       .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
       .map((seat) => seat.actorId),
-    youth: await database.readYouthRecordingPeople(roundId),
+    youth: {
+      ...(await database.readYouthRecordingPeople(roundId)),
+      public: false,
+    },
   };
 };
 
@@ -255,6 +258,7 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
               viewerActorId,
               clock,
               limit: 100,
+              youthPublishing: false,
             })
             .then((page) => page.rows.some((row) => row.id === roundId));
         assert({

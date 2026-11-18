@@ -7,6 +7,7 @@ import {
 import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
+import { youthRoundPublic } from './media-release-standing';
 import { readReleasesOf } from './media-releases';
 import { oweNotifications } from './notifications/owe';
 import { readYouthRecordingPeople } from './youth-recording-people';
@@ -27,6 +28,15 @@ export function createYouthRoundPublications(input: {
   readonly nextId: () => string;
 }) {
   return {
+    /** Whether a debater's share of this Youth Round stands (the flag is the caller's). */
+    readYouthRoundShared: (roundId: string): Promise<boolean> =>
+      input.run(async (tx) => {
+        const rows = (await tx.execute(
+          sql`select 1 from youth_round_publications yp
+            where yp.round_id = ${roundId} and ${youthRoundPublic(sql`yp`)}`,
+        )) as unknown as unknown[];
+        return rows.length > 0;
+      }),
     publishYouthRound: (command: {
       readonly roundId: string;
       readonly userId: string;

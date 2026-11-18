@@ -4,7 +4,7 @@ import {
   mayTakeDownYouthRecording,
   recordingAudience,
   removableStatus,
-  type YouthRoundPeople,
+  type YouthRound,
 } from './youth-audience';
 import {
   SPECTATOR_MARGIN_MS,
@@ -51,7 +51,7 @@ export type RecordingRound = {
    * A Youth Round's youth debaters and their linked adults (ADR 0107, PYL-5):
    * a ranked Round on Youth – Freestyle. Null on every other Round.
    */
-  readonly youth: YouthRoundPeople | null;
+  readonly youth: YouthRound | null;
 };
 
 /**
@@ -122,13 +122,15 @@ const EVERYTHING: RoundEvidencePermissions = {
 /**
  * A Youth Round is private whatever its Room's visibility or a presented link:
  * its audience sees all of it once it ends, anyone else answers as missing.
+ * Once a debater shared it, and while every release holds and publishing is
+ * open, anyone sees it (ADR 0151).
  */
 const youthPermissions = (
-  round: RecordingRound & { readonly youth: YouthRoundPeople },
+  round: RecordingRound & { readonly youth: YouthRound },
   viewer: RecordingViewer,
 ): RoundEvidencePermissions =>
   round.completedAtMs !== null &&
-  recordingAudience(round, viewer).kind === 'allowed'
+  (round.youth.public || recordingAudience(round, viewer).kind === 'allowed')
     ? EVERYTHING
     : NOTHING;
 

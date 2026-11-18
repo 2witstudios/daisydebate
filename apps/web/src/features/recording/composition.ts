@@ -1,3 +1,4 @@
+import { routeReleaseFor } from '../flags/route-release';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { hostHoldsCasualCapture as holdsCasualCapture } from '../room-runtime/capture-offer';
 import {
@@ -22,7 +23,7 @@ import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
-import type { YouthRoundPeople } from './youth-audience';
+import type { YouthRound, YouthRoundPeople } from './youth-audience';
 import { youthPeopleCache } from './youth-people-cache';
 import type { RecordingInputs } from './ports';
 
@@ -37,7 +38,7 @@ type RoundRow = NonNullable<
 
 const asRound = (
   round: RoundRow,
-  youth: YouthRoundPeople | null,
+  youth: YouthRound | null,
 ): HistoryRound & RecordingRound => ({
   id: round.id,
   competitionType: round.competitionType,
@@ -89,7 +90,14 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     if (!round) return null;
     const youthRound =
       round.competitionType === 'ranked' && round.ladder?.division === 'youth';
-    return asRound(round, youthRound ? await youthPeople(app)(roundId) : null);
+    if (!youthRound) return asRound(round, null);
+    const [people, shared, open] = await Promise.all([
+      youthPeople(app)(roundId),
+      app.database.youthRoundPublications.readYouthRoundShared(roundId),
+      routeReleaseFor(app)('youth-publishing', null),
+    ]);
+    // Public only while a debater's share stands and publishing is open (ADR 0151).
+    return asRound(round, { ...people, public: shared && open });
   };
   const store = recordingPersistence(app);
   return {
@@ -113,8 +121,9 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
       now: () => app.clock.now(),
     }),
     findRecordingByRound: store.findByRound,
-    // Media releases are S4's record (PYL-6, PYL-7); none exists yet.
-    readMediaReleases: async () => [],
+    // The media releases feature's named output (ADR 0151).
+    readMediaReleases: (userIds) =>
+      app.database.mediaReleases.readActivePublishReleases(userIds),
   };
 };
 

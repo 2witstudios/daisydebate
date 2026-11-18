@@ -27,6 +27,7 @@ import { startPhotoDeletions } from '../features/profile/photo/deletion-sweep';
 import { startBillingCleanup } from './billing-cleanup';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
+import { startMediaReleaseMail } from './media-release-mail';
 import { startLeagueRequestMail } from './league-request-mail';
 import { startNotificationMail } from './notification-mail';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
@@ -261,6 +262,11 @@ const leagueRequestMail = startLeagueRequestMail({
   timers: workerTimers,
   reporter: app.reporter,
 });
+const mediaReleaseMail = startMediaReleaseMail({
+  app,
+  timers: workerTimers,
+  reporter: app.reporter,
+});
 const fileRuntime = app.messagingFiles;
 const fileMaintenance = fileRuntime?.maintenance
   ? startMessagingFileMaintenance({
@@ -330,6 +336,7 @@ async function shutdown() {
   const betaMailStopped = betaMail.stop();
   const notificationMailStopped = notificationMail.stop();
   const leagueRequestMailStopped = leagueRequestMail?.stop();
+  const mediaReleaseMailStopped = mediaReleaseMail.stop();
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
   const observationPurgesStopped = observationPurges.stop();
@@ -377,6 +384,7 @@ async function shutdown() {
         betaMailStopped,
         notificationMailStopped,
         leagueRequestMailStopped,
+        mediaReleaseMailStopped,
         operatorApiStopped,
         filesStopped,
         broadcastSweepStopped,

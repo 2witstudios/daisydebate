@@ -111,6 +111,13 @@ export const messagingLatestPageItems = (): number =>
 export const messagingFilesAvailable = (): boolean =>
   processApp().messagingFiles !== undefined;
 
+/**
+ * Whether shared Youth Recordings are public at all (ADR 0151): the
+ * youth-publishing release flag, read for Daisy as a whole, never per viewer.
+ */
+const youthPublishingOpen = () =>
+  requestReleaseEnabled('youth-publishing', null);
+
 /** One archive page for this viewer, and how many Recordings are public. */
 export const readRecordingArchive = async (
   query: RecordingsQuery,
@@ -119,14 +126,16 @@ export const readRecordingArchive = async (
   const app = processApp();
   const { archive } = recordingReads(app);
   const clock = spectatorClockAt(app.clock.now());
+  const youthPublishing = await youthPublishingOpen();
   const [page, publicCount] = await Promise.all([
     archive.listArchive({
       query,
       viewerActorId: viewer.kind === 'account' ? viewer.actorId : null,
       clock,
       limit: ARCHIVE_PAGE_SIZE,
+      youthPublishing,
     }),
-    archive.countPublicArchive({ clock }),
+    archive.countPublicArchive({ clock, youthPublishing }),
   ]);
   return { page, publicCount, nowMs: Date.parse(app.clock.now()) };
 };
@@ -390,7 +399,12 @@ export const requestHubCounts = async (): Promise<HubCounts> => {
   const clock = spectatorClockAt(app.clock.now());
   const [live, recordings] = await Promise.all([
     readUnlessRefused(() => app.liveReads.count(), 0),
-    recordingReads(app).archive.countPublicArchive({ clock }),
+    youthPublishingOpen().then((youthPublishing) =>
+      recordingReads(app).archive.countPublicArchive({
+        clock,
+        youthPublishing,
+      }),
+    ),
   ]);
   return { live, recordings };
 };

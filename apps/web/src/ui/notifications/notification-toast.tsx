@@ -29,6 +29,15 @@ type ToastLook = {
  * kind of thing it is before the words do, and a kind that needs the member
  * now sits on the stage colours.
  */
+/** A media release notice (ADR 0151): one look, its own icon and action. */
+const release = (icon: ToastLook['icon'], action: string): ToastLook => ({
+  hue: 'bg-hue-plum-soft text-hue-plum',
+  ink: 'text-hue-plum',
+  icon,
+  eyebrow: 'Media release',
+  action,
+});
+
 const looks: Record<NotificationKind, ToastLook> = {
   judge_assigned: {
     hue: 'bg-hue-teal-soft text-hue-teal',
@@ -134,6 +143,19 @@ const looks: Record<NotificationKind, ToastLook> = {
     icon: 'users',
     eyebrow: 'New friend',
     action: 'Open Friends',
+  },
+  media_release_requested: release('send', 'Send again'),
+  media_release_declined: release('lock', 'See your release'),
+  media_release_signed: release('check', 'See your release'),
+  media_release_club_confirmed: release('check', 'See your release'),
+  media_release_withdrawn: release('lock', 'See the release'),
+  media_release_club_asked: release('users', 'Confirm releases'),
+  youth_round_published: {
+    hue: 'bg-hue-sky-soft text-hue-sky',
+    ink: 'text-hue-sky',
+    icon: 'globe',
+    eyebrow: 'Youth Round public',
+    action: 'Watch',
   },
 };
 

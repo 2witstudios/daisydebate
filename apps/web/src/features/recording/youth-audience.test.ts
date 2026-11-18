@@ -68,15 +68,19 @@ describe('youthRoundPublishable', () => {
       actual: [
         youthRoundPublishable(youth, []),
         youthRoundPublishable(youth, [
-          { subjectUserId: 'user-aff', status: 'active' },
+          { subjectUserId: 'user-aff', scope: 'publish', withdrawnAt: null },
         ]),
         youthRoundPublishable(youth, [
-          { subjectUserId: 'user-aff', status: 'active' },
-          { subjectUserId: 'user-neg', status: 'withdrawn' },
+          { subjectUserId: 'user-aff', scope: 'publish', withdrawnAt: null },
+          {
+            subjectUserId: 'user-neg',
+            scope: 'publish',
+            withdrawnAt: '2026-11-01T00:00:00.000Z',
+          },
         ]),
         youthRoundPublishable(youth, [
-          { subjectUserId: 'user-aff', status: 'active' },
-          { subjectUserId: 'user-neg', status: 'active' },
+          { subjectUserId: 'user-aff', scope: 'publish', withdrawnAt: null },
+          { subjectUserId: 'user-neg', scope: 'publish', withdrawnAt: null },
         ]),
       ],
       expected: [false, false, false, true],
@@ -88,7 +92,7 @@ describe('youthRoundPublishable', () => {
       given: 'a release from the judge alone',
       should: 'not publish',
       actual: youthRoundPublishable(youth, [
-        { subjectUserId: 'user-judge', status: 'active' },
+        { subjectUserId: 'user-judge', scope: 'publish', withdrawnAt: null },
       ]),
       expected: false,
     });

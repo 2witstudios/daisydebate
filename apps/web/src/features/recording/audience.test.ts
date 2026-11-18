@@ -378,6 +378,7 @@ describe('a Youth Round (PYL-5)', () => {
         { actorId: 'aff', userId: 'user-aff', linkedAdultActorIds: ['coach'] },
         { actorId: 'neg', userId: 'user-neg', linkedAdultActorIds: ['parent'] },
       ],
+      public: false,
     },
   };
 

@@ -462,6 +462,7 @@ describe('a Youth Round’s history (PYL-5)', () => {
       { actorId: 'aff', userId: 'u-aff', linkedAdultActorIds: ['coach'] },
       { actorId: 'neg', userId: 'u-neg', linkedAdultActorIds: [] },
     ],
+    public: false,
   };
   const youthRound: Partial<HistoryRound> = {
     ladder: { style: 'freestyle', division: 'youth' },
@@ -478,7 +479,9 @@ describe('a Youth Round’s history (PYL-5)', () => {
       round: youthRound,
       viewer: member('coach'),
       subscribed: true,
-      releases: [{ subjectUserId: 'u-aff', status: 'active' }],
+      releases: [
+        { subjectUserId: 'u-aff', scope: 'publish', withdrawnAt: null },
+      ],
     });
     assert({
       given: 'a linked coach, subscribed, with one of two releases recorded',
@@ -509,8 +512,8 @@ describe('a Youth Round’s history (PYL-5)', () => {
       round: youthRound,
       viewer: member('aff'),
       releases: [
-        { subjectUserId: 'u-aff', status: 'active' },
-        { subjectUserId: 'u-neg', status: 'active' },
+        { subjectUserId: 'u-aff', scope: 'publish', withdrawnAt: null },
+        { subjectUserId: 'u-neg', scope: 'publish', withdrawnAt: null },
       ],
     });
     assert({
