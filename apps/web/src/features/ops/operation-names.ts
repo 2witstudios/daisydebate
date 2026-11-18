@@ -41,6 +41,7 @@ const OPERATION_NAMES = [
   'media-release.cancel',
   'media-release.club-ask',
   'media-release.club-confirm',
+  'media-release.club-read',
   'media-release.publish',
   'media-release.parent.sign',
   'media-release.parent.answer',

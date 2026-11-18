@@ -6,6 +6,9 @@
   --spacing-club-stat: 180px;
   --spacing-club-fact: 160px;
   --spacing-club-plan: 22rem;
+  /* The media releases table (ADR 0151): scrolls sideways below this. */
+  --spacing-club-releases: 40rem;
+  --spacing-club-field: 15rem;
 }
 
 /* A seats-board row: the member, their ladder, the seat and its actions. */

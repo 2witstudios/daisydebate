@@ -230,10 +230,15 @@ export function createMediaReleaseClubs(input: {
     /** The club's students and their releases, for its owner or staff; else null. */
     readClubReleases: (
       viewerUserId: string,
-      handle: string,
+      /** The club's id (its pages' address) or its handle (a notice's link). */
+      ref: string,
     ): Promise<ClubReleasesRead | null> =>
       run(async (tx) => {
-        const club = await readClub(tx, { handle }, false);
+        const club = await readClub(
+          tx,
+          idSchema.safeParse(ref).success ? { id: ref } : { handle: ref },
+          false,
+        );
         if (club === null) return null;
         const role = await clubReleaseRole(tx, club, viewerUserId);
         if (role === null) return null;
