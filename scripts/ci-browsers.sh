@@ -63,7 +63,8 @@ for deb in "$deb_cache"/*.deb; do
   # package, matches no installed version and is pruned.
   package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""
   version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""
-  installed=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
+  installed=""
+  [ -z "$package" ] || installed=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
   [ -n "$version" ] && [ "$installed" = "$version" ] || rm "$deb"
 done
 if [ "$(ls "$deb_cache" | sort | cksum)" != "$debs_before" ] && [ -n "${GITHUB_OUTPUT:-}" ]; then

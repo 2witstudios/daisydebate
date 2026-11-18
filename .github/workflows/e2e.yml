@@ -141,8 +141,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/daisy-apt-archives
-          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}_
 
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
@@ -299,8 +299,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/daisy-apt-archives
-          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_
 
       - name: Install Playwright Chromium
         id: browsers
@@ -438,8 +438,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/daisy-apt-archives
-          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium_
       - name: Install controlled Chromium and artifact tools
         id: chromium
         timeout-minutes: 8

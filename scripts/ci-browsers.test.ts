@@ -66,7 +66,12 @@ const installShape = (steps: readonly Step[]) => {
   return {
     bounded: (install?.['timeout-minutes'] ?? Infinity) <= 8,
     ...cacheShape(restore, save('~/.cache/ms-playwright')),
-    ...debShape(debs, save('~/.cache/daisy-apt-archives'), install?.id),
+    ...debShape(
+      debs,
+      save('~/.cache/daisy-apt-archives'),
+      install?.id,
+      restore,
+    ),
     unboundedApt: steps.some((step) =>
       /--with-deps|apt-get/.test(step.run ?? ''),
     ),
@@ -86,22 +91,34 @@ const cacheShape = (restore: Step, save: Step) => ({
 
 // A fixed key would keep the first .deb set of its period: every Ubuntu
 // update after it went back to the mirror (main at db7db271b fetched 11 of
-// 32 MB on a warm hit). The newest entry restores; a changed set saves anew.
-const debShape = (restore: Step, save: Step, install: string | undefined) => ({
-  cachesDebs:
-    restore.uses === cacheAction &&
-    restore.with?.path === '~/.cache/daisy-apt-archives',
-  rollingDebs:
-    restore.with?.key?.endsWith(
-      '${{ github.run_id }}-${{ github.run_attempt }}',
-    ) === true &&
-    restore.with?.['restore-keys'] ===
-      `playwright-debs-\${{ runner.os }}-\${{ runner.arch }}-${version}-`,
-  savesChangedDebs:
-    install !== undefined &&
-    save.if === `\${{ steps.${install}.outputs.debs == 'changed' }}` &&
-    save.with?.key === `\${{ steps.${restore.id}.outputs.cache-primary-key }}`,
-});
+// 32 MB on a warm hit). The newest entry for the same browser set restores;
+// a changed set saves anew. The set is in the prefix, so a Chromium-only job
+// never prunes the nightly's firefox/webkit packages away, and "_" ends it,
+// so "chromium_" is no prefix of "chromium-firefox-webkit_".
+const debShape = (
+  restore: Step,
+  save: Step,
+  install: string | undefined,
+  browsers: Step,
+) => {
+  const set = browsers.with?.key?.split(`-${version}-`)[1];
+  const prefix = `playwright-debs-\${{ runner.os }}-\${{ runner.arch }}-${version}-${set}_`;
+  return {
+    cachesDebs:
+      restore.uses === cacheAction &&
+      restore.with?.path === '~/.cache/daisy-apt-archives',
+    rollingDebs:
+      set !== undefined &&
+      restore.with?.['restore-keys'] === prefix &&
+      restore.with?.key ===
+        `${prefix}\${{ github.run_id }}-\${{ github.run_attempt }}`,
+    savesChangedDebs:
+      install !== undefined &&
+      save.if === `\${{ steps.${install}.outputs.debs == 'changed' }}` &&
+      save.with?.key ===
+        `\${{ steps.${restore.id}.outputs.cache-primary-key }}`,
+  };
+};
 
 test('every Playwright browser install is cached and bounded', async () => {
   const jobs = await browserJobs();
@@ -145,29 +162,61 @@ test('the cache key reads the exact installed @playwright/test version', async (
   });
 });
 
-test('the .deb cache keeps only installed versions and reports a changed set', async () => {
+test('the prune loop keeps readable installed versions and reports a changed set', async () => {
+  const { mkdtempSync, writeFileSync, chmodSync, readdirSync, readFileSync } =
+    await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
   const script = await read('scripts/ci-browsers.sh');
+  const loop = script.slice(
+    script.indexOf('cp /var/cache/apt/archives/*.deb'),
+    script.indexOf('"$bun" "$cli" install "$@"'),
+  );
+  const root = mkdtempSync(join(tmpdir(), 'daisy-browser-debs-'));
+  const bin = join(root, 'bin');
+  const cache = join(root, 'debs');
+  Bun.spawnSync(['mkdir', '-p', bin, cache]);
+  for (const name of ['good', 'old', 'absent', 'bad'])
+    writeFileSync(join(cache, `${name}.deb`), name);
+  const stub = (name: string, body: string) => {
+    writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, name), 0o755);
+  };
+  stub(
+    'dpkg-deb',
+    'case "$2" in *bad.deb) exit 2;; esac\nif [ "$3" = Package ]; then basename "$2" .deb; else echo 1; fi',
+  );
+  stub(
+    'dpkg-query',
+    'case "$3" in good) echo 1;; old) echo 0;; *) exit 1;; esac',
+  );
+  const output = join(root, 'output');
+  writeFileSync(output, '');
+  const run = Bun.spawnSync(
+    [
+      'sh',
+      '-euc',
+      `deb_cache=${cache}\ndebs_before=$(ls "$deb_cache" | sort | cksum)\n${loop}`,
+    ],
+    {
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        GITHUB_OUTPUT: output,
+      },
+    },
+  );
   assert({
-    given: 'the browser install script',
+    given:
+      'a cache with a readable installed, an older, an uninstalled and an unreadable .deb',
     should:
-      'prune DEB_CACHE to the installed versions and write debs=changed only when the set changed',
+      'finish under set -eu, keep only the installed version and report the change',
     actual: {
-      // An unreadable archive reads as an empty version and is pruned too.
-      prunes: script.includes(
-        '[ -n "$version" ] && [ "$installed" = "$version" ] || rm "$deb"',
-      ),
-      survivesUnreadable: script.includes(
-        'version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""',
-      ),
-      reports: script.includes('echo "debs=changed" >> "$GITHUB_OUTPUT"'),
-      compares: script.includes('!= "$debs_before"'),
+      exit: run.exitCode,
+      kept: readdirSync(cache),
+      output: readFileSync(output, 'utf8'),
     },
-    expected: {
-      prunes: true,
-      survivesUnreadable: true,
-      reports: true,
-      compares: true,
-    },
+    expected: { exit: 0, kept: ['good.deb'], output: 'debs=changed\n' },
   });
 });
 

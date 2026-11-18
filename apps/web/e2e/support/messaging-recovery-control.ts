@@ -12,6 +12,19 @@ import { idSchema } from '@daisy/protocol';
 import type { IncomingMessage } from 'node:http';
 import { STEP_LIMIT_MS } from './bounded-step';
 
+/**
+ * A pressure setup lost only to the social lane's own wait expiring: an
+ * AggregateError with at least one entry, every one a social.expired
+ * refusal. Anything else (a holder fault, another lane, a bare error) is not
+ * contention and refuses at once.
+ */
+export const isLaneContention = (error: unknown) =>
+  error instanceof AggregateError &&
+  error.errors.length > 0 &&
+  error.errors.every(
+    (entry) => capacityRefusalFields(entry)?.cause === 'social.expired',
+  );
+
 export const messagingRecoveryControlPath = (port: number) =>
   join(tmpdir(), `dmr-${port}.sock`);
 
@@ -50,16 +63,7 @@ export async function createMessagingRecoveryControl(app: App, port: number) {
   const selectors = z
     .object({ channelId: idSchema, actorId: idSchema, userId: idSchema })
     .strict();
-  const expired = (error: unknown) =>
-    capacityRefusalFields(error)?.cause === 'social.expired';
-  // Only a setup whose every failure is the lane's own wait expiring retries.
-  const owner = createMessagingPressureControl(
-    pressure,
-    (error) =>
-      error instanceof AggregateError &&
-      error.errors.length > 0 &&
-      error.errors.every(expired),
-  );
+  const owner = createMessagingPressureControl(pressure, isLaneContention);
   const prepare = (request: IncomingMessage, next: 'history' | 'entry') =>
     owner.prepare(next, async () => {
       let body = '';
