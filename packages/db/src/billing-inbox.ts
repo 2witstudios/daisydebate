@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { advanceBillingSync } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import { lockBillingCustomer } from './billing-authority';
+import { billingOwnerClosed, lockBillingCustomer } from './billing-authority';
 import { readDatabaseTime } from './database-clock';
 import { billingCustomers } from './schema/billing-customers';
 import { billingWebhookEvents } from './schema/billing-webhook-events';
@@ -41,13 +41,15 @@ async function notifyCustomer(
   nextId: () => string,
   now: Date,
 ) {
-  if (locked.account.erased || locked.customer.closedAt) {
-    await enqueuePrivacyJob(tx, {
-      id: nextId(),
-      subjectRef: locked.customer.userId,
-      vendor: 'stripe',
-      createdAt: now.toISOString(),
-    });
+  if (billingOwnerClosed(locked) || locked.customer.closedAt) {
+    // Vendor cleanup is an erased account's privacy job; a closed club has none.
+    if (locked.kind === 'account')
+      await enqueuePrivacyJob(tx, {
+        id: nextId(),
+        subjectRef: locked.account.userId,
+        vendor: 'stripe',
+        createdAt: now.toISOString(),
+      });
     return 'closed' as const;
   }
   const transition = advanceBillingSync(

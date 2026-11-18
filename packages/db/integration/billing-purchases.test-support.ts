@@ -19,6 +19,7 @@ export const offer = {
   mode: 'test' as const,
   priceId: 'price_fixture',
   returnOrigin: 'https://daisy.example',
+  quantity: 1,
 };
 type FlagsFixture = Parameters<Parameters<typeof withFlags>[0]>[0];
 type Run = ReturnType<typeof createBoundedTransaction>;

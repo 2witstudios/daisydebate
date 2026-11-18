@@ -172,8 +172,15 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
       'economics-feed-conflicting-basis',
       'Conflicting model cost bases',
     );
+  // Club seat use (ADR 0148) is left out of the three self-paid plans: priced
+  // from usage counters it is simply not theirs, so their coverage holds. A
+  // provider invoice still includes it and is split across those plans, so
+  // there it voids coverage, as any use nobody can attribute does.
   const unassigned = snapshot.attempts.some(
-    (a) => planFor(a.sourceKind) === null,
+    (a) =>
+      planFor(a.sourceKind) === null &&
+      (a.sourceKind !== 'organization_seat' ||
+        feed.modelCostBasis === 'provider_invoice'),
   );
   const coverage = feed.coverage.filter(() => snapshot.complete && !unassigned);
   const rows = usageRows(

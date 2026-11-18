@@ -1,10 +1,11 @@
 import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
 import {
   billingFields,
+  clubBillingFields,
   refineBillingConfig,
   withBillingConfig,
 } from './billing-config';
-export type { BillingConfig } from './billing-config';
+export type { BillingConfig, ClubBillingConfig } from './billing-config';
 import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
@@ -75,6 +76,7 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
 };
 const serverFields = {
   ...billingFields,
+  ...clubBillingFields,
   BILLING_ECONOMICS_DIRECTORY: z
     .string()
     .min(1)

@@ -3,6 +3,10 @@ import { operatorConsoleOrigin } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
 import { renderBetaEmail } from './templates';
+import {
+  clubInvitationPath,
+  renderClubSeatInvitation,
+} from '../clubs/invitation-email';
 import { retryOrFail as backOff } from '../mail/retry-policy';
 import { runMailQueue } from '../mail/run-queue';
 
@@ -45,32 +49,48 @@ export function createMailIntentDelivery(input: {
     if (delivery.kind === 'owner-digest' && !input.ownerAddress)
       return { kind: 'cancelled', errorCode: 'unconfigured' };
     const [to, rendered] =
-      delivery.kind === 'invitation'
+      delivery.kind === 'club-seat-invitation'
         ? [
             delivery.to,
-            renderBetaEmail({
-              kind: 'beta-invitation',
-              url: new URL('/sign-in', input.appUrl).toString(),
+            renderClubSeatInvitation({
+              clubName: delivery.clubName,
+              manager: delivery.manager,
+              expiresAt: delivery.expiresAt,
+              url: new URL(
+                clubInvitationPath(
+                  delivery.organizationId,
+                  delivery.invitationId,
+                ),
+                input.appUrl,
+              ).toString(),
             }),
           ]
-        : delivery.kind === 'member'
+        : delivery.kind === 'invitation'
           ? [
               delivery.to,
               renderBetaEmail({
-                kind: 'beta-approved',
-                username: delivery.username,
-                url: new URL('/play', input.appUrl).toString(),
+                kind: 'beta-invitation',
+                url: new URL('/sign-in', input.appUrl).toString(),
               }),
             ]
-          : [
-              input.ownerAddress!,
-              renderBetaEmail({
-                kind: 'beta-requests',
-                newRequests: delivery.newRequests,
-                waiting: delivery.waiting,
-                url: `${operatorConsoleOrigin}/accounts?access=pending`,
-              }),
-            ];
+          : delivery.kind === 'member'
+            ? [
+                delivery.to,
+                renderBetaEmail({
+                  kind: 'beta-approved',
+                  username: delivery.username,
+                  url: new URL('/play', input.appUrl).toString(),
+                }),
+              ]
+            : [
+                input.ownerAddress!,
+                renderBetaEmail({
+                  kind: 'beta-requests',
+                  newRequests: delivery.newRequests,
+                  waiting: delivery.waiting,
+                  url: `${operatorConsoleOrigin}/accounts?access=pending`,
+                }),
+              ];
     try {
       const sent = await input.deliver({
         ...rendered,

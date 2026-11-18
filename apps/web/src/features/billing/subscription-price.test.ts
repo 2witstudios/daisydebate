@@ -91,16 +91,16 @@ test('renewal is off at the period end or on a set cancel date', () => {
     given:
       'a $20 subscriber renewing, cancelling at period end, and cancelled for a set date',
     should:
-      'keep paid access in each case and store renewal off for both cancellations, at $20',
+      'keep paid access in each case and store renewal off for both cancellations, at $20 and no seat count',
     actual: [
       terms({}),
       terms({ cancel_at_period_end: true }),
       terms({ cancel_at: subscription.items.data[0]!.current_period_end }),
     ],
     expected: [
-      ['paid', { renewalOff: false, amountMinor: 2000 }],
-      ['paid', { renewalOff: true, amountMinor: 2000 }],
-      ['paid', { renewalOff: true, amountMinor: 2000 }],
+      ['paid', { renewalOff: false, amountMinor: 2000, seatCount: null }],
+      ['paid', { renewalOff: true, amountMinor: 2000, seatCount: null }],
+      ['paid', { renewalOff: true, amountMinor: 2000, seatCount: null }],
     ],
   });
 });

@@ -639,6 +639,23 @@ as unknown. Unsent mail is cancelled when the grant is removed or the account
 is erased, revoked or restricted; a provider request in flight cannot be
 recalled. Invitation URLs carry no credential and confer no authority.
 
+### Club seat and invitation data (ADR 0148)
+
+A Club plan is billed to an organisation: its billing customer, purchases and
+subscription carry the organisation, not an account, and follow the existing
+billing records rules. A seat links one account to one club and its assignment
+time; its Premium grants are the account's own entitlement grants (source
+`organization_seat`, naming the paying club as provenance only). A seat
+invitation stores the invitee's normalised email, the inviting manager and its
+expiry; it is a new data class about a person who may have no account. It is
+used only to send one invitation mail (the existing suppression-aware mail
+transport, no new processor) and to let a signed-in account with that verified
+address accept. The link carries no credential and confers no authority. An
+invitation is deleted when answered or cancelled, and a lapsed one 30 days
+after it lapses; its unsent mail is cancelled first. Account erasure gives up
+the subject's seat and deletes invitations addressed to their email; export
+returns both. The address never enters URLs, logs, analytics or error text.
+
 Canonical tournament hosting (DEC409) uses the existing access/entitlement and
 tournament authority purposes. Its finite grant versions record issuer/decision
 or the exact verified subscription observation, selected tournament coverage,

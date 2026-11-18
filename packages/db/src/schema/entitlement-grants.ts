@@ -9,6 +9,7 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 import { createdAtColumn, oneOf, timestampColumn } from './columns';
+import { organizations } from './organizations';
 import { users } from './users';
 import { accountHostingEntitlementVersions } from './hosting-entitlement-versions';
 
@@ -29,6 +30,10 @@ export const accountEntitlementGrants = pgTable(
     startsAt: timestampColumn('starts_at'),
     expiresAt: timestampColumn('expires_at'),
     hostingVersionId: text('hosting_version_id'),
+    /** The club paying for an `organization_seat` grant (ADR 0148); null otherwise. */
+    organizationId: text('organization_id').references(() => organizations.id, {
+      onDelete: 'restrict',
+    }),
     revokedAt: timestampColumn('revoked_at'),
     createdAt: createdAtColumn(),
   },
@@ -38,7 +43,7 @@ export const accountEntitlementGrants = pgTable(
       sql`
       (${table.entitlement} = 'tournament_hosting' and ${table.source} in ('administrative', 'subscription') and ${table.hostingVersionId} is not null and ${table.startsAt} is null and ${table.expiresAt} is null)
       or (${table.entitlement} <> 'tournament_hosting' and ${table.hostingVersionId} is null and (( ${table.source} = 'beta' and ${table.startsAt} is null and ${table.expiresAt} is null)
-      or (${table.source} = 'subscription' and ${table.startsAt} is not null and ${table.expiresAt} is not null
+      or (${table.source} in ('subscription', 'organization_seat') and ${table.startsAt} is not null and ${table.expiresAt} is not null
         and isfinite(${table.startsAt}) and isfinite(${table.expiresAt}) and ${table.startsAt} < ${table.expiresAt})))
     `,
     ),
@@ -55,6 +60,13 @@ export const accountEntitlementGrants = pgTable(
       table.hostingVersionId,
       table.userId,
       table.source,
+    ),
+    check(
+      'account_entitlement_grants_seat_organization_check',
+      sql`(${table.source} = 'organization_seat') = (${table.organizationId} is not null)`,
+    ),
+    index('account_entitlement_grants_organization_idx').on(
+      table.organizationId,
     ),
     check(
       'account_entitlement_grants_revocation_finite',

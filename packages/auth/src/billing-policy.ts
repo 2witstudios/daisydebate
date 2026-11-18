@@ -20,6 +20,11 @@ export const canPurchasePremium = (
   account: AccountAuthorizationFact | null,
 ): boolean => canManageBilling(account) && participantAccess(account);
 
+/** A Club plan is bought by an adult manager for the club (ADR 0148). */
+export const canPurchaseClub = (
+  account: AccountAuthorizationFact | null,
+): boolean => canPurchasePremium(account) && account?.ageBand === 'adult';
+
 /**
  * Premium without a subscription: a current beta grant of AI Rounds, which
  * the allowance treats as Premium (ADR 0146). Display only; every AI use

@@ -40,6 +40,9 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   // recheck the session, so a visitor is sent to sign in (Delivery 5072).
   '/leagues': 'participant',
   '/host/leagues': 'participant',
+  // Club seats (ADR 0148): a club's pages and an emailed seat invitation,
+  // which only the invited address's own account can answer.
+  '/clubs': 'participant',
 };
 
 /**

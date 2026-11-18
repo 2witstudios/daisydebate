@@ -8,6 +8,11 @@ import { roomCommunityModeration } from './messaging/room-community-moderation';
 import { createRoundIncidentStore } from './round-incident-store';
 import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
+export type {
+  ClubSeatAnswer,
+  ClubSeatManagerCommand,
+} from './club-seat-commands';
+export type { ClubSeatingRead, ClubPerson } from './club-seat-reads';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';

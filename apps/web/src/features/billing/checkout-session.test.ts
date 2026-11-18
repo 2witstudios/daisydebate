@@ -222,3 +222,77 @@ test('a new Checkout sells only the $20 offer; an existing $10 session still com
     expected: ['observed', 'refuse', 'refuse', 'refuse', 'observed'],
   });
 });
+
+test('a Club checkout sells its seat count at exactly the Club price (ADR 0148)', () => {
+  const organizationId = 'o'.repeat(24);
+  const club = {
+    ...purchase,
+    owner: { kind: 'organization' as const, organizationId },
+    quantity: 14,
+  };
+  const price = {
+    ...checkoutSession.line_items.data[0]!.price,
+    unit_amount: 1000,
+    lookup_key: 'daisy_club_seat_monthly_usd_10',
+  };
+  const session = (delta: {
+    quantity?: number;
+    amount?: number;
+    price?: object;
+  }) => ({
+    ...checkoutSession,
+    success_url: `${purchase.returnOrigin}/clubs/${organizationId}/billing?purchase=${purchase.id}`,
+    cancel_url: `${purchase.returnOrigin}/clubs/${organizationId}/billing`,
+    amount_subtotal: delta.amount ?? 14000,
+    line_items: {
+      ...checkoutSession.line_items,
+      data: [{ quantity: delta.quantity ?? 14, price: delta.price ?? price }],
+    },
+  });
+  assert({
+    given: 'a Club purchase of 14 seats',
+    should:
+      'ask Stripe for 14 of the Club price and return to the club billing page',
+    actual: [
+      checkoutParameters(club).line_items,
+      checkoutParameters(club).cancel_url,
+    ],
+    expected: [
+      [{ price: purchase.priceId, quantity: 14 }],
+      `${purchase.returnOrigin}/clubs/${organizationId}/billing`,
+    ],
+  });
+  assert({
+    given:
+      'the matching session, and ones with another quantity, total, or the Premium price',
+    should: 'observe only the matching session',
+    actual: [
+      session({}),
+      session({ quantity: 13, amount: 13000 }),
+      session({ amount: 1000 }),
+      session({
+        price: checkoutSession.line_items.data[0]!.price,
+        amount: 28000,
+      }),
+    ].map((value) => normalizeCheckoutSession(club, value, 'current').kind),
+    expected: ['observed', 'refuse', 'refuse', 'refuse'],
+  });
+  assert({
+    given: 'a Premium purchase read back with a 14-seat line',
+    should: 'refuse it',
+    actual: normalizeCheckoutSession(
+      purchase,
+      {
+        ...checkoutSession,
+        line_items: {
+          ...checkoutSession.line_items,
+          data: [
+            { quantity: 14, price: checkoutSession.line_items.data[0]!.price },
+          ],
+        },
+      },
+      'current',
+    ).kind,
+    expected: 'refuse',
+  });
+});

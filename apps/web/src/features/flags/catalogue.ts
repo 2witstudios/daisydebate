@@ -52,7 +52,8 @@ export const flagCatalogue = [
     dependencies: [],
   },
   {
-    // Start a Club on /pricing; S7 opens it with /clubs/new.
+    // Club seats (ADR 0148): Start a Club on /pricing opens /clubs/new, then
+    // the club's seats and billing, and seat invitations.
     key: 'club-seats',
     kind: 'release',
     owner: 'Billing (@2witstudios)',

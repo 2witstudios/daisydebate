@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -15,6 +15,27 @@ const source = await readFile(
   new URL(`../migrations/${migration}/migration.sql`, import.meta.url),
   'utf8',
 );
+/** Every later migration, in order: a guard it redefines is the final body (ADR 0148 froze the billing owner). */
+const later = await Promise.all(
+  (await readdir(new URL('../migrations/', import.meta.url)))
+    .filter((tag) => tag > migration)
+    .sort()
+    .map((tag) =>
+      readFile(
+        new URL(`../migrations/${tag}/migration.sql`, import.meta.url),
+        'utf8',
+      ).catch(() => ''),
+    ),
+);
+const functionPattern =
+  /CREATE(?: OR REPLACE)? FUNCTION\s+([\w.]+)\([^;]*?AS\s+(\$\w*\$)([\s\S]*?)\2\s*;/gi;
+const finalBody = (name: string, body: string) =>
+  later.reduce((current, sql) => {
+    const redefined = [...sql.matchAll(functionPattern)].find(
+      (m) => m[1]!.replace('public.', '') === name,
+    );
+    return redefined ? redefined[3]!.trim() : current;
+  }, body);
 
 test(
   'canonical catalog retains main Beta/privacy data, exact final guards, trigger registrations and closed roles',
@@ -46,15 +67,11 @@ test(
           };
           const before = await read();
           await scratch.migrate(() => true);
-          const functions = [
-            ...source.matchAll(
-              /CREATE(?: OR REPLACE)? FUNCTION\s+([\w.]+)\([^;]*?AS\s+(\$\w*\$)([\s\S]*?)\2\s*;/gi,
-            ),
-          ]
-            .map((m) => ({
-              name: m[1]!.replace('public.', ''),
-              body: m[3]!.trim(),
-            }))
+          const functions = [...source.matchAll(functionPattern)]
+            .map((m) => {
+              const name = m[1]!.replace('public.', '');
+              return { name, body: finalBody(name, m[3]!.trim()) };
+            })
             .sort((a, b) => a.name.localeCompare(b.name));
           const actualFunctions = await f.sql<
             { name: string; body: string }[]

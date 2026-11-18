@@ -4,6 +4,7 @@ import {
   advanceBillingSync,
   billingSyncStateSchema,
   subscriptionEvidenceSchema,
+  billingOwnerColumns,
   type Purchase,
 } from '@daisy/protocol/billing';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -62,7 +63,7 @@ export async function completePurchaseMapping(input: {
   } else {
     await tx.insert(billingCustomers).values({
       id: nextId(),
-      userId: purchase.userId,
+      ...billingOwnerColumns(purchase.owner),
       vendorCustomerId: state.customerId,
       mode: purchase.mode,
       synchronization: notified.state,
@@ -76,7 +77,7 @@ export async function completePurchaseMapping(input: {
       .where(eq(billingSubscriptions.id, subscription.id));
   await tx.insert(billingSubscriptions).values({
     id: nextId(),
-    userId: purchase.userId,
+    ...billingOwnerColumns(purchase.owner),
     vendorSubscriptionId: state.subscriptionId,
     evidence: { lifecycle: 'incomplete', settlement: { kind: 'unpaid' } },
     current: true,

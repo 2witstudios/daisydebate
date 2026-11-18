@@ -8,11 +8,13 @@ import {
 } from './columns';
 import { users } from './users';
 import { betaPreapprovals } from './beta-preapprovals';
+import { clubSeatInvitations } from './club-seats';
 
 export const mailIntentPurposes = [
   'beta-invitation',
   'beta-approved',
   'beta-requests-digest',
+  'club-seat-invitation',
 ] as const;
 export const mailIntentErrorCodes = [
   'delivery',
@@ -42,6 +44,11 @@ export const mailIntents = pgTable(
       () => betaPreapprovals.id,
       { onDelete: 'set null' },
     ),
+    /** The seat invitation this mail offers (ADR 0148); the address is read at send time. */
+    clubSeatInvitationId: text('club_seat_invitation_id').references(
+      () => clubSeatInvitations.id,
+      { onDelete: 'set null' },
+    ),
     dedupeKey: text('dedupe_key').notNull().unique(),
     /** A digest's UTC window start: the accounts it counts joined in this window. */
     windowStart: timestampColumn('window_start'),
@@ -55,6 +62,16 @@ export const mailIntents = pgTable(
     check(
       'mail_intents_preapproval_recipient_check',
       sql`(${table.purpose} = 'beta-invitation' and (${table.preapprovalId} is not null or ${table.state} in ('sent', 'failed', 'cancelled'))) or (${table.purpose} <> 'beta-invitation' and ${table.preapprovalId} is null)`,
+    ),
+    check(
+      'mail_intents_club_invitation_check',
+      sql`(${table.purpose} = 'club-seat-invitation' and (${table.clubSeatInvitationId} is not null or ${table.state} in ('sent', 'failed', 'cancelled'))) or (${table.purpose} <> 'club-seat-invitation' and ${table.clubSeatInvitationId} is null)`,
+    ),
+    index('mail_intents_club_invitation_idx').on(table.clubSeatInvitationId),
+    /** A club's daily invitation-mail count reads one purpose's recent rows (ADR 0148). */
+    index('mail_intents_purpose_created_idx').on(
+      table.purpose,
+      table.createdAt,
     ),
     check(
       'mail_intents_recipient_check',

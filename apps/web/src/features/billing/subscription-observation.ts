@@ -14,6 +14,7 @@ import {
   type BillingSubscriptionIdentity,
 } from './subscription-vendor-facts';
 export type { BillingSubscriptionIdentity } from './subscription-vendor-facts';
+import type { ClubSubscriptionObservation } from './club-subscription-observation';
 
 type Invoice = z.infer<typeof invoiceSchema>;
 type PaidPeriod = Extract<SubscriptionEvidence['settlement'], { kind: 'paid' }>;
@@ -214,10 +215,13 @@ function observedSettlement(
  * price is the subscriber's own verified amount.
  */
 export const observedTerms = (
-  observed: Extract<SubscriptionObservation, { kind: 'observed' }>,
+  observed:
+    | Extract<SubscriptionObservation, { kind: 'observed' }>
+    | Extract<ClubSubscriptionObservation, { kind: 'observed' }>,
 ) => ({
   renewalOff: observed.cancelAtPeriodEnd || observed.cancelAt !== null,
   amountMinor: observed.amountMinor,
+  seatCount: 'seatCount' in observed ? observed.seatCount : null,
 });
 
 /** Strip vendor payloads to verified billing facts; never store customer/contact/card data. */

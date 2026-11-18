@@ -82,14 +82,18 @@ test('cleanup resource reads page only its closed sponsor and retain exact selec
           actual: [
             selected.kind === 'purchase' && [
               selected.purchase.id,
-              selected.purchase.userId,
+              selected.purchase.owner,
               selected.purchase.priceId,
             ],
             stale,
             after,
           ],
           expected: [
-            [expected[0]!.id, subject.userId, 'price_fixture'],
+            [
+              expected[0]!.id,
+              { kind: 'account', userId: subject.userId },
+              'price_fixture',
+            ],
             { kind: 'refuse' },
             before,
           ],
