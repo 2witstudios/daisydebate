@@ -558,11 +558,15 @@ test('the check for a chat opened by someone else ends when access is refused or
 });
 
 /** A thread whose page changes what it says of the reader while it is open. */
-const mountChanging = async (readOnlyHint: boolean) => {
+const mountChanging = async (
+  readOnlyHint: boolean,
+  channel: ReturnType<typeof metadata> | null = null,
+) => {
   const world = {
-    channel: null as ReturnType<typeof metadata> | null,
+    channel,
     asked: [] as string[],
   };
+  let last: { readonly locked: boolean } | null = null;
   const client = await mountBrowserClient<typeof Client>(
     Bun.resolveSync('./use-context-chat.test-support', import.meta.dir),
     {
@@ -612,7 +616,9 @@ const mountChanging = async (readOnlyHint: boolean) => {
           sendAction: refuse,
           mutateAction: refuse,
           reportAction: refuse,
-          hold: () => undefined,
+          hold: (held: { readonly locked: boolean }) => {
+            last = held;
+          },
           openingCheck: never,
         }),
       ),
@@ -628,9 +634,34 @@ const mountChanging = async (readOnlyHint: boolean) => {
       ) as { state: string; readOnly: boolean | null };
       return { state, readOnly };
     },
+    locked: () => last?.locked ?? null,
     unmount: () => client.act(async () => client.root.unmount()),
   };
 };
+
+test('a found chat’s own metadata outranks the page’s read-only hint', async () => {
+  const chat = await mountChanging(true, metadata(false));
+  try {
+    assert({
+      given:
+        'a page that read its reader as read-only (a Youth Room spectator by the view) and a found chat that says they may post (a youth debater’s club staff)',
+      should:
+        'only discover, never open, and leave the found chat writable and unlocked',
+      actual: {
+        shown: chat.shown(),
+        locked: chat.locked(),
+        asked: chat.world.asked,
+      },
+      expected: {
+        shown: { state: 'ready', readOnly: false },
+        locked: false,
+        asked: ['discover', 'read'],
+      },
+    });
+  } finally {
+    await chat.unmount();
+  }
+});
 
 test('a reader who may now post opens the chat they could only wait for', async () => {
   const chat = await mountChanging(true);
