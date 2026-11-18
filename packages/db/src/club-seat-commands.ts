@@ -31,6 +31,7 @@ import {
 import { readDatabaseTime } from './database-clock';
 import { normalizedEmailSql } from './email-identity';
 import { scopeTransaction } from './tenant-scope';
+import { activateSeatMembership } from './tab/seat-membership';
 import type { BoundedTransactionContext } from './transaction-context';
 
 type Tx = BoundedTransactionContext;
@@ -155,6 +156,41 @@ async function queueInvitationMail(
     (id, purpose, club_seat_invitation_id, dedupe_key, next_attempt_at)
     values (${input.sendId}, 'club-seat-invitation', ${input.invitationId},
       ${`club-seat-invitation:${input.organizationId}:${input.invitationId}:${input.sendId}`}, now())`);
+}
+
+/**
+ * Invitation mail is bounded (ADR 0148): one invitation sends at most once an
+ * hour, never while a send is still waiting, and five times in all; a club
+ * sends at most 20 plus three per seat a day. Counted from the durable mail
+ * intents, whose dedupe key names the club and the invitation.
+ */
+async function invitationMailLimit(
+  tx: Tx,
+  input: {
+    readonly organizationId: string;
+    readonly invitationId: string | null;
+    readonly seatCount: number;
+    readonly now: Date;
+  },
+) {
+  const club = `club-seat-invitation:${input.organizationId}:%`;
+  const [today] =
+    await tx.execute(sql`select count(*)::int as n from mail_intents
+    where dedupe_key like ${club} and created_at > ${input.now}::timestamptz - interval '1 day'`);
+  if (
+    Number(today?.n ?? 0) >=
+    clubSeatBounds.dailyInvitationMails + 3 * input.seatCount
+  )
+    return 'invitation-mail-limit' as const;
+  if (input.invitationId === null) return null;
+  const [sent] = await tx.execute(sql`select count(*)::int as n,
+      count(*) filter (where state in ('queued', 'leased')
+        or created_at > ${input.now}::timestamptz - ${`${clubSeatBounds.resendAfterMs} milliseconds`}::interval)::int as recent
+    from mail_intents where club_seat_invitation_id=${input.invitationId}`);
+  if (Number(sent?.n ?? 0) >= clubSeatBounds.sendsPerInvitation)
+    return 'invitation-mail-limit' as const;
+  if (Number(sent?.recent ?? 0) > 0) return 'resend-too-soon' as const;
+  return null;
 }
 
 /** Writes the difference between two seatings, and ends removed holders' Premium at the end of the UTC day. */
@@ -331,6 +367,8 @@ export function createClubSeats(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
   readonly grants: ClubSeatGrantProjection;
+  /** Whether verified plan evidence grants access now (@daisy/auth's policy, injected). */
+  readonly planActive: (evidence: SubscriptionEvidence, now: string) => boolean;
 }) {
   async function fenced(
     tx: Tx,
@@ -397,6 +435,13 @@ export function createClubSeats(input: {
             if (!invitation) return refused('invitation-not-found');
             if (Date.parse(invitation.expiresAt) <= now.getTime())
               return refused('invitation-expired');
+            const limit = await invitationMailLimit(tx, {
+              organizationId: club.id,
+              invitationId: invitation.id,
+              seatCount: plan.seatCount,
+              now,
+            });
+            if (limit) return refused(limit);
             await queueInvitationMail(tx, {
               organizationId: club.id,
               invitationId: invitation.id,
@@ -417,6 +462,37 @@ export function createClubSeats(input: {
             organizationId: club.id,
             subjectUserId: subject.userId,
           });
+          const active =
+            plan.evidence !== null &&
+            input.planActive(plan.evidence, now.toISOString());
+          // Giving a seat, or changing the plan, needs a plan that grants access;
+          // freeing a seat or cancelling an invitation never does.
+          if (
+            !active &&
+            ['invite', 'assign', 'move', 'prepare-seat-count'].includes(
+              command.kind,
+            )
+          )
+            return refused('no-active-plan');
+          if (
+            command.kind === 'prepare-seat-count' &&
+            (!plan.customer ||
+              !plan.subscription ||
+              (plan.customer.mode !== 'test' && plan.customer.mode !== 'live'))
+          )
+            return refused('no-active-plan');
+          if (
+            command.kind === 'invite' ||
+            (command.kind === 'move' && command.to.kind === 'invite')
+          ) {
+            const limit = await invitationMailLimit(tx, {
+              organizationId: club.id,
+              invitationId: null,
+              seatCount: plan.seatCount,
+              now,
+            });
+            if (limit) return refused(limit);
+          }
           const seatingCommand = toSeatingCommand(command, facts)!;
           const decision = decideClubSeating(
             before,
@@ -433,13 +509,13 @@ export function createClubSeats(input: {
             nextId: input.nextId,
           });
           await project(tx, club, decision.state.seats);
-          if (command.kind !== 'prepare-seat-count') return { kind: 'changed' };
           if (
+            command.kind !== 'prepare-seat-count' ||
             !plan.customer ||
             !plan.subscription ||
             (plan.customer.mode !== 'test' && plan.customer.mode !== 'live')
           )
-            return refused('seat-count-out-of-range');
+            return { kind: 'changed' };
           return {
             kind: 'seat-count-ready',
             mode: plan.customer.mode,
@@ -510,12 +586,11 @@ export function createClubSeats(input: {
             nextId: input.nextId,
           });
           if (answer === 'accept') {
-            await tx.execute(sql`insert into memberships
-              (organization_id, user_id, status, joined_at) values (${club.id}, ${subject.userId}, 'active', ${now})
-              on conflict (organization_id, user_id) do update
-                set status='active', joined_at=coalesce(memberships.joined_at, excluded.joined_at),
-                  ended_at=null, version=memberships.version+1
-                where memberships.status <> 'active'`);
+            await activateSeatMembership(tx, {
+              organizationId: club.id,
+              userId: subject.userId,
+              now: now.toISOString(),
+            });
             await project(tx, club, decision.state.seats);
           }
           return { kind: 'changed' };

@@ -11,6 +11,11 @@ export const clubSeatBounds = {
   maxSeats: 200,
   /** A seat invitation lapses after 14 days. */
   invitationTtlMs: 14 * 24 * 60 * 60 * 1000,
+  /** One invitation mails at most this many times, at most once an hour. */
+  sendsPerInvitation: 5,
+  resendAfterMs: 60 * 60 * 1000,
+  /** A club sends at most this many invitation mails a day, plus three per seat. */
+  dailyInvitationMails: 20,
 } as const;
 
 export type ClubSeat = {
@@ -88,6 +93,13 @@ export const clubSeatingRefusals = [
   'seat-count-out-of-range',
   'choose-released-seats',
   'unexpected-release',
+  // Decided where the plan and mail are read, not by these pure rules:
+  /** The club has no paid plan that grants access now. */
+  'no-active-plan',
+  /** This invitation was sent within the hour, or its mail is still waiting. */
+  'resend-too-soon',
+  /** This invitation, or this club today, has sent as many invitations as allowed. */
+  'invitation-mail-limit',
 ] as const;
 export type ClubSeatingRefusal = (typeof clubSeatingRefusals)[number];
 

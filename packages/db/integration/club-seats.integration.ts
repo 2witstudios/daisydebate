@@ -1,6 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
+import {
+  clubSeatGrants,
+  subscriptionAccess,
+  subscriptionGrants,
+} from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { createBillingSynchronization } from '../src/billing-synchronization';
@@ -53,6 +57,7 @@ async function cleanup(fixture: Fixture, clubs: readonly string[]) {
     await fixture.sql`delete from billing_purchases where organization_id=${organizationId}`;
     await fixture.sql`delete from billing_subscriptions where organization_id=${organizationId}`;
     await fixture.sql`delete from billing_customers where organization_id=${organizationId}`;
+    await fixture.sql`delete from membership_periods where organization_id=${organizationId}`;
     await fixture.sql`delete from memberships where organization_id=${organizationId}`;
     await fixture.sql`delete from organizations where id=${organizationId}`;
   }
@@ -134,6 +139,8 @@ function withPaidClub(
           run,
           nextId: createId,
           grants: clubSeatGrants,
+          planActive: (evidence, at) =>
+            subscriptionAccess(evidence, at).kind !== 'none',
         }),
         reads: createClubSeatReads({ run }),
         clubs,
@@ -289,6 +296,14 @@ test('seats used never pass the seat count, and one account holds one seat acros
       clubs.push(otherClub);
       await fixture.sql`insert into memberships (organization_id, user_id, status, joined_at)
         values (${otherClub}, ${member.userId}, 'active', now())`;
+      // The other club's plan is active too: copy this club's verified plan row.
+      const copied = createId();
+      await fixture.sql`insert into billing_subscriptions
+        select (jsonb_populate_record(null::billing_subscriptions, to_jsonb(s) || jsonb_build_object(
+          'id', ${copied}::text, 'organization_id', ${otherClub}::text,
+          'vendor_subscription_id', ${`sub_${createId()}`}::text,
+          'evidence', jsonb_set(s.evidence, '{settlement,period,subscriptionId}', to_jsonb(${copied}::text))))).*
+        from billing_subscriptions s where s.organization_id=${organizationId} and s.current`;
       assert({
         given: 'another club assigning a seat to someone already seated here',
         should: 'refuse: one seat per account',
@@ -690,4 +705,147 @@ test('a billing row is owned by exactly one account or organisation', async () =
       expected: ['23514', '23514', '23514'],
     });
   });
+});
+
+test('a former member who accepts a seat rejoins now, with one open membership period', async () => {
+  await withPaidClub(
+    2,
+    async ({
+      fixture,
+      owner,
+      organizationId,
+      customerId,
+      paid,
+      sync,
+      seatStore,
+    }) => {
+      await apply(sync, customerId, paid, 2);
+      const former = await person(fixture, null);
+      await fixture.sql`insert into memberships (organization_id, user_id, status, joined_at)
+        values (${organizationId}, ${former.userId}, 'active', '2026-01-01T00:00:00Z')`;
+      await fixture.sql`update memberships set status='ended', ended_at='2026-02-01T00:00:00Z', version=version+1
+        where organization_id=${organizationId} and user_id=${former.userId}`;
+      const [before] =
+        await fixture.sql`select version from organizations where id=${organizationId}`;
+      await seatStore.command(owner, organizationId, {
+        kind: 'invite',
+        email: former.email,
+      });
+      const [invitation] =
+        await fixture.sql`select id from club_seat_invitations where organization_id=${organizationId}`;
+      await seatStore.answer(
+        former,
+        organizationId,
+        invitation!.id as string,
+        'accept',
+      );
+      const [clock] = await fixture.sql`select now() as now`;
+      const open = await fixture.sql`select joined_at from membership_periods
+          where organization_id=${organizationId} and user_id=${former.userId} and ended_at is null`;
+      const [after] =
+        await fixture.sql`select version from organizations where id=${organizationId}`;
+      assert({
+        given: 'an ended member accepting a seat',
+        should:
+          'make them active with exactly one open period from acceptance, and advance the club version',
+        actual: [
+          open.length,
+          Date.parse(
+            String(new Date(open[0]?.joined_at as Date).toISOString()),
+          ) > Date.parse('2026-11-01T00:00:00Z') &&
+            Math.abs(
+              (open[0]?.joined_at as Date).getTime() -
+                (clock!.now as Date).getTime(),
+            ) < 60_000,
+          Number(after!.version) > Number(before!.version),
+        ],
+        expected: [1, true, true],
+      });
+    },
+  );
+});
+
+test('invitation mail is throttled, and a lapsed plan gives no seats', async () => {
+  await withPaidClub(
+    2,
+    async ({
+      fixture,
+      owner,
+      organizationId,
+      customerId,
+      paid,
+      sync,
+      seatStore,
+    }) => {
+      await apply(sync, customerId, paid, 2);
+      await seatStore.command(owner, organizationId, {
+        kind: 'invite',
+        email: 'throttle@club.example',
+      });
+      const [invitation] =
+        await fixture.sql`select id from club_seat_invitations where organization_id=${organizationId}`;
+      const invitationId = invitation!.id as string;
+      const resend = () =>
+        seatStore.command(owner, organizationId, {
+          kind: 'resend',
+          invitationId,
+        });
+      const tooSoon = await resend();
+      await fixture.sql`update mail_intents set state='sent', completed_at=now(),
+          created_at=now() - interval '2 hours'
+        where club_seat_invitation_id=${invitationId}`;
+      const allowed = await resend();
+      await fixture.sql`update mail_intents set state='sent', completed_at=now(),
+          created_at=now() - interval '2 hours'
+        where club_seat_invitation_id=${invitationId}`;
+      for (let sent = 2; sent < 5; sent += 1)
+        await fixture.sql`insert into mail_intents
+          (id, purpose, club_seat_invitation_id, dedupe_key, state, completed_at, created_at, next_attempt_at)
+          values (${createId()}, 'club-seat-invitation', ${invitationId},
+            ${`club-seat-invitation:${organizationId}:${invitationId}:${createId()}`}, 'sent', now(), now() - interval '2 hours', now())`;
+      const capped = await resend();
+      assert({
+        given:
+          'a resend right after inviting, one an hour later, and one after five sends',
+        should: 'refuse too soon, allow, then refuse at the cap',
+        actual: [tooSoon, allowed, capped],
+        expected: [
+          { kind: 'refused', reason: 'resend-too-soon' },
+          { kind: 'changed' },
+          { kind: 'refused', reason: 'invitation-mail-limit' },
+        ],
+      });
+      await apply(sync, customerId, { ...paid, lifecycle: 'canceled' }, 2);
+      const member = await person(fixture, organizationId);
+      assert({
+        given:
+          'a cancelled plan, then an invitation, an assignment and a seat change',
+        should: 'refuse each with no active plan, writing nothing',
+        actual: [
+          await seatStore.command(owner, organizationId, {
+            kind: 'invite',
+            email: 'late@club.example',
+          }),
+          await seatStore.command(owner, organizationId, {
+            kind: 'assign',
+            userId: member.userId,
+          }),
+          await seatStore.command(owner, organizationId, {
+            kind: 'prepare-seat-count',
+            seatCount: 1,
+            release: { seats: [], invitations: [invitationId] },
+          }),
+          (
+            await fixture.sql`select count(*)::int as n from club_seat_invitations where organization_id=${organizationId}`
+          )[0]!.n,
+        ],
+        expected: [
+          { kind: 'refused', reason: 'no-active-plan' },
+          { kind: 'refused', reason: 'no-active-plan' },
+          { kind: 'refused', reason: 'no-active-plan' },
+          1,
+        ],
+      });
+    },
+  );
 });

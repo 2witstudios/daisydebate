@@ -8,6 +8,7 @@ type Club = ClubSeatsView['club'];
 export type ClubRefusal =
   | ClubSeatingRefusal
   | 'payment-failed'
+  | 'released-plan-unchanged'
   | 'unavailable'
   | 'handle-taken'
   | 'not-allowed';
@@ -31,6 +32,14 @@ export const refusalCopy: Readonly<Record<ClubRefusal, string>> = {
     'You only give up seats when going below the seats in use.',
   'payment-failed':
     'The payment for the new seats did not go through, so your seats are unchanged. Update your card in Manage payment and try again.',
+  'released-plan-unchanged':
+    'The seats you chose were given up, but your seat count did not change yet. Try lowering it again.',
+  'no-active-plan':
+    'Your club plan is not active, so no seats can be given or changed. Renew it in Billing.',
+  'resend-too-soon':
+    'That invitation was sent within the last hour. Try again later.',
+  'invitation-mail-limit':
+    'That invitation, or your club today, has sent as many invitations as allowed. Try again tomorrow.',
   unavailable: 'Club billing is unavailable. Try again.',
   'handle-taken': 'A club with that name already exists. Try another name.',
   'not-allowed': 'Your account cannot start a club.',

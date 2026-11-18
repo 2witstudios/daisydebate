@@ -20,14 +20,16 @@ export type SubscriptionReadPort = {
     subscriptionId: string,
     customerId: string,
   ) => Promise<unknown>;
-  /** Paid invoices newest first: a Club looks past its seat-change invoices. */
+  /** Paid invoices newest first, a page at a time: a Club looks past its seat-change invoices. */
   readonly paidInvoices: (
     subscriptionId: string,
     customerId: string,
+    startingAfter?: string,
   ) => Promise<unknown>;
 };
-/** Enough for a month of seat changes before the renewal that settles the period. */
-export const clubPaidInvoicePage = 10;
+/** Stripe's largest page, and how many a Club read follows to find its settling invoice. */
+export const clubPaidInvoicePage = 100;
+export const clubPaidInvoicePages = 3;
 const latestPaid = z.object({
   object: z.literal('list'),
   has_more: z.boolean(),
@@ -51,9 +53,15 @@ export function stripeSubscriptionReadPort(
         { subscription, customer, status: 'paid', limit: 1 },
         options,
       ),
-    paidInvoices: (subscription, customer) =>
+    paidInvoices: (subscription, customer, startingAfter) =>
       stripe.invoices.list(
-        { subscription, customer, status: 'paid', limit: clubPaidInvoicePage },
+        {
+          subscription,
+          customer,
+          status: 'paid',
+          limit: clubPaidInvoicePage,
+          ...(startingAfter ? { starting_after: startingAfter } : {}),
+        },
         options,
       ),
   };
@@ -117,14 +125,34 @@ export async function readClubSubscriptionObservation(
     ]);
     if (invoice.status === 'rejected' || paid.status === 'rejected')
       return { kind: 'retry' };
-    const page = paidPage.safeParse(paid.value);
-    if (!page.success) return { kind: 'refuse' };
-    return normalizeClubSubscriptionObservation({
-      identity,
-      subscription,
-      latestInvoice: invoice.value,
-      paidInvoices: { hasMore: page.data.has_more, data: page.data.data },
-    });
+    // Seat increases add paid invoices that settle nothing; follow the pages
+    // (bounded) until the period's settling invoice is among them.
+    const data: unknown[] = [];
+    let next: unknown = paid.value;
+    for (let pages = 1; ; pages += 1) {
+      const page = paidPage.safeParse(next);
+      if (!page.success) return { kind: 'refuse' };
+      data.push(...page.data.data);
+      const observed = normalizeClubSubscriptionObservation({
+        identity,
+        subscription,
+        latestInvoice: invoice.value,
+        paidInvoices: { hasMore: page.data.has_more, data },
+      });
+      const last = page.data.data.at(-1) as { id?: unknown } | undefined;
+      if (
+        observed.kind === 'observed' ||
+        !page.data.has_more ||
+        pages >= clubPaidInvoicePages ||
+        typeof last?.id !== 'string'
+      )
+        return observed;
+      next = await port.paidInvoices(
+        identity.vendorSubscriptionId,
+        identity.customerId,
+        last.id,
+      );
+    }
   } catch {
     return { kind: 'retry' };
   }

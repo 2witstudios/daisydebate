@@ -30,9 +30,9 @@ export function createSubscriptionReconciliation(input: {
       readIfRunning(() =>
         input.vendor.latestPaidInvoice(subscriptionId, customerId),
       ),
-    paidInvoices: (subscriptionId, customerId) =>
+    paidInvoices: (subscriptionId, customerId, startingAfter) =>
       readIfRunning(() =>
-        input.vendor.paidInvoices(subscriptionId, customerId),
+        input.vendor.paidInvoices(subscriptionId, customerId, startingAfter),
       ),
   };
 

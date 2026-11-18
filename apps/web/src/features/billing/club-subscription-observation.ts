@@ -165,7 +165,7 @@ function settlement(
 /**
  * A Club plan's verified facts (ADR 0148), stripped of vendor payloads: the
  * same evidence shape as Premium, so the same access policy and renewal grace
- * apply, plus the seat count. `paidInvoices` is a newest-first page; when its
+ * apply, plus the seat count. `paidInvoices` is the newest-first pages read so far; when its
  * settling invoice is beyond the page the observation refuses (and retries)
  * rather than read the plan as unpaid.
  */

@@ -82,7 +82,23 @@ const paymentFailed = (error: unknown) =>
 export type SeatChangeAnswer =
   | Exclude<ClubSeatAnswer, { kind: 'seat-count-ready' }>
   | { readonly kind: 'payment-failed' }
+  /** The named seats were released, but Stripe's seat count did not change: retry. */
+  | { readonly kind: 'released-plan-unchanged' }
   | { readonly kind: 'unavailable' };
+
+/**
+ * One Stripe idempotency key per intended change. The subscription's latest
+ * invoice moves with every paid increase, so the same from→to transition
+ * recurring later (5→6, 6→5, 5→6) gets a new key, while retries of one
+ * submit against the same state share it.
+ */
+export const seatChangeKey = (input: {
+  readonly subscriptionId: string;
+  readonly latestInvoice: string | null;
+  readonly from: number;
+  readonly to: number;
+}) =>
+  `club-seats:${input.subscriptionId}:${input.latestInvoice ?? 'none'}:${input.from}:${input.to}`;
 
 /**
  * Club billing (ADR 0148): Checkout for N seats, the Club portal, the
@@ -185,19 +201,29 @@ export function createClubBilling(input: {
         release,
       });
       if (ready.kind !== 'seat-count-ready') return ready;
-      if (ready.mode !== config.mode) return unavailable;
+      const released = release.seats.length + release.invitations.length > 0;
+      // Named seats were already given up; a plan left unchanged says so.
+      const unchanged = released
+        ? ({ kind: 'released-plan-unchanged' } as const)
+        : unavailable;
+      if (ready.mode !== config.mode) return unchanged;
       if (ready.seatCount === ready.currentSeatCount)
         return { kind: 'changed' };
-      const current = clubSubscriptionSchema.safeParse(
-        await config.plan.subscription(ready.vendorSubscriptionId),
-      );
+      let current;
+      try {
+        current = clubSubscriptionSchema.safeParse(
+          await config.plan.subscription(ready.vendorSubscriptionId),
+        );
+      } catch {
+        return unchanged;
+      }
       if (
         !current.success ||
         current.data.customer !== ready.vendorCustomerId ||
         current.data.items.data[0]!.price.id !== config.club.seatPriceId ||
         current.data.livemode !== (config.mode === 'live')
       )
-        return unavailable;
+        return unchanged;
       const item = current.data.items.data[0]!;
       const increase = ready.seatCount > item.quantity;
       try {
@@ -208,11 +234,16 @@ export function createClubBilling(input: {
             proration_behavior: increase ? 'always_invoice' : 'none',
             ...(increase ? { payment_behavior: 'error_if_incomplete' } : {}),
           },
-          `club-seats:${ready.vendorSubscriptionId}:${item.quantity}:${ready.seatCount}`,
+          seatChangeKey({
+            subscriptionId: ready.vendorSubscriptionId,
+            latestInvoice: current.data.latest_invoice,
+            from: item.quantity,
+            to: ready.seatCount,
+          }),
         );
       } catch (error) {
         if (paymentFailed(error)) return { kind: 'payment-failed' };
-        throw error;
+        return unchanged;
       }
       return { kind: 'changed' };
     },

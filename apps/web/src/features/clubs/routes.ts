@@ -331,6 +331,7 @@ export function composeClubRoutes(input: ClubRouteDependencies) {
             rule: { max: 10, windowSeconds: 60 },
           },
           async (subject) => {
+            await gate(subject);
             const organizationId = clubIdFrom(request);
             await seating(subject, organizationId);
             const result = await input.billing.portal(subject, organizationId);

@@ -216,3 +216,60 @@ test('a Club read follows its own subscription and a bounded page of paid invoic
     expected: 'retry',
   });
 });
+
+test('a Club read pages past many seat-change invoices to the settling renewal', async () => {
+  const change = (n: number) => ({
+    ...renewal,
+    id: `in_change${n}`,
+    billing_reason: 'subscription_update',
+    lines: {
+      ...renewal.lines,
+      data: [
+        {
+          ...renewal.lines.data[0]!,
+          id: `il_change${n}`,
+          amount: 500,
+          quantity: 1,
+          parent: {
+            ...renewal.lines.data[0]!.parent,
+            subscription_item_details: {
+              ...renewal.lines.data[0]!.parent.subscription_item_details,
+              proration: true,
+            },
+          },
+        },
+      ],
+    },
+  });
+  const changes = Array.from({ length: 120 }, (_, n) => change(n));
+  const requested: (string | undefined)[] = [];
+  const result = await readClubSubscriptionObservation(
+    {
+      ...port,
+      subscription: async () => clubSubscription(),
+      invoice: async () => renewal,
+      paidInvoices: async (_id, _customer, startingAfter) => {
+        requested.push(startingAfter);
+        return startingAfter === undefined
+          ? { object: 'list', has_more: true, data: changes.slice(0, 100) }
+          : {
+              object: 'list',
+              has_more: false,
+              data: [...changes.slice(100), renewal],
+            };
+      },
+    },
+    identity,
+  );
+  assert({
+    given: '120 paid seat-change invoices newer than the renewal',
+    should: 'follow one more page and settle the renewal’s period',
+    actual: [
+      result.kind === 'observed'
+        ? result.evidence.settlement.kind
+        : result.kind,
+      requested,
+    ],
+    expected: ['paid', [undefined, 'in_change99']],
+  });
+});
