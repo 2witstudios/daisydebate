@@ -10,8 +10,12 @@ import { assertNoSeriousFindings } from './support/axe';
  * each one, at desktop and phone width, with no serious accessibility
  * finding. The page is behind `pricing-page`, which this file opens (with
  * `premium-checkout`, so Get Premium links) and closes again. The suite runs
- * one worker, so no other spec sees them open. Host (`host-tiers`), Club and
- * League keep their safe default and show "Coming soon".
+ * one worker, so no other spec sees them open. Host (`host-tiers`) and League
+ * keep their safe default and show "Coming soon". Club starts once
+ * `club-seats` opens (PYL-13), so every test here sets that flag itself
+ * rather than trust suite order: closed, Club is "Coming soon" and the family
+ * question is absent; open, Start a Club signs a visitor in and goes on to
+ * /clubs/new.
  */
 const setFlag = (key: string, state: 'enabled' | 'default') =>
   promisify(execFile)(
@@ -35,9 +39,11 @@ test.describe.configure({ mode: 'serial' });
 // Every test starts from the page open, so any one can run on its own.
 test.beforeEach(async () => {
   await setPricing('enabled');
+  await setFlag('club-seats', 'default');
 });
 test.afterAll(async () => {
   await setPricing('default');
+  await setFlag('club-seats', 'default');
 });
 
 test('/pricing does not exist while its release flag is closed', async ({
@@ -106,7 +112,15 @@ for (const { name, width, height, columns } of widths) {
     });
     await expect(premium).toHaveAttribute('href', '/settings/billing');
     await expect(card(page, 'Host')).toContainText('Coming soon');
+    // club-seats is closed here; the test below opens it.
     await expect(card(page, 'Club')).toContainText('Coming soon');
+    await expect(
+      card(page, 'Club').getByRole('link', { name: 'Start a Club' }),
+    ).toHaveCount(0);
+    // The family answer points at Start a Club, so it waits for Club too.
+    await expect(
+      page.getByText('Can I buy Premium for my children?'),
+    ).toHaveCount(0);
     await expect(card(page, 'League')).toContainText('Coming soon');
 
     // Every action is a full-size target.
@@ -135,3 +149,28 @@ for (const { name, width, height, columns } of widths) {
     await expect(page).toHaveURL(/\/sign-in\?next=%2Fsettings%2Fbilling$/);
   });
 }
+
+test('with club-seats open, signed-out Start a Club signs in, then starts a club', async ({
+  page,
+}) => {
+  await setFlag('club-seats', 'enabled');
+  await page.goto('/pricing');
+
+  const club = card(page, 'Club');
+  await expect(club).toContainText('per seat, a month');
+  await expect(club).not.toContainText('Coming soon');
+  const start = club.getByRole('link', { name: 'Start a Club' });
+  await expect(start).toHaveAttribute('href', '/clubs/new');
+  // The other plans keep their own flags: Host and League stay closed.
+  await expect(card(page, 'Host')).toContainText('Coming soon');
+  await expect(card(page, 'League')).toContainText('Coming soon');
+  const target = await start.boundingBox();
+  expect(target?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await expect(
+    page.locator('summary', { hasText: 'Can I buy Premium for my children?' }),
+  ).toBeVisible();
+  await assertNoSeriousFindings(page);
+
+  await start.click();
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Fclubs%2Fnew$/);
+});
