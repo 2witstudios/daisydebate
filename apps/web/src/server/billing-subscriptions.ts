@@ -1,4 +1,4 @@
-import { subscriptionGrants } from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import type { App } from './app';
 import { createBillingStripe, type BillingFetch } from './billing-stripe';
 import { createSubscriptionReconciliation } from '../features/billing/subscription-reconciliation';
@@ -35,10 +35,10 @@ export function startBillingSubscriptions(input: {
   );
   const reconciliation = createSubscriptionReconciliation({
     mode: app.config.billing.mode,
-    store: app.database.billingSynchronization(
-      input.instanceId,
-      subscriptionGrants,
-    ),
+    store: app.database.billingSynchronization(input.instanceId, {
+      account: subscriptionGrants,
+      club: clubSeatGrants,
+    }),
     vendor: stripeSubscriptionReadPort(stripe),
     failed,
   });

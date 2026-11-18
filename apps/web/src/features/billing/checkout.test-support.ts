@@ -1,7 +1,8 @@
 import type { Purchase } from '@daisy/protocol/billing';
 export const purchase: Purchase = {
   id: 'a'.repeat(24),
-  userId: 'u'.repeat(24),
+  owner: { kind: 'account', userId: 'u'.repeat(24) },
+  quantity: 1,
   mode: 'test',
   priceId: 'price_fixture',
   customerId: null,

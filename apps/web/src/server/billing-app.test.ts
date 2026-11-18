@@ -88,6 +88,7 @@ test('actual native composition uses the injected public display reader afresh w
         webhookSecret: 'whsec_fixture',
         premiumPriceId: 'price_fixture',
         portalConfigurationId: 'bpc_fixture',
+        club: null,
       },
     },
     database: {

@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createPurchaseFlow } from './purchase-flow';
 import { purchase, checkoutSession } from './checkout.test-support';
 setupRitewayBun();
-const subject = { userId: purchase.userId, actorId: 'a'.repeat(24) };
+const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
 const open = {
   ...purchase,
   state: {
