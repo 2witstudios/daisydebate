@@ -94,6 +94,25 @@ export const seatedDivision = (
       .map((p) => p.division),
   );
 
+/**
+ * A ranked Room's ladder as a row or bar names it: a launched Room's Round's
+ * own (mixed when that Round plays casual), an open Room's from its seated
+ * debaters. A casual Room has none.
+ */
+export function roomLadderOf(room: {
+  readonly competitionType: CompetitionType;
+  /** Whether the Room has launched its Round. */
+  readonly launched: boolean;
+  /** The launched Round's frozen division; null when it plays casual. */
+  readonly roundDivision: RatingDivision | null;
+  /** The open Room's seated human debaters' divisions. */
+  readonly debaterDivisions: readonly (RatingDivision | null)[];
+}): SeatedDivision | null {
+  if (room.competitionType !== 'ranked') return null;
+  if (room.launched) return room.roundDivision ?? 'mixed';
+  return divisionForSeatedDebaters(room.debaterDivisions);
+}
+
 /** How a Round from this Room competes, frozen at Start. */
 export type RoundCompetition =
   | { readonly competitionType: 'ranked'; readonly ladder: Ladder }

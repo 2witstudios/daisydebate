@@ -153,10 +153,11 @@ test(
         rows: readonly { row: Record<string, unknown> }[],
         column: string,
       ) =>
-        rows.map(({ row }) => {
-          const { [column]: _dropped, ...rest } = row;
-          return rest;
-        });
+        rows.map(({ row }) =>
+          Object.fromEntries(
+            Object.entries(row).filter(([name]) => name !== column),
+          ),
+        );
       const ratingsAfter = await f.sql`
         select to_jsonb(r) as row from ratings r order by actor_id`;
       const ledgerAfter = await f.sql`

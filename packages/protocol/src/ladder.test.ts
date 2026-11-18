@@ -5,6 +5,7 @@ import {
   divisionOfAgeBand,
   ladderKey,
   ratingDivisions,
+  roomLadderOf,
   roundCompetition,
   seatedDivision,
 } from './ladder';
@@ -187,9 +188,33 @@ test('seatedDivision', () => {
     should: 'leave the bot out of the division',
     actual: seatedDivision([
       person('a', 'open', aff),
-      { actorId: 'bot', kind: 'bot', division: null, seat: neg },
+      { kind: 'bot', division: null, seat: neg },
     ]),
     expected: 'open',
   });
 });
 
+
+test('roomLadderOf', () => {
+  const ranked = {
+    competitionType: 'ranked' as const,
+    launched: false,
+    roundDivision: null,
+    debaterDivisions: [],
+  };
+  assert({
+    given:
+      'a casual Room, an open ranked Room with none, one, and mixed debaters, and launched ranked Rooms',
+    should:
+      'name no ladder on casual, the seats’ ladder while open, and the Round’s once launched (mixed when it plays casual)',
+    actual: [
+      roomLadderOf({ ...ranked, competitionType: 'casual' }),
+      roomLadderOf(ranked),
+      roomLadderOf({ ...ranked, debaterDivisions: ['youth'] }),
+      roomLadderOf({ ...ranked, debaterDivisions: ['youth', 'open'] }),
+      roomLadderOf({ ...ranked, launched: true, roundDivision: 'open' }),
+      roomLadderOf({ ...ranked, launched: true }),
+    ],
+    expected: [null, 'unset', 'youth', 'mixed', 'open', 'mixed'],
+  });
+});

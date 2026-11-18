@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createId } from '@paralleldrive/cuid2';
+import { systemClock } from '@daisy/clock';
 import { expect, openPage, test } from './support/fixtures';
 import {
   origin,
@@ -51,7 +52,7 @@ test('the lobby names a ranked Room’s ladder, and a minor’s Open debater sea
     const youth = await openPage(youthContext, 'youth member');
     await resetRateLimits(adult.request);
     await signUpMember(adult.request);
-    await signUpMember(youth.request, youthBirth());
+    await signUpMember(youth.request, youthBirth(systemClock.now()));
     const title = `Open ladder ${createId().slice(0, 8)}`;
     await adult.goto('/play/room');
     const created = await submitCreateRoom(adult, title, 'freestyle', true);

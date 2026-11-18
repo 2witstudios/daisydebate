@@ -101,10 +101,10 @@ const adultBirth: BirthMonth = { month: 1, year: 1990 };
  * A birth month that makes a member 17 all this month (ADR 0147): they play
  * ranked on Youth – Freestyle.
  */
-export const youthBirth = (now = new Date()): BirthMonth => ({
-  month: now.getUTCMonth() + 1,
-  year: now.getUTCFullYear() - 17,
-});
+export const youthBirth = (now: string): BirthMonth => {
+  const at = new Date(now);
+  return { month: at.getUTCMonth() + 1, year: at.getUTCFullYear() - 17 };
+};
 
 /**
  * Signs the context's browser in as a new member with a claimed username,

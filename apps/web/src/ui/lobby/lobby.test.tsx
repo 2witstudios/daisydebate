@@ -114,6 +114,7 @@ describe('Lobby', () => {
         title: 'My room',
         phase: 'ready',
         href: roomHref,
+        ladder: null,
       },
     });
     assert({
@@ -143,6 +144,7 @@ describe('Lobby', () => {
         title: 'Private room',
         phase: 'assembling',
         href: roomHref,
+        ladder: null,
       },
     });
     assert({

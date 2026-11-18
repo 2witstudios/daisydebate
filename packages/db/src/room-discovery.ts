@@ -2,7 +2,7 @@ import { sql, type SQL } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
-  divisionForSeatedDebaters,
+  roomLadderOf,
   roomListQuerySchema,
   type RatingDivision,
   type RoomListQuery,
@@ -127,18 +127,17 @@ const pageOrder = (
   };
 };
 /**
- * A ranked Room's ladder for its row (ADR 0147): a launched Room's Round's,
- * mixed when that Round plays casual; an open Room's from its seated
- * debaters. A casual Room has none.
+ * The host's rating a row shows: on the Room's ladder once its seats set one;
+ * before that, or while they mix, the host's one active-season rating, since
+ * a member is rated on one division at a time.
  */
-const roomListLadder = (
-  room: Pick<RoomListEntry, 'competitionType' | 'status'>,
-  debaterDivisions: readonly (RatingDivision | null)[] | null,
-  roundDivision: RatingDivision | null,
-): RoomListEntry['ladder'] => {
-  if (room.competitionType !== 'ranked') return null;
-  if (room.status === 'started') return roundDivision ?? 'mixed';
-  return divisionForSeatedDebaters(debaterDivisions ?? []);
+const hostRatingOn = (
+  ladder: RoomListEntry['ladder'],
+  ratings: Partial<Record<RatingDivision, number>> | null,
+): number | null => {
+  if (ladder === 'open' || ladder === 'youth') return ratings?.[ladder] ?? null;
+  const held = Object.values(ratings ?? {});
+  return held.length === 1 ? (held[0] ?? null) : null;
 };
 /** Bound candidates before locks; a race may shorten a page, never trigger replenishment. */
 export async function discoverRooms(
@@ -272,14 +271,16 @@ export async function discoverRooms(
   const entries = rows
     .filter((r) => authorize(fact(r), account))
     .map((r) => {
-      const ladder = roomListLadder(r, r.debaterDivisions, r.roundDivision);
+      const ladder = roomLadderOf({
+        competitionType: r.competitionType,
+        launched: r.status === 'started',
+        roundDivision: r.roundDivision,
+        debaterDivisions: r.debaterDivisions ?? [],
+      });
       return {
         ...r,
         ladder,
-        hostRating:
-          ladder === 'open' || ladder === 'youth'
-            ? (r.hostRatings?.[ladder] ?? null)
-            : null,
+        hostRating: hostRatingOn(ladder, r.hostRatings),
       };
     })
     .map((r) => ({

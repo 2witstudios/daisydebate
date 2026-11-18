@@ -40,6 +40,7 @@ export {
   ladderKey,
   ladderSchema,
   ratingDivisions,
+  roomLadderOf,
   roundCompetition,
   seatedDivision,
 } from './ladder';
