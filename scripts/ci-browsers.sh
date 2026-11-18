@@ -59,10 +59,12 @@ cp /var/cache/apt/archives/*.deb "$deb_cache"/ 2>/dev/null || true
 # instead of growing with them.
 for deb in "$deb_cache"/*.deb; do
   [ -f "$deb" ] || continue
-  package=$(dpkg-deb -f "$deb" Package)
-  version=$(dpkg-deb -f "$deb" Version)
+  # Under set -e an unreadable archive must not end the step: it reads as no
+  # package, matches no installed version and is pruned.
+  package=$(dpkg-deb -f "$deb" Package 2>/dev/null) || package=""
+  version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=
   installed=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
-  [ "$installed" = "$version" ] || rm "$deb"
+  [ -n "$version" ] && [ "$installed" = "$version" ] || rm "$deb"
 done
 if [ "$(ls "$deb_cache" | sort | cksum)" != "$debs_before" ] && [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "debs=changed" >> "$GITHUB_OUTPUT"

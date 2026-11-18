@@ -152,11 +152,22 @@ test('the .deb cache keeps only installed versions and reports a changed set', a
     should:
       'prune DEB_CACHE to the installed versions and write debs=changed only when the set changed',
     actual: {
-      prunes: script.includes('[ "$installed" = "$version" ] || rm "$deb"'),
+      // An unreadable archive reads as an empty version and is pruned too.
+      prunes: script.includes(
+        '[ -n "$version" ] && [ "$installed" = "$version" ] || rm "$deb"',
+      ),
+      survivesUnreadable: script.includes(
+        'version=$(dpkg-deb -f "$deb" Version 2>/dev/null) || version=""',
+      ),
       reports: script.includes('echo "debs=changed" >> "$GITHUB_OUTPUT"'),
       compares: script.includes('!= "$debs_before"'),
     },
-    expected: { prunes: true, reports: true, compares: true },
+    expected: {
+      prunes: true,
+      survivesUnreadable: true,
+      reports: true,
+      compares: true,
+    },
   });
 });
 
