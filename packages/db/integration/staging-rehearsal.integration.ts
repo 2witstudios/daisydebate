@@ -609,8 +609,7 @@ test(
             await sql`select id, case when seat_kind = 'side' then side else seat_kind end as role, slot from room_participants order by id`,
           seasons:
             await sql`select to_jsonb(s) - 'organization_id' - 'division' as row from seasons s order by id`,
-          divisions:
-            await sql`select distinct division from seasons`,
+          divisions: await sql`select distinct division from seasons`,
         },
         expected: {
           seats: roomSeatsBefore,

@@ -1,4 +1,5 @@
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand, RatingDivision } from '@daisy/protocol';
+import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
@@ -27,6 +28,11 @@ export type PersonRow = {
   readonly online: boolean;
   readonly requesterActorId: string | null;
   readonly friendshipState: 'pending' | 'accepted' | null;
+  /**
+   * The ladder division this member debates on (ADR 0147), from their age
+   * record, so a card names it even before they are rated; never an age.
+   */
+  readonly division: RatingDivision | null;
 };
 
 export type PeopleListCursor = {
@@ -138,7 +144,8 @@ export function readPeopleListPage(
         ${isFriend} as friend,
         ${online} as online,
         f.requester_actor_id as "requesterActorId",
-        f.state as "friendshipState"
+        f.state as "friendshipState",
+        (select ${divisionOfBandSql(divisionAgeBand())} from account_age where account_age.user_id = u.id) as division
       ${from} ${named} ${friendsOnly} ${after}
       order by ${rank}, ${presence}, lower(u.username), a.id
       limit ${input.limit}`)) as unknown as PersonRow[];

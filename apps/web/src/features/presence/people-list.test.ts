@@ -5,7 +5,6 @@ import {
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
 import {
-  ratedDivisionOf,
   decodePeopleListCursor,
   encodePeopleListCursor,
   readPeopleList,
@@ -34,6 +33,7 @@ const row = (actorId: string, username: string, overrides = {}) => ({
   online: true,
   requesterActorId: null,
   friendshipState: null,
+  division: null,
   ...overrides,
 });
 
@@ -51,8 +51,12 @@ const deps = (
     ]),
   page: async () => ({
     rows: [
-      row(ada, 'ada', { friend: true, friendshipState: 'accepted' }),
-      row(bea, 'bea'),
+      row(ada, 'ada', {
+        friend: true,
+        friendshipState: 'accepted',
+        division: 'youth',
+      }),
+      row(bea, 'bea', { division: 'open' }),
     ],
     counts: { everyone: 2, friends: 1, online: 2 },
     self: { chosen: 'busy', placement: null },
@@ -231,9 +235,9 @@ describe('readPeopleList', () => {
     });
     assert({
       given:
-        'Ada rated on Youth – Freestyle with a record, and Bea not yet rated',
+        'Ada rated on Youth – Freestyle with a record, and Bea on Open not yet rated',
       should:
-        'show one rating per ladder, Ada’s on Youth with her division and record, and Bea’s unrated with no division',
+        'show one rating per ladder, Ada’s on Youth with her division and record, and Bea’s unrated on her own division',
       actual: list.people.map((m) => ({
         ratings: m.ratings.map((r) => [
           `${r.ladder.division}:${r.ladder.style}`,
@@ -256,7 +260,7 @@ describe('readPeopleList', () => {
             ['open:freestyle', null],
             ['youth:freestyle', null],
           ],
-          division: null,
+          division: 'open',
           record: [0, 0],
         },
       ],
@@ -292,7 +296,8 @@ describe('readPeopleList', () => {
           provisional: false,
           hidden: true,
         },
-        'open',
+        // Her ladder comes from her age record, which no blinding touches.
+        'youth',
       ],
     });
   });
@@ -367,21 +372,6 @@ describe('list cursors', () => {
       code: 'VALIDATION',
       actual: async () =>
         decodePeopleListCursor(Buffer.from('[1,2,3]').toString('base64url')),
-    });
-  });
-});
-
-describe('ratedDivisionOf', () => {
-  test('one division named is the member’s ladder; none or both is unknown', () => {
-    assert({
-      given: 'ratings on Youth only, on none, and on both divisions',
-      should: 'name Youth, then unknown twice',
-      actual: [
-        ratedDivisionOf([{ division: 'youth' }, { division: 'youth' }]),
-        ratedDivisionOf([]),
-        ratedDivisionOf([{ division: 'youth' }, { division: 'open' }]),
-      ],
-      expected: ['youth', null, null],
     });
   });
 });

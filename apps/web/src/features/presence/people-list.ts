@@ -123,20 +123,6 @@ export function decodePeopleListCursor(
   throw createAppError('VALIDATION');
 }
 
-/**
- * The division a member's card ratings name (ADR 0147): their ratings are in
- * each division's active season, so one division is the ladder they debate on
- * now. None, or both, says nothing, so it stays unknown. Read before any
- * blinding: a ladder is no rating.
- */
-export const ratedDivisionOf = (
-  ratings: readonly { readonly division: RatingDivision }[],
-): RatingDivision | null => {
-  const divisions = new Set(ratings.map((rating) => rating.division));
-  const [only] = divisions;
-  return divisions.size === 1 && only !== undefined ? only : null;
-};
-
 const relationOf = (row: PersonRow, viewer: string): Person['relation'] => {
   if (row.friendshipState === 'accepted') return 'friends';
   if (row.friendshipState !== 'pending') return 'none';
@@ -230,7 +216,7 @@ export async function readPeopleList(
           hidden: false,
         };
       }),
-      division: ratedDivisionOf(rated),
+      division: row.division,
       wins: record.wins,
       losses: record.losses,
     });
