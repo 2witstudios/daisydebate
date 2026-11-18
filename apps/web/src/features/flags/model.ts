@@ -20,6 +20,7 @@ export type FlagResolution = {
     | 'TARGETING_MATCH'
     | 'STATIC'
     | 'DEFAULT'
+    | 'ENVIRONMENT'
     | 'ERROR'
     | 'DEPENDENCY'
     | 'EXPIRED';

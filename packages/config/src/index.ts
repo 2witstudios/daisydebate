@@ -33,6 +33,10 @@ import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
 import { secret, secretKeysOf } from './secrets';
 import { mediaWorkerFields } from './media-worker-config';
 import { operatorFields, refineOperatorConfig } from './operator-config';
+import {
+  refineReleaseFlagDefault,
+  releaseFlagDefaultFields,
+} from './release-flag-default';
 import { trustedProxyList } from './trusted-proxies';
 export {
   readMediaWorkerConfig,
@@ -139,6 +143,7 @@ const serverFields = {
    */
   BETA_NOTIFY_EMAIL: z.email().optional(),
   ...operatorFields,
+  ...releaseFlagDefaultFields,
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
   LIVEKIT_URL: mediaEndpointList(/^https?$/).optional(),
   LIVEKIT_PUBLIC_URL: mediaEndpointList(/^wss?$/).optional(),
@@ -208,6 +213,7 @@ const serverConfigSchema = z
   .superRefine((config, ctx) => {
     refineBillingConfig(config, ctx);
     refineOperatorConfig(config, ctx);
+    refineReleaseFlagDefault(config, ctx);
     requireCompetitiveBudget(config, ctx);
     if (
       config.LIVEKIT_URL &&

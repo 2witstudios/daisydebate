@@ -10,6 +10,8 @@ export function createRequestFlagReader(deps: {
   ) => Promise<{ readonly snapshot: FlagSnapshot; readonly now: number }>;
   readonly now: () => number;
   readonly diagnostic: () => void;
+  /** The deployment's release default: `releaseFlagDefault(app.config)`. */
+  readonly releaseDefault: boolean;
 }): ReleaseFlagReader {
   const snapshots = new Map<
     string | null,
@@ -37,7 +39,12 @@ export function createRequestFlagReader(deps: {
       snapshots.set(accountId, pending);
     }
     const { snapshot, now } = await pending;
-    return resolveFlag({ catalogue: flagCatalogue, snapshot, key, now })
-      .enabled;
+    return resolveFlag({
+      catalogue: flagCatalogue,
+      snapshot,
+      key,
+      now,
+      releaseDefault: deps.releaseDefault,
+    }).enabled;
   };
 }

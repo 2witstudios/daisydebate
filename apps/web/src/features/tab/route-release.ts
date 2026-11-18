@@ -1,5 +1,6 @@
 import type { App } from '../../server/app';
 import { createRequestFlagReader } from '../flags/reader';
+import { releaseFlagDefault } from '../flags/release-default';
 
 /**
  * Whether Daisy Tab is released to an account, for a Tab route: a fresh
@@ -18,6 +19,7 @@ const releaseFor =
           { operation: 'flags.read', cause: 'unavailable' },
           'Release control read failed',
         ),
+      releaseDefault: releaseFlagDefault(app.config),
     })(key, userId);
 
 export const tabReleasedFor = (app: App) => releaseFor(app, 'daisy-tab');

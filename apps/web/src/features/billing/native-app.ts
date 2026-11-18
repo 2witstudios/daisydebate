@@ -8,6 +8,7 @@ import type { App } from '../../server/app';
 import { aiAdmissionOptions } from '../../server/round-worker-policy';
 import { releaseAdmission } from '../flags/admission';
 import { createRequestFlagReader } from '../flags/reader';
+import { releaseFlagDefault } from '../flags/release-default';
 import { createPurchaseAdmission } from './purchase-admission';
 import { stripeCheckoutPort } from './checkout-vendor';
 import { stripePortalPort } from './portal-session';
@@ -42,10 +43,11 @@ export function composeNativeBilling(
       'INVARIANT',
       'Billing allowance policy is unavailable',
     );
+  const releaseDefault = releaseFlagDefault(app.config);
   const purchaseStore = app.database.billingPurchases({
     purchase: canPurchasePremium,
     manage: canManageBilling,
-    release: releaseAdmission('premium-checkout'),
+    release: releaseAdmission('premium-checkout', releaseDefault),
   });
   const returnOrigin = new URL(app.auth().config.PUBLIC_APP_URL).origin;
   return createNativeBillingRuntime({
@@ -56,6 +58,7 @@ export function composeNativeBilling(
       database: app.database,
       config,
       returnOrigin,
+      releaseDefault,
     }),
     purchaseStore,
     memberStore: app.database.billingMember({
@@ -73,6 +76,7 @@ export function composeNativeBilling(
             { operation: 'flags.read', cause: 'unavailable' },
             'Release control read failed',
           ),
+        releaseDefault,
       })(key, accountId),
   });
 }
