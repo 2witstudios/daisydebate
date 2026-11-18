@@ -72,6 +72,27 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
 };
 
 describe('createBroadcastSweep', () => {
+  test('a failed Youth cleanup is reported and the pass goes on', async () => {
+    const { deps, log } = world({
+      endYouthBroadcasts: async () => {
+        throw new Error('down');
+      },
+      discoverUnopened: async () => [
+        { roundId: 'r1', competitionType: 'ranked', capture: null },
+      ],
+    });
+    await createBroadcastSweep(deps)();
+    assert({
+      given: 'the Youth cleanup failing',
+      should: 'report it and still open the ranked Round’s Broadcast',
+      actual: log,
+      expected: [
+        'report broadcast.reconcile_failed',
+        'open r1 random-key {"kind":"delay","seconds":60}',
+      ],
+    });
+  });
+
   test('a Youth Round opens no Broadcast, and one opened earlier is stopped (ADR 0150)', async () => {
     const { deps, log } = world({
       endYouthBroadcasts: async () => ['b-youth'],

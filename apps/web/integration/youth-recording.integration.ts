@@ -1,7 +1,7 @@
 import { daisyOrganizationId } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { plannedRecording } from '@daisy/debate-engine';
-import { isAppError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -247,7 +247,14 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
           expected: [false, false],
         });
 
-        const clock = spectatorClockAt(new Date().toISOString());
+        made.rounds.push(roundId);
+        await f.sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
+          values (${createId()},${roundId},'ranked',${{ kind: 'ranked', youth: true }},'ready',${{ status: 'ready' }})`;
+        // Ready video, past the ranked delay: everything the public archive asks
+        // for but the division.
+        const clock = spectatorClockAt(
+          new Date(Date.now() + 600_000).toISOString(),
+        );
         const archive = (scope: 'all' | 'mine', viewerActorId: string | null) =>
           database
             .listRecordingArchive({
@@ -275,9 +282,6 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
           username: host!.username,
           state: 'following',
         });
-        made.rounds.push(roundId);
-        await f.sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
-          values (${createId()},${roundId},'ranked',${{ kind: 'ranked', youth: true }},'ready',${{ status: 'ready' }})`;
         await f.store.sweepNotificationFanouts({
           clock: spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
           limit: 50,
@@ -333,27 +337,27 @@ test('any youth debater of a Youth Round, or their linked adult, takes its Recor
         const inputs = {
           readRound: (id: string) => recordingRoundOf(database, id),
         };
-        const remove = (member: Member, expectedVersion: number) =>
+        const remove = (member: Member) =>
           requestParticipantRemoval(
             { store, inputs },
             {
               recordingId: recording.id,
-              expectedVersion,
+              expectedVersion: recording.version,
               viewer: viewerOf(member),
               now: new Date().toISOString(),
             },
-          ).then(
-            (record) => record.lifecycle.status,
-            (error: unknown) => (isAppError(error) ? error.code : 'threw'),
           );
-        const judge = await remove(f.outsider, recording.version);
-        const byParent = await remove(parent, recording.version);
+        await assertRejects({
+          given: 'the adult judge of a Youth Round',
+          should: 'refuse the takedown',
+          actual: () => remove(f.outsider),
+          code: 'AUTHORIZATION',
+        });
         assert({
-          given: 'the adult judge, then a youth debater’s parent',
-          should:
-            'refuse the judge and take the whole ranked Recording down for the parent',
-          actual: { judge, byParent },
-          expected: { judge: 'AUTHORIZATION', byParent: 'removing' },
+          given: 'a youth debater’s parent',
+          should: 'take the whole ranked Recording down',
+          actual: (await remove(parent)).lifecycle.status,
+          expected: 'removing',
         });
       }),
     ),

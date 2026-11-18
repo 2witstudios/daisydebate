@@ -145,6 +145,19 @@ describe('mayTakeDownYouthRecording', () => {
     });
   });
 
+  test('a Recording moderation hid may still be asked for', () => {
+    assert({
+      given: 'a youth debater asking while a report keeps it taken down',
+      should: 'accept, so the removal is owed when the report closes',
+      actual: mayTakeDownYouthRecording({
+        round,
+        viewer: account('aff'),
+        status: 'taken_down',
+      }),
+      expected: true,
+    });
+  });
+
   test('nothing to take down', () => {
     assert({
       given: 'a Recording already going, no Recording, and a visitor',

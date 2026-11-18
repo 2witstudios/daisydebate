@@ -120,6 +120,11 @@ export type RecordingObjectStore = {
 /** The named read-only inputs from other features. */
 export type RecordingInputs = {
   readonly readRound: (roundId: string) => Promise<RecordingRound | null>;
+  /**
+   * The Round with its Youth people read now, never from the playback cache:
+   * a command that deletes for everyone acts on current links (ADR 0150).
+   */
+  readonly readRoundFresh: (roundId: string) => Promise<RecordingRound | null>;
   readonly readBroadcastRelease: (roundId: string) => Promise<BroadcastRelease>;
   readonly readFloorIntervals: (
     roundId: string,

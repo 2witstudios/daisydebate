@@ -25,9 +25,10 @@ answers, with publishing closed in production by a release flag.
    judge or linked adult) or `denied` (`signed_out`, `not_in_audience`). The
    audience is:
    - the Round's seated people, its debaters and judges;
-   - each youth debater's linked adults: an adult who owns, or holds a live
-     organisation grant with `school.roster.manage` in, a school the debater
-     is an active member of, and an adult with an active guardian link to the
+   - each youth debater's linked adults: the owner of a school the debater
+     is an active member of; an adult who is an active member of that school
+     and holds a live organisation grant whose role carries
+     `school.roster.manage`; and an adult with an active guardian link to the
      debater.
 
    The audience sees the video, transcript and result once the Round ends.
@@ -41,14 +42,20 @@ answers, with publishing closed in production by a release flag.
    row-level security fences each read. It runs in its own transaction and
    restores any scope its caller set. Playback authorizes every media segment,
    so the web reuses one read per Round for 15 seconds (`youthPeopleCache`). A
-   revoked grant or an ended link therefore stops admitting within 15 seconds.
+   revoked grant or an ended link therefore stops admitting within about 15
+   seconds. The takedown command never uses that cache: it reads the links
+   fresh, because it deletes for everyone.
    Guardian links have no runtime write path yet (counsel-gated). Until one
    opens, the parent case admits nobody in production.
 4. **Never on Watch, never live.** `plannedBroadcast` plans no Broadcast for a
    Youth Round, so its Recording runs its own Egress (ADR 0107, two capture
-   paths) and no audience feed exists. A Broadcast that opened before this
-   rule shipped is still followed by the capture sweep, so no Round is
-   captured twice. As a second fence, these SQL reads leave Youth Rounds out:
+   paths) and no audience feed exists. At rollout, the broadcast sweep stops
+   any Broadcast a Youth Round had already opened, running or complete, holds
+   its video back (`youth_round_private`) and asks for a complete one's feed to
+   go. The capture sweep keeps following that Broadcast, so no Round is
+   captured twice. The trade-off: a Youth Round live across the deploy is
+   recorded only up to the stop. Ending public exposure at once outweighs the
+   rest of one Round's video, and Youth Rounds exist only since PR 792. As a second fence, these SQL reads leave Youth Rounds out:
    - the broadcast discovery;
    - the Live listing and its count, and a Room's link to Watch;
    - the spectator timeline (`/watch/<id>`, which answers as missing);
@@ -69,7 +76,14 @@ answers, with publishing closed in production by a release flag.
    eligibility is `{ kind: 'ranked', youth: true }`, fixed when it is requested
    from the Round's division. The lifecycle lifts `ranked_is_kept` only for such
    a Recording, so no caller can lift it. An open report still holds the
-   Recording as evidence, as for casual removal. A judge may not take it down.
+   Recording as evidence, as for casual removal. Unlike casual, a Youth
+   Recording that moderation already took down can still be asked for: the
+   removal is recorded as owed and paid when the report closes, so a restore
+   cannot bring it back against the request. A judge may not take it down,
+   even one who is also a debater's linked adult. A Youth Recording requested
+   before this shipped carries no `youth` fact (eligibility cannot change in
+   place); only moderation can take one of those down. Such Recordings exist
+   only on staging, from Rounds played since PR 792.
 7. **Publishing.** `youthRoundPublishable(people, releases)` is true only
    when every youth debater holds an active media release. S4 records
    releases. Until then the read returns none, so it is false. Publishing also

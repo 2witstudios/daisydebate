@@ -112,8 +112,10 @@ export const mayTakeDownYouthRecording = (input: {
   readonly viewer: RecordingViewer;
   readonly status: RecordingStatus | null;
 }): boolean => {
-  if (!removableStatus(input.status) || input.viewer.kind !== 'account')
-    return false;
+  // Unlike casual, a Recording moderation hid may still be asked for: the
+  // lifecycle records the removal as owed, paid when the report closes.
+  const asked = input.status === 'taken_down' || removableStatus(input.status);
+  if (!asked || input.viewer.kind !== 'account') return false;
   const { actorId } = input.viewer;
   // A judge never takes it down, even one who is also a debater's linked adult.
   if (input.round.officialActorIds.includes(actorId)) return false;

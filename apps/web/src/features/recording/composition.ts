@@ -76,7 +76,8 @@ const youthPeople = (app: App) => {
   if (known) return known;
   const cached = youthPeopleCache({
     read: app.database.readYouthRecordingPeople,
-    nowMs: () => Date.parse(app.clock.now()),
+    // Monotonic: a wall clock stepping back must not stretch the window.
+    nowMs: () => performance.now(),
   });
   youthPeopleOf.set(app, cached);
   return cached;
@@ -84,16 +85,21 @@ const youthPeople = (app: App) => {
 
 /** The named read-only inputs, in one place. */
 const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
-  const readHistoryRound = async (roundId: string) => {
-    const round = await app.database.readRecordingRound(roundId);
-    if (!round) return null;
-    const youthRound =
-      round.competitionType === 'ranked' && round.ladder?.division === 'youth';
-    return asRound(round, youthRound ? await youthPeople(app)(roundId) : null);
-  };
+  const readRoundWith =
+    (people: (roundId: string) => Promise<YouthRoundPeople>) =>
+    async (roundId: string) => {
+      const round = await app.database.readRecordingRound(roundId);
+      if (!round) return null;
+      const youthRound =
+        round.competitionType === 'ranked' &&
+        round.ladder?.division === 'youth';
+      return asRound(round, youthRound ? await people(roundId) : null);
+    };
+  const readHistoryRound = readRoundWith(youthPeople(app));
   const store = recordingPersistence(app);
   return {
     readRound: readHistoryRound,
+    readRoundFresh: readRoundWith(app.database.readYouthRecordingPeople),
     readHistoryRound,
     readBroadcastRelease: (roundId) =>
       app.database.readRecordingBroadcastRelease(

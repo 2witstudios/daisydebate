@@ -232,10 +232,16 @@ export const createBroadcastSweep = (deps: {
   const pass = createSweepPass(deps.passBudget);
   const sweep = async () => {
     // A Youth Round is never broadcast (ADR 0150), including one opened before that rule.
-    const youthStopped = await deps.store.endYouthBroadcasts(
-      new Date(deps.now()),
-    );
-    if (youthStopped.length > 0) deps.report('broadcast.youth_round_stopped');
+    // A failure here is reported and retried next pass; it never holds up the
+    // other Broadcasts, and a Youth Round still opens none (plannedBroadcast).
+    try {
+      const youthStopped = await deps.store.endYouthBroadcasts(
+        new Date(deps.now()),
+      );
+      if (youthStopped.length > 0) deps.report('broadcast.youth_round_stopped');
+    } catch {
+      deps.report('broadcast.reconcile_failed');
+    }
     for (const round of await deps.store.discoverUnopened(BATCH)) {
       const plan = plannedBroadcast(round);
       if (plan)

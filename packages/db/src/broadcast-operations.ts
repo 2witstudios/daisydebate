@@ -787,22 +787,25 @@ export const endRoundFeed = async (
 };
 
 /**
- * A Youth Round is never broadcast (ADR 0150). A Broadcast one opened before
- * that rule shipped is stopped and its video held back, as an operator's stop
- * would; a complete one's feed is asked to go at once. Ids it stopped.
+ * A Youth Round is never broadcast (ADR 0150). Any Broadcast one opened before
+ * that rule shipped, running or complete, is stopped and its video held back,
+ * keeping a stop reason it already had; a complete one's feed is asked to go at
+ * once. Ids it held back.
  */
 export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
   const at = now.toISOString();
   const youth = sql`round_id in (select id from rounds where ladder_division = 'youth')`;
-  const stopped = (await tx.execute(sql`update broadcasts
-    set stopped_at=${at}::timestamptz, stop_reason='youth_round_private', media_withheld=true
-    where ${youth} and stopped_at is null and completed_at is null
+  const withheld = (await tx.execute(sql`update broadcasts
+    set stopped_at=coalesce(stopped_at, ${at}::timestamptz),
+      stop_reason=coalesce(stop_reason, 'youth_round_private'),
+      media_withheld=true
+    where ${youth} and not media_withheld
     returning id`)) as unknown as readonly { readonly id: string }[];
   await tx.execute(sql`update broadcasts
-    set feed_withdrawal_requested_at=${at}::timestamptz, media_withheld=true
+    set feed_withdrawal_requested_at=${at}::timestamptz
     where ${youth} and completed_at is not null
       and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
-  return stopped.map((row) => row.id);
+  return withheld.map((row) => row.id);
 };
 
 /**
