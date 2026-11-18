@@ -7,7 +7,7 @@ import { createAudioSubscription } from '../src/audio-subscription';
 import { createMediaService } from '../src/service';
 import { config } from './native-room.test-support';
 import { pcmJob, waitForCadence } from './native-fixtures.test-support';
-import { withDtxSource } from './native-dtx.test-support';
+import { dtxNegotiated, withDtxSource } from './native-dtx.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 afterAll(async () => {
@@ -75,7 +75,8 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
         toneFrames = frames;
       await send(300, true);
       const quiet = await sub.transport(binding!),
-        quietFrames = frames;
+        quietFrames = frames,
+        quietFmtp = await source.fmtp();
       await until(() => frames >= quietFrames + 30);
       const held = await sub.transport(binding!),
         heldFrames = frames;
@@ -96,6 +97,7 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
         observed,
         valid,
         sourceSamples: source.sent(),
+        dtxNegotiated: dtxNegotiated(quietFmtp),
         zeroSourceCallbacks: quietFrames - toneFrames >= 250,
         sparseZeroPackets:
           tonePackets !== null &&
@@ -115,6 +117,8 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
           zero: quiet.kind === 'observed' ? quiet.counters : quiet,
           held: held.kind === 'observed' ? held.counters : held,
           gap: gap.kind === 'observed' ? gap.counters : gap,
+          fmtp: quietFmtp ?? null,
+          rejectedAnswers: source.rejected,
           outcome,
         }) + '\n',
       );
@@ -128,6 +132,7 @@ test('actual DTX-requested zero source continues capture callbacks with sparse p
           observed: true,
           valid: true,
           sourceSamples: 192000,
+          dtxNegotiated: true,
           zeroSourceCallbacks: true,
           sparseZeroPackets: true,
           withheldPacketsStationary: true,
