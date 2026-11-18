@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ageBand } from './age-band';
 import { ACCOUNT_AGE_FLOOR, ageStepDecision } from './age-floor';
 
 setupRitewayBun();
