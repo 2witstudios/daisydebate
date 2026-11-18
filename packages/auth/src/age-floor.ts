@@ -14,8 +14,9 @@ export const ACCOUNT_AGE_FLOOR: AgeFloor = 16;
  * The one trusted floor for ranked play, in whole years (owner decision 79):
  * ranked Rounds are published and licensed to Daisy, which a minor cannot
  * agree to alone. Membership keeps ACCOUNT_AGE_FLOOR; a member between the
- * two plays casual only. Its type pins it to the band edge the rule below
- * reads, so a different floor fails to compile until a band edge matches it.
+ * two plays casual only. The rule below reads the adult band, whose edge is
+ * 18; `age-floor.test.ts` pins the two together, so a different floor needs
+ * a matching band edge in `ageBand` first.
  */
 export const RANKED_AGE_FLOOR = 18 as const;
 

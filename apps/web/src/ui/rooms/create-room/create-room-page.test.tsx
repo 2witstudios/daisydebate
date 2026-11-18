@@ -112,7 +112,7 @@ test('a member under the ranked floor sees Ranked closed, with the reason', () =
         'Ranked play is for members 18 and over. A Scholastic ladder for members under 18 is coming.',
       ),
       html.includes('Choosing Ranked makes the Room public'),
-      html.includes('>Unranked<') || html.includes('Unranked'),
+      /Unranked(<!-- -->)? ·/.test(html),
     ],
     expected: [true, false, true, true, true],
   });

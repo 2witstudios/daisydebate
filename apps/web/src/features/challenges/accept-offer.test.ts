@@ -3,6 +3,7 @@ import type { RoomTemplate } from '../rooms/read-catalog';
 import { acceptOffer, type AcceptOfferPorts } from './accept-offer';
 import { moved, refusedWith } from '../forms/form-state';
 import { challengeRefusal, challengeRefused } from './forms';
+import { rankedAgeCreateRefusal } from '../rooms/create-room-form';
 
 setupRitewayBun();
 
@@ -54,8 +55,7 @@ describe('acceptOffer', () => {
       input,
       ports({
         readOffers: async () => [{ ...offer, mode: 'ranked' }],
-        openRoom: async () =>
-          refusedWith({}, `${reason} Turn Ranked off to play casual.`),
+        openRoom: async () => refusedWith({}, rankedAgeCreateRefusal),
       }),
     );
     assert({

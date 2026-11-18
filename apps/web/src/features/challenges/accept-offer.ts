@@ -8,6 +8,7 @@ import {
 } from './forms';
 import { challengeRoomForm, templateFor } from './room';
 import { rankedAgeReason } from '../play/ranked-age';
+import { rankedAgeCreateRefusal } from '../rooms/create-room-form';
 
 type Offer = ChallengeList['incoming'][number];
 
@@ -107,8 +108,8 @@ export async function acceptOffer(
       return challengeRefused(
         notNamed ??
           (offer.mode === 'ranked'
-            ? // The create's own ranked-age words lead with the reason itself.
-              created.error.startsWith(rankedAgeReason)
+            ? // The create answers a ranked-age refusal in exactly these words.
+              created.error === rankedAgeCreateRefusal
               ? rankedAgeReason
               : challengeRefusal('accept-ranked', 500)
             : created.error),
