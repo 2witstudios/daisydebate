@@ -368,7 +368,7 @@ describe('RoomRoster open seats', () => {
         html.includes('>AI judge</button>'),
         formOf(html, 'assign-5')?.includes(judgeBot.actorId) ?? false,
         html.includes('>Invite</a>'),
-        html.includes('AI judging on casual rounds is premium'),
+        html.includes('AI judging on casual Rounds is Premium'),
       ],
       expected: [false, false, true, true],
     });
