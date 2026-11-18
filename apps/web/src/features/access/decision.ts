@@ -36,6 +36,10 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/tournaments/organize': 'participant',
   '/tournaments/mine': 'participant',
   '/tournaments/enter': 'participant',
+  // A Tab league is read by its members only; its pages and its host pages
+  // recheck the session, so a visitor is sent to sign in (Delivery 5072).
+  '/leagues': 'participant',
+  '/host/leagues': 'participant',
 };
 
 /**
