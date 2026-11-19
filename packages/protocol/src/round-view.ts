@@ -139,8 +139,13 @@ const roundViewFields = z.strictObject({
   transcriptCompleteness: z.enum(['complete', 'incomplete']).nullable(),
   /** Whether this viewer hosts the Round; never which actor does. */
   viewerIsHost: z.boolean(),
-  /** Set by the Round read from `round.observe.undelayed`; absent means no. */
-  viewerIsUndelayedObserver: z.boolean().optional(),
+  /**
+   * Why this viewer watches the live Round undelayed without a seat
+   * (`round.observe.undelayed`): as a host (its seatless host, or an event's
+   * official, ADR 0099), or as a Youth Round's linked adult (ADR 0155). Set by
+   * the Round read; absent means they don't.
+   */
+  viewerWatchesAs: z.enum(['host', 'linked_adult']).optional(),
   /** The audience stream may still receive this Round, so conversation waits. */
   conversationHeld: z.boolean().optional(),
   /** The draw's public envelope once the Round has ended; null otherwise. */

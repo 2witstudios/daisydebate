@@ -81,7 +81,7 @@ type Store = {
   readonly readRecordingRound: (
     roundId: string,
   ) => Promise<Parameters<typeof plannedRecording>[0] & Record<string, never>>;
-  readonly readYouthRecordingPeople: (roundId: string) => Promise<{
+  readonly readYouthRoundPeople: (roundId: string) => Promise<{
     debaters: readonly {
       actorId: string;
       userId: string;
@@ -239,7 +239,7 @@ const recordingRoundOf = async (
       seat: Parameters<typeof isJudgeSeat>[0];
     }[];
   };
-  const people = await store.readYouthRecordingPeople(roundId);
+  const people = await store.readYouthRoundPeople(roundId);
   const shared =
     await store.youthRoundPublications.readYouthRoundShared(roundId);
   return {

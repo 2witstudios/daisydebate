@@ -19,6 +19,7 @@ import { idSchema, isDebatingSeat, type RoundView } from '@daisy/protocol';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
+import { spectatorKindOf } from '../../../../features/spectating/spectator-view';
 import { DocumentManager } from '../../../../ui/documents/document-manager';
 import { reconnectingRoundPage } from '../../../../ui/debate-room/round-reconnecting';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
@@ -96,6 +97,9 @@ export default async function RoundPage({
     identity.state === 'member' &&
     isLiveDebater(result.round, identity.principal.actorId)
   )
+    redirect(`/rounds/${id}/room`);
+  // A youth debater's linked adult watches their live Youth Round (ADR 0155).
+  if (spectatorKindOf(result.round) === 'linked-adult')
     redirect(`/rounds/${id}/room`);
   const filePrincipal = documentPrincipalOf(identity);
   const ownsFiles =

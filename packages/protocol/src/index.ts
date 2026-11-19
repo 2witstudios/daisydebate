@@ -468,7 +468,10 @@ export {
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
   roomRefusalSchema,
+  roomWatchSchema,
+  type RoomWatch,
 } from './room-read';
+export type { YouthLiveFact } from './youth-live';
 
 export {
   activeRoomHref,

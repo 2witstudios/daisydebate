@@ -1,5 +1,9 @@
 import { sql } from 'drizzle-orm';
-import type { RoundFloorFact } from '@daisy/protocol/round-floor';
+import {
+  withLinkedAdultAudience,
+  type RoundFloorFact,
+} from '@daisy/protocol/round-floor';
+import type { YouthLiveFact } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import { rowsOf } from '../raw-rows';
 
@@ -12,6 +16,8 @@ type FloorRow = {
   readonly channel_id: string | null;
   readonly authority_revision: number | null;
 };
+/** A Youth Round's linked adults (ADR 0155), as the boundary read them; null on any other Round. */
+export type FloorYouth = YouthLiveFact | null;
 const factOf = (roundId: string, row: FloorRow): RoundFloorFact => ({
   kind: 'round_floor',
   roundId,
@@ -26,11 +32,16 @@ const factOf = (roundId: string, row: FloorRow): RoundFloorFact => ({
   audience: row.audience,
 });
 
-/** Only requested callers' audience categories cross the boundary, in one cohort statement. */
+/**
+ * Only requested callers' audience categories cross the boundary, in one
+ * cohort statement. A Youth Round's linked adult is named only when the Round
+ * seats them nowhere: a judge keeps their seat's view (ADR 0155).
+ */
 export async function readRoundFloorFacts(
   tx: AuthorizationTransaction,
   roundId: string,
   actorIds: readonly string[],
+  youth: FloorYouth = null,
 ): Promise<ReadonlyMap<string, RoundFloorFact>> {
   if (actorIds.length === 0) return new Map();
   const rows = await rowsOf<FloorRow>(
@@ -40,15 +51,36 @@ export async function readRoundFloorFacts(
       sql`, `,
     )}]::text[]) as wanted(actor_id) cross join lateral public.daisy_round_floor_fact(${roundId}::text,wanted.actor_id) f`,
   );
-  return new Map(rows.map((row) => [row.actor_id, factOf(roundId, row)]));
+  const seated =
+    youth === null
+      ? new Set<string>()
+      : new Set(
+          (
+            await rowsOf<{ readonly actor_id: string }>(
+              tx,
+              sql`select p.actor_id from round_participants p where p.round_id=${roundId}::text and public.daisy_round_participant_is_current(p.id)`,
+            )
+          ).map((row) => row.actor_id),
+        );
+  return new Map(
+    rows.map((row) => {
+      const fact = factOf(roundId, row);
+      return [
+        row.actor_id,
+        seated.has(row.actor_id) ? fact : withLinkedAdultAudience(fact, youth),
+      ];
+    }),
+  );
 }
 export async function readRoundFloorFact(
   tx: AuthorizationTransaction,
   roundId: string,
   actorId: string,
+  youth: FloorYouth = null,
 ): Promise<RoundFloorFact | null> {
   return (
-    (await readRoundFloorFacts(tx, roundId, [actorId])).get(actorId) ?? null
+    (await readRoundFloorFacts(tx, roundId, [actorId], youth)).get(actorId) ??
+    null
   );
 }
 

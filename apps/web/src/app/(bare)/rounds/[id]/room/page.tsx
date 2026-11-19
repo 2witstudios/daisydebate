@@ -77,8 +77,9 @@ const transcriptOf = (
   ) : null;
 
 /**
- * A member without a seat: the assigned judge's live view, a seatless
- * host's spectator view, or the receipt for everyone else.
+ * A member without a seat: the assigned judge's live view, the spectator
+ * view for a seatless host or a Youth Round's linked adult (ADR 0155), or the
+ * receipt for everyone else.
  */
 async function watchingRoom(
   id: string,
@@ -105,7 +106,16 @@ async function watchingRoom(
       <LiveSpectatorRoom
         view={round}
         spectatorKind={room.spectatorKind}
-        floor={(await floorProps(id, actorId, socketUrl)) ?? undefined}
+        floor={
+          (await floorProps(
+            id,
+            actorId,
+            socketUrl,
+            // A linked adult reads the floor and never posts, even before
+            // anyone has opened it (ADR 0155).
+            room.spectatorKind === 'linked-adult',
+          )) ?? undefined
+        }
         transcript={transcript}
         renderedAtMs={Date.parse(systemClock.now())}
         read={readPersistedRound.bind(null, id)}

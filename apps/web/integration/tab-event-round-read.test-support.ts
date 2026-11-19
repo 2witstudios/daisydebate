@@ -1,3 +1,4 @@
+import { noLinkedAdults } from '../src/features/spectating/linked-adults';
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -39,7 +40,7 @@ export const proveEventRoundRead = async (input: {
   const director = world.bots.Director!,
     stranger = world.bots.Coach!;
   const lobbyId = world.made.get('tournament-lobby')!;
-  const read = roundViewReader(f.store);
+  const read = roundViewReader(f.store, noLinkedAdults);
   const send = organizationCommand({
     store: createTabStore(committingRuntimeTestDatabase(owner)),
     authorize,
@@ -85,9 +86,23 @@ export const proveEventRoundRead = async (input: {
       'let the now-current official reconnect to the same ordinary Round endpoint',
     actual: [
       (await read(stranger, roundId)).id,
-      (await read(stranger, roundId)).viewerIsUndelayedObserver,
+      (await read(stranger, roundId)).viewerWatchesAs,
     ],
-    expected: [roundId, true],
+    expected: [roundId, 'host'],
+  });
+  // The same official, also named as a youth debater's linked adult.
+  const namesOfficial = { linkedAdultActorIds: [stranger.actorId] };
+  const linkedToo = Object.assign(async () => namesOfficial, {
+    peek: () => namesOfficial,
+  });
+  assert({
+    given:
+      'that official also named among the Round’s linked adults (ADR 0155)',
+    should:
+      'stay a host: event authority grants the capability without the links',
+    actual: (await roundViewReader(f.store, linkedToo)(stranger, roundId))
+      .viewerWatchesAs,
+    expected: 'host',
   });
   const [grant] =
     await owner`select id from grants where lobby_id=${lobbyId} and user_id=${stranger.userId} and revoked_at is null`;

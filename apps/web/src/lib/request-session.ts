@@ -443,6 +443,20 @@ export const requestFollowing = async (userId: string) => {
   return followingOf({ usernames, live, history });
 };
 
+/** The running Youth Rounds a member's students debate in (ADR 0155), for the Lobby's live rows. */
+export const requestStudentRoundIds = (member: { readonly userId: string }) =>
+  processApp().studentRoundIds(member);
+
+/**
+ * "Your students, live" (ADR 0155): the running Youth Rounds the member's
+ * students debate in, each read as the member, so only those they may watch
+ * appear. Empty for anyone linked to no youth debater.
+ */
+export const requestStudentsLive = (member: {
+  readonly userId: string;
+  readonly actorId: string;
+}) => processApp().studentsLive(member);
+
 /** The numbers on the Watch tabs. */
 export const requestHubCounts = async (): Promise<HubCounts> => {
   const app = processApp();

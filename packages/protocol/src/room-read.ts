@@ -36,6 +36,12 @@ const seatState = {
   ready: z.enum(['ready', 'not-ready', 'unavailable']),
   eligible: z.boolean(),
 };
+/** Where someone outside a started Room watches its Round. */
+export const roomWatchSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('broadcast'), roundId: idSchema }),
+  z.strictObject({ kind: z.literal('live_room'), roundId: idSchema }),
+]);
+export type RoomWatch = z.infer<typeof roomWatchSchema>;
 const roundRef = z
   .strictObject({ id: idSchema, status: roundStatusSchema })
   .nullable();
@@ -149,10 +155,12 @@ const roomViewFields = z.strictObject({
   /** The casual host chose to keep the call open after the Round (ADR 0127). */
   postRoundCall: z.boolean(),
   /**
-   * For someone outside a started public Room: the Round to watch, once the
-   * spectator timeline has released its start. Null for everyone else.
+   * For someone outside a started Room, where they watch its Round: the
+   * Broadcast of a public one once the spectator timeline has released its
+   * start, or, for a youth debater's linked coach or parent, a live Youth
+   * Round's own room (ADR 0155). Null for everyone else.
    */
-  watchRoundId: idSchema.nullable(),
+  watch: roomWatchSchema.nullable(),
   /** Pending invitations this viewer may see (ADR 0124). */
   invitations: z.array(roomInvitationViewSchema).max(16),
   /**

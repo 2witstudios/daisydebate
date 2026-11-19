@@ -174,6 +174,17 @@ describe('rowActions', () => {
       ],
       expected: [[], [watch(`/rounds/${id('c')}`)]],
     });
+    assert({
+      given:
+        "the same live Youth Round read by a debater's linked coach, and by another student's coach (ADR 0155)",
+      should:
+        "offer the linked coach Watch in the Round's live room, and the other nothing",
+      actual: [
+        rowActions({ ...adult, studentRoundIds: [id('c')] }, youth, 'live'),
+        rowActions({ ...adult, studentRoundIds: [id('z')] }, youth, 'live'),
+      ],
+      expected: [[watch(`/rounds/${id('c')}/room`)], []],
+    });
   });
 
   test('a live Round that is not public keeps its own page', () => {

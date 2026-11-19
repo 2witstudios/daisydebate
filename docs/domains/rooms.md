@@ -208,10 +208,13 @@ live room, the assigned judge to the judge view, and a seatless host to the
 spectator view, a read-only projection of the Round (who holds the floor, the
 clock and the speech order) with no controls and no media. That read is undelayed:
 a seatless host acts as an event host (`round.observe.undelayed`, ADR 0099), on
-any Round, ranked included. A seated host gains nothing from hosting. The spectator
-view is the seed of spectating: `SpectatorKind` names why a viewer
-watches, today only `host`, and later kinds join that union without a
-second view. Everyone else gets the Round's public page.
+any Round, ranked included. A seated host gains nothing from hosting. On a Youth
+Round the same view, labelled "Watching", opens to each youth debater's linked
+adults, who also read the transcript and read the floor chat without posting
+(`liveAudience`, ADR 0155); they reach it from the student's Room or Round link
+and from Watch's "Your students, live". The spectator view is the seed of
+spectating: `SpectatorKind` names why a viewer watches (`host`,
+`linked-adult`), and later kinds join that union without a second view. Everyone else gets the Round's public page.
 
 Unranked Custom rules can use points of information (POI): both sides have
 permission to speak and begin with their local microphones muted, with a
@@ -336,7 +339,8 @@ by any of this. See [compliance](../operations/compliance.md#children).
 
 A seated human judge reads their own ballot, and once the Round has completed,
 every ballot of it. Only the Round's seats and its seatless host read a Round at
-all (ADR 0099). Anyone else reads no ballot here: signing in opens nothing. The
+all (ADR 0099), and a Youth Round's linked adults watch it (ADR 0155) without
+reading any ballot. Anyone else reads no ballot here: signing in opens nothing. The
 audience of a ranked Round gets the winner, scores and reason on the spectator
 timeline, once the Broadcast's watermark has passed them, and never a side's
 feedback; a casual Round's audience gets no ballot.

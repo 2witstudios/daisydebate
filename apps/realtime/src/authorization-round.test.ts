@@ -13,6 +13,8 @@ for (const mode of [
   'public',
   'private-seated',
   'private-outsider',
+  'linked-adult',
+  'linked-adult-ended',
   'absent',
   'revised-account',
   'late-revision',
@@ -22,6 +24,7 @@ for (const mode of [
     let elapsed = 0;
     let sessions = 0;
     let projected: unknown;
+    let factReads = 0;
     const epoch = Date.parse('2026-10-09T00:00:00.000Z');
     const account = {
       userId: principal.userId,
@@ -38,10 +41,13 @@ for (const mode of [
       roundId: 'r'.repeat(24),
       createdByActorId: null,
       visibility: mode === 'public' ? 'public' : 'private',
-      status: 'live',
+      // A running Round, as `rounds.status` stores it: a linked adult watches only then.
+      status: 'active',
       revision: 7,
       participants:
-        mode === 'private-outsider'
+        mode === 'private-outsider' ||
+        mode === 'linked-adult' ||
+        mode === 'linked-adult-ended'
           ? []
           : [{ actorId: principal.actorId, seat: sideSeat('affirmative') }],
     };
@@ -56,9 +62,22 @@ for (const mode of [
           },
           expiresAt: new Date(epoch + 1_000).toISOString(),
         }),
+        // Only the linked-adult Round is a Youth one; its debater's coach asks.
+        readRoundYouth: async () =>
+          mode === 'linked-adult' || mode === 'linked-adult-ended',
+        readYouthRoundPeople: async () => ({
+          debaters: [
+            {
+              actorId: 'd'.repeat(24),
+              userId: 'v'.repeat(24),
+              linkedAdultActorIds: [principal.actorId],
+            },
+          ],
+        }),
         readRoundAuthorizationFacts: async (id: string, caller: unknown) => {
           projected = [id, caller];
           if (mode === 'expired') elapsed = 1_000;
+          factReads += 1;
           return mode === 'absent'
             ? null
             : {
@@ -66,7 +85,11 @@ for (const mode of [
                   ...account,
                   revision: mode === 'revised-account' ? 9 : 2,
                 },
-                resource,
+                // The Round ends while the links are looked up: the re-read sees it over.
+                resource:
+                  mode === 'linked-adult-ended' && factReads > 1
+                    ? { ...resource, status: 'completed' }
+                    : resource,
               };
         },
       },
@@ -78,12 +101,15 @@ for (const mode of [
     }).authorizeTopic(principal, buildRoundTopic(resource.roundId));
     assert({
       given:
-        'actual minimal Round projection port and canonical round.read evaluation',
-      should: 'allow only current audience facts within durable session expiry',
+        'actual minimal Round projection port and canonical round.read evaluation, and a Youth Round watched by its debater’s coach, also one that ends during the links lookup',
+      should:
+        'allow only current audience facts, the linked adult watching included (ADR 0155), within durable session expiry',
       actual: [projected, result?.validUntil ?? null],
       expected: [
         [resource.roundId, principal],
-        ['public', 'private-seated'].includes(mode) ? 1_000 : null,
+        ['public', 'private-seated', 'linked-adult'].includes(mode)
+          ? 1_000
+          : null,
       ],
     });
   });

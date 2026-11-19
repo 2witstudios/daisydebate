@@ -78,6 +78,21 @@ describe('decideRoundFloor', () => {
       expected: [true, false, false],
     });
   });
+  test("a youth debater's linked adult", () => {
+    const linked = { ...fact, audience: 'linked_adult' as const };
+    const decide = (action: 'read' | 'post' | 'remove') =>
+      decideRoundFloor({ principal, account, fact: linked, action, now });
+    assert({
+      given: 'a linked adult watching a live Youth Round (ADR 0155)',
+      should: 'read the floor chat read-only, and never post or remove',
+      actual: [decide('read'), decide('post').allow, decide('remove').allow],
+      expected: [
+        { allow: true, readOnly: true, expiresAt: null },
+        false,
+        false,
+      ],
+    });
+  });
   test('current eligible account', () => {
     assert({
       given: 'a restricted, erased, foreign, or unadmitted account',

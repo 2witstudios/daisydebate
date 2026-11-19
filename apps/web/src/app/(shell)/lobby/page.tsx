@@ -5,7 +5,10 @@ import { lobbyOf } from '@daisy/protocol';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
-import { requestMemberDivision } from '../../../lib/request-session';
+import {
+  requestMemberDivision,
+  requestStudentRoundIds,
+} from '../../../lib/request-session';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { hostedRoomsRead, roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
@@ -39,9 +42,14 @@ export default async function LobbyPage({
     ...parsed.data,
     division: parsed.data.division ?? lobbyOf({ division: viewerDivision }),
   };
-  const [listing, [activeRoom, hosted]] = await Promise.all([
+  // Only the Youth lobby lists live Youth Rounds, whose linked coaches and
+  // parents get Watch on them (ADR 0155).
+  const [listing, [activeRoom, hosted], studentRoundIds] = await Promise.all([
     roomListing(query),
     others,
+    identity.state === 'member' && query.division === 'youth'
+      ? requestStudentRoundIds(identity.principal)
+      : [],
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = Date.parse(systemClock.now());
@@ -56,7 +64,7 @@ export default async function LobbyPage({
         retry={listing.retry}
         activeRoom={activeRoom}
         now={now}
-        viewer={{ actorId, division: viewerDivision }}
+        viewer={{ actorId, division: viewerDivision, studentRoundIds }}
       />
     </>
   );

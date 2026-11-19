@@ -3,7 +3,6 @@ import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
-import { readYouthRecordingPeople } from './youth-recording-people';
 import type { SpectatorClock } from './spectator-release-sql';
 import { namedSeats } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
@@ -120,18 +119,6 @@ export const recordingRoundReadOperations = ({
       };
     });
   },
-
-  /**
-   * A Youth Round's youth debaters and their linked adults (ADR 0150), for a
-   * Round the caller read as ranked on Youth – Freestyle. Its own transaction,
-   * so the scopes it sets never reach another read.
-   */
-  readYouthRecordingPeople: (roundId: string) =>
-    database.transaction((tx) => readYouthRecordingPeople(tx, roundId), {
-      // One snapshot: a school's staff and the debater's membership agree.
-      isolationLevel: 'repeatable read',
-      accessMode: 'read only',
-    }),
 
   readRecordingBroadcastRelease: (roundId: string, clock: SpectatorClock) =>
     readBroadcastRelease(database, roundId, clock),

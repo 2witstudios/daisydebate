@@ -1,3 +1,4 @@
+import { noLinkedAdults } from '../spectating/linked-adults';
 import { fixedIds } from '@daisy/clock';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
@@ -118,6 +119,7 @@ test('a seat rating the social lane refuses for now leaves the Room readable', a
 test('Room runtime distinguishes Redis consent loss', async () => {
   const base = makeOperations();
   const withUnavailableRedis = createRoomRuntimeOperations({
+    linkedAdults: noLinkedAdults,
     now: () => '2026-11-02T00:00:00.000Z',
     store: base.store,
     redis: {
@@ -160,6 +162,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   const firstRound = first.createInput()?.room.rules;
   let catalogReads = 0;
   const replay = createRoomRuntimeOperations({
+    linkedAdults: noLinkedAdults,
     now: () => '2026-11-02T00:00:00.000Z',
     store: {
       readRoomCreateReceipt: async ({

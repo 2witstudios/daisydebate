@@ -54,8 +54,8 @@ Rooms included, and its debater seats are for that lobby's members.
    action ("Spectate" is renamed Watch). Any member may watch an Open Round
    live. A Youth Round is watched live only by its own audience: its seats
    and its seatless host. Its debaters' linked coaches and parents join that
-   audience with ADR 0150 §4's amendment (YLS-7); until then a live Youth row
-   offers no Watch outside it.
+   audience with ADR 0150 §4's amendment (YLS-7, [ADR 0155](0155-linked-adults-watch-youth-live.md)):
+   a live Youth row offers them Watch, and nobody else outside it.
 
 ## Backfill
 

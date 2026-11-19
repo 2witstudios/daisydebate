@@ -8,7 +8,11 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { ContextChannelOwner } from './context-channel-contracts';
 import { createContextChannelStore } from './context-channel-store';
-import { fenceRoundFloor, readRoundFloorFact } from './round-floor-facts';
+import {
+  fenceRoundFloor,
+  readRoundFloorFact,
+  type FloorYouth,
+} from './round-floor-facts';
 import type {
   RoundFloorFence,
   RoundFloorScope,
@@ -19,7 +23,8 @@ import type {
 type DiscoveryScope = Omit<RoundFloorScope, 'channelId'>;
 export const roundFloorMetadataOf = (fact: RoundFloorFact) => ({
   channelId: fact.channelId!,
-  readOnly: isRoundOver(fact.status),
+  // A linked adult watches and never posts (ADR 0155).
+  readOnly: isRoundOver(fact.status) || fact.audience === 'linked_adult',
   expiresAt:
     fact.completedAt === null
       ? null
@@ -28,11 +33,17 @@ export const roundFloorMetadataOf = (fact: RoundFloorFact) => ({
         ).toISOString(),
 });
 
-/** The floor as a context channel: the Round's lock, its fact and its named audience. */
-const roundFloorOwner: ContextChannelOwner<RoundFloorFact> = {
+/**
+ * The floor as a context channel: the Round's lock, its fact and its named
+ * audience, a Youth Round's linked adults included.
+ */
+const roundFloorOwner = (
+  youth: FloorYouth,
+): ContextChannelOwner<RoundFloorFact> => ({
   kind: 'round_floor',
   fence: fenceRoundFloor,
-  readFact: readRoundFloorFact,
+  readFact: (tx, ownerId, actorId) =>
+    readRoundFloorFact(tx, ownerId, actorId, youth),
   insertChannel: async (tx, { ownerId, channelId }) => {
     const [created] = await tx.execute(
       sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,round_id) values(${channelId},'round_floor','round.floor',1,'active',${ownerId}) on conflict (round_id,kind) do nothing returning id`,
@@ -50,16 +61,21 @@ const roundFloorOwner: ContextChannelOwner<RoundFloorFact> = {
     }[];
   },
   metadataOf: roundFloorMetadataOf,
-};
+});
 
-/** A named contextual producer: social pair/grant loaders never admit its channel. */
+/**
+ * A named contextual producer: social pair/grant loaders never admit its
+ * channel. `youth` is the Round's linked adults, read by the boundary through
+ * its cache (ADR 0155); null on any other Round.
+ */
 export function createRoundFloorStore(
   database: BunSQLDatabase,
   authorize: RoundFloorFence,
+  youth: FloorYouth = null,
 ) {
   const store = createContextChannelStore(
     database,
-    roundFloorOwner,
+    roundFloorOwner(youth),
     ({ scope: { ownerId, ...caller }, ...authority }) =>
       authorize({ ...authority, scope: { roundId: ownerId, ...caller } }),
   );

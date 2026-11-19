@@ -29,11 +29,13 @@ import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
 const spectatorKindLabel: Readonly<Record<SpectatorKind, string>> = {
-  'undelayed-observer': 'You’re hosting · watching',
+  host: 'You’re hosting · watching',
+  'linked-adult': 'Watching',
 };
 
 const spectatorKindRoster: Readonly<Record<SpectatorKind, string>> = {
-  'undelayed-observer': 'host, watching',
+  host: 'host, watching',
+  'linked-adult': 'watching',
 };
 
 const eyebrowClass = 'text-xs font-bold tracking-wide text-ink-muted uppercase';
@@ -41,6 +43,28 @@ const cardClass = 'rounded-xl border border-border bg-surface-raised';
 
 const onFloor = (activity: ObservedActivity) =>
   activity === 'speaking' || activity === 'asking';
+
+/** A linked adult's live view once their read is refused: the Round ended, or their link did (ADR 0155). */
+export function LinkedAdultEndNotice({
+  roundId,
+}: {
+  readonly roundId: string;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 py-8 max-narrow:px-4">
+      <p role="status" className="font-strong">
+        You can no longer watch this round live.
+      </p>
+      <p className="text-sm text-ink-muted">
+        It has ended, or your link to its debaters has. If you can still see it,
+        its recording, transcript and result open here once they are ready.
+      </p>
+      <Link href={`/recordings/${encodeURIComponent(roundId)}`}>
+        See the recording
+      </Link>
+    </div>
+  );
+}
 
 function SeatTile({ seat }: { readonly seat: ObservedSeat }) {
   return (
@@ -136,6 +160,10 @@ export function LiveSpectatorRoom(props: {
   const now = useSecond(props.renderedAtMs, roundTime);
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
+  // A linked adult watches only while the Round runs and they stay linked
+  // (ADR 0155); a refused read can mean either, so the notice says both.
+  if (props.spectatorKind === 'linked-adult' && synced.freshness === 'gone')
+    return <LinkedAdultEndNotice roundId={view.id} />;
   const watched = observedRoundOf(view, now);
   const note = stageNote(watched);
   return (

@@ -1,4 +1,5 @@
 import { evaluateContextChannelPermits } from './observation/context-channel-permits';
+import { linkedAdultsFor } from '@daisy/db/youth-live';
 import { isAppError } from '@daisy/errors';
 import { createHash } from 'node:crypto';
 import {
@@ -142,6 +143,49 @@ export function createRealtimeAuthorization({
         return null;
     }
   }
+  /**
+   * A Youth Round's linked adult follows the Round they watch
+   * (`round.observe.undelayed`, ADR 0155). Their links are read only for a
+   * Round topic the live read refused, since nobody else needs them.
+   */
+  async function watchesRound(
+    principal: SocketPrincipal,
+    facts: NonNullable<
+      | Awaited<
+          ReturnType<RealtimeAuthorityReads['readRoomAuthorizationFacts']>
+        >
+      | Awaited<
+          ReturnType<RealtimeAuthorityReads['readRoundAuthorizationFacts']>
+        >
+    >,
+  ): Promise<boolean> {
+    if (facts.resource.kind !== 'round') return false;
+    const { roundId } = facts.resource;
+    // A lookup this process cannot make admits nobody: the live read already
+    // refused, and a refusal must never wait on the links.
+    const youth = await linkedAdultsFor(resources.database)(roundId).catch(
+      () => null,
+    );
+    if (youth === null) return false;
+    // Decide on the Round as it stands after the lookup: one that ended
+    // meanwhile admits no linked adult (ADR 0155).
+    const current = await resources.database.readRoundAuthorizationFacts(
+      roundId,
+      principal,
+    );
+    if (
+      !current?.account ||
+      current.account.revision !== facts.account?.revision ||
+      current.resource.kind !== 'round'
+    )
+      return false;
+    return authorize({
+      principal: { kind: 'user', ...principal },
+      capability: 'round.observe.undelayed',
+      resource: { ...current.resource, youth },
+      context: { account: current.account },
+    }).allow;
+  }
   async function authorizeAudience(
     principal: SocketPrincipal,
     projection:
@@ -161,7 +205,7 @@ export function createRealtimeAuthorization({
       resource: facts.resource,
       context: { account: facts.account },
     });
-    if (!decision.allow) return null;
+    if (!decision.allow && !(await watchesRound(principal, facts))) return null;
     stopIfSpent(signal);
     const current = await resources.database.readAuthorizationSession({
       ...principal,

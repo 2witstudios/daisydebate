@@ -5,6 +5,8 @@ import type { SocketPrincipal } from '../registry';
 import type { PermitDecision } from './permits';
 import { decideRoomCommunityPermit } from './room-community-viewer';
 import { decideRoundFloorPermit } from './round-floor-viewer';
+import { linkedAdultsFor } from '@daisy/db/youth-live';
+import type { YouthLiveFact } from '@daisy/protocol';
 
 type Evaluation = {
   readonly reads: RealtimeAuthorityReads;
@@ -75,6 +77,58 @@ async function evaluateCohort<Fact>(
 }
 
 /**
+ * A floor's permits. A viewer the Round names nowhere is asked again with the
+ * Round's linked adults (ADR 0155), read only then, since nobody else needs
+ * them: a Youth Round's linked coach or parent reads its floor.
+ */
+async function roundFloorPermits(
+  evaluation: Evaluation,
+): Promise<readonly PermitDecision[] | null> {
+  const { reads, principals } = evaluation;
+  // The Round comes from the cohort's own facts, so no second read finds it.
+  let roundId: string | null = null;
+  const plain = await evaluateCohort(
+    evaluation,
+    reads.roundFloorChannelCohortAuthority,
+    (viewer: Parameters<typeof decideRoundFloorPermit>[0]) => {
+      roundId = viewer.fact.roundId;
+      return decideRoundFloorPermit(viewer);
+    },
+  );
+  if (plain === null || plain.every((permit) => permit.status !== 'denied'))
+    return plain;
+  // A failed lookup keeps the first pass: the denied stay denied, and those
+  // already allowed keep their permits.
+  let youth: YouthLiveFact | null = null;
+  try {
+    youth = roundId === null ? null : await linkedAdultsFor(reads)(roundId);
+  } catch {
+    return plain;
+  }
+  const asked = principals.filter(
+    (principal, index) =>
+      plain[index]?.status === 'denied' &&
+      youth?.linkedAdultActorIds.includes(principal.actorId) === true,
+  );
+  if (asked.length === 0) return plain;
+  // The re-ask failing keeps the first pass too: one watcher never costs the
+  // debaters their permits.
+  const again = await evaluateCohort(
+    { ...evaluation, principals: asked },
+    (input, work) =>
+      reads.roundFloorChannelCohortAuthority({ ...input, youth }, work),
+    decideRoundFloorPermit,
+  ).catch(() => null);
+  if (again === null) return plain;
+  return principals.map((principal, index) => {
+    const at = asked.indexOf(principal);
+    return at === -1
+      ? (plain[index] ?? { status: 'denied' })
+      : (again[at] ?? { status: 'denied' });
+  });
+}
+
+/**
  * Permits for a channel no social authority answers for: each contextual
  * owner is asked in turn with the same private decision its HTTP routes use,
  * and a channel none of them owns, or whose owner no longer lets it be
@@ -85,11 +139,7 @@ export async function evaluateContextChannelPermits(
 ): Promise<readonly PermitDecision[]> {
   const { reads, principals } = evaluation;
   return (
-    (await evaluateCohort(
-      evaluation,
-      reads.roundFloorChannelCohortAuthority,
-      decideRoundFloorPermit,
-    )) ??
+    (await roundFloorPermits(evaluation)) ??
     (await evaluateCohort(
       evaluation,
       reads.roomCommunityChannelCohortAuthority,

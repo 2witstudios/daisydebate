@@ -6,7 +6,9 @@ recordings, task PYL-5, decisions recorded in the
 Amends [ADR 0107](0107-recording-and-retention.md): a ranked Recording is
 public and kept, except a Youth Round's.
 Amended by [ADR 0151](0151-media-releases.md): media releases and sharing a
-Youth Recording publicly.
+Youth Recording publicly. Amended by [ADR 0155](0155-linked-adults-watch-youth-live.md):
+§4's "never live" admits each youth debater's linked adults to the live
+Round without media.
 
 ## Context
 
