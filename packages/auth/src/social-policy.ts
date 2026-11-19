@@ -59,7 +59,7 @@ type CurrentAccount = SocialAccount & {
   age: Extract<AccountAgeFact, { state: 'known' }>;
 };
 /** Who asks on a DM: the initiator and the stage; a group has neither. */
-export type DmInitiation = {
+type DmInitiation = {
   readonly stage: DmQuestion['stage'];
   readonly initiatorActorId: string;
 };
