@@ -1,13 +1,11 @@
 import { sql } from 'drizzle-orm';
+import { rowsOf } from './raw-rows';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { isDebatingSeatSql } from './seat-columns';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 
 /** A connection or a transaction: each read below runs on the caller's. */
 type Tx = Pick<BunSQLDatabase, 'execute'>;
-
-const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
-  (await tx.execute(query)) as unknown as Row[];
 
 /** Only an adult with a valid age record stands in for a youth debater. */
 const adultUser = (userId: ReturnType<typeof sql>) =>
@@ -28,13 +26,13 @@ export const readLinkedAdultUserIds = async (
   // Each step sets its own scope; the caller's comes back at the end.
   const caller = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: debaterUserId });
-  const guardians = await rows<{ user_id: string }>(
+  const guardians = await rowsOf<{ user_id: string }>(
     tx,
     sql`select g.guardian_user_id as user_id from guardian_links g
       where g.minor_user_id = ${debaterUserId} and g.status = 'active'
         and ${adultUser(sql`g.guardian_user_id`)}`,
   );
-  const schools = await rows<{ organization_id: string }>(
+  const schools = await rowsOf<{ organization_id: string }>(
     tx,
     sql`select m.organization_id from memberships m
       join organizations o on o.id = m.organization_id
@@ -44,7 +42,7 @@ export const readLinkedAdultUserIds = async (
   const staff: string[] = [];
   for (const { organization_id: organizationId } of schools) {
     await scopeTransaction(tx, { organizationId });
-    const found = await rows<{ user_id: string }>(
+    const found = await rowsOf<{ user_id: string }>(
       tx,
       sql`select o.owner_user_id as user_id from organizations o
         where o.id = ${organizationId} and o.owner_user_id is not null
@@ -76,7 +74,7 @@ export const readLinkedAdultUserIds = async (
  * any of it.
  */
 export const readYouthRecordingPeople = async (tx: Tx, roundId: string) => {
-  const debaters = await rows<{ actor_id: string; user_id: string }>(
+  const debaters = await rowsOf<{ actor_id: string; user_id: string }>(
     tx,
     sql`select distinct p.actor_id, a.user_id from round_participants p
         join actors a on a.id = p.actor_id
@@ -91,7 +89,7 @@ export const readYouthRecordingPeople = async (tx: Tx, roundId: string) => {
     const actors =
       adults.length === 0
         ? []
-        : await rows<{ id: string }>(
+        : await rowsOf<{ id: string }>(
             tx,
             sql`select id from actors where user_id in (${sql.join(
               adults.map((userId) => sql`${userId}`),

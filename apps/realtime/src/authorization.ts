@@ -1,5 +1,5 @@
 import { evaluateContextChannelPermits } from './observation/context-channel-permits';
-import { linkedAdultsFor } from './observation/linked-adults';
+import { linkedAdultsFor } from '@daisy/db/youth-live';
 import { isAppError } from '@daisy/errors';
 import { createHash } from 'node:crypto';
 import {

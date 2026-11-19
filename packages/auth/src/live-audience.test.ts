@@ -8,6 +8,7 @@ setupRitewayBun();
 
 const round: LiveAudienceRound = {
   createdByActorId: 'host',
+  status: 'active',
   participants: [{ actorId: 'debater' }, { actorId: 'judge' }],
   youth: null,
 };
@@ -44,6 +45,29 @@ describe('liveAudience', () => {
       expected: [
         { kind: 'undelayed_no_media', as: 'linked_adult' },
         { kind: 'undelayed_no_media', as: 'linked_adult' },
+      ],
+    });
+  });
+
+  test('only while the Round runs (ADR 0155)', () => {
+    assert({
+      given:
+        'a linked adult on a Youth Round that completed or was abandoned, and the host on the same',
+      should:
+        "deny the linked adult, who reads it through its Recording from then on, and leave the host's capability as it was",
+      actual: [
+        liveAudience({ ...youthRound, status: 'completed' }, account('coach')),
+        liveAudience({ ...youthRound, status: 'abandoned' }, account('coach')),
+        liveAudience({ ...youthRound, status: 'opening' }, account('coach'))
+          .kind,
+        liveAudience({ ...youthRound, status: 'completed' }, account('host'))
+          .kind,
+      ],
+      expected: [
+        { kind: 'denied', reason: 'not_live' },
+        { kind: 'denied', reason: 'not_live' },
+        'undelayed_no_media',
+        'undelayed_no_media',
       ],
     });
   });

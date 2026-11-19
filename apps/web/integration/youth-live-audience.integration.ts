@@ -5,10 +5,8 @@ import { captureRule } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contextChatFence } from '../src/features/messaging/context-chat/authority';
-import {
-  canReadTranscript,
-  withLinkedAdults,
-} from '../src/features/round-runtime/reads';
+import { canReadTranscript } from '../src/features/round-runtime/reads';
+import { withLinkedAdults } from '../src/features/spectating/linked-adults';
 import { readyRankedRoom } from './ranked-room.test-support';
 import { launchRuntimeRound } from './round-runtime.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -225,12 +223,39 @@ test('a live Youth Round is watched by its debaters’ linked adults and nobody 
           },
         });
 
+        // A plain member of the student's school, staff of nothing, has no students.
+        const classmate = await f.member();
+        await setAge(f, classmate, '40 years');
+        await f.sql`insert into memberships(organization_id,user_id,status,joined_at)
+          values(${school.id},${classmate.userId},'active',now())`;
+        assert({
+          given: "an adult who only belongs to the student's school",
+          should: 'propose no Round and admit them to none',
+          actual: [
+            await f.store.readStudentLiveRounds(classmate.userId),
+            await watches(f, classmate, roundId),
+          ],
+          expected: [[], 'NOT_FOUND'],
+        });
+
         await f.sql`update grants set revoked_at=now(), revoked_by_user_id=${people.owner.userId} where id=${school.grantId}`;
         assert({
           given: "the coach's roster grant revoked",
           should: 'stop admitting them',
           actual: await watches(f, people.coach, roundId),
           expected: 'NOT_FOUND',
+        });
+
+        await f.sql`update rounds set status='completed', current_stage=null, started_at=coalesce(started_at, now()), winning_side='affirmative', completed_at=now() where id=${roundId}`;
+        assert({
+          given: 'the Round ended, read by its school owner',
+          should:
+            'refuse the live read and the transcript: the Recording is theirs from then on',
+          actual: [
+            await watches(f, people.owner, roundId),
+            await transcript(f, people.owner, roundId),
+          ],
+          expected: ['NOT_FOUND', 'NOT_FOUND'],
         });
       }),
     ),

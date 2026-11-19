@@ -3,6 +3,7 @@ import {
   withLinkedAdultAudience,
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
+import type { YouthLiveFact } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import { rowsOf } from '../raw-rows';
 
@@ -16,9 +17,7 @@ type FloorRow = {
   readonly authority_revision: number | null;
 };
 /** A Youth Round's linked adults (ADR 0155), as the boundary read them; null on any other Round. */
-export type FloorYouth = {
-  readonly linkedAdultActorIds: readonly string[];
-} | null;
+export type FloorYouth = YouthLiveFact | null;
 const factOf = (roundId: string, row: FloorRow): RoundFloorFact => ({
   kind: 'round_floor',
   roundId,

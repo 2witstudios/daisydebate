@@ -39,7 +39,8 @@ for (const mode of [
       roundId: 'r'.repeat(24),
       createdByActorId: null,
       visibility: mode === 'public' ? 'public' : 'private',
-      status: 'live',
+      // A running Round, as `rounds.status` stores it: a linked adult watches only then.
+      status: 'active',
       revision: 7,
       participants:
         mode === 'private-outsider' || mode === 'linked-adult'

@@ -1,7 +1,26 @@
+import type { YouthLiveFact } from '@daisy/protocol';
 import type { YouthRoundPeople } from './youth-people-cache';
 
 /** Bounded: a full map drops its oldest Round first. */
 const MAX_ROUNDS = 5_000;
+
+type People = Pick<YouthRoundPeople, 'debaters'>;
+
+/**
+ * A Round's linked adults, and, without reading, what is already known of
+ * them: null for a Round known not to be a Youth one, the fact when its
+ * people are cached and fresh, undefined when only a read can tell.
+ */
+export type LinkedAdults = {
+  (roundId: string): Promise<YouthLiveFact | null>;
+  readonly peek: (roundId: string) => YouthLiveFact | null | undefined;
+};
+
+const factOf = ({ debaters }: People): YouthLiveFact => ({
+  linkedAdultActorIds: [
+    ...new Set(debaters.flatMap((debater) => debater.linkedAdultActorIds)),
+  ],
+});
 
 /**
  * A Round's linked adults for its live audience (ADR 0155): on a Youth Round,
@@ -13,10 +32,10 @@ const MAX_ROUNDS = 5_000;
 export const youthRoundLinkedAdults = (deps: {
   /** True on a ranked Round on the Youth division; null when there is no such Round. */
   readonly readRoundYouth: (roundId: string) => Promise<boolean | null>;
-  readonly people: (
-    roundId: string,
-  ) => Promise<Pick<YouthRoundPeople, 'debaters'>>;
-}) => {
+  readonly people: ((roundId: string) => Promise<People>) & {
+    readonly peek?: (roundId: string) => People | undefined;
+  };
+}): LinkedAdults => {
   const youth = new Map<string, boolean>();
   const isYouth = async (roundId: string) => {
     const known = youth.get(roundId);
@@ -30,15 +49,15 @@ export const youthRoundLinkedAdults = (deps: {
     youth.set(roundId, found);
     return found;
   };
-  return async (
-    roundId: string,
-  ): Promise<{ readonly linkedAdultActorIds: readonly string[] } | null> => {
-    if (!(await isYouth(roundId))) return null;
-    const { debaters } = await deps.people(roundId);
-    return {
-      linkedAdultActorIds: [
-        ...new Set(debaters.flatMap((debater) => debater.linkedAdultActorIds)),
-      ],
-    };
-  };
+  const linked = async (roundId: string) =>
+    (await isYouth(roundId)) ? factOf(await deps.people(roundId)) : null;
+  return Object.assign(linked, {
+    peek: (roundId: string) => {
+      const known = youth.get(roundId);
+      if (known === undefined) return undefined;
+      if (!known) return null;
+      const people = deps.people.peek?.(roundId);
+      return people === undefined ? undefined : factOf(people);
+    },
+  });
 };

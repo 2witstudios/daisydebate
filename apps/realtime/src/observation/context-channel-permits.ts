@@ -5,7 +5,7 @@ import type { SocketPrincipal } from '../registry';
 import type { PermitDecision } from './permits';
 import { decideRoomCommunityPermit } from './room-community-viewer';
 import { decideRoundFloorPermit } from './round-floor-viewer';
-import { linkedAdultsFor } from './linked-adults';
+import { linkedAdultsFor } from '@daisy/db/youth-live';
 
 type Evaluation = {
   readonly reads: RealtimeAuthorityReads;
@@ -83,15 +83,19 @@ async function evaluateCohort<Fact>(
 async function roundFloorPermits(
   evaluation: Evaluation,
 ): Promise<readonly PermitDecision[] | null> {
-  const { reads, id, principals } = evaluation;
+  const { reads, principals } = evaluation;
+  // The Round comes from the cohort's own facts, so no second read finds it.
+  let roundId: string | null = null;
   const plain = await evaluateCohort(
     evaluation,
     reads.roundFloorChannelCohortAuthority,
-    decideRoundFloorPermit,
+    (viewer: Parameters<typeof decideRoundFloorPermit>[0]) => {
+      roundId = viewer.fact.roundId;
+      return decideRoundFloorPermit(viewer);
+    },
   );
   if (plain === null || plain.every((permit) => permit.status !== 'denied'))
     return plain;
-  const roundId = await reads.floorRoundOf(id);
   const youth = roundId === null ? null : await linkedAdultsFor(reads)(roundId);
   const asked = principals.filter(
     (principal, index) =>

@@ -44,6 +44,22 @@ const cardClass = 'rounded-xl border border-border bg-surface-raised';
 const onFloor = (activity: ObservedActivity) =>
   activity === 'speaking' || activity === 'asking';
 
+function LinkedAdultEndNotice({ roundId }: { readonly roundId: string }) {
+  return (
+    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 py-8 max-narrow:px-4">
+      <p role="status" className="font-strong">
+        This round has ended.
+      </p>
+      <p className="text-sm text-ink-muted">
+        Its recording, transcript and result open here once they are ready.
+      </p>
+      <Link href={`/recordings/${encodeURIComponent(roundId)}`}>
+        See the recording
+      </Link>
+    </div>
+  );
+}
+
 function SeatTile({ seat }: { readonly seat: ObservedSeat }) {
   return (
     <li
@@ -138,6 +154,10 @@ export function LiveSpectatorRoom(props: {
   const now = useSecond(props.renderedAtMs, roundTime);
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
+  // A linked adult watches only while the Round runs (ADR 0155): once it ends
+  // their read is refused, and they see it again through its Recording.
+  if (props.spectatorKind === 'linked-adult' && synced.freshness === 'gone')
+    return <LinkedAdultEndNotice roundId={view.id} />;
   const watched = observedRoundOf(view, now);
   const note = stageNote(watched);
   return (

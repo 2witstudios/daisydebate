@@ -20,6 +20,9 @@ export type StudentLiveCard = {
   readonly line: string;
 };
 
+/** How many candidate Rounds one page load reads at once. */
+export const STUDENT_READS_AT_ONCE = 4;
+
 const stageWords: Readonly<Record<ObservedStage, string>> = {
   strike: 'Starting',
   'opening-prep': 'Starting',
@@ -70,19 +73,32 @@ export const studentsLive =
     readonly nowMs: () => number;
   }) =>
   async (caller: Caller): Promise<readonly StudentLiveCard[]> => {
-    const cards = await Promise.all(
-      (await deps.candidates(caller)).map(async ({ roundId, title }) => {
-        try {
-          return studentLiveCard(
-            await deps.view(caller, roundId),
-            title,
-            deps.nowMs(),
-          );
-        } catch (error) {
-          if (isAppError(error) && error.code === 'NOT_FOUND') return null;
-          throw error;
-        }
-      }),
-    );
+    const one = async ({
+      roundId,
+      title,
+    }: {
+      readonly roundId: string;
+      readonly title: string;
+    }) => {
+      try {
+        return studentLiveCard(
+          await deps.view(caller, roundId),
+          title,
+          deps.nowMs(),
+        );
+      } catch (error) {
+        if (isAppError(error) && error.code === 'NOT_FOUND') return null;
+        throw error;
+      }
+    };
+    // A few Round reads at a time, so one page load never floods the pool.
+    const candidates = await deps.candidates(caller);
+    const cards: (StudentLiveCard | null)[] = [];
+    for (let at = 0; at < candidates.length; at += STUDENT_READS_AT_ONCE)
+      cards.push(
+        ...(await Promise.all(
+          candidates.slice(at, at + STUDENT_READS_AT_ONCE).map(one),
+        )),
+      );
     return cards.filter((card) => card !== null);
   };

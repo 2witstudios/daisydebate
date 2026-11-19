@@ -26,6 +26,38 @@ const harness = (division: Record<string, boolean | null>) => {
   return { linked, youthReads, peopleReads };
 };
 
+describe('youthRoundLinkedAdults.peek', () => {
+  test('what is known without a read', async () => {
+    let cached: typeof people | undefined;
+    const linked = youthRoundLinkedAdults({
+      readRoundYouth: async (roundId) => roundId === 'youth',
+      people: Object.assign(
+        async () => {
+          cached = people;
+          return people;
+        },
+        { peek: () => cached },
+      ),
+    });
+    const before = [linked.peek('youth'), linked.peek('open')];
+    await linked('youth');
+    await linked('open');
+    assert({
+      given:
+        'Rounds never read, then a Youth Round and an Open Round each read once',
+      should:
+        'know nothing before, then the Youth fact from the cache and null for the Open Round',
+      actual: [...before, linked.peek('youth'), linked.peek('open')],
+      expected: [
+        undefined,
+        undefined,
+        { linkedAdultActorIds: ['coach', 'parent'] },
+        null,
+      ],
+    });
+  });
+});
+
 describe('youthRoundLinkedAdults', () => {
   test('a Youth Round', async () => {
     const { linked, peopleReads } = harness({ youth: true });

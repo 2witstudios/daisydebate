@@ -45,8 +45,3 @@ export function createRoundFloorChannelCohortAuthority(
     work: (frame: Parameters<Parameters<Cohort>[1]>[0]) => Promise<T>,
   ): Promise<T> => cohortWith(input.youth ?? null)(input, work);
 }
-
-/** The Round a floor channel belongs to, or null when the channel is not a floor. */
-export const createFloorRoundRead =
-  (database: BunSQLDatabase) => (channelId: string) =>
-    floorRoundOf(database, channelId);

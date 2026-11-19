@@ -2,8 +2,11 @@ import { eventBallotAccess } from '../round-ballots/audience';
 import { captureRule } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from './member-composition';
 import type { App } from '../../server/app';
-import { liveLinkedAdults } from '../spectating/linked-adults';
-import { canReadTranscript, roundViewReader, withLinkedAdults } from './reads';
+import {
+  liveLinkedAdults,
+  withLinkedAdults,
+} from '../spectating/linked-adults';
+import { canReadTranscript, roundViewReader } from './reads';
 import { createRoundHandlers } from './handlers';
 import { createRoundRuntimeOperations } from './operations';
 

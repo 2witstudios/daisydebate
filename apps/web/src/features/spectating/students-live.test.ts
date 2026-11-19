@@ -9,7 +9,11 @@ import {
   rules,
   startOf,
 } from '../../ui/debate-room/live-round.test-support';
-import { studentLiveCard, studentsLive } from './students-live';
+import {
+  STUDENT_READS_AT_ONCE,
+  studentLiveCard,
+  studentsLive,
+} from './students-live';
 
 setupRitewayBun();
 
@@ -92,6 +96,31 @@ describe('studentsLive', () => {
         )
       )?.code,
       expected: 'INFRASTRUCTURE',
+    });
+  });
+  test('a few Round reads at a time', async () => {
+    let open = 0;
+    let most = 0;
+    const cards = await studentsLive({
+      candidates: async () =>
+        Array.from({ length: 10 }, (_, at) => ({
+          roundId: `r${at}`,
+          title: `T${at}`,
+        })),
+      view: async () => {
+        open += 1;
+        most = Math.max(most, open);
+        await Promise.resolve();
+        open -= 1;
+        return live;
+      },
+      nowMs: () => nowMs,
+    })({});
+    assert({
+      given: 'ten candidate Rounds',
+      should: 'read them all, never more than the bound at once',
+      actual: [cards.length, most],
+      expected: [10, STUDENT_READS_AT_ONCE],
     });
   });
 });

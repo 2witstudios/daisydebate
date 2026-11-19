@@ -5,8 +5,10 @@ import {
 } from '@daisy/auth/authorization';
 import type { YouthLiveFact } from '@daisy/auth/live-audience';
 import type { Database, RoundRoomAuthority } from '@daisy/db';
-import { isAppError } from '@daisy/errors';
-import type { LinkedAdultsOf } from '../spectating/linked-adults';
+import {
+  withLinkedAdults,
+  type LinkedAdultsOf,
+} from '../spectating/linked-adults';
 import { eventRoomOwner } from '../tab/event-room-direction';
 import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import type { LaunchedRound } from '@daisy/protocol';
@@ -81,28 +83,6 @@ export const canObserveUndelayed = (
   youth: YouthLiveFact | null = null,
 ) =>
   canRead(caller, round, account, authority, 'round.observe.undelayed', youth);
-
-/**
- * A read a Youth Round's linked adult passes only with that Round's linked
- * adults (ADR 0155). It runs without them first, since nobody else needs
- * them; only a refusal reads them, through the cache, and runs once more when
- * they name this caller. Every other refusal stands as it was.
- */
-export const withLinkedAdults = async <T>(
-  caller: { readonly actorId: string },
-  roundId: string,
-  linkedAdults: LinkedAdultsOf,
-  read: (youth: YouthLiveFact | null) => Promise<T>,
-): Promise<T> => {
-  try {
-    return await read(null);
-  } catch (error) {
-    if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
-    const youth = await linkedAdults(roundId);
-    if (!youth?.linkedAdultActorIds.includes(caller.actorId)) throw error;
-    return read(youth);
-  }
-};
 
 /** The Round as this caller may see it: every read of it, one composition. */
 export const roundViewReader =

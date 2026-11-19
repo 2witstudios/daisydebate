@@ -7,14 +7,15 @@
  * nothing. A seat always comes first: anyone seated keeps their own seat's view.
  */
 
-/** A Youth Round's linked adults: the actors of every youth debater's coaches and guardians. */
-export type YouthLiveFact = {
-  readonly linkedAdultActorIds: readonly string[];
-};
+import { runningRoundStatuses, type YouthLiveFact } from '@daisy/protocol';
+
+export type { YouthLiveFact };
 
 /** The Round as this rule reads it. `youth` is null on every Round that is not a Youth one. */
 export type LiveAudienceRound = {
   readonly createdByActorId: string | null;
+  /** Kept a loose string: authorization facts carry the stored status as read. */
+  readonly status: string;
   readonly participants: readonly { readonly actorId: string }[];
   readonly youth: YouthLiveFact | null;
 };
@@ -30,13 +31,17 @@ export type LiveAudience =
     }
   | {
       readonly kind: 'denied';
-      readonly reason: 'signed_out' | 'seated' | 'not_in_audience';
+      readonly reason: 'signed_out' | 'seated' | 'not_live' | 'not_in_audience';
     };
+
+const running = (status: string): boolean =>
+  (runningRoundStatuses as readonly string[]).includes(status);
 
 const watches = (as: 'host' | 'linked_adult') =>
   ({ kind: 'undelayed_no_media', as }) as const;
-const denied = (reason: 'signed_out' | 'seated' | 'not_in_audience') =>
-  ({ kind: 'denied', reason }) as const;
+const denied = (
+  reason: 'signed_out' | 'seated' | 'not_live' | 'not_in_audience',
+) => ({ kind: 'denied', reason }) as const;
 
 export const liveAudience = (
   round: LiveAudienceRound,
@@ -47,7 +52,9 @@ export const liveAudience = (
   if (round.participants.some((seat) => seat.actorId === actorId))
     return denied('seated');
   if (round.createdByActorId === actorId) return watches('host');
-  return round.youth?.linkedAdultActorIds.includes(actorId) === true
-    ? watches('linked_adult')
-    : denied('not_in_audience');
+  if (round.youth?.linkedAdultActorIds.includes(actorId) !== true)
+    return denied('not_in_audience');
+  // A linked adult follows the Round only while it runs; once it ends they
+  // see it through its Recording, under ADR 0150's own rules.
+  return running(round.status) ? watches('linked_adult') : denied('not_live');
 };

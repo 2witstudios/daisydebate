@@ -61,10 +61,14 @@ test('roundViewReader()', async () => {
 test("roundViewReader() and a Youth Round's linked adult (ADR 0155)", async () => {
   const unseated = { ...launched, hostActorId: null, participants: [] };
   const asked: string[] = [];
-  const linked = (actorIds: readonly string[]) => async (roundId: string) => {
-    asked.push(roundId);
-    return { linkedAdultActorIds: actorIds };
-  };
+  const linked = (actorIds: readonly string[]) =>
+    Object.assign(
+      async (roundId: string) => {
+        asked.push(roundId);
+        return { linkedAdultActorIds: actorIds };
+      },
+      { peek: () => undefined },
+    );
   const watched = await roundViewReader(
     store(unseated),
     linked([caller.actorId]),
@@ -99,6 +103,33 @@ test("roundViewReader() and a Youth Round's linked adult (ADR 0155)", async () =
     should: "never read anyone's links",
     actual: asked.length,
     expected: hostAsked,
+  });
+});
+
+test('a watcher the cache already names reads the Round once (ADR 0155)', async () => {
+  const unseated = { ...launched, hostActorId: null, participants: [] };
+  let reads = 0;
+  const counted = store(unseated) as {
+    readLaunchedRound: (...args: unknown[]) => Promise<unknown>;
+  };
+  const read = counted.readLaunchedRound;
+  counted.readLaunchedRound = (...args) => {
+    reads += 1;
+    return read(...args);
+  };
+  const known = Object.assign(async () => null, {
+    peek: () => ({ linkedAdultActorIds: [caller.actorId] }),
+  });
+  const watched = await roundViewReader(counted as never, known)(
+    caller,
+    round.id,
+  );
+  assert({
+    given: 'a linked adult whose Round the people cache already holds',
+    should:
+      'read the Round once, with its linked adults, and never be refused first',
+    actual: [watched.viewerIsUndelayedObserver, reads],
+    expected: [true, 1],
   });
 });
 

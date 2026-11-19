@@ -132,6 +132,7 @@ export function createRoomRuntimeOperations({
       liveAudience(
         {
           createdByActorId: state.hostActorId,
+          status: round.status,
           participants: state.participants,
           youth,
         },

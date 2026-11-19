@@ -25,7 +25,7 @@ import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
 import type { YouthRound, YouthRoundPeople } from './youth-audience';
-import { youthPeopleCache } from '@daisy/db/youth-live';
+import { youthPeopleFor } from '@daisy/db/youth-live';
 import type { RecordingInputs } from './ports';
 
 /** As often as a Broadcast's: its own Egress has the same revocation lead to meet. */
@@ -68,22 +68,8 @@ const asRound = (
   })),
 });
 
-/** One cache of Youth Round people per app, shared by every request. */
-const youthPeopleOf = new WeakMap<
-  App,
-  (roundId: string) => Promise<YouthRoundPeople>
->();
-const youthPeople = (app: App) => {
-  const known = youthPeopleOf.get(app);
-  if (known) return known;
-  const cached = youthPeopleCache({
-    read: app.database.readYouthRecordingPeople,
-    // Monotonic: a wall clock stepping back must not stretch the window.
-    nowMs: () => performance.now(),
-  });
-  youthPeopleOf.set(app, cached);
-  return cached;
-};
+/** The one people cache of this app's reads, shared with the live audience (ADR 0155). */
+const youthPeople = (app: App) => youthPeopleFor(app.database);
 
 /** The named read-only inputs, in one place. */
 /**

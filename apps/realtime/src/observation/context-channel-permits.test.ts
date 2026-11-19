@@ -33,7 +33,6 @@ const evaluate = (reads: Partial<RealtimeAuthorityReads>, asked: string[]) =>
           ) => Promise<unknown>
         )(...args);
       },
-      floorRoundOf: reads.floorRoundOf ?? (async () => null),
       readRoundYouth: reads.readRoundYouth ?? (async () => false),
       readYouthRecordingPeople:
         reads.readYouthRecordingPeople ?? (async () => ({ debaters: [] })),
@@ -127,6 +126,38 @@ test('an owner’s infrastructure failure is not a denial', async () => {
   });
 });
 
+/**
+ * A first floor answer from the cohort's own decision: a transaction with no
+ * session rows makes every viewer's session absent, so it denies, and the
+ * fact names the Round the way a real cohort's does.
+ */
+const refusedFrame = (
+  _input: unknown,
+  work: (frame: {
+    readonly tx: unknown;
+    readonly accounts: readonly unknown[];
+    readonly factFor: (actorId: string) => unknown;
+    readonly contentRevision: number;
+  }) => Promise<unknown>,
+) =>
+  work({
+    tx: { execute: async () => [] },
+    accounts: [],
+    contentRevision: 0,
+    factFor: (actorId) => ({
+      kind: 'round_floor',
+      roundId: 'r'.repeat(24),
+      channelId: 'c'.repeat(24),
+      policyKey: 'round.floor',
+      policyRevision: 1,
+      revision: 1,
+      status: 'active',
+      completedAt: null,
+      actorId,
+      audience: null,
+    }),
+  });
+
 test("a Youth Round's linked adult is asked again with the Round's linked adults", async () => {
   const asked: string[] = [];
   const youthSeen: unknown[] = [];
@@ -139,13 +170,13 @@ test("a Youth Round's linked adult is asked again with the Round's linked adults
   };
   const actual = await evaluate(
     {
-      roundFloorChannelCohortAuthority: (async (input: {
-        readonly youth?: unknown;
-      }) => {
+      roundFloorChannelCohortAuthority: (async (
+        input: { readonly youth?: unknown },
+        work: Parameters<typeof refusedFrame>[1],
+      ) => {
         youthSeen.push(input.youth ?? null);
-        return input.youth ? [allowed] : [{ status: 'denied' }];
+        return input.youth ? [allowed] : refusedFrame(input, work);
       }) as unknown as RealtimeAuthorityReads['roundFloorChannelCohortAuthority'],
-      floorRoundOf: async () => 'r'.repeat(24),
       readRoundYouth: async () => true,
       readYouthRecordingPeople: async () => ({
         debaters: [
@@ -177,10 +208,8 @@ test('a viewer the floor refuses on any other Round is not asked again', async (
   const asked: string[] = [];
   const actual = await evaluate(
     {
-      roundFloorChannelCohortAuthority: (async () => [
-        { status: 'denied' },
-      ]) as unknown as RealtimeAuthorityReads['roundFloorChannelCohortAuthority'],
-      floorRoundOf: async () => 'r'.repeat(24),
+      roundFloorChannelCohortAuthority:
+        refusedFrame as unknown as RealtimeAuthorityReads['roundFloorChannelCohortAuthority'],
       readRoundYouth: async () => false,
     },
     asked,

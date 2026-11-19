@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import type { RoundStatus } from './round';
+import type { YouthLiveFact } from './youth-live';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
@@ -31,7 +32,7 @@ export type RoundFloorFact = {
  */
 export const withLinkedAdultAudience = (
   fact: RoundFloorFact,
-  youth: { readonly linkedAdultActorIds: readonly string[] } | null,
+  youth: YouthLiveFact | null,
 ): RoundFloorFact =>
   fact.audience === null &&
   youth?.linkedAdultActorIds.includes(fact.actorId) === true
