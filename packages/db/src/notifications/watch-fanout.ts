@@ -13,6 +13,7 @@ import {
 import { oweNotifications } from './owe';
 import { wants } from './preferences';
 import { youthRoundSql } from '../youth-round-sql';
+import { operatorWithheldSql } from '../broadcast-withheld-sql';
 
 type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 
@@ -142,10 +143,9 @@ export const watchNotificationOperations = ({
           from recordings rc join rounds r on r.id=rc.round_id
           left join broadcasts b on b.round_id=rc.round_id
           where rc.status='ready'
-            -- A Youth Round's withheld Broadcast hid its video from an audience it
-            -- never had; its own people are still told (ADR 0150, 0157).
+            -- Only an operator's stop holds the notice back (ADR 0150, 0157).
             and (b.id is null or (b.completed_at is not null
-              and (not b.media_withheld or ${youthRoundSql(sql`rc.round_id`)})))
+              and not ${operatorWithheldSql(sql`b`)}))
             and ${outcomeReleasedSql(roundAliasR, input.clock)}
             and not exists(select 1 from notification_fanouts f
               where f.kind='recording_ready' and f.round_id=rc.round_id)

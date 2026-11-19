@@ -32,6 +32,7 @@ import {
   spectatorHorizonSql,
   type SpectatorClock,
 } from './spectator-release-sql';
+import { operatorWithheldSql } from './broadcast-withheld-sql';
 
 type Tx = BoundedTransactionContext;
 
@@ -526,10 +527,7 @@ export const readBroadcastRelease = async (
   const rows = await reader.execute(sql`
     select ${spectatorHorizonSql(roundAliasR, clock)} as horizon,
       exists (select 1 from broadcasts b where b.round_id = r.id and b.stopped_at is not null) as stopped,
-      -- The youth sweep's own stop hides the feed from an audience a Youth Round
-      -- never had (ADR 0150, 0157); only an operator's stop withholds the video.
-      exists (select 1 from broadcasts b where b.round_id = r.id and b.media_withheld
-        and b.stop_reason is distinct from 'youth_round_private') as withheld
+      exists (select 1 from broadcasts b where b.round_id = r.id and ${operatorWithheldSql(sql`b`)}) as withheld
     from rounds r where r.id = ${roundId}`);
   const [row] = rows as unknown as {
     readonly horizon: Date | string | null;

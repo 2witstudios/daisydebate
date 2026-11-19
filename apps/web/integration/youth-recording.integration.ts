@@ -722,7 +722,12 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
           limit: 100,
           youthPublishing: true,
         })
-        .then((page) => page.rows.map((row) => row.id));
+        .then((page) => page.rows);
+      // The archive card and the Recording's own page agree on the stop.
+      const sharedStop = {
+        card: sharedRows.find((row) => row.id === youth.roundId)?.release.stop,
+        page: (await release(youth.roundId)).stop,
+      };
       // Had an operator stopped that Broadcast instead, its video stays withheld.
       await f.sql`update broadcasts set stop_reason='policy_violation' where round_id=${youth.roundId}`;
       const operatorRows = await database
@@ -751,8 +756,14 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
       assert({
         given: 'the casual Youth Round shared, its pre-rule Broadcast withheld',
         should: 'list it in the public archive while publishing is open',
-        actual: sharedRows.includes(youth.roundId),
-        expected: true,
+        actual: {
+          listed: sharedRows.some((row) => row.id === youth.roundId),
+          stop: sharedStop,
+        },
+        expected: {
+          listed: true,
+          stop: { card: 'feed_ended', page: 'feed_ended' },
+        },
       });
 
       const takeDown = async (member: Member, roundId: string) => {
