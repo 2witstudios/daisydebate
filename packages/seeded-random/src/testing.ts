@@ -62,7 +62,7 @@ export type WalkStep<State> = {
 };
 
 /** The draws one step may take; a step that needs more is a mistake in the test. */
-const DRAWS_PER_STEP = 6;
+const DRAWS_PER_STEP = 12;
 
 const drawsOf = (values: readonly number[]): Draw => {
   let at = 0;
@@ -70,12 +70,31 @@ const drawsOf = (values: readonly number[]): Draw => {
     const value = values[at];
     at += 1;
     if (value === undefined)
-      throw new Error(`a walk step drew more than ${DRAWS_PER_STEP} times`);
+      throw new Error(`drew more than the ${values.length} draws on the tape`);
     if (!Number.isInteger(limit) || limit < 1)
       throw new Error(`a walk drew below ${limit}`);
     return value % limit;
   };
 };
+
+/**
+ * Checks `problems` over `runs` generated cases, each read from a tape of
+ * `draws` draws. For an input built by hand from many small choices; the
+ * draws shrink towards 0, so a failure reports its simplest choices.
+ */
+export function seededDraws(
+  run: PropertyRun & {
+    readonly draws: number;
+    readonly problems: (draw: Draw) => readonly string[];
+  },
+): PropertyReport {
+  return seededCheck({
+    seed: run.seed,
+    runs: run.runs,
+    input: fc.array(fc.nat(), { minLength: run.draws, maxLength: run.draws }),
+    problems: (tape) => run.problems(drawsOf(tape)),
+  });
+}
 
 const drawArbitrary = fc.array(fc.nat(), {
   minLength: DRAWS_PER_STEP,
@@ -91,10 +110,15 @@ const drawArbitrary = fc.array(fc.nat(), {
  */
 export function seededWalk<State, Move>(
   walk: PropertyRun & {
-    /** Most steps in one walk; a walk ends early when no move is offered. */
+    /**
+     * Most steps in one walk. Lengths spread evenly from none to this, so
+     * `runs` walks take about `runs * steps / 2` steps in all; a walk ends
+     * early when no move is offered.
+     */
     readonly steps: number;
     readonly start: (draw: Draw) => State;
-    readonly moves: (state: State) => readonly Move[];
+    /** The moves `state` allows; `draw` may shape them (an id, a delay). */
+    readonly moves: (state: State, draw: Draw) => readonly Move[];
     readonly label: (move: Move) => string;
     readonly step: (state: State, move: Move, draw: Draw) => WalkStep<State>;
   },
@@ -104,14 +128,14 @@ export function seededWalk<State, Move>(
     runs: walk.runs,
     input: fc.tuple(
       drawArbitrary,
-      fc.array(drawArbitrary, { maxLength: walk.steps }),
+      fc.array(drawArbitrary, { maxLength: walk.steps, size: 'max' }),
     ),
     problems: ([start, steps]) => {
       let state = walk.start(drawsOf(start));
       const trace: string[] = [];
       for (const values of steps) {
         const draw = drawsOf(values);
-        const moves = walk.moves(state);
+        const moves = walk.moves(state, draw);
         if (moves.length === 0) return [];
         const move = moves[draw(moves.length)]!;
         trace.push(walk.label(move));

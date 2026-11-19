@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { seededCheck, seededWalk } from './testing';
+import { seededCheck, seededDraws, seededWalk } from './testing';
 
 setupRitewayBun();
 
@@ -125,14 +125,37 @@ describe('seededWalk', () => {
       moves: () => ['greedy'],
       label: (move) => move,
       step: (state, _move, draw) => {
-        for (let index = 0; index < 7; index += 1) draw(10);
+        for (let index = 0; index < 13; index += 1) draw(10);
         return { state, problems: [] };
       },
     });
     assert({
-      given: 'a step that draws seven times',
+      given: 'a step that draws thirteen times',
       should: 'fail naming the draw limit',
-      actual: report.failure?.includes('drew more than 6 times'),
+      actual: report.failure?.includes(
+        'drew more than the 12 draws on the tape',
+      ),
+      expected: true,
+    });
+  });
+});
+
+describe('seededDraws', () => {
+  test('a case built from draws shrinks to its simplest choices', () => {
+    const report = seededDraws({
+      seed: 2,
+      runs: 200,
+      draws: 3,
+      problems: (draw) => {
+        const [a, b, c] = [draw(100), draw(100), draw(100)];
+        return a + b + c >= 150 ? [`sum ${a + b + c}`] : [];
+      },
+    });
+    assert({
+      given:
+        'three draws below 100 and a property that fails from a sum of 150',
+      should: 'report the shrunk sum of exactly 150',
+      actual: report.failure?.endsWith(': sum 150'),
       expected: true,
     });
   });
