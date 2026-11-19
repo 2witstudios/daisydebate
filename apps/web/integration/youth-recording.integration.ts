@@ -671,8 +671,8 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         given: 'a debater sharing each Round publicly with no media release',
         should:
           'hold the Youth one to its releases, and find no Youth Round in the Open one',
-        actual: [youthPublish === 'not_found', openPublish],
-        expected: [false, 'not_found'],
+        actual: [youthPublish, openPublish],
+        expected: ['releases_missing', 'not_found'],
       });
 
       const takeDown = async (member: Member, roundId: string) => {

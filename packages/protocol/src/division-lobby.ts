@@ -87,9 +87,10 @@ export const canWatchLive = (
 /**
  * Whether a Round is a Youth Round for every privacy fence (ADR 0150, 0151,
  * amended by ADR 0157): any Round of a Room in the Youth lobby, casual
- * included. The Room's division decides; a Round with no Room falls back to
- * its frozen ladder division, which equals its Room's for every ranked Round
- * since ADR 0156. `youthRoundSql` in `@daisy/db` is its SQL mirror.
+ * included. It is Youth when either its Room or its frozen ladder is Youth,
+ * so it fails closed; the two agree for every ranked Round since ADR 0156,
+ * and a Round with no Room has only its ladder. `youthRoundSql` in
+ * `@daisy/db` is its SQL mirror.
  */
 export const isYouthRound = (
   round: { readonly ladderDivision: RatingDivision | null },

@@ -173,6 +173,12 @@ test('isYouthRound', () => {
     expected: [true, false],
   });
   assert({
+    given: 'a Youth ladder in an Open Room, which ADR 0156 never makes',
+    should: 'still be Youth: the rule fails closed',
+    actual: isYouthRound({ ladderDivision: 'youth' }, { division: 'open' }),
+    expected: true,
+  });
+  assert({
     given: 'a Round with no Room',
     should: 'fall back to its frozen ladder division',
     actual: [

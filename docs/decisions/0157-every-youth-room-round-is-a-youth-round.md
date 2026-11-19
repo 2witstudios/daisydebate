@@ -22,9 +22,10 @@ timeline, downloaded and shared.
 ## Decision
 
 1. **What a Youth Round is.** Any Round of a Room in the Youth lobby
-   (`rooms.division = 'youth'`), ranked or casual. The Room's division
-   decides; a Round with no Room falls back to its frozen ladder division,
-   which equals its Room's for every ranked Round since ADR 0156. ADR 0150 §1
+   (`rooms.division = 'youth'`), ranked or casual. A Round is Youth when
+   either its Room or its frozen ladder division is Youth, so the rule fails
+   closed. The two agree for every ranked Round since ADR 0156, and a Round
+   with no Room has only its ladder. ADR 0150 §1
    is replaced by this; its "Casual Rounds keep ADR 0107's host opt-in rules"
    now applies only outside the Youth lobby.
 2. **One rule, one mirror.** `isYouthRound(round, room)` in
@@ -55,4 +56,5 @@ timeline, downloaded and shared.
   Recording only; no audience feed opens. The capture choice itself is not
   refused at the Room yet (ISSUE-1488).
 - A new fence must ask `isYouthRound` or `youthRoundSql`; an integration test
-  holds the mirror to the rule.
+  (`packages/db/integration/youth-round-sql.integration.ts`) holds the mirror
+  to the rule over every Room division and ladder.
