@@ -387,14 +387,17 @@ today beyond what the record and deliverability already keep.
 ## Children
 
 Members must be 13 or older (owner 2026-11-18, decision 88, amending
-DEC-244's beta floor of 16; one trusted configuration value,
-`ACCOUNT_AGE_FLOOR` in `packages/auth/src/age-floor.ts`). Members sign
-themselves up: there is no parental sign-up step. The age step stores only a
-birth month. Members aged 13 to 15 are held to every under-18 rule exactly as
-16 and 17 are: the Youth ladder division, private Youth Recordings, media
-releases before anything is published, and the Youth Room chat rules. A beta
-preapproval is claimed and invited at the same floor (`@daisy/protocol/age-floor`
-owns the floor and its bands for auth, the database and shared rules). Whether
+DEC-244's beta floor of 16). It is one trusted configuration value,
+`ACCOUNT_AGE_FLOOR` in `packages/protocol/src/age-floor.ts`, which owns the
+floor and its bands for auth, the database and shared rules, so the age step,
+participant access and beta preapproval claims and invites all apply the same
+floor. Members sign themselves up: there is no parental sign-up step. The age
+step stores only a birth month. Members aged 13 to 15 are held to every
+under-18 rule exactly as 16 and 17 are: the Youth ladder division, private
+Youth Recordings, media releases before anything is published, and the Youth
+Room chat rules. Members aged 13 to 15 have no direct messages for now:
+DEC-251's DM pairs stay adult with adult and 16-17 with 16-17, and no 13-15
+pair is added (point guard, 2026-11-18, the conservative default). Whether
 state social-media laws require parental consent for some 13 to 15 year olds
 is a counsel question (YLS-9); the build does not wait on it. An under-13
 answer is refused neutrally: nothing is stored and the provisional account is
