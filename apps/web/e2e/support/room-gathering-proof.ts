@@ -10,8 +10,9 @@ import { proveClosedRoomNavigation } from './room-shell-refresh-proof';
 
 /**
  * Enter through actual discovery, including retained duplicate-title pages,
- * by the row action named `verb` (`Join: <title>`): a row carries Watch
- * beside its seat action, and both link to the Room.
+ * by the row action named `verb` (`Join: <title>`). An unseated viewer's row
+ * carries Watch beside its seat action, both linking to the Room; a seated
+ * viewer's row has only Return to room (`rowActions`).
  */
 export async function enterLobbyRoom(
   page: Page,
@@ -33,6 +34,11 @@ export async function enterLobbyRoom(
     // Recheck after the rendered discovery controls arrive, never choose a
     // page based on a visibility read made before a navigation committed.
     if (await room.isVisible()) break;
+    // The Room listed here under another action is a wrong verb, not a page.
+    await expect(
+      list.locator(`a[href="/rooms/${view.id}"]`),
+      `the Room's row offers no ${verb}`,
+    ).toHaveCount(0);
     const first = list.getByRole('link').first();
     await expect(first).toBeVisible();
     const previousFirst = await first.getAttribute('href');
