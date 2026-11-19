@@ -339,6 +339,26 @@ channels carry neither, private groups carry both or neither after erasure. The
 forward migration requires an empty greenfield target; existing unattributed local
 fixtures must be recreated by their owner, never assigned an inferred author.
 
+## Who may DM whom
+
+One pure rule, `dmAllowed` (`packages/auth/src/social-policy.ts`, decision 90,
+[ADR 0160](../decisions/0160-dms-like-discord-with-consent.md)), answers a new
+DM request, accepting it, posting and typing. Any member 13 or over may send
+any other a message request. An adult may ask a minor, or keep posting to
+one, only while they are friends or the adult is one of the minor's linked
+adults (`daisy_linked_adult_users`); a minor may ask an adult, and that DM
+needs no friendship. Under 13 is always refused. A new request also honours
+the recipient's own setting (`messaging_request_settings`: everyone, the
+default with no row; friends only; no one); the setting never closes an
+accepted DM. Reading, declining, cancelling and blocking never ask the rule.
+`loadAccountPolicyFacts` reads the setting, friendships within the cast and a
+minor's linked adults in one statement on the fenced transaction, beside the
+age fact; a missing fact is closed. `betaDmPolicy` mints revision 2 and
+honours revision 1. A request writes the recipient a `dm_request`
+notification in its transaction; refusals answer NOT_FOUND, and a profile
+offers Add friend where only a friendship would open a request
+(`dmRequestOffer`), so no age shows.
+
 ## Public username intent discovery
 
 The account adapter exposes `lookupHumanActorByUsername(input)`. Every feature

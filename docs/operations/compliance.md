@@ -395,9 +395,15 @@ floor. Members sign themselves up: there is no parental sign-up step. The age
 step stores only a birth month. Members aged 13 to 15 are held to every
 under-18 rule exactly as 16 and 17 are: the Youth ladder division, private
 Youth Recordings, media releases before anything is published, and the Youth
-Room chat rules. Members aged 13 to 15 have no direct messages for now:
-DEC-251's DM pairs stay adult with adult and 16-17 with 16-17, and no 13-15
-pair is added (point guard, 2026-11-18, the conservative default). Whether
+Room chat rules. Direct messages follow one rule for every age (decision 90,
+[ADR 0160](../decisions/0160-dms-like-discord-with-consent.md)): any member 13
+or over may send any other a message request, but an adult's first contact
+with a minor is a friend request, which carries no text; only once the minor
+accepts it (or when the adult is the minor's own club staff) may the adult
+ask to DM them, and unfriending or blocking ends that DM's posting. A minor
+may ask an adult. Every member chooses who can send them requests (everyone,
+friends only or no one), and declining and blocking are never limited by
+age. Refusals never reveal an age. Whether
 state social-media laws require parental consent for some 13 to 15 year olds
 is a counsel question (YLS-9); the build does not wait on it. An under-13
 answer is refused neutrally: nothing is stored and the provisional account is

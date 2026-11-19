@@ -78,7 +78,9 @@ fence (accounts, then the pair, then a channel).
 5. **Friendship grants nothing else yet.** It does not open a DM channel,
    room membership or any competitive standing. When friendship starts a
    DM, messaging's own age and contact policy (ADR 0061) decides that, not
-   this record.
+   this record. Amended by [ADR 0160](0160-dms-like-discord-with-consent.md):
+   the DM rule reads an accepted friendship as a minor's consent to an
+   adult's DM; it still opens no channel by itself.
 6. **Presence is written by realtime, from one activity source per tab.**
    A socket holds an ADR 0033 lease only once it reports activity: its
    first `presence.activity` frame upserts the lease, later frames update
