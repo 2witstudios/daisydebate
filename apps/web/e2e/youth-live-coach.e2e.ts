@@ -8,12 +8,13 @@ import {
 } from './support/youth-coach';
 
 /**
- * YLS-7 and YLS-12 (ADR 0155, ADR 0158) in a real browser: a youth
- * debater's school coach finds their student's live Youth Round under Watch's
- * "Your students, live" and watches it as timing, transcript and read-only
- * floor chat (the student's message there included), with no media and
- * nothing to post; the Round link takes them there too, with JavaScript on
- * and off, and a stranger finds nothing. The floor message arriving live
+ * YLS-7, YLS-12 and YLS-19 (ADR 0155, 0158, 0159) in a real browser: a youth
+ * debater's school coach finds their student's live private Youth Round under
+ * Watch's "Your students, live" and watches it through the Room's privacy as
+ * timing, transcript and read-only floor chat (the student's message there
+ * included), with no media and nothing to post; the Round link takes them
+ * there too, with JavaScript on and off, and a stranger finds nothing, as on
+ * any private Round. The floor message arriving live
  * through realtime is proven in the messaging realtime cohort
  * (`support/youth-coach-floor-live.ts`).
  */
@@ -23,7 +24,7 @@ test.afterEach(async () => {
   await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
 });
 
-test("a coach watches their student's live Youth Round, and a stranger cannot", async ({
+test("a coach watches their student's private live Youth Round, and a stranger cannot", async ({
   page,
   context,
   browser,
@@ -131,6 +132,10 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
     );
     const response = await stranger.goto(`/rounds/${round.roundId}/room`);
     expect(response?.status()).toBe(404);
+    await stranger.goto(`/watch/${round.roundId}`);
+    await expect(
+      stranger.getByText('This debate is not available'),
+    ).toBeVisible();
   } finally {
     await strangerContext.close();
   }

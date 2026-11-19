@@ -3,17 +3,16 @@ import { fileURLToPath } from 'node:url';
 import { createId } from '@paralleldrive/cuid2';
 import { casualCaptureNotice } from '../src/features/legal/agreements';
 import { test, expect, openPage } from './support/fixtures';
-import { resetRateLimits, signUpMember } from './support/accounts';
+import { systemClock } from '@daisy/clock';
+import { resetRateLimits, signUpMember, youthBirth } from './support/accounts';
 import {
   submitCreateRoom,
   closeRoom,
   rosterSeatName,
 } from './support/room-launch-flow';
 
-test('a ranked seat signs the content waiver without JavaScript', async ({
-  browser,
-}) => {
-  await new Promise<void>((resolve, reject) =>
+const seasons = () =>
+  new Promise<void>((resolve, reject) =>
     execFile(
       'bun',
       [
@@ -26,6 +25,11 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
         error ? reject(new Error('Season setup refused')) : resolve(),
     ),
   );
+
+test('a ranked seat signs the content waiver without JavaScript', async ({
+  browser,
+}) => {
+  await seasons();
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await openPage(context, 'native content waiver');
   try {
@@ -79,6 +83,55 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
       await expect(
         page.getByText('stays after you close your account'),
       ).toHaveCount(0);
+    } finally {
+      await closeRoom(page.request, room.id);
+    }
+  } finally {
+    await context.close();
+  }
+});
+
+test('a Youth member’s ranked seat signs the Youth waiver, which licenses nothing (ADR 0159)', async ({
+  browser,
+}) => {
+  await seasons();
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await openPage(context, 'Youth content waiver');
+  try {
+    await resetRateLimits(page.request);
+    await signUpMember(page.request, youthBirth(systemClock.now()));
+    await page.goto('/play/room');
+    const room = await submitCreateRoom(
+      page,
+      `Youth ranked waiver ${createId().slice(0, 8)}`,
+      'freestyle',
+      true,
+    );
+    try {
+      await page
+        .getByRole('button', {
+          name: `Take ${rosterSeatName(room, 'Affirmative 1')}`,
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole('button', { name: 'I’m ready', exact: true })
+        .click();
+      const waiver = page.getByRole('heading', {
+        name: 'Sign the Youth ranked content waiver',
+      });
+      await expect(waiver).toBeVisible();
+      const dialog = page.getByRole('dialog', { name: 'Ready?', exact: true });
+      await expect(dialog).toContainText('No licence to your content');
+      await expect(dialog).not.toContainText('Daisy owns');
+      await expect(dialog).not.toContainText('name and likeness in them');
+      await page
+        .getByRole('checkbox', {
+          name: 'I agree to the Youth ranked content waiver for this season.',
+        })
+        .check();
+      await page.getByRole('button', { name: 'Sign waiver' }).click();
+      await expect(waiver).toHaveCount(0);
     } finally {
       await closeRoom(page.request, room.id);
     }

@@ -28,12 +28,10 @@ type Create = {
   /** A signed-up member seated as the affirmative, so a browser can act as a debater. */
   readonly affUsername?: string;
   /**
-   * The Room's division (its lobby), and a ranked Round's ladder. A Youth
-   * Round, casual included, opens no Broadcast (PYL-5, ADR 0157).
+   * The Room's division (its lobby), and a ranked Round's ladder. Either
+   * lobby broadcasts alike (ADR 0159).
    */
   readonly division?: 'open' | 'youth';
-  /** Open one on a Youth Round anyway, as one opened before its rule shipped. */
-  readonly legacyBroadcast?: boolean;
   readonly title: string;
   readonly resolution: string;
 };
@@ -102,7 +100,6 @@ const create = async (sql: SQL, input: Create) => {
   const roomDivision = input.division ?? 'open';
   // Only a ranked Round has a ladder: its Room's division.
   const division = input.mode === 'ranked' ? roomDivision : null;
-  const broadcast = roomDivision !== 'youth' || input.legacyBroadcast === true;
   await sql.begin(async (tx) => {
     const hostActor = input.hostUsername
       ? (
@@ -141,16 +138,14 @@ const create = async (sql: SQL, input: Create) => {
     await tx`insert into utterances (id,round_id,segment_id,round_participant_id,sequence,text,complete,created_at)
       values (${createId()},${roundId},${segmentId},${participant[0].id},0,${`Caption ${suffix}`},true,now()-interval '3 minutes')`;
     // Heard from since the caption was said, or its open segment keeps it back.
-    // A Youth Round is never broadcast (PYL-5).
-    if (broadcast)
-      await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,control_heartbeat_at)
+    await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,control_heartbeat_at)
       values (${broadcastId},${roundId},${feedKey},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds',now())`;
   });
   return {
     roundId,
     roomId,
-    broadcastId: broadcast ? broadcastId : null,
-    feedKey: broadcast ? feedKey : null,
+    broadcastId,
+    feedKey,
     aff: input.affUsername ?? `aff-${suffix}`,
     caption: `Caption ${suffix}`,
   };
@@ -204,10 +199,6 @@ const advance = async (sql: SQL, input: Advance) => {
       return;
     case 'stop':
       await sql`update broadcasts set stopped_at=now(),stop_reason='policy_violation',media_withheld=true where round_id=${roundId}`;
-      // A Round with no Broadcast (a Youth Round) still running is ended too.
-      await sql`update rounds set status='abandoned',current_stage=null,completed_at=now()
-        where id=${roundId} and status='active'
-          and not exists(select 1 from broadcasts where round_id=${roundId})`;
       return;
     case 'end':
       await sql`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=now()-interval '3 minutes' where id=${roundId}`;

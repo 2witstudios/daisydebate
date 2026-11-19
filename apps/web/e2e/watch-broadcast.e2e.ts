@@ -47,6 +47,7 @@ const liveRound = async (
     mode: 'ranked' | 'casual';
     visibility: 'public' | 'unlisted' | 'private';
     hostUsername: string;
+    division: 'open' | 'youth';
   }> = {},
 ): Promise<Seeded> => {
   const tag = createId().slice(0, 8);
@@ -379,6 +380,19 @@ test.describe('watching with no account', () => {
     await advance(round.roundId, 'stop');
     await expect(page.getByText('This broadcast was stopped')).toBeVisible();
     await expect(panel).toHaveCount(0);
+  });
+
+  test('a ranked Youth Round plays as an Open one does, with no Stream this Round (ADR 0159)', async ({
+    page,
+  }) => {
+    const round = await liveRound({ division: 'youth' });
+    await page.goto(`/watch/${round.roundId}`);
+    await expectPlaying(page);
+    // Viewing is not reuse: without every youth debater's release, the feed
+    // is never offered to streamers.
+    await expect(
+      page.getByRole('region', { name: 'Stream this Round' }),
+    ).toHaveCount(0);
   });
 
   test('Stream this Round is usable with no script, and absent where there is no feed', async ({

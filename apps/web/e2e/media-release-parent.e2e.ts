@@ -1,6 +1,3 @@
-import { execFile } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 import { systemClock } from '@daisy/clock';
 import { resolveE2EPorts } from '../playwright.config';
 import { assertNoSeriousFindings } from './support/axe';
@@ -15,32 +12,10 @@ import { expect, openPage, test } from './support/fixtures';
 /**
  * PYL-6 in a real browser, at phone width: a youth member asks a parent's
  * address to sign; the parent opens the emailed link with no account and
- * no session, signs, and sees the confirmation. The flow is behind
- * `youth-publishing`, which this file opens and closes again; the suite runs
- * one worker, so no other spec sees it open.
+ * no session, signs, and sees the confirmation. The flow is live with no
+ * release flag (ADR 0159).
  */
-const setFlag = (state: 'enabled' | 'default') =>
-  promisify(execFile)(
-    'bun',
-    [
-      fileURLToPath(
-        new URL('./support/release-flag-process.ts', import.meta.url),
-      ),
-      'youth-publishing',
-      state,
-    ],
-    { timeout: 20000, maxBuffer: 4096 },
-  );
-
 const mailBase = `http://127.0.0.1:${resolveE2EPorts(process.env).mail}`;
-
-test.describe.configure({ mode: 'serial' });
-test.beforeAll(async () => {
-  await setFlag('enabled');
-});
-test.afterAll(async () => {
-  await setFlag('default');
-});
 
 test('a parent signs a media release on a phone, without an account', async ({
   page,

@@ -8,10 +8,12 @@ import { origin, signUpMember, youthBirth } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
 
 /**
- * PYL-5 in a real browser: a Youth Round's Recording reads as private to the
- * debater who sat in it, with Share publicly closed and Take down in place of
- * Remove, and no Youth Round is listed on Watch, in the archive, or open to a
- * stranger by its address.
+ * ADR 0159 in a real browser: a Youth Round is viewed exactly as an Open one.
+ * A stranger finds a live ranked Youth Round on Watch, watches it, and finds
+ * it ended in the archive and on its debater's profile; a public casual Youth
+ * Room's Round is watchable as an Open one is (Stream this Round's reuse
+ * fence is proven on a playing feed in watch-broadcast.e2e.ts). Its Recording reads as an Open one's (no Private badge, no Share publicly)
+ * and its youth debater may still take it down.
  */
 const seed = async (input: Record<string, unknown>): Promise<unknown> => {
   const { stdout } = await promisify(execFile)(
@@ -53,7 +55,93 @@ const seedRound = async (
 const ranked = (input: Record<string, unknown>) => seedRound('ranked', input);
 const casual = (input: Record<string, unknown>) => seedRound('casual', input);
 
-test('a Youth debater sees their Recording as private, with Take down and no public share', async ({
+test('a stranger watches a live ranked Youth Round, then finds it in the archive and on the profile', async ({
+  browser,
+  context,
+}) => {
+  const { username } = await signUpMember(
+    context.request,
+    youthBirth(systemClock.now()),
+  );
+  const tag = createId().slice(0, 8);
+  const youthLive = await ranked({
+    division: 'youth',
+    affUsername: username,
+    title: `Youth final ${tag}`,
+    resolution: `Youth motion ${tag}`,
+  });
+  const stranger = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const visitor = await openPage(stranger, 'visitor');
+    await visitor.goto(`/watch?q=${tag}`);
+    await expect(visitor.getByText(`Youth final ${tag}`)).toBeVisible();
+    // No page names a ladder inside a lobby (ADR 0156 copy rule).
+    await expect(visitor.getByRole('main')).not.toContainText(
+      'Youth – Freestyle',
+    );
+    await visitor.goto(`/watch/${youthLive}`);
+    await expect(
+      visitor.getByText(`Youth motion ${tag}`).first(),
+    ).toBeVisible();
+    await expect(visitor.getByText('This debate is not available')).toHaveCount(
+      0,
+    );
+
+    await seed({ command: 'end', roundId: youthLive });
+    await seed({ command: 'recording-ready', roundId: youthLive });
+    await visitor.goto(`/recordings?q=${tag}`);
+    await expect(visitor.getByText(`Youth final ${tag}`)).toBeVisible();
+    await visitor.goto(`/recordings/${youthLive}`);
+    await expect(
+      visitor.getByRole('heading', { name: `Youth final ${tag}` }),
+    ).toBeVisible();
+    await expect(visitor.locator('video')).toHaveCount(1);
+    await visitor.goto(`/profile/${username}`);
+    await expect(visitor.getByText(`Youth motion ${tag}`)).toBeVisible();
+    await assertNoSeriousFindings(visitor);
+  } finally {
+    await stranger.close();
+  }
+});
+
+test('a public casual Youth Round is listed and watched as an Open one is', async ({
+  browser,
+}) => {
+  const tag = createId().slice(0, 8);
+  const openLive = await casual({
+    title: `Open casual ${tag}`,
+    resolution: `Open casual motion ${tag}`,
+  });
+  const youthLive = await casual({
+    division: 'youth',
+    title: `Youth casual ${tag}`,
+    resolution: `Youth casual motion ${tag}`,
+  });
+  const stranger = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const visitor = await openPage(stranger, 'visitor');
+    await visitor.goto(`/watch?q=${tag}`);
+    await expect(visitor.getByText(`Open casual ${tag}`)).toBeVisible();
+    await expect(visitor.getByText(`Youth casual ${tag}`)).toBeVisible();
+    for (const [roundId, motion] of [
+      [openLive, `Open casual motion ${tag}`],
+      [youthLive, `Youth casual motion ${tag}`],
+    ] as const) {
+      await visitor.goto(`/watch/${roundId}`);
+      await expect(visitor.getByText(motion).first()).toBeVisible();
+    }
+  } finally {
+    await stranger.close();
+  }
+});
+
+test('a Youth debater’s Recording reads as an Open one, with Take down and no download', async ({
   page,
   context,
 }) => {
@@ -75,19 +163,13 @@ test('a Youth debater sees their Recording as private, with Take down and no pub
   await expect(
     page.getByRole('heading', { name: `Youth scrimmage ${tag}` }),
   ).toBeVisible();
-  // No page names a ladder (ADR 0156 copy rule).
   await expect(page.getByRole('main')).not.toContainText('Youth – Freestyle');
   const sharing = page.getByRole('region', { name: 'Sharing' });
-  await expect(sharing).toContainText(
-    'Private: visible to the debaters, judges and their coaches or parents.',
-  );
-  await expect(sharing).toContainText(
-    'Share publicly needs a media release from every youth debater',
-  );
-  await expect(
-    sharing.getByRole('button', { name: 'Share publicly' }),
-  ).toBeDisabled();
-  await expect(sharing.getByText('Copy link')).toHaveCount(0);
+  await expect(sharing).toContainText('Anyone can replay it.');
+  await expect(sharing.getByText('Copy link')).toBeVisible();
+  await expect(sharing).not.toContainText('Private');
+  await expect(page.getByText('Share publicly')).toHaveCount(0);
+  // Without every youth debater's release, nothing is downloaded (the reuse fence).
   await expect(page.getByRole('link', { name: 'Download video' })).toHaveCount(
     0,
   );
@@ -96,174 +178,4 @@ test('a Youth debater sees their Recording as private, with Take down and no pub
     page.getByRole('button', { name: 'Take down', exact: true }),
   ).toBeVisible();
   await assertNoSeriousFindings(page);
-
-  // The debater's own profile lists it; a stranger's view of it does not.
-  await page.goto(`/profile/${username}`);
-  await expect(page.getByText(`Resolved ${tag}`)).toBeVisible();
-  const stranger = await page.context().browser()!.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-  });
-  try {
-    const visitor = await openPage(stranger, 'visitor');
-    await visitor.goto(`/profile/${username}`);
-    await expect(visitor.getByText(`@${username}`).first()).toBeVisible();
-    await expect(visitor.getByText(`Resolved ${tag}`)).toHaveCount(0);
-  } finally {
-    await stranger.close();
-  }
-});
-
-test('Watch, the archive and a stranger never find a Youth Round', async ({
-  browser,
-}) => {
-  const tag = createId().slice(0, 8);
-  const openLive = await ranked({
-    title: `Open final ${tag}`,
-    resolution: `Open motion ${tag}`,
-  });
-  const youthLive = await ranked({
-    division: 'youth',
-    title: `Youth live ${tag}`,
-    resolution: `Youth live motion ${tag}`,
-  });
-  const youthEnded = await ranked({
-    division: 'youth',
-    title: `Youth ended ${tag}`,
-    resolution: `Youth ended motion ${tag}`,
-  });
-  await seed({ command: 'end', roundId: youthEnded });
-  await seed({ command: 'recording-ready', roundId: youthEnded });
-
-  const context = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-  });
-  try {
-    const visitor = await openPage(context, 'visitor');
-    await visitor.goto(`/watch?q=${tag}`);
-    await expect(visitor.getByText(`Open final ${tag}`)).toBeVisible();
-    await expect(visitor.getByRole('main')).not.toContainText(
-      'Open – Freestyle',
-    );
-    await expect(visitor.getByText(`Youth live ${tag}`)).toHaveCount(0);
-    await expect(
-      visitor.getByRole('combobox', { name: 'Ladder' }),
-    ).toBeVisible();
-
-    // The Open Round's page shows its motion, so the Youth checks below can fail.
-    await visitor.goto(`/watch/${openLive}`);
-    await expect(visitor.getByText(`Open motion ${tag}`).first()).toBeVisible();
-
-    // Live or ended, a Youth Round's spectator page answers as a missing one.
-    for (const [roundId, motion] of [
-      [youthLive, `Youth live motion ${tag}`],
-      [youthEnded, `Youth ended motion ${tag}`],
-    ] as const) {
-      await visitor.goto(`/watch/${roundId}`);
-      await expect(
-        visitor.getByText('This debate is not available'),
-      ).toBeVisible();
-      await expect(visitor.getByText(motion)).toHaveCount(0);
-    }
-
-    await visitor.goto(`/recordings?q=${tag}`);
-    await expect(visitor.getByText(`Youth ended ${tag}`)).toHaveCount(0);
-    await expect(visitor.getByText(`Youth ended motion ${tag}`)).toHaveCount(0);
-
-    await visitor.goto(`/recordings/${youthEnded}`);
-    await expect(
-      visitor.getByText('This debate is not available'),
-    ).toBeVisible();
-    await expect(visitor.getByText(`Youth ended motion ${tag}`)).toHaveCount(0);
-    await expect(visitor.locator('video')).toHaveCount(0);
-  } finally {
-    await context.close();
-  }
-});
-
-test('a casual Round of a Youth Room is as private as any Youth Round (ADR 0157)', async ({
-  page,
-  context,
-  browser,
-}) => {
-  const { username } = await signUpMember(
-    context.request,
-    youthBirth(systemClock.now()),
-  );
-  const tag = createId().slice(0, 8);
-  const openLive = await casual({
-    title: `Open casual ${tag}`,
-    resolution: `Open casual motion ${tag}`,
-  });
-  // A Broadcast it opened before the rule shipped: Watch still never lists it.
-  const youthLive = await casual({
-    division: 'youth',
-    legacyBroadcast: true,
-    title: `Youth casual live ${tag}`,
-    resolution: `Youth casual live motion ${tag}`,
-  });
-  const youthEnded = await casual({
-    division: 'youth',
-    affUsername: username,
-    title: `Youth casual ${tag}`,
-    resolution: `Youth casual motion ${tag}`,
-  });
-  await seed({ command: 'end', roundId: youthEnded });
-  await seed({ command: 'recording-ready', roundId: youthEnded });
-
-  await page.goto(`/recordings/${youthEnded}`);
-  await expect(
-    page.getByRole('heading', { name: `Youth casual ${tag}` }),
-  ).toBeVisible();
-  const sharing = page.getByRole('region', { name: 'Sharing' });
-  await expect(sharing).toContainText(
-    'Private: visible to the debaters, judges and their coaches or parents.',
-  );
-  await expect(
-    sharing.getByRole('button', { name: 'Share publicly' }),
-  ).toBeDisabled();
-  await expect(sharing.getByText('Copy link')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Download video' })).toHaveCount(
-    0,
-  );
-  await expect(page.getByText('Take down this recording')).toBeVisible();
-  await assertNoSeriousFindings(page);
-
-  const stranger = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-  });
-  try {
-    const visitor = await openPage(stranger, 'visitor');
-    await visitor.goto(`/watch?q=${tag}`);
-    await expect(visitor.getByText(`Open casual ${tag}`)).toBeVisible();
-    await expect(visitor.getByText(`Youth casual live ${tag}`)).toHaveCount(0);
-
-    // The Open Round's page shows its motion, so the Youth checks below can fail.
-    await visitor.goto(`/watch/${openLive}`);
-    await expect(
-      visitor.getByText(`Open casual motion ${tag}`).first(),
-    ).toBeVisible();
-    for (const [roundId, motion] of [
-      [youthLive, `Youth casual live motion ${tag}`],
-      [youthEnded, `Youth casual motion ${tag}`],
-    ] as const) {
-      await visitor.goto(`/watch/${roundId}`);
-      await expect(
-        visitor.getByText('This debate is not available'),
-      ).toBeVisible();
-      await expect(visitor.getByText(motion)).toHaveCount(0);
-    }
-
-    await visitor.goto(`/recordings?q=${tag}`);
-    await expect(visitor.getByText(`Youth casual ${tag}`)).toHaveCount(0);
-    await visitor.goto(`/recordings/${youthEnded}`);
-    await expect(
-      visitor.getByText('This debate is not available'),
-    ).toBeVisible();
-    await expect(visitor.locator('video')).toHaveCount(0);
-  } finally {
-    await stranger.close();
-  }
 });
