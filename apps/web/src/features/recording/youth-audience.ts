@@ -1,5 +1,4 @@
 import type { RecordingStatus } from '@daisy/protocol';
-import type { MediaReleaseRecord } from '@daisy/protocol/media-release';
 import type { RecordingRound, RecordingViewer } from './audience';
 
 /**
@@ -36,15 +35,6 @@ export type YouthRound = YouthRoundPeople & { readonly reusable: boolean };
 export type YouthRecordingRound = Pick<RecordingRound, 'officialActorIds'> & {
   readonly youth: YouthRoundPeople;
 };
-
-/**
- * A media release as recording reads it (ADR 0151's named input): whose, of
- * which scope, and whether it was withdrawn.
- */
-export type MediaRelease = Pick<
-  MediaReleaseRecord,
-  'subjectUserId' | 'scope' | 'withdrawnAt'
->;
 
 /** A Recording that exists and is not already going: what any removal may act on. */
 export const removableStatus = (status: RecordingStatus | null): boolean =>

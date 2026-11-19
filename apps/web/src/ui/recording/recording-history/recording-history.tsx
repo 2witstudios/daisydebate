@@ -4,7 +4,6 @@ import type { RecordingHistoryScreen } from '../../../features/recording/history
 import { watchRoutes } from '../../../features/watch/routes';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
-import { Icon } from '../../components/icon/icon';
 import { CopyLink } from '../../watch/copy-link/copy-link';
 import { StateCard } from '../../watch/state-card/state-card';
 import { RecordingPlayer } from '../recording-player/recording-player';

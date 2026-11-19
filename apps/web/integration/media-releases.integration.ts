@@ -1,4 +1,3 @@
-import { daisyOrganizationId } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -66,24 +65,6 @@ const setAge = (f: Fixture, member: Member, age: string) =>
     set birth_month = to_char(now() - ${age}::interval, 'YYYY-MM'), version = version + 1,
       recorded_at = now() - interval '1 second'
     where user_id = ${member.userId}`;
-
-const withYouthSeason = async (f: Fixture, run: () => Promise<void>) => {
-  const ids: string[] = [];
-  try {
-    for (const division of ['open', 'youth'] as const) {
-      const id = createId();
-      await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status)
-        values(${daisyOrganizationId},${id},${division},'Media release fixture',now() - interval '1 day','active')`;
-      ids.push(id);
-    }
-    await run();
-  } finally {
-    for (const id of ids) {
-      await f.sql`delete from agreement_signatures where season_id=${id}`;
-      await f.sql`delete from seasons where id=${id}`;
-    }
-  }
-};
 
 /** The schools a test made go after it, children first. */
 const withSchools = async (

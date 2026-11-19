@@ -24,7 +24,6 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
 import { recordingCaptures } from './schema/recording-captures';
-import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import {
   roundAliasR,
