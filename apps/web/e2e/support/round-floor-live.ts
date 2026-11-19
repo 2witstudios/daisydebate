@@ -7,6 +7,7 @@ import {
   serverMessageSchema,
   sideOfSeat,
 } from '@daisy/protocol';
+import { LIVE_IDLE_MAX_MS } from '../../src/lib/worker-loop';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';
 import { expect, openPage, test } from './fixtures';
 import { origin, signUpMember } from './accounts';
@@ -350,12 +351,17 @@ export function testRoundFloorLive() {
       );
       // Media grants follow the time-derived prep boundary; durable status
       // follows the maintenance tick. Witness both before testing continuity.
+      // A failed tick backs off up to LIVE_IDLE_MAX_MS before it retries, and
+      // a read refused meanwhile is retried, not fatal (ISSUE-1490).
       await expect
-        .poll(async () => {
-          const activeRead = await host.request.get(`/api/rounds/${roundId}`);
-          expect(activeRead.ok()).toBe(true);
-          return roundViewSchema.parse(await activeRead.json()).status;
-        })
+        .poll(
+          async () => {
+            const activeRead = await host.request.get(`/api/rounds/${roundId}`);
+            if (!activeRead.ok()) return `HTTP ${activeRead.status()}`;
+            return roundViewSchema.parse(await activeRead.json()).status;
+          },
+          { timeout: 3 * LIVE_IDLE_MAX_MS },
+        )
         .toBe('active');
       const liveAdmissionCount = mediaAdmissions();
       const second = 'Floor message alongside the live camera';
