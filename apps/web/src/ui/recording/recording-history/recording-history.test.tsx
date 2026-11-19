@@ -305,6 +305,25 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       expected: [true, false],
     });
     assert({
+      given:
+        'a shared casual Youth Round whose Room was made unlisted (not shareable) (ADR 0157)',
+      should:
+        'not say it is public, and ask for no release that could not unlock sharing',
+      actual: (() => {
+        const page = shared({
+          releasesComplete: true,
+          public: true,
+          viewerDebated: true,
+          shareable: false,
+        });
+        return [
+          page.includes('on Watch. It comes'),
+          page.includes('Share publicly needs a media release'),
+        ];
+      })(),
+      expected: [false, false],
+    });
+    assert({
       given: 'a Recording already shared',
       should: 'say it is public on Watch',
       actual: shared({

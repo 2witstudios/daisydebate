@@ -204,7 +204,8 @@ function YouthSharing({
   share: (() => Promise<void>) | undefined;
   notice: string | null;
 }) {
-  if (youth.public && publishing)
+  // Public only while it can still be watched: a shared Room made unlisted is not.
+  if (youth.public && publishing && youth.shareable)
     return (
       <section aria-label="Sharing" className={card}>
         <span className={label}>Share and visibility</span>
@@ -230,33 +231,35 @@ function YouthSharing({
           ? 'the video is for the judges and moderators until it is deleted; the debaters and their coaches or parents keep the transcript and result.'
           : 'visible to the debaters, judges and their coaches or parents.'}
       </p>
-      <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-3">
-        <p className="text-sm font-strong text-ink">
-          Share publicly needs a media release from every youth debater
-        </p>
-        <ul className="flex flex-col gap-2 text-sm text-ink">
-          {youth.debaters.map((debater) => (
-            <li key={debater.actorId} className="flex items-center gap-2">
-              {debater.released ? (
-                <Icon name="check" size={16} className="text-accent" />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="size-3 shrink-0 rounded-full border-2 border-dashed border-border-strong"
-                />
-              )}
-              {`${debater.name} · ${debater.released ? 'release on record' : 'no media release yet'}`}
+      {youth.shareable ? (
+        <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-3">
+          <p className="text-sm font-strong text-ink">
+            Share publicly needs a media release from every youth debater
+          </p>
+          <ul className="flex flex-col gap-2 text-sm text-ink">
+            {youth.debaters.map((debater) => (
+              <li key={debater.actorId} className="flex items-center gap-2">
+                {debater.released ? (
+                  <Icon name="check" size={16} className="text-accent" />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="size-3 shrink-0 rounded-full border-2 border-dashed border-border-strong"
+                  />
+                )}
+                {`${debater.name} · ${debater.released ? 'release on record' : 'no media release yet'}`}
+              </li>
+            ))}
+            <li className="flex items-center gap-2 text-ink-muted">
+              <span
+                aria-hidden="true"
+                className="size-3 shrink-0 rounded-full border-2 border-dashed border-border"
+              />
+              Judges · not needed
             </li>
-          ))}
-          <li className="flex items-center gap-2 text-ink-muted">
-            <span
-              aria-hidden="true"
-              className="size-3 shrink-0 rounded-full border-2 border-dashed border-border"
-            />
-            Judges · not needed
-          </li>
-        </ul>
-      </div>
+          </ul>
+        </div>
+      ) : null}
       {reason === null ? null : (
         <p id="share-publicly-reason" className="text-sm text-ink">
           {reason}

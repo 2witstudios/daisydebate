@@ -408,6 +408,34 @@ describe('a Youth Round (PYL-5)', () => {
     });
   });
 
+  test('an operator’s stop still withholds the video, shared or not (ADR 0157)', () => {
+    const withheld: BroadcastRelease = { ...passed, stop: 'media_withheld' };
+    const shared: RecordingRound = {
+      ...youthRound,
+      youth: { ...youthRound.youth!, public: true },
+    };
+    assert({
+      given:
+        'a Youth Round whose Broadcast an operator withheld, read by a debater, a coach, and a stranger once shared',
+      should:
+        'keep the video for its seats only, and the record for its audience',
+      actual: {
+        debater: roundEvidencePermissions(youthRound, withheld, account('aff')),
+        coach: roundEvidencePermissions(youthRound, withheld, account('coach')),
+        strangerShared: roundEvidencePermissions(
+          shared,
+          withheld,
+          account('stranger'),
+        ),
+      },
+      expected: {
+        debater: everything,
+        coach: { ...everything, media: false },
+        strangerShared: { ...everything, media: false },
+      },
+    });
+  });
+
   test('a presented link admits nobody', () => {
     const hash = audienceLinkHash('token');
     assert({

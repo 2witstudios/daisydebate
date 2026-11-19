@@ -35,11 +35,13 @@ const followersOf = (roundId: string, kind: NotificationKind) =>
         where p.round_id=${roundId} and a.user_id=u.id)
     order by u.id,f.debater_actor_id`;
 
-const seatedAccounts = (roundId: string) =>
+/** A Youth Round's Recording reaches only its current seats (ADR 0157). */
+const seatedAccounts = (roundId: string, youth: boolean) =>
   sql`select distinct u.id as user_id,null::text as actor_id
     from round_participants p join actors a on a.id=p.actor_id
     join users u on u.id=a.user_id and u.deleted_at is null
-    where p.round_id=${roundId} and public.daisy_round_participant_is_current(p.id)
+    where p.round_id=${roundId}
+      ${youth ? sql`and public.daisy_round_participant_is_current(p.id)` : sql``}
       and ${wants('recording_ready', 'in_app', sql`u.id`)}`;
 
 type Recipient = {
@@ -168,7 +170,7 @@ export const watchNotificationOperations = ({
           if (!(await claimFanout(tx, kind, event.round_id))) return 0;
           const seated = await rowsOf<Recipient>(
             tx,
-            seatedAccounts(event.round_id),
+            seatedAccounts(event.round_id, event.youth),
           );
           // A Youth Round is private to its people (ADR 0150): no follower hears of it.
           const followers =

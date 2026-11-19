@@ -130,13 +130,23 @@ const EVERYTHING: RoundEvidencePermissions = {
  */
 const youthPermissions = (
   round: RecordingRound & { readonly youth: YouthRound },
+  release: BroadcastRelease,
   viewer: RecordingViewer,
-): RoundEvidencePermissions =>
-  round.completedAtMs !== null &&
-  ((round.youth.public && round.visibility === 'public') ||
-    recordingAudience(round, viewer).kind === 'allowed')
-    ? EVERYTHING
-    : NOTHING;
+): RoundEvidencePermissions => {
+  if (
+    round.completedAtMs === null ||
+    !(
+      (round.youth.public && round.visibility === 'public') ||
+      recordingAudience(round, viewer).kind === 'allowed'
+    )
+  )
+    return NOTHING;
+  // An operator's stop withholds the video from all but the Round's own seats,
+  // shared or not; the youth sweep's own stop never reads as one (ADR 0157).
+  return release.stop === 'media_withheld' && !seated(round, viewer)
+    ? { ...EVERYTHING, media: false }
+    : EVERYTHING;
+};
 
 /** An officials' Recording's video: only for those who `watch`, until its deletion date. */
 const officialsMedia = (
@@ -172,6 +182,7 @@ export const roundEvidencePermissions = (
   if (round.youth !== null) {
     const permissions = youthPermissions(
       { ...round, youth: round.youth },
+      release,
       viewer,
     );
     return round.recordingPolicy === 'officials'
