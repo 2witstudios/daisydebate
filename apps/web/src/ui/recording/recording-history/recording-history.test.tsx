@@ -324,6 +324,17 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       expected: [false, false],
     });
     assert({
+      given: 'the same shared Round, read by its debater',
+      should: 'say it is shared but hidden while the Round is not public',
+      actual: shared({
+        releasesComplete: true,
+        public: true,
+        viewerDebated: true,
+        shareable: false,
+      }).includes('Shared, but hidden:'),
+      expected: true,
+    });
+    assert({
       given: 'a Recording already shared',
       should: 'say it is public on Watch',
       actual: shared({

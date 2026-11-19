@@ -98,7 +98,7 @@ test('ending Youth Broadcasts leaves every other Broadcast running (ADR 0150)', 
   });
 });
 
-test('every Youth Broadcast, running or complete, is stopped and held back (ADR 0150)', async () => {
+test('every Youth Broadcast, running or complete, is stopped without being withheld (ADR 0150, 0157)', async () => {
   const client = new SQL(databaseUrl, { max: 4 });
   try {
     await withFixture(databaseUrl, async (f) => {

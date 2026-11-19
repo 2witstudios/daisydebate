@@ -806,7 +806,7 @@ export const endRoundFeed = async (
 export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
   const at = now.toISOString();
   const youth = youthRoundSql(sql`broadcasts.round_id`);
-  const withheld = (await tx.execute(sql`update broadcasts
+  const stopped = (await tx.execute(sql`update broadcasts
     set stopped_at=${at}::timestamptz,
       stop_reason=coalesce(stop_reason, 'youth_round_private')
     where ${youth} and stopped_at is null
@@ -815,7 +815,7 @@ export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
     set feed_withdrawal_requested_at=${at}::timestamptz
     where ${youth} and completed_at is not null
       and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
-  return withheld.map((row) => row.id);
+  return stopped.map((row) => row.id);
 };
 
 /**

@@ -58,7 +58,7 @@ timeline, downloaded and shared.
    flag is an operator's alone, an operator's stop after the sweep still sets
    it, and a moderation stop the sweep meets is not mistaken for one
    (`operatorWithheldSql`). No stored row needs clearing: before this the
-   sweep matched only ranked Youth Rounds, and staging holds none. This keeps
+   sweep matched only ranked Youth Rounds, and staging holds none; a ranked Youth Broadcast the earlier sweep had marked would now read as an operator's stop, which only keeps its video from all but its seats. This keeps
    ADR 0150's trade-off: a casual Youth Round live across the deploy whose Recording
    followed that Broadcast is recorded only up to the stop. No follower is
    told such a Round is live (the live fanout and its standing ask

@@ -204,8 +204,23 @@ function YouthSharing({
   share: (() => Promise<void>) | undefined;
   notice: string | null;
 }) {
-  // Public only while it can still be watched: a shared Room made unlisted is not.
-  if (youth.public && publishing && youth.shareable)
+  // Shared, but its Room is no longer public: hidden until it is again.
+  if (youth.public && publishing && !youth.shareable)
+    return (
+      <section aria-label="Sharing" className={card}>
+        <span className={label}>Share and visibility</span>
+        <div>
+          <Badge tone="gold">Shared, hidden</Badge>
+        </div>
+        <p className="text-sm text-ink">
+          <strong className="font-strong">Shared, but hidden:</strong> a debater
+          shared it, and it is off Watch while this Round is not public. It
+          shows again if the Round is public once more, unless a release is
+          withdrawn.
+        </p>
+      </section>
+    );
+  if (youth.public && publishing)
     return (
       <section aria-label="Sharing" className={card}>
         <span className={label}>Share and visibility</span>
