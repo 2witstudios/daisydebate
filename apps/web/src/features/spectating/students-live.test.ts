@@ -20,7 +20,7 @@ setupRitewayBun();
 const watching = (round: RoundView): RoundView => ({
   ...round,
   viewerIsHost: false,
-  viewerIsUndelayedObserver: true,
+  viewerWatchesAs: 'linked_adult',
 });
 const nowMs = origin + startOf(0) + 60_000;
 
@@ -48,7 +48,7 @@ describe('studentLiveCard', () => {
       should: 'offer no card',
       actual: [
         studentLiveCard(
-          { ...watching(ran(1)), viewerIsHost: true },
+          { ...watching(ran(1)), viewerIsHost: true, viewerWatchesAs: 'host' },
           't',
           nowMs,
         ),

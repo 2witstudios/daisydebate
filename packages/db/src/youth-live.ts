@@ -19,7 +19,7 @@ export type { YouthPeopleCache } from './youth-people-cache';
 /** The reads a Youth Round's people and its division come from. */
 export type YouthLiveReads = {
   readonly readRoundYouth: (roundId: string) => Promise<boolean | null>;
-  readonly readYouthRecordingPeople: (
+  readonly readYouthRoundPeople: (
     roundId: string,
   ) => ReturnType<typeof readYouthRoundPeople>;
 };
@@ -32,7 +32,7 @@ export const youthPeopleFor = (reads: YouthLiveReads): YouthPeopleCache => {
   const known = peopleOf.get(reads);
   if (known) return known;
   const made = youthPeopleCache({
-    read: reads.readYouthRecordingPeople,
+    read: reads.readYouthRoundPeople,
     nowMs: () => performance.now(),
   });
   peopleOf.set(reads, made);

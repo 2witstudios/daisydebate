@@ -19,10 +19,7 @@ export const noLinkedAdults: LinkedAdultsOf = Object.assign(async () => null, {
  * watcher within that window.
  */
 export const liveLinkedAdults = (app: {
-  readonly database: Pick<
-    Database,
-    'readRoundYouth' | 'readYouthRecordingPeople'
-  >;
+  readonly database: Pick<Database, 'readRoundYouth' | 'readYouthRoundPeople'>;
 }): LinkedAdultsOf => linkedAdultsFor(app.database);
 
 /**

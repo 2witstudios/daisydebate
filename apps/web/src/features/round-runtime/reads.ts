@@ -3,7 +3,7 @@ import {
   authorize,
   type AccountAuthorizationFact,
 } from '@daisy/auth/authorization';
-import type { YouthLiveFact } from '@daisy/auth/live-audience';
+import { liveAudience, type YouthLiveFact } from '@daisy/auth/live-audience';
 import type { Database, RoundRoomAuthority } from '@daisy/db';
 import {
   withLinkedAdults,
@@ -84,6 +84,31 @@ export const canObserveUndelayed = (
 ) =>
   canRead(caller, round, account, authority, 'round.observe.undelayed', youth);
 
+/**
+ * Why a caller the capability admits watches: as a linked adult when the one
+ * rule says so (ADR 0155); otherwise as a host, which also covers an event's
+ * officials, whose event authority holds the capability (ADR 0099).
+ */
+const watchingAs = (
+  caller: { readonly actorId: string },
+  round: LaunchedRound,
+  youth: YouthLiveFact | null,
+): 'host' | 'linked_adult' => {
+  const audience = liveAudience(
+    {
+      createdByActorId: round.hostActorId,
+      status: round.status,
+      participants: round.participants,
+      youth,
+    },
+    { kind: 'account', actorId: caller.actorId },
+  );
+  return audience.kind === 'undelayed_no_media' &&
+    audience.as === 'linked_adult'
+    ? 'linked_adult'
+    : 'host';
+};
+
 /** The Round as this caller may see it: every read of it, one composition. */
 export const roundViewReader =
   (
@@ -96,7 +121,7 @@ export const roundViewReader =
     caller: { readonly userId: string; readonly actorId: string },
     roundId: string,
   ) => {
-    let viewerIsUndelayedObserver = false;
+    let viewerWatchesAs: 'host' | 'linked_adult' | null = null;
     const view = await withLinkedAdults(
       caller,
       roundId,
@@ -106,17 +131,19 @@ export const roundViewReader =
           roundId,
           caller,
           (round, account, authority) => {
-            viewerIsUndelayedObserver = canObserveUndelayed(
+            viewerWatchesAs = canObserveUndelayed(
               caller,
               round,
               account,
               authority,
               youth,
-            );
+            )
+              ? watchingAs(caller, round, youth)
+              : null;
             // A linked adult reads the Round only as its watcher (ADR 0155).
             return (
               canReadRound(caller, round, account, authority) ||
-              (youth !== null && viewerIsUndelayedObserver)
+              viewerWatchesAs === 'linked_adult'
             );
           },
           readRoundOpening,
@@ -127,7 +154,7 @@ export const roundViewReader =
     );
     return {
       ...view,
-      viewerIsUndelayedObserver,
+      ...(viewerWatchesAs ? { viewerWatchesAs } : {}),
       conversationHeld: await store.broadcasts.conversationHeld(roundId),
     };
   };

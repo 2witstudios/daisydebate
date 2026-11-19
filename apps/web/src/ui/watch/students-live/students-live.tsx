@@ -27,10 +27,11 @@ export function StudentsLive({ cards }: StudentsLiveProps) {
       </h2>
       <ul className="grid grid-cols-3 gap-4 max-rail:grid-cols-2 max-compact:grid-cols-1">
         {cards.map((card) => (
-          <li key={card.roundId} className="contents">
+          // A real list item, so assistive tech keeps the list and its count.
+          <li key={card.roundId} className="flex">
             <article
               className={cn(
-                'flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-1',
+                'flex flex-1 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-1',
                 modeBorderClass(true),
               )}
             >

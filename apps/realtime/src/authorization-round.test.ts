@@ -60,7 +60,7 @@ for (const mode of [
         }),
         // Only the linked-adult Round is a Youth one; its debater's coach asks.
         readRoundYouth: async () => mode === 'linked-adult',
-        readYouthRecordingPeople: async () => ({
+        readYouthRoundPeople: async () => ({
           debaters: [
             {
               actorId: 'd'.repeat(24),

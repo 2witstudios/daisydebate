@@ -9,15 +9,17 @@ import { isLiveRound } from '../round-runtime/round-reading';
  */
 export type SpectatorKind = 'host' | 'linked-adult';
 
-/**
- * The kind of spectator a viewer watches as; null without the capability, or
- * once the Round is over. The Round read grants it only to those two, so an
- * observer who does not host is a linked adult.
- */
+/** The kind of spectator a viewer watches as, from the Round read's own answer; null without one, or once the Round is over. */
 export function spectatorKindOf(view: RoundView): SpectatorKind | null {
-  if (!isLiveRound(view) || view.viewerIsUndelayedObserver !== true)
-    return null;
-  return view.viewerIsHost ? 'host' : 'linked-adult';
+  if (!isLiveRound(view)) return null;
+  switch (view.viewerWatchesAs) {
+    case 'host':
+      return 'host';
+    case 'linked_adult':
+      return 'linked-adult';
+    case undefined:
+      return null;
+  }
 }
 
 /** Which live view a member without a debater's seat gets, with what it needs. */

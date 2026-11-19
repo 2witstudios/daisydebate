@@ -4,8 +4,6 @@ import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
 import { readYouthRoundPeople } from './youth-recording-people';
-import { readRoundYouth } from './round-youth-read';
-import { readStudentLiveRounds } from './youth-students-live';
 import type { SpectatorClock } from './spectator-release-sql';
 import { namedSeats } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
@@ -130,13 +128,6 @@ export const recordingRoundReadOperations = ({
    */
   readYouthRecordingPeople: (roundId: string) =>
     readYouthRoundPeople(database, roundId),
-
-  /** Whether a Round is a Youth one, for its live audience (ADR 0155). */
-  readRoundYouth: (roundId: string) => readRoundYouth(database, roundId),
-
-  /** Candidate live Youth Rounds an adult's students debate in (ADR 0155). */
-  readStudentLiveRounds: (adultUserId: string) =>
-    readStudentLiveRounds(database, adultUserId),
 
   readRecordingBroadcastRelease: (roundId: string, clock: SpectatorClock) =>
     readBroadcastRelease(database, roundId, clock),

@@ -77,8 +77,8 @@ test("roundViewReader() and a Youth Round's linked adult (ADR 0155)", async () =
     given: 'a caller the Round seats nowhere, linked to one of its debaters',
     should:
       'read the Round once more with its linked adults, as an undelayed observer',
-    actual: [watched.id, watched.viewerIsUndelayedObserver, asked],
-    expected: [round.id, true, [round.id]],
+    actual: [watched.id, watched.viewerWatchesAs, asked],
+    expected: [round.id, 'linked_adult', [round.id]],
   });
   assert({
     given: 'a caller linked to no debater of the Round',
@@ -128,8 +128,8 @@ test('a watcher the cache already names reads the Round once (ADR 0155)', async 
     given: 'a linked adult whose Round the people cache already holds',
     should:
       'read the Round once, with its linked adults, and never be refused first',
-    actual: [watched.viewerIsUndelayedObserver, reads],
-    expected: [true, 1],
+    actual: [watched.viewerWatchesAs, reads],
+    expected: ['linked_adult', 1],
   });
 });
 

@@ -30,8 +30,6 @@ export type {
   PreparedReleaseMail,
 } from './media-release-mail';
 export type { PublishAnswer } from './youth-round-publication';
-export type { YouthRoundPeople } from './youth-people-cache';
-export type { StudentLiveRound } from './youth-students-live';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
@@ -177,6 +175,7 @@ import { spectatorFactLogOperations } from './spectator-fact-log';
 import { createRecordingCaptureStore } from './recording-capture-store';
 import { recordingOperations } from './recording-operations';
 import { recordingRoundReadOperations } from './recording-round-reads';
+import { youthLiveReadOperations } from './youth-live-reads';
 import { roundAudienceLinkOperations } from './round-audience-link';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
@@ -556,6 +555,7 @@ export function createDatabase({
     ...notificationOperations({ database: social, eventSink }),
     ...messagingUnreadEmailOperations({ database: social, eventSink }),
     ...recordingRoundReadOperations({ database: browse }),
+    ...youthLiveReadOperations({ database: browse }),
     ...roundAudienceLinkOperations({ viewers: audience, host: database }),
     ...recordingArchiveReadOperations({ database: browse }),
     ...spectatorFactLogOperations({ database: control }),

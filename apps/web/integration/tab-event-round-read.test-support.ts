@@ -86,9 +86,9 @@ export const proveEventRoundRead = async (input: {
       'let the now-current official reconnect to the same ordinary Round endpoint',
     actual: [
       (await read(stranger, roundId)).id,
-      (await read(stranger, roundId)).viewerIsUndelayedObserver,
+      (await read(stranger, roundId)).viewerWatchesAs,
     ],
-    expected: [roundId, true],
+    expected: [roundId, 'host'],
   });
   const [grant] =
     await owner`select id from grants where lobby_id=${lobbyId} and user_id=${stranger.userId} and revoked_at is null`;

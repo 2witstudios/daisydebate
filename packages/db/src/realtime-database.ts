@@ -1,6 +1,5 @@
 import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-observation';
-import { readRoundYouth } from './round-youth-read';
-import { readYouthRoundPeople } from './youth-recording-people';
+import { youthLiveReadOperations } from './youth-live-reads';
 import { createRoomCommunityChannelCohortAuthority } from './messaging/room-community-observation';
 import type { SQL } from 'bun';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -35,21 +34,23 @@ import {
  * lane: subscribes (`admission`) and renewals (`renewal`) are composed
  * separately, so an admission wave cannot consume renewal capacity.
  */
-const authorityReads = (database: BunSQLDatabase) => ({
-  roundFloorChannelCohortAuthority:
-    createRoundFloorChannelCohortAuthority(database),
-  /** A live Youth Round's linked adults (ADR 0155): whether it is one, then its people. */
-  readRoundYouth: (roundId: string) => readRoundYouth(database, roundId),
-  readYouthRecordingPeople: (roundId: string) =>
-    readYouthRoundPeople(database, roundId),
-  roomCommunityChannelCohortAuthority:
-    createRoomCommunityChannelCohortAuthority(database),
-  ...authorizationSessionOperations({ database }),
-  ...roomAuthorizationRead({ database }),
-  messagingChannelAuthority: createMessagingChannelAuthority(database),
-  messagingChannelCohortAuthority:
-    createMessagingChannelCohortAuthority(database),
-});
+const authorityReads = (database: BunSQLDatabase) => {
+  const youthLive = youthLiveReadOperations({ database });
+  return {
+    roundFloorChannelCohortAuthority:
+      createRoundFloorChannelCohortAuthority(database),
+    /** A live Youth Round's linked adults (ADR 0155): whether it is one, then its people. */
+    readRoundYouth: youthLive.readRoundYouth,
+    readYouthRoundPeople: youthLive.readYouthRoundPeople,
+    roomCommunityChannelCohortAuthority:
+      createRoomCommunityChannelCohortAuthority(database),
+    ...authorizationSessionOperations({ database }),
+    ...roomAuthorizationRead({ database }),
+    messagingChannelAuthority: createMessagingChannelAuthority(database),
+    messagingChannelCohortAuthority:
+      createMessagingChannelCohortAuthority(database),
+  };
+};
 export type RealtimeAuthorityReads = ReturnType<typeof authorityReads>;
 
 /**

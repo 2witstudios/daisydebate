@@ -34,8 +34,8 @@ const evaluate = (reads: Partial<RealtimeAuthorityReads>, asked: string[]) =>
         )(...args);
       },
       readRoundYouth: reads.readRoundYouth ?? (async () => false),
-      readYouthRecordingPeople:
-        reads.readYouthRecordingPeople ?? (async () => ({ debaters: [] })),
+      readYouthRoundPeople:
+        reads.readYouthRoundPeople ?? (async () => ({ debaters: [] })),
     } as unknown as RealtimeAuthorityReads,
     id: 'c'.repeat(24),
     principals,
@@ -178,7 +178,7 @@ test("a Youth Round's linked adult is asked again with the Round's linked adults
         return input.youth ? [allowed] : refusedFrame(input, work);
       }) as unknown as RealtimeAuthorityReads['roundFloorChannelCohortAuthority'],
       readRoundYouth: async () => true,
-      readYouthRecordingPeople: async () => ({
+      readYouthRoundPeople: async () => ({
         debaters: [
           {
             actorId: 'd'.repeat(24),

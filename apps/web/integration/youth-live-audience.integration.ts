@@ -61,7 +61,7 @@ const liveRound = async (f: Fixture, debaterAge: string) => {
 const watches = async (f: Fixture, member: Member, roundId: string) => {
   const read = await f
     .roundView(callerOf(member), roundId)
-    .then((view) => view.viewerIsUndelayedObserver ?? false)
+    .then((view) => view.viewerWatchesAs === 'linked_adult')
     .catch((error: { code?: string }) => error.code ?? 'error');
   return read;
 };
@@ -220,6 +220,36 @@ test('a live Youth Round is watched by its debaters’ linked adults and nobody 
             coachReadOnly: true,
             coachPost: 'AUTHORIZATION',
             stranger: 'NOT_FOUND',
+          },
+        });
+
+        // A parent with an active guardian link to the other youth debater.
+        const parent = await f.member();
+        await setAge(f, parent, '42 years');
+        made.users.push(parent.userId);
+        await f.sql`insert into guardian_links(id,guardian_user_id,minor_user_id,kind,status)
+          values(${createId()},${parent.userId},${f.guest.userId},'parent','active')`;
+        const parentFloor = await floorOf(f, parent, roundId);
+        assert({
+          given:
+            'a parent linked to the guest debater by an active guardian link',
+          should:
+            'watch undelayed, read the transcript, find the Round under their students, and read the floor read-only',
+          actual: {
+            watches: await watches(f, parent, roundId),
+            transcript: await transcript(f, parent, roundId),
+            candidates: (
+              await f.store.readStudentLiveRounds(parent.userId)
+            ).map((each) => each.roundId),
+            floorReadOnly:
+              (await parentFloor.discover({ roundId, ...callerOf(parent) }))
+                ?.readOnly ?? null,
+          },
+          expected: {
+            watches: true,
+            transcript: 'read',
+            candidates: [roundId],
+            floorReadOnly: true,
           },
         });
 

@@ -13,7 +13,7 @@ setupRitewayBun();
 const hosted = (round: RoundView): RoundView => ({
   ...round,
   viewerIsHost: true,
-  viewerIsUndelayedObserver: true,
+  viewerWatchesAs: 'host',
 });
 
 describe('spectatorKindOf', () => {
@@ -27,10 +27,7 @@ describe('spectatorKindOf', () => {
         spectatorKindOf(hosted(view)),
         spectatorKindOf(hosted(asCompleted(view))),
         spectatorKindOf(hosted(asAbandoned(view))),
-        spectatorKindOf({
-          ...hosted(ran(1)),
-          viewerIsUndelayedObserver: false,
-        }),
+        spectatorKindOf({ ...ran(1), viewerIsHost: true }),
         spectatorKindOf(ran(1)),
       ],
       expected: ['host', 'host', null, null, null, null],
@@ -43,11 +40,11 @@ describe('spectatorKindOf, a linked adult', () => {
     const linked = (round: RoundView): RoundView => ({
       ...round,
       viewerIsHost: false,
-      viewerIsUndelayedObserver: true,
+      viewerWatchesAs: 'linked_adult',
     });
     assert({
       given:
-        'an undelayed observer who does not host, on a live Round and on one that ended',
+        "the Round read's linked-adult answer, on a live Round and on one that ended",
       should: 'watch as a linked adult while it is live, and not after',
       actual: [
         spectatorKindOf(linked(ran(1))),

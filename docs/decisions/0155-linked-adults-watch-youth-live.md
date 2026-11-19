@@ -56,8 +56,14 @@ timing, not audience. Owner decision 86 takes it, without media.
    realtime permits take the Round from the cohort's own facts. Watch's
    student list reads at most four candidate Rounds at once, and its failure
    leaves the section out instead of failing the hub.
-4. **What they see.** The seatless host's `LiveSpectatorRoom`, labelled
-   "Watching": the clock, the speech order, the transcript and the floor chat,
+   The live audience's reads have their own module,
+   `youthLiveReadOperations` (`readRoundYouth`, `readYouthRoundPeople`,
+   `readStudentLiveRounds`); the people read is ADR 0150's, taken as a named
+   input.
+4. **What they see.** The Round read says why a viewer watches
+   (`viewerWatchesAs`: `host`, which also covers an event's officials, or
+   `linked_adult`), from the rule's own answer. A linked adult gets the
+   seatless host's `LiveSpectatorRoom`, labelled "Watching": the clock, the speech order, the transcript and the floor chat,
    undelayed. No media: no Broadcast exists for a Youth Round and the room
    asks for no media session. The floor fact names them `linked_adult`
    (`withLinkedAdultAudience`, only when the Round seats them nowhere); its

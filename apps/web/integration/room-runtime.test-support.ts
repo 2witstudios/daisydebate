@@ -135,7 +135,7 @@ async function fixture(
   // Uncached: each read sees the links as they stand (ADR 0155).
   const linkedAdults = youthRoundLinkedAdults({
     readRoundYouth: store.readRoundYouth,
-    people: store.readYouthRecordingPeople,
+    people: store.readYouthRoundPeople,
   });
   const operations = createRoomRuntimeOperations({
     linkedAdults,
