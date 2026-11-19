@@ -12,11 +12,41 @@ import {
   integrationSuites,
   redisLeakMessages,
   redisSweepMessage,
+  suiteArguments,
   sweepMessage,
   withSelectedSuites,
 } from './test-integration';
 
 setupRitewayBun();
+
+describe('integration test deadline', () => {
+  test('every suite gets an explicit deadline unless the caller names one', () => {
+    assert({
+      given: 'suites with no deadline argument',
+      should: "run in series under the 30-second deadline, not Bun's 5 seconds",
+      actual: suiteArguments(['integration/a.integration.ts'], ['--bail']),
+      expected: [
+        'test',
+        '--parallel=1',
+        '--timeout=30000',
+        './integration/a.integration.ts',
+        '--bail',
+      ],
+    });
+    assert({
+      given: 'a caller that passes its own deadline, joined or separate',
+      should: "keep the caller's deadline alone",
+      actual: [
+        suiteArguments([], ['--timeout=90000']),
+        suiteArguments([], ['--timeout', '90000']),
+      ],
+      expected: [
+        ['test', '--parallel=1', '--timeout=90000'],
+        ['test', '--parallel=1', '--timeout', '90000'],
+      ],
+    });
+  });
+});
 
 describe('integration suite discovery', () => {
   test('finds suites by folder and suffix, in a stable order', () => {

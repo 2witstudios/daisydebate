@@ -152,6 +152,29 @@ export function withSelectedSuites(
 }
 
 /** The line for a sweep that dropped databases of dead runs, else nothing. */
+/**
+ * Bun's default test deadline is 5 s. A suite that talks to PostgreSQL and
+ * Redis crosses it on a loaded runner, and a different test failed the nightly
+ * each night. A caller's own `--timeout` wins.
+ */
+export const INTEGRATION_TEST_TIMEOUT_MS = 30_000;
+export const suiteArguments = (
+  files: readonly string[],
+  rest: readonly string[],
+): string[] => [
+  'test',
+  // These suites share one run database. Files that assert on the
+  // whole outbox or exercise global maintenance must not race other
+  // files writing to that same database. In-suite concurrency tests
+  // still exercise their intended transaction races.
+  '--parallel=1',
+  ...(rest.some((argument) => /^--timeout(=|$)/.test(argument))
+    ? []
+    : [`--timeout=${INTEGRATION_TEST_TIMEOUT_MS}`]),
+  ...files.map((file) => `./${file}`),
+  ...rest,
+];
+
 export const sweepMessage = (dropped: readonly string[]): string | undefined =>
   dropped.length === 0
     ? undefined
@@ -242,27 +265,14 @@ if (import.meta.main) {
     },
     work: async (run) => {
       const before = await rowCounts(run.url);
-      const suites = Bun.spawn(
-        [
-          'bun',
-          'test',
-          // These suites share one run database. Files that assert on the
-          // whole outbox or exercise global maintenance must not race other
-          // files writing to that same database. In-suite concurrency tests
-          // still exercise their intended transaction races.
-          '--parallel=1',
-          ...files.map((file) => `./${file}`),
-          ...rest,
-        ],
-        {
-          stdio: ['inherit', 'inherit', 'inherit'],
-          env: {
-            ...process.env,
-            TEST_DATABASE_URL: run.url,
-            TEST_RUN_DATABASE: run.name,
-          },
+      const suites = Bun.spawn(['bun', ...suiteArguments(files, rest)], {
+        stdio: ['inherit', 'inherit', 'inherit'],
+        env: {
+          ...process.env,
+          TEST_DATABASE_URL: run.url,
+          TEST_RUN_DATABASE: run.name,
         },
-      );
+      });
       const verdict = await superviseRun({
         exited: suites.exited,
         kill: () => suites.kill('SIGKILL'),

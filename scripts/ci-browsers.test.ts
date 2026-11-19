@@ -281,7 +281,7 @@ test('a retry waits for the killed attempt to release the package lock', async (
     }
   };
   assert({
-    given: 'a retry while the killed attempt\'s dpkg lives for two more polls',
+    given: "a retry while the killed attempt's dpkg lives for two more polls",
     should: 'wait for it to exit and only then repair the package database',
     actual: run(2),
     expected: { exit: 0, calls: ['sleep', 'sleep', 'dpkg --configure -a'] },

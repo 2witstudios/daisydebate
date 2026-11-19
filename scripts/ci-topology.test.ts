@@ -46,8 +46,9 @@ describe('CI quick prerequisite topology', () => {
         prerequisites: Array(3).fill('quick-check'),
         reusable: './.github/workflows/quick-check.yml',
         browserQuickCheck: false,
-        // quick-check, audit, migrations, reports; e2e, admin, three native cohorts.
-        initial: 9,
+        // quick-check, audit, migrations, reports; e2e, admin, seven native
+        // cohorts (five Launch shards, realtime, messaging).
+        initial: 13,
       },
     });
     assert({

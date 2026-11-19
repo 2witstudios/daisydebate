@@ -1,9 +1,10 @@
 name: Browser E2E
 
 on:
-  # Not a PR check (ADR 0098): the suite runs on main after merge. A red run
-  # gets an owner at once, who fixes forward or reverts. A PR that wants the
-  # proof first dispatches this workflow on its branch.
+  # A PR check again (ADR 0159, which ends ADR 0098): staging has real
+  # testers, and the Launch suite now runs as shards inside the PR budget.
+  # A newer push to the same PR replaces the run in progress.
+  pull_request:
   push:
     branches: [main]
   # The nightly main run: every Playwright project (engines, mobile layouts
@@ -19,8 +20,13 @@ on:
 permissions:
   contents: read
 
-# No concurrency group: every run finishes independently, so a later merge
-# cannot erase the previous commit's proof.
+# Main, nightly and dispatched runs each finish independently, so a later
+# merge cannot erase the previous commit's proof. Only a PR's superseded head
+# is cancelled: its proof is of no use once the head has moved.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('browser-pr-{0}', github.event.pull_request.number) || format('browser-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # No quick check here: ci.yml runs it once per PR or main push, and a lint failure there
 # never cascades into browser reds (ADR 0083).
 jobs:
@@ -31,7 +37,9 @@ jobs:
     # qualification instead of the single run; three full suites
     # reserve aggregate setup/reporting time too (ISSUE-1429). Individual test
     # deadlines, retries and the complete three-pass inventory stay unchanged.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 75 || 20 }}
+    # The nightly run takes every Playwright project in turn; under the
+    # 20-minute bound it was cancelled on every night it ran.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 75 || github.event_name == 'schedule' && 120 || 25 }}
     # The read-only fixture admission CLI derives the canonical main slot
     # from this checkout. Dev/test URLs are identity metadata only; browser
     # connections use the separately provisioned DML-only E2E login below.
@@ -133,7 +141,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium-firefox-webkit' }}
       # The newest .deb set for this version: Ubuntu's updates land in a new
       # entry (ci-browsers.sh reports debs=changed), never in a stale one.
       - name: Restore the browsers' OS packages
@@ -141,8 +149,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/daisy-apt-archives
-          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}_${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}_
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium-firefox-webkit' }}_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium-firefox-webkit' }}_
 
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
@@ -153,7 +161,7 @@ jobs:
         id: browsers
         timeout-minutes: 8
         env:
-          BROWSERS: ${{ github.event_name == 'push' && 'chromium' || 'chromium firefox webkit' }}
+          BROWSERS: ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium firefox webkit' }}
         # Word splitting is the point: one argument per browser.
         run: sh scripts/ci-browsers.sh $BROWSERS
 
@@ -172,10 +180,10 @@ jobs:
           path: ~/.cache/daisy-apt-archives
           key: ${{ steps.deb-cache.outputs.cache-primary-key }}
 
-      # A main push runs Chromium alone; the nightly run runs every project.
+      # A PR and a main push run Chromium alone; the nightly run runs every project.
       - name: Run browser tests
         if: ${{ github.event_name != 'workflow_dispatch' }}
-        run: bun run --cwd apps/web test:e2e ${{ github.event_name == 'push' && '--project=chromium' || '' }}
+        run: bun run --cwd apps/web test:e2e ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && '--project=chromium' || '' }}
         env:
           CI: true
           # Explicit slot values: the config never defaults to a database.
@@ -343,16 +351,22 @@ jobs:
   room-launch:
     name: Isolated native browser (${{ matrix.cohort }})
     runs-on: ubuntu-24.04
-    # Launch alone measured 57.9min before setup/reporting, then passed 60
-    # with every case passing once bot voice turns and staged judging landed.
-    # Each full cohort owns its worker/slot and retains sanitized evidence
-    # before another cohort can exhaust its budget. No cases or execution
-    # counts are reduced.
-    timeout-minutes: 90
+    # Launch as one job measured 51 to 71 minutes, 59 of them its 155 tests in
+    # series (run 44458727755). It runs as five shards, each on its own
+    # machine, slot and stack, so no case or execution count is reduced and
+    # every shard retains its own sanitized evidence.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        cohort: [launch, realtime, messaging]
+        cohort:
+          - launch-1
+          - launch-2
+          - launch-3
+          - launch-4
+          - launch-5
+          - realtime
+          - messaging
     env:
       CLAMD_TEST_PORT: '3310'
     defaults:
@@ -501,16 +515,17 @@ jobs:
         with:
           path: .pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image
           key: ${{ steps.launch-image-cache.outputs.cache-primary-key }}
+      # The cohort's number is its shard: launch-2 runs --shard=2/5.
       - name: Run real isolated Launch browser suite
         id: launch
-        if: ${{ matrix.cohort == 'launch' }}
-        run: bun test:e2e:room-launch
+        if: ${{ startsWith(matrix.cohort, 'launch-') }}
+        run: bun test:e2e:room-launch "--shard=${LAUNCH_COHORT#launch-}/5"
         env:
           CI: true
           ROOM_LAUNCH_NODE: node
-          # The default 45, then 60, each cut off a suite whose every case
-          # had passed. The job's own timeout stays above this one.
-          DAISY_HEAVY_TIMEOUT_MINUTES: '75'
+          LAUNCH_COHORT: ${{ matrix.cohort }}
+          # Above a shard's measured run and below the job's own timeout.
+          DAISY_HEAVY_TIMEOUT_MINUTES: '35'
       - name: Run authenticated generic realtime browser proof
         id: realtime_room
         if: ${{ matrix.cohort == 'realtime' && !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
@@ -532,7 +547,7 @@ jobs:
         if: ${{ always() && !cancelled() && matrix.cohort == 'messaging' && (steps.realtime_messaging.outcome == 'success' || steps.realtime_messaging.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/messaging-realtime-results.json
       - name: Report actual discovered and executed outcomes
-        if: ${{ always() && !cancelled() && matrix.cohort == 'launch' && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && startsWith(matrix.cohort, 'launch-') && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
