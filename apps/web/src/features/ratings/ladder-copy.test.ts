@@ -26,9 +26,7 @@ const sources = (dir: string): string[] =>
 
 /** A source line that is copy, not a comment. */
 const copyLines = (text: string) =>
-  text
-    .split('\n')
-    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line));
+  text.split('\n').filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line));
 
 test('no copy names a ladder (ADR 0156 copy rule)', () => {
   const offenders = sources(join(root, 'src')).flatMap((path) => {
