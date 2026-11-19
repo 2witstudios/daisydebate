@@ -265,6 +265,8 @@ const divisionWhen = async (
   state: 'member' | 'provisional',
 ): Promise<RatingDivision | null> => {
   const identity = await requestIdentity();
+  // The second check never fires after the first; it narrows the union to
+  // the states that carry a principal, for the type checker.
   if (identity.state !== state) return null;
   if (identity.state !== 'member' && identity.state !== 'provisional')
     return null;
