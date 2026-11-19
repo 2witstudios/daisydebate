@@ -49,7 +49,6 @@ export type {
   RoundCompetition,
 } from './ladder';
 export {
-  canWatchLive,
   isYouthRound,
   lobbyOf,
   roomLobbyAtCreation,

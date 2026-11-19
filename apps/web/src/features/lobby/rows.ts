@@ -1,5 +1,4 @@
 import {
-  canWatchLive,
   seatAllowed,
   type RatingDivision,
   type RoomListEntry,
@@ -100,7 +99,7 @@ const action = (
  * room. Otherwise Watch sits beside the seat action: Join in a Room of their
  * own lobby, Judge in the other lobby's Room while a judge seat is free, none
  * when neither fits. A Room before its Round is watched on its own page; a
- * live Round on its watch page; one not public only by its own people.
+ * live Round on its watch page, which decides, in either lobby (ADR 0159).
  */
 export function rowActions(
   viewer: LobbyViewer,
@@ -118,20 +117,18 @@ export function rowActions(
       ),
     ];
   if (state === 'live') {
-    const standing =
-      viewer.actorId !== null && viewer.actorId === room.hostActorId
-        ? 'seatless-host'
-        : round && viewer.studentRoundIds?.includes(round.id)
-          ? 'linked-adult'
-          : 'none';
-    if (!canWatchLive({ standing }, room)) return [];
-    // A linked adult watches in the Round's own live room.
+    // A youth debater's linked coach or parent sees through a Room that is
+    // not public, in the Round's own live room (ADR 0155, 0159); its seatless
+    // host keeps its own page.
+    const throughPrivate =
+      round !== null &&
+      room.visibility !== 'public' &&
+      viewer.actorId !== room.hostActorId &&
+      viewer.studentRoundIds?.includes(round.id) === true;
     return [
       action(
         'Watch',
-        standing === 'linked-adult' && round
-          ? liveRoomHref(round.id)
-          : watchHrefOf(room),
+        throughPrivate ? liveRoomHref(round.id) : watchHrefOf(room),
         false,
       ),
     ];

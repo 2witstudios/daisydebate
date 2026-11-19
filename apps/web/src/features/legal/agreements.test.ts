@@ -3,7 +3,9 @@ import {
   agreementWords,
   contentPolicyDocument,
   contentWaiverDocument,
+  contentWaiverOf,
   casualCaptureNotice,
+  youthContentWaiverDocument,
 } from './agreements';
 
 setupRitewayBun();
@@ -42,6 +44,10 @@ describe('agreements', () => {
           contentWaiverDocument.version,
           digest(agreementWords(contentWaiverDocument)).slice(0, 16),
         ],
+        youthWaiver: [
+          youthContentWaiverDocument.version,
+          digest(agreementWords(youthContentWaiverDocument)).slice(0, 16),
+        ],
         policy: [
           contentPolicyDocument.version,
           digest(agreementWords(contentPolicyDocument)).slice(0, 16),
@@ -50,7 +56,8 @@ describe('agreements', () => {
       },
       expected: {
         waiver: ['draft-4', 'a5009809ca79179f'],
-        policy: ['draft-3', '9995635043e09c3e'],
+        youthWaiver: ['youth-draft-1', '009cabb931806b59'],
+        policy: ['draft-4', 'b88386aedce40411'],
         casualCapture: 'f5a46abec416c6cb',
       },
     });
@@ -77,8 +84,46 @@ describe('agreements', () => {
     });
   });
 
+  test('the Youth waiver licenses nothing (decision 89, ADR 0159)', () => {
+    const waiver = words(youthContentWaiverDocument);
+    assert({
+      given: 'the Youth waiver wording, and each lobby’s waiver',
+      should:
+        'say ranked is public, watched and kept; grant no ownership, clip, likeness or stream-and-earn; and be the one a Youth Room asks for',
+      actual: {
+        says: [
+          'Ranked rounds are always public',
+          'replay them on Daisy',
+          'stay on Daisy',
+          'taken down',
+          'gives Daisy no ownership',
+          'media release',
+        ].filter((phrase) => !waiver.includes(phrase)),
+        grants: [
+          'Daisy owns',
+          'Daisy may edit',
+          'anyone else may stream',
+          'You may earn',
+          'promote ranked play',
+        ].filter((phrase) => waiver.includes(phrase)),
+        lobbies: [contentWaiverOf('open'), contentWaiverOf('youth')].map(
+          (document) => document.version,
+        ),
+      },
+      expected: {
+        says: [],
+        grants: [],
+        lobbies: ['draft-4', 'youth-draft-1'],
+      },
+    });
+  });
+
   test('every agreement says it has not been reviewed, and implies no gate', () => {
-    const all = [contentWaiverDocument, contentPolicyDocument];
+    const all = [
+      contentWaiverDocument,
+      youthContentWaiverDocument,
+      contentPolicyDocument,
+    ];
     assert({
       given: 'the waiver and the policy',
       should:
@@ -90,7 +135,7 @@ describe('agreements', () => {
             words(document),
           ),
       ),
-      expected: [true, true],
+      expected: [true, true, true],
     });
   });
 
@@ -107,7 +152,11 @@ describe('agreements', () => {
 });
 
 test('no agreement restricts help during a ranked round (ADR 0097)', () => {
-  const served = [contentWaiverDocument, contentPolicyDocument]
+  const served = [
+    contentWaiverDocument,
+    youthContentWaiverDocument,
+    contentPolicyDocument,
+  ]
     .map(words)
     .join(' ');
   assert({
@@ -153,10 +202,12 @@ test('the served text is the source draft, without its placeholders', async () =
     should: 'say the same words',
     actual: [
       servedFromDraft(await draft('ranked-content-waiver.md')),
+      servedFromDraft(await draft('youth-ranked-content-waiver.md')),
       servedFromDraft(await draft('ranked-content-policy.md')),
     ],
     expected: [
       servedSections(contentWaiverDocument),
+      servedSections(youthContentWaiverDocument),
       servedSections(contentPolicyDocument),
     ],
   });

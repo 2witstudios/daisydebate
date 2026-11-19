@@ -1,8 +1,8 @@
 import type { ContentWaiverStanding } from '@daisy/db';
 import type { RoomAssemblyState, RoomRefusal } from '@daisy/protocol';
 import {
-  CONTENT_WAIVER_VERSION,
   casualCaptureNotice,
+  contentWaiverOf,
   type RoundCaptureNotice,
 } from '../legal/agreements';
 
@@ -54,9 +54,16 @@ export const createNoticeOf = (
     : { kind: 'refused' };
 };
 
-/** The waiver version Ready on this Room needs; only ranked needs one. */
-export const requiredContentWaiver = (room: CompetitionFact) =>
-  room.competitionType === 'ranked' ? CONTENT_WAIVER_VERSION : null;
+/**
+ * The waiver version Ready on this Room needs; only ranked needs one, and a
+ * Youth Room's debaters sign the Youth waiver (ADR 0159).
+ */
+export const requiredContentWaiver = (
+  room: CompetitionFact & Pick<RoomAssemblyState, 'division'>,
+) =>
+  room.competitionType === 'ranked'
+    ? contentWaiverOf(room.division).version
+    : null;
 
 /** Unsigned is refused; with no season open, ranked play is unavailable. */
 export const contentWaiverRefusal = (

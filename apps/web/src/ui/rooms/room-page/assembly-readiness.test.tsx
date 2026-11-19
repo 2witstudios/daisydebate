@@ -23,6 +23,7 @@ const base = {
   teamOneSide: 'affirmative' as const,
   status: 'assembling' as const,
   competitionType: 'casual' as const,
+  division: 'open' as const,
   version: 7,
   participants: [
     {

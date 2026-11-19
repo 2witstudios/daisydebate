@@ -6,7 +6,8 @@ import { isDebatingSeat, type SeatRef } from './seats';
  * divisions of ADR 0147 as members browse them, not the `lobbies` container a
  * Room lives in: every Room still sits in its container, and carries the
  * division it was created in. These rules decide who lands where, which
- * division a new Room takes, who may sit, and who may watch a Round live.
+ * division a new Room takes, and who may sit. Who may view a Round is the
+ * same in both lobbies (ADR 0159).
  */
 
 /**
@@ -72,17 +73,6 @@ export function seatAllowed(
 
 /** Where someone stands towards a running Round. */
 export type LiveStanding = 'seat' | 'seatless-host' | 'linked-adult' | 'none';
-
-/**
- * Whether a member may watch a Round while it runs: Open's rule for both
- * lobbies (ADR 0159). A public Round is for every member. Any other is for its
- * own people: its seats, its seatless host, and its youth debaters' linked
- * coaches and parents, who see through unlisted and private (ADR 0155).
- */
-export const canWatchLive = (
-  viewer: { readonly standing: LiveStanding },
-  round: { readonly visibility: 'public' | 'unlisted' | 'private' },
-): boolean => round.visibility === 'public' || viewer.standing !== 'none';
 
 /**
  * Whether a Round is a Youth Round: any Round of a Room in the Youth lobby,

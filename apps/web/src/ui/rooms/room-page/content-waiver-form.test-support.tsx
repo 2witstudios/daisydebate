@@ -18,7 +18,7 @@ export function WaiverFormHarness({
   return (
     <WithAppRouter>
       <RoomSyncContext value={sync}>
-        <ContentWaiverForm action={action} />
+        <ContentWaiverForm action={action} division="open" />
       </RoomSyncContext>
     </WithAppRouter>
   );

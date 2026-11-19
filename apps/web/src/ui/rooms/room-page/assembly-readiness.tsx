@@ -42,6 +42,7 @@ type View = Pick<
   | 'teamOneSide'
   | 'status'
   | 'competitionType'
+  | 'division'
 > & {
   readonly definition: Pick<RoomView['definition'], 'sides' | 'seats'>;
   readonly capabilities: Pick<
@@ -148,7 +149,7 @@ function ReadyConfirm({
         Ready?
       </h2>
       {waiver ? (
-        <ContentWaiverForm action={waiverAction} />
+        <ContentWaiverForm action={waiverAction} division={view.division} />
       ) : (
         <>
           {view.captureNotice ? (

@@ -1,6 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  canWatchLive,
   isYouthRound,
   lobbyOf,
   roomLobbyAtCreation,
@@ -130,30 +129,6 @@ test('seatAllowed', () => {
       seatAllowed(bot, room('open', 'ranked'), aff),
     ],
     expected: [true, true, false],
-  });
-});
-
-test('canWatchLive', () => {
-  const standings = ['seat', 'seatless-host', 'linked-adult', 'none'] as const;
-  assert({
-    given: 'a public Round, whichever lobby its Room is in',
-    should: 'let any member watch it live, whatever they stand as',
-    actual: standings.map((standing) =>
-      canWatchLive({ standing }, { visibility: 'public' }),
-    ),
-    expected: [true, true, true, true],
-  });
-  assert({
-    given: 'an unlisted or private Round',
-    should:
-      "let its seats, its seatless host and its youth debaters' linked adults watch it, nobody else",
-    actual: (['unlisted', 'private'] as const).map((visibility) =>
-      standings.map((standing) => canWatchLive({ standing }, { visibility })),
-    ),
-    expected: [
-      [true, true, true, false],
-      [true, true, true, false],
-    ],
   });
 });
 

@@ -14,8 +14,8 @@ import { withRoomRuntime } from './room-runtime.test-support';
 import { everyoneReady } from './round-judging.test-support';
 import {
   agreementWords,
-  contentWaiverDocument,
-  CONTENT_WAIVER_VERSION,
+  youthContentWaiverDocument,
+  YOUTH_CONTENT_WAIVER_VERSION,
 } from '../src/features/legal/agreements';
 
 setupRitewayBun();
@@ -277,8 +277,8 @@ test('a Youth Room rates on the Youth season, and starts ranked only while it is
         await f.store.signContentWaiver({
           id: createId(),
           userId: member.userId,
-          version: CONTENT_WAIVER_VERSION,
-          words: agreementWords(contentWaiverDocument),
+          version: YOUTH_CONTENT_WAIVER_VERSION,
+          words: agreementWords(youthContentWaiverDocument),
         });
       const signedOn = await f.sql`
         select s.division from agreement_signatures a join seasons s on s.id = a.season_id

@@ -1,3 +1,4 @@
+import type { RatingDivision } from '@daisy/protocol';
 import type { LegalDocument } from './documents';
 
 /**
@@ -5,11 +6,14 @@ import type { LegalDocument } from './documents';
  * words a signature records. None of it has been reviewed by counsel, and it
  * says so; legal review blocks nothing. Changing a text means changing its
  * version (agreements.test.ts pins each pair).
- * Source of truth for the wording: docs/legal/ranked-content-waiver.md and
+ * Source of truth for the wording: docs/legal/ranked-content-waiver.md,
+ * docs/legal/youth-ranked-content-waiver.md and
  * docs/legal/ranked-content-policy.md.
  */
 export const CONTENT_WAIVER_VERSION = 'draft-4';
-export const CONTENT_POLICY_VERSION = 'draft-3';
+/** The Youth lobby's waiver (ADR 0159): no licence, signed in place of the Open one. */
+export const YOUTH_CONTENT_WAIVER_VERSION = 'youth-draft-1';
+export const CONTENT_POLICY_VERSION = 'draft-4';
 
 const notReviewed =
   'This text has not been reviewed by counsel, and its wording may change after any review.';
@@ -71,6 +75,69 @@ export const contentWaiverDocument: LegalDocument = {
   ],
 };
 
+/**
+ * The Youth lobby's ranked waiver (decision 89, ADR 0159): ranked Rounds are
+ * public, watched and kept, and nothing more. It grants Daisy no ownership,
+ * clips, likeness or stream-and-earn licence; a media release alone does.
+ */
+export const youthContentWaiverDocument: LegalDocument = {
+  title: 'Youth ranked content waiver',
+  version: YOUTH_CONTENT_WAIVER_VERSION,
+  lede: `What you agree to before your first ranked round of a season in the Youth lobby, separately from the terms of service. ${notReviewed}`,
+  sections: [
+    {
+      id: 'the-deal',
+      heading: 'The deal',
+      paragraphs: [
+        'Ranked rounds are always public, and they are broadcast and recorded. Anyone can watch them live and replay them on Daisy, and they show on your profile and in the archive. If every capture machine is busy, a round can run without a broadcast or recording; the debate and its result are not affected. Competing in one is the deal. If you do not want this, play casual.',
+      ],
+    },
+    {
+      id: 'kept-on-daisy',
+      heading: 'Kept on Daisy',
+      paragraphs: [
+        "A ranked round's video, transcript and result stay on Daisy as part of the ladder's record, including after you close your account. You, or your coach or parent, can ask for a round's recording to be taken down at any time.",
+      ],
+    },
+    {
+      id: 'no-licence',
+      heading: 'No licence to your content',
+      paragraphs: [
+        'Signing this gives Daisy no ownership of what you say or show, and no right to clip it, to use your name or likeness in other media, or to let anyone stream or post it. Daisy offers no download of your ranked rounds and no Stream this Round feed of them. That changes only while a media release from your parent or guardian, or from your club, covers every youth debater in the round.',
+      ],
+    },
+    {
+      id: 'payment',
+      heading: 'Payment',
+      paragraphs: ['This waiver promises no payment.'],
+    },
+    {
+      id: 'what-stays-yours',
+      heading: 'What stays yours',
+      paragraphs: [
+        'What you say and show, your prep material and your drives stay yours, ranked rounds included.',
+      ],
+    },
+    {
+      id: 'other-rounds',
+      heading: 'Other rounds and events',
+      paragraphs: [
+        'A non-ranked round is not covered: its content stays with its participants. A tournament may have its own per-event terms.',
+      ],
+    },
+  ],
+};
+
+/** The ranked waiver a lobby's members sign: Youth signs its own (ADR 0159). */
+export const contentWaiverOf = (division: RatingDivision): LegalDocument =>
+  division === 'youth' ? youthContentWaiverDocument : contentWaiverDocument;
+
+/** The waiver served at this version, if it is one served now. */
+export const contentWaiverAt = (version: string): LegalDocument | null =>
+  [contentWaiverDocument, youthContentWaiverDocument].find(
+    (document) => document.version === version,
+  ) ?? null;
+
 export const contentPolicyDocument: LegalDocument = {
   title: 'Ranked content policy',
   version: CONTENT_POLICY_VERSION,
@@ -109,6 +176,13 @@ export const contentPolicyDocument: LegalDocument = {
       heading: 'Non-ranked rounds',
       paragraphs: [
         'This policy does not cover non-ranked rounds. Their content stays with their participants.',
+      ],
+    },
+    {
+      id: 'youth-rounds',
+      heading: 'Youth rounds',
+      paragraphs: [
+        'This policy does not cover a round with a debater in the Youth lobby. Its content may be streamed, posted or reused only while a media release covers every youth debater in it, and Daisy offers no Stream this Round feed of it until then.',
       ],
     },
   ],
