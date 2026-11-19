@@ -63,7 +63,11 @@ const pinsSearchPath = (config: readonly string[]) =>
     const [key, value] = setting.split('=');
     if (key !== 'search_path' || value === undefined) return false;
     const schemas = value.split(',').map((schema) => schema.trim());
-    return schemas[0] === 'pg_catalog' && schemas.at(-1) === 'pg_temp';
+    // PostgreSQL keeps a schema's first occurrence: pg_temp only at the end.
+    return (
+      schemas[0] === 'pg_catalog' &&
+      schemas.indexOf('pg_temp') === schemas.length - 1
+    );
   });
 
 const sameRoles = (a: readonly string[], b: readonly string[]) =>

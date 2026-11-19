@@ -102,7 +102,7 @@ describe('tenantDefinerProblems', () => {
   test('reports a registered definer that is missing, unpinned, open to PUBLIC or run by other roles', () => {
     assert({
       given:
-        'the registered definer missing, without a search path, with pg_catalog not first, pg_catalog alone, no pg_temp last, executable by PUBLIC, and by the web alone',
+        'the registered definer missing, without a search path, with pg_catalog not first, pg_catalog alone, no pg_temp last, an earlier pg_temp, executable by PUBLIC, and by the web alone',
       should: 'report each',
       actual: [
         tenantDefinerProblems([], registry),
@@ -112,6 +112,8 @@ describe('tenantDefinerProblems', () => {
           // Unlisted, pg_temp is searched first: pg_catalog alone is no pin.
           'search_path=pg_catalog',
           'search_path=pg_catalog, public',
+          // Its first occurrence counts, so an earlier pg_temp precedes public.
+          'search_path=pg_catalog, pg_temp, public, pg_temp',
         ].map((setting) =>
           tenantDefinerProblems([{ ...people, config: [setting] }], registry),
         ),
@@ -126,7 +128,7 @@ describe('tenantDefinerProblems', () => {
       ],
       expected: [
         ['daisy_people is registered but is not a SECURITY DEFINER function'],
-        ...Array.from({ length: 4 }, () => [
+        ...Array.from({ length: 5 }, () => [
           'daisy_people does not pin its search_path to pg_catalog first and pg_temp last',
         ]),
         ['PUBLIC may execute daisy_people'],
