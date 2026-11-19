@@ -46,7 +46,10 @@ const linkedAdultDecision = (
     : holdingDecision(officiates);
 };
 
-/** Watching an event Round undelayed: the officiating grant first, then a Youth Round's linked adult. */
+/**
+ * Watching an event Round undelayed: the officiating grant first, then a
+ * Youth Round's linked adult.
+ */
 const observeDecision = (
   holder: Holder,
   resource: EventRoomResource,
@@ -60,15 +63,15 @@ const observeDecision = (
  * An event Room has no host person. Managing it and watching its Round
  * undelayed belong to everyone who holds `tournament.rooms.officiate` on
  * its fixture; a Youth Round is also watched undelayed by its youth
- * debaters' linked adults while it runs (ADR 0155). Its seats read it; an official or an officiator not stopped
- * by a conflict reads it; anyone else reads it when its video is released
- * to them. Every other capability is the seat's own, as in any Room.
+ * debaters' linked adults while it runs (ADR 0155). Its seats read it; an
+ * official or an officiator not stopped by a conflict reads it; anyone else
+ * reads it when its video is released to them. Every other capability is
+ * the seat's own, as in any Room.
  *
  * An officiator runs the Room, so for a guardian's video cap of `officials`
  * an officiator is an official: the cap never stops the people managing the
  * Room a ward is seated in from reading it.
  */
-
 export function eventRoomDecision(
   holder: Holder,
   capability: AuthorizationCapability,
