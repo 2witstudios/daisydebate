@@ -1,5 +1,6 @@
 import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-observation';
 import { youthLiveReadOperations } from './youth-live-reads';
+import type { readYouthRoundPeople } from './youth-recording-people';
 import { createRoomCommunityChannelCohortAuthority } from './messaging/room-community-observation';
 import type { SQL } from 'bun';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -44,7 +45,9 @@ const authorityReads = (database: BunSQLDatabase) => {
     // Until YLS-12's registered function, realtime may read none of the
     // people read's tenant tables (ADR 0129 §4), so it asks nobody and admits
     // no linked adult; it never sends a query that is sure to be refused.
-    readYouthRoundPeople: async (_roundId: string) => ({ debaters: [] }),
+    readYouthRoundPeople: async (
+      _roundId: string,
+    ): ReturnType<typeof readYouthRoundPeople> => ({ debaters: [] }),
     roomCommunityChannelCohortAuthority:
       createRoomCommunityChannelCohortAuthority(database),
     ...authorizationSessionOperations({ database }),
