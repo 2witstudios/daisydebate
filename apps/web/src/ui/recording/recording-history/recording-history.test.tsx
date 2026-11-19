@@ -152,9 +152,9 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
   test('is private, with no link to copy', () => {
     assert({
       given: 'a Youth Round on a public Room',
-      should: 'name its ladder, say it is private, and offer no copy link',
+      should: 'name no ladder, say it is private, and offer no copy link',
       actual: [
-        /<header[\s\S]*?Youth – Freestyle[\s\S]*?<\/header>/.test(youth),
+        !/<header[\s\S]*?Youth – Freestyle[\s\S]*?<\/header>/.test(youth),
         youth.includes(
           'visible to the debaters, judges and their coaches or parents',
         ),
@@ -263,7 +263,7 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
         releasesComplete: true,
         public: true,
         viewerDebated: true,
-      }).includes('on Watch, labelled'),
+      }).includes('on Watch. It comes'),
       expected: true,
     });
   });

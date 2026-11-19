@@ -212,7 +212,7 @@ or Finish sign-up takes the foot instead. Mini shows the same order as icons
 only, with every name kept as screen-reader text.
 
 The full accessible name is unchanged in both modes: counts stay in it
-("Friends, 5 online"), hover flyouts (Watch: Spectate live, Recordings)
+("Friends, 5 online"), hover flyouts (Watch: Watch live, Recordings)
 reveal on hover and keyboard focus, badges are unchanged, and Friends is its
 own page, `/friends`. Minimize is a form posting a server action, so it
 works without JavaScript; it is named Minimize when extended and Expand when

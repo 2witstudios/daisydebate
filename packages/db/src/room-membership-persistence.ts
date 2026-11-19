@@ -1,12 +1,6 @@
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import {
-  roomLadderOf,
-  roomRoundLinkOf,
-  type ActiveRoomFacts,
-  type RatingDivision,
-} from '@daisy/protocol';
-import { seatedDebaterDivisionsSql } from './ladder-division-band';
+import { roomRoundLinkOf, type ActiveRoomFacts } from '@daisy/protocol';
 import { createRefusal } from '@daisy/errors';
 import { activeSeats, roomParticipants, rooms } from './schema/rooms';
 import { hostPersonOf } from './room-host';
@@ -88,11 +82,6 @@ export async function activeRoomFacts(
       roundStatus: rounds.status,
       finalSegmentEndedAt: rounds.finalSegmentEndedAt,
       seatKind: roomParticipants.seatKind,
-      competitionType: rooms.competitionType,
-      roundDivision: rounds.ladderDivision,
-      debaterDivisions: sql<
-        (RatingDivision | null)[]
-      >`${seatedDebaterDivisionsSql(sql`${rooms.id}`)}`,
     })
     .from(activeSeats)
     .innerJoin(rooms, eq(rooms.id, activeSeats.roomId))
@@ -116,11 +105,5 @@ export async function activeRoomFacts(
     ),
     seatKind: row.seatKind,
     debateEnded: row.finalSegmentEndedAt !== null,
-    ladder: roomLadderOf({
-      competitionType: row.competitionType,
-      launched: row.roundId !== null,
-      roundDivision: row.roundDivision,
-      debaterDivisions: row.debaterDivisions,
-    }),
   };
 }

@@ -1,17 +1,11 @@
 import { roomListDefaultPageSize, type RoomListQuery } from '@daisy/protocol';
 import {
-  divisionAudiences,
-  divisionLabels,
-} from '../../../features/ratings/ladder-labels';
-import {
   filterCount,
   isFiltered,
-  lobbyDivisionChoices,
   lobbyHref,
   lobbyModeChoices,
   lobbySortChoices,
   lobbyStatusChoices,
-  type LobbyDivision,
   type LobbyMode,
   type LobbySort,
   type LobbyStatus,
@@ -49,17 +43,6 @@ const modeOptions = lobbyModeChoices.map(
   (mode) => [mode, modeLabels[mode]] as const,
 );
 
-/** Who debates on each division, as the filter names it (ADR 0147). */
-const divisionChoiceLabels: Readonly<Record<LobbyDivision, string>> = {
-  any: 'Any division',
-  youth: `${divisionLabels.youth} (${divisionAudiences.youth.toLowerCase()})`,
-  open: `${divisionLabels.open} (${divisionAudiences.open})`,
-};
-
-const divisionOptions = lobbyDivisionChoices.map(
-  (division) => [division, divisionChoiceLabels[division]] as const,
-);
-
 const sortLabels: Readonly<Record<LobbySort, string>> = {
   newest: 'Newest',
   'longest-waiting': 'Longest waiting',
@@ -73,10 +56,11 @@ const sortOptions = lobbySortChoices.map(
 const MAX_SEARCH_LENGTH = 100;
 
 /**
- * Status tabs plus search, division, mode and sort as one GET form: the URL carries
+ * Status tabs plus search, mode and sort as one GET form: the URL carries
  * the state, so the Lobby filters and sorts on the server with no script. On
- * the phone the division, mode and sort sit in a panel behind "Filters"; the sort is an
- * order, not a filter, so it never counts toward the Filters badge.
+ * the phone the mode and sort sit in a panel behind "Filters"; the sort is an
+ * order, not a filter, so it never counts toward the Filters badge. The lobby
+ * travels with the form, so filtering stays in the lobby on screen.
  */
 export function LobbyFilters({
   query,
@@ -93,6 +77,9 @@ export function LobbyFilters({
       aria-label="Filter rooms"
       className={filterBarClass}
     >
+      {query.division ? (
+        <input type="hidden" name="lobby" value={query.division} />
+      ) : null}
       {query.status ? (
         <input type="hidden" name="status" value={query.status} />
       ) : null}
@@ -124,13 +111,6 @@ export function LobbyFilters({
           <FiltersLabel active={filterCount(query)} />
         </summary>
         <FilterSelect
-          name="division"
-          label="Division"
-          value={query.division ?? 'any'}
-          options={divisionOptions}
-          className="order-5 max-compact:order-none"
-        />
-        <FilterSelect
           name="mode"
           label="Ranked or casual"
           value={query.mode ?? 'any'}
@@ -152,6 +132,7 @@ export function LobbyFilters({
                   pageSize: query.pageSize,
                   status: query.status,
                   sort: query.sort,
+                  division: query.division,
                 })
               : null
           }

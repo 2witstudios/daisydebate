@@ -13,7 +13,7 @@ export const offer = (letter: string, username = 'mara') => ({
   username,
   mode: 'casual' as const,
   format: 'freestyle' as const,
-  division: null,
+  division: 'open' as const,
   createdAt: '2026-11-02T00:00:00.000Z',
   expiresAt: '2026-11-02T00:02:00.000Z',
 });

@@ -84,17 +84,19 @@ test('claimed invitation eligibility follows current verified identity and acces
   };
   assert({
     given:
-      'an eligible claimed account and changed email, unverified email, age correction, revocation, moderation or erasure',
+      'an eligible claimed account and changed email, unverified email, a 13-15 account, an age corrected under 13 or gone, revocation, moderation or erasure',
     should: 'invite only the current matching eligible account',
     actual: [
       eligible,
       { ...eligible, emailMatches: false },
       { ...eligible, verified: false },
       { ...eligible, ageBand: '13-15' },
+      { ...eligible, ageBand: 'under-13' },
+      { ...eligible, ageBand: null },
       { ...eligible, state: 'revoked' },
       { ...eligible, restricted: true },
       { ...eligible, erased: true },
     ].map(canInviteClaimedPreapproval),
-    expected: [true, false, false, false, false, false, false],
+    expected: [true, false, false, true, false, false, false, false, false],
   });
 });

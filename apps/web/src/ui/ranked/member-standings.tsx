@@ -1,7 +1,6 @@
 import { ladderBoardHref } from '../../features/leaderboard/query';
 import Link from 'next/link';
 import type { SeasonHistoryRow } from '../../features/profile/season-history';
-import { ladderLabel } from '../../features/ratings/ladder-labels';
 import type { MemberStanding } from '../../features/ratings/read-member';
 import {
   markedRating,
@@ -9,7 +8,6 @@ import {
 } from '../../features/ratings/provisional-mark';
 import { Badge } from '../components/badge/badge';
 import { cn } from '../cn';
-import { LadderBadge } from '../ladder-badge/ladder-badge';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
 const heading = 'text-xs font-bold tracking-widest text-ink-muted uppercase';
@@ -52,7 +50,7 @@ function LadderCard({ standing }: { readonly standing: MemberStanding }) {
           href={ladderBoardHref(standing.ladder.division)}
           className="font-strong text-ink no-underline hover:underline"
         >
-          {ladderLabel(standing.ladder)}
+          Rating
         </Link>
         <span className="text-xs text-ink-muted">
           {standing.current ? `${standing.season} · current` : 'History'}
@@ -93,10 +91,7 @@ function SeasonHistory({
             key={row.key}
             className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm"
           >
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="font-strong">{row.season}</span>
-              <LadderBadge ladder={row.ladder} />
-            </span>
+            <span className="font-strong">{row.season}</span>
             <span className="text-ink-muted">
               <strong className="font-strong text-ink tabular-nums">
                 {markedRating(row.rating, row.provisional)}
@@ -111,9 +106,9 @@ function SeasonHistory({
 }
 
 /**
- * A profile's ratings (ADR 0147): a card per ladder the member is on, this
- * season or kept as history, then the seasons they finished, each naming its
- * ladder. The caller chooses which ladders show (`profileLadders`).
+ * A profile's ratings (ADR 0156): one Freestyle card, then the seasons they
+ * finished; no division is named. The caller chooses the card
+ * (`profileLadders`).
  */
 export function MemberStandings({
   standings,

@@ -1,6 +1,6 @@
 import type { LiveHubListing } from '../../../features/watch/list-live';
 import { daisyLadders, ladderKey } from '@daisy/protocol';
-import { ladderLabel } from '../../../features/ratings/ladder-labels';
+import { styleLabels } from '../../../features/ratings/ladder-labels';
 import {
   clearFiltersHref,
   hubHref,
@@ -41,14 +41,17 @@ function Filters({ query }: { query: LiveQuery }) {
           className={controlClass}
         >
           <option value="">Every ladder</option>
-          {daisyLadders.map((ladder) => {
-            const key = ladderKey(ladder.style, ladder.division);
-            return (
-              <option key={key} value={key}>
-                {ladderLabel(ladder)}
-              </option>
-            );
-          })}
+          {/* Watch lists Open Rounds only (ADR 0150): each style, by its name. */}
+          {daisyLadders
+            .filter((ladder) => ladder.division === 'open')
+            .map((ladder) => {
+              const key = ladderKey(ladder.style, ladder.division);
+              return (
+                <option key={key} value={key}>
+                  {styleLabels[ladder.style]}
+                </option>
+              );
+            })}
         </select>
       }
       clearHref={isFiltered(query) ? clearFiltersHref(query) : null}

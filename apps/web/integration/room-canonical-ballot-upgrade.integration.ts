@@ -63,6 +63,8 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table ratings add column division text`;
     await sql`alter table rating_changes add column division text`;
     await sql`alter table challenges add column division text`;
+    // ADR 0156: a Room's lobby, which the create writes.
+    await sql`alter table rooms add column division text`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
     // no tournament hosting grant, version, issuer or inferred funding account.
@@ -130,6 +132,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table ratings drop column division`;
     await sql`alter table rating_changes drop column division`;
     await sql`alter table challenges drop column division`;
+    await sql`alter table rooms drop column division`;
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;

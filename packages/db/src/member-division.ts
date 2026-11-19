@@ -1,9 +1,10 @@
-import type { RatingDivision } from '@daisy/protocol';
+import type { RatingDivision, RoomCreator } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { rowsOf } from './raw-rows';
+import { readRoomCreator } from './room-creator';
 
 /**
  * A member's ladder division as their pages show it (ADR 0147): the same
@@ -26,4 +27,13 @@ export const memberDivisionOperations = ({
       );
       return row?.division ?? null;
     }),
+  /**
+   * Who this member is as a Room creator (ADR 0156): their division and
+   * whether they are club staff, so the create form offers the Lobby choice
+   * only to staff. The create command decides again under its lock.
+   */
+  readRoomCreatorFact: (userId: string): Promise<RoomCreator> =>
+    instrumented(eventSink, 'readRoomCreatorFact', () =>
+      database.transaction((tx) => readRoomCreator(tx, userId)),
+    ),
 });

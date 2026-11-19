@@ -187,7 +187,8 @@ function invalidPolicyEvidence(
 
 /**
  * DEC-251's beta DM contact policy: admitted (beta approved) participants
- * aged 16 or over, within one age band. ADR 0061 allows no cross-band
+ * aged 16 or over, within one age band. Members aged 13 to 15 (decision 88)
+ * get no DM pair until one is decided for them: the conservative default. ADR 0061 allows no cross-band
  * contact without a separately approved guardian policy, so 16-17 and adult
  * never meet. One value for every process that evaluates DM posting or
  * reading (web commands, realtime subscriptions and observation permits), so they cannot diverge.

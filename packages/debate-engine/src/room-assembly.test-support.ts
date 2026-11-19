@@ -70,6 +70,7 @@ export const state = (): OpenRoom => ({
   catalogFormat: { name: 'Custom format', role: null, leagues: [] },
   basis: null,
   competitionType: 'casual',
+  division: 'open',
   definition: {
     version: 2,
     sides: rules.sides,
@@ -114,7 +115,6 @@ export const state = (): OpenRoom => ({
       teamOpen: false,
       positionOpen: false,
       eligible: true,
-      division: 'open' as const,
       consentVersion: 0,
       consentCommandId: 'r1',
     },
@@ -127,7 +127,6 @@ export const state = (): OpenRoom => ({
       teamOpen: false,
       positionOpen: false,
       eligible: true,
-      division: 'open' as const,
       consentVersion: 0,
       consentCommandId: 'r2',
     },

@@ -51,7 +51,7 @@ inventory and no gate; the reviewer checks this page.
 
 ## Data classes
 
-Data subjects: members (16+), people who started
+Data subjects: members (13+), people who started
 a sign-up and never finished, newsletter subscribers, people who ask about
 running a league (with or without an account), parents and guardians asked
 to sign a minor's media release (without an account), and operators.
@@ -386,8 +386,20 @@ today beyond what the record and deliverability already keep.
 
 ## Children
 
-Members must be 16 or older (DEC-244, one trusted
-configuration value). The age step stores only a birth month. An under-13
+Members must be 13 or older (owner 2026-11-18, decision 88, amending
+DEC-244's beta floor of 16). It is one trusted configuration value,
+`ACCOUNT_AGE_FLOOR` in `packages/protocol/src/age-floor.ts`, which owns the
+floor and its bands for auth, the database and shared rules, so the age step,
+participant access and beta preapproval claims and invites all apply the same
+floor. Members sign themselves up: there is no parental sign-up step. The age
+step stores only a birth month. Members aged 13 to 15 are held to every
+under-18 rule exactly as 16 and 17 are: the Youth ladder division, private
+Youth Recordings, media releases before anything is published, and the Youth
+Room chat rules. Members aged 13 to 15 have no direct messages for now:
+DEC-251's DM pairs stay adult with adult and 16-17 with 16-17, and no 13-15
+pair is added (point guard, 2026-11-18, the conservative default). Whether
+state social-media laws require parental consent for some 13 to 15 year olds
+is a counsel question (YLS-9); the build does not wait on it. An under-13
 answer is refused neutrally: nothing is stored and the provisional account is
 deleted at once, with its sign-in links and delivery receipts (WAIT-4.7).
 Daisy is not directed to children under 13. A later under-age answer against
@@ -405,33 +417,35 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
   the member's own age record and never more than 12 months back, so nobody
   stays on Youth for more than a year past turning 18. The birth month never
   leaves SQL. No new data class, purpose or retention exists:
-  ratings, seasons, Rounds and challenges carry the division, never an age.
-- **What a ladder discloses.** Pages name a member's ladder, never an age
-  or birth month. A ladder still discloses an age class: a Youth badge
-  (lobby rows, a Room's roster and status line, profile cards, the Youth
-  leaderboard) tells other members and spectators that a named member is
-  under 18, and Open that they are 18 or over. The people list carries each
-  listed member's division to signed-in members, so a challenge can say whether
-  ranked is possible ("Ranked needs you both on one ladder…", which names the
-  other member's ladder). A people card names a ladder only where the member is
-  rated on it. The basis is owner decision 79: play is split by this class, so
-  the class is what the ladder is. Nothing finer is shown. A member's own seat
-  refusal (`ranked-division`) names only the ladder.
+  ratings, seasons, Rooms, Rounds and challenges carry the division, never
+  an age.
+- **What a lobby discloses.** Pages never name an age or birth month. A
+  lobby still discloses an age class (ADR 0156): a member in a Youth Room's
+  debater seat is under 18, and in an Open Room's, 18 or over (or without an
+  age record, casual only). Hosts and judges may be of either class: adult club
+  staff host Youth Rooms and anyone judges. Inside a lobby no Room, Round, result, challenge, rating, profile or
+  rail names a division, so nothing labels a named member's age class beyond
+  the lobby they play in; the leaderboard's Open | Youth switch and Watch,
+  Recordings and league pages still name a ladder. The people list carries each
+  listed member's division to signed-in members only to offer a challenge
+  inside one lobby (a member of the other lobby is offered none, and nothing
+  says why) and to show a rating only within one lobby. The basis is owner
+  decisions 79 and 85: play is split by this class. Nothing finer is shown.
 - **Who sits where.** An adult cannot take a Youth debater seat and a minor
-  cannot take an Open one. Anyone may judge. A Room whose debaters mix
-  divisions plays casual and rates no one.
+  cannot take an Open one, ranked or casual, and no host can seat them there.
+  Anyone may judge. A Youth Room's Round has no public live audience.
 - **Youth Room chat** (decision 84). Any member may read a public Room's
-  page and chat before Start, whatever its ladder. In a Youth Room (a ranked
-  Room a youth debater sits in, mixed seatings included) only the people in it
+  page and chat before Start, whatever its lobby. In a Youth Room (a Room of
+  the Youth lobby, casual included, ADR 0156) only the people in it
   post: its seated debaters, its host and each seated youth debater's club
   staff (an adult who owns the debater's school or holds a live grant there
   whose role carries `school.roster.manage`). A judge reads, as everywhere
   (ADR 0126). Anyone else, adult or minor, reads and is refused at the
   command; their composer says "Only people in this Room can chat here." and
-  names no age. An author keeps removing their own earlier message. Open and
-  casual Rooms are unchanged. No new data: the Room chat fact derives both from
-  existing seats, ages and school grants in `daisy_room_community_fact`, and
-  only whether the caller may post leaves SQL.
+  names no age. An author keeps removing their own earlier message. Open
+  Rooms are unchanged. No new data: the Room chat fact derives both from the
+  Room's division, its seats and school grants in `daisy_room_community_fact`,
+  and only whether the caller may post leaves SQL.
 - **Leagues and tournaments.** A league carries one division (PYL-16): its
   Rooms seat only members in it, so a Youth league seats only members under
   18 and an Open league only adults. Tournament entries already refuse every entrant

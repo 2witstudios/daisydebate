@@ -122,7 +122,7 @@ export function createRealtimeDelivery({
           now: resources.clock.now(),
         },
       );
-      // ADR 0075: a ticket redeems only for a participant (approved, 16+).
+      // ADR 0075: a ticket redeems only for a participant (approved, 13+).
       if (!session || !liveParticipantSession(session, resources.clock.now()))
         return null;
       return {

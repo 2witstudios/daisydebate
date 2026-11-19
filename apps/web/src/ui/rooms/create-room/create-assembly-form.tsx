@@ -29,6 +29,8 @@ type FieldsProps = {
   readonly initialRanked?: boolean;
   /** The member's ladder division (ADR 0147); null with no age on record, so no ranked play. */
   readonly memberDivision: RatingDivision | null;
+  /** Club staff's Lobby default; null hides the Lobby choice (ADR 0156). */
+  readonly staffLobby: RatingDivision | null;
 };
 
 export function CreateAssemblyFields({
@@ -38,6 +40,7 @@ export function CreateAssemblyFields({
   pending,
   initialRanked = false,
   memberDivision,
+  staffLobby,
 }: FieldsProps) {
   const first = defaultChoice(choices);
   if (!first)
@@ -66,6 +69,7 @@ export function CreateAssemblyFields({
       commandId={commandId}
       initialRanked={initialRanked && memberDivision !== null}
       memberDivision={memberDivision}
+      staffLobby={staffLobby}
       pending={pending}
       error={state.error}
     />
@@ -82,6 +86,7 @@ export function CreateAssemblyForm({
   choices,
   initialRanked = false,
   memberDivision,
+  staffLobby,
 }: {
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
@@ -90,6 +95,8 @@ export function CreateAssemblyForm({
   readonly initialRanked?: boolean;
   /** The member's ladder division (ADR 0147); null with no age on record, so no ranked play. */
   readonly memberDivision: RatingDivision | null;
+  /** Club staff's Lobby default; null hides the Lobby choice (ADR 0156). */
+  readonly staffLobby: RatingDivision | null;
 }) {
   const [state, setState] = useState<RoomDraftAnswer>(initialState);
   const [pending, startTransition] = useTransition();
@@ -133,6 +140,7 @@ export function CreateAssemblyForm({
         pending={pending}
         initialRanked={initialRanked}
         memberDivision={memberDivision}
+        staffLobby={staffLobby}
       />
     </form>
   );

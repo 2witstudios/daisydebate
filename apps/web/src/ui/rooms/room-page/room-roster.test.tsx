@@ -18,7 +18,7 @@ type Participant = RoomView['participants'][number];
 const viewer = {
   actorId: 'v'.repeat(24),
   label: 'Viewer',
-  division: null as RatingDivision | null,
+  division: 'open' as RatingDivision | null,
 };
 const judgeBot = {
   actorId: 't'.repeat(24),
@@ -48,7 +48,6 @@ const seated = (
   teamOpen: false,
   positionOpen: false,
   rating: null,
-  division: null,
   needsReady: true,
   ready: 'not-ready',
   eligible: true,
@@ -875,79 +874,35 @@ describe('RoomRoster header count (main-sync-4)', () => {
   });
 });
 
-describe('RoomRoster ladders (ADR 0147)', () => {
-  const withJudge = (
-    participants: readonly Participant[],
-    more: Partial<RoomView>,
-  ): RoomView => {
+describe('RoomRoster lobbies (ADR 0156)', () => {
+  const inLobby = (division: RatingDivision): RoomView => {
     const seats = seatsOf(1, 1, 1);
     return {
-      ...sized(1, 1, participants),
+      ...sized(1, 1, []),
       definition: { ...assemblySnapshot.definition, seats },
       rules: { ...assemblySnapshot.rules, seats },
       competitionType: 'ranked',
-      ...more,
+      division,
     };
   };
+  const takes = (html: string) =>
+    (html.match(/>Take seat<\/button>/g) ?? []).length;
 
-  test('a Youth Room’s open judge seat is anyone’s', () => {
-    const youth = render(
-      withJudge([seated('m', 'affirmative', 0, { division: 'youth' })], {
-        ladder: 'youth',
-      }),
-    );
-    const open = render(
-      withJudge([seated('m', 'affirmative', 0, { division: 'open' })], {
-        ladder: 'open',
-      }),
-    );
+  test('debater seats are for the Room’s own lobby, judge seats for anyone (YLRoomSpectator)', () => {
+    const own = render(inLobby('open'));
+    const other = render(inLobby('youth'));
     assert({
-      given: 'an open judge seat in a Youth and in an Open ranked Room',
+      given:
+        'an adult over an Open Room, then over a Youth Room, each with two debater seats and a judge seat open',
       should:
-        'say anyone can judge under the Youth seat only, and name no seated debater’s ladder',
+        'offer Take seat on all three at home, only on the judge seat across lobbies, and name no lobby',
       actual: [
-        youth.includes('Anyone can judge a Youth Round.'),
-        open.includes('Anyone can judge'),
-        youth.includes('>Youth</span>'),
+        takes(own),
+        takes(other),
+        other.includes('aria-label="Take Judge'),
+        other.includes('Youth') || other.includes('under 18'),
       ],
-      expected: [true, false, false],
-    });
-  });
-
-  test('the host sees each debater’s ladder when they mix', () => {
-    const html = render(
-      withJudge(
-        [
-          seated('s', 'affirmative', 0, { division: 'youth' }),
-          seated('d', 'negative', 0, { division: 'open' }),
-        ],
-        { ladder: 'mixed' },
-      ),
-    );
-    const row = (label: string) =>
-      html.match(new RegExp(`<li aria-label="${label}".*?</li>`))?.[0] ?? '';
-    assert({
-      given: 'a ranked Room seating a Youth and an Open debater',
-      should: 'chip each row with its ladder, in the division’s colour',
-      actual: [
-        row('Member s').includes('text-hue-plum">Youth</span>'),
-        row('Member d').includes('text-accent">Open</span>'),
-      ],
-      expected: [true, true],
-    });
-  });
-
-  test('Take seat on a debater seat carries the seat’s ladder for the viewer', () => {
-    const html = render(withJudge([], { ladder: 'youth' }));
-    assert({
-      given: 'an open debater seat and judge seat in a Youth ranked Room',
-      should:
-        'offer Take seat on each, saying nothing of ladders before an answer',
-      actual: [
-        (html.match(/>Take seat<\/button>/g) ?? []).length,
-        html.includes('That seat is for a debater'),
-      ],
-      expected: [3, false],
+      expected: [3, 1, true, false],
     });
   });
 });

@@ -23,7 +23,7 @@ const principal = {
 };
 const accountWith = (
   beta: 'approved' | 'pending' | 'revoked' | null,
-  ageBand: 'adult' | '16-17' | '13-15' | null,
+  ageBand: 'adult' | '16-17' | '13-15' | 'under-13' | null,
 ) => ({
   userId: principal.userId,
   actorId: principal.actorId,
@@ -37,19 +37,20 @@ const accountWith = (
 const variants = [
   ['approved adult', accountWith('approved', 'adult')],
   ['approved 16-17', accountWith('approved', '16-17')],
+  ['approved 13-15', accountWith('approved', '13-15')],
   ['pending', accountWith('pending', 'adult')],
   ['revoked', accountWith('revoked', 'adult')],
   ['no beta row', accountWith(null, 'adult')],
   ['no age record', accountWith('approved', null)],
-  ['under the floor', accountWith('approved', '13-15')],
+  ['under the floor', accountWith('approved', 'under-13')],
 ] as const;
-const admitted = [true, true, false, false, false, false, false];
+const admitted = [true, true, true, false, false, false, false, false];
 
 test('a live session counts only with participant access (ADR 0075)', () => {
   assert({
     given:
-      'live sessions for approved, pending, revoked, beta-less, age-less and under-16 accounts, plus an expired and a missing session',
-    should: 'admit only the live approved 16+ sessions',
+      'live sessions for approved, pending, revoked, beta-less, age-less and under-13 accounts, plus an expired and a missing session',
+    should: 'admit only the live approved 13+ sessions',
     actual: [
       ...variants.map(([, account]) =>
         liveParticipantSession({ expiresAt: later, account }, now),
@@ -112,7 +113,7 @@ test('a connect ticket redeems only for a participant (ADR 0075)', async () => {
   );
   assert({
     given: 'a valid ticket whose live session belongs to each account variant',
-    should: 'redeem it only for the approved 16+ accounts',
+    should: 'redeem it only for the approved 13+ accounts',
     actual: redeemed,
     expected: admitted,
   });
@@ -137,7 +138,7 @@ test('principal validation keeps a socket only while it holds participant access
     given:
       'the periodic principal check for a connected socket of each account variant, through the authorization port and the delivery port',
     should:
-      'keep only approved 16+ sockets, so a revoke or a lost age record closes the rest',
+      'keep only approved 13+ sockets, so a revoke or a lost age record closes the rest',
     actual: [viaAuthorization, viaDelivery],
     expected: [admitted, admitted],
   });

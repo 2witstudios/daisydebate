@@ -5,7 +5,6 @@ import {
   type RatingStyle,
 } from './primitives';
 import type { CompetitionType } from './round';
-import { isDebatingSeat, type SeatRef } from './seats';
 
 /**
  * A ladder is a style in a division (owner decision 79, ADR 0147): Open –
@@ -74,62 +73,6 @@ export const divisionOfAgeBand = (
 ): RatingDivision | null =>
   band === null ? null : band === 'adult' ? 'open' : 'youth';
 
-/**
- * What a ranked Room's seated debaters add up to: unset until one sits, one
- * division when all share it, mixed otherwise. A debater with no division
- * fits no ladder, so they make the seating mixed.
- */
-export type SeatedDivision = RatingDivision | 'unset' | 'mixed';
-
-export function divisionForSeatedDebaters(
-  divisions: readonly (RatingDivision | null)[],
-): SeatedDivision {
-  const [first, ...rest] = divisions;
-  if (first === undefined) return 'unset';
-  if (first === null) return 'mixed';
-  return rest.every((division) => division === first) ? first : 'mixed';
-}
-
-type SeatedPerson = {
-  readonly kind: 'human' | 'bot';
-  readonly seat: SeatRef;
-  readonly division: RatingDivision | null;
-};
-/** The divisions of a Room's seated human debaters: judges and bots set none. */
-export const seatedDebaterDivisions = (
-  participants: readonly SeatedPerson[],
-): (RatingDivision | null)[] =>
-  participants
-    .filter((p) => p.kind === 'human' && isDebatingSeat(p.seat))
-    .map((p) => p.division);
-/**
- * The division a ranked Room's seated debaters set: its human debaters only.
- * Judges never set it, and a bot holds no ranked debater seat.
- */
-export const seatedDivision = (
-  participants: readonly SeatedPerson[],
-): SeatedDivision =>
-  divisionForSeatedDebaters(seatedDebaterDivisions(participants));
-
-/**
- * A ranked Room's ladder as a row or bar names it: a launched Room's Round's
- * own (mixed when that Round plays casual), an open Room's from its seated
- * debaters. A casual Room has none.
- */
-export function roomLadderOf(room: {
-  readonly competitionType: CompetitionType;
-  /** Whether the Room has launched its Round. */
-  readonly launched: boolean;
-  /** The launched Round's frozen division; null when it plays casual. */
-  readonly roundDivision: RatingDivision | null;
-  /** The open Room's seated human debaters' divisions. */
-  readonly debaterDivisions: readonly (RatingDivision | null)[];
-}): SeatedDivision | null {
-  if (room.competitionType !== 'ranked') return null;
-  if (room.launched) return room.roundDivision ?? 'mixed';
-  return divisionForSeatedDebaters(room.debaterDivisions);
-}
-
 /** How a Round from this Room competes, frozen at Start. */
 export type RoundCompetition =
   | { readonly competitionType: 'ranked'; readonly ladder: Ladder }
@@ -142,20 +85,20 @@ const casualRound: RoundCompetition = {
 
 /**
  * The Round a Room's Start freezes. A ranked Room rates on its style in the
- * seated division; when its debaters mix divisions (or none sat) the Round
- * plays casual and rates no one, though the Room stays ranked. A format that
- * is no style never gets a ladder invented for it.
+ * Room's own division, fixed when it was created (ADR 0156): its debater seats
+ * hold only that lobby's members. A format that is no style never gets a
+ * ladder invented for it.
  */
-export function roundCompetition(
-  room: {
-    readonly competitionType: CompetitionType;
-    readonly formatId: string;
-  },
-  seated: SeatedDivision,
-): RoundCompetition {
+export function roundCompetition(room: {
+  readonly competitionType: CompetitionType;
+  readonly formatId: string;
+  readonly division: RatingDivision;
+}): RoundCompetition {
   if (room.competitionType !== 'ranked') return casualRound;
   const style = canonicalRatingStyle(room.formatId);
-  if (style === null || seated === 'unset' || seated === 'mixed')
-    return casualRound;
-  return { competitionType: 'ranked', ladder: { style, division: seated } };
+  if (style === null) return casualRound;
+  return {
+    competitionType: 'ranked',
+    ladder: { style, division: room.division },
+  };
 }

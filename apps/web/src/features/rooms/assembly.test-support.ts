@@ -174,7 +174,7 @@ export const assemblySnapshot = {
   },
   startRefusal: 'incomplete-cast',
   roundRef: null,
-  ladder: null,
+  division: 'open',
 } satisfies RoomView;
 
 /** One pending invitation: the host asked @coach to judge. */
@@ -247,6 +247,6 @@ export const seatedListingEntry = ({
   waitingSince: '2026-10-09T00:00:00.000Z',
   live: null,
   hostRating: null,
-  ladder: competitionType === 'ranked' ? 'unset' : null,
+  division: 'open',
   openJudgeSeats: 0,
 });

@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import type { RoomStatus, RoomView } from './room-contract';
-import { seatedDebaterDivisions, type RatingDivision } from './ladder';
-import type { CompetitionType } from './round';
-import type { SeatKind, SeatRef } from './seats';
+import type { RatingDivision } from './ladder';
+import type { SeatKind } from './seats';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
@@ -50,21 +49,12 @@ export const roomCommunitySeatReadsOnly = (
   seatKind: SeatKind | null,
 ): boolean => seatKind === 'judge';
 /**
- * A Youth Room (decision 84): a ranked Room a human youth debater sits in,
- * whoever else does, while ADR 0147's ladder follows who sits. Judges never
- * make one, and a casual Room is never one. `daisy_room_community_fact` reads
- * the same rule in SQL.
+ * A Youth Room (decision 84): a Room of the Youth lobby, casual included
+ * (ADR 0156). `daisy_room_community_fact` reads the same rule in SQL.
  */
 export const youthRoomOf = (room: {
-  readonly competitionType: CompetitionType;
-  readonly participants: readonly {
-    readonly kind: 'human' | 'bot';
-    readonly seat: SeatRef;
-    readonly division: RatingDivision | null;
-  }[];
-}): boolean =>
-  room.competitionType === 'ranked' &&
-  seatedDebaterDivisions(room.participants).includes('youth');
+  readonly division: RatingDivision;
+}): boolean => room.division === 'youth';
 /**
  * Who reads Room chat while it gathers and never posts: a judge (DEC-174), and
  * in a Youth Room anyone without a seat there (decision 84), adult or minor,

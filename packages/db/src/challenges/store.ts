@@ -54,8 +54,8 @@ type ChallengeRowFacts = {
   readonly username: string;
   readonly mode: CompetitionType;
   readonly format: RatingStyle;
-  /** A ranked offer's ladder division (ADR 0147); null when casual. */
-  readonly division: RatingDivision | null;
+  /** The lobby both members share (ADR 0156); its Room opens there. */
+  readonly division: RatingDivision;
   readonly createdAt: string;
   readonly expiresAt: string;
 };

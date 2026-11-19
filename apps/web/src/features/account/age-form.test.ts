@@ -62,7 +62,7 @@ test('what the age route answered, for the form action', async () => {
     );
   assert({
     given:
-      'a recorded answer, a 409 (this account answered already), the two refusals, a 403 with an unrecognised refusal, a 403 with no refusal field, a 403 whose body is not JSON, and a 500 (ISSUE-688)',
+      'a recorded answer, a 409 (this account answered already), the under-13 refusal, the retired beta below-floor refusal, a 403 with an unrecognised refusal, a 403 with no refusal field, a 403 whose body is not JSON, and a 500 (ISSUE-688)',
     should:
       'move on for the first two (the first answer stands), hold the browser for a refusal, and say it was unavailable otherwise',
     actual: await Promise.all(
@@ -81,7 +81,7 @@ test('what the age route answered, for the form action', async () => {
       { kind: 'accepted' },
       { kind: 'accepted' },
       { kind: 'refused', refusal: 'under-13' },
-      { kind: 'refused', refusal: 'below-floor' },
+      { kind: 'unavailable' },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
@@ -98,14 +98,14 @@ test('where the form goes after the answer, keeping the destination', async () =
     given:
       'a 409 for an account that answered already, a refusal and an unavailable route, each with the destination /ranked',
     should:
-      'go on to the username step with next kept, back to the age step with next kept, and stay put',
+      'go on to the lobby landing with next kept, back to the age step with next kept, and stay put',
     actual: [
       ageAnswerHref(conflict, '/ranked'),
       ageAnswerHref({ kind: 'refused', refusal: 'under-13' }, '/ranked'),
       ageAnswerHref({ kind: 'unavailable' }, '/ranked'),
     ],
     expected: [
-      '/onboarding/username?next=%2Franked',
+      '/onboarding/lobby?next=%2Franked',
       '/onboarding/age?next=%2Franked',
       null,
     ],

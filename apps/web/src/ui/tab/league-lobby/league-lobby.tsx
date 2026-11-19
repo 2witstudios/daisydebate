@@ -2,7 +2,6 @@ import type {
   LeagueLobby as Read,
   LeaguePanel,
 } from '../../../features/tab/league';
-import { LadderBadge } from '../../ladder-badge/ladder-badge';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import { TabLinks } from '../../components/tab-links/tab-links';
@@ -63,7 +62,6 @@ export function LeagueLobby({ lobby }: { readonly lobby: Read }) {
     <ReadingPage>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-ink-muted">League</span>
-        <LadderBadge ladder={lobby.ladder} />
       </div>
       <PageHeader
         title={lobby.name}

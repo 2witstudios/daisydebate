@@ -52,7 +52,6 @@ describe('MemberHero', () => {
           title: 'Tuesday night',
           phase: 'live',
           href: roomHref,
-          ladder: null,
         }}
       />,
     );
@@ -73,7 +72,6 @@ describe('MemberHero', () => {
           title: 'Tuesday night',
           phase: 'live',
           href: roomHref,
-          ladder: null,
         }}
       />,
     );

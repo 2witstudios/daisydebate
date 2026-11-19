@@ -1,7 +1,6 @@
 import type { Ladder } from '@daisy/protocol';
 import Link from 'next/link';
 import { leaderboardDestinations } from '../../features/leaderboard/actions';
-import { ladderName } from '../../features/leaderboard/ladder-name';
 import { seasonsHref } from '../../features/leaderboard/seasons';
 import type { DebaterDetail } from '../../features/leaderboard/detail';
 import type { LadderView } from '../../features/leaderboard/ladder-view';
@@ -13,7 +12,6 @@ import {
 } from '../../features/leaderboard/season';
 import { DebaterDrawer } from './debater-drawer/debater-drawer';
 import { LadderFilters } from './ladder-filters/ladder-filters';
-import { LadderName } from './ladder-name/ladder-name';
 import {
   EarlyBanner,
   FinalBanner,
@@ -100,18 +98,13 @@ export function Leaderboard({
         view={view}
         query={query}
         toolbar={
-          <div className="flex flex-col gap-3">
-            <LadderFilters
-              query={query}
-              ladder={ladder}
-              seasons={view.seasons}
-              season={view.season}
-              hasStanding={view.hasStanding}
-            />
-            <LadderName
-              name={ladderName(ladder, view.established + view.provisional)}
-            />
-          </div>
+          <LadderFilters
+            query={query}
+            ladder={ladder}
+            seasons={view.seasons}
+            season={view.season}
+            hasStanding={view.hasStanding}
+          />
         }
       />
       {view.empty === 'new-season' && view.previousChampion ? (

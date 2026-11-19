@@ -15,7 +15,10 @@ import type {
   FormatSelectionFacts,
   EntitlementGrant,
   RecordingPolicy,
+  RatingDivision,
 } from '@daisy/protocol';
+import { roomLobbyAtCreation } from '@daisy/protocol';
+import { readRoomCreator } from './room-creator';
 import {
   readFormatSelectionFacts,
   type SelectionTuple,
@@ -51,7 +54,12 @@ export const roomCreateOperations = ({
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
 }) => ({
   async createRoomCommand(input: {
-    readonly room: NewRoom & { readonly hostActorId: string };
+    readonly room: Omit<NewRoom, 'division'> & { readonly hostActorId: string };
+    /**
+     * The lobby the creator chose (ADR 0156); null is their own. Decided
+     * under the creator's account lock by `roomLobbyAtCreation`.
+     */
+    readonly lobbyChoice: RatingDivision | null;
     /**
      * The engine's member set for the new Room's seats once its initial
      * cast is applied (ADR 0070, TAB-6.16): the seated humans, never a
@@ -130,12 +138,19 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
-        // A ranked Room's ladder is set by who sits (ADR 0147), so opening
-        // one needs a Daisy season on some division; Start checks the
-        // seated division's own season. The host's age decides nothing.
-        if (input.room.competitionType === 'ranked') {
+        // A Room belongs to the lobby it is created in (ADR 0156).
+        const lobby = roomLobbyAtCreation(
+          await readRoomCreator(tx, input.caller.userId),
+          input.lobbyChoice,
+        );
+        if (lobby.kind === 'refused')
+          throw createRefusal('CONFLICT', lobby.refusal);
+        const room = { ...input.room, division: lobby.division };
+        // A ranked Room rates on its own division's ladder, so opening one
+        // needs that division's active Daisy season.
+        if (room.competitionType === 'ranked') {
           const active = await tx.execute(
-            sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} for share`,
+            sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} and division=${room.division} for share`,
           );
           if (active.length === 0)
             throw createRefusal('CONFLICT', 'ranked-unavailable');
@@ -147,7 +162,7 @@ export const roomCreateOperations = ({
           throw createRefusal('CONFLICT', 'illegal-config');
         const now = await transactionNow(tx);
         const assembled = await assembleRoom(tx, {
-          room: input.room,
+          room,
           lobby: { id: publicLobbyId, kind: 'standing' },
           templateId: null,
           ballotDefinition: null,

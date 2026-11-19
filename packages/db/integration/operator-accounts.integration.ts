@@ -279,7 +279,7 @@ describe('operator beta access commands (ADR 0079)', () => {
     });
   });
 
-  test('an account without a durable 16+ age record is not approved (ISSUE-664)', async () => {
+  test('an account without a durable 13+ age record is not approved (ISSUE-664)', async () => {
     await withFixture(url, async (fixture) => {
       const { userId } = await pendingAccount(fixture);
       await fixture.sql`delete from account_age where user_id = ${userId}`;

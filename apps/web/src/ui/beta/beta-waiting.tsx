@@ -11,7 +11,7 @@ export type BetaWaitingProps = {
   readonly username: string;
   /**
    * `pending` waits for approval; `revoked` access was paused;
-   * `age-required` has no durable age record yet (the beta is 16+).
+   * `age-required` has no durable age record yet (members are 13+).
    */
   readonly reason: 'pending' | 'revoked' | 'age-required';
   /** The age step, which returns here once answered. */
@@ -113,8 +113,8 @@ export function BetaWaiting({
             One more step, @{username}
           </h1>
           <p className="text-md text-ink-muted">
-            The Daisy beta is open to people 16 and older. Tell us your birth
-            month and year to continue.
+            Daisy is for people 13 and older. Tell us your birth month and year
+            to continue.
           </p>
         </div>
         <AccountExit failed={signOutFailed} returnTo="/beta">

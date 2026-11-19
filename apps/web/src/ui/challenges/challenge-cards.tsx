@@ -9,18 +9,12 @@ import {
   initialChallengeForm,
 } from '../../features/challenges/forms';
 import { destinationOf } from '../../features/forms/form-state';
-import {
-  acrossLadders,
-  challengeSummary,
-  mayAcceptOffer,
-  unacceptableOfferReason,
-} from '../../features/challenges/challenge-ladder';
+import { challengeSummary } from '../../features/challenges/challenge-lobby';
 import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
 import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import type { PersonActions } from '../people/person-actions';
-import { useOptionalPeople } from '../people/people-provider';
 import { useChallenges } from './challenge-provider';
 
 const stageAccept =
@@ -37,8 +31,7 @@ function IncomingCard({
   readonly actions: PersonActions;
   readonly className?: string;
 }) {
-  const { refresh, memberDivision } = useChallenges();
-  const mayAccept = mayAcceptOffer(offer, memberDivision);
+  const { refresh } = useChallenges();
   const [accepted, accept, accepting] = useFormAction(
     actions.acceptChallenge,
     initialChallengeForm,
@@ -71,32 +64,23 @@ function IncomingCard({
       <p className="font-display text-lg leading-tight font-semibold">
         @{offer.username}
       </p>
-      <p className="text-sm text-stage-ink-muted">
-        {challengeSummary(offer, false)}
-      </p>
+      <p className="text-sm text-stage-ink-muted">{challengeSummary(offer)}</p>
       {notice ? (
         <p role="status" className="text-sm text-stage-ink-muted">
           {notice}
         </p>
       ) : null}
-      {mayAccept ? null : (
-        <p className="text-sm text-stage-ink-muted">
-          {unacceptableOfferReason(offer, memberDivision)}
-        </p>
-      )}
       <div className="mt-1 flex gap-1">
-        {mayAccept ? (
-          <form action={accept}>
-            <input type="hidden" name="challengeId" value={offer.id} />
-            <button
-              type="submit"
-              disabled={accepting || next !== undefined}
-              className={stageAccept}
-            >
-              Accept
-            </button>
-          </form>
-        ) : null}
+        <form action={accept}>
+          <input type="hidden" name="challengeId" value={offer.id} />
+          <button
+            type="submit"
+            disabled={accepting || next !== undefined}
+            className={stageAccept}
+          >
+            Accept
+          </button>
+        </form>
         <form action={decline}>
           <input type="hidden" name="command" value="decline" />
           <input type="hidden" name="challengeId" value={offer.id} />
@@ -119,14 +103,7 @@ function OutgoingCard({
   readonly action: PersonActions['endChallenge'];
   readonly className?: string;
 }) {
-  const { refresh, noteCancelled, forgetCancelled, memberDivision } =
-    useChallenges();
-  // Their ladder, when the people list has read it: it marks a casual offer
-  // that ranked could not have been.
-  const theirs =
-    useOptionalPeople()?.list.people.find(
-      (person) => person.username === offer.username,
-    )?.division ?? null;
+  const { refresh, noteCancelled, forgetCancelled } = useChallenges();
   const [answer, post, pending] = useFormAction(
     action,
     initialChallengeForm,
@@ -147,9 +124,7 @@ function OutgoingCard({
       )}
     >
       <p className="text-sm font-semibold">Waiting for @{offer.username}</p>
-      <p className="text-sm text-ink-muted">
-        {challengeSummary(offer, acrossLadders(memberDivision, theirs))}
-      </p>
+      <p className="text-sm text-ink-muted">{challengeSummary(offer)}</p>
       <form action={post} onSubmit={() => noteCancelled(offer.id)}>
         <input type="hidden" name="command" value="cancel" />
         <input type="hidden" name="challengeId" value={offer.id} />

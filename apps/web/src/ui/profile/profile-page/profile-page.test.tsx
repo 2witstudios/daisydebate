@@ -61,7 +61,7 @@ describe('ProfilePage', () => {
     });
   });
 
-  test('a ranked Round names its ladder; a casual one names none', () => {
+  test('no Round in the history names a ladder (ADR 0156)', () => {
     const html = render(
       profile({
         history: [
@@ -75,13 +75,13 @@ describe('ProfilePage', () => {
     );
     assert({
       given: 'a ranked Youth Round and a casual Round in the history',
-      should: 'chip the ranked row with its ladder in plum, once',
+      should: 'chip neither row with a ladder',
       actual: [
-        html.match(/Youth – Freestyle/g)?.length,
+        html.includes('Youth – Freestyle'),
         html.includes('text-hue-plum'),
         html.includes('Open – Freestyle'),
       ],
-      expected: [1, true, false],
+      expected: [false, false, false],
     });
   });
 

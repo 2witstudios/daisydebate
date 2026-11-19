@@ -1,4 +1,8 @@
-import type { RatingStyle, CompetitionType } from '@daisy/protocol';
+import type {
+  CompetitionType,
+  RatingDivision,
+  RatingStyle,
+} from '@daisy/protocol';
 import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import { defaultRoomVisibility } from '../rooms/room-visibility';
@@ -18,6 +22,8 @@ export function challengeRoomForm(input: {
   readonly opponent: string;
   readonly opponentActorId: string;
   readonly mode: CompetitionType;
+  /** The lobby the pair shares (ADR 0156): the Room opens there. */
+  readonly division: RatingDivision;
   readonly template: RoomTemplate;
   readonly commandId: string;
 }): FormData {
@@ -25,6 +31,7 @@ export function challengeRoomForm(input: {
   form.set('commandId', input.commandId);
   form.set('title', `@${input.opponent} vs @${input.host}`);
   form.set('resolutionMethod', 'strike');
+  form.set('lobby', input.division);
   // Ranked is always public; casual takes the Room default, also public.
   form.set(
     'visibility',

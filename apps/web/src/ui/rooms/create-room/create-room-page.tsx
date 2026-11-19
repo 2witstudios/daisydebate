@@ -15,11 +15,14 @@ export function CreateRoomPage({
   freshRoom = false,
   initialRanked = false,
   memberDivision,
+  staffLobby,
 }: {
   readonly freshRoom?: boolean;
   readonly initialRanked?: boolean;
   /** The member's ladder division (ADR 0147); null with no age on record, so no ranked play. */
   readonly memberDivision: RatingDivision | null;
+  /** Club staff's Lobby default; null hides the Lobby choice (ADR 0156). */
+  readonly staffLobby: RatingDivision | null;
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
@@ -49,6 +52,7 @@ export function CreateRoomPage({
       <CreateAssemblyForm
         initialRanked={initialRanked}
         memberDivision={memberDivision}
+        staffLobby={staffLobby}
         {...(initialState ? { initialState } : {})}
         {...(sourceRoomId ? { sourceRoomId } : {})}
         commandId={commandId}

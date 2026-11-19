@@ -19,7 +19,7 @@ const standing = (
 });
 
 describe('profileLadders', () => {
-  test('a member who turned 18: Open current first, Youth kept as history', () => {
+  test('a member who turned 18: one card, this season’s', () => {
     const shown = profileLadders(
       [
         standing('youth', {
@@ -33,12 +33,9 @@ describe('profileLadders', () => {
     );
     assert({
       given: 'a Youth rating from last season and a provisional Open one now',
-      should: 'show both, the current Open card first',
+      should: 'show only the current card; earlier seasons are history rows',
       actual: shown.map((s) => [s.ladder.division, s.current]),
-      expected: [
-        ['open', true],
-        ['youth', false],
-      ],
+      expected: [['open', true]],
     });
   });
   test('an unrated ladder shows only when it is the member’s own', () => {

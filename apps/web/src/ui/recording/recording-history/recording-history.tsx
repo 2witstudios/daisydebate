@@ -5,7 +5,6 @@ import { watchRoutes } from '../../../features/watch/routes';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
-import { LadderBadge } from '../../ladder-badge/ladder-badge';
 import { CopyLink } from '../../watch/copy-link/copy-link';
 import { StateCard } from '../../watch/state-card/state-card';
 import { RecordingPlayer } from '../recording-player/recording-player';
@@ -211,8 +210,8 @@ function YouthSharing({
           <Badge tone="accent">Public</Badge>
         </div>
         <p className="text-sm text-ink">
-          <strong className="font-strong">Public:</strong> on Watch, labelled
-          Youth – Freestyle. It comes down if a release is withdrawn.
+          <strong className="font-strong">Public:</strong> on Watch. It comes
+          down if a release is withdrawn.
         </p>
       </section>
     );
@@ -286,8 +285,8 @@ function YouthSharing({
         </button>
       )}
       <p className="text-xs text-ink-muted">
-        Sharing makes it public on Watch, labelled Youth – Freestyle. Paid ads
-        never use it without a separate opt-in.
+        Sharing makes it public on Watch. Paid ads never use it without a
+        separate opt-in.
       </p>
     </section>
   );
@@ -367,7 +366,6 @@ export function RecordingHistory({
           <span className="text-sm font-strong text-accent">
             {screen.ranked ? 'Ranked' : 'Casual'}
           </span>
-          {screen.ladder ? <LadderBadge ladder={screen.ladder} /> : null}
           <span className="text-sm text-ink-muted">{screen.date}</span>
           {screen.deletesOn === null ? null : (
             <span className="text-sm text-ink-muted">

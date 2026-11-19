@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cn } from '../../cn';
 import { segmentClass } from './segmented-class';
 
 type Segment = {
@@ -8,10 +9,11 @@ type Segment = {
 };
 
 export type SegmentedProps = {
+  /** The group's accessible name; never shown inside the group. */
   readonly label: string;
   readonly segments: readonly Segment[];
-  /** Show the label as a caption before the segments, as the ladder filters do. */
-  readonly captioned?: boolean;
+  /** Fill the width on a phone, each segment an equal share (the lobby switch). */
+  readonly fillOnPhone?: boolean;
 };
 
 /**
@@ -21,27 +23,25 @@ export type SegmentedProps = {
 export function Segmented({
   label,
   segments,
-  captioned = false,
+  fillOnPhone = false,
 }: SegmentedProps) {
   return (
     <nav
       aria-label={label}
-      className="inline-flex items-center gap-1 rounded-md bg-surface-overlay p-1"
+      className={cn(
+        'inline-flex items-center gap-1 self-start rounded-md bg-surface-overlay p-1',
+        fillOnPhone && 'max-narrow:flex max-narrow:self-stretch',
+      )}
     >
-      {captioned ? (
-        <span
-          aria-hidden="true"
-          className="px-2 text-xs font-strong text-ink-muted"
-        >
-          {label}
-        </span>
-      ) : null}
       {segments.map((segment) => (
         <Link
           key={segment.label}
           href={segment.href}
           aria-current={segment.selected ? 'page' : undefined}
-          className={segmentClass(segment.selected)}
+          className={cn(
+            segmentClass(segment.selected),
+            fillOnPhone && 'max-narrow:flex-1 max-narrow:justify-center',
+          )}
         >
           {segment.label}
         </Link>

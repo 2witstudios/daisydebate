@@ -41,6 +41,7 @@ export function usePersonOverlay(
   actions: PersonActions,
 ) {
   const { list } = usePeople();
+  const { memberDivision } = useChallenges();
   const [hover, setHover] = useState<Anchored | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const trigger = useRef<HTMLElement | null>(null);
@@ -103,7 +104,7 @@ export function usePersonOverlay(
           ref={anchorAt(hover?.top ?? 0)}
           className="pointer-events-none absolute person-anchor right-full z-20 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-compact:hidden"
         >
-          <MemberCardBody member={hovered} />
+          <MemberCardBody member={hovered} viewer={memberDivision} />
         </div>
       ) : null}
       {opened && menu ? (

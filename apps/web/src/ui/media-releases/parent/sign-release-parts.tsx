@@ -58,9 +58,6 @@ export function RequestFacts(
           <Avatar minor={props.minor} />
           <span className="min-w-0">
             <strong className="block font-semibold">@{props.minor}</strong>
-            <span className="block text-sm text-ink-muted">
-              Youth – Freestyle
-            </span>
           </span>
         </span>
         <dl className="flex flex-col">

@@ -24,7 +24,6 @@ import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { roomVisibilityLabels } from '../../../features/rooms/room-visibility';
 import { declaredSeats, seatLabel } from './assembly-controls';
 import { ordinalOf, showsTeams } from './roster-seat';
-import { competitionWords } from './room-ladder';
 
 type Participant = RoomView['participants'][number];
 type Definition = Pick<RoomView['definition'], 'sides' | 'seats'>;
@@ -118,21 +117,15 @@ export function roomStatus(
   return `${view.participants.length} of ${seats} seats filled`;
 }
 
-/**
- * Host, who can join, and whether the result is ranked: the header's meta
- * line. A ranked Room whose debaters mix ladders says it is playing casual.
- */
+/** Host, who can join, and whether the result is ranked: the header's meta line. */
 export function roomMeta(
-  view: Pick<
-    RoomView,
-    'hostLabel' | 'visibility' | 'competitionType' | 'ladder'
-  >,
+  view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
 ): readonly string[] {
   return [
     // A Room no person hosts (a Tab event Room) names no host.
     ...(view.hostLabel ? [`Hosted by ${view.hostLabel}`] : []),
     roomVisibilityLabels[view.visibility],
-    competitionWords(view),
+    view.competitionType === 'ranked' ? 'Ranked' : 'Casual',
   ];
 }
 
@@ -181,8 +174,8 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
-  // A seat names the caller's own ladder only; Start never refuses on it.
-  'ranked-division': 'a debater seat on your own ladder',
+  // A debater seat is for the Room's own lobby (ADR 0156).
+  'other-division': 'a debater seat in your own lobby',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
   'ai-judge-premium':

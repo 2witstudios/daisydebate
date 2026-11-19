@@ -9,10 +9,8 @@ import type {
 import {
   freezeRoomConfig,
   freezeRoomExecutionPlan,
-  isDebatingSeat,
   isJudgeSeat,
   isOpenRoomStatus,
-  seatedDivision,
 } from '@daisy/protocol';
 import { namesHumanJudge, startBlocker } from './room-assembly-facts';
 const participantReady = (
@@ -170,10 +168,7 @@ export function projectRoom(
     formatVersion: room.formatVersion,
     presetVersion: room.presetVersion,
     competitionType: room.competitionType,
-    ladder:
-      room.competitionType === 'ranked'
-        ? seatedDivision(room.participants)
-        : null,
+    division: room.division,
     definition: room.definition,
     config: freezeRoomConfig(room.config),
     executionPlan: freezeRoomExecutionPlan(room.executionPlan),
@@ -209,12 +204,6 @@ export function projectRoom(
             positionOpen: p.positionOpen,
             // The web adapter reads ratings under the viewer's blinding.
             rating: null,
-            division:
-              room.competitionType === 'ranked' &&
-              p.kind === 'human' &&
-              isDebatingSeat(p.seat)
-                ? p.division
-                : null,
             ...state,
           };
     }),

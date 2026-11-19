@@ -277,6 +277,7 @@ test("one assign moves the target and displaces the target seat's occupant", () 
         id: 'p2',
         kind: 'human' as const,
         aiRole: null,
+        division: 'open' as const,
       },
     },
   );

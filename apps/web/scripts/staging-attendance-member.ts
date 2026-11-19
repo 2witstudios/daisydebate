@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
+import { ageAdmitted } from '@daisy/auth/authorization';
 import { decideBetaAccessChange } from '@daisy/protocol';
 
 /** Owner-authorized staging-only synthetic identity, following the existing transcript fixture conventions. */
@@ -60,7 +61,7 @@ export async function createStagingAttendanceMember(input: {
           current,
           desired: 'approved',
           expectedRevision: account.revision,
-          ageAdmitted: ageBand === 'adult' || ageBand === '16-17',
+          ageAdmitted: ageAdmitted(ageBand),
         }),
     });
     const sessionId = nextId();

@@ -70,7 +70,7 @@ export function YouthStudentsPage({
     <>
       <PageHeader
         title="Youth tournaments"
-        lede="Your students on Youth – Freestyle, and whether their Rounds can be published."
+        lede="Your students under 18, and whether their Rounds can be published."
         actions={
           <Link
             href={`/clubs/${clubId}/releases`}
@@ -129,10 +129,7 @@ export function YouthStudentsPage({
         className="flex flex-col gap-2"
       >
         <h2 id="youth-students-h" className="font-display text-xl font-bold">
-          Your Youth students{' '}
-          <span className="text-base font-book text-ink-muted">
-            · Youth – Freestyle
-          </span>
+          Your Youth students
         </h2>
         <p className="text-sm text-ink-muted">
           Youth tournament entries appear here once Youth events open.
@@ -153,9 +150,6 @@ export function YouthStudentsPage({
                 <strong className="truncate font-strong">
                   {row.username === null ? 'A student' : `@${row.username}`}
                 </strong>
-              </span>
-              <span>
-                <Badge tone="plum">Youth – Freestyle</Badge>
               </span>
               <span>
                 <Badge tone={releaseBadgeTone[row.badge]}>

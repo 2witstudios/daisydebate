@@ -2,7 +2,6 @@ import Link from 'next/link';
 import type { LiveCard } from '../../../features/watch/live-card';
 import { buttonClass } from '../../components/button/button-class';
 import { Badge } from '../../components/badge/badge';
-import { LadderBadge } from '../../ladder-badge/ladder-badge';
 import { StatusLine } from '../../components/status-line/status-line';
 import { cn } from '../../cn';
 import { LiveClock } from '../live-clock/live-clock';
@@ -40,7 +39,6 @@ export function FeaturedRound({ card }: FeaturedRoundProps) {
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
         <StatusLine tone="live">Live</StatusLine>
         <Badge tone="clay">{card.mode}</Badge>
-        {card.ladder ? <LadderBadge ladder={card.ladder} /> : null}
       </div>
       <div className="flex flex-col gap-1">
         <span className="text-xs text-ink-muted">Featured</span>

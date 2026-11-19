@@ -34,8 +34,8 @@ const challengeSummary = {
   username: z.string(),
   mode: z.enum(competitionTypes),
   format: z.enum(ratingStyles),
-  /** A ranked offer's ladder division (ADR 0147), set at send; null when casual. */
-  division: z.enum(ratingDivisions).nullable(),
+  /** The lobby both members share (ADR 0156), set at send; its Room opens there. */
+  division: z.enum(ratingDivisions),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
 };

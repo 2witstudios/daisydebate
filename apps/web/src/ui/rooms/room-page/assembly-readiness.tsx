@@ -19,12 +19,6 @@ import {
   type LocalReadiness,
 } from './assembly-controls';
 import { startRefusalText, waitingOn } from './room-labels';
-import { Icon } from '../../components/icon/icon';
-import {
-  mixedLadderNotice,
-  startRoundLabel,
-  type MixedLadderNotice,
-} from './room-ladder';
 
 /**
  * What every seat is told before Ready when the host chose the call and the
@@ -48,7 +42,6 @@ type View = Pick<
   | 'teamOneSide'
   | 'status'
   | 'competitionType'
-  | 'ladder'
 > & {
   readonly definition: Pick<RoomView['definition'], 'sides' | 'seats'>;
   readonly capabilities: Pick<
@@ -196,36 +189,6 @@ function startBlocked(view: View, actorId: string, local: LocalReadiness) {
 }
 
 /**
- * Before a mixed ranked Room's Start: the host is told the Round plays
- * casual, and who is on which ladder, with Start beneath it (ADR 0147).
- */
-function CasualStart({
-  notice,
-  start,
-}: {
-  readonly notice: MixedLadderNotice;
-  readonly start: ReactNode;
-}) {
-  return (
-    <section
-      aria-labelledby="casual-start-title"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4"
-    >
-      <h2
-        id="casual-start-title"
-        className="flex items-center gap-2 text-md font-strong"
-      >
-        <Icon name="info" size={20} className="shrink-0 text-gold" />
-        {notice.title}
-      </h2>
-      <p className="text-sm">{notice.body}</p>
-      <p className="text-sm text-ink-muted">{notice.remedy}</p>
-      {start}
-    </section>
-  );
-}
-
-/**
  * The viewer's one full-width button under their tile: Turn on camera and
  * mic, then I'm ready, then Not ready; for the host, Start round once they
  * are ready (or at once when they hold no seat). The roster only shows each
@@ -245,7 +208,7 @@ export function ReadyControl({
   const startForm = host
     ? CommandForm({
         type: 'start-round',
-        label: startRoundLabel(view),
+        label: 'Start round',
         enabled: !startBlocked(view, actorId, local),
         version: view.version,
         commandId: commandIds['start-round'],
@@ -253,13 +216,7 @@ export function ReadyControl({
         className: `${buttonClass('primary')} w-full`,
       })
     : null;
-  const casual = mixedLadderNotice(view);
-  const start =
-    startForm && casual ? (
-      <CasualStart notice={casual} start={startForm} />
-    ) : (
-      startForm
-    );
+  const start = startForm;
   if (!ready)
     return start ? <div className="flex flex-col">{start}</div> : null;
   const own = ownSeat(view, actorId);

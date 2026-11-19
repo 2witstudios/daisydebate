@@ -94,7 +94,7 @@ describe('LadderFilters', () => {
     });
   });
 
-  test('division and style', () => {
+  test('the lobby switch and style (YLeaderboard)', () => {
     const youth = render({
       query: { ...defaultQuery, division: 'youth', q: 'x', page: 2 },
       ladder: { style: 'freestyle', division: 'youth' },
@@ -103,9 +103,12 @@ describe('LadderFilters', () => {
     assert({
       given: 'the Youth ladder asked for, and a visitor on the default ladder',
       should:
-        'mark the shown division, link the other keeping the search, carry an asked division and offer Freestyle',
+        'show Open then Youth in a Lobby group with no caption, mark the shown one, link the other keeping the search, carry an asked division and offer Freestyle',
       actual: [
-        youth.indexOf('>Youth<') < youth.indexOf('>Open<'),
+        youth.indexOf('>Open<') < youth.indexOf('>Youth<') &&
+          youth.includes('aria-label="Lobby"') &&
+          !youth.includes('>Division<') &&
+          !youth.includes('>Scope<'),
         /aria-current="page"[^>]*>Youth</.test(youth),
         youth.includes('href="/leaderboard?division=open&amp;q=x"'),
         youth.includes('name="division" value="youth"'),

@@ -17,7 +17,6 @@ export function Dashboard({
   hero,
   liveNow,
   seasonGlance = null,
-  leaderboardTagline = null,
 }: {
   readonly audience: 'visitor' | 'member';
   readonly hero: ReactNode;
@@ -25,8 +24,6 @@ export function Dashboard({
   readonly liveNow: ReactNode;
   /** The Seasons note's reveal; null when no season is running. */
   readonly seasonGlance?: SeasonGlance | null;
-  /** The Leaderboard note's ladder words; null keeps its own tagline. */
-  readonly leaderboardTagline?: string | null;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8">
@@ -42,11 +39,6 @@ export function Dashboard({
           <li key={tile.href} className="min-w-0">
             <ActionTile
               {...tile}
-              description={
-                tile.destination === 'leaderboard'
-                  ? (leaderboardTagline ?? tile.description)
-                  : tile.description
-              }
               seasonGlance={
                 tile.destination === 'seasons' ? seasonGlance : null
               }

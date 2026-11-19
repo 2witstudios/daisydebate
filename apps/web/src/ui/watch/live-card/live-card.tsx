@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { LiveCard as LiveCardModel } from '../../../features/watch/live-card';
 import { Badge } from '../../components/badge/badge';
-import { LadderBadge } from '../../ladder-badge/ladder-badge';
 import { buttonClass } from '../../components/button/button-class';
 import { StatusLine } from '../../components/status-line/status-line';
 import { cn } from '../../cn';
@@ -43,7 +42,6 @@ export function LiveCard({ card }: LiveCardProps) {
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
         <StatusLine tone="live">Live</StatusLine>
         <Badge tone={card.ranked ? 'clay' : 'sky'}>{card.mode}</Badge>
-        {card.ladder ? <LadderBadge ladder={card.ladder} /> : null}
       </div>
       <h3 className="truncate text-md font-bold text-ink">{card.title}</h3>
       {card.resolution ? (

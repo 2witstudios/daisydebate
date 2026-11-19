@@ -52,8 +52,9 @@ export function createChallengeHandlers(dependencies: {
       name: `challenges.${name}`,
       readOnly: false,
       readInput: () => readJson(request, MAX_BODY_BYTES),
-      // A ranked offer across ladders answers why (ADR 0147).
-      refusals: ['ranked-division'],
+      // A challenge stays inside one lobby (ADR 0156): the other lobby's
+      // member reads as one who cannot take a challenge.
+      refusals: ['other-division'],
       operation: async (input, principal) =>
         challengeResultSchema.parse({
           version: 1,

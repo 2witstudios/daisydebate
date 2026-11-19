@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { MemberStanding } from '../../features/ratings/read-member';
@@ -17,20 +18,10 @@ const standing = (over: Partial<MemberStanding>): MemberStanding => ({
 });
 
 describe('MemberStandings', () => {
-  test('a member who turned 18: Open current, Youth kept as history', () => {
+  test('a member who turned 18: one Rating card, then every season (YProfile, generic copy)', () => {
     const html = renderToString(
       <MemberStandings
-        standings={[
-          standing({}),
-          standing({
-            ladder: { style: 'freestyle', division: 'youth' },
-            key: 'freestyle:youth',
-            season: 'Spring 2026',
-            current: false,
-            rating: 1604,
-            provisional: false,
-          }),
-        ]}
+        standings={[standing({})]}
         seasonHistory={[
           {
             key: 'freestyle:youth:s1',
@@ -47,22 +38,20 @@ describe('MemberStandings', () => {
       />,
     );
     assert({
-      given:
-        'a provisional Open rating now and a Youth rating from last season',
+      given: 'a provisional rating now and a Youth season finished before',
       should:
-        'card each ladder as current or history, then list the season with its ladder chip',
+        'show one Freestyle card, then the season with its facts, naming no division',
       actual: [
-        html.includes('Open – Freestyle'),
+        html.includes('>Rating</a>'),
         html.includes('Fall 2026 · current'),
         html.includes('1500*'),
         html.includes('>Provisional<'),
-        html.includes('>History<'),
-        html.includes('Final rating, Spring 2026. Kept as history.'),
         html.includes('Season history'),
-        html.includes('text-hue-plum'),
         html.includes('#12 of 388 · 31–12'),
+        ladderCopyIn(html) ?? (html.includes('Youth') || html.includes('Open')),
+        html.includes('text-hue-plum'),
       ],
-      expected: [true, true, true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, false, false],
     });
   });
 

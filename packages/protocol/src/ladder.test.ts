@@ -1,16 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   daisyLaddersOf,
-  divisionForSeatedDebaters,
   divisionOfAgeBand,
   ladderKey,
   ratingDivisions,
-  roomLadderOf,
   roundCompetition,
-  seatedDivision,
 } from './ladder';
 import type { RatingDivision } from './ladder';
-import type { SeatRef } from './seats';
 
 setupRitewayBun();
 
@@ -27,42 +23,6 @@ test('divisionOfAgeBand', () => {
       divisionOfAgeBand(null),
     ],
     expected: ['open', 'youth', 'youth', 'youth', null],
-  });
-});
-
-test('divisionForSeatedDebaters', () => {
-  assert({
-    given: 'no seated debater',
-    should: 'leave the ladder unset until a debater sits',
-    actual: divisionForSeatedDebaters([]),
-    expected: 'unset',
-  });
-  assert({
-    given: 'debaters who are all 18 and over',
-    should: 'seat the Room on Open',
-    actual: divisionForSeatedDebaters(['open', 'open', 'open', 'open']),
-    expected: 'open',
-  });
-  assert({
-    given: 'debaters who are all under 18',
-    should: 'seat the Room on Youth',
-    actual: divisionForSeatedDebaters(['youth', 'youth']),
-    expected: 'youth',
-  });
-  assert({
-    given: 'one debater on each division',
-    should: 'call the seating mixed, which cannot rate',
-    actual: divisionForSeatedDebaters(['youth', 'open']),
-    expected: 'mixed',
-  });
-  assert({
-    given: 'a seated debater with no division (no valid age record)',
-    should: 'call the seating mixed: no ladder can hold them',
-    actual: [
-      divisionForSeatedDebaters([null]),
-      divisionForSeatedDebaters(['open', null]),
-    ],
-    expected: ['mixed', 'mixed'],
   });
 });
 
@@ -108,12 +68,13 @@ test('daisyLaddersOf', () => {
 
 test('roundCompetition', () => {
   const ranked = { competitionType: 'ranked', formatId: 'freestyle' } as const;
+  const inLobby = (division: RatingDivision) => ({ ...ranked, division });
   assert({
-    given: 'a ranked Freestyle Room whose debaters are all on one division',
-    should: 'freeze a ranked Round on that ladder',
+    given: 'a ranked Freestyle Room in each lobby',
+    should: 'freeze a ranked Round on the Room’s own division',
     actual: [
-      roundCompetition(ranked, 'open'),
-      roundCompetition(ranked, 'youth'),
+      roundCompetition(inLobby('open')),
+      roundCompetition(inLobby('youth')),
     ],
     expected: [
       {
@@ -127,97 +88,23 @@ test('roundCompetition', () => {
     ],
   });
   assert({
-    given: 'a ranked Room whose debaters mix divisions',
-    should: 'freeze a casual Round that rates no one',
-    actual: roundCompetition(ranked, 'mixed'),
-    expected: { competitionType: 'casual', ladder: null },
-  });
-  assert({
-    given: 'a casual Room on any seating',
+    given: 'a casual Room',
     should: 'freeze a casual Round',
-    actual: roundCompetition(
-      { competitionType: 'casual', formatId: 'freestyle' },
-      'open',
-    ),
+    actual: roundCompetition({
+      competitionType: 'casual',
+      formatId: 'freestyle',
+      division: 'open',
+    }),
     expected: { competitionType: 'casual', ladder: null },
   });
   assert({
     given: 'a ranked Room on a format that is no style',
     should: 'never invent a ladder',
-    actual: roundCompetition(
-      { competitionType: 'ranked', formatId: 'custom-thing' },
-      'open',
-    ),
+    actual: roundCompetition({
+      competitionType: 'ranked',
+      formatId: 'custom-thing',
+      division: 'open',
+    }),
     expected: { competitionType: 'casual', ladder: null },
-  });
-});
-
-const aff: SeatRef = { kind: 'side', side: 'affirmative', slot: 0 };
-const neg: SeatRef = { kind: 'side', side: 'negative', slot: 0 };
-const judge: SeatRef = { kind: 'judge', slot: 0 };
-const person = (
-  actorId: string,
-  division: RatingDivision | null,
-  seat: SeatRef,
-) => ({ actorId, kind: 'human' as const, division, seat });
-
-test('seatedDivision', () => {
-  assert({
-    given: 'a ranked Room with only a judge seated',
-    should: 'leave the ladder unset: judges never set it',
-    actual: seatedDivision([person('j', 'open', judge)]),
-    expected: 'unset',
-  });
-  assert({
-    given: 'two youth debaters and an adult judge',
-    should: 'seat the Room on Youth',
-    actual: seatedDivision([
-      person('a', 'youth', aff),
-      person('b', 'youth', neg),
-      person('j', 'open', judge),
-    ]),
-    expected: 'youth',
-  });
-  assert({
-    given: 'a youth and an adult debater',
-    should: 'call the seating mixed',
-    actual: seatedDivision([
-      person('a', 'youth', aff),
-      person('b', 'open', neg),
-    ]),
-    expected: 'mixed',
-  });
-  assert({
-    given: 'a bot on a debater seat',
-    should: 'leave the bot out of the division',
-    actual: seatedDivision([
-      person('a', 'open', aff),
-      { kind: 'bot', division: null, seat: neg },
-    ]),
-    expected: 'open',
-  });
-});
-
-test('roomLadderOf', () => {
-  const ranked = {
-    competitionType: 'ranked' as const,
-    launched: false,
-    roundDivision: null,
-    debaterDivisions: [],
-  };
-  assert({
-    given:
-      'a casual Room, an open ranked Room with none, one, and mixed debaters, and launched ranked Rooms',
-    should:
-      'name no ladder on casual, the seats’ ladder while open, and the Round’s once launched (mixed when it plays casual)',
-    actual: [
-      roomLadderOf({ ...ranked, competitionType: 'casual' }),
-      roomLadderOf(ranked),
-      roomLadderOf({ ...ranked, debaterDivisions: ['youth'] }),
-      roomLadderOf({ ...ranked, debaterDivisions: ['youth', 'open'] }),
-      roomLadderOf({ ...ranked, launched: true, roundDivision: 'open' }),
-      roomLadderOf({ ...ranked, launched: true }),
-    ],
-    expected: [null, 'unset', 'youth', 'mixed', 'open', 'mixed'],
   });
 });

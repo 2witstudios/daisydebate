@@ -653,6 +653,7 @@ export const loadSampleTournament = async (sql: SQL) => {
         format_id: formatId,
         format_version: 1,
         competition_type: 'casual',
+        division: 'open',
         config: validConfig,
         execution_plan: {},
         rules_snapshot: validRules,

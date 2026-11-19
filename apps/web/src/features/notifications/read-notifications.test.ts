@@ -102,7 +102,7 @@ describe('readNotificationItems', () => {
           },
           {
             id: 'e',
-            text: '@maya challenged you to a ranked Youth – Freestyle debate.',
+            text: '@maya challenged you to a ranked Freestyle debate.',
             href: '/friends',
             minutesAgo: 0,
             unread: false,
