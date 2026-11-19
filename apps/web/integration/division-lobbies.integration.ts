@@ -388,7 +388,7 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
   );
 });
 
-test('a Youth Room’s live Round has no public audience; an Open one does (ADR 0156)', async () => {
+test('a Youth Room’s live Round has the same public audience as an Open one (ADR 0159)', async () => {
   await withRoomRuntime(async (f) => {
     // A fresh pair each: a member holds one active Room (ADR 0070).
     const liveRound = async (age: keyof typeof ages) => {
@@ -413,10 +413,9 @@ test('a Youth Room’s live Round has no public audience; an Open one does (ADR 
     const open = await liveRound('adult');
     assert({
       given: 'a live casual Round in a Youth Room, then one in an Open Room',
-      should:
-        'refuse the spectator read of the Youth Round as missing, and serve the Open one',
+      should: 'serve the spectator read of both alike',
       actual: { youth: youthWatch, open: await watch(open) },
-      expected: { youth: 'refused', open: 'watching' },
+      expected: { youth: 'watching', open: 'watching' },
     });
   });
 });

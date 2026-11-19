@@ -125,13 +125,14 @@ test('a ranked Youth Round is public as an Open one is, and its linked adults se
         const [division] =
           await f.sql`select ladder_division from rounds where id=${roundId}`;
         const round = await recordingRoundOf(database, roundId);
+        // Read past the ranked delay, as the audience reads it.
+        const later = Date.now() + 600_000;
         const release = await database.readRecordingBroadcastRelease(
           roundId,
-          spectatorClockAt(new Date().toISOString()),
+          spectatorClockAt(new Date(later).toISOString()),
         );
         const sees = (viewer: RecordingViewer, input: RecordingRound = round) =>
-          roundEvidencePermissions(input, release, viewer, null, Date.now())
-            .media;
+          roundEvidencePermissions(input, release, viewer, null, later).media;
         assert({
           given:
             'a ranked Youth Round with a school coach and a parent linked to its debaters',
@@ -509,7 +510,7 @@ test('a public casual Round of a Youth Room is read exactly as an Open one, but 
       await readyCasualRecording(f, youth.roundId, f.host.actorId);
       await readyCasualRecording(f, open.roundId, openCast.host.actorId);
 
-      await f.sql`update broadcasts set completed_at=now() where round_id in (${youth.roundId}, ${open.roundId})`;
+      await f.sql`update broadcasts set final_media_end_at=now()-interval '3 minutes',stream_ended_at=now(),completed_at=now() where round_id in (${youth.roundId}, ${open.roundId})`;
       await f.store.sweepNotificationFanouts({
         clock: spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
         limit: 50,
