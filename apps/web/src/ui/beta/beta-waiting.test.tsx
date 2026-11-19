@@ -54,12 +54,12 @@ describe('BetaWaiting (ADR 0075)', () => {
       }),
     );
     assert({
-      given: 'an approved or pending account with no durable 16+ age record',
+      given: 'an approved or pending account with no durable 13+ age record',
       should:
         'ask for its age and link to the age step, never say it is on the list',
       actual: [
         html.includes('href="/onboarding/age?next=%2Fbeta"'),
-        html.includes('16 and older'),
+        html.includes('13 and older') && !html.includes('16 and older'),
         html.includes('on the list'),
       ],
       expected: [true, true, false],

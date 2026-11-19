@@ -19,7 +19,7 @@ const topicsOf = (email: string) =>
   );
 
 describe('optional onboarding answers through the composed routes (ISSUE-678)', () => {
-  test('the real routes.ts wiring admits a 16+ member and refuses one without a canonical age', async () => {
+  test('the real routes.ts wiring admits a 13+ member and refuses one without a canonical age', async () => {
     const save = (cookie: string) =>
       onboarding.POST(
         jsonPost(
@@ -41,7 +41,7 @@ describe('optional onboarding answers through the composed routes (ISSUE-678)', 
     const refused = await save(unknown.cookie);
     assert({
       given:
-        'two members posting a topics step, one 16+ and one whose age fact is gone',
+        'two members posting a topics step, one 13+ and one whose age fact is gone',
       should:
         'store the adult’s answer and refuse the other with 403, storing nothing',
       actual: [

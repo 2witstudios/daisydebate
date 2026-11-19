@@ -131,8 +131,8 @@ test('beta access gates participant capabilities but keeps the safety exits (ADR
     ],
   });
 });
-test('participant access needs a durable age record at the 16+ beta floor (ADR 0075)', () => {
-  const evaluate = (ageBand: 'adult' | '16-17' | '13-15' | null) =>
+test('participant access needs a durable age record at the 13+ floor (ADR 0075, decision 88)', () => {
+  const evaluate = (ageBand: 'adult' | '16-17' | '13-15' | 'under-13' | null) =>
     (['room.create', 'room.leave'] as const).map(
       (capability) =>
         authorize({
@@ -163,16 +163,18 @@ test('participant access needs a durable age record at the 16+ beta floor (ADR 0
     );
   assert({
     given:
-      'approved accounts that are adult, 16-17, 13-15, or have no age record',
+      'approved accounts that are adult, 16-17, 13-15, under 13, or have no age record',
     should:
-      'admit only 16 and older to participant capabilities, and always allow leaving',
+      'admit only 13 and older to participant capabilities, and always allow leaving',
     actual: [
       evaluate('adult'),
       evaluate('16-17'),
       evaluate('13-15'),
+      evaluate('under-13'),
       evaluate(null),
     ],
     expected: [
+      [true, true],
       [true, true],
       [true, true],
       [false, true],

@@ -51,7 +51,7 @@ const answer = async (response: () => Response) => {
 test('the age action holds the browser only for a refusal, before it moves on (ISSUE-688)', async () => {
   const refused = await answer(() =>
     Response.json(
-      { error: { code: 'AGE_REFUSED', refusal: 'below-floor' } },
+      { error: { code: 'AGE_REFUSED', refusal: 'under-13' } },
       { status: 403 },
     ),
   );
@@ -61,17 +61,17 @@ test('the age action holds the browser only for a refusal, before it moves on (I
   );
   assert({
     given:
-      'a below-floor refusal, an accepted answer, and a 409 from an account that already answered',
+      'an under-13 refusal, an accepted answer, and a 409 from an account that already answered',
     should:
-      'set the shared hold then move on to the age step for the refusal, and move on to the username step with no hold for the others',
+      'set the shared hold then move on to the age step for the refusal, and move on to the lobby landing with no hold for the others',
     actual: [refused.log, accepted.log, conflict.log],
     expected: [
       [
-        ['hold', AGE_HOLD_COOKIE, 'below-floor', AGE_HOLD_COOKIE_OPTIONS],
+        ['hold', AGE_HOLD_COOKIE, 'under-13', AGE_HOLD_COOKIE_OPTIONS],
         ['moveOn', '/onboarding/age?next=%2Flobby'],
       ],
-      [['moveOn', '/onboarding/username?next=%2Flobby']],
-      [['moveOn', '/onboarding/username?next=%2Flobby']],
+      [['moveOn', '/onboarding/lobby?next=%2Flobby']],
+      [['moveOn', '/onboarding/lobby?next=%2Flobby']],
     ],
   });
 });
@@ -109,10 +109,10 @@ test('the age action answers exactly one kind for each way the post can end', as
     given:
       'an accepted answer, a refusal the age step will show, and a form with nothing chosen',
     should:
-      'answer moved to the username step, moved back to the age step, and incomplete naming every field',
+      'answer moved to the lobby landing, moved back to the age step, and incomplete naming every field',
     actual: [accepted.state, refused.state, incomplete],
     expected: [
-      { kind: 'moved', next: '/onboarding/username?next=%2Flobby' },
+      { kind: 'moved', next: '/onboarding/lobby?next=%2Flobby' },
       { kind: 'moved', next: '/onboarding/age?next=%2Flobby' },
       {
         kind: 'incomplete',

@@ -73,11 +73,11 @@ describe('admitsOptionalAnswers', () => {
     accountRevision: 3,
     validUntil: '2026-11-01T00:00:00.000Z',
   });
-  test('only a current, known age of 16 or over admits optional answers', () => {
+  test('only a current, known age of 13 or over admits optional answers', () => {
     assert({
       given:
         'adult, 16-17, 13-15, under-13, unknown, another actor’s fact, and an expired fact',
-      should: 'admit only the current 16+ facts bound to this actor',
+      should: 'admit only the current 13+ facts bound to this actor',
       actual: [
         admitsOptionalAnswers(known('adult'), 'a', now),
         admitsOptionalAnswers(known('16-17'), 'a', now),
@@ -88,7 +88,7 @@ describe('admitsOptionalAnswers', () => {
         admitsOptionalAnswers(known('adult'), 'a', '2026-11-01T00:00:00.000Z'),
         admitsOptionalAnswers(known('adult'), 'a', 'not a time'),
       ],
-      expected: [true, true, false, false, false, false, false, false],
+      expected: [true, true, true, false, false, false, false, false],
     });
   });
 });

@@ -33,7 +33,7 @@ const questionsFor = (
   {
     question: 'Who plays ranked?',
     answer:
-      'Ranked is for members 18 and over; members under 18 play ranked in the Youth lobby. Members are 16 or older. Anyone can judge.',
+      'Ranked is for members 18 and over; members under 18 play ranked in the Youth lobby. Members are 13 or older. Anyone can judge.',
   },
   ...(actions.club.kind === 'link'
     ? [

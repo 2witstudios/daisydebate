@@ -4,7 +4,7 @@ const sendOff = { step: 'ready', asksOptionalAnswers: false } as const;
 /**
  * The onboarding flow after the passkey offer, in the order a member walks
  * it. A step that asks optional answers admits only a member whose
- * canonical age admits them (16 or over, DEC-106); everyone else passes
+ * canonical age admits them (13 or over, decision 88); everyone else passes
  * over it in both directions.
  */
 const flow = [

@@ -73,7 +73,7 @@ export type SettingsPageProps = {
   readonly dataRightsNotices: DataRightsNotices;
   /**
    * The member's optional onboarding answers and where each is changed
-   * (ISSUE-324); null when they are not asked of this member (under 16, or
+   * (ISSUE-324); null when they are not asked of this member (under 13, or
    * no age on record), so nothing optional is shown.
    */
   readonly onboarding: {

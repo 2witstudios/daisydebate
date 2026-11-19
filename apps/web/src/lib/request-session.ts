@@ -244,7 +244,7 @@ export const requestHasRecordedAge = cache(async (): Promise<boolean> => {
 
 /**
  * Whether this render's member may be asked the optional onboarding
- * questions: their canonical age fact admits it (16 or over, ISSUE-645).
+ * questions: their canonical age fact admits it (13 or over, ISSUE-645, decision 88).
  * False for anyone else; a waitlisted account onboards before approval. A page only skips the questions on it; every
  * answer's write decides again under the account fence.
  */
@@ -264,18 +264,34 @@ export const requestOptionalAnswersAdmitted = cache(
   },
 );
 
+/** The ladder division this render's account is on when it is in `state`; null otherwise or without a valid age record. */
+const divisionWhen = async (
+  state: 'member' | 'provisional',
+): Promise<RatingDivision | null> => {
+  const identity = await requestIdentity();
+  // The second check never fires after the first; it narrows the union to
+  // the states that carry a principal, for the type checker.
+  if (identity.state !== state) return null;
+  if (identity.state !== 'member' && identity.state !== 'provisional')
+    return null;
+  return processApp().database.readMemberDivision(identity.principal.userId);
+};
+
 /**
  * This render's member's ladder division (ADR 0147), so a page names their
  * ladder and offers ranked seats on it. Null for anyone else and for a member
  * with no age record. It only shapes the page: every ranked command decides
  * again under its fence.
  */
-export const requestMemberDivision = cache(
-  async (): Promise<RatingDivision | null> => {
-    const identity = await requestIdentity();
-    if (identity.state !== 'member') return null;
-    return processApp().database.readMemberDivision(identity.principal.userId);
-  },
+export const requestMemberDivision = cache(() => divisionWhen('member'));
+
+/**
+ * The ladder division a provisional account's recorded age puts it on, for
+ * the landing after the age step (YLS-8): `youth` for 13 to 17. Null for
+ * anyone else or without a valid age record; it only shapes the page.
+ */
+export const requestOnboardingDivision = cache(() =>
+  divisionWhen('provisional'),
 );
 
 /**
