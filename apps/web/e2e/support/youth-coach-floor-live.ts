@@ -48,6 +48,7 @@ export function testYouthCoachFloorLive() {
       ).toBeVisible();
       // The realtime server admitted the coach: the floor's first snapshot.
       await expect.poll(() => snapshots.length).toBeGreaterThan(0);
+      const admitted = Math.max(...snapshots);
       const said = `Mind the clock ${seeded.tag}`;
       expect(
         await postFloorMessage(
@@ -57,6 +58,9 @@ export function testYouthCoachFloorLive() {
           said,
         ),
       ).toMatchObject({ status: 200 });
+      // The message arrives over realtime: a newer snapshot of the floor, not
+      // a refetch, is what this coach's socket receives.
+      await expect.poll(() => Math.max(...snapshots)).toBeGreaterThan(admitted);
       await expect(
         floor
           .getByRole('list', { name: 'Floor messages' })
