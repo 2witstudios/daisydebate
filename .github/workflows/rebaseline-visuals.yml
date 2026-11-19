@@ -272,12 +272,12 @@ jobs:
       actions: write
       pull-requests: read
     steps:
-      # Only CI at this commit, which is the head this workflow rendered or that
+      # Only runs at this commit, which is the head this workflow rendered or that
       # plus baseline PNGs alone, and never a fork's run at the same commit.
       # GitHub's head_sha, branch and status filters omitted held CI run
       # 41539295130 for at least 10 minutes after the push, so read CI's recent
       # runs unfiltered and match here. A failed API call is one more try.
-      - name: Approve the held CI run at the head
+      - name: Approve the held CI and Browser E2E runs at the head
         id: approve
         env:
           GH_TOKEN: ${{ github.token }}
@@ -286,74 +286,82 @@ jobs:
           PUSHED: ${{ needs.commit.outputs.sha != '' }}
         run: |
           set -euo pipefail
-          # Only a fresh push has a run still to appear.
-          passes=3
-          if [ "$PUSHED" = true ]; then passes=24; fi
-          undecided=false
-          refused=false
-          moved=false
-          pass=0
-          while [ "$pass" -lt "$passes" ]; do
-            pass=$((pass + 1))
-            if [ "$pass" -gt 1 ]; then sleep 10; fi
-            # By branch: a commit's own pull request link can lag its push, and
-            # reading that as no pull request would leave CI held in silence.
-            if ! pulls=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$BRANCH"); then
-              continue
-            fi
-            if ! head=$(printf '%s' "$pulls" | jq -r '.[0].head.sha // "none"'); then
-              continue
-            fi
-            if [ "$head" = none ]; then
-              echo "::notice::$BRANCH has no open pull request, so no CI runs for it"
-              exit 0
-            fi
-            # Approving an older head's run would cancel the newer head's CI
-            # through cancel-in-progress. A fresh push can also read as the old
-            # head for a moment, so look again rather than give up.
+          # Both pull request workflows carry required checks (ADR 0159), so each
+          # one's held run at the head is approved: CI, then Browser E2E.
+          start() {
+            workflow=$1
+            name=$2
+            # Only a fresh push has a run still to appear.
+            passes=3
+            if [ "$PUSHED" = true ]; then passes=24; fi
+            undecided=false
+            refused=false
             moved=false
-            if [ "$head" != "$SHA" ]; then
-              moved=true
-              continue
+            pass=0
+            while [ "$pass" -lt "$passes" ]; do
+              pass=$((pass + 1))
+              if [ "$pass" -gt 1 ]; then sleep 10; fi
+              # By branch: a commit's own pull request link can lag its push, and
+              # reading that as no pull request would leave CI held in silence.
+              if ! pulls=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$BRANCH"); then
+                continue
+              fi
+              if ! head=$(printf '%s' "$pulls" | jq -r '.[0].head.sha // "none"'); then
+                continue
+              fi
+              if [ "$head" = none ]; then
+                echo "::notice::$BRANCH has no open pull request, so no $name runs for it"
+                return 0
+              fi
+              # Approving an older head's run would cancel the newer head's CI
+              # through cancel-in-progress. A fresh push can also read as the old
+              # head for a moment, so look again rather than give up.
+              moved=false
+              if [ "$head" != "$SHA" ]; then
+                moved=true
+                continue
+              fi
+              if ! runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?per_page=100" |
+                jq --arg sha "$SHA" --arg repo "$GITHUB_REPOSITORY" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request" and .head_repository.full_name == $repo)]'); then
+                continue
+              fi
+              held=$(printf '%s' "$runs" | jq -r '.[] | select(.conclusion == "action_required") | .id')
+              if [ -n "$held" ]; then
+                refused=false
+                for id in $held; do
+                  if gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" > /dev/null; then
+                    echo "Approved $name run $id"
+                  else
+                    refused=true
+                  fi
+                done
+                if [ "$refused" = false ]; then return 0; fi
+                continue
+              fi
+              if printf '%s' "$runs" | jq -e 'any(.status == "in_progress" or .status == "completed")' > /dev/null; then
+                return 0
+              fi
+              # Listed but not started: it may yet turn out held, so keep watching.
+              if printf '%s' "$runs" | jq -e 'length > 0' > /dev/null; then undecided=true; fi
+            done
+            if [ "$moved" = true ]; then
+              echo "::notice::$BRANCH moved past $SHA, so its new head's own push starts $name"
+              return 0
             fi
-            if ! runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100" |
-              jq --arg sha "$SHA" --arg repo "$GITHUB_REPOSITORY" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request" and .head_repository.full_name == $repo)]'); then
-              continue
+            if [ "$refused" = true ]; then
+              echo "::error::GitHub refused to approve $name at $SHA"
+              return 1
             fi
-            held=$(printf '%s' "$runs" | jq -r '.[] | select(.conclusion == "action_required") | .id')
-            if [ -n "$held" ]; then
-              refused=false
-              for id in $held; do
-                if gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" > /dev/null; then
-                  echo "Approved run $id"
-                else
-                  refused=true
-                fi
-              done
-              if [ "$refused" = false ]; then exit 0; fi
-              continue
+            if [ "$undecided" = true ]; then
+              echo "::notice::$name is waiting for a runner at $SHA and was never held"
+              return 0
             fi
-            if printf '%s' "$runs" | jq -e 'any(.status == "in_progress" or .status == "completed")' > /dev/null; then
-              exit 0
+            if [ "$PUSHED" != true ]; then
+              echo "::notice::No held $name run at $SHA"
+              return 0
             fi
-            # Listed but not started: it may yet turn out held, so keep watching.
-            if printf '%s' "$runs" | jq -e 'length > 0' > /dev/null; then undecided=true; fi
-          done
-          if [ "$moved" = true ]; then
-            echo "::notice::$BRANCH moved past $SHA, so its new head's own push starts CI"
-            exit 0
-          fi
-          if [ "$refused" = true ]; then
-            echo "::error::GitHub refused to approve CI at $SHA"
-            exit 1
-          fi
-          if [ "$undecided" = true ]; then
-            echo "::notice::CI is waiting for a runner at $SHA and was never held"
-            exit 0
-          fi
-          if [ "$PUSHED" != true ]; then
-            echo "::notice::No held CI run at $SHA"
-            exit 0
-          fi
-          echo "::error::No CI run appeared at $SHA. A pull request with a merge conflict gets none: resolve it and push"
-          exit 1
+            echo "::error::No $name run appeared at $SHA. A pull request with a merge conflict gets none: resolve it and push"
+            return 1
+          }
+          start ci.yml CI
+          start e2e.yml 'Browser E2E'
