@@ -53,7 +53,6 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'media_release_club_confirmed':
     case 'media_release_withdrawn':
     case 'media_release_club_asked':
-    case 'youth_round_published':
       // Tab's tournament notices and media release notices tell; the
       // tournament's pages, Settings and the club's page are where to act.
       return false;
@@ -89,7 +88,6 @@ export const toasted = (kind: NotificationKind): boolean => {
     case 'media_release_club_confirmed':
     case 'media_release_withdrawn':
     case 'media_release_club_asked':
-    case 'youth_round_published':
       return true;
   }
 };

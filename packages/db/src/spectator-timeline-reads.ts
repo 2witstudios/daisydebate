@@ -4,7 +4,6 @@ import {
 } from './spectator-release-sql';
 import {
   isRoundOver,
-  isYouthRound,
   recordingHiddenByModeration,
   SPECTATOR_MARGIN_MS,
 } from '@daisy/protocol';
@@ -26,6 +25,7 @@ import { users } from './schema/users';
 import { utterances } from './schema/utterances';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
+import { youthReuseFencedSql } from './youth-round-sql';
 
 /** How many of the newest released captions one snapshot carries. */
 const CAPTION_WINDOW = 50;
@@ -69,9 +69,11 @@ export const spectatorTimelineReads = ({
               id: rounds.id,
               roomId: rounds.roomId,
               visibility: rounds.visibility,
-              ladderDivision: rounds.ladderDivision,
-              roomDivision: rooms.division,
               status: rounds.status,
+              /** Its content may not leave Daisy (ADR 0159): no Stream this Round. */
+              reuseFenced: youthReuseFencedSql(sql`${rounds.id}`).mapWith(
+                Boolean,
+              ),
               competitionType: rounds.competitionType,
               resolution: rounds.resolution,
               rules: rounds.rulesSnapshot,
@@ -90,11 +92,7 @@ export const spectatorTimelineReads = ({
           if (
             !round ||
             round.roomId === null ||
-            (round.visibility !== 'public' &&
-              round.visibility !== 'unlisted') ||
-            // A Youth Round has no audience (ADR 0150): any Round of a Youth
-            // Room, casual included (ADR 0157), reads as missing.
-            isYouthRound(round, { division: round.roomDivision })
+            (round.visibility !== 'public' && round.visibility !== 'unlisted')
           )
             return null;
           const competitionType = round.competitionType as 'ranked' | 'casual';

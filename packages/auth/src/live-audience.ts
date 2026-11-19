@@ -8,11 +8,9 @@
  */
 
 import {
-  canWatchLive,
   isRoundRunning,
   roundStatusSchema,
   type LiveStanding,
-  type RatingDivision,
   type YouthLiveFact,
 } from '@daisy/protocol';
 
@@ -50,10 +48,6 @@ const running = (status: string): boolean => {
   return parsed.success && isRoundRunning(parsed.data);
 };
 
-/** A Round's division, by its Room (ADR 0156): `youth` is present exactly on a Youth Room's Round. */
-const divisionOf = (round: LiveAudienceRound): RatingDivision =>
-  round.youth === null ? 'open' : 'youth';
-
 /** Where the viewer stands towards the Round, in the lobby's terms (`LiveStanding`). */
 const standingOf = (
   round: LiveAudienceRound,
@@ -87,11 +81,8 @@ export const liveAudience = (
     case 'none':
       return denied('not_in_audience');
     case 'linked-adult':
-      // The lobby's own rule (ADR 0156) admits them to a Youth Round; they
-      // follow it only while it runs, then see it through its Recording
-      // under ADR 0150's own rules.
-      if (!canWatchLive({ standing }, { division: divisionOf(round) }))
-        return denied('not_in_audience');
+      // They see through the Room's visibility (ADR 0159), only while it
+      // runs; then they see it through its Recording.
       return running(round.status)
         ? watches('linked_adult')
         : denied('not_live');

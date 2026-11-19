@@ -1,5 +1,4 @@
 import {
-  isYouthRound,
   type BroadcastReleasePolicy,
   type RoomAssemblyState,
   type RoomCapture,
@@ -7,7 +6,6 @@ import {
   type RoomConsent,
   type RoomMutationOutcome,
   type RecordingPolicy,
-  type RatingDivision,
 } from '@daisy/protocol';
 import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
 import { debatersReadChat, resolveReleasePolicy } from './broadcast-release';
@@ -50,27 +48,16 @@ export const captureUnadmitted = (
 type CaptureFacts = Pick<RoomAssemblyState, 'competitionType' | 'capture'>;
 
 /**
- * A started Round's capture facts: its ladder division is frozen at Start, and
- * its Room's division (null for a Round with no Room) makes it a Youth Round.
- */
-type RoundCaptureFacts = CaptureFacts & {
-  readonly ladderDivision: RatingDivision | null;
-  readonly roomDivision: RatingDivision | null;
-};
-
-/**
- * The Broadcast a Round opens with, or null when nobody chose one. A Youth
- * Round, any Round of a Youth Room (ADR 0157), is never broadcast to an
- * audience (ADR 0107, PYL-5): its Recording runs its own Egress and stays
- * private.
+ * The Broadcast a Round opens with, or null when nobody chose one: every
+ * ranked Round, and a casual one its host chose to broadcast, in either lobby
+ * (ADR 0159).
  */
 export const plannedBroadcast = (
-  room: RoundCaptureFacts,
+  room: CaptureFacts,
 ): {
   readonly releasePolicy: BroadcastReleasePolicy;
   readonly debatersReadChat: boolean;
 } | null => {
-  if (isYouthRound(room, { division: room.roomDivision })) return null;
   const choice = room.capture?.broadcast ?? null;
   if (room.competitionType !== 'ranked' && choice === null) return null;
   return {

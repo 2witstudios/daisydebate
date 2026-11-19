@@ -106,10 +106,7 @@ export const sameUtcDay = (at: string | null, nowMs: number): boolean =>
 
 /** The coach view's tiles. */
 export const youthStudentTallies = (
-  students: readonly Pick<
-    ClubReleaseStudent,
-    'standing' | 'username' | 'youthRounds'
-  >[],
+  students: readonly Pick<ClubReleaseStudent, 'standing' | 'username'>[],
 ) => {
   const waiting = students.filter((s) => s.standing.kind === 'waiting');
   return {
@@ -119,24 +116,13 @@ export const youthStudentTallies = (
     waitingNames: waiting.map((s) =>
       s.username === null ? 'A student' : `@${s.username}`,
     ),
-    privateRounds: students.reduce((sum, s) => sum + s.youthRounds.private, 0),
   };
 };
 
-/** A student's Recordings: counted when they have any, else what their release means. */
+/** What a student's release means for their Rounds' reuse. */
 export const recordingsLineOf = (
-  student: Pick<ClubReleaseStudent, 'standing' | 'youthRounds'>,
-): string => {
-  const { public: shown, private: hidden } = student.youthRounds;
-  if (shown + hidden === 0)
-    return recordingLineWords[standingBadgeOf(student.standing)];
-  return [
-    shown > 0 ? `${shown} public` : null,
-    hidden > 0 ? `${hidden} private` : null,
-  ]
-    .filter((part) => part !== null)
-    .join(' · ');
-};
+  student: Pick<ClubReleaseStudent, 'standing'>,
+): string => recordingLineWords[standingBadgeOf(student.standing)];
 
 /** The coach view's release filter. */
 export const youthStudentFilters = [

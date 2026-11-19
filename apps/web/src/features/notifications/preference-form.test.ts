@@ -35,7 +35,6 @@ test('choicesFromForm', () => {
       media_release_club_confirmed: { in_app: false },
       media_release_withdrawn: { in_app: false },
       media_release_club_asked: { in_app: false },
-      youth_round_published: { in_app: false },
     },
   });
 });

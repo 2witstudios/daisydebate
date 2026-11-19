@@ -16,11 +16,9 @@ import {
   readRequestsOf,
 } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
-import { isDebatingSeatSql } from './seat-columns';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
 import type { BoundedTransactionContext } from './transaction-context';
-import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 
 type Tx = Pick<BoundedTransactionContext, 'execute'>;
 
@@ -113,8 +111,6 @@ export type ClubReleaseStudent = {
   readonly standing: ReleaseStanding;
   /** When the student asked this club to confirm, in the last 7 days. */
   readonly askedAt: string | null;
-  /** Their Youth Rounds' Recordings: public now, and private. */
-  readonly youthRounds: { readonly public: number; readonly private: number };
 };
 
 export type ClubReleasesRead = {
@@ -173,20 +169,6 @@ async function youthStudents(
     if ((await readDivisionOf(tx, member.user_id)) !== 'youth') continue;
     const releases = await readReleasesOf(tx, [member.user_id], false);
     const requests = await readRequestsOf(tx, member.user_id, false);
-    const [rounds] = await rows<{ public: number; private: number }>(
-      tx,
-      sql`select count(*) filter (where p.round_id is not null)::int as public,
-          -- Only a Round a release could make public counts as waiting (ADR 0157).
-          count(*) filter (where p.round_id is null and ${youthRoundShareableSql(sql`r`)})::int as private
-        from rounds r
-        join round_participants rp on rp.round_id = r.id
-        join actors a on a.id = rp.actor_id
-        join recordings rc on rc.round_id = r.id
-        left join youth_round_publications p on p.round_id = r.id and p.ended_at is null
-        where a.user_id = ${member.user_id} and ${youthRoundSql(sql`r.id`)}
-          and ${isDebatingSeatSql(sql`rp.seat_kind`)}
-          and public.daisy_round_participant_is_current(rp.id)`,
-    );
     students.push({
       userId: member.user_id,
       username: member.username,
@@ -200,10 +182,6 @@ async function youthStudents(
       askedAt: iso(
         asks.find((ask) => ask.user_id === member.user_id)?.asked_at,
       ),
-      youthRounds: {
-        public: rounds?.public ?? 0,
-        private: rounds?.private ?? 0,
-      },
     });
   }
   // Each read set its own scope; hand back the club's.

@@ -39,7 +39,6 @@ test('notification kinds', () => {
       'media_release_club_confirmed',
       'media_release_withdrawn',
       'media_release_club_asked',
-      'youth_round_published',
     ],
   });
 });
@@ -76,7 +75,6 @@ test('choice pairs', () => {
       'media_release_club_confirmed.in_app',
       'media_release_withdrawn.in_app',
       'media_release_club_asked.in_app',
-      'youth_round_published.in_app',
     ],
   });
 });
@@ -144,7 +142,6 @@ test('catalogue', () => {
         'recording_ready',
         'round_started',
         'round_decision_released',
-        'youth_round_published',
       ],
       ['challenge_received', 'challenge_accepted'],
       ['friend_request_received', 'friend_request_accepted'],

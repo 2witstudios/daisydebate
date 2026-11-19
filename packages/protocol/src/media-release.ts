@@ -2,14 +2,18 @@ import { z } from 'zod';
 import { normalizeEmail } from './email';
 
 /**
- * Media releases (ADR 0151, PYL S4): a minor's Youth Rounds are recorded but
- * private (ADR 0150) until a parent or guardian signs a release, or a club
- * that already holds one confirms it on Daisy. A release is a durable,
- * revocable record of one scope for one minor. These rules are pure and
+ * Media releases (ADR 0151, amended by ADR 0159): a minor's Rounds are viewed
+ * as anyone's are, but their content may not be reused (clipped, downloaded,
+ * streamed on) until a parent or guardian signs a release, or a club that
+ * already holds one confirms it on Daisy. A release is a durable, revocable
+ * record of one scope for one minor. These rules are pure and
  * total: the instant is injected, and a refusal leaves the state unchanged.
  */
 
-/** What a release allows: publishing (with clips), and paid ads, opted into separately. */
+/**
+ * What a release allows: `publish` (the stored name, kept) is the reuse
+ * licence (clipping, download and reuse); paid ads is opted into separately.
+ */
 export const mediaReleaseScopes = ['publish', 'paid_ads'] as const;
 export type MediaReleaseScope = (typeof mediaReleaseScopes)[number];
 
@@ -64,8 +68,8 @@ export const mediaReleasePolicy = {
 
 /** The release wording shown and recorded (the [COUNSEL] draft until counsel answers). */
 export const mediaReleaseWording = {
-  version: '2026-11-v1',
-  label: '2026-11 v1',
+  version: '2026-11-v2',
+  label: '2026-11 v2',
 } as const;
 
 /** A parent's or guardian's signature. */
@@ -550,12 +554,11 @@ export const decideClubConfirm = (
   };
 };
 
-// ------------------------------------------------------------ publishing
+// ----------------------------------------------------------------- reuse
 
 /**
- * Whether every youth debater of a Round holds an active publish release: the
- * one test a Youth Round's publication needs (ADR 0150, ADR 0151). A Round
- * with no youth debater has nothing to release, so it is never publishable.
+ * Whether every youth debater of a Round holds an active release. A Round
+ * with no youth debater has nothing to release, so this is false for it.
  */
 export const everyDebaterReleased = (
   debaterUserIds: readonly string[],
@@ -574,36 +577,23 @@ export const everyDebaterReleased = (
     ),
   );
 
-export type PublishRefusal =
-  | 'closed'
-  | 'not_a_debater'
-  | 'releases_missing'
-  | 'not_available'
-  | 'already_public';
-
-/** A debater shares a Youth Recording publicly (ADR 0151). */
-export const decidePublish = (facts: {
-  /** The youth-publishing flag is open. */
-  readonly open: boolean;
+/**
+ * The reuse fence (ADR 0159): whether a Round's content may not leave Daisy
+ * (download, Stream this Round and its official feed, the ranked content
+ * policy's stream-and-earn grant). Viewing never asks it. A Round with a youth
+ * debater is fenced unless every youth debater holds an active release, the
+ * reuse licence; Youth with no youth debater left fails closed. Any other
+ * Round is never fenced. `youthReuseFencedSql` in `@daisy/db` is its SQL
+ * mirror.
+ */
+export const reuseFenced = (round: {
+  /** `isYouthRound` of the Round. */
+  readonly youth: boolean;
+  /** The people in its current debating seats. */
   readonly debaterUserIds: readonly string[];
-  readonly publisherUserId: string;
   readonly releases: readonly Pick<
     MediaReleaseRecord,
     'subjectUserId' | 'scope' | 'withdrawnAt'
   >[];
-  /** The Recording exists and has not been taken down. */
-  readonly available: boolean;
-  readonly published: boolean;
-}):
-  | { readonly ok: true }
-  | { readonly ok: false; readonly refusal: PublishRefusal } => {
-  if (!facts.open) return { ok: false, refusal: 'closed' };
-  if (!facts.debaterUserIds.includes(facts.publisherUserId))
-    return { ok: false, refusal: 'not_a_debater' };
-  if (!facts.available) return { ok: false, refusal: 'not_available' };
-  if (!everyDebaterReleased(facts.debaterUserIds, facts.releases))
-    return { ok: false, refusal: 'releases_missing' };
-  return facts.published
-    ? { ok: false, refusal: 'already_public' }
-    : { ok: true };
-};
+}): boolean =>
+  round.youth && !everyDebaterReleased(round.debaterUserIds, round.releases);

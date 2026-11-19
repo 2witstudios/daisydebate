@@ -25,7 +25,14 @@ import {
 export const UNDRAWN_RESOLUTION = 'No topic drawn';
 
 /** One finished Round the archive store found for a query. */
-export type ArchiveRound = Omit<RecordingRound, 'audienceLinkHash'> & {
+/**
+ * A list admits nobody past Open's rules (ADR 0159): a linked adult opens the
+ * Round's own page, so a row carries no Youth people.
+ */
+export type ArchiveRound = Omit<
+  RecordingRound,
+  'audienceLinkHash' | 'youth'
+> & {
   readonly title: string | null;
   /** Null when the Round ended in its opening, before a topic was drawn. */
   readonly resolution: string | null;
@@ -55,12 +62,9 @@ export type RecordingArchiveStore = {
     readonly viewerActorId: string | null;
     readonly clock: ReturnType<typeof spectatorClockAt>;
     readonly limit: number;
-    /** The youth-publishing release flag (ADR 0151). */
-    readonly youthPublishing: boolean;
   }) => Promise<ArchivePage>;
   readonly countPublicArchive: (input: {
     readonly clock: ReturnType<typeof spectatorClockAt>;
-    readonly youthPublishing: boolean;
   }) => Promise<number>;
 };
 
@@ -153,7 +157,7 @@ export const archiveEntries = (
   page.rows.flatMap((round): readonly ArchiveEntry[] => {
     // A list carries no link: an unlisted Round is listed only to its insiders.
     const permissions = roundEvidencePermissions(
-      { ...round, audienceLinkHash: null },
+      { ...round, audienceLinkHash: null, youth: null },
       round.release,
       viewer,
       null,
@@ -184,12 +188,7 @@ export const archiveEntries = (
           : null,
         media,
         transcript,
-        // A Youth Round is private whatever its Room says (ADR 0150).
-        ownVisibility: own
-          ? round.youth === null
-            ? round.visibility
-            : 'private'
-          : null,
+        ownVisibility: own ? round.visibility : null,
       },
     ];
   });

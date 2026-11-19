@@ -18,7 +18,6 @@ import {
   type ReleaseRound,
   type SpectatorClock,
 } from './spectator-release-sql';
-import { youthRoundSql } from './youth-round-sql';
 
 type CardRatingRow = {
   readonly actorId: string;
@@ -141,7 +140,6 @@ export const memberCardOperations = ({
           p.seat_kind as "seatKind", p.side, p.slot, count(*)::int as rounds
         from round_participants p join rounds r on r.id = p.round_id
         where p.actor_id = any(${ids}) and r.room_id is not null and r.visibility = 'public'
-          and not ${youthRoundSql(sql`r.id`)}
           and ${outcomeReleasedSql(roundAliasR, clock)}
         group by p.actor_id, r.status, 3, p.seat_kind, p.side, p.slot`);
       const [ratings, records] = (await Promise.all([

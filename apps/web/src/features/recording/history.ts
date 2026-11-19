@@ -37,12 +37,6 @@ import {
   type RoundEvidencePermissions,
 } from './audience';
 import type { RecordingRecord } from './ports';
-import {
-  holdsActiveRelease,
-  youthRoundPublishable,
-  type MediaRelease,
-  type YouthRound,
-} from './youth-audience';
 
 /** The Round as the history screen shows it, beyond what permissions need. */
 export type HistoryRound = RecordingRound & {
@@ -100,39 +94,6 @@ export type HistoryInputs = {
   readonly findRecordingByRound: (
     roundId: string,
   ) => Promise<RecordingRecord | null>;
-  /**
-   * The media releases these youth debaters hold (PYL-5). S4 records them;
-   * until then this reads none.
-   */
-  readonly readMediaReleases: (
-    userIds: readonly string[],
-  ) => Promise<readonly MediaRelease[]>;
-};
-
-/** A Youth Round's private panel: who still needs a release to publish it. */
-export type YouthPanel = {
-  /** In seat order, keyed by actor. */
-  readonly debaters: readonly {
-    readonly actorId: string;
-    readonly name: string;
-    readonly released: boolean;
-  }[];
-  /**
-   * Every youth debater holds an active release. Publishing also needs the
-   * youth-publishing release flag, which the page reads.
-   */
-  readonly releasesComplete: boolean;
-  /** A debater shared it and it is public now (ADR 0151). */
-  readonly public: boolean;
-  /** The viewer debated in it: only they may share it. */
-  readonly viewerDebated: boolean;
-  /**
-   * A public Round whose Recording is for everyone: every ranked one, and a
-   * casual one its host released (ADR 0157). No other can be shared.
-   */
-  readonly shareable: boolean;
-  /** Its host kept the video for the officials: only judges and moderators watch it (ADR 0157). */
-  readonly videoForOfficials: boolean;
 };
 
 type TranscriptPanel = {
@@ -197,8 +158,8 @@ export type RecordingHistoryScreen =
       readonly ladder: Ladder | null;
       readonly date: string;
       readonly visibility: RecordingRound['visibility'];
-      /** A Youth Round's private panel; null on every other Round. */
-      readonly youth: YouthPanel | null;
+      /** A Youth Round: its youth and their linked adults may take it down. */
+      readonly youth: boolean;
       /** An officials' Recording's deletion date (YYYY-MM-DD); null for any other. */
       readonly deletesOn: string | null;
       readonly media: RecordingMediaPanel;
@@ -387,46 +348,6 @@ const recordingActions = (input: {
   };
 };
 
-const youthPanel = async (
-  inputs: HistoryInputs,
-  round: HistoryRound,
-  youth: YouthRound,
-  viewer: RecordingViewer,
-): Promise<YouthPanel> => {
-  const releases = await inputs.readMediaReleases(
-    youth.debaters.map((debater) => debater.userId),
-  );
-  const seatOrder = (actorId: string) => {
-    const index = round.debaters.findIndex((d) => d.actorId === actorId);
-    return index === -1 ? round.debaters.length : index;
-  };
-  return {
-    debaters: [...youth.debaters]
-      .sort((a, b) => seatOrder(a.actorId) - seatOrder(b.actorId))
-      .map((debater) => {
-        const seat = round.debaters.find((d) => d.actorId === debater.actorId);
-        return {
-          actorId: debater.actorId,
-          name:
-            seat === undefined
-              ? 'A debater'
-              : seat.label === null
-                ? unnamedSeat(round, seat.seat)
-                : `@${seat.label}`,
-          released: holdsActiveRelease(debater, releases),
-        };
-      }),
-    releasesComplete: youthRoundPublishable(youth, releases),
-    public: youth.public,
-    viewerDebated:
-      viewer.kind === 'account' &&
-      youth.debaters.some((debater) => debater.actorId === viewer.actorId),
-    shareable:
-      round.visibility === 'public' && round.recordingPolicy === 'released',
-    videoForOfficials: round.recordingPolicy === 'officials',
-  };
-};
-
 const deletionDay = (round: HistoryRound): string | null => {
   const due = recordingDeletionDueMs(round);
   return due === null ? null : new Date(due).toISOString().slice(0, 10);
@@ -512,9 +433,7 @@ export const openRecordingHistory = async (
     resolution: round.resolution ?? UNDRAWN_RESOLUTION,
     ranked: round.competitionType === 'ranked',
     ladder: round.ladder,
-    youth:
-      round.youth &&
-      (await youthPanel(inputs, round, round.youth, input.viewer)),
+    youth: round.youth !== null,
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
     deletesOn: deletionDay(round),

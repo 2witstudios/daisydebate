@@ -5,7 +5,6 @@ import {
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
-import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { MediaReleaseMailKind } from './media-release-mail';
@@ -157,24 +156,6 @@ export async function readDivisionOf(
       from account_age where account_age.user_id = ${userId}`,
   );
   return row?.division ?? null;
-}
-
-/** Ends every public Youth Recording of a Round this minor debated (ADR 0151). */
-export async function endPublicationsOf(
-  tx: Pick<Tx, 'execute'>,
-  userId: string,
-): Promise<number> {
-  const ended = await rows<{ round_id: string }>(
-    tx,
-    sql`update youth_round_publications p set ended_at = clock_timestamp()
-      where p.ended_at is null and exists (
-        select 1 from round_participants rp
-        join actors a on a.id = rp.actor_id
-        where rp.round_id = p.round_id and a.user_id = ${userId}
-          and ${isDebatingSeatSql(sql`rp.seat_kind`)})
-      returning p.round_id`,
-  );
-  return ended.length;
 }
 
 /** Writes one release scope; the unique index holds one active per minor per scope. */

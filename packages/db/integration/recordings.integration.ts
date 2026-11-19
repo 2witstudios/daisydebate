@@ -612,7 +612,6 @@ test('a cursor outside the archive scope tells nothing of that Round', async () 
           viewerActorId: null,
           clock: { now, rankedDelaySeconds: 60 },
           limit: 200,
-          youthPublishing: false,
         })
       ).rows.some((row) => row.id === older);
     const endedAt = '2026-11-02T11:00:00.000Z';
@@ -671,11 +670,9 @@ test('a ranked Round leaves the archive when its Recording is taken down, transc
           viewerActorId: null,
           clock,
           limit: 200,
-          youthPublishing: false,
         })
       ).rows.some((row) => row.id === roundId);
-    const count = () =>
-      archive.countPublicRecordingArchive({ clock, youthPublishing: false });
+    const count = () => archive.countPublicRecordingArchive({ clock });
     const before = await count();
     assert({
       given: 'a ready ranked Recording with a transcript',
@@ -784,7 +781,6 @@ test('the archive pages, filters and holds back what is not released', async () 
           viewerActorId,
           clock,
           limit,
-          youthPublishing: false,
         });
       const ids = (page: Awaited<ReturnType<typeof list>>) =>
         page.rows.map((row) => row.id);
@@ -892,7 +888,6 @@ test('the archive pages, filters and holds back what is not released', async () 
         actual:
           (await archive.countPublicRecordingArchive({
             clock,
-            youthPublishing: false,
           })) >= 2,
         expected: true,
       });

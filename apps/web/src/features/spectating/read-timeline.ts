@@ -22,6 +22,12 @@ export type AudienceSnapshot = {
   readonly timeline: SpectatorTimeline;
   /** Null with no Broadcast: then nothing is published to read. */
   readonly feedKey: string | null;
+  /**
+   * Whether its feed may be offered for reuse (Stream this Round): every
+   * Round but one held by the Youth reuse fence (ADR 0159). Viewing never
+   * asks it.
+   */
+  readonly streamable: boolean;
 };
 
 /**
@@ -50,6 +56,7 @@ export async function readAudienceSnapshot(
   return {
     visibility,
     feedKey: read.broadcast?.feedKey ?? null,
+    streamable: !read.round.reuseFenced,
     timeline: projectSpectatorTimeline(read, {
       nowMs,
       feedUrlOf: input.feedUrlOf,
@@ -126,6 +133,7 @@ export const readWatchRound = async (
     return null;
   return {
     timeline: snapshot.timeline,
+    streamable: snapshot.streamable,
     stateUrl: publishedStateUrl(
       deps.publicOrigin,
       snapshot.feedKey,

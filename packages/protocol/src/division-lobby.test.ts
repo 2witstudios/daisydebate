@@ -134,21 +134,26 @@ test('seatAllowed', () => {
 });
 
 test('canWatchLive', () => {
+  const standings = ['seat', 'seatless-host', 'linked-adult', 'none'] as const;
   assert({
-    given: 'an Open Round',
-    should: 'let any member watch it live',
-    actual: canWatchLive({ standing: 'none' }, { division: 'open' }),
-    expected: true,
+    given: 'a public Round, whichever lobby its Room is in',
+    should: 'let any member watch it live, whatever they stand as',
+    actual: standings.map((standing) =>
+      canWatchLive({ standing }, { visibility: 'public' }),
+    ),
+    expected: [true, true, true, true],
   });
   assert({
-    given: 'a Youth Round',
-    should: 'let only its seats and seatless host watch it live',
-    actual: [
-      canWatchLive({ standing: 'seat' }, { division: 'youth' }),
-      canWatchLive({ standing: 'seatless-host' }, { division: 'youth' }),
-      canWatchLive({ standing: 'none' }, { division: 'youth' }),
+    given: 'an unlisted or private Round',
+    should:
+      "let its seats, its seatless host and its youth debaters' linked adults watch it, nobody else",
+    actual: (['unlisted', 'private'] as const).map((visibility) =>
+      standings.map((standing) => canWatchLive({ standing }, { visibility })),
+    ),
+    expected: [
+      [true, true, true, false],
+      [true, true, true, false],
     ],
-    expected: [true, true, false],
   });
 });
 

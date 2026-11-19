@@ -77,15 +77,14 @@ const sectionLabels: Readonly<Record<RowState, string>> = {
 };
 
 /**
- * Where someone without a seat watches a live Round: an Open public Round's
- * public page. A Youth Room's Round has no public page (ADR 0156), and only a
- * seatless host lists a Round that is not public; that host keeps the Round's
- * own guarded page, which admits them.
+ * Where someone without a seat watches a live Round: a public Round's public
+ * page, in either lobby (ADR 0159). Only a seatless host lists a Round that is
+ * not public; that host keeps the Round's own guarded page, which admits them.
  */
 const watchHrefOf = (entry: RoomListEntry): string => {
   const round = entry.roundRef;
   if (!round) return watchRoutes.hub;
-  return entry.visibility === 'public' && entry.division === 'open'
+  return entry.visibility === 'public'
     ? liveHref(round.id)
     : `/rounds/${round.id}`;
 };
@@ -101,7 +100,7 @@ const action = (
  * room. Otherwise Watch sits beside the seat action: Join in a Room of their
  * own lobby, Judge in the other lobby's Room while a judge seat is free, none
  * when neither fits. A Room before its Round is watched on its own page; a
- * live Round on its watch page, and a live Youth Round only by its audience.
+ * live Round on its watch page; one not public only by its own people.
  */
 export function rowActions(
   viewer: LobbyViewer,

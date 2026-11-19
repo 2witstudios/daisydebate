@@ -189,8 +189,8 @@ export function ConfirmReleasesForm({
               />
               <span className="min-w-0">
                 {clubName} holds a media release signed by a parent or guardian
-                of each selected student, covering publication of their debate
-                recordings and clips.
+                of each selected student, covering clipping, download and reuse
+                of their debate recordings.
                 <span className="mt-1 block text-sm">
                   <span className="rounded-sm bg-gold-soft px-1 font-strong text-gold">
                     [COUNSEL: club attestation wording, retention and audit

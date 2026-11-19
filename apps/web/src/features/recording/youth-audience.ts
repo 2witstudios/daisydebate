@@ -1,21 +1,15 @@
 import type { RecordingStatus } from '@daisy/protocol';
-import {
-  everyDebaterReleased,
-  type MediaReleaseRecord,
-} from '@daisy/protocol/media-release';
+import type { MediaReleaseRecord } from '@daisy/protocol/media-release';
 import type { RecordingRound, RecordingViewer } from './audience';
 
 /**
- * A Youth Round's Recording (ADR 0107, PYL-5): any Round of a Youth Room,
- * ranked or casual (ADR 0157). A ranked one is recorded as every ranked Round
- * is, a casual one only on its host's opt-in, and either stays private. Its
- * audience is the Round's seated people (debaters and judges) and each youth
- * debater's linked adults (a coach of their school, or a guardian). It is
- * never listed, never broadcast, never downloaded, and any youth debater or
- * linked adult may take it down. It becomes publishable only when every youth
- * debater holds an active media release (S4) and the youth-publishing release
- * flag is open (ADR 0151); a debater then shares it, and it is public on its
- * page and in the archive while every release holds.
+ * A Youth Round's Recording: any Round of a Youth Room, ranked or casual (ADR
+ * 0157). It is recorded, listed and watched exactly as an Open Round's is
+ * (ADR 0159). Three things differ: each youth debater's linked adults (a coach
+ * of their school, or a guardian) see it whatever the Room's visibility; it is
+ * reused (downloaded, streamed on) only once every youth debater holds an
+ * active media release (ADR 0151); and any youth debater or linked adult may
+ * take it down.
  */
 
 /** One youth debater of the Round, with the adults linked to them. */
@@ -32,52 +26,15 @@ export type YouthRoundPeople = {
 };
 
 /**
- * A Youth Round as recording reads it: its people, and whether its Recording
- * is public now (ADR 0151): shared by a debater, every release still holding,
- * and the youth-publishing flag open.
+ * A Youth Round as recording reads it: its people, and whether every youth
+ * debater released it for reuse (`reuseFenced` in
+ * `@daisy/protocol/media-release`, ADR 0159).
  */
-export type YouthRound = YouthRoundPeople & { readonly public: boolean };
+export type YouthRound = YouthRoundPeople & { readonly reusable: boolean };
 
-/** A Youth Round as these rules read it. */
-export type YouthRecordingRound = Pick<
-  RecordingRound,
-  'seatedActorIds' | 'officialActorIds'
-> & { readonly youth: YouthRoundPeople };
-
-export type RecordingAudience =
-  | {
-      readonly kind: 'allowed';
-      readonly as: 'debater' | 'judge' | 'linked_adult';
-    }
-  | {
-      readonly kind: 'denied';
-      readonly reason: 'signed_out' | 'not_in_audience';
-    };
-
-const allowed = (as: 'debater' | 'judge' | 'linked_adult') =>
-  ({ kind: 'allowed', as }) as const;
-const denied = (reason: 'signed_out' | 'not_in_audience') =>
-  ({ kind: 'denied', reason }) as const;
-
-/**
- * Who may see a Youth Round's Recording. Seated people first: a judge is an
- * official seat, any other seat is a debater's. Then a linked adult of any of
- * its youth debaters. A host who did not sit is not in the audience, and an
- * audience link admits nobody.
- */
-export const recordingAudience = (
-  round: YouthRecordingRound,
-  viewer: RecordingViewer,
-): RecordingAudience => {
-  if (viewer.kind !== 'account') return denied('signed_out');
-  const { actorId } = viewer;
-  if (round.officialActorIds.includes(actorId)) return allowed('judge');
-  if (round.seatedActorIds.includes(actorId)) return allowed('debater');
-  return round.youth.debaters.some((debater) =>
-    debater.linkedAdultActorIds.includes(actorId),
-  )
-    ? allowed('linked_adult')
-    : denied('not_in_audience');
+/** A Youth Round as the takedown rule reads it. */
+export type YouthRecordingRound = Pick<RecordingRound, 'officialActorIds'> & {
+  readonly youth: YouthRoundPeople;
 };
 
 /**
@@ -88,26 +45,6 @@ export type MediaRelease = Pick<
   MediaReleaseRecord,
   'subjectUserId' | 'scope' | 'withdrawnAt'
 >;
-
-/**
- * Whether every youth debater holds an active publish release: the one rule
- * in `@daisy/protocol/media-release`. Publishing also needs the
- * youth-publishing release flag, read at the boundary.
- */
-export const youthRoundPublishable = (
-  { debaters }: Pick<YouthRoundPeople, 'debaters'>,
-  releases: readonly MediaRelease[],
-): boolean =>
-  everyDebaterReleased(
-    debaters.map((debater) => debater.userId),
-    releases,
-  );
-
-/** Whether this youth debater holds an active publish release. */
-export const holdsActiveRelease = (
-  debater: Pick<YouthDebater, 'userId'>,
-  releases: readonly MediaRelease[],
-): boolean => everyDebaterReleased([debater.userId], releases);
 
 /** A Recording that exists and is not already going: what any removal may act on. */
 export const removableStatus = (status: RecordingStatus | null): boolean =>

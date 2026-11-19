@@ -82,6 +82,7 @@ const mount = async () => {
               initial,
               stateUrl: null,
               refreshHref: '/watch/r',
+              streamable: true,
             }),
           ),
         ),

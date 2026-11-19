@@ -74,23 +74,24 @@ export function seatAllowed(
 export type LiveStanding = 'seat' | 'seatless-host' | 'linked-adult' | 'none';
 
 /**
- * Whether a member may watch a Round while it runs. An Open Round is for
- * every member. A Youth Round is for its own audience only: its seats, its
- * seatless host, and its youth debaters' linked coaches and parents
- * (ADR 0155, amending ADR 0150 §4).
+ * Whether a member may watch a Round while it runs: Open's rule for both
+ * lobbies (ADR 0159). A public Round is for every member. Any other is for its
+ * own people: its seats, its seatless host, and its youth debaters' linked
+ * coaches and parents, who see through unlisted and private (ADR 0155).
  */
 export const canWatchLive = (
   viewer: { readonly standing: LiveStanding },
-  round: { readonly division: RatingDivision },
-): boolean => round.division === 'open' || viewer.standing !== 'none';
+  round: { readonly visibility: 'public' | 'unlisted' | 'private' },
+): boolean => round.visibility === 'public' || viewer.standing !== 'none';
 
 /**
- * Whether a Round is a Youth Round for every privacy fence (ADR 0150, 0151,
- * amended by ADR 0157): any Round of a Room in the Youth lobby, casual
- * included. It is Youth when either its Room or its frozen ladder is Youth,
- * so it fails closed; the two agree for every ranked Round since ADR 0156,
- * and a Round with no Room has only its ladder. `youthRoundSql` in
- * `@daisy/db` is its SQL mirror.
+ * Whether a Round is a Youth Round: any Round of a Room in the Youth lobby,
+ * casual included (ADR 0157). It is Youth when either its Room or its frozen
+ * ladder is Youth, so it fails closed; a Round with no Room has only its
+ * ladder. It never decides who may view a Round (ADR 0159): it names whose
+ * linked adults see through private, which content waiver its debaters sign,
+ * the reuse fence and the Youth takedown. `youthRoundSql` in `@daisy/db` is
+ * its SQL mirror.
  */
 export const isYouthRound = (
   round: { readonly ladderDivision: RatingDivision | null },

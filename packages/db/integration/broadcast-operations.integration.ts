@@ -33,7 +33,6 @@ import {
   recordSegmentReleased,
   renewBroadcastLease,
   stopBroadcast,
-  endYouthBroadcasts,
 } from '../src/broadcast-operations';
 import { broadcasts } from '../src/schema/broadcasts';
 import { rejectedBy, withFixture } from './constraint-helpers';
@@ -74,123 +73,32 @@ const withOps = async (
   }
 };
 
-test('ending Youth Broadcasts leaves every other Broadcast running (ADR 0150)', async () => {
-  await withOps(async (db, roundId, client) => {
-    const id = createId();
-    await openBroadcast(db, {
-      id,
-      roundId,
-      feedKey: createId(),
-      releasePolicy: policy,
-    });
-    const stopped = await db.transaction((tx) => endYouthBroadcasts(tx, now));
-    const [row] =
-      await client`select stopped_at, media_withheld from broadcasts where id=${id}`;
-    assert({
-      given: 'an open Broadcast of a Round that is not a Youth Round',
-      should: 'stop nothing and withhold nothing',
-      actual: { stopped, row },
-      expected: {
-        stopped: [],
-        row: { stopped_at: null, media_withheld: false },
-      },
-    });
+test('a ranked Youth Round is discovered for its Broadcast as an Open one is (ADR 0159)', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const client = new SQL(databaseUrl, { max: 2 });
+    try {
+      const youth = await f.round({
+        competition_type: 'ranked',
+        format_id: 'freestyle',
+        format_version: 1,
+        preset_version: 1,
+        ladder_id: 'freestyle',
+        ladder_division: 'youth',
+      });
+      await client`update rounds set visibility='public' where id=${youth}`;
+      const found = (
+        await discoverUnopenedBroadcastRounds(drizzle({ client }), 1000)
+      ).map((row) => row.roundId);
+      assert({
+        given: 'a running public ranked Round on Youth – Freestyle',
+        should: 'discover it, so it opens a Broadcast',
+        actual: found.includes(youth),
+        expected: true,
+      });
+    } finally {
+      await client.close();
+    }
   });
-});
-
-test('every Youth Broadcast, running or complete, is stopped without being withheld (ADR 0150, 0157)', async () => {
-  const client = new SQL(databaseUrl, { max: 4 });
-  try {
-    await withFixture(databaseUrl, async (f) => {
-      const youthRound = () =>
-        f.round({
-          competition_type: 'ranked',
-          format_id: 'freestyle',
-          format_version: 1,
-          preset_version: 1,
-          ladder_id: 'freestyle',
-          ladder_division: 'youth',
-        });
-      const running = await youthRound();
-      const complete = await youthRound();
-      const db = drizzle({ client });
-      try {
-        const ids = { running: createId(), complete: createId() };
-        for (const [key, roundId] of [
-          ['running', running],
-          ['complete', complete],
-        ] as const)
-          await openBroadcast(db, {
-            id: ids[key],
-            roundId,
-            feedKey: createId(),
-            releasePolicy: policy,
-          });
-        await client`update broadcasts set stream_ended_at=${now}, completed_at=${now} where id=${ids.complete}`;
-        const stopped = await db.transaction((tx) =>
-          endYouthBroadcasts(tx, later),
-        );
-        const again = await db.transaction((tx) =>
-          endYouthBroadcasts(tx, later),
-        );
-        const rows = await client`select id, stop_reason, media_withheld,
-            feed_withdrawal_requested_at is not null as withdrawal
-          from broadcasts where id in (${ids.running}, ${ids.complete}) order by id`;
-        assert({
-          given: 'a running and a normally completed Youth Broadcast, twice',
-          should:
-            'stop both without withholding the video, ask for the complete feed to go, and change nothing the second time',
-          actual: {
-            stopped: [...stopped].sort(),
-            again,
-            rows: Object.fromEntries(
-              rows.map(
-                (row: {
-                  id: string;
-                  stop_reason: string;
-                  media_withheld: boolean;
-                  withdrawal: boolean;
-                }) => [
-                  row.id === ids.running ? 'running' : 'complete',
-                  [row.stop_reason, row.media_withheld, row.withdrawal],
-                ],
-              ),
-            ),
-          },
-          expected: {
-            stopped: [ids.running, ids.complete].sort(),
-            again: [],
-            // Stopped, never withheld: only an operator withholds (ADR 0157).
-            rows: {
-              running: ['youth_round_private', false, false],
-              complete: ['youth_round_private', false, true],
-            },
-          },
-        });
-        // An operator's stop that lands after the sweep is still recorded.
-        const operator = await db.transaction((tx) =>
-          stopBroadcast(tx, {
-            id: ids.running,
-            reason: 'policy_violation',
-            now: later,
-          }),
-        );
-        const [after] =
-          await client`select media_withheld from broadcasts where id=${ids.running}`;
-        assert({
-          given:
-            'an operator stopping a Youth Broadcast the sweep already stopped',
-          should: 'withhold its video',
-          actual: [operator, after.media_withheld],
-          expected: ['applied', true],
-        });
-      } finally {
-        await client`delete from broadcasts where round_id in (${running}, ${complete})`;
-      }
-    });
-  } finally {
-    await client.close();
-  }
 });
 
 test('one Broadcast per Round, and its policy is kept', async () => {

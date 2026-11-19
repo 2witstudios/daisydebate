@@ -8,7 +8,6 @@ import { releaseStopToken } from './stop-token';
 setupRitewayBun();
 
 const origin = 'http://localhost';
-const roundId = 'abcdefghijklmnopqrstuvwx';
 const token = 'A'.repeat(43);
 const member = {
   state: 'member',
@@ -42,12 +41,6 @@ const build = () => {
           calls.push(['stop', hash]);
         },
       },
-      youthRoundPublications: {
-        publishYouthRound: async (command: unknown) => {
-          calls.push(['publish', command]);
-          return { kind: 'published' };
-        },
-      },
     } as never,
   });
   return { handlers, calls };
@@ -59,46 +52,8 @@ const posting = (path: string, body: unknown) =>
     headers: { origin, 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-const open = async () => true;
-const closed = async () => false;
 
 describe('the media release routes (ADR 0151)', () => {
-  test('Share publicly', async () => {
-    const { handlers, calls } = build();
-    const response = await handlers.publish(open)(
-      posting('/api/media-releases/publish', { roundId }),
-    );
-    assert({
-      given: 'a debater posting the Round to share, publishing open',
-      should: 'publish it as that debater, with the flag already checked',
-      actual: { status: response.status, body: await response.json(), calls },
-      expected: {
-        status: 200,
-        body: { kind: 'published' },
-        calls: [['publish', { roundId, userId: 'user-debater', open: true }]],
-      },
-    });
-    const missing = await build().handlers.publish(open)(
-      posting('/api/media-releases/publish', {}),
-    );
-    assert({
-      given: 'no Round in the body',
-      should: 'refuse it as invalid',
-      actual: missing.status,
-      expected: 400,
-    });
-    const shut = build();
-    const refused = await shut.handlers.publish(closed)(
-      posting('/api/media-releases/publish', { roundId }),
-    );
-    assert({
-      given: 'publishing closed',
-      should: 'answer not found and publish nothing',
-      actual: { status: refused.status, calls: shut.calls },
-      expected: { status: 404, calls: [] },
-    });
-  });
-
   test('a parent signs', async () => {
     const { handlers, calls } = build();
     const form = {
@@ -107,7 +62,7 @@ describe('the media release routes (ADR 0151)', () => {
       attests: true,
       paidAds: false,
     };
-    const response = await handlers.sign(open)(
+    const response = await handlers.sign(
       posting('/api/media-releases/sign', { token, form }),
     );
     assert({
@@ -119,7 +74,7 @@ describe('the media release routes (ADR 0151)', () => {
         calls: [['sign', { digest: releaseLinkDigest('sign', token), form }]],
       },
     });
-    const crossSite = await build().handlers.sign(open)(
+    const crossSite = await build().handlers.sign(
       new Request(`${origin}/api/media-releases/sign`, {
         method: 'POST',
         headers: {
@@ -140,18 +95,18 @@ describe('the media release routes (ADR 0151)', () => {
   test('an opt-out', async () => {
     const hash = 'a'.repeat(64);
     const { handlers, calls } = build();
-    const response = await handlers.stop(closed)(
+    const response = await handlers.stop(
       posting('/api/media-releases/stop', {
         a: hash,
         t: releaseStopToken('stop-key', hash),
       }),
     );
-    const forged = await build().handlers.stop(closed)(
+    const forged = await build().handlers.stop(
       posting('/api/media-releases/stop', { a: hash, t: 'x' }),
     );
     assert({
-      given: 'a valid stop link with publishing closed, then a forged one',
-      should: 'stop that address anyway, and refuse the forgery',
+      given: 'a valid stop link, then a forged one',
+      should: 'stop that address, and refuse the forgery',
       actual: { status: response.status, calls, forged: forged.status },
       expected: { status: 200, calls: [['stop', hash]], forged: 404 },
     });

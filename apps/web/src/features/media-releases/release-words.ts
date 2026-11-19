@@ -1,7 +1,6 @@
 import type {
   AskRefusal,
   GuardianRelation,
-  PublishRefusal,
   ReleaseStanding,
   ResendRefusal,
 } from '@daisy/protocol/media-release';
@@ -54,16 +53,6 @@ export const resendRefusalWords: Record<ResendRefusal, string> = {
   too_many: 'That request has been sent the most times. Use another email.',
 };
 
-export const publishRefusalWords: Record<PublishRefusal | 'not_found', string> =
-  {
-    closed: 'Sharing Youth recordings is not open yet.',
-    not_a_debater: 'Only a debater in this Round can share it.',
-    releases_missing: 'Every youth debater needs a media release first.',
-    not_available: 'This recording can’t be shared.',
-    already_public: 'This recording is already public.',
-    not_found: 'This recording can’t be shared.',
-  };
-
 /** The badge a standing shows on Settings, the club table and the coach view. */
 export type StandingBadge =
   'none' | 'waiting' | 'on_file_parent' | 'on_file_club' | 'withdrawn';
@@ -91,21 +80,15 @@ export const standingBadgeWords: Record<StandingBadge, string> = {
   withdrawn: 'Withdrawn',
 };
 
-/** What a standing means for the student's Recordings (coach view). */
+/**
+ * What a standing means for the student's Rounds (coach view): whether they
+ * may be clipped, downloaded and reused. Watching follows the Room's rules
+ * either way (ADR 0159).
+ */
 export const recordingLineWords: Record<StandingBadge, string> = {
-  none: 'Private: no release',
-  waiting: 'Private until signed',
-  on_file_parent: 'Publishable',
-  on_file_club: 'Publishable',
-  withdrawn: 'Private: withdrawn',
-};
-
-/** The page's notice after Share publicly, from its fixed key; none on success. */
-export const shareNoticeOf = (key: string): string | null => {
-  if (key === '' || key === 'shared') return null;
-  if (key === 'rate_limited')
-    return 'Too many tries. Wait a little and try again.';
-  return Object.hasOwn(publishRefusalWords, key)
-    ? publishRefusalWords[key as keyof typeof publishRefusalWords]
-    : 'This recording could not be shared. Try again.';
+  none: 'No reuse: no release',
+  waiting: 'No reuse until signed',
+  on_file_parent: 'Clipping and reuse allowed',
+  on_file_club: 'Clipping and reuse allowed',
+  withdrawn: 'No reuse: withdrawn',
 };

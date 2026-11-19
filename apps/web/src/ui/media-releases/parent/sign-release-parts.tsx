@@ -119,7 +119,7 @@ export function Signed({
     ['Signed by', `${state.name}, ${guardianRelationWords[state.relation]}`],
     ['For', `@${minor}`],
     ['When', releaseMoment(state.signedAt)],
-    ['Publish Rounds and clips', 'Allowed'],
+    ['Clipping, download and reuse', 'Allowed'],
     ['Paid advertising', state.paidAds ? 'Allowed' : 'Not allowed'],
     ['Release version', mediaReleaseWording.label],
   ];
@@ -158,8 +158,8 @@ export function Signed({
         <h2 className="font-display text-xl font-bold">What happens next</h2>
         <ul className="flex list-disc flex-col gap-2 pl-5 text-ink-muted">
           <li>
-            @{minor}’s Youth Rounds can be published once every Youth debater in
-            a Round has a release.
+            @{minor}’s Rounds may be clipped, downloaded and reused once every
+            Youth debater in a Round has a release.
           </li>
           <li>
             You can withdraw, or change the paid-ads choice, from the link in

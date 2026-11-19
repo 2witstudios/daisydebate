@@ -48,15 +48,15 @@ export function ManageRelease(props: ManageReleaseProps) {
     return state.what === 'whole' ? (
       <ReleaseNotice title="Release withdrawn.">
         <p>
-          Daisy publishes nothing new of {who}’s, and their public Rounds and
-          clips come down. We told {who} and their school.
+          Nobody may newly clip, download or reuse {who}’s Rounds, and Daisy’s
+          clips of them come down. We told {who} and their school.
         </p>
       </ReleaseNotice>
     ) : (
       <ReleaseNotice title="Paid advertising withdrawn.">
         <p>
-          Daisy stops using {who} in paid ads. Their Rounds and clips stay
-          public. A fresh copy, with a new link, is on its way to you.
+          Daisy stops using {who} in paid ads. Clipping and reuse stay allowed.
+          A fresh copy, with a new link, is on its way to you.
         </p>
       </ReleaseNotice>
     );
@@ -83,8 +83,9 @@ export function ManageRelease(props: ManageReleaseProps) {
             Withdraw {who}’s media release?
           </h1>
           <p className="text-md text-ink-muted">
-            Withdrawing stops Daisy publishing anything new of {who}’s. They
-            keep playing ranked; their Rounds go back to private.
+            Withdrawing stops anyone newly clipping, downloading or reusing
+            {who}’s Rounds. They keep playing ranked, and their Rounds can still
+            be watched under each Room’s settings.
           </p>
         </div>
         <form action={withdraw} className="flex flex-col gap-5">
@@ -101,7 +102,7 @@ export function ManageRelease(props: ManageReleaseProps) {
               <span className="min-w-0">
                 The whole release
                 <span className="block text-sm text-ink-muted">
-                  {who}’s public Rounds and clips come down within{' '}
+                  Daisy’s clips of {who} come down within{' '}
                   <Counsel>takedown period</Counsel>. Copies others already
                   saved or shared may remain.
                 </span>
@@ -121,8 +122,8 @@ export function ManageRelease(props: ManageReleaseProps) {
               <span className="min-w-0">
                 Paid advertising only
                 <span className="block text-sm text-ink-muted">
-                  Keeps Rounds and clips public. Daisy stops using {who} in paid
-                  ads.
+                  Keeps clipping and reuse allowed. Daisy stops using {who} in
+                  paid ads.
                   {props.paidAds
                     ? null
                     : ' (You haven’t allowed this, so there is nothing to withdraw.)'}

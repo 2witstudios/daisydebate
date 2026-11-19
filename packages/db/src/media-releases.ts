@@ -26,13 +26,11 @@ import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
 import { oweNotifications } from './notifications/owe';
-import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
 import type { BoundedTransactionContext } from './transaction-context';
 import { readLinkedAdultUserIds } from './youth-recording-people';
 
 import {
-  endPublicationsOf,
   insertMediaRelease,
   isoOrNull,
   iso,
@@ -45,7 +43,6 @@ import {
   rows,
   type ReleaseRow,
 } from './media-release-records';
-import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 
 type Tx = BoundedTransactionContext;
 
@@ -60,7 +57,6 @@ export type MinorReleaseRead = {
     /** When the minor last asked this club, if in the last 7 days. */
     readonly askedAt: string | null;
   }[];
-  readonly privateYouthRounds: number;
 };
 
 /** A parent's link, as the sign and manage pages read it. */
@@ -211,18 +207,6 @@ export function createMediaReleases(input: {
               and o.kind in ('school', 'family') and o.closed_at is null
             order by o.name, o.id`,
         );
-        const [count] = await rows<{ n: number }>(
-          tx,
-          sql`select count(distinct r.id)::int as n from rounds r
-            join recordings rc on rc.round_id = r.id
-            join round_participants rp on rp.round_id = r.id
-            join actors a on a.id = rp.actor_id
-            left join youth_round_publications p on p.round_id = r.id and p.ended_at is null
-            where a.user_id = ${userId} and ${isDebatingSeatSql(sql`rp.seat_kind`)}
-              and public.daisy_round_participant_is_current(rp.id)
-              and ${youthRoundSql(sql`r.id`)} and p.round_id is null
-              and ${youthRoundShareableSql(sql`r`)}`,
-        );
         return {
           division: await readDivisionOf(tx, userId),
           standing: releaseStandingOf({
@@ -236,7 +220,6 @@ export function createMediaReleases(input: {
             name: club.name,
             askedAt: isoOrNull(club.asked_at),
           })),
-          privateYouthRounds: count?.n ?? 0,
         };
       }),
 
@@ -480,7 +463,6 @@ export function createMediaReleases(input: {
           facts.held.publish !== null &&
           decision.withdraw.includes(facts.held.publish.id);
         if (whole) {
-          await endPublicationsOf(tx, userId);
           await oweNotifications(tx, {
             kind: 'media_release_withdrawn',
             subject: { media_release_id: facts.held.publish!.id },

@@ -49,13 +49,12 @@ test('NotificationPreferencesForm', () => {
       'My club confirms my media release | In Daisy',
       'A media release is withdrawn | In Daisy',
       'A student asks my club to confirm their release | In Daisy',
-      'One of my Youth Rounds is made public | In Daisy',
     ],
   });
   assert({
     given: 'friend request email turned off',
     should: 'leave only that switch unchecked',
     actual: (html.match(/checked=""/g) ?? []).length,
-    expected: 24,
+    expected: 23,
   });
 });

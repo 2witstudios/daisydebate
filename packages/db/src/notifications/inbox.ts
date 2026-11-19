@@ -99,12 +99,6 @@ export type InboxRow = {
       readonly student: string | null;
       readonly clubHandle: string;
     }
-  | {
-      readonly kind: 'youth_round_published';
-      readonly roundId: string;
-      /** The debater who shared it, or null once their account is gone. */
-      readonly by: string | null;
-    }
 );
 
 type FlatRow = {
@@ -206,8 +200,6 @@ const inboxRow = (
         student: row.about,
         clubHandle: row.clubHandle!,
       };
-    case 'youth_round_published':
-      return { ...base, kind: row.kind, roundId: row.roundId!, by: row.about };
     case 'judge_assigned':
     case 'judge_replaced':
     case 'judge_unassigned':

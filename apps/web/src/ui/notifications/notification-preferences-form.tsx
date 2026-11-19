@@ -41,7 +41,6 @@ const kindLabel: Record<NotificationKind, string> = {
   media_release_club_confirmed: 'My club confirms my media release',
   media_release_withdrawn: 'A media release is withdrawn',
   media_release_club_asked: 'A student asks my club to confirm their release',
-  youth_round_published: 'One of my Youth Rounds is made public',
 };
 const channelLabel: Record<NotificationChannel, string> = {
   in_app: 'In Daisy',

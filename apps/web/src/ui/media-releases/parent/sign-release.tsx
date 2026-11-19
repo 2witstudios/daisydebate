@@ -67,7 +67,7 @@ export function SignRelease(props: SignReleaseProps) {
         >
           <p>
             {other.outcome === 'declined'
-              ? `We told @${props.minor}. Their Rounds stay private, and nothing else changes.`
+              ? `We told @${props.minor}. Nobody may clip, download or reuse their Rounds, and nothing else changes.`
               : 'Nothing was signed, and we won’t use this link again.'}
           </p>
         </ReleaseNotice>
@@ -97,12 +97,12 @@ export function SignRelease(props: SignReleaseProps) {
             Media release
           </span>
           <h1 className="font-display text-3xl leading-tight font-bold tracking-tight wrap-anywhere max-narrow:text-2xl">
-            Let Daisy share @{props.minor}’s debate Rounds?
+            Let Daisy and others reuse @{props.minor}’s debate Rounds?
           </h1>
           <p className="text-lg text-ink-muted">
-            @{props.minor} asked you to sign. Right now their ranked Rounds are
-            recorded and private: only they, the other debaters, judges, their
-            school staff and you can watch.
+            @{props.minor} asked you to sign. Their Rounds can be watched on
+            Daisy under each Room’s settings, and ranked Rounds are public, but
+            nobody may clip, download or reuse them without a release.
           </p>
         </div>
         <ReleaseTerms minor={props.minor} />

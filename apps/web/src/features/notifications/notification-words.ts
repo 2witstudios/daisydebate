@@ -149,11 +149,6 @@ export const notificationWords = (
         text: `${subject.student ? `@${subject.student}` : 'A student'} asked your club to confirm their media release.`,
         href: `/clubs/${subject.clubHandle}/releases`,
       };
-    case 'youth_round_published':
-      return {
-        text: `Your Round${subject.by ? ` with @${subject.by}` : ''} is now public.`,
-        href: `/recordings/${subject.roundId}`,
-      };
   }
 };
 

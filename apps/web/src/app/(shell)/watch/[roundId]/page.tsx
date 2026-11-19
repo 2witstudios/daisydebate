@@ -44,6 +44,7 @@ export default async function WatchRoundPage({
   return watched ? (
     <BroadcastViewer
       initial={watched.timeline}
+      streamable={watched.streamable}
       stateUrl={watched.stateUrl}
       refreshHref={returnTo}
     >

@@ -370,190 +370,176 @@ describe('roundEvidencePermissions under the officials policy (TAB-6.15)', () =>
   });
 });
 
-describe('a Youth Round (PYL-5)', () => {
-  const youthRound: RecordingRound = {
-    ...round,
-    youth: {
-      debaters: [
-        { actorId: 'aff', userId: 'user-aff', linkedAdultActorIds: ['coach'] },
-        { actorId: 'neg', userId: 'user-neg', linkedAdultActorIds: ['parent'] },
-      ],
-      public: false,
-    },
+describe('a Youth Round follows Open’s rules (ADR 0159)', () => {
+  const people = {
+    debaters: [
+      { actorId: 'aff', userId: 'user-aff', linkedAdultActorIds: ['coach'] },
+      { actorId: 'neg', userId: 'user-neg', linkedAdultActorIds: ['parent'] },
+    ],
   };
+  const youthOf = (open: RecordingRound, reusable = false): RecordingRound => ({
+    ...open,
+    youth: { ...people, reusable },
+  });
+  const youthRound = youthOf(round);
+  const hash = audienceLinkHash('token');
+  const viewers = {
+    debater: account('aff'),
+    judge: account('judge'),
+    host: account('host'),
+    stranger: account('stranger'),
+    visitor,
+  };
+  const linkedAdults = { coach: account('coach'), parent: account('parent') };
 
-  test('is private to its people whatever its visibility', () => {
+  test('answers every viewer as the same Open Round does, but its linked adults', () => {
+    const cases = (['ranked', 'casual'] as const).flatMap((competitionType) =>
+      (['public', 'unlisted', 'private'] as const).flatMap((visibility) =>
+        [null, hash].map((presented) => ({
+          competitionType,
+          visibility,
+          presented,
+        })),
+      ),
+    );
+    const answers = (input: RecordingRound, presented: string | null) =>
+      Object.values({ ...viewers, ...linkedAdults }).map((viewer) =>
+        permissionsWithLink(input, passed, viewer, presented, 100_000),
+      );
+    const differences = cases.flatMap(
+      ({ competitionType, visibility, presented }) => {
+        const open: RecordingRound = {
+          ...round,
+          competitionType,
+          visibility,
+          audienceLinkHash: visibility === 'unlisted' ? hash : null,
+        };
+        const asOpen = answers(open, presented);
+        const asYouth = answers(youthOf(open), presented);
+        return Object.keys(viewers).flatMap((name, index) =>
+          JSON.stringify(asOpen[index]) === JSON.stringify(asYouth[index])
+            ? []
+            : [
+                `${competitionType} ${visibility} ${presented ? 'link' : 'no link'}: ${name}`,
+              ],
+        );
+      },
+    );
     assert({
       given:
-        'a debater, a judge, a coach, a parent, a stranger, the host and a visitor on a public Youth Round',
-      should: 'show everything to the first four and nothing to the rest',
-      actual: [
-        account('aff'),
-        account('judge'),
-        account('coach'),
-        account('parent'),
-        account('stranger'),
-        account('host'),
-        visitor,
-      ].map((viewer) => roundEvidencePermissions(youthRound, passed, viewer)),
-      expected: [
-        everything,
-        everything,
-        everything,
-        everything,
-        nothing,
-        nothing,
-        nothing,
-      ],
+        'a ranked and a casual Round, public, unlisted (with and without its link) and private, in either lobby',
+      should:
+        'give every seat, host, stranger and visitor the same permissions in both lobbies',
+      actual: differences,
+      expected: [],
     });
   });
 
-  test('an operator’s stop still withholds the video, shared or not (ADR 0157)', () => {
-    const withheld: BroadcastRelease = { ...passed, stop: 'media_withheld' };
-    const shared: RecordingRound = {
-      ...youthRound,
-      youth: { ...youthRound.youth!, public: true },
-    };
-    assert({
-      given:
-        'a Youth Round whose Broadcast an operator withheld, read by a debater, a coach, and a stranger once shared',
-      should:
-        'keep the video for its seats only, and the record for its audience',
-      actual: {
-        debater: roundEvidencePermissions(youthRound, withheld, account('aff')),
-        coach: roundEvidencePermissions(youthRound, withheld, account('coach')),
-        strangerShared: roundEvidencePermissions(
-          shared,
-          withheld,
-          account('stranger'),
+  test('its linked coaches and parents see through private and unlisted', () => {
+    const at = (visibility: RecordingRound['visibility']) =>
+      Object.values(linkedAdults).map((viewer) =>
+        roundEvidencePermissions(
+          { ...youthOf({ ...round, competitionType: 'casual' }), visibility },
+          passed,
+          viewer,
         ),
-      },
-      expected: {
-        debater: everything,
-        coach: { ...everything, media: false },
-        strangerShared: { ...everything, media: false },
-      },
-    });
-  });
-
-  test('a shared casual one shows the public no transcript or ballots (ADR 0157)', () => {
-    const sharedCasual: RecordingRound = {
-      ...youthRound,
-      competitionType: 'casual',
-      youth: { ...youthRound.youth!, public: true },
-    };
+      );
     assert({
-      given: 'a stranger and a debater on a shared casual Youth Round',
-      should:
-        'give the stranger its video only, as an Open casual audience, and the debater everything',
-      actual: [
-        roundEvidencePermissions(sharedCasual, passed, account('stranger')),
-        roundEvidencePermissions(sharedCasual, passed, account('aff')),
-      ],
+      given:
+        'a youth debater’s coach and parent on a public, an unlisted and a private casual Youth Round',
+      should: 'show them everything a debater sees, whatever the Room says',
+      actual: [at('public'), at('unlisted'), at('private')],
       expected: [
-        { open: true, media: true, transcript: false, result: false },
-        everything,
+        [everything, everything],
+        [everything, everything],
+        [everything, everything],
       ],
     });
-  });
-
-  test('a presented link admits nobody', () => {
-    const hash = audienceLinkHash('token');
     assert({
-      given: 'a stranger with the current link of an unlisted Youth Round',
-      should: 'see nothing',
-      actual: permissionsWithLink(
-        { ...youthRound, visibility: 'unlisted', audienceLinkHash: hash },
+      given: 'the same coach on an Open Round, where nobody is linked to them',
+      should: 'see what any stranger sees',
+      actual: roundEvidencePermissions(
+        { ...round, competitionType: 'casual', visibility: 'private' },
         passed,
-        account('stranger'),
-        hash,
-        100_000,
+        account('coach'),
       ),
       expected: nothing,
     });
   });
 
-  test('a casual one kept for its officials keeps the officials policy (ADR 0157)', () => {
+  test('an operator’s stop withholds the video from a linked adult, as from the audience', () => {
+    const withheld: BroadcastRelease = { ...passed, stop: 'media_withheld' };
+    assert({
+      given:
+        'a Youth Round whose Broadcast an operator withheld, read by a debater, a coach and a stranger',
+      should: 'keep the video for its seats only',
+      actual: ['aff', 'coach', 'stranger'].map((id) =>
+        roundEvidencePermissions(youthRound, withheld, account(id)),
+      ),
+      expected: [
+        everything,
+        { ...everything, media: false },
+        { ...everything, media: false },
+      ],
+    });
+  });
+
+  test('a casual one kept for its officials shows a linked adult the record, never the video', () => {
     const officials: RecordingRound = {
       ...youthRound,
       competitionType: 'casual',
       recordingPolicy: 'officials',
     };
-    const at = (viewer: RecordingViewer, nowMs: number) =>
-      permissionsWithLink(officials, passed, viewer, null, nowMs).media;
-    const due = 100_000 + OFFICIALS_RECORDING_RETENTION_MS;
     assert({
       given:
-        'a casual Youth Round recorded for its officials, before and after its deletion date',
+        'a casual Youth Round recorded for its officials, read by the judge, a debater, a coach and a stranger',
       should:
-        'show the video only to the judge and only until then; never to a debater, a linked adult or a stranger',
-      actual: {
-        before: ['judge', 'aff', 'coach', 'stranger'].map((id) =>
-          at(account(id), 100_000),
-        ),
-        // The host coaches a youth debater: in the audience, but no official.
-        hostCoach: permissionsWithLink(
-          {
-            ...officials,
-            youth: {
-              ...officials.youth!,
-              debaters: [
-                {
-                  actorId: 'aff',
-                  userId: 'user-aff',
-                  linkedAdultActorIds: ['host'],
-                },
-              ],
-            },
-          },
-          passed,
-          account('host'),
-          null,
-          100_000,
-        ),
-        after: at(account('judge'), due),
-        debaterRecord: permissionsWithLink(
-          officials,
-          passed,
-          account('aff'),
-          null,
-          100_000,
-        ).result,
-      },
-      expected: {
-        before: [true, false, false, false],
-        hostCoach: { open: true, media: false, transcript: true, result: true },
-        after: false,
-        debaterRecord: true,
-      },
+        'show the judge the video, the coach the record only, and the stranger nothing',
+      actual: ['judge', 'aff', 'coach', 'stranger'].map((id) =>
+        roundEvidencePermissions(officials, passed, account(id)),
+      ),
+      expected: [
+        everything,
+        { ...everything, media: false },
+        { ...everything, media: false },
+        nothing,
+      ],
     });
   });
 
-  test('nothing before it ends', () => {
+  test('nothing before it ends, linked adults included', () => {
     assert({
-      given: 'a debater on a Youth Round still running',
-      should: 'see nothing yet',
+      given: 'a coach on a Youth Round still running',
+      should: 'see nothing of its Recording yet',
       actual: roundEvidencePermissions(
         { ...youthRound, completedAtMs: null },
         passed,
-        account('aff'),
+        account('coach'),
       ),
       expected: nothing,
     });
   });
 
-  test('is never downloaded and is taken down by its youth', () => {
-    assert({
-      given: 'a subscribed debater who may watch a ready Youth Recording',
-      should: 'offer no download',
-      actual: mayDownload({
-        round: youthRound,
-        viewer: account('aff'),
+  test('is downloaded only once every youth debater released it, and is taken down by its youth', () => {
+    const download = (input: RecordingRound) =>
+      mayDownload({
+        round: input,
+        viewer: account('stranger'),
         permissions: everything,
         status: 'ready',
         subscribed: true,
-      }),
-      expected: false,
+      });
+    assert({
+      given:
+        'a subscriber who may watch a ready Youth Recording, without and with every release, and an Open one',
+      should:
+        'offer the download only on the released Youth one and the Open one',
+      actual: [
+        download(youthRound),
+        download(youthOf(round, true)),
+        download(round),
+      ],
+      expected: [false, true, true],
     });
     assert({
       given:
