@@ -205,7 +205,7 @@ operator API (ADR 0079), with this client:
   `operatorCommandStateSchema`). The seven refusals the API makes before or
   instead of a change (`VALIDATION`, `AUTHENTICATION`, `AUTHORIZATION`,
   `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, and `INVARIANT` at 422 for an
-  account with no 16+ age record, each at its own status) are definite. Anything else (`INFRASTRUCTURE`, `INTERNAL`, a code at the wrong
+  account with no age record at the member floor, 13+ since decision 88, each at its own status) are definite. Anything else (`INFRASTRUCTURE`, `INTERNAL`, a code at the wrong
   status, a malformed body, a network error or a 5 s timeout) is `unknown`,
   never `failed`.
 - **Commands** (`apps/admin/src/features/accounts`). Approve and revoke

@@ -105,7 +105,7 @@ export default async function SettingsRoute({
   await requireAccess('/settings', searchParams);
   const identity = await requestIdentity();
   const query = await searchParams;
-  // ISSUE-324: optional answers only where they are asked (16+, ISSUE-645).
+  // ISSUE-324: optional answers only where they are asked (13+, ISSUE-645, decision 88).
   const [admitted, ownAnswers] = await Promise.all([
     requestOptionalAnswersAdmitted(),
     requestOnboardingAnswers(),

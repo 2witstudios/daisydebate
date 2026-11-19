@@ -1,3 +1,5 @@
+import { type Page } from '@playwright/test';
+import { systemClock } from '@daisy/clock';
 import { approveBetaAccounts } from './support/beta-access';
 import { expect, test } from './support/fixtures';
 import {
@@ -20,6 +22,13 @@ import { walkOnboarding } from './support/onboarding';
 // The username step with JavaScript on: what the hydrated page adds to the
 // form's POST. The same step with JavaScript off is proven in
 // journey.e2e.ts.
+/** The birth month and year that many whole months before now, in UTC. */
+const monthsAgo = (months: number) => {
+  const now = new Date(systemClock.now());
+  const index = now.getUTCFullYear() * 12 + now.getUTCMonth() - months;
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+};
+
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
@@ -192,38 +201,58 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   await expect(page).toHaveURL(/\/lobby$/);
 });
 
-// The age step (WAIT-4.6, WAIT-4.7): an answer below the beta floor keeps
-// nothing, signs the browser out with the account gone, and holds the
-// browser to the same neutral page for a day.
-for (const [label, year, title] of [
-  ['under 13', 2018, 'Daisy is for people 13 and older.'],
-  [
-    '13 to 15, during the beta',
-    2012,
-    'The Daisy beta is open to people 16 and older for now.',
-  ],
-] as const)
-  test(`an age ${label} is refused, kept nowhere and held`, async ({
-    page,
-  }) => {
-    await signUpBeforeAge(page.request);
-    await page.goto('/onboarding/age?next=%2Flobby');
-    await page.getByLabel('Month').selectOption('6');
-    await page.getByLabel('Year').selectOption(String(year));
-    await page.getByLabel(/I agree to the Terms/).check();
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
-    await expect(
-      page.getByText('We haven’t kept anything you entered.'),
-    ).toBeVisible();
-    await expect(page.getByRole('combobox')).toHaveCount(0);
-    // The account is gone: its session no longer signs anyone in.
-    const session = await page.request.get('/api/auth/get-session');
-    expect(await session.json()).toBeNull();
-    // The browser is held to the same answer.
-    await page.goto('/onboarding/age?next=%2Flobby');
-    await expect(page.getByRole('heading', { name: title })).toBeVisible();
-  });
+// The age step (WAIT-4.6, WAIT-4.7): an answer under 13 keeps nothing,
+// signs the browser out with the account gone, and holds the browser to the
+// same neutral page for a day.
+test('an age under 13 is refused, kept nowhere and held', async ({ page }) => {
+  const title = 'Daisy is for people 13 and older.';
+  await signUpBeforeAge(page.request);
+  await page.goto('/onboarding/age?next=%2Flobby');
+  // A month short of 13 (decision 88: members are 13 or older).
+  const almost = monthsAgo(13 * 12 - 1);
+  await page.getByLabel('Month').selectOption(String(almost.month));
+  await page.getByLabel('Year').selectOption(String(almost.year));
+  await page.getByLabel(/I agree to the Terms/).check();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  await expect(
+    page.getByText('We haven’t kept anything you entered.'),
+  ).toBeVisible();
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  // The account is gone: its session no longer signs anyone in.
+  const session = await page.request.get('/api/auth/get-session');
+  expect(await session.json()).toBeNull();
+  // The browser is held to the same answer.
+  await page.goto('/onboarding/age?next=%2Flobby');
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+});
+
+// YLS-8 (decision 88): a member who turned 13 this month signs themselves
+// up, with no parental step, and lands on the Youth line before the username.
+const answerAtThirteen = async (page: Page) => {
+  const thirteen = monthsAgo(13 * 12);
+  await page.getByLabel('Month').selectOption(String(thirteen.month));
+  await page.getByLabel('Year').selectOption(String(thirteen.year));
+  await page.getByLabel(/I agree to the Terms/).check();
+  await page.getByRole('button', { name: 'Continue' }).click();
+};
+
+test('a 13-year-old is admitted and told they are in the Youth lobby', async ({
+  page,
+}) => {
+  await signUpBeforeAge(page.request);
+  await page.goto('/onboarding/age?next=%2Flobby');
+  await answerAtThirteen(page);
+  await expect(page).toHaveURL(/\/onboarding\/lobby\?next=(\/|%2F)lobby$/);
+  await expect(
+    page.getByRole('heading', { name: 'You’re in the Youth lobby' }),
+  ).toBeVisible();
+  // Coming back to the answered age step leads through the landing again.
+  await page.goto('/onboarding/age?next=%2Flobby');
+  await expect(page).toHaveURL(/\/onboarding\/lobby\?next=(\/|%2F)lobby$/);
+  await page.getByRole('link', { name: 'Continue' }).click();
+  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
+});
 
 test.describe('the age step with JavaScript off', () => {
   test.use({ javaScriptEnabled: false });
@@ -235,6 +264,20 @@ test.describe('the age step with JavaScript off', () => {
     // Native validation keeps an unanswered form from posting.
     await expect(page).toHaveURL(/\/onboarding\/age/);
     await answerAgeStep(page);
+    await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
+  });
+
+  test('a 13-year-old posts natively, lands on Youth and goes on to the username', async ({
+    page,
+  }) => {
+    await signUpBeforeAge(page.request);
+    await page.goto('/onboarding/age?next=%2Flobby');
+    await answerAtThirteen(page);
+    await expect(page).toHaveURL(/\/onboarding\/lobby\?next=(\/|%2F)lobby$/);
+    await expect(
+      page.getByRole('heading', { name: 'You’re in the Youth lobby' }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Continue' }).click();
     await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   });
 });

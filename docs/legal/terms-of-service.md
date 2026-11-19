@@ -14,7 +14,7 @@ Our privacy policy explains what we collect and why; it is part of how the servi
 
 ## Who can join
 
-You must be 16 or older to use Daisy.
+You must be 13 or older to use Daisy.
 
 You must give your true birth month and year. An account created with a false age may be closed.
 

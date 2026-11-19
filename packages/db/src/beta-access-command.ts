@@ -80,7 +80,7 @@ type Applied = Exclude<Decision, { kind: 'refused' }>;
 const refusalCode = {
   stale: 'CONFLICT',
   'not-found': 'NOT_FOUND',
-  // ISSUE-664: approval needs a durable 16+ age record first.
+  // ISSUE-664: approval needs a durable 13+ age record first.
   'age-required': 'INVARIANT',
 } as const;
 

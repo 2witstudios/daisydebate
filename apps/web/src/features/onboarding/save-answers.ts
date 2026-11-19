@@ -69,7 +69,7 @@ const isFinish = (body: unknown) =>
  * origin, the session Principal, a member with a username (never a
  * body-supplied id), an atomic rate limit, a strict body, and only then
  * durable work. Optional answers also need the member's canonical age
- * fact to admit them (16 or over, DEC-106); the body never carries an age.
+ * fact to admit them (13 or over, decision 88); the body never carries an age.
  * A refused answer stores nothing; finishing alone needs no age.
  */
 export function createOnboardingHandler(dependencies: OnboardingDependencies) {

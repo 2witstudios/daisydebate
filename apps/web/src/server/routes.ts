@@ -33,7 +33,6 @@ import {
 import { createOnboardingHandler } from '../features/onboarding/save-answers';
 import { createSignOutFormHandler } from '../features/auth/sessions/sign-out-form';
 import { createAgeStepHandler } from '../features/account/age-step';
-import { ACCOUNT_AGE_FLOOR } from '@daisy/auth/age-floor';
 import { TERMS_VERSION } from '../features/legal/versions';
 import { provisionalMailCleanup } from '../features/auth/mail/provisional-mail';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
@@ -190,7 +189,6 @@ export function createRoutes(app: App) {
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.limiter,
         clock: app.clock,
-        floor: ACCOUNT_AGE_FLOOR,
         termsVersion: TERMS_VERSION,
         record: (input) => database.recordAgeStep(input),
         forget: (userId) =>

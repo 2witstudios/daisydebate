@@ -3,8 +3,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { systemClock } from '@daisy/clock';
 import {
+  lobbyLandingHref,
   onboardingHref,
-  usernameHref,
   type SearchParams,
 } from '../../../../features/access/decision';
 import { birthYears } from '../../../../features/account/age-form';
@@ -43,7 +43,9 @@ export default async function OnboardingAgePage({
     onboardingHref,
   );
   if (identity.state === 'member') redirect(destination);
-  if (await requestHasRecordedAge()) redirect(usernameHref(destination));
+  // Answered already: on through the lobby landing, so a Youth member who
+  // left before it still sees it (YLS-8).
+  if (await requestHasRecordedAge()) redirect(lobbyLandingHref(destination));
   return (
     <AgeStep
       action={ageStepAction.bind(null, destination)}

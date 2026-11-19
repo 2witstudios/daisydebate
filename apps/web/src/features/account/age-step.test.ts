@@ -19,11 +19,9 @@ const provisional: Identity = {
 
 const handlerWith = ({
   identity = provisional,
-  floor = 16 as const,
   forgets = 'deleted' as const,
 }: {
   identity?: Identity;
-  floor?: 13 | 16;
   forgets?: 'deleted' | 'refused';
 } = {}) => {
   const recorded: unknown[] = [];
@@ -35,7 +33,6 @@ const handlerWith = ({
     identify: async () => identity,
     limiter: () => ({ consume: allowEvery }),
     clock: { now: () => NOW },
-    floor,
     termsVersion: 'draft-0',
     record: async (input) => {
       recorded.push(input);
@@ -65,9 +62,9 @@ const answer = (year: number, month = 10) => ({ month, year, terms: true });
 describe('POST /api/account/age', () => {
   test('an answer at or above the floor stores the month and the Terms', async () => {
     const { handler, recorded, forgotten } = handlerWith();
-    const response = await handler(post(answer(2010)));
+    const response = await handler(post(answer(2013)));
     assert({
-      given: 'someone who turned 16 this month, under the beta floor of 16',
+      given: 'someone who turned 13 this month, under the member floor of 13',
       should:
         'record the birth month, the current Terms version and the server time, and delete nothing',
       actual: [response.status, await response.json(), recorded, forgotten],
@@ -77,7 +74,7 @@ describe('POST /api/account/age', () => {
         [
           {
             userId: 'user1',
-            birthMonth: '2010-10',
+            birthMonth: '2013-10',
             termsVersion: 'draft-0',
             now: NOW,
           },
@@ -87,33 +84,61 @@ describe('POST /api/account/age', () => {
     });
   });
 
-  test('below the floor stores nothing, forgets the account and holds the browser', async () => {
-    const teen = handlerWith();
+  test('every under-18 band from 13 is admitted (decision 88)', async () => {
+    const statuses = [];
+    for (const year of [2013, 2011, 2010, 2009, 1990]) {
+      const { handler } = handlerWith();
+      statuses.push((await handler(post(answer(year)))).status);
+    }
+    assert({
+      given: 'answers of exactly 13, 15, 16, 17 and an adult',
+      should: 'record each',
+      actual: statuses,
+      expected: [200, 200, 200, 200, 200],
+    });
+  });
+
+  test('under 13 stores nothing, forgets the account and holds the browser', async () => {
+    const almost = handlerWith();
     const child = handlerWith();
-    const teenAnswer = await teen.handler(post(answer(2010, 11)));
+    const almostAnswer = await almost.handler(post(answer(2013, 11)));
     const childAnswer = await child.handler(post(answer(2015)));
     assert({
-      given: 'a 15-year-old and a 11-year-old under the beta floor',
+      given: 'a 12-year-old a month from 13, and an 11-year-old',
       should:
-        'refuse each with its own neutral reason, delete the provisional account, store nothing and set a day-long hold',
+        'refuse each as under 13, delete the provisional account, store nothing and set a day-long hold',
       actual: [
-        teenAnswer.status,
-        (await teenAnswer.json()).error.refusal,
+        almostAnswer.status,
+        (await almostAnswer.json()).error.refusal,
         childAnswer.status,
         (await childAnswer.json()).error.refusal,
-        teen.recorded.length + child.recorded.length,
-        [...teen.forgotten, ...child.forgotten],
-        teenAnswer.headers.get('set-cookie'),
+        almost.recorded.length + child.recorded.length,
+        [...almost.forgotten, ...child.forgotten],
+        almostAnswer.headers.get('set-cookie'),
       ],
       expected: [
         403,
-        'below-floor',
+        'under-13',
         403,
         'under-13',
         0,
         ['user1', 'user1'],
-        `${AGE_HOLD_COOKIE}=below-floor; Path=/; Max-Age=86400; Secure; HttpOnly; SameSite=Lax`,
+        `${AGE_HOLD_COOKIE}=under-13; Path=/; Max-Age=86400; Secure; HttpOnly; SameSite=Lax`,
       ],
+    });
+  });
+
+  test('a browser holding the retired beta below-floor refusal answers again', async () => {
+    const { handler, recorded, forgotten } = handlerWith();
+    const response = await handler(
+      post(answer(2012), `${AGE_HOLD_COOKIE}=below-floor`),
+    );
+    assert({
+      given:
+        'a 14-year-old whose browser still holds a day-old below-floor hold from the 16 floor',
+      should: 'admit and record the answer, forgetting nothing',
+      actual: [response.status, recorded.length, forgotten],
+      expected: [200, 1, []],
     });
   });
 
@@ -127,7 +152,7 @@ describe('POST /api/account/age', () => {
     const answers = [
       await conflict(await handler(post(answer(2018)))),
       await conflict(
-        await handler(post(answer(1990), `${AGE_HOLD_COOKIE}=below-floor`)),
+        await handler(post(answer(1990), `${AGE_HOLD_COOKIE}=under-13`)),
       ),
     ];
     assert({
@@ -143,17 +168,6 @@ describe('POST /api/account/age', () => {
         ],
         0,
       ],
-    });
-  });
-
-  test('after the beta the floor is 13', async () => {
-    const { handler, recorded } = handlerWith({ floor: 13 });
-    const response = await handler(post(answer(2012)));
-    assert({
-      given: 'a 14-year-old once the floor is the product floor of 13',
-      should: 'accept and record the answer',
-      actual: [response.status, recorded.length],
-      expected: [200, 1],
     });
   });
 

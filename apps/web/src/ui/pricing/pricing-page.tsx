@@ -33,7 +33,7 @@ const questionsFor = (
   {
     question: 'Who plays ranked?',
     answer:
-      'Ranked is for members 18 and over on Open – Freestyle, and for members under 18 on Youth – Freestyle. Members are 16 or older. Anyone can judge.',
+      'Ranked is for members 18 and over on Open – Freestyle, and for members under 18 on Youth – Freestyle. Members are 13 or older. Anyone can judge.',
   },
   ...(actions.club.kind === 'link'
     ? [

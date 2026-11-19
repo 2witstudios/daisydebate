@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
+import { ageAdmitted } from '@daisy/auth/authorization';
 import { decideBetaAccessChange } from '@daisy/protocol';
 
 const email = 'transcript-proof@example.test';
@@ -72,7 +73,7 @@ export async function transcriptProofFixture(
             current,
             desired: 'approved',
             expectedRevision: account.revision,
-            ageAdmitted: ageBand === 'adult' || ageBand === '16-17',
+            ageAdmitted: ageAdmitted(ageBand),
           }),
       });
     }

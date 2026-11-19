@@ -1,18 +1,11 @@
-import { ACCOUNT_AGE_FLOOR, type AgeFloor } from './age-floor';
+import { ADMITTED_AGE_BANDS } from './age-floor';
 import type { AgeBand } from '@daisy/protocol';
 import type { BetaAccessState } from '@daisy/protocol';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { AccountAuthorizationFact } from './authorization-facts';
 
 type AccountBetaState = NonNullable<AccountAuthorizationFact['beta']>['state'];
-/** Age bands at or above each account floor (DEC-106: 16 in the beta, 13 after). */
-const bandsAtFloor: Record<AgeFloor, readonly AgeBand[]> = {
-  13: ['13-15', '16-17', 'adult'],
-  16: ['16-17', 'adult'],
-};
-/** The bands the account floor admits now, for a read that filters in SQL. */
-export const ADMITTED_AGE_BANDS: readonly AgeBand[] =
-  bandsAtFloor[ACCOUNT_AGE_FLOOR];
+export { ADMITTED_AGE_BANDS };
 /**
  * The one participant admission rule (ADR 0075): an approved beta account
  * under no suspension or ban (ADR 0103) whose durable age record meets the
