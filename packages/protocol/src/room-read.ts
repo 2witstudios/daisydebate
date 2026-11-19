@@ -138,6 +138,12 @@ const roomViewFields = z.strictObject({
    */
   contentWaiver: z.enum(['signed', 'unsigned']).nullable(),
   /**
+   * Which waiver that standing is on: the one this viewer's own lobby signs
+   * (ADR 0159), the Youth waiver for a member under 18 whatever Room they sit
+   * in. Null exactly when `contentWaiver` is.
+   */
+  contentWaiverVersion: z.string().min(1).max(64).nullable(),
+  /**
    * What the host of this casual Room can choose (WATCH-8): both choices when
    * entitled, else premium, and null for ranked or anyone but the host. The
    * command rechecks it under the host's fence.

@@ -181,13 +181,17 @@ const releasedPermissions = (
   if (round.completedAtMs === null) return NOTHING;
   if (seated(round, viewer))
     return { open: true, media: true, transcript: true, result: true };
-  if (insider(round, viewer))
-    return { open: true, media: true, transcript: false, result: true };
   // The one Youth difference (ADR 0159): a youth debater's linked coach or
   // parent sees through unlisted and private, as a debater does, but never
-  // past an operator's stop.
+  // past an operator's stop. It comes before the host's view, which it
+  // contains: a coach hosting their own students loses nothing by hosting.
   if (linkedAdult(round, viewer))
-    return { ...EVERYTHING, media: release.stop !== 'media_withheld' };
+    return {
+      ...EVERYTHING,
+      media: release.stop !== 'media_withheld' || insider(round, viewer),
+    };
+  if (insider(round, viewer))
+    return { open: true, media: true, transcript: false, result: true };
   if (!audienceAdmits(round, presentedLinkHash)) return NOTHING;
   if (!releasedToAudience(round, release)) return NOTHING;
   const ranked = round.competitionType === 'ranked';

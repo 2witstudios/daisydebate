@@ -56,7 +56,7 @@ describe('agreements', () => {
       },
       expected: {
         waiver: ['draft-4', 'a5009809ca79179f'],
-        youthWaiver: ['youth-draft-1', '009cabb931806b59'],
+        youthWaiver: ['youth-draft-1', 'c83c18684671a808'],
         policy: ['draft-4', 'b88386aedce40411'],
         casualCapture: 'f5a46abec416c6cb',
       },

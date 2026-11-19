@@ -467,6 +467,46 @@ describe('a Youth Round follows Open’s rules (ADR 0159)', () => {
     });
   });
 
+  test('a coach who hosts their students’ Round sees it as a linked adult, not less', () => {
+    const hostCoach = (policy: RecordingRound['recordingPolicy']) =>
+      roundEvidencePermissions(
+        {
+          ...youthOf({
+            ...round,
+            competitionType: 'casual',
+            visibility: 'private',
+            hostActorId: 'coach',
+            recordingPolicy: policy,
+          }),
+        },
+        passed,
+        account('coach'),
+      );
+    assert({
+      given:
+        'a private casual Youth Round hosted by a youth debater’s coach, recorded for everyone and for its officials',
+      should:
+        'show the host-coach everything, the video included, as both host and linked adult',
+      actual: [hostCoach('released'), hostCoach('officials')],
+      expected: [everything, everything],
+    });
+    assert({
+      given: 'the same host-coach after an operator withheld the Broadcast',
+      should: 'keep the host’s video, as any host keeps it',
+      actual: roundEvidencePermissions(
+        youthOf({
+          ...round,
+          competitionType: 'casual',
+          visibility: 'private',
+          hostActorId: 'coach',
+        }),
+        { ...passed, stop: 'media_withheld' },
+        account('coach'),
+      ),
+      expected: everything,
+    });
+  });
+
   test('an operator’s stop withholds the video from a linked adult, as from the audience', () => {
     const withheld: BroadcastRelease = { ...passed, stop: 'media_withheld' };
     assert({

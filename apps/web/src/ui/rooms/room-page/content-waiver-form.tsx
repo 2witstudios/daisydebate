@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import type { RatingDivision } from '@daisy/protocol';
-import { contentWaiverOf } from '../../../features/legal/agreements';
+import {
+  contentWaiverAt,
+  contentWaiverDocument,
+  youthContentWaiverDocument,
+} from '../../../features/legal/agreements';
 import { contentWaiverFields } from '../../../features/agreements/submit-content-waiver';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { buttonClass } from '../../components/button/button-class';
@@ -14,19 +17,21 @@ import { RoomAnswerForm } from './assembly-command-form';
  * native form with a required box: it works without JavaScript, and the server
  * refuses a post without the tick. The waiver stays on screen whatever the
  * answer: when one is lost the member signs again, which is the same
- * signature. A Youth Room's debaters sign the Youth waiver, which grants no
- * licence (ADR 0159).
+ * signature. A member under 18 signs the Youth waiver, which grants no
+ * licence (ADR 0159); the server names which.
  */
 export function ContentWaiverForm({
   action,
-  division,
+  version,
 }: {
   readonly action: FormAction<RoomFormState>;
-  /** The Room's lobby: which waiver its debaters sign. */
-  readonly division: RatingDivision;
+  /** The waiver this viewer's lobby signs, as the Room read named it. */
+  readonly version: string | null;
 }) {
-  const waiver = contentWaiverOf(division);
-  const youth = division === 'youth';
+  const waiver =
+    (version === null ? null : contentWaiverAt(version)) ??
+    contentWaiverDocument;
+  const youth = waiver === youthContentWaiverDocument;
   const page = youth ? '/youth-content-waiver' : '/content-waiver';
   const name = youth ? 'Youth ranked content waiver' : 'ranked content waiver';
   return (

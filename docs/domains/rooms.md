@@ -337,8 +337,9 @@ season, bounded by their own age record and a 12-month carry (ADR 0147 §3).
   debater's linked coach or parent sees through an unlisted or private Room,
   live (the "Watching" view above) and its Recording. A Youth Round's content
   is reused (download, Stream this Round) only once every youth debater holds
-  a media release (`reuseFenced`, `youthReuseFencedSql`), and a ranked Youth
-  Room's Ready asks for the Youth ranked content waiver.
+  a media release (`reuseFenced`, `youthReuseFencedSql`), and a member under
+  18 signs the Youth ranked content waiver before any ranked Ready, judging
+  included.
 
 Round writers keep their own eligibility, so a running Round is never changed
 by any of this. See [compliance](../operations/compliance.md#children).

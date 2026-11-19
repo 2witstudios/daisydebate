@@ -124,7 +124,7 @@ export const notificationWords = (
       };
     case 'media_release_signed':
       return {
-        text: 'Your parent signed your media release. Daisy and others may now clip, download and reuse your Rounds.',
+        text: 'Your parent signed your media release. Daisy and others may clip, download and reuse your Rounds once everyone debating in them has a release too.',
         href: mediaReleaseSettings,
       };
     case 'media_release_club_confirmed':

@@ -96,7 +96,7 @@ export const youthContentWaiverDocument: LegalDocument = {
       id: 'kept-on-daisy',
       heading: 'Kept on Daisy',
       paragraphs: [
-        "A ranked round's video, transcript and result stay on Daisy as part of the ladder's record, including after you close your account. You, or your coach or parent, can ask for a round's recording to be taken down at any time.",
+        "A ranked round's video, transcript and result stay on Daisy as part of the ladder's record, including after you close your account. You, or a parent, guardian or school staff member linked to you, can ask for a round's recording to be taken down at any time.",
       ],
     },
     {

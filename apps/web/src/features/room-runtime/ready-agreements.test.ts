@@ -25,15 +25,22 @@ const version = casualCaptureNotice.version;
 describe('Ready agreements', () => {
   test('only ranked needs the waiver', () => {
     assert({
-      given: 'a ranked and a casual Room',
+      given:
+        'a ranked Room read by an adult, a minor and a member with no age record, and a casual Room',
       should:
-        'require the current waiver on ranked alone, the Youth one in a Youth Room',
+        "require a waiver on ranked alone, by the signer's own lobby whatever the Room's",
       actual: [
-        requiredContentWaiver({ ...ranked, division: 'open' }),
-        requiredContentWaiver({ ...ranked, division: 'youth' }),
-        requiredContentWaiver({ ...casual, division: 'youth' }),
+        requiredContentWaiver(ranked, 'open'),
+        requiredContentWaiver(ranked, 'youth'),
+        requiredContentWaiver(ranked, null),
+        requiredContentWaiver(casual, 'youth'),
       ],
-      expected: [CONTENT_WAIVER_VERSION, YOUTH_CONTENT_WAIVER_VERSION, null],
+      expected: [
+        CONTENT_WAIVER_VERSION,
+        YOUTH_CONTENT_WAIVER_VERSION,
+        CONTENT_WAIVER_VERSION,
+        null,
+      ],
     });
   });
 

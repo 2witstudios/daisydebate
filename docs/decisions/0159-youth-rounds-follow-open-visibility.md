@@ -54,17 +54,22 @@ an open stream-and-earn grant, which a minor cannot give alone.
    fences no other Round; a Youth Round with no youth debater fails closed.
    `youthReuseFencedSql` in `@daisy/db` is its SQL mirror, held to it by an
    integration test over every release standing. Download asks it through the
-   Recording's Youth people; the Watch page passes it to the viewer, which
-   hides Stream this Round. The Watch page still plays the same feed: viewing
+   Recording's Youth people; the Watch page reads it beside the shared
+   spectator read (the audience publisher's role never reads releases) and
+   passes it to the viewer, which hides Stream this Round. It is read when
+   the page renders: a release withdrawn mid-broadcast takes effect for a
+   viewer at their next load, which is acceptable because the feed is the
+   one viewers already play. The Watch page still plays the same feed: viewing
    is not reuse.
 4. **The release is the reuse licence.** A media release (stored scope
    `publish`, unchanged) now allows Daisy and others to clip, download and
    reuse the minor's Rounds; paid ads stay a separate opt-in. Its wording is
    version `2026-11-v2`. The release flow is live everywhere: the
    `youth-publishing` flag retires (kept as retired in `policy/flag-keys.json`).
-5. **A Youth waiver.** A ranked Youth Room's Ready asks for the Youth ranked
-   content waiver (`youth-draft-1`, `docs/legal/youth-ranked-content-waiver.md`),
-   picked by the Room's division in `requiredContentWaiver`: ranked Rounds are
+5. **A Youth waiver.** A ranked Ready by a member under 18, in any Room
+   (debater or judge), asks for the Youth ranked content waiver (`youth-draft-1`, `docs/legal/youth-ranked-content-waiver.md`),
+   picked by the signer's own division in `requiredContentWaiver`, and an
+   adult judging a Youth Room signs the Open one: ranked Rounds are
    public, watched and kept, and it grants no ownership, clips, likeness or
    streaming licence. A Youth member signs it once per season, so members who
    signed the Open waiver are asked once more. The ranked content policy

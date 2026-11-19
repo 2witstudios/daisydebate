@@ -9,6 +9,7 @@ import {
   type RoomDirectionInput,
 } from './tab/room-direction';
 import { admitCasualCapture } from './casual-capture-admission';
+import { readDivisionOf } from './media-release-records';
 import type { RoundBotAdmission } from './round-bot-admission';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
@@ -23,6 +24,7 @@ import {
 import { readEntitlementGrants } from './entitlement-grants';
 import type {
   EntitlementGrant,
+  RatingDivision,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
@@ -105,7 +107,11 @@ type CommandInput = {
    * What a Ready on this Room stands on (WATCH-15, WATCH-9): the waiver version
    * it needs and the notice it records. Null when it needs neither.
    */
-  readonly readyAgreements: (state: RoomAssemblyState) => {
+  readonly readyAgreements: (
+    state: RoomAssemblyState,
+    /** The caller's own division: which ranked waiver they sign (ADR 0159). */
+    signer: RatingDivision | null,
+  ) => {
     readonly contentWaiverVersion: string | null;
     readonly notice: {
       readonly id: string;
@@ -257,7 +263,12 @@ async function executeOnce(
     ? await readFormatSelectionFacts(tx, input.formatTuple)
     : null;
   const agreements =
-    input.type === 'ready' ? input.readyAgreements(state) : null;
+    input.type === 'ready'
+      ? input.readyAgreements(
+          state,
+          await readDivisionOf(tx, input.caller.userId),
+        )
+      : null;
   const draw = await drawFacts(tx, input.type, state);
   const grants = await readEntitlementGrants(tx, input.caller.userId);
   const contentWaiver = agreements?.contentWaiverVersion

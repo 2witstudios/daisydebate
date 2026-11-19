@@ -18,7 +18,7 @@ setupRitewayBun();
 
 const tree = ContentWaiverForm({
   action: async () => idle(),
-  division: 'open',
+  version: CONTENT_WAIVER_VERSION,
 });
 const input = (name: string) =>
   findElements(
@@ -43,7 +43,7 @@ describe('the content waiver form', () => {
   test('a Youth Room’s debater signs the Youth waiver (ADR 0159)', () => {
     const youth = ContentWaiverForm({
       action: async () => idle(),
-      division: 'youth',
+      version: YOUTH_CONTENT_WAIVER_VERSION,
     });
     const version = findElements(
       youth,
@@ -54,7 +54,7 @@ describe('the content waiver form', () => {
       (element) => element.type === 'h3',
     ).map((element) => element.props.children);
     assert({
-      given: 'the form on a ranked Youth Room',
+      given: 'the form for a member under 18, in any ranked Room',
       should:
         'post the Youth version and show no ownership, clip or streaming grant',
       actual: {

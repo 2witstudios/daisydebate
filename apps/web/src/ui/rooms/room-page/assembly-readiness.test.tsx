@@ -15,6 +15,7 @@ import { PopoverDialog } from '../../components/popover/popover-dialog';
 setupRitewayBun();
 const base = {
   contentWaiver: null,
+  contentWaiverVersion: null,
   captureNotice: null,
   postRoundCall: false,
   capture: null,
@@ -23,7 +24,6 @@ const base = {
   teamOneSide: 'affirmative' as const,
   status: 'assembling' as const,
   competitionType: 'casual' as const,
-  division: 'open' as const,
   version: 7,
   participants: [
     {

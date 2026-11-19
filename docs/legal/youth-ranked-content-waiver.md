@@ -12,7 +12,7 @@ Ranked rounds are always public, and they are broadcast and recorded. Anyone can
 
 ## Kept on Daisy
 
-A ranked round's video, transcript and result stay on Daisy as part of the ladder's record, including after you close your account. You, or your coach or parent, can ask for a round's recording to be taken down at any time. [COUNSEL: retention of a minor's ranked record after account closure.]
+A ranked round's video, transcript and result stay on Daisy as part of the ladder's record, including after you close your account. You, or a parent, guardian or school staff member linked to you, can ask for a round's recording to be taken down at any time. [COUNSEL: retention of a minor's ranked record after account closure.]
 
 ## No licence to your content
 
