@@ -11,7 +11,7 @@ import { youthRoundPublic } from './media-release-standing';
 import { readReleasesOf } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { readYouthRecordingPeople } from './youth-recording-people';
-import { youthRoundSql } from './youth-round-sql';
+import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 
 export type PublishAnswer =
   | { readonly kind: 'published' }
@@ -50,8 +50,7 @@ export function createYouthRoundPublications(input: {
           // Only a public Round whose Recording is for everyone can be public:
           // every ranked one, and a casual one its host released (ADR 0157).
           sql`select r.id, rc.status as recording, p.ended_at, p.round_id as published,
-              coalesce(coalesce((select v.visibility from rooms v where v.id = r.room_id), r.visibility, 'private') = 'public'
-                and (r.competition_type = 'ranked' or r.capture ->> 'recordingPolicy' = 'released'), false) as shareable
+              ${youthRoundShareableSql(sql`r`)} as shareable
             from rounds r
             left join recordings rc on rc.round_id = r.id
             left join youth_round_publications p on p.round_id = r.id

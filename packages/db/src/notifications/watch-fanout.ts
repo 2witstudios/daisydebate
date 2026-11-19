@@ -39,7 +39,8 @@ const seatedAccounts = (roundId: string) =>
   sql`select distinct u.id as user_id,null::text as actor_id
     from round_participants p join actors a on a.id=p.actor_id
     join users u on u.id=a.user_id and u.deleted_at is null
-    where p.round_id=${roundId} and ${wants('recording_ready', 'in_app', sql`u.id`)}`;
+    where p.round_id=${roundId} and public.daisy_round_participant_is_current(p.id)
+      and ${wants('recording_ready', 'in_app', sql`u.id`)}`;
 
 type Recipient = {
   readonly user_id: string;

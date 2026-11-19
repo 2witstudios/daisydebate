@@ -20,7 +20,7 @@ import { isDebatingSeatSql } from './seat-columns';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
 import type { BoundedTransactionContext } from './transaction-context';
-import { youthRoundSql } from './youth-round-sql';
+import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 
 type Tx = Pick<BoundedTransactionContext, 'execute'>;
 
@@ -183,6 +183,8 @@ async function youthStudents(
         join recordings rc on rc.round_id = r.id
         left join youth_round_publications p on p.round_id = r.id and p.ended_at is null
         where a.user_id = ${member.user_id} and ${youthRoundSql(sql`r.id`)}
+          -- Only a Round a release could make public is counted (ADR 0157).
+          and ${youthRoundShareableSql(sql`r`)}
           and ${isDebatingSeatSql(sql`rp.seat_kind`)}
           and public.daisy_round_participant_is_current(rp.id)`,
     );

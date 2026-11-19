@@ -46,7 +46,8 @@ timeline, downloaded and shared.
    debaters and their linked adults, never a judge), download refusal, share
    panel and publishing are ADR 0150 and 0151's, with two limits a ranked
    Round never meets: a Recording its host kept for the officials still shows
-   its video only to them and only until its deletion date, and only a public
+   its video only to its judges and moderators (not to a host who did not sit,
+   even one who is a linked adult) and only until its deletion date, and only a public
    Round whose Recording is released to everyone can be shared publicly (the
    publish command refuses any other as `not_available`, and the panel says
    why).
@@ -57,9 +58,12 @@ timeline, downloaded and shared.
    followed that Broadcast is recorded only up to the stop. No follower is
    told such a Round is live (the live fanout and its standing ask
    `youthRoundSql`). No publication needs a backfill: the publish command
-   accepted only ranked Youth Rounds. A follower's `recording_ready` notice
-   sent before the deploy stays in their inbox but links to a Round that now
-   reads as missing; staging held no such Round.
+   accepted only ranked Youth Rounds, and the release counts on Settings and
+   a club's page count only Rounds a release could make public. A follower's
+   `recording_ready` notice sent before the deploy lapses from their inbox
+   (only a current seat's stands), a Recording whose pre-rule Broadcast was
+   withheld still tells its own seats it is ready and is listed once shared,
+   and a viewer's watch history drops the Round. Staging held no such Round.
 
 ## Consequences
 

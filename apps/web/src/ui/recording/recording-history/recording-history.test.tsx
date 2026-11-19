@@ -296,7 +296,9 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
           videoForOfficials: true,
         });
         return [
-          page.includes('the video is for the judges until it is deleted'),
+          page.includes(
+            'the video is for the judges and moderators until it is deleted',
+          ),
           page.includes('visible to the debaters, judges'),
         ];
       })(),

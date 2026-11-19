@@ -67,7 +67,8 @@ const subjectStands = (
       // follower's, sent before the Round became private (ADR 0157), lapses.
       return sql`(${recordingReady(sql`rc`)} and (not ${youthRoundSql(sql`n.round_id`)}
         or exists (select 1 from round_participants p join actors a on a.id=p.actor_id
-          where p.round_id=n.round_id and a.user_id=n.user_id)))`;
+          where p.round_id=n.round_id and a.user_id=n.user_id
+            and public.daisy_round_participant_is_current(p.id))))`;
     case 'round_started':
       return roundUnderway(sql`r`);
     case 'round_decision_released':

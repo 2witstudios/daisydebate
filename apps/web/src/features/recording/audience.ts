@@ -138,27 +138,29 @@ const youthPermissions = (
     ? EVERYTHING
     : NOTHING;
 
-/** An officials' Recording's video: only for its officials, until its deletion date. */
+/** An officials' Recording's video: only for those who `watch`, until its deletion date. */
 const officialsMedia = (
   round: RecordingRound,
-  viewer: RecordingViewer,
+  watches: boolean,
   permissions: RoundEvidencePermissions,
   nowMs: number,
 ): RoundEvidencePermissions => {
   const due = recordingDeletionDueMs(round);
   const kept = due === null || nowMs < due;
-  return {
-    ...permissions,
-    media: permissions.media && kept && official(round, viewer),
-  };
+  return { ...permissions, media: permissions.media && kept && watches };
 };
+
+/** A Youth Round's judges and moderators: a host who did not sit is not one. */
+const youthOfficial = (round: RecordingRound, viewer: RecordingViewer) =>
+  viewer.kind === 'account' && round.officialActorIds.includes(viewer.actorId);
 
 /**
  * Under the officials policy only the officials and the host see the video, and
  * only until its deletion date; a debater keeps the rest of their own record,
  * and the audience learns nothing of the Round. A Youth Round answers to its
  * own audience first, and a casual one kept for its officials (ADR 0157) still
- * shows its video only to them. `nowMs` is the caller's clock.
+ * shows its video only to its judges and moderators, not to a host who is
+ * also a linked adult. `nowMs` is the caller's clock.
  */
 export const roundEvidencePermissions = (
   round: RecordingRound,
@@ -173,7 +175,7 @@ export const roundEvidencePermissions = (
       viewer,
     );
     return round.recordingPolicy === 'officials'
-      ? officialsMedia(round, viewer, permissions, nowMs)
+      ? officialsMedia(round, youthOfficial(round, viewer), permissions, nowMs)
       : permissions;
   }
   const permissions = releasedPermissions(
@@ -188,7 +190,7 @@ export const roundEvidencePermissions = (
       return permissions;
     case 'officials':
       return seated(round, viewer) || official(round, viewer)
-        ? officialsMedia(round, viewer, permissions, nowMs)
+        ? officialsMedia(round, official(round, viewer), permissions, nowMs)
         : NOTHING;
   }
 };

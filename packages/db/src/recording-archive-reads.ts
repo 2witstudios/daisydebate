@@ -85,7 +85,8 @@ const publicScope = (clock: SpectatorClock, youthPublishing: boolean) =>
     // A Youth Round is private (ADR 0150, 0157) until a debater shares it (ADR 0151).
     sql`(not ${youthRoundSql(sql`${rounds.id}`)} or ${youthShared(sql`${rounds.id}`, youthPublishing)})`,
     factReleasedSql(rounds.completedAt, roundColumns, clock),
-    sql`((${recordings.status} = 'ready' and ${broadcasts.mediaWithheld} is not true) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
+    // A Youth Round's withheld Broadcast hid nothing it could show; its share decides.
+    sql`((${recordings.status} = 'ready' and (${broadcasts.mediaWithheld} is not true or ${youthRoundSql(sql`${rounds.id}`)})) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
   );
 
 const seatedScope = (actorId: string | null) =>

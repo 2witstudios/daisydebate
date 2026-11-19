@@ -227,7 +227,7 @@ function YouthSharing({
       <p className="text-sm text-ink">
         <strong className="font-strong">Private:</strong>{' '}
         {youth.videoForOfficials
-          ? 'the video is for the judges until it is deleted; the debaters and their coaches or parents keep the transcript and result.'
+          ? 'the video is for the judges and moderators until it is deleted; the debaters and their coaches or parents keep the transcript and result.'
           : 'visible to the debaters, judges and their coaches or parents.'}
       </p>
       <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-3">

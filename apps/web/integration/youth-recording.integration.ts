@@ -760,6 +760,33 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         expected: 'not_available',
       });
 
+      // Shared by a debater, with publishing open: listed publicly although the
+      // Broadcast it opened before the rule was withheld (ADR 0157).
+      await f.sql`insert into youth_round_publications (round_id, published_by_user_id, published_at)
+        values (${youth.roundId}, ${f.host.userId}, now())`;
+      const sharedRows = await database
+        .listRecordingArchive({
+          query: {
+            scope: 'all',
+            mode: 'any',
+            q: '',
+            sort: 'newest',
+            before: '',
+          },
+          viewerActorId: stranger.actorId,
+          clock,
+          limit: 100,
+          youthPublishing: true,
+        })
+        .then((page) => page.rows.map((row) => row.id));
+      await f.sql`delete from youth_round_publications where round_id=${youth.roundId}`;
+      assert({
+        given: 'the casual Youth Round shared, its pre-rule Broadcast withheld',
+        should: 'list it in the public archive while publishing is open',
+        actual: sharedRows.includes(youth.roundId),
+        expected: true,
+      });
+
       const takeDown = async (member: Member, roundId: string) => {
         const recording = await recordingOf(roundId);
         return requestParticipantRemoval(

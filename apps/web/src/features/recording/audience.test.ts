@@ -442,6 +442,26 @@ describe('a Youth Round (PYL-5)', () => {
         before: ['judge', 'aff', 'coach', 'stranger'].map((id) =>
           at(account(id), 100_000),
         ),
+        // The host coaches a youth debater: in the audience, but no official.
+        hostCoach: permissionsWithLink(
+          {
+            ...officials,
+            youth: {
+              ...officials.youth!,
+              debaters: [
+                {
+                  actorId: 'aff',
+                  userId: 'user-aff',
+                  linkedAdultActorIds: ['host'],
+                },
+              ],
+            },
+          },
+          passed,
+          account('host'),
+          null,
+          100_000,
+        ),
         after: at(account('judge'), due),
         debaterRecord: permissionsWithLink(
           officials,
@@ -453,6 +473,7 @@ describe('a Youth Round (PYL-5)', () => {
       },
       expected: {
         before: [true, false, false, false],
+        hostCoach: { open: true, media: false, transcript: true, result: true },
         after: false,
         debaterRecord: true,
       },
