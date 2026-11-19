@@ -1,5 +1,6 @@
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import type { RoomView } from '@daisy/protocol';
+import type { LobbyAction } from '../../src/features/lobby/rows';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { closeRoomSetup, openRoomSetup, reread } from './room-launch-flow';
@@ -7,14 +8,25 @@ import { assertNoSeriousFindings } from './axe';
 import { proveSiblingSave } from './room-setup-save-proof';
 import { proveClosedRoomNavigation } from './room-shell-refresh-proof';
 
-/** Enter through actual discovery, including retained duplicate-title pages. */
-export async function enterLobbyRoom(page: Page, view: RoomView) {
+/**
+ * Enter through actual discovery, including retained duplicate-title pages,
+ * by the row action named `verb` (`Join: <title>`). An unseated viewer's row
+ * carries Watch beside its seat action, both linking to the Room; a seated
+ * viewer's row has only Return to room (`rowActions`).
+ */
+export async function enterLobbyRoom(
+  page: Page,
+  view: RoomView,
+  verb: LobbyAction['verb'],
+) {
   await expect(
     page.getByRole('heading', { name: 'Lobby', exact: true }),
   ).toBeVisible();
   const list = page.getByRole('region', { name: 'Available rooms' });
   await expect(list).toBeVisible();
-  const room = list.locator(`a[href="/rooms/${view.id}"]`);
+  const room = list
+    .getByRole('link', { name: `${verb}: ${view.title}`, exact: true })
+    .and(list.locator(`a[href="/rooms/${view.id}"]`));
   const next = page.getByRole('link', { name: 'Next page', exact: true });
   const visited = new Set<string>();
   for (;;) {
@@ -22,6 +34,11 @@ export async function enterLobbyRoom(page: Page, view: RoomView) {
     // Recheck after the rendered discovery controls arrive, never choose a
     // page based on a visibility read made before a navigation committed.
     if (await room.isVisible()) break;
+    // The Room listed here under another action is a wrong verb, not a page.
+    await expect(
+      list.locator(`a[href="/rooms/${view.id}"]`),
+      `the Room's row offers no ${verb}`,
+    ).toHaveCount(0);
     const first = list.getByRole('link').first();
     await expect(first).toBeVisible();
     const previousFirst = await first.getAttribute('href');
