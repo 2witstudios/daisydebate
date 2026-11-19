@@ -116,8 +116,10 @@ for (const coach of [true, false])
     const fixture = await socketAuthorityFixture(
       observeNativeServe((socket) => sockets.push(socket)),
     );
-    const round = await youthRound(fixture.client, fixture, coach);
+    let round: Awaited<ReturnType<typeof youthRound>> | undefined;
     try {
+      const seeded = await youthRound(fixture.client, fixture, coach);
+      round = seeded;
       const port = fixture.runtime.server.port;
       if (port === undefined) throw new Error('Realtime listener unavailable');
       const peer = await openAuthorityPeer(
@@ -125,8 +127,8 @@ for (const coach of [true, false])
         await issueAuthorityTicket(fixture),
       );
       const answers = {
-        round: (await peer.subscribe(round.roundTopic, 'linked-round')).type,
-        floor: (await peer.subscribe(round.floorTopic, 'linked-floor')).type,
+        round: (await peer.subscribe(seeded.roundTopic, 'linked-round')).type,
+        floor: (await peer.subscribe(seeded.floorTopic, 'linked-floor')).type,
       };
       assert({
         given: coach
@@ -141,28 +143,28 @@ for (const coach of [true, false])
           : { round: 'error', floor: 'error' },
       });
       if (!coach) return;
-      await round.end();
+      await seeded.end();
       fixture.advanceToRevalidation();
       await waitFor(
         () =>
           sockets.length === 1 &&
-          !sockets[0]?.data.connection?.topics.has(round.roundTopic) &&
-          !sockets[0]?.data.connection?.topics.has(round.floorTopic),
+          !sockets[0]?.data.connection?.topics.has(seeded.roundTopic) &&
+          !sockets[0]?.data.connection?.topics.has(seeded.floorTopic),
       );
       assert({
         given: 'the coach’s subscriptions and the Round ended without an event',
         should:
           'drop the Round topic and its floor chat at the periodic reauthorization and keep the socket open',
         actual: {
-          round: sockets[0]?.data.connection?.topics.has(round.roundTopic),
-          floor: sockets[0]?.data.connection?.topics.has(round.floorTopic),
+          round: sockets[0]?.data.connection?.topics.has(seeded.roundTopic),
+          floor: sockets[0]?.data.connection?.topics.has(seeded.floorTopic),
           open: peer.socket.readyState === WebSocket.OPEN,
         },
         expected: { round: false, floor: false, open: true },
       });
     } finally {
       await fixture.runtime.close();
-      await round.close();
+      await round?.close();
       await fixture.close();
     }
   });

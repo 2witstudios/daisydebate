@@ -56,7 +56,7 @@ export function testYouthCoachFloorLive() {
           channelId,
           said,
         ),
-      ).toBe(200);
+      ).toMatchObject({ status: 200 });
       await expect(
         floor
           .getByRole('list', { name: 'Floor messages' })

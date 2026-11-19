@@ -38,7 +38,7 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
   const said = `Watch the second contention ${tag}`;
   expect(
     await postFloorMessage(student.request, round.roundId, channelId, said),
-  ).toBe(200);
+  ).toMatchObject({ status: 200 });
 
   // Watch: the coach's own section, never the public listing.
   await page.goto('/watch');
@@ -83,7 +83,7 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
       channelId,
       'A coach’s word in',
     ),
-  ).not.toBe(200);
+  ).toEqual({ status: 403, code: 'AUTHORIZATION' });
   await assertNoSeriousFindings(page);
 
   // The Round link leads to the same room, with JavaScript and without. (The

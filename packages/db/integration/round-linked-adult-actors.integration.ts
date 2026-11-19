@@ -78,10 +78,11 @@ const seedLinks = async (
       values(${organizations[m.organization]!}, ${user(m.person)},
         ${m.active ? 'active' : 'ended'}, now() - interval '1 day', ${ended(m.active)})`;
   for (const g of fixture.grants ?? [])
-    await sql`insert into grants(id, role_id, user_id, scope_kind, organization_id, granted_at, revoked_at, revoked_by_user_id)
+    await sql`insert into grants(id, role_id, user_id, scope_kind, organization_id, granted_at, expires_at, revoked_at, revoked_by_user_id)
       values(${createId()}, ${await roleWith(sql, g.rosterManage)}, ${user(g.person)},
-        'organization', ${organizations[g.organization]!}, now() - interval '1 day',
-        ${ended(g.live)}, ${g.live ? null : user(g.person)})`;
+        'organization', ${organizations[g.organization]!}, now() - interval '2 days',
+        ${g.state === 'expired' ? new Date(Date.now() - 86_400_000) : null},
+        ${g.state === 'revoked' ? new Date() : null}, ${g.state === 'revoked' ? user(g.person) : null})`;
   for (const link of fixture.guardianLinks ?? [])
     await sql`insert into guardian_links(id, guardian_user_id, minor_user_id, kind, status, ended_at)
       values(${createId()}, ${user(link.guardian)}, ${user(link.minor)},
@@ -235,7 +236,7 @@ test('only the web and the realtime role may run the Round read, and only the we
           const [row] = await sql.unsafe(
             role === 'public'
               ? `select bool_or(a.privilege_type = 'EXECUTE' and a.grantee = 0) as allowed
-                  from pg_proc p, aclexplode(p.proacl) a where p.proname = $1`
+                  from pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where p.proname = $1`
               : `select has_function_privilege($2, p.oid, 'EXECUTE') as allowed
                   from pg_proc p where p.proname = $1`,
             role === 'public' ? [fn] : [fn, role],

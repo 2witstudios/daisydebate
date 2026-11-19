@@ -41,7 +41,8 @@ export type LinkedAdultFixture = {
   readonly grants?: readonly {
     readonly organization: string;
     readonly person: string;
-    readonly live: boolean;
+    /** Live, revoked, or past its `expires_at`. */
+    readonly state: 'live' | 'revoked' | 'expired';
     readonly rosterManage: boolean;
   }[];
   /** Each youth debater's linked adults, by name. */
@@ -97,7 +98,7 @@ export const linkedAdultFactsOf = (
     grants: (fixture.grants ?? []).map((g) => ({
       organizationId: organizations[g.organization]!,
       userId: user(g.person),
-      live: g.live,
+      live: g.state === 'live',
       rosterManage: g.rosterManage,
     })),
   };
@@ -147,7 +148,7 @@ const everyKind = {
     {
       organization: 'riverside',
       person: 'coach',
-      live: true,
+      state: 'live',
       rosterManage: true,
     },
   ],
@@ -185,8 +186,22 @@ export const linkedAdultFixtures: readonly LinkedAdultFixture[] = [
     expected: {},
   },
   {
+    given: 'the same people in a ranked Youth Round with no Room',
+    should: 'name the same linked adults: its frozen ladder makes it Youth',
+    round: { room: null, ladder: 'youth' },
+    ...everyKind,
+    expected: { student: ['coach', 'owner', 'parent'], opponent: [] },
+  },
+  {
+    given: 'the same people in a ranked Open Round with no Room',
+    should: 'name no debater at all',
+    round: { room: null, ladder: 'open' },
+    ...everyKind,
+    expected: {},
+  },
+  {
     given:
-      'people who are not linked: an ended guardian link, a guardian with no age record, a minor owner, a minor and a revoked coach, a member without the roster permission, a grant holder who left, another school’s coach, a closed school’s and a family’s owner, and the owner of a school the student left',
+      'people who are not linked: an ended guardian link, a guardian with no age record, a minor owner, a minor, a revoked and an expired coach, a member without the roster permission, a grant holder who left, another school’s coach, a closed school’s and a family’s owner, and the owner of a school the student left',
     should: 'name none of them',
     round: { room: 'youth', ladder: null },
     people: {
@@ -196,6 +211,7 @@ export const linkedAdultFixtures: readonly LinkedAdultFixture[] = [
       unagedParent: null,
       minorStaff: '16-17',
       revokedCoach: 'adult',
+      expiredCoach: 'adult',
       plainMember: 'adult',
       leftCoach: 'adult',
       otherCoach: 'adult',
@@ -221,6 +237,7 @@ export const linkedAdultFixtures: readonly LinkedAdultFixture[] = [
       { organization: 'riverside', person: 'student', active: true },
       { organization: 'riverside', person: 'minorStaff', active: true },
       { organization: 'riverside', person: 'revokedCoach', active: true },
+      { organization: 'riverside', person: 'expiredCoach', active: true },
       { organization: 'riverside', person: 'plainMember', active: true },
       { organization: 'riverside', person: 'leftCoach', active: false },
       { organization: 'elsewhere', person: 'otherCoach', active: true },
@@ -232,31 +249,37 @@ export const linkedAdultFixtures: readonly LinkedAdultFixture[] = [
       {
         organization: 'riverside',
         person: 'minorStaff',
-        live: true,
+        state: 'live',
         rosterManage: true,
       },
       {
         organization: 'riverside',
         person: 'revokedCoach',
-        live: false,
+        state: 'revoked',
+        rosterManage: true,
+      },
+      {
+        organization: 'riverside',
+        person: 'expiredCoach',
+        state: 'expired',
         rosterManage: true,
       },
       {
         organization: 'riverside',
         person: 'plainMember',
-        live: true,
+        state: 'live',
         rosterManage: false,
       },
       {
         organization: 'riverside',
         person: 'leftCoach',
-        live: true,
+        state: 'live',
         rosterManage: true,
       },
       {
         organization: 'elsewhere',
         person: 'otherCoach',
-        live: true,
+        state: 'live',
         rosterManage: true,
       },
     ],
@@ -286,7 +309,7 @@ export const linkedAdultFixtures: readonly LinkedAdultFixture[] = [
       {
         organization: 'riverside',
         person: 'coach',
-        live: true,
+        state: 'live',
         rosterManage: true,
       },
     ],
