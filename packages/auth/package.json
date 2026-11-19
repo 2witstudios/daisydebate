@@ -16,7 +16,9 @@
     "./operator-signature": "./src/operator-signature.ts",
     "./round-floor": "./src/round-floor.ts",
     "./live-audience": "./src/live-audience.ts",
-    "./room-community": "./src/room-community.ts"
+    "./room-community": "./src/room-community.ts",
+    "./linked-adults": "./src/linked-adults.ts",
+    "./testing/linked-adults": "./src/testing/linked-adults.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

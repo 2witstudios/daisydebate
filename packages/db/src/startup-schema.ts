@@ -6,6 +6,10 @@ import {
   tenantIsolationProblems,
   type TenantTableFacts,
 } from './tenant-isolation';
+import {
+  tenantDefinerProblems,
+  type TenantDefinerFacts,
+} from './tenant-definers';
 import type { TenantIsolationManifest } from './tenant-isolation-manifest';
 
 export type MigrationStamp = {
@@ -25,11 +29,13 @@ export const startupSchemaProblems = ({
   image,
   journal,
   facts,
+  definers,
   manifest,
 }: {
   readonly image: ImageSchema;
   readonly journal: readonly MigrationStamp[];
   readonly facts: readonly TenantTableFacts[];
+  readonly definers: readonly TenantDefinerFacts[];
   readonly manifest: TenantIsolationManifest;
 }): readonly string[] => {
   const historyMatches =
@@ -71,6 +77,7 @@ export const startupSchemaProblems = ({
       ahead ? facts.filter(({ table }) => imageTables.has(table)) : facts,
       manifest,
     ),
+    ...tenantDefinerProblems(definers, manifest, { registeredOnly: ahead }),
   ];
 };
 

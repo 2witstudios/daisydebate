@@ -56,9 +56,23 @@ export type TenantExemption = {
   readonly reason: string;
 };
 
+/**
+ * A registered `SECURITY DEFINER` function that reads tenant-owned tables
+ * past their policies (ADR 0129 §4, ADR 0158): the one way a read crosses
+ * tenants outside the policy shapes. It names who may run it and why its
+ * output discloses no more than its callers may know.
+ */
+export type TenantDefiner = {
+  readonly name: string;
+  /** The roles besides its owner that may execute it; never `PUBLIC`. */
+  readonly executors: readonly string[];
+  readonly reason: string;
+};
+
 export type TenantIsolationManifest = {
   readonly tables: readonly TenantTable[];
   readonly exempt: readonly TenantExemption[];
+  readonly definers: readonly TenantDefiner[];
 };
 
 const organization = (
@@ -225,6 +239,80 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       table: 'agreement_signatures',
       reason:
         'Evidence of what one member agreed to, keyed and read by that member; the lobby is its scope, not its owner.',
+    },
+  ],
+  definers: [
+    {
+      name: 'daisy_linked_adult_users',
+      executors: ['daisy_web'],
+      reason:
+        "ADR 0150 §3, ADR 0158: a minor's linked adults (active guardian links, their open schools' owners and school.roster.manage staff), the rule's one SQL statement. It returns user ids only; media releases name who hears of a withdrawn release.",
+    },
+    {
+      name: 'daisy_round_linked_adult_actors',
+      executors: ['daisy_web', 'daisy_realtime'],
+      reason:
+        "ADR 0155, ADR 0158: a Youth Round's youth debaters and their linked adults' actor ids, over daisy_linked_adult_users; nothing for any other Round. Its Recording, the web's live audience and the realtime Round topic and floor permits decide who watches from it, so realtime holds no privilege on the tables it reads.",
+    },
+    {
+      name: 'daisy_room_community_fact',
+      executors: ['daisy_web', 'daisy_realtime'],
+      reason:
+        "Decision 84: a Room chat's authority fact, with whether the caller is a seated youth debater's school staff, read across the debater's schools. It returns booleans about the caller only.",
+    },
+    {
+      name: 'daisy_erase_unused_hosting_versions',
+      executors: ['daisy_web'],
+      reason:
+        "Account erasure: deletes a closed account's hosting versions that no tournament admission or sponsorship names; it refuses an open account.",
+    },
+    {
+      name: 'daisy_nonranked_capture_capacity',
+      executors: ['daisy_web'],
+      reason:
+        'Capture capacity: counts the unsettled tournament capture admissions that hold capacity, across lobbies; it returns counts only.',
+    },
+    {
+      name: 'daisy_recording_tournament_admission',
+      executors: ['daisy_web'],
+      reason:
+        "Recording capture: one Round's unsettled tournament capture admission (id, Round, deadline) for the Recording's own Round-protected lifecycle.",
+    },
+    {
+      name: 'daisy_lock_recording_tournament_admission',
+      executors: ['daisy_web'],
+      reason:
+        "Recording capture: locks one Round's unsettled tournament capture admission so its dispatch rechecks the deadline; it returns the same minimal output.",
+    },
+    {
+      name: 'daisy_recording_settle_tournament_admission',
+      executors: ['daisy_web'],
+      reason:
+        "Recording capture: settles one Round's tournament capture admission once its Recording dispatched; it returns whether it did.",
+    },
+    {
+      name: 'daisy_recording_settle_undispatched_tournament_admission',
+      executors: ['daisy_web'],
+      reason:
+        "Recording capture: settles one Round's tournament capture admission whose Recording never dispatched; it returns whether it did.",
+    },
+    {
+      name: 'daisy_recording_expired_tournament_admissions',
+      executors: ['daisy_web'],
+      reason:
+        'Recording capture: the Round ids of a bounded batch of expired unsettled tournament capture admissions, for the settlement sweep.',
+    },
+    {
+      name: 'daisy_recording_admission_deadline',
+      executors: [],
+      reason:
+        "Recording capture: a trigger function holding every Recording over an admitted Round to its admission's deadline; no runtime role executes it.",
+    },
+    {
+      name: 'daisy_record_fixture_room_source',
+      executors: [],
+      reason:
+        "Tab fixtures: a trigger function recording a fixture Room's immutable source row; no runtime role executes it.",
     },
   ],
 };

@@ -5,6 +5,11 @@ import {
   type TenantSubject,
   type TenantTable,
 } from './tenant-isolation-manifest';
+import {
+  tenantDefinerFactsSql,
+  tenantDefinerProblems,
+  type TenantDefinerFacts,
+} from './tenant-definers';
 
 /**
  * The mechanical check behind tenant isolation: catalog facts about every
@@ -340,15 +345,21 @@ export function tenantIsolationProblems(
 
 /**
  * The check against a live database: every problem with this schema's
- * tenant fence, read through whatever runs one statement.
+ * tenant fence, its tables' and its definers', read through whatever runs
+ * one statement.
  */
 export const readTenantIsolationProblems = async (
   query: (statement: string) => PromiseLike<unknown>,
-): Promise<readonly string[]> =>
-  tenantIsolationProblems(
+): Promise<readonly string[]> => [
+  ...tenantIsolationProblems(
     (await query(tenantIsolationFactsSql)) as readonly TenantTableFacts[],
     tenantIsolationManifest,
-  );
+  ),
+  ...tenantDefinerProblems(
+    (await query(tenantDefinerFactsSql)) as readonly TenantDefinerFacts[],
+    tenantIsolationManifest,
+  ),
+];
 
 /**
  * Production serves only over a fenced schema: start-up refuses while any

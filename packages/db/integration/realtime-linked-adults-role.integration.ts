@@ -17,7 +17,7 @@ const TENANT_TABLES = [
   'role_permissions',
 ];
 
-test('realtime reads a Round’s Room division and nothing of the linked-adult read’s tenant tables (ADR 0155, ADR 0129)', async () => {
+test('realtime reads a Round’s Room division and nothing of the linked-adult read’s tenant tables (ADR 0155, ADR 0158, ADR 0129)', async () => {
   await withFixture(url, async (fixture) => {
     const held = await fixture.sql`
       select distinct table_name from information_schema.column_privileges
@@ -32,7 +32,7 @@ test('realtime reads a Round’s Room division and nothing of the linked-adult r
     assert({
       given: 'the realtime role after ADR 0155',
       should:
-        'read rooms.division (a missing Round answers null) and hold no privilege on any tenant-owned table the people read touches',
+        'read rooms.division (a missing Round answers null) and hold no privilege on any tenant-owned table the people read touches: it reads them only through daisy_round_linked_adult_actors',
       actual: { division: division!.allowed, youth, tenantTables: held.length },
       expected: { division: true, youth: null, tenantTables: 0 },
     });

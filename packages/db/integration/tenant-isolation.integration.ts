@@ -8,6 +8,11 @@ import {
   tenantIsolationProblems,
   type TenantTableFacts,
 } from '../src/tenant-isolation';
+import {
+  tenantDefinerFactsSql,
+  tenantDefinerProblems,
+  type TenantDefinerFacts,
+} from '../src/tenant-definers';
 import { tenantIsolationManifest } from '../src/tenant-isolation-manifest';
 import {
   ddlTimeoutMs,
@@ -225,6 +230,58 @@ test('a privilege for the realtime role or PUBLIC on a tenant-owned table is rep
     expected: [
       ['daisy_realtime holds a privilege on results'],
       ['PUBLIC holds a privilege on results'],
+    ],
+  });
+});
+
+/** The definer check's report after one fault, rolled back. */
+const afterDefinerFault = (fault: string) =>
+  new Promise<readonly string[]>((resolve, reject) => {
+    inRolledBackTransaction(url, async (sql) => {
+      await sql.unsafe(fault);
+      resolve(
+        tenantDefinerProblems(
+          (await sql.unsafe(
+            tenantDefinerFactsSql,
+          )) as readonly TenantDefinerFacts[],
+          tenantIsolationManifest,
+        ),
+      );
+    }).catch(reject);
+  });
+
+/** ADR 0158: a read across tenants goes only through a registered definer. */
+test('an unregistered or widened SECURITY DEFINER function over tenant tables is reported', async () => {
+  assert({
+    given:
+      'a new definer reading grants, the linked-adult Round read opened to PUBLIC, its realtime grant revoked, and its search path dropped',
+    should: 'report each fault and nothing else',
+    actual: [
+      await afterDefinerFault(
+        `create function public.daisy_widened() returns setof text language sql stable security definer
+          set search_path = pg_catalog, public as $$ select user_id from public.grants $$`,
+      ),
+      await afterDefinerFault(
+        'grant execute on function public.daisy_round_linked_adult_actors(text) to public',
+      ),
+      await afterDefinerFault(
+        'revoke execute on function public.daisy_round_linked_adult_actors(text) from daisy_realtime',
+      ),
+      await afterDefinerFault(
+        'alter function public.daisy_linked_adult_users(text) reset search_path',
+      ),
+    ],
+    expected: [
+      [
+        'daisy_widened is a SECURITY DEFINER function reading grants but is not registered',
+      ],
+      ['PUBLIC may execute daisy_round_linked_adult_actors'],
+      [
+        'daisy_round_linked_adult_actors is executable by daisy_web but registered for daisy_realtime, daisy_web',
+      ],
+      [
+        'daisy_linked_adult_users does not pin its search_path to pg_catalog first',
+      ],
     ],
   });
 });
