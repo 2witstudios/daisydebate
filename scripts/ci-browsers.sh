@@ -29,6 +29,22 @@ Acquire::https::Timeout "20";
 APT::Keep-Downloaded-Packages "true";
 EOF
 
+# A stalled attempt is killed through sudo and timeout, but the dpkg it had
+# started can outlive both and keep the package database locked, so the
+# repair below then failed the whole job. Give that dpkg LOCK_WAIT_SECONDS to
+# finish, then end it; only after that is the database repaired.
+await_package_lock() {
+  waited=0
+  while pgrep -x 'dpkg|apt-get' >/dev/null 2>&1; do
+    if [ "$waited" -ge "${LOCK_WAIT_SECONDS:-30}" ]; then
+      sudo pkill -KILL -x 'dpkg|apt-get' || true
+      break
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+}
+
 mkdir -p "$deb_cache"
 debs_before=$(ls "$deb_cache" | sort | cksum)
 find "$deb_cache" -name '*.deb' -exec sudo cp {} /var/cache/apt/archives/ \;
@@ -45,6 +61,7 @@ until sudo timeout -k 10 "$attempt_seconds" \
   fi
   attempt=$((attempt + 1))
   echo "Retrying browser OS dependencies on archive.ubuntu.com (attempt $attempt)" >&2
+  await_package_lock
   sudo dpkg --configure -a
   # ubuntu-24.04 runners resolve the archive through mirror+file, which only
   # fails over on errors, never on a slow mirror. The list leads with a
