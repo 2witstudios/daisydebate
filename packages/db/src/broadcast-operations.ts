@@ -24,12 +24,15 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
 import { recordingCaptures } from './schema/recording-captures';
+import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
+import { youthRoundSql } from './youth-round-sql';
 import {
   roundAliasR,
   spectatorHorizonSql,
   type SpectatorClock,
 } from './spectator-release-sql';
+import { operatorWithheldSql } from './broadcast-withheld-sql';
 
 type Tx = BoundedTransactionContext;
 
@@ -483,8 +486,8 @@ export const listOpenBroadcasts = (
   tx
     .select({
       ...getTableColumns(broadcasts),
-      /** A Youth Round's Broadcast is only ever stopped (ADR 0150). */
-      youthRound: sql<boolean>`coalesce((select r.ladder_division = 'youth' from ${rounds} r where r.id = ${broadcasts.roundId}), false)`,
+      /** A Youth Round's Broadcast is only ever stopped (ADR 0150, 0157). */
+      youthRound: youthRoundSql(sql`${broadcasts.roundId}`),
     })
     .from(broadcasts)
     .where(
@@ -524,7 +527,7 @@ export const readBroadcastRelease = async (
   const rows = await reader.execute(sql`
     select ${spectatorHorizonSql(roundAliasR, clock)} as horizon,
       exists (select 1 from broadcasts b where b.round_id = r.id and b.stopped_at is not null) as stopped,
-      exists (select 1 from broadcasts b where b.round_id = r.id and b.media_withheld) as withheld
+      exists (select 1 from broadcasts b where b.round_id = r.id and ${operatorWithheldSql(sql`b`)}) as withheld
     from rounds r where r.id = ${roundId}`);
   const [row] = rows as unknown as {
     readonly horizon: Date | string | null;
@@ -548,8 +551,10 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
       competitionType: rounds.competitionType,
       capture: rounds.capture,
       ladderDivision: rounds.ladderDivision,
+      roomDivision: rooms.division,
     })
     .from(rounds)
+    .leftJoin(rooms, eq(rooms.id, rounds.roomId))
     .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
     .where(
       and(
@@ -560,8 +565,8 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
         inArray(rounds.status, [...runningRoundStatuses]),
         // A private Round's Broadcast was refused at its edit and its Launch: this holds it.
         ne(rounds.visibility, 'private'),
-        // A Youth Round is never broadcast (ADR 0107, PYL-5): this holds it too.
-        sql`${rounds.ladderDivision} is distinct from 'youth'`,
+        // A Youth Round is never broadcast (ADR 0107, PYL-5, 0157): this holds it too.
+        sql`not ${youthRoundSql(sql`${rounds.id}`)}`,
         isNull(broadcasts.id),
       ),
     )
@@ -792,24 +797,25 @@ export const endRoundFeed = async (
 
 /**
  * A Youth Round is never broadcast (ADR 0150). Any Broadcast one opened before
- * that rule shipped, running or complete, is stopped and its video held back,
- * keeping a stop reason it already had; a complete one's feed is asked to go at
- * once. Ids it held back.
+ * that rule shipped, running or complete, is stopped, keeping a stop reason it
+ * already had; a complete one's feed is asked to go at once. It does not set
+ * `media_withheld`: a Youth Round has no audience to withhold from, and its
+ * video is its Recording's audience's (ADR 0157), so that flag stays an
+ * operator's alone and an operator's later stop still sets it. Ids it stopped.
  */
 export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
   const at = now.toISOString();
-  const youth = sql`round_id in (select id from rounds where ladder_division = 'youth')`;
-  const withheld = (await tx.execute(sql`update broadcasts
-    set stopped_at=coalesce(stopped_at, ${at}::timestamptz),
-      stop_reason=coalesce(stop_reason, 'youth_round_private'),
-      media_withheld=true
-    where ${youth} and not media_withheld
+  const youth = youthRoundSql(sql`broadcasts.round_id`);
+  const stopped = (await tx.execute(sql`update broadcasts
+    set stopped_at=${at}::timestamptz,
+      stop_reason=coalesce(stop_reason, 'youth_round_private')
+    where ${youth} and stopped_at is null
     returning id`)) as unknown as readonly { readonly id: string }[];
   await tx.execute(sql`update broadcasts
     set feed_withdrawal_requested_at=${at}::timestamptz
     where ${youth} and completed_at is not null
       and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
-  return withheld.map((row) => row.id);
+  return stopped.map((row) => row.id);
 };
 
 /**

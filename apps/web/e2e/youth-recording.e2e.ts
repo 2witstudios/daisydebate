@@ -37,16 +37,21 @@ test.afterEach(async () => {
   );
 });
 
-const ranked = async (input: Record<string, unknown>) => {
+const seedRound = async (
+  mode: 'ranked' | 'casual',
+  input: Record<string, unknown>,
+) => {
   const round = (await seed({
     command: 'create',
-    mode: 'ranked',
+    mode,
     visibility: 'public',
     ...input,
   })) as { roundId: string };
   seeded.push(round.roundId);
   return round.roundId;
 };
+const ranked = (input: Record<string, unknown>) => seedRound('ranked', input);
+const casual = (input: Record<string, unknown>) => seedRound('casual', input);
 
 test('a Youth debater sees their Recording as private, with Take down and no public share', async ({
   page,
@@ -174,5 +179,91 @@ test('Watch, the archive and a stranger never find a Youth Round', async ({
     await expect(visitor.locator('video')).toHaveCount(0);
   } finally {
     await context.close();
+  }
+});
+
+test('a casual Round of a Youth Room is as private as any Youth Round (ADR 0157)', async ({
+  page,
+  context,
+  browser,
+}) => {
+  const { username } = await signUpMember(
+    context.request,
+    youthBirth(systemClock.now()),
+  );
+  const tag = createId().slice(0, 8);
+  const openLive = await casual({
+    title: `Open casual ${tag}`,
+    resolution: `Open casual motion ${tag}`,
+  });
+  // A Broadcast it opened before the rule shipped: Watch still never lists it.
+  const youthLive = await casual({
+    division: 'youth',
+    legacyBroadcast: true,
+    title: `Youth casual live ${tag}`,
+    resolution: `Youth casual live motion ${tag}`,
+  });
+  const youthEnded = await casual({
+    division: 'youth',
+    affUsername: username,
+    title: `Youth casual ${tag}`,
+    resolution: `Youth casual motion ${tag}`,
+  });
+  await seed({ command: 'end', roundId: youthEnded });
+  await seed({ command: 'recording-ready', roundId: youthEnded });
+
+  await page.goto(`/recordings/${youthEnded}`);
+  await expect(
+    page.getByRole('heading', { name: `Youth casual ${tag}` }),
+  ).toBeVisible();
+  const sharing = page.getByRole('region', { name: 'Sharing' });
+  await expect(sharing).toContainText(
+    'Private: visible to the debaters, judges and their coaches or parents.',
+  );
+  await expect(
+    sharing.getByRole('button', { name: 'Share publicly' }),
+  ).toBeDisabled();
+  await expect(sharing.getByText('Copy link')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Download video' })).toHaveCount(
+    0,
+  );
+  await expect(page.getByText('Take down this recording')).toBeVisible();
+  await assertNoSeriousFindings(page);
+
+  const stranger = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const visitor = await openPage(stranger, 'visitor');
+    await visitor.goto(`/watch?q=${tag}`);
+    await expect(visitor.getByText(`Open casual ${tag}`)).toBeVisible();
+    await expect(visitor.getByText(`Youth casual live ${tag}`)).toHaveCount(0);
+
+    // The Open Round's page shows its motion, so the Youth checks below can fail.
+    await visitor.goto(`/watch/${openLive}`);
+    await expect(
+      visitor.getByText(`Open casual motion ${tag}`).first(),
+    ).toBeVisible();
+    for (const [roundId, motion] of [
+      [youthLive, `Youth casual live motion ${tag}`],
+      [youthEnded, `Youth casual motion ${tag}`],
+    ] as const) {
+      await visitor.goto(`/watch/${roundId}`);
+      await expect(
+        visitor.getByText('This debate is not available'),
+      ).toBeVisible();
+      await expect(visitor.getByText(motion)).toHaveCount(0);
+    }
+
+    await visitor.goto(`/recordings?q=${tag}`);
+    await expect(visitor.getByText(`Youth casual ${tag}`)).toHaveCount(0);
+    await visitor.goto(`/recordings/${youthEnded}`);
+    await expect(
+      visitor.getByText('This debate is not available'),
+    ).toBeVisible();
+    await expect(visitor.locator('video')).toHaveCount(0);
+  } finally {
+    await stranger.close();
   }
 });

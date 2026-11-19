@@ -408,6 +408,55 @@ describe('a Youth Round (PYL-5)', () => {
     });
   });
 
+  test('an operator’s stop still withholds the video, shared or not (ADR 0157)', () => {
+    const withheld: BroadcastRelease = { ...passed, stop: 'media_withheld' };
+    const shared: RecordingRound = {
+      ...youthRound,
+      youth: { ...youthRound.youth!, public: true },
+    };
+    assert({
+      given:
+        'a Youth Round whose Broadcast an operator withheld, read by a debater, a coach, and a stranger once shared',
+      should:
+        'keep the video for its seats only, and the record for its audience',
+      actual: {
+        debater: roundEvidencePermissions(youthRound, withheld, account('aff')),
+        coach: roundEvidencePermissions(youthRound, withheld, account('coach')),
+        strangerShared: roundEvidencePermissions(
+          shared,
+          withheld,
+          account('stranger'),
+        ),
+      },
+      expected: {
+        debater: everything,
+        coach: { ...everything, media: false },
+        strangerShared: { ...everything, media: false },
+      },
+    });
+  });
+
+  test('a shared casual one shows the public no transcript or ballots (ADR 0157)', () => {
+    const sharedCasual: RecordingRound = {
+      ...youthRound,
+      competitionType: 'casual',
+      youth: { ...youthRound.youth!, public: true },
+    };
+    assert({
+      given: 'a stranger and a debater on a shared casual Youth Round',
+      should:
+        'give the stranger its video only, as an Open casual audience, and the debater everything',
+      actual: [
+        roundEvidencePermissions(sharedCasual, passed, account('stranger')),
+        roundEvidencePermissions(sharedCasual, passed, account('aff')),
+      ],
+      expected: [
+        { open: true, media: true, transcript: false, result: false },
+        everything,
+      ],
+    });
+  });
+
   test('a presented link admits nobody', () => {
     const hash = audienceLinkHash('token');
     assert({
@@ -421,6 +470,62 @@ describe('a Youth Round (PYL-5)', () => {
         100_000,
       ),
       expected: nothing,
+    });
+  });
+
+  test('a casual one kept for its officials keeps the officials policy (ADR 0157)', () => {
+    const officials: RecordingRound = {
+      ...youthRound,
+      competitionType: 'casual',
+      recordingPolicy: 'officials',
+    };
+    const at = (viewer: RecordingViewer, nowMs: number) =>
+      permissionsWithLink(officials, passed, viewer, null, nowMs).media;
+    const due = 100_000 + OFFICIALS_RECORDING_RETENTION_MS;
+    assert({
+      given:
+        'a casual Youth Round recorded for its officials, before and after its deletion date',
+      should:
+        'show the video only to the judge and only until then; never to a debater, a linked adult or a stranger',
+      actual: {
+        before: ['judge', 'aff', 'coach', 'stranger'].map((id) =>
+          at(account(id), 100_000),
+        ),
+        // The host coaches a youth debater: in the audience, but no official.
+        hostCoach: permissionsWithLink(
+          {
+            ...officials,
+            youth: {
+              ...officials.youth!,
+              debaters: [
+                {
+                  actorId: 'aff',
+                  userId: 'user-aff',
+                  linkedAdultActorIds: ['host'],
+                },
+              ],
+            },
+          },
+          passed,
+          account('host'),
+          null,
+          100_000,
+        ),
+        after: at(account('judge'), due),
+        debaterRecord: permissionsWithLink(
+          officials,
+          passed,
+          account('aff'),
+          null,
+          100_000,
+        ).result,
+      },
+      expected: {
+        before: [true, false, false, false],
+        hostCoach: { open: true, media: false, transcript: true, result: true },
+        after: false,
+        debaterRecord: true,
+      },
     });
   });
 

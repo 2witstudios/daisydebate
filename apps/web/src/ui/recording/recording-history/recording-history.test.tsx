@@ -145,6 +145,8 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       releasesComplete: false,
       public: false,
       viewerDebated: true,
+      shareable: true,
+      videoForOfficials: false,
     },
     removal: { recordingId: 'rec', version: 4 },
   });
@@ -203,6 +205,8 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
             releasesComplete: true,
             public: false,
             viewerDebated: true,
+            shareable: true,
+            videoForOfficials: false,
           },
         },
         notice: null,
@@ -220,6 +224,8 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
     readonly releasesComplete: boolean;
     readonly public: boolean;
     readonly viewerDebated: boolean;
+    readonly shareable?: boolean;
+    readonly videoForOfficials?: boolean;
   }) =>
     renderToString(
       h(RecordingHistory, {
@@ -228,6 +234,8 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
           ranked: true,
           youth: {
             debaters: [{ actorId: 'maya', name: '@maya', released: true }],
+            shareable: true,
+            videoForOfficials: false,
             ...youth,
           },
         },
@@ -254,6 +262,76 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
         public: false,
         viewerDebated: false,
       }).includes('A debater in this Round can share it.'),
+      expected: true,
+    });
+    assert({
+      given:
+        'a casual Youth Round that is not public, or not recorded for everyone (ADR 0157)',
+      should: 'keep Share publicly closed and say why',
+      actual: (() => {
+        const page = shared({
+          releasesComplete: true,
+          public: false,
+          viewerDebated: true,
+          shareable: false,
+        });
+        return [
+          page.includes(
+            'Only a public Round recorded for everyone can be shared.',
+          ),
+          /<form[^>]*>.*Share publicly/s.test(page),
+        ];
+      })(),
+      expected: [true, false],
+    });
+    assert({
+      given: 'a casual Youth Round whose host kept the video for its judges',
+      should: 'say only the judges watch it, not that its debaters can',
+      actual: (() => {
+        const page = shared({
+          releasesComplete: true,
+          public: false,
+          viewerDebated: true,
+          shareable: false,
+          videoForOfficials: true,
+        });
+        return [
+          page.includes(
+            'the video is for the judges and moderators until it is deleted',
+          ),
+          page.includes('visible to the debaters, judges'),
+        ];
+      })(),
+      expected: [true, false],
+    });
+    assert({
+      given:
+        'a shared casual Youth Round whose Room was made unlisted (not shareable) (ADR 0157)',
+      should:
+        'not say it is public, and ask for no release that could not unlock sharing',
+      actual: (() => {
+        const page = shared({
+          releasesComplete: true,
+          public: true,
+          viewerDebated: true,
+          shareable: false,
+        });
+        return [
+          page.includes('on Watch. It comes'),
+          page.includes('Share publicly needs a media release'),
+        ];
+      })(),
+      expected: [false, false],
+    });
+    assert({
+      given: 'the same shared Round, read by its debater',
+      should: 'say it is shared but hidden while the Round is not public',
+      actual: shared({
+        releasesComplete: true,
+        public: true,
+        viewerDebated: true,
+        shareable: false,
+      }).includes('Shared, but hidden:'),
       expected: true,
     });
     assert({

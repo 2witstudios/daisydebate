@@ -6,8 +6,9 @@ import {
 import type { RecordingRound, RecordingViewer } from './audience';
 
 /**
- * A Youth Round's Recording (ADR 0107, PYL-5): a ranked Round on Youth –
- * Freestyle is recorded as every ranked Round is, but stays private. Its
+ * A Youth Round's Recording (ADR 0107, PYL-5): any Round of a Youth Room,
+ * ranked or casual (ADR 0157). A ranked one is recorded as every ranked Round
+ * is, a casual one only on its host's opt-in, and either stays private. Its
  * audience is the Round's seated people (debaters and judges) and each youth
  * debater's linked adults (a coach of their school, or a guardian). It is
  * never listed, never broadcast, never downloaded, and any youth debater or

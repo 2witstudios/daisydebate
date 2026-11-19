@@ -12,6 +12,8 @@ import {
 } from '../spectator-release-sql';
 import { oweNotifications } from './owe';
 import { wants } from './preferences';
+import { youthRoundSql } from '../youth-round-sql';
+import { operatorWithheldSql } from '../broadcast-withheld-sql';
 
 type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 
@@ -34,11 +36,14 @@ const followersOf = (roundId: string, kind: NotificationKind) =>
         where p.round_id=${roundId} and a.user_id=u.id)
     order by u.id,f.debater_actor_id`;
 
-const seatedAccounts = (roundId: string) =>
+/** A Youth Round's Recording reaches only its current seats (ADR 0157). */
+const seatedAccounts = (roundId: string, youth: boolean) =>
   sql`select distinct u.id as user_id,null::text as actor_id
     from round_participants p join actors a on a.id=p.actor_id
     join users u on u.id=a.user_id and u.deleted_at is null
-    where p.round_id=${roundId} and ${wants('recording_ready', 'in_app', sql`u.id`)}`;
+    where p.round_id=${roundId}
+      ${youth ? sql`and public.daisy_round_participant_is_current(p.id)` : sql``}
+      and ${wants('recording_ready', 'in_app', sql`u.id`)}`;
 
 type Recipient = {
   readonly user_id: string;
@@ -118,6 +123,8 @@ export const watchNotificationOperations = ({
         sql`select b.round_id,r.visibility,(b.completed_at is null and b.stopped_at is null) as on_air
           from broadcasts b join rounds r on r.id=b.round_id
           where b.released_through_at is not null
+            -- A Youth Round has no audience to send a follower to (ADR 0150, 0157).
+            and not ${youthRoundSql(sql`b.round_id`)}
             and (b.completed_at is not null or b.stopped_at is not null
               or exists(select 1 from round_segments s where s.round_id=b.round_id
                 and s.started_at+${spectatorMargin}<=b.released_through_at))
@@ -132,11 +139,13 @@ export const watchNotificationOperations = ({
       }>(
         database,
         sql`select rc.round_id,r.visibility,
-            coalesce(r.ladder_division = 'youth', false) as youth
+            ${youthRoundSql(sql`r.id`)} as youth
           from recordings rc join rounds r on r.id=rc.round_id
           left join broadcasts b on b.round_id=rc.round_id
           where rc.status='ready'
-            and (b.id is null or (b.completed_at is not null and not b.media_withheld))
+            -- Only an operator's stop holds the notice back (ADR 0150, 0157).
+            and (b.id is null or (b.completed_at is not null
+              and not ${operatorWithheldSql(sql`b`)}))
             and ${outcomeReleasedSql(roundAliasR, input.clock)}
             and not exists(select 1 from notification_fanouts f
               where f.kind='recording_ready' and f.round_id=rc.round_id)
@@ -161,7 +170,7 @@ export const watchNotificationOperations = ({
           if (!(await claimFanout(tx, kind, event.round_id))) return 0;
           const seated = await rowsOf<Recipient>(
             tx,
-            seatedAccounts(event.round_id),
+            seatedAccounts(event.round_id, event.youth),
           );
           // A Youth Round is private to its people (ADR 0150): no follower hears of it.
           const followers =

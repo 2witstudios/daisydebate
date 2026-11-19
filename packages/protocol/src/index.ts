@@ -50,6 +50,7 @@ export type {
 } from './ladder';
 export {
   canWatchLive,
+  isYouthRound,
   lobbyOf,
   roomLobbyAtCreation,
   seatAllowed,

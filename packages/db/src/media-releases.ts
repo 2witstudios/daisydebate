@@ -45,6 +45,7 @@ import {
   rows,
   type ReleaseRow,
 } from './media-release-records';
+import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 
 type Tx = BoundedTransactionContext;
 
@@ -219,7 +220,8 @@ export function createMediaReleases(input: {
             left join youth_round_publications p on p.round_id = r.id and p.ended_at is null
             where a.user_id = ${userId} and ${isDebatingSeatSql(sql`rp.seat_kind`)}
               and public.daisy_round_participant_is_current(rp.id)
-              and r.ladder_division = 'youth' and p.round_id is null`,
+              and ${youthRoundSql(sql`r.id`)} and p.round_id is null
+              and ${youthRoundShareableSql(sql`r`)}`,
         );
         return {
           division: await readDivisionOf(tx, userId),

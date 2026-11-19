@@ -27,8 +27,13 @@ type Create = {
   readonly hostUsername?: string;
   /** A signed-up member seated as the affirmative, so a browser can act as a debater. */
   readonly affUsername?: string;
-  /** A ranked Round's ladder division; Youth opens no Broadcast (PYL-5). */
+  /**
+   * The Room's division (its lobby), and a ranked Round's ladder. A Youth
+   * Round, casual included, opens no Broadcast (PYL-5, ADR 0157).
+   */
   readonly division?: 'open' | 'youth';
+  /** Open one on a Youth Round anyway, as one opened before its rule shipped. */
+  readonly legacyBroadcast?: boolean;
   readonly title: string;
   readonly resolution: string;
 };
@@ -94,8 +99,10 @@ const create = async (sql: SQL, input: Create) => {
   const feedKey = createId();
   const [segment] = rules.segments;
   if (!segment) throw new Error('Fixture rules have no speech');
-  // Only a ranked Round has a ladder, so only it has a division.
-  const division = input.mode === 'ranked' ? (input.division ?? 'open') : null;
+  const roomDivision = input.division ?? 'open';
+  // Only a ranked Round has a ladder: its Room's division.
+  const division = input.mode === 'ranked' ? roomDivision : null;
+  const broadcast = roomDivision !== 'youth' || input.legacyBroadcast === true;
   await sql.begin(async (tx) => {
     const hostActor = input.hostUsername
       ? (
@@ -114,7 +121,7 @@ const create = async (sql: SQL, input: Create) => {
         ? { format: 'freestyle', preset: 1, ladder: 'freestyle' }
         : { format: 'freestyle', preset: null, ladder: null };
     await tx`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,division,config,execution_plan,rules_snapshot,status)
-      values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${division ?? 'open'},${{}},${{}},${rules},'started')`;
+      values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${roomDivision},${{}},${{}},${rules},'started')`;
     await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,ladder_division,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
       values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${division},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${oneOnOneSettings})`;
     const aff = await seat(
@@ -135,11 +142,10 @@ const create = async (sql: SQL, input: Create) => {
       values (${createId()},${roundId},${segmentId},${participant[0].id},0,${`Caption ${suffix}`},true,now()-interval '3 minutes')`;
     // Heard from since the caption was said, or its open segment keeps it back.
     // A Youth Round is never broadcast (PYL-5).
-    if (division !== 'youth')
+    if (broadcast)
       await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,control_heartbeat_at)
       values (${broadcastId},${roundId},${feedKey},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds',now())`;
   });
-  const broadcast = division !== 'youth';
   return {
     roundId,
     roomId,

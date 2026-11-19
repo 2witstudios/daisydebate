@@ -173,6 +173,8 @@ const shareReason = (
 ): string | null => {
   if (youth.debaters.length === 0)
     return 'No youth debater is on record for this Round, so it cannot be shared.';
+  if (!youth.shareable)
+    return 'Only a public Round recorded for everyone can be shared.';
   if (!youth.releasesComplete) {
     const missing = youth.debaters
       .filter((debater) => !debater.released)
@@ -202,6 +204,22 @@ function YouthSharing({
   share: (() => Promise<void>) | undefined;
   notice: string | null;
 }) {
+  // Shared, but its Room is no longer public: hidden until it is again.
+  if (youth.public && publishing && !youth.shareable)
+    return (
+      <section aria-label="Sharing" className={card}>
+        <span className={label}>Share and visibility</span>
+        <div>
+          <Badge tone="gold">Shared, hidden</Badge>
+        </div>
+        <p className="text-sm text-ink">
+          <strong className="font-strong">Shared, but hidden:</strong> a debater
+          shared it, and it is off Watch while this Round is not public. It
+          shows again if the Round is public once more, unless a release is
+          withdrawn.
+        </p>
+      </section>
+    );
   if (youth.public && publishing)
     return (
       <section aria-label="Sharing" className={card}>
@@ -223,36 +241,40 @@ function YouthSharing({
         <Badge tone="gold">Private</Badge>
       </div>
       <p className="text-sm text-ink">
-        <strong className="font-strong">Private:</strong> visible to the
-        debaters, judges and their coaches or parents.
+        <strong className="font-strong">Private:</strong>{' '}
+        {youth.videoForOfficials
+          ? 'the video is for the judges and moderators until it is deleted; the debaters and their coaches or parents keep the transcript and result.'
+          : 'visible to the debaters, judges and their coaches or parents.'}
       </p>
-      <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-3">
-        <p className="text-sm font-strong text-ink">
-          Share publicly needs a media release from every youth debater
-        </p>
-        <ul className="flex flex-col gap-2 text-sm text-ink">
-          {youth.debaters.map((debater) => (
-            <li key={debater.actorId} className="flex items-center gap-2">
-              {debater.released ? (
-                <Icon name="check" size={16} className="text-accent" />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="size-3 shrink-0 rounded-full border-2 border-dashed border-border-strong"
-                />
-              )}
-              {`${debater.name} · ${debater.released ? 'release on record' : 'no media release yet'}`}
+      {youth.shareable ? (
+        <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-3">
+          <p className="text-sm font-strong text-ink">
+            Share publicly needs a media release from every youth debater
+          </p>
+          <ul className="flex flex-col gap-2 text-sm text-ink">
+            {youth.debaters.map((debater) => (
+              <li key={debater.actorId} className="flex items-center gap-2">
+                {debater.released ? (
+                  <Icon name="check" size={16} className="text-accent" />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="size-3 shrink-0 rounded-full border-2 border-dashed border-border-strong"
+                  />
+                )}
+                {`${debater.name} · ${debater.released ? 'release on record' : 'no media release yet'}`}
+              </li>
+            ))}
+            <li className="flex items-center gap-2 text-ink-muted">
+              <span
+                aria-hidden="true"
+                className="size-3 shrink-0 rounded-full border-2 border-dashed border-border"
+              />
+              Judges · not needed
             </li>
-          ))}
-          <li className="flex items-center gap-2 text-ink-muted">
-            <span
-              aria-hidden="true"
-              className="size-3 shrink-0 rounded-full border-2 border-dashed border-border"
-            />
-            Judges · not needed
-          </li>
-        </ul>
-      </div>
+          </ul>
+        </div>
+      ) : null}
       {reason === null ? null : (
         <p id="share-publicly-reason" className="text-sm text-ink">
           {reason}

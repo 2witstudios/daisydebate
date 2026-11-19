@@ -10,6 +10,7 @@ import {
   releaseRequestWaiting,
   youthRoundPublic,
 } from '../media-release-standing';
+import { youthRoundSql } from '../youth-round-sql';
 
 /**
  * The rows the inbox read joins, by alias: `n` the notification, `r` its
@@ -59,9 +60,15 @@ const subjectStands = (
     case 'followed_debater_live':
       // A follower is sent only to a public Round on air, by a live account.
       return sql`(r.visibility='public' and u.username is not null
+        and not ${youthRoundSql(sql`n.round_id`)}
         and ${broadcastOnAir(sql`n.round_id`)})`;
     case 'recording_ready':
-      return recordingReady(sql`rc`);
+      // A Youth Round's notice stands only for someone who sat in it: a
+      // follower's, sent before the Round became private (ADR 0157), lapses.
+      return sql`(${recordingReady(sql`rc`)} and (not ${youthRoundSql(sql`n.round_id`)}
+        or exists (select 1 from round_participants p join actors a on a.id=p.actor_id
+          where p.round_id=n.round_id and a.user_id=n.user_id
+            and public.daisy_round_participant_is_current(p.id))))`;
     case 'round_started':
       return roundUnderway(sql`r`);
     case 'round_decision_released':

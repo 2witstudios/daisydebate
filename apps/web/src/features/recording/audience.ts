@@ -49,7 +49,8 @@ export type RecordingRound = {
   readonly officialActorIds: readonly string[];
   /**
    * A Youth Round's youth debaters and their linked adults (ADR 0107, PYL-5):
-   * a ranked Round on Youth – Freestyle. Null on every other Round.
+   * any Round of a Youth Room, casual included (ADR 0157). Null on every
+   * other Round.
    */
   readonly youth: YouthRound | null;
 };
@@ -124,22 +125,51 @@ const EVERYTHING: RoundEvidencePermissions = {
  * its audience sees all of it once it ends, anyone else answers as missing.
  * Once a debater shared it, and while every release holds and publishing is
  * open, anyone sees it, as the public archive lists it: only on a public
- * Round, which every ranked Round is (ADR 0151).
+ * Round (ADR 0151). Every ranked Round is one; a casual one is shared only
+ * when public and recorded for everyone (ADR 0157).
  */
 const youthPermissions = (
   round: RecordingRound & { readonly youth: YouthRound },
+  release: BroadcastRelease,
   viewer: RecordingViewer,
-): RoundEvidencePermissions =>
-  round.completedAtMs !== null &&
-  ((round.youth.public && round.visibility === 'public') ||
-    recordingAudience(round, viewer).kind === 'allowed')
-    ? EVERYTHING
-    : NOTHING;
+): RoundEvidencePermissions => {
+  if (round.completedAtMs === null) return NOTHING;
+  const inAudience = recordingAudience(round, viewer).kind === 'allowed';
+  const shared = round.youth.public && round.visibility === 'public';
+  if (!inAudience && !shared) return NOTHING;
+  // An operator's stop withholds the video from all but the Round's own seats,
+  // shared or not (ADR 0157).
+  const media = release.stop !== 'media_withheld' || seated(round, viewer);
+  if (inAudience) return { ...EVERYTHING, media };
+  // The public reaches a shared Round as any public audience does: a casual
+  // one's transcript and ballots stay its people's (ADR 0157).
+  const ranked = round.competitionType === 'ranked';
+  return { open: true, media, transcript: ranked, result: ranked };
+};
+
+/** An officials' Recording's video: only for those who `watch`, until its deletion date. */
+const officialsMedia = (
+  round: RecordingRound,
+  watches: boolean,
+  permissions: RoundEvidencePermissions,
+  nowMs: number,
+): RoundEvidencePermissions => {
+  const due = recordingDeletionDueMs(round);
+  const kept = due === null || nowMs < due;
+  return { ...permissions, media: permissions.media && kept && watches };
+};
+
+/** A Youth Round's judges and moderators: a host who did not sit is not one. */
+const youthOfficial = (round: RecordingRound, viewer: RecordingViewer) =>
+  viewer.kind === 'account' && round.officialActorIds.includes(viewer.actorId);
 
 /**
  * Under the officials policy only the officials and the host see the video, and
  * only until its deletion date; a debater keeps the rest of their own record,
- * and the audience learns nothing of the Round. `nowMs` is the caller's clock.
+ * and the audience learns nothing of the Round. A Youth Round answers to its
+ * own audience first, and a casual one kept for its officials (ADR 0157) still
+ * shows its video only to its judges and moderators, not to a host who is
+ * also a linked adult. `nowMs` is the caller's clock.
  */
 export const roundEvidencePermissions = (
   round: RecordingRound,
@@ -148,8 +178,16 @@ export const roundEvidencePermissions = (
   presentedLinkHash: string | null,
   nowMs: number,
 ): RoundEvidencePermissions => {
-  if (round.youth !== null)
-    return youthPermissions({ ...round, youth: round.youth }, viewer);
+  if (round.youth !== null) {
+    const permissions = youthPermissions(
+      { ...round, youth: round.youth },
+      release,
+      viewer,
+    );
+    return round.recordingPolicy === 'officials'
+      ? officialsMedia(round, youthOfficial(round, viewer), permissions, nowMs)
+      : permissions;
+  }
   const permissions = releasedPermissions(
     round,
     release,
@@ -160,15 +198,10 @@ export const roundEvidencePermissions = (
     case 'off':
     case 'released':
       return permissions;
-    case 'officials': {
-      if (!seated(round, viewer) && !official(round, viewer)) return NOTHING;
-      const due = recordingDeletionDueMs(round);
-      const kept = due === null || nowMs < due;
-      return {
-        ...permissions,
-        media: permissions.media && kept && official(round, viewer),
-      };
-    }
+    case 'officials':
+      return seated(round, viewer) || official(round, viewer)
+        ? officialsMedia(round, official(round, viewer), permissions, nowMs)
+        : NOTHING;
   }
 };
 

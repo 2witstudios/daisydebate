@@ -6,6 +6,7 @@ import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
+import { youthRoundSql } from './youth-round-sql';
 
 /**
  * The totals inside a caller's snapshot: anonymous and current. Reactions are the
@@ -71,7 +72,8 @@ export const audienceReactionOperations = ({
               (b.completed_at is null and b.stopped_at is null) as open,
               exists(select 1 from audience_bans x where x.user_id=${input.userId}) as banned
             from rounds r left join broadcasts b on b.round_id=r.id
-            where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null`,
+            where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null
+              and not ${youthRoundSql(sql`r.id`)}`,
         );
         if (
           !round ||

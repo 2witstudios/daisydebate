@@ -451,8 +451,12 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
   18 and an Open league only adults. Tournament entries already refuse every entrant
   under 18 (the closed minors rule above).
 - **Youth Recordings** ([ADR 0150](../decisions/0150-youth-recordings-private.md),
-  PYL S3). A Youth Round is recorded like any ranked Round, but its Recording
-  is private. Only the Round's debaters and judges see it, and so does each
+  PYL S3). A Youth Round is any Round of a Room in the Youth lobby, casual
+  included ([ADR 0157](../decisions/0157-every-youth-room-round-is-a-youth-round.md)).
+  A ranked one is recorded like any ranked Round, and a casual one only when
+  its host opted in, but either Recording is private. A casual one its host kept for
+  the officials shows its video only to its judges and moderators, until its
+  deletion date, and can never be shared publicly. Only the Round's debaters and judges see it, and so does each
   youth debater's linked adult: a coach on staff at a school the debater
   belongs to, or a guardian with an active link. Those linked adults may also
   follow the Round while it runs, without video or audio: its clock, speech

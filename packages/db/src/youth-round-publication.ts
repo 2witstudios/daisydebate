@@ -11,6 +11,7 @@ import { youthRoundPublic } from './media-release-standing';
 import { readReleasesOf } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { readYouthRecordingPeople } from './youth-recording-people';
+import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 
 export type PublishAnswer =
   | { readonly kind: 'published' }
@@ -46,16 +47,20 @@ export function createYouthRoundPublications(input: {
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
         const [round] = (await tx.execute(
-          sql`select r.id, rc.status as recording, p.ended_at, p.round_id as published
+          // Only a public Round whose Recording is for everyone can be public:
+          // every ranked one, and a casual one its host released (ADR 0157).
+          sql`select r.id, rc.status as recording, p.ended_at, p.round_id as published,
+              ${youthRoundShareableSql(sql`r`)} as shareable
             from rounds r
             left join recordings rc on rc.round_id = r.id
             left join youth_round_publications p on p.round_id = r.id
-            where r.id = ${command.roundId} and r.ladder_division = 'youth'
+            where r.id = ${command.roundId} and ${youthRoundSql(sql`r.id`)}
             for update of r`,
         )) as unknown as {
           recording: string | null;
           ended_at: Date | string | null;
           published: string | null;
+          shareable: boolean;
         }[];
         if (round === undefined)
           return { kind: 'refused', reason: 'not_found' };
@@ -72,7 +77,7 @@ export function createYouthRoundPublications(input: {
           debaterUserIds,
           publisherUserId: command.userId,
           releases,
-          available: round.recording === 'ready',
+          available: round.recording === 'ready' && round.shareable,
           published: round.published !== null && round.ended_at === null,
         });
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };

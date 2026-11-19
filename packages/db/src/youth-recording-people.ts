@@ -69,10 +69,10 @@ export const readLinkedAdultUserIds = async (
 
 /**
  * A Youth Round's youth debaters and the actors of their linked adults. The
- * caller has read the Round as a Youth one: ranked on Youth – Freestyle for
- * its Recording (ADR 0150), or in a Youth Room for its live audience
- * (ADR 0156). Its Recording and its live audience read this to decide who
- * may see the Round, and neither writes any of it.
+ * caller has read the Round as a Youth Round (ADR 0157): any Round of a
+ * Youth Room, for its Recording (ADR 0150) and its live audience (ADR 0156).
+ * Its Recording and its live audience read this to decide who may see the
+ * Round, and neither writes any of it.
  */
 export const readYouthRecordingPeople = async (tx: Tx, roundId: string) => {
   const debaters = await rowsOf<{ actor_id: string; user_id: string }>(

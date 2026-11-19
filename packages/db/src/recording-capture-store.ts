@@ -46,6 +46,7 @@ import { broadcasts } from './schema/broadcasts';
 import { mediaParticipants } from './schema/media-sessions';
 import { recordingCaptures as captures } from './schema/recording-captures';
 import { recordings } from './schema/recordings';
+import { rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 
@@ -66,11 +67,13 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         roundId: rounds.id,
         competitionType: rounds.competitionType,
         ladderDivision: rounds.ladderDivision,
+        roomDivision: rooms.division,
         capture: rounds.capture,
         hostActorId: rounds.createdByActorId,
         hostUserId: actors.userId,
       })
       .from(rounds)
+      .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(recordings, eq(recordings.roundId, rounds.id))
       .leftJoin(actors, eq(actors.id, rounds.createdByActorId))
       .where(
@@ -113,6 +116,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         competitionType: rounds.competitionType,
         roundCapture: rounds.capture,
         ladderDivision: rounds.ladderDivision,
+        roomDivision: rooms.division,
         roundStatus: rounds.status,
         broadcast: {
           id: broadcasts.id,
@@ -135,6 +139,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
       })
       .from(recordings)
       .innerJoin(rounds, eq(rounds.id, recordings.roundId))
+      .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(broadcasts, eq(broadcasts.roundId, recordings.roundId))
       .leftJoin(captures, eq(captures.recordingId, recordings.id))
       .where(

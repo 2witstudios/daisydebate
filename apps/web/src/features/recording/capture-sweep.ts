@@ -163,6 +163,7 @@ export const createRecordingCaptureSweep = (deps: {
       competitionType: open.competitionType,
       capture: open.roundCapture,
       ladderDivision: open.ladderDivision,
+      roomDivision: open.roomDivision,
     }) !== null;
 
   const broadcastFacts = async (
@@ -534,6 +535,7 @@ export const createRecordingCaptureSweep = (deps: {
           roundId: round.roundId,
           competitionType: round.competitionType,
           ladderDivision: round.ladderDivision,
+          roomDivision: round.roomDivision,
           hostActorId: round.hostActorId,
           hostOptedIn: (round.capture?.recordingPolicy ?? 'off') !== 'off',
           hostHoldsRecording: deps.holdsCapture(round.hostGrants),
