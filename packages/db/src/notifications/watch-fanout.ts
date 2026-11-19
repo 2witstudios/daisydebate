@@ -119,6 +119,8 @@ export const watchNotificationOperations = ({
         sql`select b.round_id,r.visibility,(b.completed_at is null and b.stopped_at is null) as on_air
           from broadcasts b join rounds r on r.id=b.round_id
           where b.released_through_at is not null
+            -- A Youth Round has no audience to send a follower to (ADR 0150, 0157).
+            and not ${youthRoundSql(sql`b.round_id`)}
             and (b.completed_at is not null or b.stopped_at is not null
               or exists(select 1 from round_segments s where s.round_id=b.round_id
                 and s.started_at+${spectatorMargin}<=b.released_through_at))

@@ -44,11 +44,22 @@ timeline, downloaded and shared.
    `host_opt_in`: the lifecycle already lets participants remove a casual
    Recording, so it needs no `youth` fact. Its audience, takedown (youth
    debaters and their linked adults, never a judge), download refusal, share
-   panel and publishing are ADR 0150 and 0151's, unchanged.
+   panel and publishing are ADR 0150 and 0151's, with two limits a ranked
+   Round never meets: a Recording its host kept for the officials still shows
+   its video only to them and only until its deletion date, and only a public
+   Round whose Recording is released to everyone can be shared publicly (the
+   publish command refuses any other as `not_available`, and the panel says
+   why).
 4. **Existing data.** Casual Rounds already played in Youth Rooms read as
    private from deploy. Any Broadcast one opened is stopped and its video held
-   back by the existing youth-broadcast sweep (ADR 0150 §4). No publication
-   needs a backfill: the publish command accepted only ranked Youth Rounds.
+   back by the existing youth-broadcast sweep (ADR 0150 §4), with ADR 0150's
+   trade-off: a casual Youth Round live across the deploy whose Recording
+   followed that Broadcast is recorded only up to the stop. No follower is
+   told such a Round is live (the live fanout and its standing ask
+   `youthRoundSql`). No publication needs a backfill: the publish command
+   accepted only ranked Youth Rounds. A follower's `recording_ready` notice
+   sent before the deploy stays in their inbox but links to a Round that now
+   reads as missing; staging held no such Round.
 
 ## Consequences
 

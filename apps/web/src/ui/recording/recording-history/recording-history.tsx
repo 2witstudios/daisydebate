@@ -173,6 +173,8 @@ const shareReason = (
 ): string | null => {
   if (youth.debaters.length === 0)
     return 'No youth debater is on record for this Round, so it cannot be shared.';
+  if (!youth.shareable)
+    return 'Only a public Round recorded for everyone can be shared.';
   if (!youth.releasesComplete) {
     const missing = youth.debaters
       .filter((debater) => !debater.released)

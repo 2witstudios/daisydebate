@@ -47,7 +47,11 @@ export function createYouthRoundPublications(input: {
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
         const [round] = (await tx.execute(
-          sql`select r.id, rc.status as recording, p.ended_at, p.round_id as published
+          // Only a public Round whose Recording is for everyone can be public:
+          // every ranked one, and a casual one its host released (ADR 0157).
+          sql`select r.id, rc.status as recording, p.ended_at, p.round_id as published,
+              coalesce(coalesce((select v.visibility from rooms v where v.id = r.room_id), r.visibility, 'private') = 'public'
+                and (r.competition_type = 'ranked' or r.capture ->> 'recordingPolicy' = 'released'), false) as shareable
             from rounds r
             left join recordings rc on rc.round_id = r.id
             left join youth_round_publications p on p.round_id = r.id
@@ -57,6 +61,7 @@ export function createYouthRoundPublications(input: {
           recording: string | null;
           ended_at: Date | string | null;
           published: string | null;
+          shareable: boolean;
         }[];
         if (round === undefined)
           return { kind: 'refused', reason: 'not_found' };
@@ -73,7 +78,7 @@ export function createYouthRoundPublications(input: {
           debaterUserIds,
           publisherUserId: command.userId,
           releases,
-          available: round.recording === 'ready',
+          available: round.recording === 'ready' && round.shareable,
           published: round.published !== null && round.ended_at === null,
         });
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };

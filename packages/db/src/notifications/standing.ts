@@ -10,6 +10,7 @@ import {
   releaseRequestWaiting,
   youthRoundPublic,
 } from '../media-release-standing';
+import { youthRoundSql } from '../youth-round-sql';
 
 /**
  * The rows the inbox read joins, by alias: `n` the notification, `r` its
@@ -59,6 +60,7 @@ const subjectStands = (
     case 'followed_debater_live':
       // A follower is sent only to a public Round on air, by a live account.
       return sql`(r.visibility='public' and u.username is not null
+        and not ${youthRoundSql(sql`n.round_id`)}
         and ${broadcastOnAir(sql`n.round_id`)})`;
     case 'recording_ready':
       return recordingReady(sql`rc`);

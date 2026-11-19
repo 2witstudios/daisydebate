@@ -126,6 +126,11 @@ export type YouthPanel = {
   readonly public: boolean;
   /** The viewer debated in it: only they may share it. */
   readonly viewerDebated: boolean;
+  /**
+   * A public Round whose Recording is for everyone: every ranked one, and a
+   * casual one its host released (ADR 0157). No other can be shared.
+   */
+  readonly shareable: boolean;
 };
 
 type TranscriptPanel = {
@@ -414,6 +419,8 @@ const youthPanel = async (
     viewerDebated:
       viewer.kind === 'account' &&
       youth.debaters.some((debater) => debater.actorId === viewer.actorId),
+    shareable:
+      round.visibility === 'public' && round.recordingPolicy === 'released',
   };
 };
 

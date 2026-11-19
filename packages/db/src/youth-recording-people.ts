@@ -71,7 +71,7 @@ export const readLinkedAdultUserIds = async (
 
 /**
  * A Youth Round's youth debaters and the actors of their linked adults. The
- * caller has read the Round as ranked on Youth – Freestyle. Recording reads
+ * caller has read the Round as a Youth Round (ADR 0157). Recording reads
  * this to decide who may see the Round's private Recording, and never writes
  * any of it.
  */

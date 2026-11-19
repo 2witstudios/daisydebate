@@ -424,6 +424,41 @@ describe('a Youth Round (PYL-5)', () => {
     });
   });
 
+  test('a casual one kept for its officials keeps the officials policy (ADR 0157)', () => {
+    const officials: RecordingRound = {
+      ...youthRound,
+      competitionType: 'casual',
+      recordingPolicy: 'officials',
+    };
+    const at = (viewer: RecordingViewer, nowMs: number) =>
+      permissionsWithLink(officials, passed, viewer, null, nowMs).media;
+    const due = 100_000 + OFFICIALS_RECORDING_RETENTION_MS;
+    assert({
+      given:
+        'a casual Youth Round recorded for its officials, before and after its deletion date',
+      should:
+        'show the video only to the judge and only until then; never to a debater, a linked adult or a stranger',
+      actual: {
+        before: ['judge', 'aff', 'coach', 'stranger'].map((id) =>
+          at(account(id), 100_000),
+        ),
+        after: at(account('judge'), due),
+        debaterRecord: permissionsWithLink(
+          officials,
+          passed,
+          account('aff'),
+          null,
+          100_000,
+        ).result,
+      },
+      expected: {
+        before: [true, false, false, false],
+        after: false,
+        debaterRecord: true,
+      },
+    });
+  });
+
   test('nothing before it ends', () => {
     assert({
       given: 'a debater on a Youth Round still running',

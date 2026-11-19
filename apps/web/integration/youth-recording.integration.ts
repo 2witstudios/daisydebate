@@ -500,6 +500,35 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         youth: await watchable(youth.roomId),
         open: await watchable(open.roomId),
       };
+      // A speech released to the audience, so a follower may be told it is on air.
+      for (const { roundId } of [youth, open])
+        await f.sql`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
+          select ${createId()},id,0,rules_snapshot->'segments'->0->>'type',rules_snapshot->'segments'->0->>'key',
+            now() - interval '10 minutes',(rules_snapshot->'segments'->0->>'durationMs')::int
+          from rounds where id=${roundId}
+            and not exists (select 1 from round_segments where round_id=${roundId})`;
+      // A follower of each Round's host debater, swept while both are on air.
+      for (const debater of [f.host, openCast.host]) {
+        const [user] =
+          await f.sql`select username from users where id=${debater.userId}`;
+        await f.store.setDebaterFollow({
+          followerUserId: stranger.userId,
+          username: user!.username,
+          state: 'following',
+        });
+      }
+      await f.store.sweepNotificationFanouts({
+        clock: spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
+        limit: 50,
+        nextId: createId,
+      });
+      const toldLive = (
+        await f.sql`select round_id from notifications
+          where user_id=${stranger.userId} and kind='followed_debater_live'`
+      ).map((row: { round_id: string }) => row.round_id);
+      await f.sql`delete from notifications where user_id=${stranger.userId}`;
+      await f.sql`delete from notification_fanouts where round_id in (${youth.roundId}, ${open.roundId})`;
+      await f.sql`delete from debater_follows where follower_user_id=${stranger.userId}`;
       const stopped = await database.broadcasts.endYouthBroadcasts(new Date());
       const [youthBroadcast] =
         await f.sql`select id from broadcasts where round_id=${youth.roundId}`;
@@ -507,17 +536,22 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         given:
           'a casual Round in a Youth Room and one in an Open Room, both opted into a Broadcast',
         should:
-          'open no Broadcast for the Youth one, offer no Watch link, and stop one it already had; the Open one keeps all three',
+          'open no Broadcast for the Youth one, offer no Watch link, tell no follower it is live, and stop one it already had; the Open one keeps the rest',
         actual: {
           divisions: [youth.division, open.division],
           discovered: [youth.discovered, open.discovered],
           watchLink: [live.youth, live.open],
+          followerToldLive: [
+            toldLive.includes(youth.roundId),
+            toldLive.includes(open.roundId),
+          ],
           stopped,
         },
         expected: {
           divisions: ['youth', 'open'],
           discovered: [false, true],
           watchLink: [null, open.roundId],
+          followerToldLive: [false, true],
           stopped: [youthBroadcast!.id],
         },
       });
@@ -673,6 +707,17 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
           'hold the Youth one to its releases, and find no Youth Round in the Open one',
         actual: [youthPublish, openPublish],
         expected: ['releases_missing', 'not_found'],
+      });
+
+      // The same Round had its host kept the Recording for its officials only.
+      await f.sql`update rounds set capture=jsonb_set(capture,'{recordingPolicy}','"officials"') where id=${youth.roundId}`;
+      const officialsOnly = refusal(await publish(youth.roundId, f.host));
+      await f.sql`update rounds set capture=jsonb_set(capture,'{recordingPolicy}','"released"') where id=${youth.roundId}`;
+      assert({
+        given: 'a casual Youth Round whose Recording is kept for its officials',
+        should: 'never be shared publicly, whatever releases it holds',
+        actual: officialsOnly,
+        expected: 'not_available',
       });
 
       const takeDown = async (member: Member, roundId: string) => {

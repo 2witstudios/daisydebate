@@ -130,7 +130,7 @@ export const recordingRoundReadOperations = ({
 
   /**
    * A Youth Round's youth debaters and their linked adults (ADR 0150), for a
-   * Round the caller read as ranked on Youth – Freestyle. Its own transaction,
+   * Round the caller read as a Youth Round (ADR 0157). Its own transaction,
    * so the scopes it sets never reach another read.
    */
   readYouthRecordingPeople: (roundId: string) =>
