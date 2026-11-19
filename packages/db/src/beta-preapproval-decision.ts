@@ -2,6 +2,7 @@ import type {
   PreapprovalCommand,
   PreapprovalResult,
 } from '@daisy/protocol/beta-preapproval';
+import { ageBandAdmitted } from '@daisy/protocol/age-floor';
 
 export type PreapprovalGrantFact = {
   readonly id: string;
@@ -84,4 +85,4 @@ export const canInviteClaimedPreapproval = (input: {
   !input.erased &&
   !input.restricted &&
   input.state === 'approved' &&
-  (input.ageBand === 'adult' || input.ageBand === '16-17');
+  ageBandAdmitted(input.ageBand);

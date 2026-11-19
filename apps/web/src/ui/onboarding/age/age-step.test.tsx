@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
 import { AgeRefusalStep } from './age-refusal';
+import { YouthLanding } from './youth-landing';
 
 setupRitewayBun();
 await mockNextRouter();
@@ -35,20 +36,37 @@ test('the age step asks month and year neutrally, with the Terms', () => {
   });
 });
 
-test('below the floor, a neutral signed-out page keeps nothing', () => {
+test('under 13, a neutral signed-out page keeps nothing', () => {
   const child = renderToStaticMarkup(<AgeRefusalStep refusal="under-13" />);
-  const teen = renderToStaticMarkup(<AgeRefusalStep refusal="below-floor" />);
   assert({
-    given: 'an under-13 answer, then a 13-15 answer during the beta',
+    given: 'an under-13 answer',
     should:
-      'say Daisy is for 13 and older, then that the beta is open to 16 and older, each with nothing kept and no form',
+      'say Daisy is for 13 and older, with nothing kept, no form and no other age named',
     actual: [
       child.includes('Daisy is for people 13 and older.'),
-      teen.includes('The Daisy beta is open to people 16 and older for now.'),
-      child.includes('We haven’t kept anything you entered.') &&
-        teen.includes('We haven’t kept anything you entered.'),
-      child.includes('<form') || teen.includes('<form'),
+      child.includes('We haven’t kept anything you entered.'),
+      child.includes('<form'),
+      /\b16\b/.test(child.replace(/<[^>]+>/g, ' ')),
     ],
-    expected: [true, true, true, false],
+    expected: [true, true, false, false],
+  });
+});
+
+test('a member aged 13 to 17 is told they are in the Youth lobby, then goes on', () => {
+  const html = renderToStaticMarkup(
+    <YouthLanding next="/onboarding/username?next=%2Flobby" />,
+  );
+  assert({
+    given: 'the landing after the age step for a Youth member',
+    should:
+      'name the Youth lobby and link on to the username step without a form',
+    actual: [
+      html.includes('You’re in the Youth lobby'),
+      html.includes('Thanks. Here’s where you’ll play.'),
+      html.includes('href="/onboarding/username?next=%2Flobby"'),
+      html.includes('Next: choose your username.'),
+      html.includes('<form'),
+    ],
+    expected: [true, true, true, true, false],
   });
 });

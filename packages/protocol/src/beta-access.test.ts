@@ -62,7 +62,7 @@ describe('decideBetaAccessChange (ADR 0075)', () => {
     });
   });
 
-  test('an account without a durable 16+ age record is never approved (ISSUE-664)', () => {
+  test('an account without a durable 13+ age record is never approved (ISSUE-664)', () => {
     assert({
       given: 'approving and revoking a pending account with no age record',
       should: 'refuse the approval and still allow the revocation',

@@ -48,7 +48,7 @@ test('an approval refused for a missing age record settles and is never resent',
   const reconciled = await reconcileOpenCommands(deps, operatorId);
   assert({
     given:
-      'an approval of an account with no 16+ age record (the participant answers 422 INVARIANT)',
+      'an approval of an account with no 13+ age record (the participant answers 422 INVARIANT)',
     should:
       'show it refused, settle it, and leave nothing for reconciliation to resend',
     actual: [

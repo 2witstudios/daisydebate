@@ -1,4 +1,4 @@
-import { onboardingHref, usernameHref } from '../access/decision';
+import { lobbyLandingHref, onboardingHref } from '../access/decision';
 import { idle, type Idle, type Moved } from '../forms/form-state';
 
 /** The choices as posted, so a form shown again keeps them. */
@@ -130,7 +130,7 @@ export function readAgeForm(form: FormData):
 /** What POST /api/account/age answered, as the form action needs it. */
 export type AgeAnswer =
   | { readonly kind: 'accepted' }
-  | { readonly kind: 'refused'; readonly refusal: 'under-13' | 'below-floor' }
+  | { readonly kind: 'refused'; readonly refusal: 'under-13' }
   | { readonly kind: 'unavailable' };
 
 /**
@@ -145,14 +145,16 @@ export async function readAgeAnswer(response: Response): Promise<AgeAnswer> {
   const body: unknown = await response.json().catch(() => null);
   const refusal = (body as { error?: { refusal?: unknown } } | null)?.error
     ?.refusal;
-  return refusal === 'under-13' || refusal === 'below-floor'
+  return refusal === 'under-13'
     ? { kind: 'refused', refusal }
     : { kind: 'unavailable' };
 }
 
 /**
  * Where the form goes after an answer: an accepted answer (or one given
- * already) on to the username step, a refusal back to the age step, which
+ * already) on to the lobby landing, which names the Youth lobby to a member
+ * under 18 and passes anyone else straight to the username step; a refusal
+ * back to the age step, which
  * then shows it; the validated destination rides along either way. Null
  * when the form stays put.
  */
@@ -161,7 +163,7 @@ export const ageAnswerHref = (
   destination: string,
 ): string | null =>
   answer.kind === 'accepted'
-    ? usernameHref(destination)
+    ? lobbyLandingHref(destination)
     : answer.kind === 'refused'
       ? onboardingHref(destination)
       : null;

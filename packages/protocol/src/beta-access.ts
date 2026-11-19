@@ -89,7 +89,7 @@ export function decideBetaAccessChange(input: {
   if (current === null) return { kind: 'refused', reason: 'not-found' };
   if (current.revision !== input.expectedRevision)
     return { kind: 'refused', reason: 'stale' };
-  // Approval never applies without durable 16+ evidence; revoking always can.
+  // Approval never applies without durable evidence at the member floor (13+); revoking always can.
   if (input.desired === 'approved' && !input.ageAdmitted)
     return { kind: 'refused', reason: 'age-required' };
   if (current.state === input.desired)

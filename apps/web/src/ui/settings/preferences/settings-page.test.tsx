@@ -198,7 +198,7 @@ describe('SettingsPage', () => {
 });
 
 describe('onboarding answers in Settings (ISSUE-324)', () => {
-  test('a 16+ member sees each answer with a link to change it', () => {
+  test('a 13+ member sees each answer with a link to change it', () => {
     const answers = {
       wants: ['debate' as const],
       club: null,

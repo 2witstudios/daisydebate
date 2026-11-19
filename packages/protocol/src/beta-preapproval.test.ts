@@ -37,13 +37,15 @@ describe('beta email preapproval policy', () => {
       { ...eligible, state: 'approved' },
       { ...eligible, state: null },
       { ...eligible, ageBand: null },
+      { ...eligible, ageBand: 'under-13' },
       { ...eligible, ageBand: '13-15' },
       { ...eligible, ageBand: '16-17' },
     ];
     assert({
       given:
         'pending, unverified, erased, moderated, revoked, approved and age-ineligible identities',
-      should: 'admit only verified unrestricted pending accounts aged 16+',
+      should:
+        'admit only verified unrestricted pending accounts aged 13+ (decision 88)',
       actual: cases.map(canClaimPreapproval),
       expected: [
         true,
@@ -55,6 +57,7 @@ describe('beta email preapproval policy', () => {
         false,
         false,
         false,
+        true,
         true,
       ],
     });

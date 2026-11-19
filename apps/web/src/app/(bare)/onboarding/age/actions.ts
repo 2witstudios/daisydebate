@@ -24,7 +24,9 @@ const ageRoute = processRoute((routes) => routes.age.POST);
  * without JavaScript. It runs POST /api/account/age in process with this
  * request's headers, so every gate of that route applies and the server
  * alone bands the answer. Accepted (now or by an earlier answer, see
- * readAgeAnswer), it moves on to the username step; an
+ * readAgeAnswer), it moves on to the lobby landing (YLS-8), which names
+ * the Youth lobby to a member under 18 and passes anyone else to the
+ * username step; an
  * age below the floor carries the route's day-long hold to the browser and
  * returns to the age step, which then shows the refusal.
  */

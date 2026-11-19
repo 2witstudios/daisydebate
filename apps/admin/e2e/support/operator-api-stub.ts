@@ -32,7 +32,7 @@ export type StubAccount = {
   accessRevision: number;
   readonly requestedAt: string;
   decidedAt: string | null;
-  /** A durable 16+ age record (ISSUE-664); absent means it has one. */
+  /** A durable 13+ age record (ISSUE-664); absent means it has one. */
   readonly ageAdmitted?: boolean;
 };
 
