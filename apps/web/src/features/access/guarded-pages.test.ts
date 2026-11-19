@@ -57,6 +57,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestSeasonGlance: async () => null,
   requestLiveRoundsOf: async () => new Map(),
   requestStudentsLive: async () => [],
+  requestStudentRoundIds: async () => [],
   requestLiveListing: async () => ({
     featured: null,
     rows: [],

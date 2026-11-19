@@ -8,14 +8,20 @@
  */
 
 import {
+  canWatchLive,
   isRoundRunning,
   roundStatusSchema,
+  type LiveStanding,
+  type RatingDivision,
   type YouthLiveFact,
 } from '@daisy/protocol';
 
 export type { YouthLiveFact };
 
-/** The Round as this rule reads it. `youth` is null on every Round that is not a Youth one. */
+/**
+ * The Round as this rule reads it. `youth` is present exactly when its Room
+ * is in the Youth lobby (ADR 0156), and null on every other Round.
+ */
 export type LiveAudienceRound = {
   readonly createdByActorId: string | null;
   /** Kept a loose string: authorization facts carry the stored status as read. */
@@ -44,6 +50,23 @@ const running = (status: string): boolean => {
   return parsed.success && isRoundRunning(parsed.data);
 };
 
+/** A Round's division, by its Room (ADR 0156): `youth` is present exactly on a Youth Room's Round. */
+const divisionOf = (round: LiveAudienceRound): RatingDivision =>
+  round.youth === null ? 'open' : 'youth';
+
+/** Where the viewer stands towards the Round, in the lobby's terms (`LiveStanding`). */
+const standingOf = (
+  round: LiveAudienceRound,
+  actorId: string,
+): LiveStanding => {
+  if (round.participants.some((seat) => seat.actorId === actorId))
+    return 'seat';
+  if (round.createdByActorId === actorId) return 'seatless-host';
+  return round.youth?.linkedAdultActorIds.includes(actorId) === true
+    ? 'linked-adult'
+    : 'none';
+};
+
 const watches = (as: 'host' | 'linked_adult') =>
   ({ kind: 'undelayed_no_media', as }) as const;
 const denied = (
@@ -55,13 +78,22 @@ export const liveAudience = (
   viewer: LiveAudienceViewer,
 ): LiveAudience => {
   if (viewer.kind !== 'account') return denied('signed_out');
-  const { actorId } = viewer;
-  if (round.participants.some((seat) => seat.actorId === actorId))
-    return denied('seated');
-  if (round.createdByActorId === actorId) return watches('host');
-  if (round.youth?.linkedAdultActorIds.includes(actorId) !== true)
-    return denied('not_in_audience');
-  // A linked adult follows the Round only while it runs; once it ends they
-  // see it through its Recording, under ADR 0150's own rules.
-  return running(round.status) ? watches('linked_adult') : denied('not_live');
+  const standing = standingOf(round, viewer.actorId);
+  switch (standing) {
+    case 'seat':
+      return denied('seated');
+    case 'seatless-host':
+      return watches('host');
+    case 'none':
+      return denied('not_in_audience');
+    case 'linked-adult':
+      // The lobby's own rule (ADR 0156) admits them to a Youth Round; they
+      // follow it only while it runs, then see it through its Recording
+      // under ADR 0150's own rules.
+      if (!canWatchLive({ standing }, { division: divisionOf(round) }))
+        return denied('not_in_audience');
+      return running(round.status)
+        ? watches('linked_adult')
+        : denied('not_live');
+  }
 };

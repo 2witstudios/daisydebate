@@ -28,7 +28,12 @@ timing, not audience. Owner decision 86 takes it, without media.
    first: anyone seated (a debater, a judge, a seated host) keeps their own
    seat's view. Then the seatless host, on any Round, as ADR 0099 had it.
    Then, on a Youth Round only and only while it runs (`opening` or
-   `active`), an actor among its youth debaters' linked adults. Once the
+   `active`), an actor among its youth debaters' linked adults. The rule
+   works out the viewer's `LiveStanding` and asks [ADR 0156](0156-room-division-from-its-lobby.md)'s
+   `canWatchLive`, so the Lobby's live rows and the live room decide alike. A
+   Round is a Youth one here by its Room's division (ADR 0156), the division
+   `canWatchLive` reads, so a casual Youth Room's Round counts too; ADR
+   0150's Recording rules still read the ranked Round's ladder division. Once the
    Round ends they are refused like anyone outside it and see it through its
    Recording, under ADR 0150's rules; their live view says so and links the
    Recording.
@@ -75,7 +80,10 @@ timing, not audience. Owner decision 86 takes it, without media.
    linked adult once the Round has started and until it ends, so the page
    sends them to `/rounds/<id>/room` (every ranked Room is public,
    `rooms_ranked_public_check`, so a Youth Room's read always reaches this); a public Round's released Broadcast
-   stays `{ kind: 'broadcast' }`. The Round link itself. And Watch's "Your
+   stays `{ kind: 'broadcast' }`. The Youth lobby's live row: [ADR 0156](0156-room-division-from-its-lobby.md)
+   §6's `canWatchLive` gains the `linked-adult` standing, so a live Youth row
+   offers its debaters' linked coach or parent Watch into the live room (the
+   same candidate read as below proposes the Rounds; the room decides). The Round link itself. And Watch's "Your
    students, live": `readStudentLiveRoundCandidates` proposes the running
    Youth Rounds seating a minor the adult is a guardian of or a member of a
    school they own or staff (the forward rule's own staff test), under the

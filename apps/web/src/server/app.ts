@@ -300,6 +300,24 @@ export function createApp({
     }),
     /** The Live listing, likewise. */
     liveReads: createCachedLiveReads({ store: database, clock }),
+    /**
+     * The running Youth Rounds a member's students debate in, for the
+     * Lobby's live rows (ADR 0155); none when they cannot be read.
+     */
+    studentRoundIds: async (member: { readonly userId: string }) => {
+      try {
+        return (await database.readStudentLiveRounds(member.userId)).map(
+          (round) => round.roundId,
+        );
+      } catch (error) {
+        reporter.capture(error, {
+          requestId: ids.next(),
+          route: 'lobby.student_rounds',
+          errorCode: errorCodeOf(error, 'INTERNAL'),
+        });
+        return [];
+      }
+    },
     /** Watch's "Your students, live", or nothing when it cannot be read. */
     studentsLive: studentsLiveOrNothing(readStudentsLive, (error) =>
       reporter.capture(error, {
