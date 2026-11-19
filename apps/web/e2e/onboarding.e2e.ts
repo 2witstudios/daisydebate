@@ -247,6 +247,9 @@ test('a 13-year-old is admitted and told they are in the Youth lobby', async ({
   await expect(
     page.getByRole('heading', { name: 'You’re in the Youth lobby' }),
   ).toBeVisible();
+  // Coming back to the answered age step leads through the landing again.
+  await page.goto('/onboarding/age?next=%2Flobby');
+  await expect(page).toHaveURL(/\/onboarding\/lobby\?next=(\/|%2F)lobby$/);
   await page.getByRole('link', { name: 'Continue' }).click();
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
 });
