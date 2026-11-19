@@ -53,7 +53,8 @@ had none and no check of one.
    stranger refused, an Open Round with no debaters.
 3. **Registered, and checked.** The tenant manifest gains `definers`: every
    `SECURITY DEFINER` function whose definition (`pg_get_functiondef`, so a
-   `BEGIN ATOMIC` body too) names a tenant-owned table in any case, with the
+   `BEGIN ATOMIC` body too) names a tenant-owned table or a registered definer
+   in any case, in any schema but PostgreSQL's own, with the
    roles that may execute it and why its output discloses no more than its
    callers may know. `tenantDefinerProblems` reports an unregistered definer
    that reads a tenant-owned table, a registered one that is missing, does not

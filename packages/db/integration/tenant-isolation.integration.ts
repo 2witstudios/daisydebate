@@ -254,7 +254,7 @@ const afterDefinerFault = (fault: string) =>
 test('an unregistered or widened SECURITY DEFINER function over tenant tables is reported', async () => {
   assert({
     given:
-      'a new definer reading grants, the linked-adult Round read opened to PUBLIC, its realtime grant revoked, its search path dropped, a BEGIN ATOMIC definer naming MEMBERSHIPS, and Room chat’s fact without pg_temp last',
+      'a new definer reading grants, the linked-adult Round read opened to PUBLIC, its realtime grant revoked, its search path dropped, a BEGIN ATOMIC definer naming MEMBERSHIPS, Room chat’s fact without pg_temp last, a wrapper of the minor read, and a definer in another schema',
     should: 'report each fault and nothing else',
     actual: [
       await afterDefinerFault(
@@ -277,6 +277,14 @@ test('an unregistered or widened SECURITY DEFINER function over tenant tables is
       await afterDefinerFault(
         'alter function public.daisy_room_community_fact(text,text) set search_path = pg_catalog, public',
       ),
+      await afterDefinerFault(
+        `create function public.daisy_wrapper(u text) returns setof text language sql stable security definer
+          set search_path = pg_catalog, public, pg_temp as $$ select user_id from public.daisy_linked_adult_users(u) $$`,
+      ),
+      await afterDefinerFault(
+        `create schema private_fault; create function private_fault.daisy_people() returns setof text language sql stable security definer
+          set search_path = pg_catalog, public, pg_temp as $$ select guardian_user_id from public.guardian_links $$`,
+      ),
     ],
     expected: [
       [
@@ -294,6 +302,12 @@ test('an unregistered or widened SECURITY DEFINER function over tenant tables is
       ],
       [
         'daisy_room_community_fact does not pin its search_path to pg_catalog first and pg_temp last',
+      ],
+      [
+        'daisy_wrapper is a SECURITY DEFINER function reading daisy_linked_adult_users but is not registered',
+      ],
+      [
+        'private_fault.daisy_people is a SECURITY DEFINER function reading guardian_links but is not registered',
       ],
     ],
   });

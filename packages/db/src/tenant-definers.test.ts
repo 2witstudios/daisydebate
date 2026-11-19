@@ -75,6 +75,30 @@ describe('tenantDefinerProblems', () => {
     });
   });
 
+  test('reports an unregistered wrapper of a registered definer, and a definer outside public', () => {
+    assert({
+      given:
+        'an unregistered definer calling the registered one, and one in another schema reading grants',
+      should: 'name each: a wrapper crosses tenants through what it calls',
+      actual: tenantDefinerProblems(
+        [
+          people,
+          {
+            ...people,
+            name: 'daisy_wrapper',
+            source: 'select * from public.daisy_people()',
+          },
+          { ...people, name: 'private.daisy_people_copy' },
+        ],
+        registry,
+      ),
+      expected: [
+        'daisy_wrapper is a SECURITY DEFINER function reading daisy_people but is not registered',
+        'private.daisy_people_copy is a SECURITY DEFINER function reading grants but is not registered',
+      ],
+    });
+  });
+
   test('reports a registered definer that is missing, unpinned, open to PUBLIC or run by other roles', () => {
     assert({
       given:

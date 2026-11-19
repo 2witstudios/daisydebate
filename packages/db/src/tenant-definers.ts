@@ -5,13 +5,15 @@ import type {
 
 /**
  * The registered `SECURITY DEFINER` functions of tenant isolation (ADR 0129
- * §4, ADR 0158): catalog facts about every definer in `public`, and a pure
+ * §4, ADR 0158): catalog facts about every definer outside PostgreSQL's own
+ * schemas, and a pure
  * check of them against the manifest's registry. It runs beside the table
  * check, wherever that runs.
  */
 
-/** A `SECURITY DEFINER` function in `public`, as the catalog has it. */
+/** A `SECURITY DEFINER` function, as the catalog has it. */
 export type TenantDefinerFacts = {
+  /** Its name; schema-qualified outside `public`. */
   readonly name: string;
   /**
    * Its whole definition (`pg_get_functiondef`), so a `BEGIN ATOMIC` body,
@@ -24,10 +26,14 @@ export type TenantDefinerFacts = {
   readonly executors: readonly string[];
 };
 
-/** Plain SQL with no parameters: every `SECURITY DEFINER` function in `public`. */
+/**
+ * Plain SQL with no parameters: every `SECURITY DEFINER` function in any
+ * schema but PostgreSQL's own, so one outside `public` is checked too.
+ */
 export const tenantDefinerFactsSql = `
   select
-    p.proname as "name",
+    case when n.nspname = 'public' then p.proname
+      else n.nspname || '.' || p.proname end as "name",
     pg_get_functiondef(p.oid) as "source",
     to_json(coalesce(p.proconfig, '{}'::text[])) as "config",
     (select coalesce(json_agg(distinct
@@ -36,13 +42,16 @@ export const tenantDefinerFactsSql = `
       where x.privilege_type = 'EXECUTE' and x.grantee <> p.proowner) as "executors"
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public' and p.prosecdef
-  order by p.proname
+  where p.prosecdef and n.nspname not in ('pg_catalog', 'information_schema')
+    and n.nspname not like 'pg\\_%'
+  order by 1
 `;
 
 /** Unquoted identifiers fold to lower case, so a name matches in any case. */
-const namesTable = (source: string, table: string) =>
-  new RegExp(`\\b${table}\\b`, 'i').test(source);
+const namesTable = (source: string, name: string) =>
+  new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(
+    source,
+  );
 
 /**
  * Its search path starts with `pg_catalog` and ends with `pg_temp`: unlisted,
@@ -86,8 +95,9 @@ const definerProblems = (
 
 /**
  * Every way the schema's `SECURITY DEFINER` functions differ from the
- * manifest's registry (ADR 0129 §4, ADR 0158): a definer whose body names a
- * tenant-owned table reads it past its policies, so it must be registered,
+ * manifest's registry (ADR 0129 §4, ADR 0158): a definer whose definition
+ * names a tenant-owned table reads it past its policies, and one that calls a
+ * registered definer reads through it, so either must be registered,
  * pin its search path and be executable by exactly the roles registered.
  * `registeredOnly` checks the registered ones alone, for an image whose
  * database a newer migration may have given functions it cannot name.
@@ -99,7 +109,11 @@ export function tenantDefinerProblems(
 ): readonly string[] {
   const registered = new Set(manifest.definers.map((entry) => entry.name));
   const written = manifest.definers.map((entry) => entry.name);
-  const owned = manifest.tables.map((entry) => entry.table);
+  // A wrapper of a registered definer crosses tenants as surely as a reader.
+  const crossings = [
+    ...manifest.tables.map((entry) => entry.table),
+    ...registered,
+  ];
   return [
     ...[
       ...new Set(
@@ -116,7 +130,9 @@ export function tenantDefinerProblems(
       ? []
       : facts.flatMap((each) => {
           if (registered.has(each.name)) return [];
-          const read = owned.filter((table) => namesTable(each.source, table));
+          const read = crossings.filter((name) =>
+            namesTable(each.source, name),
+          );
           return read.length === 0
             ? []
             : [
