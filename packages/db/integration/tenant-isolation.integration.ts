@@ -254,12 +254,12 @@ const afterDefinerFault = (fault: string) =>
 test('an unregistered or widened SECURITY DEFINER function over tenant tables is reported', async () => {
   assert({
     given:
-      'a new definer reading grants, the linked-adult Round read opened to PUBLIC, its realtime grant revoked, and its search path dropped',
+      'a new definer reading grants, the linked-adult Round read opened to PUBLIC, its realtime grant revoked, its search path dropped, a BEGIN ATOMIC definer naming MEMBERSHIPS, and Room chat’s fact without pg_temp last',
     should: 'report each fault and nothing else',
     actual: [
       await afterDefinerFault(
         `create function public.daisy_widened() returns setof text language sql stable security definer
-          set search_path = pg_catalog, public as $$ select user_id from public.grants $$`,
+          set search_path = pg_catalog, public, pg_temp as $$ select user_id from public.grants $$`,
       ),
       await afterDefinerFault(
         'grant execute on function public.daisy_round_linked_adult_actors(text) to public',
@@ -269,6 +269,13 @@ test('an unregistered or widened SECURITY DEFINER function over tenant tables is
       ),
       await afterDefinerFault(
         'alter function public.daisy_linked_adult_users(text) reset search_path',
+      ),
+      await afterDefinerFault(
+        `create function public.daisy_atomic() returns setof text language sql stable security definer
+          set search_path = pg_catalog, public, pg_temp begin atomic select user_id from public.MEMBERSHIPS; end`,
+      ),
+      await afterDefinerFault(
+        'alter function public.daisy_room_community_fact(text,text) set search_path = pg_catalog, public',
       ),
     ],
     expected: [
@@ -280,7 +287,13 @@ test('an unregistered or widened SECURITY DEFINER function over tenant tables is
         'daisy_round_linked_adult_actors is executable by daisy_web but registered for daisy_realtime, daisy_web',
       ],
       [
-        'daisy_linked_adult_users does not pin its search_path to pg_catalog first',
+        'daisy_linked_adult_users does not pin its search_path to pg_catalog first and pg_temp last',
+      ],
+      [
+        'daisy_atomic is a SECURITY DEFINER function reading memberships but is not registered',
+      ],
+      [
+        'daisy_room_community_fact does not pin its search_path to pg_catalog first and pg_temp last',
       ],
     ],
   });

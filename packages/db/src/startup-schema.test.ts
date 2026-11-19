@@ -144,7 +144,7 @@ describe('startupSchemaProblems', () => {
     const known = {
       name: 'daisy_known',
       source: 'select 1 from grants',
-      config: ['search_path=pg_catalog, public'],
+      config: ['search_path=pg_catalog, public, pg_temp'],
       executors: ['daisy_web'],
     };
     const later = { ...known, name: 'daisy_later' };

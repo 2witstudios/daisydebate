@@ -25,7 +25,7 @@ describe('tenantDefinerProblems', () => {
   const people: TenantDefinerFacts = {
     name: 'daisy_people',
     source: 'SELECT g.user_id FROM public.grants g',
-    config: ['search_path=pg_catalog, public'],
+    config: ['search_path=pg_catalog, public, pg_temp'],
     executors: ['daisy_realtime', 'daisy_web'],
   };
 
@@ -53,15 +53,18 @@ describe('tenantDefinerProblems', () => {
 
   test('reports an unregistered definer that reads a tenant-owned table', () => {
     assert({
-      given: 'a definer the registry does not name, reading events and grants',
-      should: 'name it and the tables it reads',
+      given:
+        'a definer the registry does not name, reading events and grants in a BEGIN ATOMIC body, the names in upper and mixed case',
+      should:
+        'name it and the tables it reads: unquoted names fold to lower case',
       actual: tenantDefinerProblems(
         [
           people,
           {
             ...people,
             name: 'daisy_widened',
-            source: 'select 1 from events e join grants g on true',
+            source:
+              'BEGIN ATOMIC select 1 from public.EVENTS e join Grants g on true; END',
           },
         ],
         registry,
@@ -75,14 +78,18 @@ describe('tenantDefinerProblems', () => {
   test('reports a registered definer that is missing, unpinned, open to PUBLIC or run by other roles', () => {
     assert({
       given:
-        'the registered definer missing, without a pinned search path, executable by PUBLIC, and by the web alone',
+        'the registered definer missing, without a search path, with pg_catalog not first, pg_catalog alone, no pg_temp last, executable by PUBLIC, and by the web alone',
       should: 'report each',
       actual: [
         tenantDefinerProblems([], registry),
         tenantDefinerProblems([{ ...people, config: [] }], registry),
-        tenantDefinerProblems(
-          [{ ...people, config: ['search_path=public, pg_catalog'] }],
-          registry,
+        ...[
+          'search_path=public, pg_catalog, pg_temp',
+          // Unlisted, pg_temp is searched first: pg_catalog alone is no pin.
+          'search_path=pg_catalog',
+          'search_path=pg_catalog, public',
+        ].map((setting) =>
+          tenantDefinerProblems([{ ...people, config: [setting] }], registry),
         ),
         tenantDefinerProblems(
           [{ ...people, executors: ['PUBLIC', 'daisy_web'] }],
@@ -95,8 +102,9 @@ describe('tenantDefinerProblems', () => {
       ],
       expected: [
         ['daisy_people is registered but is not a SECURITY DEFINER function'],
-        ['daisy_people does not pin its search_path to pg_catalog first'],
-        ['daisy_people does not pin its search_path to pg_catalog first'],
+        ...Array.from({ length: 4 }, () => [
+          'daisy_people does not pin its search_path to pg_catalog first and pg_temp last',
+        ]),
         ['PUBLIC may execute daisy_people'],
         [
           'daisy_people is executable by daisy_web but registered for daisy_realtime, daisy_web',

@@ -12,7 +12,7 @@
 -- grant whose role carries `school.roster.manage`. Never the minor.
 CREATE FUNCTION public.daisy_linked_adult_users(requested_user_id text)
 RETURNS TABLE(user_id text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $linked_adult_users$
  WITH school AS (
   SELECT o.id, o.owner_user_id
@@ -49,7 +49,7 @@ GRANT EXECUTE ON FUNCTION public.daisy_linked_adult_users(text) TO daisy_web;-->
 -- its frozen ladder division. Any other Round has no rows.
 CREATE FUNCTION public.daisy_round_linked_adult_actors(requested_round_id text)
 RETURNS TABLE(debater_actor_id text, debater_user_id text, linked_adult_actor_ids text[])
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $round_linked_adult_actors$
  WITH debater AS (
   SELECT DISTINCT p.actor_id, a.user_id
@@ -72,3 +72,8 @@ AS $round_linked_adult_actors$
 $round_linked_adult_actors$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_round_linked_adult_actors(text) FROM PUBLIC;--> statement-breakpoint
 GRANT EXECUTE ON FUNCTION public.daisy_round_linked_adult_actors(text) TO daisy_web, daisy_realtime;
+--> statement-breakpoint
+-- Every registered definer searches pg_temp last, so no relation a caller
+-- creates in its temporary schema can stand in for one the function names
+-- (ADR 0158 §3). Room chat's fact predates the rule.
+ALTER FUNCTION public.daisy_room_community_fact(text,text) SET search_path = pg_catalog, public, pg_temp;

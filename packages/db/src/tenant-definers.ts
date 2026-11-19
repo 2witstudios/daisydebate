@@ -13,9 +13,12 @@ import type {
 /** A `SECURITY DEFINER` function in `public`, as the catalog has it. */
 export type TenantDefinerFacts = {
   readonly name: string;
-  /** Its body (`prosrc`). */
+  /**
+   * Its whole definition (`pg_get_functiondef`), so a `BEGIN ATOMIC` body,
+   * which `prosrc` leaves empty, is read too.
+   */
   readonly source: string;
-  /** Its `SET` clauses (`proconfig`), such as `search_path=pg_catalog, public`. */
+  /** Its `SET` clauses (`proconfig`), such as `search_path=pg_catalog, public, pg_temp`. */
   readonly config: readonly string[];
   /** Every role besides its owner that may execute it, `PUBLIC` included. */
   readonly executors: readonly string[];
@@ -25,7 +28,7 @@ export type TenantDefinerFacts = {
 export const tenantDefinerFactsSql = `
   select
     p.proname as "name",
-    p.prosrc as "source",
+    pg_get_functiondef(p.oid) as "source",
     to_json(coalesce(p.proconfig, '{}'::text[])) as "config",
     (select coalesce(json_agg(distinct
         case when x.grantee = 0 then 'PUBLIC' else pg_get_userbyid(x.grantee) end), '[]'::json)
@@ -37,8 +40,22 @@ export const tenantDefinerFactsSql = `
   order by p.proname
 `;
 
+/** Unquoted identifiers fold to lower case, so a name matches in any case. */
 const namesTable = (source: string, table: string) =>
-  new RegExp(`\\b${table}\\b`).test(source);
+  new RegExp(`\\b${table}\\b`, 'i').test(source);
+
+/**
+ * Its search path starts with `pg_catalog` and ends with `pg_temp`: unlisted,
+ * `pg_temp` is searched first, and a caller's temporary table could stand in
+ * for one the function names, read with the owner's rights.
+ */
+const pinsSearchPath = (config: readonly string[]) =>
+  config.some((setting) => {
+    const [key, value] = setting.split('=');
+    if (key !== 'search_path' || value === undefined) return false;
+    const schemas = value.split(',').map((schema) => schema.trim());
+    return schemas[0] === 'pg_catalog' && schemas.at(-1) === 'pg_temp';
+  });
 
 const sameRoles = (a: readonly string[], b: readonly string[]) =>
   [...a].sort().join(',') === [...b].sort().join(',');
@@ -52,11 +69,11 @@ const definerProblems = (
       `${entry.name} is registered but is not a SECURITY DEFINER function`,
     ];
   return found.flatMap((facts) => [
-    ...(facts.config.some((setting) =>
-      setting.replaceAll(' ', '').startsWith('search_path=pg_catalog,'),
-    )
+    ...(pinsSearchPath(facts.config)
       ? []
-      : [`${entry.name} does not pin its search_path to pg_catalog first`]),
+      : [
+          `${entry.name} does not pin its search_path to pg_catalog first and pg_temp last`,
+        ]),
     ...(facts.executors.includes('PUBLIC')
       ? [`PUBLIC may execute ${entry.name}`]
       : sameRoles(facts.executors, entry.executors)

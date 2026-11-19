@@ -23,7 +23,7 @@ had none and no check of one.
 ## Decision
 
 1. **The rule, once, in SQL.** Two functions, owned by the migration owner,
-   `STABLE`, `search_path` pinned to `pg_catalog, public`, and executable by
+   `STABLE`, `search_path` pinned to `pg_catalog, public, pg_temp`, and executable by
    no `PUBLIC`:
    - `daisy_linked_adult_users(user_id)` is a minor's linked adults: an adult
      (`daisy_age_band`) with an active guardian link to them, the owner of an
@@ -52,18 +52,22 @@ had none and no check of one.
    and the fixture do: each kind of linked adult allowed, every other adult and
    stranger refused, an Open Round with no debaters.
 3. **Registered, and checked.** The tenant manifest gains `definers`: every
-   `SECURITY DEFINER` function whose body names a tenant-owned table, with the
+   `SECURITY DEFINER` function whose definition (`pg_get_functiondef`, so a
+   `BEGIN ATOMIC` body too) names a tenant-owned table in any case, with the
    roles that may execute it and why its output discloses no more than its
    callers may know. `tenantDefinerProblems` reports an unregistered definer
    that reads a tenant-owned table, a registered one that is missing, does not
-   pin `search_path` to `pg_catalog` first, is executable by `PUBLIC`, or is
+   pin `search_path` with `pg_catalog` first and `pg_temp` last (unlisted,
+   `pg_temp` is searched first, so a caller's temporary table could stand in
+   for a table the function names), is executable by `PUBLIC`, or is
    executable by roles other than those registered. It runs wherever the
    table check runs (`bun doctor`, the integration suite, production
    start-up). On a database a newer migration has moved ahead, start-up checks
    only the definers it registers. The functions that already read tenant
    tables (Room chat's fact, the tournament capture admission functions, the
    hosting-version erasure, the fixture Room source trigger) are registered as
-   they stand.
+   they stand; Room chat's fact, the one pinned without `pg_temp`, is re-pinned
+   in the same migration.
 4. **Realtime admits linked adults.** The realtime server's people read is the
    real one, through its own 15-second people cache, so the Round topic and
    the floor's realtime permits admit a Youth Round's linked adults while it
@@ -83,7 +87,8 @@ had none and no check of one.
 - A new cross-tenant read is a new registered definer with its executors and
   reason; the check fails a definer that reads a tenant-owned table without
   one, by design.
-- The check recognizes a tenant-owned table by its name in the function body.
+- The check recognizes a tenant-owned table by its name in the function's
+  definition.
   A body that builds its SQL dynamically escapes it; none does today.
 - The live arrival of a floor message for a linked adult is proven in the
   messaging realtime browser cohort (`support/youth-coach-floor-live.ts`);
