@@ -28,17 +28,19 @@ timeline, downloaded and shared.
    with no Room has only its ladder. ADR 0150 §1
    is replaced by this; its "Casual Rounds keep ADR 0107's host opt-in rules"
    now applies only outside the Youth lobby.
-2. **One rule, one mirror.** `isYouthRound(round, room)` in
-   `@daisy/protocol` (beside `canWatchLive`) is the rule every TypeScript fence
-   asks: recording composition, which sets the Round's youth people that
-   permissions, takedown, download and the share panel read; capture
-   eligibility; and `plannedBroadcast`. `youthRoundSql(roundId)` in
-   `@daisy/db` is its SQL mirror for every SQL fence: broadcast discovery, the
-   open-Broadcast youth fact and the youth-broadcast stop, the Live listing,
-   its count, cursor and a Room's link to Watch, the spectator timeline, the
-   public archive (scope, cursor and row), public profiles and member cards,
-   the follower notice that a Recording is ready, the media-release counts and
-   the publish command. No fence tests `ladder_division` alone.
+2. **One rule, one mirror.** `isYouthRound(round, room)` in `@daisy/protocol`
+   (beside `canWatchLive`) is the rule every TypeScript fence asks: recording
+   composition, which sets the Round's youth people that permissions,
+   takedown, download and the share panel read; capture eligibility; and
+   `plannedBroadcast`. `youthRoundSql(roundId)` in `@daisy/db` is its SQL
+   mirror for every SQL fence: broadcast discovery, the open-Broadcast youth
+   fact and the youth-broadcast stop, the Live listing, its count, cursor and
+   a Room's link to Watch, the spectator timeline and the spectator audience
+   (chat, reactions, snapshot), the public archive (scope, cursor and row),
+   public profiles and member cards, the follower notice that a Recording is
+   ready, the media-release counts and the publish command. No fence tests
+   `ladder_division` alone.
+
 3. **A casual Youth Round's Recording** is still captured only when its host
    opted in and holds the entitlement, and its eligibility stays
    `host_opt_in`: the lifecycle already lets participants remove a casual
@@ -58,20 +60,22 @@ timeline, downloaded and shared.
    flag is an operator's alone, an operator's stop after the sweep still sets
    it, and a moderation stop the sweep meets is not mistaken for one
    (`operatorWithheldSql`). No stored row needs clearing: before this the
-   sweep matched only ranked Youth Rounds, and staging holds none; a ranked Youth Broadcast the earlier sweep had marked would now read as an operator's stop, which only keeps its video from all but its seats. This keeps
-   ADR 0150's trade-off: a casual Youth Round live across the deploy whose Recording
-   followed that Broadcast is recorded only up to the stop. No follower is
-   told such a Round is live (the live fanout and its standing ask
+   sweep matched only ranked Youth Rounds, and staging holds none; a ranked
+   Youth Broadcast the earlier sweep had marked would now read as an
+   operator's stop, which only keeps its video from all but its seats. This
+   keeps ADR 0150's trade-off: a casual Youth Round live across the deploy
+   whose Recording followed that Broadcast is recorded only up to the stop. No
+   follower is told such a Round is live (the live fanout and its standing ask
    `youthRoundSql`). No publication needs a backfill: the publish command
-   accepted only ranked Youth Rounds, and the release counts on Settings and
-   a club's page count only Rounds a release could make public. A follower's
+   accepted only ranked Youth Rounds, and the release counts on Settings and a
+   club's page count only Rounds a release could make public. A follower's
    `recording_ready` notice sent before the deploy lapses from their inbox
    (only a current seat's stands), a Recording whose pre-rule Broadcast was
    stopped by the sweep still tells its own seats it is ready and is listed
-   once shared, while an operator's withheld stop keeps its video from all
-   but the seats; a shared casual one shows the public its video only, never
-   its transcript or ballots, as an Open casual audience sees it;
-   and a viewer's watch history drops the Round. Staging held no such Round.
+   once shared, while an operator's withheld stop keeps its video from all but
+   the seats; a shared casual one shows the public its video only, never its
+   transcript or ballots, as an Open casual audience sees it; and a viewer's
+   watch history drops the Round. Staging held no such Round.
 
 ## Consequences
 

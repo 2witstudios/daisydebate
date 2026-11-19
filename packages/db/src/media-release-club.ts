@@ -176,15 +176,15 @@ async function youthStudents(
     const [rounds] = await rows<{ public: number; private: number }>(
       tx,
       sql`select count(*) filter (where p.round_id is not null)::int as public,
-          count(*) filter (where p.round_id is null)::int as private
+          -- Only a Round a release could make public counts as waiting (ADR 0157).
+          count(*) filter (where p.round_id is null and ${youthRoundShareableSql(sql`r`)})::int as private
         from rounds r
         join round_participants rp on rp.round_id = r.id
         join actors a on a.id = rp.actor_id
         join recordings rc on rc.round_id = r.id
         left join youth_round_publications p on p.round_id = r.id and p.ended_at is null
         where a.user_id = ${member.user_id} and ${youthRoundSql(sql`r.id`)}
-          -- Only a Round a release could make public is counted (ADR 0157).
-          and ${youthRoundShareableSql(sql`r`)}
+
           and ${isDebatingSeatSql(sql`rp.seat_kind`)}
           and public.daisy_round_participant_is_current(rp.id)`,
     );

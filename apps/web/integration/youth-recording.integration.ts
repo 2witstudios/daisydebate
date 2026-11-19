@@ -15,6 +15,7 @@ import {
   type RecordingViewer,
 } from '../src/features/recording/audience';
 import { openDownload } from '../src/features/recording/download';
+import { readAudienceForViewer } from '../src/features/spectating/audience-snapshot';
 import { recordingPersistence } from '../src/features/recording/persistence';
 import { requestParticipantRemoval } from '../src/features/recording/removal';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
@@ -448,6 +449,24 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
       await f.sql`delete from notifications where user_id=${stranger.userId}`;
       await f.sql`delete from notification_fanouts where round_id in (${youth.roundId}, ${open.roundId})`;
       await f.sql`delete from debater_follows where follower_user_id=${stranger.userId}`;
+      // The spectator audience (chat, reactions, snapshot) has no Youth Round.
+      const audience = async (roundId: string) =>
+        (await readAudienceForViewer(
+          { store: f.store as never },
+          { roundId, actorId: stranger.actorId, presentedHash: null },
+        )) === null
+          ? 'none'
+          : 'read';
+      const audienceReads = {
+        youth: await audience(youth.roundId),
+        open: await audience(open.roundId),
+      };
+      assert({
+        given: 'a stranger reading the spectator audience of each Round',
+        should: 'find none for the Youth one and read the Open one',
+        actual: audienceReads,
+        expected: { youth: 'none', open: 'read' },
+      });
       const stopped = await database.broadcasts.endYouthBroadcasts(new Date());
       const [youthBroadcast] =
         await f.sql`select id from broadcasts where round_id=${youth.roundId}`;

@@ -10,6 +10,7 @@ import { readReactionTotals } from './audience-reactions';
 import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readChatPage } from './messaging/spectator-chat';
+import { youthRoundSql } from './youth-round-sql';
 
 /**
  * A Round's audience activity, in one snapshot, as it stands now: rows only, for
@@ -40,7 +41,8 @@ export const audienceSnapshotReads = ({
                 b.id is not null as has_broadcast,
                 (b.completed_at is null and b.stopped_at is null) as open
               from rounds r left join broadcasts b on b.round_id=r.id
-              where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null`,
+              where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null
+      and not ${youthRoundSql(sql`r.id`)}`,
           );
           if (!round) return null;
           return {
@@ -106,7 +108,8 @@ export const audienceSnapshotReads = ({
         database,
         sql`select r.visibility from broadcasts b join rounds r on r.id=b.round_id
           where b.round_id=${input.roundId} and b.completed_at is null and b.stopped_at is null
-            and r.visibility in ('public','unlisted') and r.room_id is not null`,
+            and r.visibility in ('public','unlisted') and r.room_id is not null
+      and not ${youthRoundSql(sql`r.id`)}`,
       );
       return row ? { visibility: row.visibility } : null;
     });
