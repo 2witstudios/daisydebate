@@ -379,11 +379,8 @@ test('Freestyle is the one standard: two format radios, Strike or Custom wording
   await expect(
     form.getByRole('checkbox', { name: 'Ranked', exact: true }),
   ).toBeEnabled();
-  await expect(
-    form.getByText('Freestyle · Open or Youth, set by the debaters', {
-      exact: true,
-    }),
-  ).toBeVisible();
+  // The Room opens in the member's own lobby; the form names no division (YCreateRoom).
+  await expect(form).not.toContainText('Open or Youth');
   await expect(form.locator('.create-room-publication')).toHaveCount(0);
   await expect(
     form.locator('[name="policyResolutionId"], [name="valueResolutionId"]'),
