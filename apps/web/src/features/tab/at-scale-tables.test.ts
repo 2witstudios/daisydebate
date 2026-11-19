@@ -4,8 +4,8 @@ import {
   breakTables,
   clearByWinOrPoints,
 } from './at-scale-tables';
-import { sampleBracketView } from './sample/results';
-import type { SampleScene } from './sample/scene';
+import { sampleBracketView } from './test-support/sample/results';
+import type { SampleScene } from './test-support/sample/scene';
 
 setupRitewayBun();
 

@@ -23,16 +23,6 @@ import { dayWords, isSameDay, monthWords } from './organization';
 import { resolvedEntry } from './reads/resolved-settings';
 import { hostRoutes, tabRoutes } from './routes';
 import {
-  sampleHostLeagueCopy,
-  sampleLeagueLobbySettings,
-  sampleLeagueView,
-  sampleSanctionList,
-  sampleSeasonView,
-  sampleVarsityTemplate,
-} from './sample/league';
-import { sampleCreateRoom } from './sample/create-room';
-import { sampleHostAddress, sampleNow } from './sample/organization';
-import {
   lockedSetting,
   openSetting,
   settingLineOf,
@@ -46,14 +36,6 @@ import type {
   StandingLobbyView,
 } from '@daisy/protocol/lobby/lobby-read';
 import {
-  sampleLadder,
-  sampleLeagueTournaments,
-  sampleLobbyRooms,
-  sampleSeasonPanel,
-  sampleStandingLobby,
-} from './sample/league-lobby';
-import { sampleAddressOf } from './sample/tournament';
-import {
   actionTo,
   capitalized,
   dayMonthOf,
@@ -65,7 +47,6 @@ import {
   shortDateOf,
   type AddressOf,
 } from './tournament';
-import type { SampleScene } from './sample/scene';
 import type { RailItem, TimelineRail, TournamentGroup } from './tournament';
 import type { LeagueTab } from './routes';
 
@@ -426,36 +407,6 @@ function hostLeagueOf(
   };
 }
 
-export const readLeagueRail = (
-  slug: string,
-  scene: SampleScene,
-): TimelineRail | null =>
-  slug === sampleLeagueView.handle
-    ? leagueRailOf(
-        sampleSeasonView(scene),
-        sampleLeagueView,
-        sampleNow,
-        sampleHostAddress,
-      )
-    : null;
-
-export const readHostLeague = (
-  slug: string,
-  scene: SampleScene,
-): HostLeague | null =>
-  slug === sampleLeagueView.handle
-    ? hostLeagueOf(
-        {
-          league: sampleLeagueView,
-          template: sampleVarsityTemplate,
-          season: sampleSeasonView(scene),
-          sanctions: sampleSanctionList,
-          lobbySettings: sampleLeagueLobbySettings(),
-        },
-        sampleHostLeagueCopy,
-      )
-    : null;
-
 /** What a league lobby page is projected from: the lobby, and its open tab's read. */
 type LeagueLobbyReads = {
   readonly lobby: StandingLobbyView;
@@ -699,40 +650,6 @@ function panelOf(
   }
 }
 
-export function readLeagueLobby(
-  slug: string,
-  view: LeagueView,
-  scene: SampleScene,
-): LeagueLobby | null {
-  const lobby = sampleStandingLobby(scene);
-  if (slug !== lobby.handle) return null;
-  const panel = ((): LeagueLobbyReads['panel'] | null => {
-    switch (view.tab) {
-      case 'rooms':
-        return { tab: 'rooms', rooms: sampleLobbyRooms(scene) };
-      case 'ladder':
-        return {
-          tab: 'ladder',
-          ladder: sampleLadder(view.scope, view.search),
-          scope: view.scope,
-          search: view.search,
-        };
-      case 'tournaments':
-        return {
-          tab: 'tournaments',
-          tournaments: sampleLeagueTournaments(scene),
-        };
-      case 'season': {
-        const season = sampleSeasonPanel(view.event);
-        return season === null ? null : { tab: 'season', season };
-      }
-    }
-  })();
-  return panel === null
-    ? null
-    : leagueLobbyOf({ lobby, panel }, sampleAddressOf);
-}
-
 /** The words the create-room form uses for the template it offers first. */
 export type CreateRoomCopy = {
   /** The name the form proposes for the Room. */
@@ -832,11 +749,3 @@ function createRoomOf(
     open: unavailableAction('Create room', true),
   };
 }
-
-export const readCreateRoom = (
-  slug: string,
-  scene: SampleScene,
-): CreateRoom | null => {
-  const sample = sampleCreateRoom(slug, scene);
-  return sample === null ? null : createRoomOf(sample.reads, sample.copy);
-};

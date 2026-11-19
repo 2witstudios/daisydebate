@@ -1,4 +1,4 @@
-import { WalkLink as Link } from '../walk/walk-link';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { TabAction } from '../../../features/tab/action';
 import { cn } from '../../cn';
@@ -29,7 +29,6 @@ function Control({
   const name = nameOf(action, about);
   return action.kind === 'unavailable' ? (
     <UnavailableControl
-      label={action.label}
       className={className}
       {...(name === undefined ? {} : { ariaLabel: name })}
     >
@@ -65,8 +64,8 @@ export const compactButtonClass = (
     .replace(' text-base ', ' ');
 
 /**
- * A Tab action drawn as a button: a link where there is a page, a sample
- * action where there is not. Every action is a button (the owner's rule);
+ * A Tab action drawn as a button: a link where there is a page, a disabled
+ * button where there is not. Every action is a button (the owner's rule);
  * `size="small"` is the compact one rows and lists use.
  */
 export function ActionButton({
@@ -95,23 +94,18 @@ export function ActionButton({
   );
 }
 
-/** The mark an in-sentence link carries, so a test can tell it from an action drawn as a link. */
-export const sentenceLinkMark = 'data-sentence-link';
-
 /**
  * An action as a text link, only where it reads as part of a sentence
  * ("Round 3: you won. … Watch it back"). Anywhere else an action is an
- * `ActionButton`; the walk test fails on an underlined link without this mark.
+ * `ActionButton`.
  */
 export function SentenceLink({ action, about, className }: ActionProps) {
   return (
-    <span {...{ [sentenceLinkMark]: '' }} className="contents">
-      <Control
-        action={action}
-        {...(about === undefined ? {} : { about })}
-        className={cn('font-strong text-ink underline', className)}
-      />
-    </span>
+    <Control
+      action={action}
+      {...(about === undefined ? {} : { about })}
+      className={cn('font-strong text-ink underline', className)}
+    />
   );
 }
 
@@ -134,7 +128,7 @@ export function TitleLink({ action, about, className }: ActionProps) {
 
 /**
  * A back link: a small secondary button with a leading arrow. Without an
- * address it answers as a sample action, as every Tab control does.
+ * address it is shown disabled, as every unavailable Tab control is.
  */
 export function BackButton({
   href,

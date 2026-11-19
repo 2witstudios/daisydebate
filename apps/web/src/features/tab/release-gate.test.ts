@@ -7,7 +7,7 @@ import { flagCatalogue } from '../flags/catalogue';
 setupRitewayBun();
 
 const app = join(import.meta.dir, '../../app');
-const groups = ['(tab)', '(tab-live)', '(host)', '(host-preview)'];
+const groups = ['(tab)', '(tab-live)', '(host)'];
 
 describe('the Tab release', () => {
   test('closed by default', () => {
@@ -46,14 +46,10 @@ describe('the Tab release', () => {
   });
 
   test('every Tab page rechecks the release itself', () => {
-    const sceneRead = readFileSync(
-      join(import.meta.dir, 'sample/request-scene.ts'),
-      'utf8',
-    );
     const pages = groups.flatMap((group) =>
       [...new Glob(`${group}/**/page.tsx`).scanSync(app)].filter(
         (page) =>
-          !/requestSampleScene\(|requestLeaguePage\(|requestStandingRoomPage\(|requireGrant\(|await requireTabRelease\(\)|await requireHostTiersRelease\(\)|StoredDrawOverview|StoredHostEvents|StoredRoster|StoredHostRound/.test(
+          !/requestLeaguePage\(|requestStandingRoomPage\(|requireGrant\(|await requireTabRelease\(\)|await requireHostTiersRelease\(\)|StoredDrawOverview|StoredHostEvents|StoredRoster|StoredHostRound/.test(
             readFileSync(join(app, page), 'utf8'),
           ),
       ),
@@ -62,14 +58,9 @@ describe('the Tab release', () => {
       given:
         'a layout that is not run again when someone moves between its pages',
       should:
-        'have every page recheck the release directly or through its scene, whose reader refuses first while closed',
-      actual: [
-        /Promise<SampleScene> \{\n\s+await requireTabRelease\(\);/.test(
-          sceneRead,
-        ),
-        pages,
-      ],
-      expected: [true, []],
+        'have every page recheck the release directly or through its reader, which refuses first while closed',
+      actual: pages,
+      expected: [],
     });
   });
 
